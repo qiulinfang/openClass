@@ -12,7 +12,16 @@
         @undo="undo"
         @redo="redo"
         @clear="clearCanvas"
-      />
+      >
+        <!-- 透传左侧插槽 -->
+        <template #left-actions>
+          <slot name="toolbar-left" />
+        </template>
+        <!-- 透传右侧插槽 -->
+        <template #right-actions>
+          <slot name="toolbar-right" />
+        </template>
+      </UnifiedToolbar>
     </div>
 
     <!-- 画布容器（占满整个对话框） -->
@@ -74,47 +83,70 @@
           <q-tooltip>放大</q-tooltip>
         </q-btn>
 
-        
       </div>
     </div>
 
+    <!-- 清空画布确认对话框 -->
+    <DraggableDialog
+      v-model="showClearConfirmDialog"
+      title="提示"
+      :initial-width="420"
+      :initial-height="220"
+      :min-width="360"
+      :min-height="180"
+      title-align="left"
+      header-background-color="#ffffff"
+      :show-footer="true"
+      @confirm="handleConfirmClear"
+      @cancel="handleCancelClear"
+    >
+      <div class="clear-confirm-dialog">
+        确定要清空当前草稿内容？
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
+import DraggableDialog from './DraggableDialog.vue'
 import SignaturePad from 'signature_pad'
+import type { ExerciseItem } from '@/types'
 
 // Props 定义
 interface Props {
   backgroundImage?: string // 背景图片（base64 或 URL）
   fitBackground?: boolean  // 是否让画布适应背景图片尺寸
-  fillContainer?: boolean  // 是否让画布填满父容器（图片按 contain 方式绘制）
+  fillContainer?: boolean  // 兼容旧用法：当 layoutMode 未设置且为 true 时等价于 layoutMode = 'fill'
+  layoutMode?: 'fill' | 'doubleHeight' // 画布布局模式：填满容器 or 高画布（容器高*2）
   showZoomControl?: boolean // 是否显示缩放控制面板
   drawingBoardTools?: string[] // 工具栏工具列表
   forcePenColor?: string // 强制画笔颜色（例如截图编辑场景只用红色）
+  currentQuestion?: ExerciseItem | null // 当前作答题目
+  width?: number // 可选：外部指定画布宽度（优先级最高）
+  height?: number // 可选：外部指定画布高度（优先级最高）
+  initialZoom?: number // 可选：初始缩放倍数，默认 1
 }
 
 const props = withDefaults(defineProps<Props>(), {
   backgroundImage: '',
   fitBackground: true,
   fillContainer: false,
+  layoutMode: undefined,
   showZoomControl: true,
   drawingBoardTools: () => [
-    'hand',
-    'select',
-    'draw',
-    'eraser-draw',
-    'text',
-    'rectangle',
-    'circle',
-    'line',
-    'triangle',
     'undo',
     'redo',
     'clear',
+    'hand',
+    'draw',
+    'eraser-draw',
+    'shape',  // 形状工具（包含矩形、圆、三角形、直线）
   ],
+  currentQuestion: null,
+  width: undefined,
+  height: undefined,
 })
 
 // 新增：定义对外事件
@@ -127,7 +159,7 @@ const emit = defineEmits<{
 const backgroundImg = ref<HTMLImageElement | null>(null)
 const backgroundLoaded = ref(false)
 
-// fillContainer 模式下的背景绘制参数
+// 布局模式（fill / doubleHeight）下的背景绘制参数
 const bgDrawParams = ref<{ scale: number; offsetX: number; offsetY: number } | null>(null)
 
 // 绘图对象类型定义
@@ -170,9 +202,9 @@ interface ObjectPosition {
 const canvasRef = ref<HTMLCanvasElement>()
 let ctx: CanvasRenderingContext2D | null = null
 
-// 画布尺寸
-const canvasWidth = ref(2100)
-const canvasHeight = ref(2400)
+// 画布尺寸（如果外部通过 props.width / props.height 指定，则优先使用）
+const canvasWidth = ref<number>(props.width ?? 2100)
+const canvasHeight = ref<number>(props.height ?? 2400)
 
 // 当前工具
 const currentTool = ref('select')
@@ -267,8 +299,8 @@ const isDraggingObjects = ref(false)
 const dragStartPoint = ref<{ x: number; y: number } | null>(null)
 const objectsOriginalPositions = ref<Map<number, ObjectPosition>>(new Map())
 
-// 缩放状态
-const zoomLevel = ref(1)
+// 缩放状态（支持通过 props.initialZoom 设置初始缩放倍数）
+const zoomLevel = ref(props.initialZoom ?? 1)
 
 // 画布偏移（手型工具拖动）
 const canvasOffset = ref({ x: 0, y: 0 })
@@ -414,18 +446,76 @@ const loadBackgroundImage = (imageUrl: string) => {
 
   const img = new Image()
   img.onload = () => {
+    console.log('[DrawingBoard] 背景图片加载完成:', {
+      srcSample: imageUrl.slice(0, 48),
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+    })
     backgroundImg.value = img
     backgroundLoaded.value = true
 
-    // fillContainer 模式：Canvas 填满父容器，图片按 contain 方式绘制
-    if (props.fillContainer) {
-      // 读取父容器尺寸
+    // 根据 layoutMode / fillContainer 选择布局模式
+    const useDoubleHeight = props.layoutMode === 'doubleHeight'
+    const useFill = props.layoutMode === 'fill' || (!props.layoutMode && props.fillContainer)
+
+    // 优先级 1：doubleHeight 模式（宽度=容器宽，高度=容器高*2）
+    if (useDoubleHeight) {
       const wrapper = canvasRef.value?.parentElement
       if (wrapper) {
         const containerW = wrapper.clientWidth
-        const containerH = wrapper.clientHeight
-        
-        // 设置 Canvas 尺寸为容器尺寸
+        const baseH = wrapper.clientHeight
+        const targetH = baseH * 1.5
+
+        console.log('[DrawingBoard] layoutMode=doubleHeight 容器尺寸:', {
+          containerW,
+          baseH,
+          targetH,
+        })
+
+        // 画布尺寸
+        canvasWidth.value = containerW
+        canvasHeight.value = targetH
+        if (canvasRef.value) {
+          canvasRef.value.width = containerW
+          canvasRef.value.height = targetH
+        }
+        if (signaturePadRef.value) {
+          signaturePadRef.value.width = containerW
+          signaturePadRef.value.height = targetH
+        }
+
+        // 背景图按 contain 缩放，紧贴上边缘
+        const scale = Math.min(containerW / img.width, targetH / img.height)
+        const drawW = img.width * scale
+        const drawH = img.height * scale
+        const offsetX = (containerW - drawW) / 2
+        const offsetY = 0
+        bgDrawParams.value = { scale, offsetX, offsetY }
+      } else {
+        bgDrawParams.value = null
+      }
+
+    // 优先级 2：fill 模式：Canvas 根据外部尺寸或父容器尺寸填充，图片按 contain 方式绘制
+    } else if (useFill) {
+      // 优先使用外部传入的 width/height；否则回退到父容器尺寸
+      let containerW = props.width ?? 0
+      let containerH = props.height ?? 0
+
+      if (!containerW || !containerH) {
+        const wrapper = canvasRef.value?.parentElement
+        if (wrapper) {
+          containerW = wrapper.clientWidth
+          containerH = wrapper.clientHeight
+        }
+      }
+
+      if (containerW && containerH) {
+        console.log('[DrawingBoard] fillContainer 容器尺寸:', {
+          containerW,
+          containerH,
+        })
+
+        // 设置 Canvas 尺寸为容器/指定尺寸
         canvasWidth.value = containerW
         canvasHeight.value = containerH
         if (canvasRef.value) {
@@ -436,14 +526,27 @@ const loadBackgroundImage = (imageUrl: string) => {
           signaturePadRef.value.width = containerW
           signaturePadRef.value.height = containerH
         }
-        
-        // 计算图片的 contain 绘制参数
+
+        // 计算缩放与偏移：等比 contain，紧贴 Canvas 上边缘（offsetY = 0），水平居中
         const scale = Math.min(containerW / img.width, containerH / img.height)
         const drawW = img.width * scale
         const drawH = img.height * scale
         const offsetX = (containerW - drawW) / 2
-        const offsetY = (containerH - drawH) / 2
+        const offsetY = 0
         bgDrawParams.value = { scale, offsetX, offsetY }
+      } else {
+        // 无法得到容器尺寸时，退回到图片尺寸
+        canvasWidth.value = img.width
+        canvasHeight.value = img.height
+        if (canvasRef.value) {
+          canvasRef.value.width = img.width
+          canvasRef.value.height = img.height
+        }
+        if (signaturePadRef.value) {
+          signaturePadRef.value.width = img.width
+          signaturePadRef.value.height = img.height
+        }
+        bgDrawParams.value = null
       }
     } else if (props.fitBackground) {
       // fitBackground 模式：Canvas 尺寸 = 图片尺寸
@@ -475,9 +578,17 @@ const loadBackgroundImage = (imageUrl: string) => {
 }
 
 // 监听背景图片变化
-watch(() => props.backgroundImage, (newUrl) => {
-  loadBackgroundImage(newUrl || '')
-})
+watch(
+  () => props.backgroundImage,
+  (newUrl) => {
+    if (newUrl) {
+      console.log('[DrawingBoard] 收到新的背景图，长度 =', newUrl.length)
+    } else {
+      console.log('[DrawingBoard] 背景图被清空')
+    }
+    loadBackgroundImage(newUrl || '')
+  },
+)
 
 // 渲染画布
 const render = () => {
@@ -490,9 +601,18 @@ const render = () => {
   if (backgroundImg.value && backgroundLoaded.value) {
     const img = backgroundImg.value
     const canvas = canvasRef.value
+    console.log('[DrawingBoard] render 绘制背景开始', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      imgWidth: img.width,
+      imgHeight: img.height,
+      layoutMode: props.layoutMode,
+      fitBackground: props.fitBackground,
+      hasBgDrawParams: !!bgDrawParams.value,
+    })
     
-    if (props.fillContainer && bgDrawParams.value) {
-      // fillContainer 模式：使用预计算的 contain 参数绘制
+    if (bgDrawParams.value) {
+      // 布局模式（fill / doubleHeight）下：使用预计算的参数绘制
       const { scale, offsetX, offsetY } = bgDrawParams.value
       const drawW = img.width * scale
       const drawH = img.height * scale
@@ -513,6 +633,15 @@ const render = () => {
       const drawH = img.height * scale
       const offsetX = (canvasW - drawW) / 2
       const offsetY = (canvasH - drawH) / 2
+      console.log('[DrawingBoard] render 默认模式绘制背景', {
+        canvasW,
+        canvasH,
+        scale,
+        drawW,
+        drawH,
+        offsetX,
+        offsetY,
+      })
       ctx.drawImage(
         img,
         0, 0, img.width, img.height,
@@ -1576,8 +1705,11 @@ const redo = () => {
   emit('content-change')
 }
 
-// 清空画布
-const clearCanvas = () => {
+// 清空画布确认弹窗状态
+const showClearConfirmDialog = ref(false)
+
+// 实际执行清空逻辑
+const performClearCanvas = () => {
   // 清空对象列表
   objects.value = []
 
@@ -1590,6 +1722,22 @@ const clearCanvas = () => {
   render()
   // 第X步：通知父组件内容已变化
   emit('content-change')
+}
+
+// 清空画布：先弹出确认对话框
+const clearCanvas = () => {
+  showClearConfirmDialog.value = true
+}
+
+// 确认清空
+const handleConfirmClear = () => {
+  showClearConfirmDialog.value = false
+  performClearCanvas()
+}
+
+// 取消清空
+const handleCancelClear = () => {
+  showClearConfirmDialog.value = false
 }
 
 // 工具切换
@@ -1750,6 +1898,10 @@ defineExpose({
     history.value = data.history
     historyIndex.value = data.historyIndex
     
+    // 重置缩放和偏移
+    zoomLevel.value = props.initialZoom ?? 1
+    canvasOffset.value = { x: 0, y: 0 }
+    
     // 重新渲染
     nextTick(() => {
       render()
@@ -1761,7 +1913,18 @@ defineExpose({
     objects.value = []
     history.value = [[]]
     historyIndex.value = 0
+    
+    // 重置缩放和偏移
+    zoomLevel.value = props.initialZoom ?? 1
+    canvasOffset.value = { x: 0, y: 0 }
+    
     render()
+  },
+  
+  // 流程：重置缩放和偏移
+  resetZoom: () => {
+    zoomLevel.value = props.initialZoom ?? 1
+    canvasOffset.value = { x: 0, y: 0 }
   },
   
   // 流程：获取缩略图
@@ -2024,17 +2187,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   
-  .drawer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    flex-shrink: 0;
-  }
-  
   .drawer-title {
     display: flex;
     align-items: center;
@@ -2174,10 +2326,6 @@ defineExpose({
   
   .pages-drawer-card {
     background: #1e1e1e;
-    
-    .drawer-header {
-      border-bottom-color: rgba(255, 255, 255, 0.1);
-    }
   }
   
   .draft-card {
@@ -2201,5 +2349,16 @@ defineExpose({
       background: rgba(33, 150, 243, 0.1);
     }
   }
+}
+
+/* 清空画布确认对话框样式 */
+.clear-confirm-dialog {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #333333;
 }
 </style>

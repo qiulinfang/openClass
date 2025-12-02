@@ -18,7 +18,7 @@
           ref="drawingBoardRef"
           :background-image="screenshotDataUrl"
           :drawing-board-tools="['draw', 'eraser-draw', 'undo', 'redo']"
-          :fill-container="true"
+          layout-mode="fill"
           :show-zoom-control="false"
           :force-pen-color="'red'"
         />

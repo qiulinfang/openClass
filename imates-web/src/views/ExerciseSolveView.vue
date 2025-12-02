@@ -3,6 +3,12 @@
     <!-- 顶部工具栏 -->
     <div class="app-header">
       <div class="app-toolbar">
+        <!-- 左侧返回按钮（从作业作答页跳转过来时显示） -->
+        <div v-if="showBackButton" class="toolbar-left">
+          <div class="back-btn" @click="goBackToHomework">
+            <img src="/icons/goback.svg" alt="返回" class="back-icon" />
+          </div>
+        </div>
         <!-- 居中的功能导航 -->
         <div class="toolbar-center">
           <div class="function-nav">
@@ -15,45 +21,34 @@
             </div>
             <div
               class="nav-item"
-              :class="{ active: currentFunction === 'askTeacher', disabled: !canUseAskTeacher }"
-              @click="canUseAskTeacher && (currentFunction = 'askTeacher')"
+              :class="{ active: currentFunction === 'askTeacher', disabled: isFromHomework || !canUseAskTeacher }"
+              @click="!isFromHomework && canUseAskTeacher && (currentFunction = 'askTeacher')"
             >
               老师答疑
             </div>
             <div
               class="nav-item active-item"
-              :class="{ active: currentFunction === 'viewAnswer', disabled: !canUseViewAnswer }"
-              @click="canUseViewAnswer && (currentFunction = 'viewAnswer')"
+              :class="{ active: currentFunction === 'viewAnswer', disabled: isFromHomework || !canUseViewAnswer }"
+              @click="!isFromHomework && canUseViewAnswer && (currentFunction = 'viewAnswer')"
             >
               查看答案
             </div>
             <div
               class="nav-item"
-              :class="{ active: currentFunction === 'similarQuestion', disabled: !canUseSimilarQuestion }"
-              @click="canUseSimilarQuestion && (currentFunction = 'similarQuestion')"
+              :class="{ active: currentFunction === 'similarQuestion', disabled: isFromHomework || !canUseSimilarQuestion }"
+              @click="!isFromHomework && canUseSimilarQuestion && (currentFunction = 'similarQuestion')"
             >
               举一反三
             </div>
           </div>
           <!-- 题目过滤下拉框 -->
-          <q-select
-              v-model="selectedSubjectFilter"
-              :options="subjectOptions"
-              option-value="value"
-              option-label="label"
-              behavior="menu"
-              emit-value
-              map-options
-              outlined
-              dense
-              class="subject-filter-select"
-              hide-dropdown-icon
-              @update:model-value="onSubjectFilterChange"
-            >
-            <template v-slot:append>
-              <img :src="switchSubjectIcon" alt="切换学科" class="switch-subject-icon"/>
-            </template>
-          </q-select>
+          <CommonSelect
+            v-if="!isFromHomework"
+            v-model="selectedSubjectFilter"
+            :options="subjectOptions"
+            class="subject-filter-select"
+            @change="onSubjectFilterChange"
+          />
         </div>
       </div>
     </div>
@@ -161,7 +156,7 @@ defineOptions({
 })
 
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { getUserInfo, getSubject, initializeStore } from '../services/auth-storage-service'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
@@ -177,14 +172,15 @@ import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
-import switchSubjectIcon from '/icons/switch_subject.svg' 
 import RubberBandList from '../components/RubberBandList.vue'
+import CommonSelect from '../components/CommonSelect.vue'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 const route = useRoute()
+const router = useRouter()
 const questionStore = useQuestionStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherStore = useTeacherExerciseChatStore()
@@ -192,6 +188,29 @@ const uiStore = useUIStore()
 const { currentQuestion, questions } = storeToRefs(questionStore)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion' | ''>('')
+
+// 是否从作业答题路由进入（homeworkExercise）
+const isFromHomework = computed(() => {
+  return route.name === 'homeworkExercise'
+})
+
+// 是否显示返回按钮（从作业作答页跳转过来时显示）
+const showBackButton = computed(() => {
+  return isFromHomework.value || route.query.tab === 'chatAi'
+})
+
+// 返回作业作答页
+const goBackToHomework = () => {
+  // 将当前题目的 questionId 存入 sessionStorage，供作业作答页恢复选中状态
+  if (currentQuestion.value) {
+    const questionId = (currentQuestion.value.bmNo || currentQuestion.value.id || '').toString()
+    if (questionId) {
+      sessionStorage.setItem('homeworkReturnQuestionId', questionId)
+    }
+  }
+
+  router.back()
+}
 
 // 分屏组件模型值（控制左侧题目列表的宽度比例，30%表示左侧占30%）
 const splitterModel = ref(30)
@@ -217,9 +236,9 @@ const showQuestionDebugPanel = ref(false)
 const searchQuery = ref('')
 
 // 学科过滤相关
-const selectedSubjectFilter = ref<string | null>(null) // null 表示显示所有学科
+const selectedSubjectFilter = ref<string>('') // 空字符串表示显示所有学科
 const subjectOptions = [
-  { label: '全部学科', value: null },
+  { label: '全部学科', value: '' },
   { label: '数学', value: 'SUBJECT_MATH' },
   { label: '生物', value: 'SUBJECT_BIOLOGY' },
   { label: '化学', value: 'SUBJECT_CHEMISTRY' },
@@ -494,7 +513,14 @@ onMounted(async () => {
       // 初始化用户store
       await initializeStore()
       
-      // 从路由参数中获取科目和题目ID
+      // 从路由参数中获取 tab 参数，设置当前功能
+      const tabParam = route.query.tab as string | undefined
+      if (tabParam && ['chatAi', 'askTeacher', 'viewAnswer', 'similarQuestion'].includes(tabParam)) {
+        currentFunction.value = tabParam as typeof currentFunction.value
+        console.log('[ExerciseSolveView] 从路由参数设置 tab:', tabParam)
+      }
+      
+      // 从路由参数中获取科目和题目ID（统一使用 query）
       const routeSubject = route.query.subject as string | undefined
       const questionIdsParam = route.query.questionIds as string | undefined
       const questionIdParam = route.query.questionId as string | undefined
@@ -557,8 +583,8 @@ onMounted(async () => {
       if (subjectFilterValue) {
         selectedSubjectFilter.value = subjectFilterValue
       } else {
-        // 如果没有设置具体科目，设置为全部学科（null）
-        selectedSubjectFilter.value = null
+        // 如果没有设置具体科目，设置为全部学科（空字符串）
+        selectedSubjectFilter.value = ''
       }
       
       // 如果提供了 questionIds 参数，说明是刚添加的题目，需要从服务器刷新
@@ -566,7 +592,7 @@ onMounted(async () => {
       const useLocalFirst = !questionIdsParam
       
       // 根据筛选面板的学科过滤值决定加载方式
-      if (selectedSubjectFilter.value === null) {
+      if (!selectedSubjectFilter.value) {
         // 全部学科：加载所有学科的题目
         await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
       } else {
@@ -714,67 +740,26 @@ $desktop-breakpoint: 1025px;
   max-width: 150px;
   position: absolute;
   right: 20px;
-  
-  :deep(.q-field__control) {
-    border-radius: 8px;
+  :deep(.select-trigger){
+    background-color: transparent;
     border: none;
-    background-color: rgba(255, 255, 255, 0.1);
-    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    height: 36px;
-    
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.15);
-    }
-    
-    &.q-field--focused {
-      background-color: rgba(255, 255, 255, 0.2);
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
-    }
-  }
-
-  :deep(.subject-filter-select .q-field__native) {
-    font-size: 28px;
-  }
-  
-  :deep(.q-field__native) {
-    padding: 12px 12px;
     font-size: 16px;
-    color: rgba(255, 255, 255, 0.9);
-    min-height: 36px;
+    font-weight: 400;
+    color: #d4d1dd;
+    width: 100px;
   }
-  
-  :deep(.q-field__label) {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 13px;
+  :deep(.select-icon-wrapper) {
+    color: #d4d1dd;
+    font-size: 18px;
+    transition: transform 0.2s ease;
   }
-  
-  :deep(.q-field__append) {
-    padding-right: 8px;
-    
-    .q-icon {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 18px;
-    }
+  :deep(.select-dropdown) {
+    min-width: 120px;
   }
-
-  :deep(.q-field__marginal){
-    color: #FFFFFF;
+  :deep(.select-icon) {
+    filter: brightness(0) invert(1);
   }
-    
-  :deep(.q-field--outlined .q-field__control:before){
-    border: none;
-  }
-
-  :deep(.q-field__control){
-    color:transparent;
-  }
-
-  .switch-subject-icon {
-    width: 20px;
-    height: 20px;
-    object-fit: contain;
-  }
-}
+}    
 
 .app-header {
   height: $header-height;
@@ -792,8 +777,27 @@ $desktop-breakpoint: 1025px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  padding: 0 16px;
 }
 
+.toolbar-left {
+  position: absolute;
+  left: 28px;
+  top: 14.5px;
+  z-index: 10;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  // 其余样式保持不变
+}
+
+.back-icon {
+  width: 25px;
+  height: 25px; 
+}
 .toolbar-center {
   flex: 1;
   display: flex;

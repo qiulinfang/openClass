@@ -76,6 +76,16 @@
                   <slot></slot>
                 </div>
 
+                <!-- 底部操作按钮区域 -->
+                <div v-if="showFooter" class="dialog-footer-section">
+                  <button type="button" class="cancel-btn" @click="emit('cancel')">
+                    {{ cancelText }}
+                  </button>
+                  <button type="button" class="confirm-btn" :disabled="confirmDisabled" @click="emit('confirm')">
+                    {{ confirmText }}
+                  </button>
+                </div>
+
                 <!-- 调整大小把手 -->
                 <div
                   class="resize-handle"
@@ -149,6 +159,16 @@
               <slot></slot>
             </div>
 
+            <!-- 底部操作按钮区域 -->
+            <div v-if="showFooter" class="dialog-footer-section">
+              <button type="button" class="cancel-btn" @click="emit('cancel')">
+                {{ cancelText }}
+              </button>
+              <button type="button" class="confirm-btn" :disabled="confirmDisabled" @click="emit('confirm')">
+                {{ confirmText }}
+              </button>
+            </div>
+
             <div
               class="resize-handle"
               @mousedown.prevent.stop="startResize"
@@ -176,6 +196,10 @@ interface Props {
   titleFontSize?: string | number
   fullscreen?: boolean
   closeOnOverlayClick?: boolean
+  showFooter?: boolean // 是否显示底部操作按钮区域
+  confirmText?: string // 确定按钮文本
+  cancelText?: string // 取消按钮文本
+  confirmDisabled?: boolean // 确定按钮是否禁用
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -188,12 +212,18 @@ const props = withDefaults(defineProps<Props>(), {
   titleFontSize: 16,
   fullscreen: false,
   closeOnOverlayClick: true,
+  showFooter: false,
+  confirmText: '确定',
+  cancelText: '取消',
+  confirmDisabled: false,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'splitter-change': [value: number]
   'toggle-fullscreen': []
+  'confirm': []
+  'cancel': []
 }>()
 
 const isOpen = computed({
@@ -611,6 +641,56 @@ watch(isOpen, (newValue) => {
 
   &:hover {
     background: #b1b1b1;
+  }
+}
+
+/* 底部操作按钮区域样式（复用 ScreenshotInputDialog 样式） */
+.dialog-footer-section {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 16px 20px;
+  background: #ffffff;
+
+  /* 按钮基础样式 */
+  :deep(.cancel-btn),
+  :deep(.confirm-btn) {
+    min-width: 90px;
+    width: 90px;
+    height: 43px;
+    border-radius: 12px;
+    font-weight: 500;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+
+  :deep(.confirm-btn) {
+    background-color: #6e55ff;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background-color: #5a4abd;
+    }
+
+    &:disabled {
+      background-color: #a6aaf4;
+      color: #ffffff;
+      cursor: not-allowed;
+    }
+  }
+
+  :deep(.cancel-btn) {
+    background-color: #ffffff;
+    color: #6e55ff;
+    border: 1px solid #6e55ff;
+
+    &:hover {
+      background-color: #f3e8ff;
+    }
   }
 }
 </style>

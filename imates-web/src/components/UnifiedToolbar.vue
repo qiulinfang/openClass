@@ -1,11 +1,17 @@
 ﻿<template>
   <div :class="['unified-toolbar-container', `variant-${variant}`]" @click="showPopup = false">
     <!-- 统一工具栏 -->
-    <div
-      :class="['unified-toolbar', `unified-toolbar-${variant}`]"
-      :style="backgroundColor ? { 'background-color': backgroundColor } : {}"
-    >
-      <div class="toolbar-content">
+    <div :class="['unified-toolbar', `unified-toolbar-${variant}`]">
+      <!-- 左侧插槽（工具栏外部） -->
+      <div class="toolbar-slot toolbar-slot-left">
+        <slot name="left-actions" />
+      </div>
+
+      <!-- 工具栏内容（有背景和边框） -->
+      <div
+        class="toolbar-content"
+        :style="backgroundColor ? { 'background-color': backgroundColor } : {}"
+      >
         <!-- 左侧区域 -->
         <div class="left-section">
           <!-- 左侧工具按钮 -->
@@ -34,34 +40,76 @@
         <div class="center-section">
           <div class="tool-row">
             <!-- 操作按钮 -->
-            <q-btn
+            <div
               v-for="tool in middleActionTools"
               :key="tool.value"
-              flat
-              round
-              dense
-              :icon="isImageIcon(tool.icon) ? undefined : tool.icon"
-              :disable="toolStates[tool.value] === false"
-              @click="handleActionClick(tool.value)"
-              class="action-btn"
+              class="tool-icon-wrapper"
+              :class="{ 'tool-disabled': toolStates[tool.value] === false }"
+              @click="toolStates[tool.value] !== false && handleActionClick(tool.value)"
             >
-              <!-- SVG 图标 -->
               <div
-                v-if="isImageIcon(tool.icon)"
-                :style="getMaskIconStyle(tool.icon, 'action')"
-                class="action-icon mask-icon"
+                :style="getMaskIconStyle(
+                  tool.icon, 
+                  SELECTABLE_ACTION_TOOLS.includes(tool.value) ? 'tool' : 'action',
+                  SELECTABLE_ACTION_TOOLS.includes(tool.value) ? tool.value : undefined
+                )"
+                class="tool-icon mask-icon"
               />
               <q-tooltip>{{ tool.label }}</q-tooltip>
-            </q-btn>
+            </div>
+
+            <!-- 分隔线 -->
+            <div v-if="drawingTools.length > 0" class="toolbar-divider-vertical"></div>
 
             <!-- 绘图工具 -->
-            <div v-for="tool in drawingTools" :key="tool.value" class="tool-icon-wrapper">
-              <div
-                :style="getMaskIconStyle(tool.icon, 'tool', tool.value)"
-                class="tool-icon mask-icon"
-                @click="handleToolClick(tool.value)"
-              />
-            </div>
+            <template v-for="tool in drawingTools">
+              <!-- 带下拉菜单的工具（如形状） -->
+              <BubblePopup
+                v-if="tool.subTools && tool.subTools.length > 0"
+                :key="tool.value + '-dropdown'"
+                v-model="showShapeDropdown"
+                placement="bottom"
+                :show-arrow="true"
+                :offset="4"
+              >
+                <template #trigger>
+                  <div class="tool-icon-wrapper tool-with-dropdown">
+                    <div
+                      :style="getMaskIconStyle(getShapeIcon(), 'tool', currentShapeTool)"
+                      class="tool-icon mask-icon"
+                    />
+                    <!-- 下拉箭头（旋转90度） -->
+                    <div class="dropdown-arrow">
+                      <q-icon name="arrow_drop_down" size="14px" />
+                    </div>
+                  </div>
+                </template>
+                <!-- 下拉菜单内容 -->
+                <div class="shape-dropdown-content">
+                    <div
+                      v-for="subTool in getSubToolOptions(tool.subTools)"
+                      :key="subTool.value"
+                      class="shape-dropdown-item"
+                      :class="{ 'shape-dropdown-item-selected': currentShapeTool === subTool.value }"
+                      @click="selectShapeTool(subTool.value)"
+                    >
+                      <div
+                        :style="getMaskIconStyle(subTool.icon, 'tool', subTool.value)"
+                        class="shape-dropdown-icon mask-icon"
+                      />
+                      <span class="shape-dropdown-label">{{ subTool.label }}</span>
+                    </div>
+                  </div>
+              </BubblePopup>
+              <!-- 普通工具 -->
+              <div v-else :key="tool.value" class="tool-icon-wrapper">
+                <div
+                  :style="getMaskIconStyle(tool.icon, 'tool', tool.value)"
+                  class="tool-icon mask-icon"
+                  @click="handleToolClick(tool.value)"
+                />
+              </div>
+            </template>
 
             <!-- 配置弹窗 -->
             <div v-if="showPopup" class="config-popup">
@@ -216,9 +264,12 @@
             <div v-if="isImageIcon(tool.icon)" :style="getMaskIconStyle(tool.icon, 'action')" />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
-          <!-- 右侧插槽 -->
-          <slot name="right-actions" />
         </div>
+      </div>
+
+      <!-- 右侧插槽（工具栏外部） -->
+      <div class="toolbar-slot toolbar-slot-right">
+        <slot name="right-actions" />
       </div>
     </div>
   </div>
@@ -227,31 +278,35 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
+import BubblePopup from '@/components/BubblePopup.vue'
 
 // 流程：导入图标资源
-import eraserSettingsIcon from '/icons/erasersettingsIcon.svg'
-import signaturePenIcon from '/icons/signaturePen.svg'
-import highlighterIcon from '/icons/highlighter.svg'
-import eraserIcon from '/icons/eraser.svg'
-import eraserSmallIcon from '/icons/eraserSmall.svg'
-import eraserMediumIcon from '/icons/eraserMedium.svg'
-import eraserLargeIcon from '/icons/eraserLarge.svg'
-import screenshotIcon from '/icons/screenshot.svg'
-import screenshotSelectIcon from '/icons/screenshot_select.svg'
-import resetIcon from '/icons/reset.svg'
-import selectIcon from '/icons/select.svg'
-import handIcon from '/icons/hand.svg'
-import handSelectIcon from '/icons/hand_select.svg'
-import insertTextIcon from '/icons/InsertText.svg'
-import signaturePenConfigIcon from '/icons/signaturePen_config.svg'
-import signaturePen_selectIcon from '/icons/signaturePen_select.svg'
-import highlighterConfigIcon from '/icons/highlighter_config.svg'
-import highlighter_selectIcon from '/icons/highlighter_select.svg'
-import eraser_selectIcon from '/icons/eraser_select.svg'
-import rectangleIcon from '/icons/rectangle.svg'
-import circleIcon from '/icons/circle.svg'
-import lineIcon from '/icons/line.svg'
-import triangleIcon from '/icons/triangle.svg'
+import eraserSettingsIcon from '/icons/erasersettingsIcon.svg' // 橡皮设置
+import signaturePenIcon from '/icons/signaturePen.svg' // 签名笔
+import highlighterIcon from '/icons/highlighter.svg' // 高亮笔
+import eraserIcon from '/icons/eraser.svg' // 橡皮
+import eraserSmallIcon from '/icons/eraserSmall.svg' // 小橡皮
+import eraserMediumIcon from '/icons/eraserMedium.svg' // 中橡皮
+import eraserLargeIcon from '/icons/eraserLarge.svg' // 大橡皮
+import screenshotIcon from '/icons/screenshot.svg' // 截图
+import screenshotSelectIcon from '/icons/screenshot_select.svg' // 截图选择
+import resetIcon from '/icons/reset.svg' // 重置
+import selectIcon from '/icons/select.svg' // 选择
+import handIcon from '/icons/hand.svg' // 手
+import handSelectIcon from '/icons/hand_select.svg' // 手选择
+import insertTextIcon from '/icons/InsertText.svg' // 插入文本
+import signaturePenConfigIcon from '/icons/signaturePen_config.svg' // 签名笔配置
+import signaturePen_selectIcon from '/icons/signaturePen_select.svg' // 签名笔选择
+import highlighterConfigIcon from '/icons/highlighter_config.svg' // 高亮笔配置
+import highlighter_selectIcon from '/icons/highlighter_select.svg' // 高亮笔选择
+import eraser_selectIcon from '/icons/eraser_select.svg' // 橡皮选择
+import rectangleIcon from '/icons/rectangle.svg' // 矩形
+import circleIcon from '/icons/circle.svg' // 圆形
+import lineIcon from '/icons/line.svg' // 线
+import triangleIcon from '/icons/triangle.svg' // 三角形
+import redoIcon from '/icons/undo.svg' // 撤销
+import undoIcon from '/icons/redo.svg' // 重做
+import dustbinIcon from '/icons/dustbin.svg' // 清空（垃圾桶）
 
 // 工具配置接口
 interface ToolConfig {
@@ -273,6 +328,8 @@ interface ToolOption {
   icon: string
   // 工具特定配置
   config?: ToolConfig
+  // 子工具列表（用于下拉菜单，如形状工具）
+  subTools?: string[]
 }
 
 // 工具配置状态接口（用户当前选择的配置值）
@@ -462,6 +519,11 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       sizeLabel: '大小',
     },
   },
+  'eraser-stroke': {
+    value: 'eraser-stroke',
+    label: '笔画橡皮',
+    icon: eraserIcon,
+  },
   text: {
     value: 'text',
     label: '文本',
@@ -607,21 +669,30 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     },
   },
 
+  // 形状工具（带下拉菜单，包含直线）
+  shape: {
+    value: 'shape',
+    label: '形状',
+    icon: rectangleIcon,
+    // 子工具列表，用于下拉菜单
+    subTools: ['rectangle', 'circle', 'triangle', 'line'],
+  },
+
   // 操作工具
   undo: {
     value: 'undo',
     label: '撤销',
-    icon: 'undo',
+    icon: undoIcon,
   },
   redo: {
     value: 'redo',
     label: '重做',
-    icon: 'redo',
+    icon: redoIcon,
   },
   clear: {
     value: 'clear',
     label: '清空画布',
-    icon: 'delete_outline',
+    icon: dustbinIcon,
   },
   search: {
     value: 'search',
@@ -672,6 +743,29 @@ const store = usePdfViewerStore()
 // 弹出框状态
 const showPopup = ref(false)
 
+// 形状下拉菜单状态（由 BubblePopup 通过 v-model 管理）
+const showShapeDropdown = ref(false)
+// 当前选中的形状工具（默认矩形）
+const currentShapeTool = ref('rectangle')
+
+// 选择形状工具
+const selectShapeTool = (tool: string) => {
+  currentShapeTool.value = tool
+  showShapeDropdown.value = false
+  emit('tool-change', tool)
+}
+
+// 获取当前形状工具的图标
+const getShapeIcon = () => {
+  const tool = ALL_TOOLS[currentShapeTool.value]
+  return tool?.icon || ALL_TOOLS['rectangle'].icon
+}
+
+// 获取子工具选项
+const getSubToolOptions = (subToolNames: string[]) => {
+  return subToolNames.map((name) => ALL_TOOLS[name]).filter((tool) => tool !== undefined)
+}
+
 // 根据工具名称列表获取完整的工具配置
 const getToolOptions = (toolNames: string[]) => {
   return toolNames.map((toolName) => ALL_TOOLS[toolName]).filter((tool) => tool !== undefined)
@@ -700,10 +794,16 @@ const leftTools = computed(() => {
   return getToolOptions(toolsDistribution.value.left)
 })
 
-// 中间操作工具（如搜索、撤销、重做、清空、隐藏笔记）
+// 操作工具列表（撤销、重做、清空、手型等）
+const ACTION_TOOLS = ['search', 'undo', 'redo', 'clear', 'hideNotes', 'hand']
+
+// 需要选中状态的操作工具（如 hand）
+const SELECTABLE_ACTION_TOOLS = ['hand']
+
+// 中间操作工具（如搜索、撤销、重做、清空、手型、隐藏笔记）
 const middleActionTools = computed(() => {
   const tools = getToolOptions(toolsDistribution.value.middle).filter((tool) =>
-    ['search', 'undo', 'redo', 'clear', 'hideNotes'].includes(tool.value)
+    ACTION_TOOLS.includes(tool.value)
   )
 
   // 根据 hideNotes 状态动态修改 hideNotes 工具的图标和标签
@@ -719,10 +819,10 @@ const middleActionTools = computed(() => {
   })
 })
 
-// 绘图工具（渲染到中间）
+// 绘图工具（渲染到中间，不包含操作工具）
 const drawingTools = computed(() => {
   return getToolOptions(toolsDistribution.value.middle).filter(
-    (tool) => !['search', 'undo', 'redo', 'clear', 'hideNotes'].includes(tool.value)
+    (tool) => !ACTION_TOOLS.includes(tool.value)
   )
 })
 
@@ -804,6 +904,10 @@ const handleActionClick = (action: string) => {
       break
     case 'help':
       emit('help')
+      break
+    case 'hand':
+      // hand 是绘图工具，需要触发 tool-change
+      emit('tool-change', action)
       break
   }
 }
@@ -925,16 +1029,15 @@ $color-bg-selected: #e3e2fe;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 12px;
     padding: 16px 0;
   }
 }
 
 .unified-toolbar-floating {
-  background: #ffffff;
-  border: 1px solid $color-border;
-  border-radius: 14px;
-  transition: all $transition-normal;
-  max-width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 
 // ========== 浏览器式风格（顶部固定工具栏） ==========
@@ -948,17 +1051,29 @@ $color-bg-selected: #e3e2fe;
 }
 
 .unified-toolbar-browser {
-  background: #0a0020;
-  border-bottom: none;
-  border-radius: 0;
-  box-shadow: none;
   width: 100%;
   position: relative;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
 
-  &:hover {
-    box-shadow: none;
-  }
+// 插槽容器样式
+.toolbar-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar-slot-left {
+  justify-content: flex-start;
+}
+
+.toolbar-slot-right {
+  justify-content: flex-end;
 }
 
 .toolbar-content {
@@ -967,6 +1082,11 @@ $color-bg-selected: #e3e2fe;
   justify-content: center;
   padding: 6px 10px;
   gap: 2px;
+  // 悬浮风格的背景和边框
+  background: #ffffff;
+  border: 1px solid $color-border;
+  border-radius: 14px;
+  transition: all $transition-normal;
 }
 
 .unified-toolbar-browser {
@@ -1003,14 +1123,14 @@ $color-bg-selected: #e3e2fe;
 .right-section {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
 }
 
 .center-section {
   .tool-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
   }
 }
 
@@ -1030,6 +1150,81 @@ $color-bg-selected: #e3e2fe;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  
+  &.tool-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+// BubblePopup 在工具栏中的对齐修复
+:deep(.bubble-popup-wrapper) {
+  display: inline-flex;
+  align-items: center;
+}
+
+// 带下拉菜单的工具
+.tool-with-dropdown {
+  position: relative;
+  cursor: pointer;
+  
+  .dropdown-arrow {
+    position: absolute;
+    right: -5px;
+    bottom: -4px;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    // 逆时针旋转90度
+    transform: rotate(-45deg);
+  }
+}
+
+// 形状下拉菜单内容（BubblePopup 内部）
+.shape-dropdown-content {
+  min-width: 90px;
+}
+
+.shape-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color $transition-fast;
+  
+  &:hover {
+    background-color: $color-bg-hover;
+  }
+  
+  &.shape-dropdown-item-selected {
+    background-color: $color-bg-selected;
+    color: $color-primary;
+  }
+}
+
+.shape-dropdown-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.shape-dropdown-label {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+// 垂直分隔线
+.toolbar-divider-vertical {
+  width: 1px;
+  height: 24px;
+  background-color: $color-border;
+  margin: 0 6px;
 }
 
 // 悬浮风格工具图标
@@ -1068,7 +1263,6 @@ $color-bg-selected: #e3e2fe;
   align-items: center;
   justify-content: center;
   overflow: visible;
-  margin-left: 10px;
 }
 
 // 悬浮风格弹出图标
@@ -1079,8 +1273,8 @@ $color-bg-selected: #e3e2fe;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 25px;
+  height: 25px;
   cursor: pointer;
 }
 

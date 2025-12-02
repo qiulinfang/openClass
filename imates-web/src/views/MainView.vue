@@ -1,5 +1,5 @@
 ﻿<template>
-  <div 
+  <div
     class="main-view"
     :style="mainViewStyle"
     @mousemove="handleDrag"
@@ -7,36 +7,61 @@
     @touchmove="handleDrag"
     @touchend="stopDrag"
   >
-    <!-- 功能菜单 -->
-    <div class="function-menu">
+    <!-- 功能菜单：在部分路由（如作业答题、作业作答）隐藏 -->
+    <div class="function-menu" v-if="!hideFunctionMenu">
       <!-- 用户头像 -->
       <div class="user-avatar">
-        <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px;" />
+        <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px" />
       </div>
-      
+
       <!-- 导航菜单 -->
       <div class="nav-items-container">
         <div class="nav-item" :class="{ active: showToolbox }" @click="handleToolBoxClick">
           <img :src="currentToolBoxIcon" alt="工具箱" class="nav-icon" />
           <span class="nav-text">工具箱</span>
         </div>
-        <div class="nav-item" :class="{ active: activeNavItem === 'knowledge' }" @click="handleKnowledgeGraphClick">
+        <div
+          class="nav-item"
+          :class="{ active: activeNavItem === 'knowledge' }"
+          @click="handleKnowledgeGraphClick"
+        >
           <img :src="currentKnowledgeGraphIcon" alt="知识图谱" class="nav-icon" />
           <span class="nav-text">知识图谱</span>
         </div>
-        <div class="nav-item" :class="{ active: activeNavItem === 'exercises' }" @click="handleMyExercisesClick">
+        <div
+          class="nav-item"
+          :class="{ active: activeNavItem === 'exercises' }"
+          @click="handleMyExercisesClick"
+        >
           <img :src="currentExerciseIcon" alt="我的习题" class="nav-icon" />
           <span class="nav-text">我的习题</span>
         </div>
-        <div class="nav-item" :class="{ active: activeNavItem === 'drawingBoard' }" @click="handleDrawingBoardClick">
+        <!-- 示例：我的作业导航菜单 -->
+        <div
+          class="nav-item"
+          :class="{ active: activeNavItem === 'homework' }"
+          @click="handleMyHomeworkClick"
+        >
+          <img :src="currentHomeworkIcon" alt="我的作业" class="nav-icon" />
+          <span class="nav-text">我的作业</span>
+        </div>
+        <div
+          class="nav-item"
+          :class="{ active: activeNavItem === 'drawingBoard' }"
+          @click="handleDrawingBoardClick"
+        >
           <img :src="currentDrawingBoardIcon" alt="草稿本" class="nav-icon" />
           <span class="nav-text">草稿本</span>
         </div>
       </div>
-      
+
       <!-- 底部菜单项 -->
       <div class="nav-items-bottom">
-        <div class="nav-item" :class="{ active: activeNavItem === 'resources' }" @click="handleMyResourcesClick">
+        <div
+          class="nav-item"
+          :class="{ active: activeNavItem === 'resources' }"
+          @click="handleMyResourcesClick"
+        >
           <div class="nav-icon-wrapper">
             <img :src="currentDownloadResourcesIcon" alt="资源下载" class="nav-icon" />
             <span class="notification-dot" v-if="hasResourceNotification"></span>
@@ -49,16 +74,20 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 右侧主区域 -->
     <div class="right-main-area">
       <!-- 工具箱区域 -->
-      <transition name="toolbox-transition" @after-enter="handleToolboxEnter" @after-leave="handleToolboxLeave">
+      <transition
+        name="toolbox-transition"
+        @after-enter="handleToolboxEnter"
+        @after-leave="handleToolboxLeave"
+      >
         <div class="toolbox-area" v-show="showToolbox" @click.stop>
           <MyProfileView v-if="showToolbox" />
         </div>
       </transition>
-      
+
       <!-- 内容区域 -->
       <div class="content-area" @click="handleContentAreaClick">
         <!-- 使用带插槽的 router-view 写法，让 keep-alive 真正缓存子路由组件实例 -->
@@ -71,7 +100,7 @@
     </div>
 
     <!-- 悬浮功能按钮（手动实现） -->
-    <div 
+    <div
       v-if="showFab"
       class="floating-fab"
       :style="fabStyle"
@@ -79,37 +108,25 @@
       @touchstart="startDrag"
     >
       <!-- 悬浮功能按钮 -->
-      <button
-        type="button"
-        class="floating-fab-btn"
-        @click.stop="handleFloatingFabClick"
-      >
-      </button>
+      <button type="button" class="floating-fab-btn" @click.stop="handleFloatingFabClick"></button>
 
       <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
-      <div
-        v-if="shouldShowGoResourcesHint && showGoResourcesBubble"
-        class="go-resources-bubble"
-      >
-        <div class="go-resources-text">
-          请去资源下载寻找你想学习的教材哦
-        </div>
-        <button class="go-resources-btn" @click="goToResources">
-          去资源下载
-        </button>
+      <div v-if="shouldShowGoResourcesHint && showGoResourcesBubble" class="go-resources-bubble">
+        <div class="go-resources-text">请去资源下载寻找你想学习的教材哦</div>
+        <button class="go-resources-btn" @click="goToResources">去资源下载</button>
       </div>
     </div>
     <!-- 草稿本对话框 -->
     <DraftDialog v-model="showDraftDialog" />
 
     <!-- AI统一聊天对话框 -->
-    <UnifiedChatDialog 
-      v-model="uiStore.showAIChatDialog" 
+    <UnifiedChatDialog
+      v-model="uiStore.showAIChatDialog"
       @toggle-mode="handleToggleUnifiedChatMode"
     />
 
     <!-- 教师统一聊天对话框 -->
-    <UnifiedChatDialog 
+    <UnifiedChatDialog
       ref="teacherChatDialogRef"
       v-model="showTeacherChatDialog"
       :initial-teacher-subject="teacherChatSubject"
@@ -167,7 +184,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  activeNavItem: 'knowledge'
+  activeNavItem: 'knowledge',
 })
 
 // 定义 emits
@@ -196,7 +213,7 @@ const cachedComponents = ref<string[]>([
   // 'htmlViewer',         // HTML 查看器
   // 'videoViewer',        // 视频查看器
   // 'ExerciseSolveView',  // 我的习题页面
-  'MyResourcesView',    // 资源下载页面
+  'MyResourcesView', // 资源下载页面
   // 'DrawingBoardView',   // 画板页面
   // 'FindExerciseView',   // 查找习题页面
   // 'MyFavoritesView',    // 我的收藏页面
@@ -236,16 +253,30 @@ const hasMoved = ref(false)
 // 计算悬浮按钮样式
 const fabStyle = computed(() => ({
   right: `${fabPosition.value.x}px`,
-  bottom: `${fabPosition.value.y}px`
+  bottom: `${fabPosition.value.y}px`,
 }))
 
+// 需要隐藏左侧导航菜单的路由
+const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer']
+
+// 是否隐藏左侧导航菜单
+// 在作业作答 / 作业答题等专注场景隐藏，避免干扰
+const hideFunctionMenu = computed(() => {
+  const name = route.name as string | undefined
+  return !!name && routesHideFunctionMenu.includes(name)
+})
+
+// 不显示悬浮按钮的路由
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'myHomework','homeworkExercise']
+
 // 计算是否显示悬浮按钮：
-// 1）在习题解题页（exerciseSolve）和画板页（drawingBoard）隐藏
+// 1）在部分路由（routesHideFab）隐藏
 // 2）在主页右侧聊天面板打开时隐藏（避免视觉和交互冲突）
 // 3）在 PDF 查看页（pdfViewer）右侧聊天面板打开时隐藏悬浮按钮
 const showFab = computed(() => {
-  const isRouteAllowed = route.name !== 'exerciseSolve'
-  const isPdfChatOpen = route.name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
+  const name = route.name as string | undefined
+  const isRouteAllowed = !name || !routesHideFab.includes(name)
+  const isPdfChatOpen = name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
   return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen
 })
 
@@ -258,32 +289,52 @@ const shouldShowGoResourcesHint = computed(() => {
 // 计算主视图背景样式
 const mainViewStyle = computed(() => {
   const routeName = route.name
-  
+
   switch (routeName) {
     case 'knowledgeGraph':
       // 知识图谱页面：单一背景色
       return {
-        background: '#271a43'
+        background: '#271a43',
       }
     case 'exerciseSolve':
       // 我的习题页：上半部分 #3d3070，下半部分 #f7f6ff
       return {
-        background: 'linear-gradient(to bottom, #3d3070 50%, #f7f6ff 50%)'
+        background: 'linear-gradient(to bottom, #ffffff 50%, #edeffe 50%)',
       }
     case 'myResources':
       // 资源下载页：上半部分 #ffffff，下半部分 #edeffe
       return {
-        background: 'linear-gradient(to bottom, #ffffff 50%, #edeffe 50%)'
+        background: 'linear-gradient(to bottom, #ffffff 50%, #edeffe 50%)',
+      }
+    case 'myHomework':
+      // 我的作业页：上半部分 #ffffff，下半部分 #f1f3ff，与 MyHomeworkView 匹配
+      return {
+        background: 'linear-gradient(to bottom, #ffffff 50%, #f1f3ff 50%)',
+      }
+    case 'homeworkAnswer':
+      // 作业答题页：与我的作业保持同一体系，上半白色，下半淡紫色
+      return {
+        background: 'linear-gradient(to bottom, #25164b 50%, #f7f6ff 50%)',
       }
     case 'drawingBoard':
       // 画板页：纯白背景
       return {
-        background: '#ffffff'
+        background: '#ffffff',
+      }
+    case 'findExercise':
+      // 查找习题页：上半部分 #ffffff，下半部分 #f8f9fa
+      return {
+        background: 'linear-gradient(to bottom, #0f002e 50%, #f8f9fa 50%)',
+      }
+    case 'pdfViewer':
+      // PDF查看器页：纯色背景
+      return {
+        background: '#0a0020',
       }
     default:
       // 默认背景色
       return {
-        background: '#3d3070'
+        background: '#3d3070',
       }
   }
 })
@@ -313,6 +364,11 @@ const currentExerciseIcon = computed(() => {
   return activeNavItem.value === 'exercises' ? exerciseSelectIcon : exerciseIcon
 })
 
+// 示例：我的作业图标（暂复用我的习题图标）
+const currentHomeworkIcon = computed(() => {
+  return activeNavItem.value === 'homework' ? exerciseSelectIcon : exerciseIcon
+})
+
 const currentDrawingBoardIcon = computed(() => {
   return activeNavItem.value === 'drawingBoard' ? drawingBoardSelectIcon : drawingBoardIcon
 })
@@ -331,26 +387,26 @@ const startDrag = (event: MouseEvent | TouchEvent) => {
   // 设置拖动状态
   isDragging.value = true
   hasMoved.value = false
-  
+
   // 获取当前鼠标/触摸点位置
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
   const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
-  
+
   // 记录起始位置
   dragStartPos.value = { x: clientX, y: clientY }
-  
+
   // 计算当前按钮的实际位置（从右下角算起）
   const currentRight = fabPosition.value.x
   const currentBottom = fabPosition.value.y
-  
+
   // 计算按钮左上角的位置
   const buttonLeft = window.innerWidth - currentRight - 56 // 56是按钮宽度
   const buttonTop = window.innerHeight - currentBottom - 56 // 56是按钮高度
-  
+
   // 保存鼠标相对按钮左上角的偏移
   dragOffset.value = {
     x: clientX - buttonLeft,
-    y: clientY - buttonTop
+    y: clientY - buttonTop,
   }
 }
 
@@ -358,32 +414,32 @@ const startDrag = (event: MouseEvent | TouchEvent) => {
 const handleDrag = (event: MouseEvent | TouchEvent) => {
   // 检查是否正在拖动
   if (!isDragging.value) return
-  
+
   // 获取鼠标/触摸点位置
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
   const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
-  
+
   // 计算移动距离
   const deltaX = Math.abs(clientX - dragStartPos.value.x)
   const deltaY = Math.abs(clientY - dragStartPos.value.y)
-  
+
   // 如果移动距离超过5px，认为是拖动而不是点击
   if (deltaX > 5 || deltaY > 5) {
     hasMoved.value = true
-    
+
     // 计算按钮左上角的新位置
     const newLeft = clientX - dragOffset.value.x
     const newTop = clientY - dragOffset.value.y
-    
+
     // 限制在视口范围内
     const buttonSize = 56
     const constrainedLeft = Math.max(0, Math.min(window.innerWidth - buttonSize, newLeft))
     const constrainedTop = Math.max(0, Math.min(window.innerHeight - buttonSize, newTop))
-    
+
     // 转换为 right 和 bottom 值
     fabPosition.value = {
       x: window.innerWidth - constrainedLeft - buttonSize,
-      y: window.innerHeight - constrainedTop - buttonSize
+      y: window.innerHeight - constrainedTop - buttonSize,
     }
   }
 }
@@ -399,7 +455,7 @@ const checkResourceUpdates = async () => {
   try {
     // 第1步：获取所有本地教材
     let textbooks = await resourceManager.getUserLocalTextbooks()
-    
+
     // 第2步：如果本地没有数据，从服务器获取
     if (textbooks.length === 0) {
       try {
@@ -412,16 +468,16 @@ const checkResourceUpdates = async () => {
             return
           }
         }
-        
+
         // 从服务器获取教材数据
         const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
-        
+
         if (serverTextbooks && serverTextbooks.length > 0) {
           // 将服务器数据保存到本地
           for (const textbook of serverTextbooks) {
             await resourceManager.updateTextbookInfo(textbook)
           }
-          
+
           // 使用服务器数据进行检查
           textbooks = serverTextbooks
         }
@@ -430,12 +486,12 @@ const checkResourceUpdates = async () => {
         console.warn('获取服务器教材数据失败:', error)
       }
     }
-    
+
     // 第3步：检查是否有教材需要更新
     const hasUpdates = textbooks.some((textbook: UserTextbookInfo) => {
       return textbook.hasUpdatesAvailable === true
     })
-    
+
     // 第4步：检查是否有教材未下载或未完全下载
     const hasUndownloaded = textbooks.some((textbook: UserTextbookInfo) => {
       // 判断条件：未下载或未完全下载
@@ -447,12 +503,14 @@ const checkResourceUpdates = async () => {
         return !textbook.isDownloaded || textbook.downloadStatus === 0
       } else {
         // 如果总文件数大于0，检查下载进度
-        return !textbook.isDownloaded || 
-               textbook.downloadedFiles < textbook.totalFiles ||
-               textbook.downloadStatus === 0
+        return (
+          !textbook.isDownloaded ||
+          textbook.downloadedFiles < textbook.totalFiles ||
+          textbook.downloadStatus === 0
+        )
       }
     })
-    
+
     // 第5步：更新通知状态（有更新或未下载都显示小红点）
     hasResourceNotification.value = hasUpdates || hasUndownloaded
 
@@ -468,22 +526,25 @@ const checkResourceUpdates = async () => {
 }
 
 // 监听 store 的 notificationTrigger 变化，触发通知检查
-watch(() => resourceStore.notificationTrigger, () => {
-  checkResourceUpdates()
-})
+watch(
+  () => resourceStore.notificationTrigger,
+  () => {
+    checkResourceUpdates()
+  }
+)
 
 // 初始化按钮位置
 onMounted(async () => {
   // 第1步：初始化按钮位置
   fabPosition.value = { x: 18, y: 18 }
-  
+
   // 第2步：等待 Vue 渲染完成
   await nextTick()
-  
+
   // 第3步：确保 IndexedDB 已初始化，然后检查教材更新状态
   // getUserLocalTextbooks 内部会检查并初始化 IndexedDB，所以直接调用即可
   await checkResourceUpdates()
-  
+
   // 第4步：监听Android原生日志
   // 保存原有的回调（如果存在，可能是App.vue或LoginView中设置的）
   const previousCallback = window.onAndroidLog
@@ -492,10 +553,10 @@ onMounted(async () => {
     if (previousCallback) {
       previousCallback(level, tag, message)
     }
-    
+
     // 第2步：在MainView中打印日志
     const logMessage = `[Android-${tag}] ${message}`
-    
+
     switch (level.toUpperCase()) {
       case 'DEBUG':
         break
@@ -511,7 +572,7 @@ onMounted(async () => {
         break
     }
   }
-  
+
   // 第5步：监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
   window.addEventListener('floating-fab-action', (event: Event) => {
     const customEvent = event as CustomEvent<{ action: string }>
@@ -568,28 +629,33 @@ const handleAIChatClick = async () => {
   uiStore.openAIChatDialog()
 }
 
-
 // 监听路由变化，更新激活状态
-watch(() => route.name, (newRouteName) => {
-  switch (newRouteName) {
-    case 'myResources':
-      activeNavItem.value = 'resources'
-      // 进入资源页面时检查更新状态
-      checkResourceUpdates()
-      break
-    case 'exerciseSolve':
-      activeNavItem.value = 'exercises'
-      break
-    case 'knowledgeGraph':
-      activeNavItem.value = 'knowledge'
-      break
-    default:
-      // 保持当前状态
-      break
-  }
-  emit('nav-item-change', activeNavItem.value)
-}, { immediate: true })
-
+watch(
+  () => route.name,
+  (newRouteName) => {
+    switch (newRouteName) {
+      case 'myResources':
+        activeNavItem.value = 'resources'
+        // 进入资源页面时检查更新状态
+        checkResourceUpdates()
+        break
+      case 'myHomework':
+        activeNavItem.value = 'homework'
+        break
+      case 'exerciseSolve':
+        activeNavItem.value = 'exercises'
+        break
+      case 'knowledgeGraph':
+        activeNavItem.value = 'knowledge'
+        break
+      default:
+        // 保持当前状态
+        break
+    }
+    emit('nav-item-change', activeNavItem.value)
+  },
+  { immediate: true }
+)
 
 // 切换工具箱显示状态
 const toggleToolbox = () => {
@@ -698,6 +764,18 @@ const handleMyExercisesClick = () => {
   router.push({ name: 'exerciseSolve' })
 }
 
+// 示例：我的作业导航点击处理
+const handleMyHomeworkClick = () => {
+  activeNavItem.value = 'homework'
+  emit('nav-item-change', 'homework')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
+  // 示例路由：跳转到名为 myHomework 的页面（请在路由配置中定义实际页面）
+  router.push({ name: 'myHomework' })
+}
+
 const handleDrawingBoardClick = () => {
   activeNavItem.value = 'drawingBoard'
   emit('nav-item-change', 'drawingBoard')
@@ -759,7 +837,7 @@ const handleLogoutClick = async () => {
   padding: 16px 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   z-index: 1001; // 确保功能菜单层级高于工具箱
-  
+
   .user-avatar {
     display: flex;
     justify-content: center;
@@ -767,14 +845,14 @@ const handleLogoutClick = async () => {
     padding: 12px 0;
     margin-bottom: 16px;
     flex-shrink: 0;
-    
+
     img {
       border-radius: 50%;
       background: #e3f2fd;
       padding: 4px;
     }
   }
-  
+
   .nav-items-container {
     flex: 1;
     display: flex;
@@ -782,7 +860,7 @@ const handleLogoutClick = async () => {
     justify-content: flex-start;
     gap: 8px;
   }
-  
+
   .nav-items-bottom {
     display: flex;
     flex-direction: column;
@@ -791,7 +869,7 @@ const handleLogoutClick = async () => {
     margin-top: auto;
     padding-top: 24px;
   }
-  
+
   .nav-item {
     display: flex;
     flex-direction: column;
@@ -803,35 +881,35 @@ const handleLogoutClick = async () => {
     transition: all 0.2s ease;
     flex-shrink: 0;
     position: relative;
-    
+
     &.active {
       background: #f3e8ff;
-      
+
       .nav-icon {
         opacity: 1;
-        color: #9059FF;
-        
+        color: #9059ff;
+
         img {
           filter: none;
           opacity: 1;
         }
       }
-      
+
       .nav-text {
-        color: #9059FF;
+        color: #9059ff;
         font-weight: 600;
       }
     }
-    
+
     &:hover:not(.active) {
       background: #f9fafb;
     }
-    
+
     .nav-icon-wrapper {
       position: relative;
       display: inline-block;
     }
-    
+
     .nav-icon {
       width: 28px;
       height: 28px;
@@ -841,7 +919,7 @@ const handleLogoutClick = async () => {
       display: flex;
       align-items: center;
       justify-content: center;
-      
+
       img {
         width: 100%;
         height: 100%;
@@ -849,13 +927,13 @@ const handleLogoutClick = async () => {
         opacity: 0.6;
         transition: all 0.2s ease;
       }
-      
+
       // q-icon 样式
       &:not(img) {
         opacity: 0.6;
       }
     }
-    
+
     .notification-dot {
       position: absolute;
       top: -2px;
@@ -866,7 +944,7 @@ const handleLogoutClick = async () => {
       border-radius: 50%;
       border: 2px solid #ffffff;
     }
-    
+
     .nav-text {
       margin-top: 8px;
       font-size: 14px;
@@ -879,17 +957,17 @@ const handleLogoutClick = async () => {
       transition: all 0.2s ease;
       font-family: 'PingFang SC', sans-serif;
     }
-    
+
     &:hover:not(.active) {
       .nav-icon {
         opacity: 0.8;
         color: #6b7280;
-        
+
         img {
           opacity: 0.8;
         }
       }
-      
+
       .nav-text {
         color: #000000;
       }
@@ -912,7 +990,7 @@ const handleLogoutClick = async () => {
   top: 0;
   width: 33%;
   height: 100vh;
-  background: #3D3070;
+  background: #3d3070;
   border-bottom: 1px solid rgba(229, 231, 235, 0.3);
   overflow-y: auto;
   z-index: 999; // 层级低于功能菜单，不可覆盖功能菜单
@@ -922,25 +1000,25 @@ const handleLogoutClick = async () => {
   backface-visibility: hidden;
   -webkit-overflow-scrolling: touch; // iOS 滚动优化
   // 注意：will-change 只在动画期间使用，避免内存泄漏
-  
+
   // 自定义滚动条样式
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.3);
     border-radius: 3px;
-    
+
     &:hover {
       background: rgba(255, 255, 255, 0.5);
     }
   }
-  
+
   // 调整MyProfileView在工具箱中的样式
   :deep(.profile-container) {
     min-height: auto;
@@ -993,10 +1071,10 @@ const handleLogoutClick = async () => {
   z-index: 9999;
   cursor: move;
   user-select: none;
-  
+
   .floating-fab-btn {
-    width: 70px;
-    height: 70px;
+    width: 100px;
+    height: 100px;
     border: none;
     outline: none;
     /* 使用 beaver.svg 作为按钮背景图 */
@@ -1069,7 +1147,7 @@ const handleLogoutClick = async () => {
   .main-view {
     flex-direction: column;
   }
-  
+
   .function-menu {
     width: 100%;
     height: auto;
@@ -1078,18 +1156,18 @@ const handleLogoutClick = async () => {
     margin: 0;
     flex-direction: row;
     padding: 8px;
-    
+
     .user-avatar {
       margin-bottom: 0;
       margin-right: 8px;
     }
-    
+
     .nav-items-container {
       flex-direction: row;
       flex: 1;
       gap: 4px;
     }
-    
+
     .nav-items-bottom {
       flex-direction: row;
       margin-top: 0;
@@ -1098,16 +1176,16 @@ const handleLogoutClick = async () => {
       gap: 4px;
     }
   }
-  
+
   .right-main-area {
     width: 100%;
     height: calc(100vh - 80px);
   }
-  
+
   .toolbox-area {
     width: 100%;
   }
-  
+
   .content-area {
     width: 100%;
     flex: 1;

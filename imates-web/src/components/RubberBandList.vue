@@ -174,7 +174,7 @@ const finishRefresh = () => {
   }
 }
 
-defineExpose({ finishRefresh })
+defineExpose({ finishRefresh, scrollContainerRef })
 
 const handleTouchStart = (e: TouchEvent) => startDrag(e.touches[0].clientY)
 const handleTouchMove = (e: TouchEvent) => moveDrag(e.touches[0].clientY, e)

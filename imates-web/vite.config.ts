@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
   // 资源服务器（文件/图片等）
   // 测试环境同样使用 imates 资源服务器
   const RESOURCE_FILE_BASE = isTest
-    ? 'https://www.imates.com.cn:9099'
+    ? 'https://43.138.16.5:50013/'
     : 'https://www.imates.com.cn:9099'
 
   // APP 更新接口所用域名
@@ -129,6 +129,17 @@ export default defineConfig(({ mode }) => {
             console.log('代理请求到Zammad:', req.url)
           })
         }
+      },
+      // 题目内图片的本地代理：/temporaryImg -> RESOURCE_FILE_BASE/temporaryImg
+      '/temporaryImg': {
+        // 题目截图中的图片原本来自 http://imates.com.cn/temporaryImg/...
+        // 这里直接代理到 imates 根域名，保持与原环境一致
+        target: 'http://imates.com.cn',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/temporaryImg')
+        },
       },
       // 匹配以 "/admin" 开头的请求，转发到学班服务（用于登录等管理接口）
       '/admin': {

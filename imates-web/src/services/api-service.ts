@@ -2525,6 +2525,86 @@ export class ApiService {
     }
   }
 
+  /**
+   * 提交习题回答
+   * @param id 套餐题目ID
+   * @param answerContent 回答图片base64
+   * @returns Promise<boolean> 是否提交成功
+   */
+  async submitTopicAnswer(id: string, answerContent: string): Promise<boolean> {
+    try {
+      const response = await httpClient.post<{
+        code?: number
+        data?: unknown
+        message?: string
+      }>('/blw-edu-yb/api/app/topic-package-answer', {
+        id,
+        answerContent
+      })
+      
+      if (response.success && response.data?.code === 200) {
+        return true
+      }
+      
+      console.error('[ApiService] 提交习题回答失败:', response.data?.message || response.message)
+      return false
+    } catch (error) {
+      console.error('[ApiService] 提交习题回答异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 获取习题发布分页列表
+   * @param pageNumber 当前页码（从0开始）
+   * @param pageSize 分页大小
+   * @returns Promise<TopicPackagePageResponse | null>
+   */
+  async getTopicPackagePage(pageNumber: number = 0, pageSize: number = 20): Promise<TopicPackagePageResponse | null> {
+    try {
+      const response = await httpClient.post<TopicPackagePageApiResponse>(
+        '/blw-edu-yb/api/app/topic-package-page',
+        { pageNumber, pageSize }
+      )
+      
+      if (response.success && response.data?.data) {
+        return response.data.data
+      }
+      
+      console.error('[ApiService] 获取习题分页列表失败:', response.message)
+      return null
+    } catch (error) {
+      console.error('[ApiService] 获取习题分页列表异常:', error)
+      return null
+    }
+  }
+
+}
+
+// 习题分页接口响应类型
+export interface TopicPackageItem {
+  id: string
+  bmNo?: string
+  title?: string
+  question?: string
+  questionContent?: string
+  tags?: string[]
+  createTime?: string
+  [key: string]: unknown
+}
+
+export interface TopicPackagePageResponse {
+  records: TopicPackageItem[]
+  total: number
+  pages: number
+  current: number
+  size: number
+}
+
+interface TopicPackagePageApiResponse {
+  code?: number
+  data?: TopicPackagePageResponse
+  message?: string
 }
 
 // 创建默认的 API 服务实例

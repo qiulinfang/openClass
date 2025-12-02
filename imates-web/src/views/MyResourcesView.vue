@@ -12,64 +12,48 @@
             <!-- 年级 -->
             <div class="filter-dropdown-item">
               <label class="filter-label">年级:</label>
-              <q-select
+              <CommonSelect
                 v-model="selectedGrade"
                 :options="gradeOptions"
-                behavior="menu"
-                emit-value
-                map-options
-                outlined
-                dense
                 class="filter-select"
-                @update:model-value="handleFilterChange"
+                placeholder="全部"
+                @change="handleFilterChange"
               />
             </div>
 
             <!-- 教材版本 -->
             <div class="filter-dropdown-item">
               <label class="filter-label">教材版本:</label>
-              <q-select
+              <CommonSelect
                 v-model="selectedVersion"
                 :options="versionOptions"
-                behavior="menu"
-                emit-value
-                map-options
-                outlined
-                dense
                 class="filter-select"
-                @update:model-value="handleFilterChange"
+                placeholder="全部"
+                @change="handleFilterChange"
               />
             </div>
 
             <!-- 学科 -->
             <div class="filter-dropdown-item">
               <label class="filter-label">学科:</label>
-              <q-select
+              <CommonSelect
                 v-model="selectedSubject"
                 :options="subjectOptions"
-                behavior="menu"
-                emit-value
-                map-options
-                outlined
-                dense
                 class="filter-select"
-                @update:model-value="handleFilterChange"
+                placeholder="全部"
+                @change="handleFilterChange"
               />
             </div>
 
             <!-- 下载状态（替换进度） -->
             <div class="filter-dropdown-item">
               <label class="filter-label">下载状态:</label>
-              <q-select
+              <CommonSelect
                 v-model="selectedStatus"
                 :options="statusOptions"
-                behavior="menu"
-                emit-value
-                map-options
-                outlined
-                dense
                 class="filter-select"
-                @update:model-value="handleFilterChange"
+                placeholder="全部"
+                @change="handleFilterChange"
               />
             </div>
           </div>
@@ -356,6 +340,7 @@ import { resourceManager } from '../services/resource-storage'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'
+import CommonSelect from '@/components/CommonSelect.vue'
 import type { UserTextbookInfo, TextbookVersion } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
@@ -1454,7 +1439,6 @@ onUnmounted(async () => {
     .filter-content {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
       flex-wrap: wrap;
       align-items: center;
       padding: 12px 20px;

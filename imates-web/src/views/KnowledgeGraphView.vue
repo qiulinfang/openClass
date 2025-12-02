@@ -5,47 +5,27 @@
       <!-- 科目和版本信息 -->
       <div class="subject-header">
         <img :src="bookIcon" class="subject-icon" />
-        <q-select
+        <CommonSelect
           v-model="selectedSubject"
           :options="subjectOptions"
-          option-value="value"
-          option-label="label"
-          behavior="menu"
-          emit-value
-          map-options
-          outlined
-          dense
           class="subject-select"
-          @update:model-value="onSubjectChange"
-        >
-          <template v-slot:selected>
-            <div class="subject-selected">
-              <span class="subject-text">{{ currentSubjectLabel }}</span>
-            </div>
-          </template>
-        </q-select>
+          placeholder="请选择学科"
+          @change="onSubjectChange"
+        />
       </div>
       <!-- 教材选择器 -->
       <div class="textbook-info" v-if="textbookOptions.length > 0">
-        <q-select
+        <CommonSelect
           v-model="selectedTextbook"
           :options="textbookOptions"
-          option-value="value"
-          option-label="label"
-          behavior="menu"
-          emit-value
-          map-options
-          outlined
-          dense
           class="textbook-select"
-          @update:model-value="onTextbookChange"
+          placeholder="请选择教材"
+          @change="onTextbookChange"
         >
-          <template v-slot:selected>
-            <div class="textbook-selected">
-              <span class="textbook-text">{{ selectedTextbookLabel }}</span>
-            </div>
+          <template #label>
+            {{ selectedTextbookLabel }}
           </template>
-        </q-select>
+        </CommonSelect>
       </div>
 
       <!-- 第1步：添加节点搜索框 -->
@@ -202,6 +182,7 @@ import { resourceManager, ResourceManager } from '../services/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import NewGrap from '../components/knowledge-graph/newGrap.vue'
 import RubberBandList from '../components/RubberBandList.vue'
+import CommonSelect from '@/components/CommonSelect.vue'
 import LearningView from './LearningView.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
@@ -1720,6 +1701,25 @@ onUnmounted(() => {
     flex-shrink: 0;
     margin-top: 16px;
 
+    :deep(.select-label) {
+      font-size: 36px;
+      color: #ffffff;
+      font-weight: 900;                    // 超粗
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue',
+        Arial, '黑体', sans-serif;         // 无衬线中文常用字体
+      letter-spacing: 0.02em;              // 适当加一点字距（可选）
+      line-height: 1;    
+    }
+
+    :deep(.select-trigger){
+      background-color: transparent;
+      border: none;
+    }
+
+    :deep(.select-icon){
+      filter: brightness(0) invert(1);
+    }
+
     :deep(.q-field__marginal){
       color: #FFFFFF;
     }
@@ -1735,9 +1735,15 @@ onUnmounted(() => {
   
   .textbook-info {
     flex-shrink: 0;
-
+    :deep(.common-select){
+      width:100%;
+    }
     :deep(.q-field__marginal){
       color: #FFFFFF;
+    }
+
+    :deep(.select-icon){
+      filter: brightness(0) invert(1);
     }
   }
   
@@ -1770,19 +1776,19 @@ onUnmounted(() => {
     height: 79px;
   }
 
-    .subject-select {
-      width: fit-content;
+  .subject-select {
+    width: fit-content;
       
-      .subject-selected {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
+    .subject-selected {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
         
-        .subject-text {
-          font-size: 36px;
-          font-weight: 500;
-          color: #ffffff;
+      .subject-text {
+        font-size: 36px;
+        font-weight: 500;
+        color: #ffffff;
       }
     }
   }
@@ -1854,49 +1860,53 @@ onUnmounted(() => {
 }
 
 .textbook-info {
-  padding: 6px 5px;
+  /* 作为占位容器，仅控制位置，不再直接设置卡片外观 */
   margin: 14px 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  border-radius: 12px;
-  font-family: 'PingFang SC', sans-serif;
-  border: 1px solid rgba(227, 224, 235, 0.3);
-  background: rgba(255, 255, 255, 0.1);
-  min-height: 44px; // 增加触摸区域
-  display: flex;
-  align-items: center;
-  
-  :deep(.q-field--outlined .q-field__control:before){
-    border: none;
-  }
 
-  :deep(.q-field__control){
-    color:transparent;
-  }
-
-  .textbook-selected {
+  /* 将原来的卡片样式完全下沉到 CommonSelect 内部 */
+  :deep(.select-trigger) {
+    width: 100%;
+    min-height: 44px; /* 触摸区域 */
+    padding: 6px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(227, 224, 235, 0.3);
+    background: rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 100%;
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
-  
-  .textbook-text {
+
+  :deep(.select-trigger:hover) {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  :deep(.select-label) {
     width: 254px;
     font-size: 19px;
-    color: #FFFFFF;
+    color: #ffffff;
     font-weight: 350;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
     height: 22px;
   }
-  
-  .textbook-arrow {
-    color: #FFFFFF;
+
+  :deep(.select-icon-wrapper) {
+    color: #ffffff;
     font-size: 18px;
     transition: transform 0.2s ease;
+  }
+
+  /* 教材下拉列表选项尺寸 */
+  :deep(.select-dropdown) {
+    border-radius: 16px;
+  }
+
+  :deep(.select-option) {
+    font-size: 15px;
+    padding: 8px 18px;
   }
 }
 

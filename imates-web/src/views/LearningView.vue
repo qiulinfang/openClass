@@ -103,13 +103,10 @@
                   <div class="resource-size">{{ formatFileSize(resource.size) }}</div>
                 </div>
                 <!-- 操作按钮 -->
-                <q-btn
-                  size="sm"
+                <CommonActionButton
                   label="去学习"
+                  class="resource-action"
                   @click.stop="startLearning(resource)"
-                  no-caps
-                  rounded
-                  class="learning-btn resource-action"
                 />
               </div>
             </div>
@@ -139,6 +136,7 @@ import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/RubberBandList.vue'
 import { authStorageService } from '../services/auth-storage-service'
 import DraggableDialog from '../components/DraggableDialog.vue'
+import CommonActionButton from '../components/CommonActionButton.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 import { isImageFile } from '../utils/thumbnail/image-thumbnail'
@@ -465,17 +463,12 @@ const loadLearningPackages = async () => {
 
   try {
     // 直接从IndexedDB获取教材信息，包含学习包数据
-    console.time('教材信息加载')  
     const textbook = await resourceManager.getTextbookInfoById(id.value)
-    console.timeEnd('教材信息加载')
     if (textbook && textbook.learningPackages) {
-      console.time('学习包数据加载')
       // 保存教材的textbookId（用于更新缩略图）
       currentTextbookId.value = textbook.textbookId
       // 将学习包数据赋值给 learningPackages
       learningPackages.value = textbook.learningPackages
-      console.timeEnd('学习包数据加载')
-      console.time('教材信息:')
       // 只处理当前章节的包
       if (sectionId.value) {
         const lowerSectionId = sectionId.value.toLowerCase()
@@ -497,12 +490,9 @@ const loadLearningPackages = async () => {
           }
         }
       }
-      console.timeEnd('学习包数据加载')
       // 同时加载本地文件信息（用于获取缩略图）
       if (textbook.localFiles) {
-        console.time('本地文件信息加载')
         localFiles.value = textbook.localFiles
-        console.timeEnd('本地文件信息加载')
       }
 
       // 自动选择第一个方案
@@ -511,9 +501,7 @@ const loadLearningPackages = async () => {
       }
       
       // 数据加载完成后，延迟检查缩略图（等待UI渲染完成）
-      console.time('缩略图检查')
       await checkAndGenerateThumbnails()
-      console.timeEnd('缩略图检查')
     } else {
       // 如果没有本地数据，显示空状态
       learningPackages.value = []
@@ -657,10 +645,8 @@ onMounted(async () => {
   if (!props.modelValue && router.currentRoute.value.name === 'learning') {
     localVisible.value = true
   }
-  console.time('学习包加载')
   // 加载学习包数据
   await loadLearningPackages()
-  console.timeEnd('学习包加载')
 })
 
 onUnmounted(() => {

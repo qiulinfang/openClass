@@ -10,7 +10,7 @@
     </div>
     <!-- 搜索输入框 -->
     <div class="search-container">
-      <q-btn flat round dense class="photo-search-btn" @click="handlePhotoSearch">
+      <q-btn v-if="props.showPhotoSearch !== false" flat round dense class="photo-search-btn" @click="handlePhotoSearch">
         <img :src="searchQuestionIcon" alt="拍照搜题" class="photo-search-icon" />
         <q-tooltip>拍照搜题</q-tooltip>
       </q-btn>
@@ -110,6 +110,14 @@
                         <img src="icons/Deskmate.svg" alt="发送给AI" width="20" height="20" />
                         <div>发送给AI</div>
                       </div>
+
+                      <!-- 额外操作插槽：例如“开始作答”等，由父组件通过插槽扩展 -->
+                      <slot
+                        name="more-extra"
+                        :question="question"
+                        :index="index"
+                        :close="() => closeMoreMenuById(question.bmNo)"
+                      />
 
                       <!-- 微课 -->
                       <div
@@ -275,6 +283,10 @@ import searchQuestionIcon from '/icons/search_question.svg'
 const props = defineProps<{
   searchQuery?: string
   selectedSubjectFilter?: string | null
+  // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
+  externalQuestions?: ExerciseItem[]
+  // 是否显示拍照搜题按钮，默认 true
+  showPhotoSearch?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -290,7 +302,7 @@ const selectedSubject = ref('math')
 const selectedQuestionIndex = ref(-1)
 const loading = ref(true)
 
-// 分页相关
+// 分屏组件模型值
 const PAGE_SIZE = 50 // 每页显示50题
 const INITIAL_DISPLAY_COUNT = PAGE_SIZE // 初始显示的题目数量
 const LOAD_MORE_COUNT = PAGE_SIZE // 每次加载更多的题目数量
@@ -535,8 +547,6 @@ const handleContentRef = (el: unknown, questionId: string) => {
 // 设置内容引用，渲染MathJax并标记为已渲染完成
 const setContentRef = async (el: HTMLElement | null, questionId: string) => {
   if (el) {
-    const label = `[QuestionList][perf] 单题渲染 ${questionId}`
-    console.time(label)
     contentRefs.value.set(questionId, el)
 
     // 渲染MathJax
@@ -548,7 +558,6 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
 
     // 标记该题目已完成渲染（包括公式和图片处理）
     questionRenderedMap.value.set(questionId, true)
-    console.timeEnd(label)
   }
 }
 
@@ -945,9 +954,14 @@ const toggleMoreMenu = (questionId: string) => {
   showMoreMenu.value[questionId] = !currentValue
 }
 
+// 仅关闭指定题目的更多菜单
+const closeMoreMenuById = (questionId: string) => {
+  showMoreMenu.value[questionId] = false
+}
+
 // 关闭更多菜单并执行操作
 const closeMenuAndExecute = (questionId: string, action: () => void) => {
-  showMoreMenu.value[questionId] = false
+  closeMoreMenuById(questionId)
   action()
 }
 
@@ -962,7 +976,6 @@ const loadMoreQuestions = async () => {
   if (renderingQuestions.value || !hasMoreQuestions.value) return
 
   try {
-    console.time('[QuestionList][perf] loadMoreQuestions')
     console.log('[QuestionList] 加载更多题目: before', {
       displayedCount: displayedCount.value,
       total: displayList.value.length,
@@ -976,7 +989,6 @@ const loadMoreQuestions = async () => {
       displayedCount: displayedCount.value,
       total: displayList.value.length,
     })
-    console.timeEnd('[QuestionList][perf] loadMoreQuestions')
     setTimeout(() => {
       renderingQuestions.value = false
     }, 2000)
@@ -986,7 +998,16 @@ const loadMoreQuestions = async () => {
 }
 
 const loadQuestions = async () => {
-  console.time('[QuestionList][perf] loadQuestions')
+  // 如果父组件通过 externalQuestions 传入题目列表，则不再自行加载，只同步本地列表
+  if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+    questions.value = [...props.externalQuestions]
+    if (questions.value.length > 0) {
+      displayedCount.value = INITIAL_DISPLAY_COUNT
+      currentPage.value = 1
+    }
+    loading.value = false
+    return
+  }
   console.log('[QuestionList] 开始加载题目', {
     selectedSubjectFilter: selectedSubjectFilter.value,
   })
@@ -1048,7 +1069,6 @@ const loadQuestions = async () => {
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
   } finally {
-    console.timeEnd('[QuestionList][perf] loadQuestions')
     console.log('[QuestionList] 结束加载题目')
     loading.value = false
   }
@@ -1070,8 +1090,22 @@ const refreshQuestions = () => {
 // 下拉刷新处理（由 RubberBandList 触发）
 // 要求：强制重新请求接口，而不是只同步本地 store
 const handlePullDownRefresh = async () => {
+  // 外部题目模式：仅同步 externalQuestions，不请求服务器
+  if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+    try {
+      console.log('[QuestionList] 下拉刷新（外部题目模式）')
+      if (props.externalQuestions) {
+        questions.value = [...props.externalQuestions]
+      }
+    } finally {
+      const container = scrollContainer.value as any
+      if (container && typeof container.finishRefresh === 'function') {
+        container.finishRefresh()
+      }
+    }
+    return
+  }
   try {
-    console.time('[QuestionList][perf] pullDownRefresh')
     console.log('[QuestionList] 下拉刷新开始', {
       selectedSubject: selectedSubject.value,
       filter: selectedSubjectFilter.value,
@@ -1093,7 +1127,6 @@ const handlePullDownRefresh = async () => {
     console.log('[QuestionList] 下拉刷新完成', {
       total: questions.value.length,
     })
-    console.timeEnd('[QuestionList][perf] pullDownRefresh')
   } catch (error) {
     showMessage('刷新失败，请稍后重试', 'error')
   } finally {
@@ -1144,10 +1177,26 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
       return
     }
 
+    // 获取实际的滚动容器 DOM 元素
+    // scrollContainer 可能是 RubberBandList 组件实例或原生 HTMLElement
+    let actualContainer: HTMLElement | null = null
+    const container = scrollContainer.value as any
+    if (container.scrollContainerRef) {
+      // RubberBandList 组件，获取其内部的滚动容器
+      actualContainer = container.scrollContainerRef
+    } else if (container instanceof HTMLElement) {
+      // 原生 HTMLElement
+      actualContainer = container
+    }
+
+    if (!actualContainer) {
+      return
+    }
+
     // 找到目标元素
-    const targetElement = scrollContainer.value.querySelector(`[data-index="${indexToScroll}"]`)
+    const targetElement = actualContainer.querySelector(`[data-index="${indexToScroll}"]`)
     if (targetElement) {
-      const containerHeight = scrollContainer.value.clientHeight
+      const containerHeight = actualContainer.clientHeight
       const elementTop = (targetElement as HTMLElement).offsetTop
       const elementHeight = (targetElement as HTMLElement).offsetHeight
 
@@ -1155,7 +1204,7 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
       const targetScrollTop = Math.max(0, elementTop - (containerHeight - elementHeight) / 2)
 
       // 滚动到目标位置
-      scrollContainer.value.scrollTo({
+      actualContainer.scrollTo({
         top: targetScrollTop,
         behavior: 'smooth',
       })
@@ -1391,10 +1440,32 @@ watch(
   { immediate: false }
 )
 
+// 监听外部传入的题目列表变化（例如 HomeworkAnswerView 在 onMounted 后解析路由再赋值）
+watch(
+  () => props.externalQuestions,
+  (newVal) => {
+    if (newVal && Array.isArray(newVal)) {
+      questions.value = [...newVal]
+      if (questions.value.length > 0) {
+        displayedCount.value = INITIAL_DISPLAY_COUNT
+        currentPage.value = 1
+      }
+    }
+  },
+  { immediate: false }
+)
+
 // 监听学科过滤变化，重置分页并可能需要重新加载题目
 watch(
   selectedSubjectFilter,
   async (newFilter) => {
+    // 外部题目模式：不触发任何 store/API 加载，仅重置分页，让过滤逻辑基于 externalQuestions 生效
+    if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+      displayedCount.value = INITIAL_DISPLAY_COUNT
+      currentPage.value = 1
+      return
+    }
+    
     // 学科过滤时重置显示数量和页码
     displayedCount.value = INITIAL_DISPLAY_COUNT
     currentPage.value = 1
@@ -1520,6 +1591,14 @@ defineExpose({
   refreshQuestions,
   scrollToCurrentQuestion,
   scrollToQuestionAndSelect,
+  // 暴露选中状态
+  selectedQuestionIndex,
+  getSelectedQuestion: () => {
+    if (selectedQuestionIndex.value >= 0 && selectedQuestionIndex.value < questions.value.length) {
+      return questions.value[selectedQuestionIndex.value]
+    }
+    return null
+  },
 })
 </script>
 

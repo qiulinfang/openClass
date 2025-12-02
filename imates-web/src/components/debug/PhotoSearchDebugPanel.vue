@@ -64,12 +64,7 @@
                   {{ showCropView ? '显示' : '隐藏' }}
                 </q-badge>
               </div>
-              <div class="debug-item">
-                <span class="debug-label">结果视图:</span>
-                <q-badge :color="showResultView ? 'positive' : 'grey'">
-                  {{ showResultView ? '显示' : '隐藏' }}
-                </q-badge>
-              </div>
+              
               <div class="debug-item">
                 <span class="debug-label">抽屉:</span>
                 <q-badge :color="showDrawer ? 'positive' : 'grey'">
@@ -341,7 +336,6 @@ interface Props {
   // 视图状态
   showCameraPreview: boolean
   showCropView: boolean
-  showResultView: boolean
   showDrawer: boolean
   activeTab: 'photo' | 'keyword'
   

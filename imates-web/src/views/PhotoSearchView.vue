@@ -24,7 +24,6 @@
       :has-android-bridge="hasAndroidBridge"
       :show-camera-preview="showCameraPreview"
       :show-crop-view="showCropView"
-      :show-result-view="showResultView"
       :show-drawer="showDrawer"
       :active-tab="activeTab"
       :camera-stream="cameraStream"
@@ -114,59 +113,11 @@
         </div>
       </div>
 
-      <!-- 识别结果视图 -->
-      <div v-if="showResultView" class="result-container">
-        <q-splitter v-model="splitterModel" :limits="[20, 80]" class="result-splitter">
-          <template v-slot:before>
-            <div class="image-panel">
-              <div class="panel-title">原始图片</div>
-              <div class="image-wrapper">
-                <img v-if="imagePreview" :src="imagePreview" alt="原始图片" class="result-image" />
-                <div v-else class="no-image-placeholder">
-                  <q-icon name="image" size="48px" color="grey-5" />
-                  <p>暂无图片</p>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <template v-slot:separator>
-            <div class="splitter-handle">
-              <div class="splitter-dots">
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-              </div>
-            </div>
-          </template>
-
-          <template v-slot:after>
-            <div class="question-panel">
-              <div class="panel-title">识别结果</div>
-              <div class="question-list-wrapper">
-                <QuestionList
-                  v-if="photoQuestionData"
-                  :search-query="''"
-                  :selected-subject-filter="null"
-                  @question-selected="handleQuestionSelected"
-                />
-                <div v-else-if="!isSearching" class="no-question-placeholder">
-                  <q-icon name="quiz" size="48px" color="grey-5" />
-                  <p>未识别到题目</p>
-                </div>
-                <div v-else class="loading-placeholder">
-                  <q-spinner color="primary" size="48px" />
-                  <p>正在识别题目...</p>
-                </div>
-              </div>
-            </div>
-          </template>
-        </q-splitter>
-      </div>
+      <!-- 识别结果视图（已废弃的分屏视图逻辑已移除） -->
     </div>
 
     <!-- 左侧学科选择面板（居中） -->
-    <div class="subject-selector-panel" v-if="!showResultView">
+    <div class="subject-selector-panel">
       <div class="subject-selector">
         <div
           class="subject-option"
@@ -188,7 +139,7 @@
     </div>
 
     <!-- 右侧操作按钮 -->
-    <div class="action-buttons-panel" v-if="!showCropView && !showResultView">
+    <div class="action-buttons-panel" v-if="!showCropView">
       <!-- 从相册选择 -->
       <div
         class="action-btn gallery-btn"
@@ -208,7 +159,7 @@
     </div>
 
     <!-- 框选模式下的操作按钮 -->
-    <div class="crop-actions-panel" v-if="showCropView && !showResultView">
+    <div class="crop-actions-panel" v-if="showCropView">
       <!-- 重新框选 -->
       <div class="crop-action-btn" @click="handleRetake">
         <img :src="retakeIcon" alt="重新框选" class="crop-action-icon" />
@@ -272,7 +223,7 @@
     </Transition>
 
     <!-- 提示信息（拍照搜题前，记得先选对应学科啦！） -->
-    <div class="hint-overlay" v-if="!showCropView && !showResultView && !selectedSubject">
+    <div class="hint-overlay" v-if="!showCropView && !selectedSubject">
       <div class="hint-text">拍照搜题前，记得先选对应学科啦！</div>
     </div>
 
@@ -472,7 +423,6 @@ const hasAndroidBridge = computed(() => {
 const selectedSubject = ref<string>(getSubjectFromRoute())
 const showCameraPreview = ref(true)
 const showCropView = ref(false)
-const showResultView = ref(false)
 const showDrawer = ref(false) // 抽屉显示状态
 const showDebugPanel = ref(false) // 调试面板显示状态
 const imagePreview = ref<string>('')
@@ -1538,7 +1488,6 @@ const handleRetake = async () => {
   currentImage.value = null
   imagePreview.value = ''
   showCropView.value = false
-  showResultView.value = false
   showDrawer.value = false // 关闭抽屉
   cropRect.value = null
   cropPreviewImage.value = ''
@@ -1849,7 +1798,6 @@ const handleCloseDrawer = async () => {
 
   // 重置相关状态
   showCropView.value = false
-  showResultView.value = false
   currentImage.value = null
   imagePreview.value = ''
   cropRect.value = null
@@ -1977,7 +1925,6 @@ const cleanup = () => {
   stopCamera()
   showCameraPreview.value = false
   showCropView.value = false
-  showResultView.value = false
   showDrawer.value = false
   currentImage.value = null
   imagePreview.value = ''
@@ -3068,7 +3015,6 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid #e0e0e0;
 }
 
 .info-item {

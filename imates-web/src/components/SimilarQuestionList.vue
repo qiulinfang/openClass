@@ -51,7 +51,7 @@
                 <div
                   v-html="renderMarkdown(getQuestionContent(question))"
                   class="markdown-content"
-                  :ref="el => bindImagesInMarkdown(el)"
+                  v-mathjax-preview="handleImagePreview"
                 ></div>
               </div>
 
@@ -76,16 +76,18 @@
         </div>
       </div>
     </RubberBandList>
+    <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
 import RubberBandList from './RubberBandList.vue'
+import ImageViewer from './ImageViewer.vue'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)
 
@@ -96,6 +98,8 @@ const emit = defineEmits<{
 
 // 响应式数据
 const loading = ref(false)
+const showImagePreview = ref(false)
+const previewImageUrl = ref<string>('')
 
 // 外层列表滚动改为使用 RubberBandList 橡皮筋滚动效果，不再依赖 BetterScroll
 
@@ -160,14 +164,9 @@ const renderMarkdown = (content: string) => {
   return renderMessageContent(content)
 }
 
-// 同步为图片绑定 onload（保留钩子，当前不再依赖 BetterScroll 刷新）
-const bindImagesInMarkdown = (el: unknown) => {
-  const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement | null)
-  if (!element) return
-  const imgs = element.querySelectorAll('img')
-  imgs.forEach((img) => {
-    img.removeEventListener('load', () => {})
-  })
+const handleImagePreview = (url: string) => {
+  previewImageUrl.value = url
+  showImagePreview.value = true
 }
 
 // 检查元素是否有滚动条
@@ -315,7 +314,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   cursor: pointer;
   transform: translateZ(0);
   backface-visibility: hidden;
-  max-width: 630px;
   // 题目组块 - 与 QuestionList 保持一致
   .question-block {
     display: flex;

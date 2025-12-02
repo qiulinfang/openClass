@@ -1690,25 +1690,19 @@ const loadPdf = async (file: File) => {
     }
 
     // 读取文件为ArrayBuffer
-    console.time('3.1')
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
-    console.timeEnd('3.1')
 
     // 使用MuPDF打开PDF文档
-    console.time('3.2')
     const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
-    console.timeEnd('3.2')
 
     // 获取总页数
     const pageCount = doc.countPages()
     // 保存PDF文档对象和总页数
     pdfDoc.value = doc
     totalPages.value = pageCount
-    console.time('3.3')
     // 加载成功后，自动渲染
     await render()
-    console.timeEnd('3.3')
     // 渲染完成后，从本地 IndexedDB 加载对应文件的笔记
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'PDF 加载失败'
@@ -1724,28 +1718,21 @@ const render = async () => {
   if (renderAbortController) {
     renderAbortController.abort()
   }
-  console.time('3.3.1')
   renderAbortController = new AbortController()
   const signal = renderAbortController.signal
-  console.timeEnd('3.3.1')
 
   try {
     error.value = null
-    console.time('3.3.2')
     const doc = pdfDoc.value
     const numPages = doc.countPages()
-    console.timeEnd('3.3.2')
     // 使用固定缩放比例 1.0 进行渲染，实际缩放通过 CSS transform 实现
     const renderScale = 1.0
     const pageGap = store.pageGap
 
     if (signal.aborted) return
-    console.time('3.3.3')
     // 第一阶段：计算所有页面的布局尺寸
     const layouts: Array<{ width: number; height: number }> = []
     let top = 0
-    console.timeEnd('3.3.3')
-    console.time('3.3.4')
     for (let i = 0; i < numPages; i++) {
       if (signal.aborted) return
 
@@ -1765,7 +1752,6 @@ const render = async () => {
     totalHeight.value = top - pageGap
     maxWidth.value = layouts.length > 0 ? Math.max(...layouts.map((l) => l.width)) : 0
     await nextTick() // 等待 DOM 更新，确保 Canvas 元素已创建
-    console.timeEnd('3.3.4')
     if (signal.aborted) return
 
     // 使用设备像素比，可以在清晰度和性能之间取得平衡
@@ -1776,7 +1762,6 @@ const render = async () => {
     const matrix: mupdf.Matrix = [renderScale * renderDpr, 0, 0, renderScale * renderDpr, 0, 0] // 变换矩阵（包含渲染 DPR 缩放）
 
     // 第二阶段：按批次渲染页面到 Canvas，避免一次性阻塞主线程
-    console.time('3.3.5')
     const batchSize = 2
     for (let start = 0; start < layouts.length; start += batchSize) {
       if (signal.aborted) return
@@ -1786,7 +1771,6 @@ const render = async () => {
       await Promise.all(
         layouts.slice(start, end).map(async (layout, offset) => {
           const index = start + offset
-          console.time('3.3.5.1')
           // 为每个页面创建独立的渲染任务
           if (signal.aborted) return
           // Canvas 元素
@@ -1840,14 +1824,12 @@ const render = async () => {
             // 释放 MuPDF 页面资源
             page.destroy()
           }
-          console.timeEnd('3.3.5.1')
         })
       )
 
       // 每批渲染完后让出一次主线程，避免长时间卡死
       await nextTick()
     }
-    console.timeEnd('3.3.5')
   } catch (err) {
     // 取消操作不显示错误
     if (signal.aborted || isUnmounting) {

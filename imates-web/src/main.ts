@@ -11,6 +11,7 @@ import './styles/mathlive-custom.css'
 import './styles/gemini-notify.css'
 
 import App from './App.vue'
+import mathjaxPreview from './directives/mathjaxPreview'
 import router from './router'
 
 // 初始化 WebView 兼容性 polyfills
@@ -35,6 +36,8 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 quasarUserOptions(app)
+
+app.directive('mathjax-preview', mathjaxPreview)
 
 
 // 设置全局Android回调函数

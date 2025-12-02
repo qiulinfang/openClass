@@ -13,6 +13,9 @@ import LearningContentView from '@/views/LearningContentView.vue'
 import DrawingBoardView from '@/views/DrawingBoardView.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
+import MyHomeworkView from '@/views/MyHomeworkView.vue'
+import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
+import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -31,60 +34,89 @@ const router = createRouter({
       component: MainView,
       redirect: '/app/knowledge-graph', // 默认重定向到知识图谱
       children: [
+        // 我的习题路由
         {
           path: 'exercise-solve',
           name: 'exerciseSolve',
           component: ExerciseSolveView
         },
+        // 知识图谱路由
         {
           path: 'knowledge-graph',
           name: 'knowledgeGraph',
           component: KnowledgeGraphView
         },
+        // 我的资源路由
         {
           path: 'my-resources',
           name: 'myResources',
           component: MyResourcesView
         },
+        // PDF查看器路由
         {
           path: 'pdf-viewer',
           name: 'pdfViewer',
           component: PdfViewerView
         },
+        // HTML查看器路由
         {
           path: 'html-viewer',
           name: 'htmlViewer',
           component: HtmlViewerView
         },
+        // 视频查看器路由
         {
           path: 'video-viewer',
           name: 'videoViewer',
           component: VideoViewerView
         },
+        // 找题路由
         {
           path: 'find-exercise',
           name: 'findExercise',
           component: FindExerciseView
         },
+        // 去学习路由
         {
           path: 'learning',
           name: 'learning',
           component: LearningView
         },
+        // 学习内容详情路由
         {
           path: 'learning-content',
           name: 'learningContent',
           component: LearningContentView
         },
+        // 画板路由
         {
           path: 'drawing-board',
           name: 'drawingBoard',
           component: DrawingBoardView
         },
+        // 我的收藏路由
         {
           path: 'my-favorites',
           name: 'myFavorites',
           component: MyFavoritesView
+        },
+        // 我的作业路由
+        {
+          path: 'my-homework',
+          name: 'myHomework',
+          component: MyHomeworkView
+        },
+        // 作业回答路由
+        {
+          path: 'homework-answer/:homeworkId?',
+          name: 'homeworkAnswer',
+          component: HomeworkAnswerView
+        },
+        // 作业答题跳转到学伴（从 homeworkAnswer 跳转专用）
+        {
+          path: 'homework-exercise',
+          name: 'homeworkExercise',
+          component: ExerciseSolveView
         }
       ]
     },
@@ -92,6 +124,11 @@ const router = createRouter({
       path: '/photo-search',
       name: 'photoSearch',
       component: PhotoSearchView
+    },
+    {
+      path: '/chat-session-test',
+      name: 'chatSessionTest',
+      component: ChatSessionTestView
     },
     // 重定向旧路由到新路由
     {
@@ -123,8 +160,8 @@ router.beforeEach(async (to, from, next) => {
   const token = getXuebanToken()
   const isLoggedIn = !!token
   
-  // 如果访问登录页面，直接放行
-  if (to.name === 'login' || to.path === '/login') {
+  // 如果访问登录页面或测试页面，直接放行
+  if (to.name === 'login' || to.path === '/login' || to.name === 'chatSessionTest' || to.path === '/chat-session-test') {
     next()
     return
   }
