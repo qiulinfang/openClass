@@ -33,7 +33,7 @@ import {
 } from './utils/chatStoreUtils'
 import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
 
-const buildAiGeneralMessage = (
+const buildTeacherMessage = (
   content: string,
   userInfo: UserInfo | null,
   enableWebSearch: boolean,
@@ -41,7 +41,9 @@ const buildAiGeneralMessage = (
   sessionId?: string | null,
 ): AiChatMessageRequest => {
   // 优先使用传入的 sessionId，如果没有则新建
-  const finalSessionId = sessionId || `general-session-${Date.now()}`
+  // 使用 teacher-session- 前缀，与 AI 通用聊天区分
+  const userId = localStorage.getItem('userId') || ''
+  const finalSessionId = sessionId || `${userId ? userId + '-' : ''}teacher-session-${Date.now()}`
 
   return {
     sessionId: finalSessionId,
@@ -559,6 +561,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    * 第4步：等待教师回复（通过RabbitMQ接收）
    */
   const sendMessage = async (content: string, imageData?: ChatImageData): Promise<void> => {
+    console.log('[TEACHER_GENERAL] 发送消息:', content)
     // 第1步：验证前置条件
     if (!(await validateSendMessagePreconditions())) {
       return
@@ -1309,7 +1312,8 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     }
 
     const hex = Math.abs(hash).toString(16).padStart(8, '0')
-    return `teacher-${hex}-${Date.now()}`
+    const userId = localStorage.getItem('userId') || ''
+    return `${userId ? userId + '-' : ''}teacher-${hex}-${Date.now()}`
   }
 
 
@@ -1451,8 +1455,8 @@ ${conversationSummary}
 
 标题：`
 
-      // 第4步：构建AI请求（使用通用AI接口生成标题，传入传入的 sessionId）
-      const titleRequest = buildAiGeneralMessage(
+      // 第4步：构建AI请求（使用教师接口生成标题，传入传入的 sessionId）
+      const titleRequest = buildTeacherMessage(
         titlePrompt,
         userInfo,
         false, // 不使用web搜索

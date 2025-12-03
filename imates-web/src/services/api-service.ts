@@ -39,6 +39,9 @@ import type {
   UserTextbookInfo,
   ResourceFile,
   LocalFileInfo,
+  BackendHistoryMessage,
+  SSEPayload,
+  ManageConversationMemoryRequest,
 } from '../types'
 
 // 使用统一的类型定义，不再重复定义
@@ -57,6 +60,28 @@ export class ApiService {
 
   private constructor() {
     this.androidBridge = AndroidBridge.getInstance()
+  }
+
+  // ========== 对话记忆管理相关接口 ==========
+
+  /**
+   * 管理对话记忆（删除部分消息 / 删除整个线程）
+   * 通过后端统一接口对 chatbot / solvingbot 的历史进行裁剪
+   */
+  public async manageConversationMemory(
+    payload: ManageConversationMemoryRequest,
+  ): Promise<any> {
+    try {
+      const url = getApiUrl('/permission/manageConversationMemory')
+      const response = await httpClient.post(url, payload)
+      return response.data
+    } catch (error) {
+      console.error('[API Service] manageConversationMemory 调用失败:', {
+        payload,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
   }
 
   public static getInstance(): ApiService {
@@ -229,17 +254,13 @@ export class ApiService {
       const url = getAppUpdateUrl()
       console.log("url",url)
       const response = await httpClient.get<any>(url)
-
-      console.log("response", response);
       const data = response?.data ?? response
       if (!data) {
-        console.log("服务器更新数据为空");
         return null
       }
 
       const versionName: string = data.VersionName || data.versionName || ''
       if (!versionName) {
-        console.log("服务器版本号为空");
         return null
       }
 
@@ -620,11 +641,16 @@ export class ApiService {
 
   /**
    * 发送聊天消息至 AI（基于轮询机制实现打字机效果）
+   * @param message 聊天消息请求
+   * @param onComplete 完成回调
+   * @param onStream 流式内容回调
+   * @param onHistoryUpdate 历史消息更新回调（用于同步后端全量历史）
    */
   public async sendChatMessage(
     message: AiChatMessageRequest,
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
+    onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
     try {
       // 第1步：验证 dstUrl 是否存在
@@ -636,7 +662,7 @@ export class ApiService {
       const url = getApiUrl(message.dstUrl)
 
       // 第3步：开始轮询聊天
-      return await this.pollChatMessage(message, url, onComplete, onStream)
+      return await this.pollChatMessage(message, url, onComplete, onStream, '', generateUniqueId('ai'), onHistoryUpdate)
     } catch (error) {
       const errorResult = {
         success: false,
@@ -665,6 +691,7 @@ export class ApiService {
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
+    onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
     try {
       // 1. 直接使用 message 作为请求体
@@ -686,7 +713,8 @@ export class ApiService {
         onComplete,
         onStream,
         accumulatedContent,
-        messageId
+        messageId,
+        onHistoryUpdate
       )
     } catch (error) {
       console.error('[API Service] 轮询异常:', {
@@ -744,24 +772,33 @@ export class ApiService {
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
+    onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
-    // 检查响应是否成功
-    if (!response.success || !response.data) {
+    // 第0步：基础校验
+    if (!response || !response.success || !response.data) {
       console.warn('[API Service] 响应失败:', {
         messageId,
-        success: response.success,
-        hasData: !!response.data,
-        accumulatedContentLength: accumulatedContent.length
+        success: response?.success,
+        hasData: !!response?.data,
+        accumulatedContentLength: accumulatedContent.length,
       })
-      return this.createErrorResult(messageId, accumulatedContent || '请求失败，请重试。', onComplete, onStream)
+      return this.createErrorResult(
+        messageId,
+        accumulatedContent || '请求失败，请重试。',
+        onComplete,
+        onStream,
+      )
     }
 
-    const chunk = response.data.message || ''
-    const trimmedChunk = chunk.trim()
+    // 兼容两种返回格式：优先使用 data.message，其次回退到顶层 message
+    const rawMessage =
+      response.data && response.data.message != null
+        ? response.data.message
+        : response.message ?? ''
+    const trimmedChunk = String(rawMessage).trim()
 
-    // 根据响应内容类型进行处理
+    // 第1步：处理结束标记
     if (trimmedChunk === 'end') {
-      // 轮询结束 - 返回最终结果
       return this.handlePollingEnd(
         messageId,
         accumulatedContent,
@@ -772,18 +809,89 @@ export class ApiService {
       )
     }
 
-    // 如果本次返回仅为换行符（例如 "\n"、"\r\n"），不累积内容，只继续轮询
-    if (/^[\r\n]+$/.test(chunk)) {
-      return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
+    // 第2步：基于 rawMessage（单行 data: {...} 或普通文本）解析 SSE，提取 content
+    let textChunk = ''
+    let hasHistoryOnlyPayload = false
+    let parsedPayload: SSEPayload | null = null
+    try {
+      const raw = String(rawMessage).trim()
+
+      // 后端保证每次只有一行 data:，因此这里只需处理单行
+      if (raw.startsWith('data:')) {
+        const jsonStr = raw.slice('data:'.length).trim()
+        if (jsonStr) {
+          try {
+            parsedPayload = JSON.parse(jsonStr) as SSEPayload
+
+            if (typeof parsedPayload.content === 'string' && parsedPayload.content.length > 0) {
+              // 正常内容帧：直接使用 content 作为文本片段
+              textChunk = parsedPayload.content
+            } else if (
+              parsedPayload &&
+              parsedPayload.history_messages &&
+              Array.isArray(parsedPayload.history_messages) &&
+              (!parsedPayload.content || parsedPayload.content.length === 0)
+            ) {
+              // 仅包含 history_messages 的控制帧，记录标记，后面避免回退到原始 rawMessage
+              hasHistoryOnlyPayload = true
+            }
+            
+            // 第2.1步：如果有 history_messages，触发回调同步到前端
+            if (
+              onHistoryUpdate &&
+              parsedPayload.history_messages &&
+              Array.isArray(parsedPayload.history_messages) &&
+              parsedPayload.history_messages.length > 0
+            ) {
+              onHistoryUpdate(
+                parsedPayload.history_messages as BackendHistoryMessage[],
+                parsedPayload.agent_status
+              )
+            }
+          } catch (e) {
+            console.warn('[API Service] SSE 行解析失败:', { raw, error: e })
+          }
+        }
+      } else {
+        // 非 data: 开头，视为普通文本
+        textChunk = raw
+      }
+    } catch (e) {
+      console.warn('[API Service] SSE 消息解析异常，将回退到原始 message 文本:', {
+        messageId,
+        error: e,
+      })
     }
 
-    if (trimmedChunk !== '') {
-      // 有新内容 - 累积内容并继续轮询
-      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
+    // 如果是仅携带 history_messages 的控制帧，则视为“无可见文本”，避免把 JSON 打到气泡中
+    let effectiveChunk = ''
+    if (!(hasHistoryOnlyPayload && textChunk === '')) {
+      // 如果成功解析出 SSE 内容或前置纯文本，则以解析出的文本为准；否则回退到原始 message 文本
+      effectiveChunk = textChunk !== '' ? textChunk : String(rawMessage)
+    }
+
+    // 第3步：根据内容类型进行处理
+    if (/^[\r\n]+$/.test(effectiveChunk)) {
+      // 仅有换行符，不累积内容，只继续轮询
+      return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
+    }
+
+    if (effectiveChunk.trim() !== '') {
+      // 有新内容：累积内容并继续轮询
+      return this.handleNewContent(
+        effectiveChunk,
+        message,
+        url,
+        onComplete,
+        onStream,
+        accumulatedContent,
+        messageId,
+        onHistoryUpdate,
+      )
     }
 
     // 空内容但未结束 - 继续轮询
-    return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
+    return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
   }
 
   /**
@@ -830,11 +938,17 @@ export class ApiService {
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
+    onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ) {
     const newAccumulatedContent = accumulatedContent + chunk
     // 发送流式数据
     if (onStream) {
-      onStream(chunk, false)
+      try {
+        onStream(chunk, false)
+        console.log('[API Service] onStream', { messageId, chunk })
+      } catch (e) {
+        console.error('[API Service] onStream error', { messageId, error: e })
+      }
     }
 
     // 设置为继续轮询并递归调用
@@ -846,6 +960,7 @@ export class ApiService {
       onStream,
       newAccumulatedContent,
       messageId,
+      onHistoryUpdate,
     )
   }
 
@@ -860,6 +975,7 @@ export class ApiService {
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
+    onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ) {
     const continueMessage = { ...message, reason: 'continue' }
     return await this.pollChatMessage(
@@ -869,6 +985,7 @@ export class ApiService {
       onStream,
       accumulatedContent,
       messageId,
+      onHistoryUpdate,
     )
   }
 
@@ -1182,7 +1299,8 @@ export class ApiService {
    * 用户登录（管理员登录）
    * 第1步：发送登录请求
    * 第2步：保存token和用户凭据到localStorage
-   * 第3步：返回token
+   * 第3步：同步登录研伴系统获取YANBAN_TOKEN
+   * 第4步：返回token
    * @param account 账号
    * @param password 密码（明文，与Android端LoginActivity保持一致）
    * @returns Promise<string> 返回token
@@ -1217,7 +1335,15 @@ export class ApiService {
       // 更新登录时间戳，用于会话管理
       localStorage.setItem('lastLoginTime', Date.now().toString())
 
-      // 第3步：返回token
+      // 第3步：同步登录研伴系统获取YANBAN_TOKEN（切换账号后立即更新）
+      try {
+        await this.loginYanban(account, password)
+      } catch (yanbanError) {
+        // 研伴登录失败不影响主登录流程，仅打印警告
+        console.warn('[API] ⚠️ 研伴登录失败，将在需要时自动重试:', yanbanError)
+      }
+
+      // 第4步：返回token
       return token
     } catch (error: unknown) {
       throw new Error(error instanceof Error ? error.message : '登录失败')
@@ -1342,7 +1468,7 @@ export class ApiService {
    */
   public isStudentLoggedIn(): boolean {
     const token = localStorage.getItem('YANBAN_TOKEN')
-    const userId = localStorage.getItem('studentUserId')
+    const userId = localStorage.getItem('userId')
     return !!(token && userId && token !== 'undefined' && userId !== 'undefined' && token.trim() !== '' && userId.trim() !== '')
   }
 
@@ -2581,24 +2707,27 @@ export class ApiService {
 
 }
 
-// 习题分页接口响应类型
+// 习题分页接口响应类型（作业套餐 + 套餐内题目列表）
+export interface TopicQuestionItem {
+  id: string
+  questionData: string
+  [key: string]: unknown
+}
+
 export interface TopicPackageItem {
   id: string
-  bmNo?: string
-  title?: string
-  question?: string
-  questionContent?: string
-  tags?: string[]
-  createTime?: string
+  name?: string
+  tags?: string
+  topicList: TopicQuestionItem[]
   [key: string]: unknown
 }
 
 export interface TopicPackagePageResponse {
   records: TopicPackageItem[]
-  total: number
-  pages: number
-  current: number
-  size: number
+  pageNumber: number
+  pageSize: number
+  totalPage: number
+  totalRow: number
 }
 
 interface TopicPackagePageApiResponse {

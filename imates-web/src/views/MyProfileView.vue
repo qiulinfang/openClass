@@ -285,7 +285,8 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
     // 第4步：生成 sessionId 和 sessionName
-    const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const studentUserId = localStorage.getItem('studentUserId') || ''
+    const aiSessionId = `${studentUserId ? studentUserId + '_' : ''}teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const aiSessionName = subject === 'biology' ? '生物' : '数学'
     
     // 第5步：调用 createTeacherSession 创建或复用会话

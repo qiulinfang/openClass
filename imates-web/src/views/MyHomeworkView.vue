@@ -20,15 +20,19 @@
 
     <div class="content">
       <RubberBandList
+        ref="rubberBandListRef"
         class="homework-list-wrapper"
-        :enable-refresh="false"
-        :enable-load-more="false"
+        :enable-refresh="true"
+        :enable-load-more="hasMore"
+        :is-loading-more="loading"
+        @refresh="handleRefresh"
+        @load-more="handleLoadMore"
       >
         <div class="homework-grid">
           <div v-for="item in homeworkList" :key="item.id" class="homework-card">
             <div class="card-left">
               <div class="card-title-row">
-                <div class="card-title">{{ item.id }}</div>
+                <div class="card-title">{{ item.name }}</div>
                 <div class="card-tags">
                   <span v-for="tag in item.tags" :key="tag" class="card-tag">
                     {{ tag }}
@@ -47,7 +51,7 @@
             </div>
           </div>
         </div>
-        <div class="list-footer">没有更多了</div>
+        <div v-if="!hasMore && !loading && homeworkList.length > 0" class="list-footer">没有更多了</div>
       </RubberBandList>
     </div>
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
@@ -89,16 +93,19 @@ const previewImageUrl = ref('')
 const topicList = ref<TopicPackageItem[]>([])
 const loading = ref(false)
 const pageNumber = ref(0)
+
+// RubberBandList 组件引用
+const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
 const pageSize = ref(20)
 const hasMore = ref(true)
 
 // 获取习题列表
 const fetchTopicPackages = async (reset = false) => {
-  if (loading.value) return
+  if (loading.value && !reset) return
   if (!reset && !hasMore.value) return
   
   if (reset) {
-    pageNumber.value = 0
+    pageNumber.value = 1
     topicList.value = []
     hasMore.value = true
   }
@@ -128,16 +135,41 @@ const fetchTopicPackages = async (reset = false) => {
   }
 }
 
+// 下拉刷新（与 MyResourcesView 保持一致）
+const handleRefresh = async () => {
+  try {
+    await fetchTopicPackages(true)
+  } finally {
+    // 通知 RubberBandList 刷新已完成，复位回弹效果
+    rubberBandListRef.value?.finishRefresh()
+  }
+}
+
+// 上拉加载更多
+const handleLoadMore = async () => {
+  if (!loading.value && hasMore.value) {
+    await fetchTopicPackages(false)
+  }
+}
+
 const homeworkList = computed(() => {
-  return topicList.value.map((q, index) => ({
-    id: q.id || String(index + 1),
-    bmNo: q.bmNo,
-    title: q.title || q.question || `作业${index + 1}`,
-    tags: q.tags || [],
-    date: q.createTime ? q.createTime.slice(0, 10).replace(/-/g, '/') : new Date().toISOString().slice(0, 10).replace(/-/g, '/'),
-    questionContent: q.questionContent || q.question || q.title || '',
-  }))
+  return topicList.value.map((pkg, index) => {
+    const firstTopic = pkg.topicList && pkg.topicList.length > 0 ? pkg.topicList[0] : null
+    return {
+      id: pkg.id || String(index + 1),
+      name: pkg.name || `作业${index + 1}`,
+      // 后端 tags 为字符串，这里拆分为数组，供界面展示使用
+      tags: pkg.tags ? pkg.tags.split(/\s+/).filter(Boolean) : [],
+      // 当前接口未提供明确日期字段，这里暂时使用当天日期，占位展示
+      date: new Date().toISOString().slice(0, 10).replace(/-/g, '/'),
+      // 预览内容：使用套餐中第一题的题干
+      questionContent: firstTopic?.questionData || '',
+      // 保留原始题目列表，供跳转答题时使用
+      topics: pkg.topicList || [],
+    }
+  })
 })
+
 const handleImagePreview = (url: string) => {
   previewImageUrl.value = url
   showImagePreview.value = true
@@ -158,11 +190,11 @@ watch(
 
 const router = useRouter()
 
-const goAnswer = (item: { id: string; bmNo?: string }) => {
-  const payload = homeworkList.value || []
-  // 获取题目ID（优先 bmNo，其次 id），存入 sessionStorage 用于滚动定位
-  const questionId = item.bmNo || item.id
-  sessionStorage.setItem('homeworkReturnQuestionId', questionId)
+const goAnswer = (item: { id: string; topics?: Array<{ id: string; questionData: string }> }) => {
+  const payload = item.topics || []
+  // 使用当前套餐中的第一题ID作为返回定位标记
+  const firstQuestionId = payload.length > 0 ? payload[0].id : item.id
+  sessionStorage.setItem('homeworkReturnQuestionId', firstQuestionId)
 
   router.push({
     name: 'homeworkAnswer',

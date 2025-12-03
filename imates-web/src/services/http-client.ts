@@ -66,15 +66,11 @@ export class HttpClient {
       const routeBaseMap = this.getRouteBaseMap()
       const matchedBase = Object.keys(routeBaseMap).find(prefix => url.startsWith(prefix))
       if (matchedBase) {
-        console.log('111')
         return `${routeBaseMap[matchedBase]}${url}`
       }
-      console.log('222')
       // 流程：无法匹配时回退baseURL（避免file:///）
       return `${this.baseURL}${url}`
     }
-    console.log('333')
-    console.log(`${this.baseURL}${url}`)
     // 流程：http(s)环境下使用baseURL拼接
     return `${this.baseURL}${url}`
   }

@@ -38,7 +38,9 @@ export class AiGeneralStrategy implements ChatStrategy {
       getUserInfo(),
       getSubject(),
       options.selectedModel || 'mate',
-      skipUserMessage
+      skipUserMessage,
+      options.focus,
+      options.quotedMessage,
     )
   }
   

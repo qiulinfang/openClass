@@ -3,78 +3,175 @@
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
     <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
-      <!-- 滚动区域组件 - 使用 BetterScroll -->
-      <div ref="scrollWrapper" class="scroll-wrapper chat-messages">
-        <div class="scroll-content">
-          <div class="messages-wrapper">
-            <!-- 聊天记录加载状态指示器 - 带淡入淡出动画 -->
-            <Transition name="loading-fade" appear>
-              <div v-if="showLoadingIndicator" class="chat-loading-indicator">
-                <q-spinner-dots size="24px" color="primary" />
-                <span class="loading-text">正在加载聊天记录...</span>
-              </div>
-            </Transition>
-
-            <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
-            <div
-              v-for="(message, index) in displayedMessages"
-              :key="message.id"
-              class="message-item"
-              :data-session-id="message.sessionId"
-              :data-message-id="message.id"
-            >
-              <ChatMessageComponent
-                :message="message"
-                :type="type"
-                :is-selected="selectedMessages.has(message.id)"
-                :is-selection-mode="isSelectionMode"
-                :message-index="index"
-                :is-last-message="isLastMessage(index)"
-                @toggle-selection="toggleMessageSelection"
-                @message-click="handleMessageClick"
-                @forward-message="handleForwardMessage"
-                @enter-multi-select="handleEnterMultiSelect"
-                @edit-message="handleEditMessage"
-                @image-loaded="handleImageLoaded"
-                @quote-message="handleQuoteMessage"
-                @scroll-to-message="handleScrollToMessage"
-              />
+      <RubberBandList ref="rubberBandListRef" class="chat-rubber-list">
+        <!-- 空状态：推荐问题列表（仅 AI 题目场景显示；历史加载完成后才显示，避免切题闪烁） -->
+        <div
+          v-if="
+            displayedMessages.length === 0 &&
+            !aiExerciseStore.isChatLoading && 
+            type === 'ai-exercise'
+          "
+          class="empty-chat-state"
+        >
+          <div class="suggestion-header">猜你想问：</div>
+          <div class="suggestion-list">
+            <div v-for="(suggestion, idx) in suggestedQuestions" :key="idx" class="suggestion-item">
+              <!-- 编辑模式：显示输入框 -->
+              <template v-if="editingSuggestionIndex === idx">
+                <input
+                  ref="suggestionInputRef"
+                  v-model="editingSuggestionText"
+                  class="suggestion-input"
+                  placeholder="输入你的常用问题"
+                  @keyup.enter="saveSuggestionEdit(idx)"
+                  @keyup.esc="cancelSuggestionEdit"
+                  @blur="saveSuggestionEdit(idx)"
+                />
+              </template>
+              <!-- 显示模式 -->
+              <template v-else>
+                <span class="suggestion-text" @click="handleSuggestionClick(suggestion)">{{
+                  suggestion
+                }}</span>
+                <div class="suggestion-actions">
+                  <button
+                    class="suggestion-edit-btn"
+                    @click.stop="startEditSuggestion(idx)"
+                    title="编辑"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                  <svg
+                    class="suggestion-arrow"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    @click="handleSuggestionClick(suggestion)"
+                  >
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </div>
+              </template>
             </div>
           </div>
         </div>
-      </div>
+        <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
+        <div
+          v-for="(message, index) in displayedMessages"
+          :key="message.id"
+          class="message-item"
+          :data-session-id="message.sessionId"
+          :data-message-id="message.id"
+        >
+          <ChatMessageComponent
+            :message="message"
+            :type="type"
+            :is-selected="selectedMessages.has(message.id)"
+            :is-selection-mode="isSelectionMode"
+            :message-index="index"
+            :is-last-message="isLastMessage(index)"
+            @toggle-selection="toggleMessageSelection"
+            @message-click="handleMessageClick"
+            @forward-message="handleForwardMessage"
+            @enter-multi-select="handleEnterMultiSelect"
+            @edit-message="handleEditMessage"
+            @image-loaded="handleImageLoaded"
+            @quote-message="handleQuoteMessage"
+            @scroll-to-message="handleScrollToMessage"
+          />
+        </div>
+      </RubberBandList>
 
       <!-- 新消息提示按钮 - 当用户不在底部时显示（原生实现） -->
-      <Transition name="fade">
-        <button
-          v-if="showNewMessageIndicator"
-          class="new-message-indicator"
-          @click="scrollToBottom"
-          title="有新消息，点击查看"
+      <button
+        v-if="showNewMessageIndicator"
+        class="new-message-indicator"
+        @click="scrollToBottom"
+        title="有新消息，点击查看"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 5v14M5 12l7 7 7-7" />
-          </svg>
-        </button>
-      </Transition>
-    </div>
-
-          <!-- 会话列表覆盖层：使用 ChatSessionList 展示多会话管理界面 -->
+          <path d="M12 5v14M5 12l7 7 7-7" />
+        </svg>
+      </button>
+      <!-- 会话列表覆盖层：使用 CardStack 展示多会话管理界面（仅覆盖消息区域） -->
       <Transition name="fade">
-        <div  class="chat-session-list-overlay" @click.self="showSessionListPanel = false">
-          <ChatSessionList />
+        <div
+          v-show="showSessionListPanel"
+          class="chat-session-list-overlay"
+          @click.self="showSessionListPanel = false"
+        >
+          <CardStack
+            ref="cardStackRef"
+            :model-value="sessionCards"
+            empty-text="暂无会话记录"
+            @card-remove-request="handleDeleteSessionRequest"
+            @card-add="handleCreateNewSession"
+            :swipe-to-delete="false"
+          >
+            <!-- 会话卡片内容插槽：聊天记录快照 -->
+            <template #card-body="{ card }">
+              <div class="chat-snapshot" @click="handleSwitchSession(card.id)">
+                <!-- 模拟聊天界面的消息列表（使用 Markdown+公式 渲染前几条消息） -->
+                <div class="snapshot-messages">
+                  <template
+                    v-if="card.previewMessagesMarkdown && card.previewMessagesMarkdown.length"
+                  >
+                    <div
+                      v-for="(content, idx) in card.previewMessagesMarkdown"
+                      :key="idx"
+                      class="snapshot-bubble"
+                      :class="idx % 2 === 0 ? 'user' : 'ai'"
+                    >
+                      <div class="bubble-content">
+                        <div
+                          class="bubble-text line-clamp markdown-content"
+                          v-html="renderMessageContent(content)"
+                          v-mathjax-preview
+                        ></div>
+                      </div>
+                    </div>
+                  </template>
+                  <!-- 空状态 -->
+                  <div v-else class="snapshot-empty">
+                    <span>点击开始对话</span>
+                  </div>
+                </div>
+                <!-- 底部渐变遮罩 -->
+                <div class="snapshot-fade"></div>
+                <!-- 底部信息 -->
+                <div class="snapshot-footer">
+                  <span class="snapshot-count">{{ card.messageCount || 0 }} 条消息</span>
+                  <span class="snapshot-time">{{ card.updateTime || '' }}</span>
+                </div>
+              </div>
+            </template>
+          </CardStack>
         </div>
       </Transition>
+    </div>
     <!-- 选择模式工具栏 - 新设计 -->
     <!-- 功能：当用户进入多选模式时显示，提供批量操作功能，替换 ChatInput 的位置 -->
     <div v-if="isSelectionMode" class="selection-toolbar">
@@ -154,7 +251,12 @@
           @cancel-edit="cancelEditMessage"
           @scroll-to-bottom="scrollToBottom"
           @ask-teacher-click="handleEnterMultiSelect"
-          @focus="() => { isActiveInstance = true; emit('focus') }"
+          @focus="
+            () => {
+              isActiveInstance = true
+              emit('focus')
+            }
+          "
         >
           <!-- 透传 ChatView 的 input-header 插槽到 ChatInput 的 header-prefix 前置插槽 -->
           <template #header-prefix>
@@ -162,7 +264,10 @@
           </template>
           <template #header-suffix>
             <slot name="header-suffix"></slot>
-          </template> 
+          </template>
+          <template #header-right>
+            <slot name="header-right"></slot>
+          </template>
         </ChatInput>
 
         <!-- 简单输入模式 (SimpleChatInput) -->
@@ -173,17 +278,47 @@
           :placeholder="enhancedPlaceholderText"
           :is-loading="isLoading"
           @send="sendSimpleMessage"
-          @focus="() => { isActiveInstance = true; emit('focus') }"
+          @focus="
+            () => {
+              isActiveInstance = true
+              emit('focus')
+            }
+          "
           @blur="onInputBlur"
         />
       </slot>
+
+      <!-- 底部提示文案：移动到输入区域内部底部 -->
+      <div class="chat-footer-text">与学伴共学，敢质疑、会判断，思维不设限!</div>
     </div>
 
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
-    <!-- 底部提示文案 -->
-    <div class="chat-footer-text">与学伴共学，敢质疑、会判断，思维不设限!</div>
+    <!-- 删除会话确认对话框 -->
+    <DraggableDialog
+      v-model="showDeleteConfirmDialog"
+      title="确认删除"
+      :show-footer="false"
+      :initial-width="320"
+      :initial-height="180"
+      :min-width="280"
+      :min-height="150"
+      @cancel="cancelDeleteSession"
+    >
+      <div class="delete-confirm-content">
+        <p class="delete-confirm-text">确认删除「{{ pendingDeleteSessionTitle }}」？</p>
+        <div class="delete-confirm-actions">
+          <CommonActionButton label="取消" variant="ghost" size="md" @click="cancelDeleteSession" />
+          <CommonActionButton
+            label="确认"
+            variant="danger"
+            size="md"
+            @click="confirmDeleteSession"
+          />
+        </div>
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
@@ -191,9 +326,6 @@
 // ==================== 导入依赖 ====================
 // Vue 核心功能
 import { ref, nextTick, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
-
-// Better Scroll
-import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 状态管理和工具函数
 import { useQuestionStore } from '../stores/questionStore'
@@ -205,16 +337,20 @@ import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useImagePicker } from '../composables/useImagePicker'
 import { androidBridge } from '../services/android-bridge'
 import { showMessage } from '../utils'
+import { useMessageRenderer } from '../composables/useMessageRenderer'
 
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
-import ChatSessionList from './ChatSessionList.vue'
+import CardStack from './CardStack.vue'
+import DraggableDialog from './DraggableDialog.vue'
+import CommonActionButton from './CommonActionButton.vue'
+import RubberBandList from './RubberBandList.vue'
 
 // 类型定义导入
-import type { ChatBubble } from '../types'
+import type { ChatBubble, QuotedMessageInfo } from '../types'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -242,6 +378,7 @@ const props = withDefaults(
   }
 )
 
+
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
 const emit = defineEmits<{
   response: [] // 消息发送完成事件
@@ -260,6 +397,8 @@ const emit = defineEmits<{
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
   'remove-screenshot': []
   'send-with-screenshot': [string]
+  'focus-input': [] // 聚焦输入框事件
+  'send-message': [string] // 发送消息事件（用于推荐问题点击）
 }>()
 
 // ==================== 状态管理 ====================
@@ -291,6 +430,9 @@ const getScenarioStore = () => {
   }
 }
 
+// Markdown + 公式渲染工具（用于会话卡片快照）
+const { renderMessageContent } = useMessageRenderer()
+
 // 策略模式：创建聊天策略实例
 const chatStrategy = ref<ChatStrategy>()
 
@@ -311,31 +453,90 @@ const createStrategy = () => {
 }
 
 // 组件引用
-const scrollWrapper = ref<HTMLElement | null>(null) // 滚动区域引用
 const chatViewRef = ref<HTMLElement>() // 聊天视图容器引用
 const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 完整输入组件引用
 const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单输入组件引用
+const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话卡片堆叠组件引用
+const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
 
-// 使用 Better Scroll 组合式函数
-const {
-  init: initBScroll,
-  refresh: refreshBScroll,
-  scrollTo,
-  getInstance,
-} = useBetterScroll(scrollWrapper, {
-  scrollY: true,
-  scrollX: false,
-  click: true,
-  probeType: 2,
-  bounce: {
-    top: true,
-    bottom: true,
-  },
-  bounceTime: 800,
-  deceleration: 0.003,
-  useTransition: true,
-  HWCompositing: true,
+// 会话卡片数据（用于 CardStack v-model）
+const sessionCards = computed(() => {
+  if (props.type === 'ai-exercise' && typeof aiExerciseStore.getSessionCards === 'function') {
+    return aiExerciseStore.getSessionCards()
+  }
+  return []
 })
+
+// 新建会话
+const handleCreateNewSession = async () => {
+  if (props.type === 'ai-exercise') {
+    const question = props.question as { bmNo?: string } | null
+    const questionBmNo = question?.bmNo || ''
+    if (questionBmNo) {
+      await aiExerciseStore.createNewSession(questionBmNo)
+      showSessionListPanel.value = false
+    }
+  }
+}
+
+// 切换会话
+const handleSwitchSession = async (sessionId: string) => {
+  if (props.type === 'ai-exercise') {
+    await aiExerciseStore.switchToSession(sessionId)
+    showSessionListPanel.value = false
+  }
+}
+
+// 删除会话确认对话框状态
+const showDeleteConfirmDialog = ref(false)
+const pendingDeleteSessionId = ref<string | null>(null)
+const pendingDeleteSessionTitle = ref('')
+
+// 请求删除会话（显示确认对话框）
+const handleDeleteSessionRequest = (sessionId: string) => {
+  if (props.type === 'ai-exercise') {
+    // 查找会话标题
+    const session = sessionCards.value.find((s) => s.id === sessionId)
+    pendingDeleteSessionId.value = sessionId
+    pendingDeleteSessionTitle.value = session?.title || '该会话'
+    showDeleteConfirmDialog.value = true
+  }
+}
+
+// 确认删除会话
+const confirmDeleteSession = async () => {
+  if (props.type === 'ai-exercise' && pendingDeleteSessionId.value) {
+    const question = props.question as { bmNo?: string } | null
+    const questionBmNo = question?.bmNo || ''
+
+    // 先执行 CardStack 的删除动画
+    if (cardStackRef.value?.handleRemove) {
+      cardStackRef.value.handleRemove(pendingDeleteSessionId.value)
+    }
+
+    // 然后从 store 中删除数据
+    if (questionBmNo) {
+      await aiExerciseStore.deleteSession(pendingDeleteSessionId.value, questionBmNo)
+    }
+  }
+  // 关闭对话框并清理状态
+  showDeleteConfirmDialog.value = false
+  pendingDeleteSessionId.value = null
+  pendingDeleteSessionTitle.value = ''
+}
+
+// 取消删除会话
+const cancelDeleteSession = () => {
+  showDeleteConfirmDialog.value = false
+  pendingDeleteSessionId.value = null
+  pendingDeleteSessionTitle.value = ''
+}
+
+// 新建会话卡片（兼容旧接口）
+const addSessionCard = (cardData?: Record<string, unknown>) => {
+  handleCreateNewSession()
+  return cardData
+}
 
 // 基础状态变量
 const inputMessage = ref('') // 输入框内容
@@ -405,19 +606,6 @@ const getCSSAnimationParams = () => {
 const enableWebSearch = computed(() => getScenarioStore().enableWebSearch)
 const selectedModel = ref('mate') // 选中的AI模型
 
-// 聊天记录加载状态（从场景Store获取）
-const isChatLoading = computed(() => getScenarioStore().isChatLoading)
-
-// ==================== 加载状态管理 ====================
-// 优化加载指示器显示，避免快速闪烁
-const showLoadingIndicator = ref(false) // 是否显示加载指示器
-const loadingStartTime = ref(0) // 加载开始时间
-const loadingTimeout = ref<ReturnType<typeof setTimeout> | null>(null) // 加载超时定时器
-
-// 加载指示器显示参数
-const MIN_LOADING_DISPLAY_TIME = 300 // 最小显示时间300ms，确保用户能看到加载状态
-const MIN_LOADING_DELAY = 100 // 最小延迟时间100ms，避免极短时间的闪烁
-
 // ==================== 消息管理相关状态 ====================
 // 选择模式相关状态
 const isSelectionMode = ref(false) // 是否处于消息选择模式
@@ -486,6 +674,104 @@ const isLastMessage = (index: number): boolean => {
   const length = displayedMessages.value?.length ?? 0
   return index === length - 1
 }
+
+// ==================== 推荐问题相关 ====================
+// 默认推荐问题
+const DEFAULT_SUGGESTIONS = [
+  '能和我一起分析一下这道题的已知条件和想求的量之间的关系吗？',
+  '这道题通常会用到哪些关键概念或公式？我应该先从哪里入手？',
+  '有没有一个最关键的突破口？我应该关注哪个量的变化？',
+  '能带我对比一下这题和我们最近学的知识点，看是哪里匹配的吗？',
+  '点击编辑自定义问题...',
+]
+
+// 本地存储 key
+const SUGGESTIONS_STORAGE_KEY = 'ai_exercise_suggested_questions'
+
+// 推荐问题列表
+const suggestedQuestions = ref<string[]>([...DEFAULT_SUGGESTIONS])
+
+// 编辑状态
+const editingSuggestionIndex = ref<number | null>(null)
+const editingSuggestionText = ref('')
+
+// 从本地存储加载推荐问题
+const loadSuggestedQuestions = () => {
+  try {
+    const saved = localStorage.getItem(SUGGESTIONS_STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length === 5) {
+        suggestedQuestions.value = parsed
+      }
+    }
+  } catch (e) {
+    console.error('[ChatView] 加载推荐问题失败:', e)
+  }
+}
+
+// 保存推荐问题到本地存储
+const saveSuggestedQuestions = () => {
+  try {
+    localStorage.setItem(SUGGESTIONS_STORAGE_KEY, JSON.stringify(suggestedQuestions.value))
+  } catch (e) {
+    console.error('[ChatView] 保存推荐问题失败:', e)
+  }
+}
+
+// 开始编辑推荐问题
+const startEditSuggestion = (index: number) => {
+  editingSuggestionIndex.value = index
+  editingSuggestionText.value = suggestedQuestions.value[index]
+  // 下一帧聚焦输入框
+  nextTick(() => {
+    const input = document.querySelector('.suggestion-input') as HTMLInputElement
+    input?.focus()
+    input?.select()
+  })
+}
+
+// 保存编辑
+const saveSuggestionEdit = (index: number) => {
+  if (editingSuggestionIndex.value !== index) return
+
+  const newText = editingSuggestionText.value.trim()
+  if (newText) {
+    suggestedQuestions.value[index] = newText
+    saveSuggestedQuestions()
+  }
+  editingSuggestionIndex.value = null
+  editingSuggestionText.value = ''
+}
+
+// 取消编辑
+const cancelSuggestionEdit = () => {
+  editingSuggestionIndex.value = null
+  editingSuggestionText.value = ''
+}
+
+// 点击推荐问题
+const handleSuggestionClick = (suggestion: string) => {
+  // 如果正在编辑，不响应点击
+  if (editingSuggestionIndex.value !== null) return
+
+  // 如果是默认的占位文本，提示编辑
+  if (suggestion === '点击编辑自定义问题...') {
+    const idx = suggestedQuestions.value.indexOf(suggestion)
+    if (idx !== -1) {
+      startEditSuggestion(idx)
+    }
+    return
+  }
+
+  // 直接发送该问题
+  emit('send-message', suggestion)
+}
+
+// 组件挂载时加载保存的推荐问题
+onMounted(() => {
+  loadSuggestedQuestions()
+})
 
 // ==================== 编辑功能相关状态 ====================
 const isEditingMessage = ref(false) // 是否正在编辑消息
@@ -638,7 +924,9 @@ const hardResetKeyboardState = () => {
 const handleKeyboardHidden = () => {
   // 如果当前不是激活实例，不做动画，但需要硬重置键盘状态，防止旧状态影响下次显示
   if (!isActiveInstance.value) {
-    console.log('[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only')
+    console.log(
+      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only'
+    )
     hardResetKeyboardState()
     return
   }
@@ -945,21 +1233,21 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
-    // 如果有引用消息，将引用内容作为 focus 参数传递，同时传递引用消息信息用于展示
-    const focusContent = quotedMessage.value?.content || undefined
+    // 如果有引用消息，将其映射为 QuotedMessageInfo：sender 使用 human/ai 语义
     const quotedMessageInfo = quotedMessage.value
       ? {
           id: quotedMessage.value.id,
           content: quotedMessage.value.content,
-          sender: quotedMessage.value.sender,
+          sender: quotedMessage.value.sender === 'user' ? 'human' : 'ai',
         }
       : undefined
+    const focus = quotedMessageInfo ? [quotedMessageInfo] : undefined
     quotedMessage.value = null
     await chatStrategy.value?.sendMessage(messageContent, {
       selectedModel: selectedModel.value,
       // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
       currentQuestion: currentQuestion.value ?? undefined,
-      focus: focusContent, // 引用的内容（发送给后端）
+      focus,
       quotedMessage: quotedMessageInfo, // 引用的消息信息（用于消息气泡展示）
     })
     await scrollToBottom()
@@ -985,14 +1273,9 @@ const sendMessage = async (attachedFile?: File) => {
 // 作用：滚动聊天区域到底部，确保最新消息可见
 const scrollToBottom = async () => {
   await nextTick()
-  // 关键：刷新 BScroll，让它重新计算内容高度
-  refreshBScroll()
-  await nextTick()
-
-  const bscrollInstance = getInstance()
-  if (bscrollInstance) {
-    const maxScrollY = bscrollInstance.maxScrollY
-    scrollTo(0, maxScrollY, 300)
+  const container = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
+  if (container) {
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
   }
 
   showNewMessageIndicator.value = false
@@ -1009,12 +1292,8 @@ const scrollToSession = async (sessionId: string) => {
   if (props.type !== 'ai-textbook') return
 
   await nextTick()
-  refreshBScroll()
-  await nextTick()
-
-  const bscrollInstance = getInstance()
-  const wrapper = scrollWrapper.value
-  if (!bscrollInstance || !wrapper) return
+  const wrapper = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
+  if (!wrapper) return
 
   // 1. 先清除之前的 session 高亮
   const prevHighlighted = wrapper.querySelectorAll('.message-item.highlight-message')
@@ -1027,7 +1306,8 @@ const scrollToSession = async (sessionId: string) => {
 
   // 3. 滚动到第一条消息元素
   const firstEl = sessionEls[0]
-  bscrollInstance.scrollToElement(firstEl, 300, 0, -50)
+  const top = firstEl.offsetTop - 50
+  wrapper.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' })
 
   // 4. 为该 session 的所有消息元素添加高亮 class
   sessionEls.forEach((el) => el.classList.add('highlight-message'))
@@ -1038,13 +1318,8 @@ const handleScrollToMessage = async (messageId: string) => {
   if (!messageId) return
 
   await nextTick()
-  refreshBScroll()
-  await nextTick()
 
-  const bscrollInstance = getInstance()
-  if (!bscrollInstance) return
-
-  const wrapper = scrollWrapper.value
+  const wrapper = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
   if (!wrapper) return
 
   // 通过 data-message-id 查找目标消息元素
@@ -1052,7 +1327,8 @@ const handleScrollToMessage = async (messageId: string) => {
   const targetEl = wrapper.querySelector(selector) as HTMLElement | null
   if (targetEl) {
     // 滚动到目标元素，并高亮提示
-    bscrollInstance.scrollToElement(targetEl, 300, 0, -50) // 留出50px的顶部间距
+    const top = (targetEl as HTMLElement).offsetTop - 50
+    wrapper.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' })
 
     // 添加高亮效果
     targetEl.classList.add('highlight-message')
@@ -1067,19 +1343,16 @@ const handleScrollToMessage = async (messageId: string) => {
  * 作用：检测用户滚动位置，判断是否在消息列表底部
  */
 const checkIfUserAtBottom = () => {
-  const bscrollInstance = getInstance()
-  if (!bscrollInstance) {
+  const container = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
+  if (!container) {
     isUserAtBottom.value = true
     return
   }
 
-  // 获取当前滚动位置和最大滚动位置
-  const currentY = Math.abs(bscrollInstance.y)
-  const maxScrollY = Math.abs(bscrollInstance.maxScrollY)
-
-  // 允许50px的误差，认为在底部
+  const { scrollTop, clientHeight, scrollHeight } = container
   const threshold = 50
-  isUserAtBottom.value = currentY >= maxScrollY - threshold
+  const distanceToBottom = scrollHeight - scrollTop - clientHeight
+  isUserAtBottom.value = distanceToBottom <= threshold
 }
 
 // 作用：处理输入框失去焦点事件，响应键盘已隐藏状态
@@ -1458,13 +1731,11 @@ const handleForwardMessage = async (message: ChatBubble) => {
 
   try {
     // 使用策略的转发方法（策略内部会处理是否显示对话框）
-    const result = await chatStrategy.value.forwardMessage(
-      message,
-      {
-        showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
-        // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
-        currentQuestion: currentQuestion.value || undefined,
-        onSuccess: async (result) => {
+    const result = await chatStrategy.value.forwardMessage(message, {
+      showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
+      // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
+      currentQuestion: currentQuestion.value || undefined,
+      onSuccess: async (result) => {
         // 转发成功后的回调
         if (result.sessionId) {
           // 触发跳转到老师对话的事件
@@ -1473,13 +1744,12 @@ const handleForwardMessage = async (message: ChatBubble) => {
             message: message,
           })
         }
-        },
-        onError: (error) => {
-          console.error('[ChatView] ❌ 转发失败:', error)
-          showMessage('转发失败: ' + error, 'error')
-        },
-      } as any,
-    )
+      },
+      onError: (error) => {
+        console.error('[ChatView] ❌ 转发失败:', error)
+        showMessage('转发失败: ' + error, 'error')
+      },
+    } as any)
 
     if (!result.success) {
       console.error('[ChatView] ❌ 转发失败:', result.error)
@@ -1500,15 +1770,13 @@ const handleEnterMultiSelect = () => {
 // 处理编辑消息
 // 作用：开始编辑指定消息，将消息内容复制到输入框并设置编辑状态
 // 处理图片加载完成事件
-// 作用：当消息中的图片加载完成后，刷新 BetterScroll 以确保滚动容器高度正确，并滚动到底部
+// 作用：当消息中的图片加载完成后，防抖触发滚动到底部，确保图片完整显示
 const handleImageLoaded = () => {
   // 使用防抖机制，避免多张图片同时加载时频繁刷新
   if (imageLoadRefreshTimer.value) {
     clearTimeout(imageLoadRefreshTimer.value)
   }
   imageLoadRefreshTimer.value = setTimeout(async () => {
-    refreshBScroll()
-    // 刷新后滚动到底部，确保图片完整显示
     await scrollToBottom()
   }, 100) // 100ms 防抖延迟
 }
@@ -1755,13 +2023,11 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
       await handleForwardMessage(selectedMessageList[0])
     } else {
       // 多条消息转发（策略内部会处理是否显示对话框）
-      const result = await chatStrategy.value.forwardMessages(
-        selectedMessageList,
-        {
-          showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
-          // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
-          currentQuestion: currentQuestion.value || undefined,
-          onSuccess: async (result) => {
+      const result = await chatStrategy.value.forwardMessages(selectedMessageList, {
+        showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
+        // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
+        currentQuestion: currentQuestion.value || undefined,
+        onSuccess: async (result) => {
           // 转发成功后的回调
           if (result.sessionId) {
             // 触发跳转到老师对话的事件
@@ -1779,8 +2045,7 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
           console.error('[ChatView] ❌ 批量转发失败:', error)
           showMessage('转发失败: ' + error, 'error')
         },
-      } as any,
-      )
+      } as any)
 
       if (!result.success) {
         console.error('[ChatView] ❌ 批量转发失败:', result.error)
@@ -1896,25 +2161,25 @@ onMounted(async () => {
 
   // 步骤1：初始化聊天消息
   await initializeMessages()
-
-  // 步骤1.5：初始化 BScroll
-  await initBScroll()
-  scrollToBottom()
+  // 步骤1.5：初始化完消息后滚动到底部
+  await scrollToBottom()
 
   // 初始化消息计数
   lastMessageCount.value = getScenarioStore().messages.length
 
   // 添加滚动监听，检测用户是否在底部
-  const bscrollInstance = getInstance()
-  if (bscrollInstance) {
-    bscrollInstance.on('scroll', () => {
-      checkIfUserAtBottom()
-      // 如果用户滚动到底部，隐藏新消息提示按钮
-      if (isUserAtBottom.value) {
-        showNewMessageIndicator.value = false
-      }
-    })
-  }
+  nextTick(() => {
+    const container = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
+    if (container) {
+      container.addEventListener('scroll', () => {
+        checkIfUserAtBottom()
+        // 如果用户滚动到底部，隐藏新消息提示按钮
+        if (isUserAtBottom.value) {
+          showNewMessageIndicator.value = false
+        }
+      })
+    }
+  })
 
   // 步骤2：初始化动态键盘高度
   setTimeout(() => {
@@ -1942,13 +2207,7 @@ onUnmounted(() => {
 
   // 步骤1：清理全局事件监听器
   cleanupGlobalEventListeners()
-
-  // 步骤2：清理定时器
-  if (loadingTimeout.value) {
-    clearTimeout(loadingTimeout.value)
-  }
-
-  // 步骤3：清理老师消息监听器（仅在老师模式下）
+  // 步骤2：清理老师消息监听器（仅在老师模式下）
   // 注意：回调函数 window.onTeacherMessageReceived 由 teacherGeneralChatStore 统一管理
   // 不应该在这里清理，因为：
   // 1. 回调函数是全局的，应该在应用生命周期中保持存在
@@ -1964,45 +2223,6 @@ onUnmounted(() => {
 })
 
 // ==================== 监听器 ====================
-// 加载指示器控制监听器
-// 注意：由于涉及定时器副作用，不能使用 computed，使用 watchEffect 简化代码
-watchEffect(() => {
-  // 清除之前的定时器
-  if (loadingTimeout.value) {
-    clearTimeout(loadingTimeout.value)
-    loadingTimeout.value = null
-  }
-
-  if (isChatLoading.value) {
-    // 开始加载，先延迟一小段时间再显示，避免极短时间的闪烁
-    loadingStartTime.value = Date.now()
-
-    // 延迟显示加载指示器
-    loadingTimeout.value = setTimeout(() => {
-      // 如果此时仍在加载中，才显示指示器
-      if (isChatLoading.value) {
-        showLoadingIndicator.value = true
-      }
-      loadingTimeout.value = null
-    }, MIN_LOADING_DELAY)
-  } else {
-    // 加载完成，检查是否满足最小显示时间
-    const elapsedTime = Date.now() - loadingStartTime.value
-    const remainingTime = Math.max(0, MIN_LOADING_DISPLAY_TIME - elapsedTime)
-
-    if (remainingTime > 0 && showLoadingIndicator.value) {
-      // 延迟隐藏，确保最小显示时间
-      loadingTimeout.value = setTimeout(() => {
-        showLoadingIndicator.value = false
-        loadingTimeout.value = null
-      }, remainingTime)
-    } else {
-      // 已经显示足够长时间或未显示，立即隐藏
-      showLoadingIndicator.value = false
-    }
-  }
-})
-
 // 图片加载刷新定时器
 const imageLoadRefreshTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
@@ -2011,9 +2231,6 @@ watch(
   () => getScenarioStore().messages,
   (newMessages) => {
     if (newMessages && newMessages.length > 0) {
-      // 刷新 BScroll 以确保内容高度正确
-      refreshBScroll()
-
       // 检测是否有新消息（消息数量增加）
       const hasNewMessage = newMessages.length > lastMessageCount.value
       lastMessageCount.value = newMessages.length
@@ -2117,14 +2334,35 @@ const executeQuestionSwitch = () => {
   })
 }
 
+// 仅用于会话列表面板的滚动：滚动 CardStack 到底部
+const scrollSessionListToBottom = () => {
+  console.log('[ChatView] scrollSessionListToBottom called, cardStackRef =', cardStackRef.value)
+  nextTick(() => {
+    console.log('[ChatView] scrollSessionListToBottom nextTick, cardStackRef =', cardStackRef.value)
+    if (cardStackRef.value?.scrollToBottom) {
+      console.log('[ChatView] calling CardStack.scrollToBottom()')
+      cardStackRef.value.scrollToBottom()
+    } else {
+      console.warn('[ChatView] cardStackRef.scrollToBottom is not available')
+    }
+  })
+}
+
 // 暴露给父组件的方法和状态
 defineExpose({
   inputMessage,
   sendMessage,
   isLoading,
   scrollToBottom,
+  scrollSessionListToBottom,
   scrollToSession,
   handleScrollToMessage,
+  showSessionListPanel,
+  addSessionCard,
+  handleCreateNewSession,
+  handleSwitchSession,
+  handleDeleteSessionRequest,
+  sessionCards,
 })
 </script>
 
@@ -2158,30 +2396,137 @@ defineExpose({
   flex: 1;
   min-height: 0;
   width: 100%;
-  background: #F7F6FF;
-  position: relative;
+  background: #f7f6ff;
+  position: relative; /* 作为会话列表覆盖层的定位容器 */
   z-index: 1; /* 确保消息区域在输入区域下方 */
-}
-
-/* 聊天消息滚动区域 - Better Scroll */
-.scroll-wrapper.chat-messages {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  position: relative;
-  background: #F7F6FF;
-}
-
-.scroll-content {
-  min-height: calc(100% + 1px);
-  background: #F7F6FF;
-}
-
-/* 消息包装器 - 设置内边距和最大宽度 */
-.messages-wrapper {
   padding: 16px 0;
-  max-width: 100%;
-  width: 100%;
+}
+
+/* 会话列表覆盖层：只覆盖消息区域，不遮挡输入区 */
+.chat-session-list-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* 聊天快照样式 - 模拟聊天界面 */
+.chat-snapshot {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.snapshot-messages {
+  flex: 1;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+/* 消息气泡 */
+.snapshot-bubble {
+  display: flex;
+  gap: 8px;
+  max-width: 85%;
+}
+
+.snapshot-bubble.ai {
+  align-self: flex-start;
+}
+
+.snapshot-bubble.user {
+  align-self: flex-end;
+}
+
+/* 气泡内容 */
+.bubble-content {
+  max-width: calc(100% - 36px);
+}
+
+.bubble-text {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.snapshot-bubble.ai .bubble-text {
+  background: #ffffff;
+  color: #374151;
+  border-top-left-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.snapshot-bubble.user .bubble-text {
+  background: linear-gradient(135deg, #7c5cff 0%, #6366f1 100%);
+  color: #ffffff;
+  border-top-right-radius: 4px;
+}
+
+/* 文本截断 */
+.bubble-text.line-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 底部渐变遮罩 */
+.snapshot-fade {
+  position: absolute;
+  bottom: 32px;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.9));
+  pointer-events: none;
+}
+
+/* 底部时间戳 */
+.snapshot-footer {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.snapshot-time {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.snapshot-count {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* 空状态 */
+.snapshot-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* 点击效果 */
+.chat-snapshot {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.chat-snapshot:active {
+  background: linear-gradient(180deg, #eeecff 0%, #f5f5f5 100%);
 }
 
 /* 新消息提示按钮：居中且悬浮在消息区域底部上方 */
@@ -2217,17 +2562,6 @@ defineExpose({
   50% {
     transform: translateY(-10px);
   }
-}
-
-/* 淡入淡出动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 
 /* 选择模式工具栏特定样式 */
@@ -2372,6 +2706,7 @@ defineExpose({
 /* ==================== 输入区域容器样式 ==================== */
 .chat-input-area {
   display: flex;
+  flex-direction: column;
   gap: 0;
 }
 
@@ -2382,7 +2717,8 @@ defineExpose({
   color: #b0b0b0;
   font-size: 12px;
   line-height: 1.5;
-  background: #F7F6FF;
+  background: #f7f6ff;
+  z-index: 111;
 }
 
 /* ==================== 其他样式 ==================== */
@@ -2404,5 +2740,135 @@ defineExpose({
   100% {
     background-color: transparent;
   }
+}
+
+/* ==================== 删除确认对话框样式 ==================== */
+.delete-confirm-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.delete-confirm-text {
+  font-size: 16px;
+  color: #333;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* ==================== 空状态推荐问题样式 ==================== */
+.empty-chat-state {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 70%;
+  background-color: #f6f6f8;
+  border-radius: 10px;
+  margin-left: 10px;
+}
+
+.suggestion-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  padding-left: 2px;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #ffffff;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.suggestion-item:hover {
+  background: #f3f4f6;
+  transform: translateX(2px);
+}
+
+.suggestion-item:active {
+  transform: scale(0.98);
+}
+
+.suggestion-text {
+  flex: 1;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.suggestion-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.suggestion-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #9ca3af;
+  transition: all 0.2s ease;
+  opacity: 1; /* 默认就显示出来 */
+}
+
+.suggestion-item:hover .suggestion-edit-btn {
+  opacity: 1;
+}
+
+.suggestion-edit-btn:hover {
+  background: #e5e7eb;
+  color: #6366f1;
+}
+
+.suggestion-arrow {
+  flex-shrink: 0;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.suggestion-arrow:hover {
+  color: #6366f1;
+}
+
+.suggestion-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #374151;
+  background: transparent;
+  padding: 0;
+  line-height: 1.4;
+}
+
+.suggestion-input::placeholder {
+  color: #9ca3af;
 }
 </style>

@@ -6997,15 +6997,15 @@ Output mode: content
 | File | Content | Line |
 |------|------|------|
 | `imates-web/src\services\api-service.ts` | `localStorage.setItem('studentUserId', response.data.data.userId)` | L1284 |
-| `imates-web/src\services\api-service.ts` | `const userId = localStorage.getItem('studentUserId')` | L1303 |
+| `imates-web/src\services\api-service.ts` | `const userId = localStorage.getItem('userId')` | L1303 |
 | `imates-web/src\services\api-service.ts` | `localStorage.removeItem('studentUserId')` | L1312 |
 | `imates-web/src\utils\user\userId.ts` | `* 优先级：userId（学班管理员） > studentUserId（研伴学生）` | L8 |
 | `imates-web/src\utils\user\userId.ts` | `const legacyStudentId = sanitize(localStorage.getItem('studentUserId'))` | L34 |
 | `imates-web/src\utils\user\userId.ts` | `* 优先级：分区userId > legacy userId/studentUserId` | L73 |
 | `imates-web/src\utils\user\userId.ts` | `const scopedStudentId = getScopedStorageValue('studentUserId')` | L82 |
-| `imates-web/src\views\KnowledgeGraphView.vue` | `const userId = localStorage.getItem('studentUserId')` | L2160 |
-| `imates-web/src\services\resource-storage.ts` | `const userId = localStorage.getItem('studentUserId')` | L126 |
-| `imates-web/src\services\resource-storage.ts` | `const userId = localStorage.getItem('studentUserId')` | L135 |
+| `imates-web/src\views\KnowledgeGraphView.vue` | `const userId = localStorage.getItem('userId')` | L2160 |
+| `imates-web/src\services\resource-storage.ts` | `const userId = localStorage.getItem('userId')` | L126 |
+| `imates-web/src\services\resource-storage.ts` | `const userId = localStorage.getItem('userId')` | L135 |
 
 
 </details>

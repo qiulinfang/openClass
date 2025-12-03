@@ -13,8 +13,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
-import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo } from '../types'
-import { createUserMessage, generateUniqueId, type ChatImageData } from './utils/chatStoreUtils'
+import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, QuotedMessageInfo } from '../types'
+import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
 import { useQuestionStore } from './questionStore'
 import { authStorageService } from '../services/auth-storage-service'
 import { getUserId } from '../services/auth-storage-service'
@@ -30,16 +30,16 @@ const buildAiExerciseMessage = (
   enableWebSearch: boolean,
   selectedModel: string = 'mate',
   imageData?: ChatImageData,
-  sessionId?: string | null
+  sessionId?: string | null,
+  focus?: QuotedMessageInfo[],
 ): AiChatMessageRequest => {
-  // 获取用户ID，从 localStorage 获取
-  const userId = getUserId() || 'User'
   
   // 获取题目ID
   const questionId = currentQuestion.bmNo || ''
   
   // 优先使用传入的 sessionId，如果没有则新建（使用题目ID和时间戳）
-  const finalSessionId = sessionId || `exercise-${questionId}-${Date.now()}`
+  const userId = localStorage.getItem('userId') || ''
+  const finalSessionId = sessionId || `${userId ? userId + '-' : ''}exercise-${questionId}-${Date.now()}`
   
   // 如果有图片数据，使用图片接口
   if (imageData?.base64DataUrl) {
@@ -62,6 +62,7 @@ const buildAiExerciseMessage = (
       subject: subject,
       dstUrl: '/permission/previewPictureQA',
       explanation: currentQuestion.explanation || '',
+      focus,
     }
   }
   
@@ -80,7 +81,30 @@ const buildAiExerciseMessage = (
     chatRole: selectedModel,
     subject: subject,
     dstUrl: '/permission/chatMath',
+    focus,
   }
+}
+
+/**
+ * 会话信息接口
+ */
+export interface ExerciseSession {
+  id: string                    // 会话ID
+  questionBmNo: string          // 关联的题目bmNo
+  title: string                 // 会话标题
+  messages: ChatBubble[]        // 聊天记录
+  chatResponseTimes: number     // AI回复次数
+  createdAt: number             // 创建时间
+  updatedAt: number             // 更新时间
+  // 快照信息（用于CardStack展示）
+  aiMessage?: string            // AI第一条消息
+  userMessage?: string          // 用户第一条消息
+  lastMessage?: string          // 最后一条消息
+  /**
+   * 聊天记录预览（Markdown 源）
+   * 存储前几条消息的原始内容，用于会话卡片中用统一的 Markdown+公式渲染
+   */
+  previewMessagesMarkdown?: string[]
 }
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
@@ -88,11 +112,14 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   const questionStore = useQuestionStore()
   // ==================== 状态定义 ====================
   
-  /** 消息列表 */
+  /** 消息列表（当前会话） */
   const messages = ref<ChatBubble[]>([])
   
   /** 当前会话ID */
   const currentSessionId = ref<string | null>(null)
+  
+  /** 当前题目的所有会话列表 */
+  const sessions = ref<ExerciseSession[]>([])
   
   /** AI回复次数 */
   const chatResponseTimes = ref(0)
@@ -130,18 +157,27 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     selectedModel: string = 'mate',
     imageData?: ChatImageData,
     hidePrefix: boolean = false,
-    skipUserMessage?: boolean
+    skipUserMessage?: boolean,
+    focus?: QuotedMessageInfo[],
+    quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
+    console.log('[AI_EXERCISE] 发送消息:', content)
     // 第1步：验证题目
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
     }
     
     // 第2步：创建用户消息（可选）
-    // 自动检测并去除"我们开始吧"前缀（如果未显式设置hidePrefix）
-    const shouldHidePrefix = hidePrefix || content.includes('我们开始吧')
+    // 自动检测并去除"我们开始吧"前缀（如果未显式设置 shouldHidePrefix）
+    const shouldHidePrefixFlag = hidePrefix || content.includes('我们开始吧')
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(content, imageData, shouldHidePrefix)
+      const userMessage = createUserMessage(
+        content,
+        imageData,
+        shouldHidePrefixFlag,
+        currentSessionId.value || undefined,
+        quotedMessage,
+      )
       messages.value.push(userMessage)
     }
     
@@ -161,11 +197,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     // 第4步：如果没有 sessionId，则新建（基于题目bmNo）
     if (!currentSessionId.value) {
       const questionBmNo = currentQuestion.bmNo || ''
-      const newSessionId = `exercise-${questionBmNo}-${Date.now()}`
-      console.log('[AI_EXERCISE] 创建新会话（基于题目bmNo）', { sessionId: newSessionId, questionBmNo })
+      const userId = localStorage.getItem('userId') || ''
+      const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
       currentSessionId.value = newSessionId
     }
-    if(shouldHidePrefix){
+    if (hidePrefix) {
       content = '我们开始吧'
     }
     // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
@@ -177,23 +213,44 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       enableWebSearch.value,
       selectedModel,
       imageData,
-      currentSessionId.value
+      currentSessionId.value,
+      focus,
     )
     
     try {
-      // 第5步：发送请求
-      const response = await apiService.sendChatMessage(aiRequest)
-      
-      // 第6步：更新临时消息为实际回复
-      const index = messages.value.findIndex(m => m.id === tempReplyId)
-      if (index >= 0) {
-        messages.value[index] = {
-          ...tempReply,
-          content: response.reply || '回复失败',
-          isStreaming: false,
-          messageId: response.messageId
-        }
-      }
+      // 第5步：发送请求（带流式回调）
+      let accumulatedContent = ''
+      const response = await apiService.sendChatMessage(
+        aiRequest,
+        (finalResponse) => {
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index >= 0) {
+            messages.value[index] = {
+              ...tempReply,
+              content: finalResponse.reply || accumulatedContent || '回复失败',
+              isStreaming: false,
+              messageId: finalResponse.messageId,
+            }
+          }
+        },
+        (chunk: string, isComplete: boolean) => {
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index < 0) return
+          if (isComplete) {
+            messages.value[index] = {
+              ...messages.value[index],
+              isStreaming: false,
+            }
+          } else {
+            accumulatedContent += chunk
+            messages.value[index] = {
+              ...messages.value[index],
+              content: accumulatedContent,
+              isStreaming: true,
+            }
+          }
+        },
+      )
       
       // 第7步：更新回复次数
       chatResponseTimes.value++
@@ -207,6 +264,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
         await saveChatHistory(questionBmNo)
+        // 同时保存当前会话到会话列表
+        await saveCurrentSession(questionBmNo)
       }
       
     } catch (error) {
@@ -248,7 +307,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     userInfo: UserInfo | null,
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
-    imageData?: ChatImageData
+    imageData?: ChatImageData,
+    focus?: QuotedMessageInfo[],
+    quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
     // 第1步：验证题目
     if (!currentQuestion) {
@@ -294,29 +355,50 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       enableWebSearch.value,
       selectedModel,
       imageData,
-      currentSessionId.value
+      currentSessionId.value,
+      focus,
     )
     
     try {
-      // 第6步：重新发送请求
-      const response = await apiService.sendChatMessage(aiRequest)
-      
-      // 第7步：判断是否成功
-      const isActuallySuccess = response.success && response.reply && response.reply !== '请求失败，请重试。'
-      
-      // 第8步：更新消息
-      messages.value[index] = {
-        ...message,
-        content: response.reply || '请求失败，请重试。',
-        timestamp: new Date().toISOString(),
-        messageId: response.messageId,
-        isStreaming: false,
-        isError: !isActuallySuccess,
-        canRetry: !isActuallySuccess && (retryCount + 1 < maxRetries),
-        retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
-        originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
-        selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
-      }
+      // 第6步：重新发送请求（带流式回调）
+      let accumulatedContent = ''
+      const response = await apiService.sendChatMessage(
+        aiRequest,
+        (finalResponse) => {
+          const isActuallySuccess =
+            finalResponse.success &&
+            finalResponse.reply &&
+            finalResponse.reply !== '请求失败，请重试。'
+
+          messages.value[index] = {
+            ...message,
+            content: finalResponse.reply || accumulatedContent || '请求失败，请重试。',
+            timestamp: new Date().toISOString(),
+            messageId: finalResponse.messageId,
+            isStreaming: false,
+            isError: !isActuallySuccess,
+            canRetry: !isActuallySuccess && retryCount + 1 < maxRetries,
+            retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
+            originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
+            selectedModel: selectedModel || message.selectedModel || 'mate', // 保留模式信息
+          }
+        },
+        (chunk: string, isComplete: boolean) => {
+          if (isComplete) {
+            messages.value[index] = {
+              ...messages.value[index],
+              isStreaming: false,
+            }
+          } else {
+            accumulatedContent += chunk
+            messages.value[index] = {
+              ...messages.value[index],
+              content: accumulatedContent,
+              isStreaming: true,
+            }
+          }
+        },
+      )
       
       // 第9步：保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
@@ -349,11 +431,12 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   /**
    * 保存聊天历史（AI题目场景）
    */
-  // 约定：此处 questionBmNo 始终使用题目的 bmNo 作为存储键的一部分
+  // 约定：此处 questionBmNo 始终使用题目的 bmNo，
+  // 实际存储键为：ai-exercise-${questionBmNo}-${currentSessionId}
   const saveChatHistory = async (questionBmNo: string): Promise<void> => {
-    if (messages.value.length === 0) return
+    if (!currentSessionId.value || messages.value.length === 0) return
     
-    const storageKey = `ai-exercise-${questionBmNo}`
+    const storageKey = `ai-exercise-${questionBmNo}-${currentSessionId.value}`
     const historyData: ChatHistoryData = {
       questionId: storageKey,
       messages: messages.value,
@@ -363,7 +446,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     
     try {
       await chatStorage.saveChatHistory(storageKey, historyData)
-      console.log('[AI_EXERCISE] 🔵 保存聊天历史成功:', historyData)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
     }
@@ -376,22 +458,57 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   const loadChatHistory = async (questionBmNo: string): Promise<void> => {
     try {
       isChatLoading.value = true
-      console.log('[AI_EXERCISE] 🔵 loadChatHistory (bmNo):', questionBmNo)
-      const storageKey = `ai-exercise-${questionBmNo}`
-      const historyData = await chatStorage.loadChatHistory(storageKey)
-      console.log('[AI_EXERCISE] 🔵 historyData:', historyData)
-      if (historyData) {
-        messages.value = historyData.messages || []
-        chatResponseTimes.value = historyData.chatResponseTimes || 0
+      
+      // 关键：切换题目时，先清空上一题的 currentSessionId，避免把上一题的会话 ID 带到新题目
+      // 这样在后续 switchToSession 保存"当前会话"时，不会误用上一题的 sessionId
+      currentSessionId.value = null
+      
+      // 同时加载会话列表
+      await loadSessionsList(questionBmNo)
+      
+      // 如果还没有任何会话，尝试从旧格式的聊天历史中迁移数据
+      if (sessions.value.length === 0) {
+        const legacyKey = `ai-exercise-${questionBmNo}`
+        try {
+          const legacyData = await chatStorage.loadChatHistory(legacyKey)
+          if (legacyData && Array.isArray(legacyData.messages) && legacyData.messages.length > 0) {
+            
+            // 创建一个默认会话 ID
+            const userId = localStorage.getItem('userId') || ''
+            const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
+            currentSessionId.value = newSessionId
+            messages.value = legacyData.messages || []
+            chatResponseTimes.value = legacyData.chatResponseTimes || 0
+            canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
+            
+            // 保存为当前会话：这一步会
+            // 1）写入会话快照到 ai_exercise_sessions
+            // 2）按新 key 写入完整聊天历史：ai-exercise-${questionBmNo}-${newSessionId}
+            await saveCurrentSession(questionBmNo)
+            
+            // 删除旧的聊天历史 key，避免重复
+            await chatStorage.removeChatHistory(legacyKey)
+          }
+        } catch (migrateError) {
+          console.error('[AI_EXERCISE] ❌ 旧格式聊天历史迁移失败:', migrateError)
+        }
+      }
+      
+      // 尝试恢复最近活跃的会话（包括可能刚迁移生成的会话）
+      if (sessions.value.length > 0) {
+        // 选择最近更新的会话
+        const recentSession = sessions.value.reduce((prev, current) => 
+          (prev.updatedAt > current.updatedAt) ? prev : current
+        )
         
-        // 更新是否可以查看答案（必须根据当前题目的chatResponseTimes判断）
-        canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
-        console.log('[AI_EXERCISE] 🔵 canViewAnswer:', canViewAnswer.value)
+        // 切换到该会话
+        await switchToSession(recentSession.id)
       } else {
-        // 无历史记录，清空状态
+        // 仍然没有任何会话，清空状态并准备创建新会话
         messages.value = []
         chatResponseTimes.value = 0
         canViewAnswer.value = false
+        currentSessionId.value = null
       }
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 加载聊天历史失败:', error)
@@ -413,7 +530,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       await chatStorage.removeChatHistory(storageKey)
       messages.value = []
       chatResponseTimes.value = 0
-      console.log('[AI_EXERCISE] 清空聊天历史，重置 currentSessionId')
       currentSessionId.value = null
       canViewAnswer.value = false
     } catch (error) {
@@ -423,28 +539,70 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   }
   
   /**
-   * 删除单条消息
-   * 
-   * 第1步：从消息列表中删除指定消息
-   * 第2步：保存更新后的聊天历史
+   * 删除消息及其之后的所有消息（AI题目场景）
+   *
+   * 规则：
+   * - 如果选中的是 user 消息：删除该 user 及其之后的所有消息
+   * - 如果选中的是 ai 消息：向前找到最近一条 user 消息，从这条 user 开始删除直到最后
+   * 前端本地与后端 manageConversationMemory(delete_messages) 同步
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
-      // 第1步：查找消息索引
+      // 第1步：查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index < 0) {
         throw new Error('消息不存在')
       }
-      
-      // 第2步：从列表中删除消息
-      messages.value.splice(index, 1)
-      
-      // 第3步：保存更新后的聊天历史（需要题目bmNo，从当前题目获取）
+
+      // 第2步：确定删除起点索引
+      let startIndex = index
+      const target = messages.value[index]
+
+      if (target.sender === 'ai') {
+        // 向前查找最近一条 user 消息
+        for (let i = index - 1; i >= 0; i--) {
+          if (messages.value[i].sender === 'user') {
+            startIndex = i
+            break
+          }
+        }
+      }
+
+      // 第3步：确定用于后端 delete_messages 的起始 message_id
+      // 优先使用起点消息的 backend messageId；如果没有，则向后找第一条带 messageId 的消息
+      let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
+      if (!startBackendMessageId) {
+        for (let i = startIndex; i < messages.value.length; i++) {
+          if (messages.value[i].messageId) {
+            startBackendMessageId = messages.value[i].messageId
+            break
+          }
+        }
+      }
+
+      // 需要题目 bmNo 和当前会话 ID
       const currentQuestion = questionStore.currentQuestion
-      if (currentQuestion) {
-        const questionBmNo = currentQuestion.bmNo
-        if (questionBmNo) {
-          await saveChatHistory(questionBmNo)
+      const questionBmNo = currentQuestion?.bmNo
+
+      // 第4步：先更新本地消息列表（从起点到末尾全部删除）
+      messages.value.splice(startIndex)
+
+      // 第5步：保存更新后的聊天历史
+      if (questionBmNo) {
+        await saveChatHistory(questionBmNo)
+      }
+
+      // 第6步：调用后端 manageConversationMemory，同步删除对应线程的后续历史
+      if (currentSessionId.value && startBackendMessageId) {
+        try {
+          await apiService.manageConversationMemory({
+            command: 'delete_messages',
+            thread_id: currentSessionId.value,
+            message_id: startBackendMessageId,
+            agent_name: 'solvingbot',
+          })
+        } catch (error) {
+          console.warn('[AI_EXERCISE] 删除消息时同步后端记忆失败:', error)
         }
       }
     } catch (error) {
@@ -461,8 +619,242 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     chatResponseTimes.value = 0
     canViewAnswer.value = false
     isChatLoading.value = false
-    console.log('[AI_EXERCISE] 重置状态，重置 currentSessionId')
     currentSessionId.value = null
+  }
+  
+  // ==================== 多会话管理 ====================
+  
+  /**
+   * 从消息列表中提取快照信息
+   */
+  const extractSnapshotFromMessages = (
+    msgs: ChatBubble[]
+  ): { aiMessage?: string; userMessage?: string; lastMessage?: string; previewMessagesMarkdown: string[] } => {
+    const aiMessages = msgs.filter(m => m.type === 'ai' && m.content)
+    const userMessages = msgs.filter(m => m.type === 'user' && m.content)
+    const MAX_PREVIEW = 5
+    const previewMessagesMarkdown = msgs
+      .slice(0, MAX_PREVIEW)
+      .map(m => (typeof m.content === 'string' ? m.content : String(m.content || '')))
+    
+    return {
+      aiMessage: aiMessages[0]?.content?.substring(0, 100),
+      userMessage: userMessages[0]?.content?.substring(0, 100),
+      lastMessage: msgs[msgs.length - 1]?.content?.substring(0, 100),
+      previewMessagesMarkdown,
+    }
+  }
+  
+  /**
+   * 保存当前会话到会话列表
+   */
+  const saveCurrentSession = async (questionBmNo: string): Promise<void> => {
+    if (!currentSessionId.value || messages.value.length === 0) return
+    
+    const snapshot = extractSnapshotFromMessages(messages.value)
+    const now = Date.now()
+    
+    // 查找是否已存在该会话
+    const existingIndex = sessions.value.findIndex(s => s.id === currentSessionId.value)
+    
+    // 完整会话数据（用于内存）
+    const sessionData: ExerciseSession = {
+      id: currentSessionId.value,
+      questionBmNo,
+      title: `会话 ${existingIndex >= 0 ? existingIndex + 1 : sessions.value.length + 1}`,
+      messages: [...messages.value],
+      chatResponseTimes: chatResponseTimes.value,
+      createdAt: existingIndex >= 0 ? sessions.value[existingIndex].createdAt : now,
+      updatedAt: now,
+      ...snapshot,
+    }
+    
+    if (existingIndex >= 0) {
+      sessions.value[existingIndex] = sessionData
+    } else {
+      sessions.value.push(sessionData)
+    }
+    
+    // 持久化：只存储元数据（不含完整消息）
+    await saveSessionsList(questionBmNo)
+    
+    // 单独存储当前会话的消息（使用 chatStorage）
+    await saveChatHistory(questionBmNo)
+  }
+  
+  /**
+   * 保存会话列表到存储（使用 IndexedDB，只存储元数据）
+   */
+  const saveSessionsList = async (questionBmNo: string): Promise<void> => {
+    try {
+      // 只保存元数据，不保存完整消息
+      const metaList = sessions.value.map(s => ({
+        id: s.id,
+        questionBmNo: s.questionBmNo,
+        title: s.title,
+        chatResponseTimes: s.chatResponseTimes,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        messageCount: s.messages.length,
+        aiMessage: s.aiMessage,
+        userMessage: s.userMessage,
+        lastMessage: s.lastMessage,
+        previewMessagesMarkdown: s.previewMessagesMarkdown,
+      }))
+      
+      await chatStorage.saveSessionsList(questionBmNo, metaList)
+    } catch (error) {
+      console.error('[AI_EXERCISE] 保存会话列表失败:', error)
+    }
+  }
+  
+  /**
+   * 加载题目的所有会话列表（使用 IndexedDB，只加载元数据）
+   */
+  const loadSessionsList = async (questionBmNo: string): Promise<void> => {
+    try {
+      const metaList = await chatStorage.loadSessionsList(questionBmNo)
+      // 保险：只保留 questionBmNo 与当前题目一致的会话，防止历史 bug 把其它题的会话写进来
+      const filteredMetaList = metaList.filter(meta => meta.questionBmNo === questionBmNo)
+
+      if (filteredMetaList.length > 0) {
+        // 将元数据转换为完整会话结构（messages 为空，需要时再加载）
+        sessions.value = filteredMetaList.map(meta => ({
+          ...meta,
+          messages: [], // 消息按需加载
+          previewMessagesMarkdown: meta.previewMessagesMarkdown || [],
+        }))
+      } else {
+        sessions.value = []
+      }
+    } catch (error) {
+      console.error('[AI_EXERCISE] 加载会话列表失败:', error)
+      sessions.value = []
+    }
+  }
+  
+  /**
+   * 切换到指定会话
+   */
+  const switchToSession = async (sessionId: string): Promise<void> => {
+    const session = sessions.value.find(s => s.id === sessionId)
+    if (!session) {
+      console.error('[AI_EXERCISE] 会话不存在:', sessionId)
+      return
+    }
+    
+    // 切换前保存当前会话（包含完整消息和会话快照）
+    if (currentSessionId.value && messages.value.length > 0) {
+      // 注意：这里要用“当前会话”所属题目的 questionBmNo，而不是目标会话的
+      const prevSession = sessions.value.find(s => s.id === currentSessionId.value)
+      if (prevSession) {
+        await saveCurrentSession(prevSession.questionBmNo)
+      }
+    }
+    
+    // 加载目标会话的完整聊天历史
+    const storageKey = `ai-exercise-${session.questionBmNo}-${session.id}`
+    try {
+      const historyData = await chatStorage.loadChatHistory(storageKey)
+      if (historyData) {
+        messages.value = historyData.messages || []
+        chatResponseTimes.value = historyData.chatResponseTimes || 0
+      } else {
+        messages.value = []
+        chatResponseTimes.value = 0
+      }
+    } catch (error) {
+      console.error('[AI_EXERCISE] ❌ 加载会话聊天历史失败:', error)
+      messages.value = []
+      chatResponseTimes.value = 0
+    }
+    
+    currentSessionId.value = session.id
+    canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
+  }
+  
+  /**
+   * 创建新会话
+   */
+  const createNewSession = async (questionBmNo: string): Promise<string> => {
+    // 保存当前会话
+    if (currentSessionId.value && messages.value.length > 0) {
+      await saveCurrentSession(questionBmNo)
+    }
+    
+    // 创建新会话ID
+    const userId = localStorage.getItem('userId') || ''
+    const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
+    currentSessionId.value = newSessionId
+    messages.value = []
+    chatResponseTimes.value = 0
+    canViewAnswer.value = false
+    
+    return newSessionId
+  }
+  
+  /**
+   * 删除会话
+   */
+  const deleteSession = async (sessionId: string, questionBmNo: string): Promise<void> => {
+    const index = sessions.value.findIndex(s => s.id === sessionId)
+    if (index < 0) return
+    
+    sessions.value.splice(index, 1)
+    
+    // 如果删除的是当前会话，切换到第一个会话或清空
+    if (currentSessionId.value === sessionId) {
+      if (sessions.value.length > 0) {
+        await switchToSession(sessions.value[0].id)
+      } else {
+        currentSessionId.value = null
+        messages.value = []
+        chatResponseTimes.value = 0
+        canViewAnswer.value = false
+      }
+    }
+    
+    // 同步删除后端记忆（solvingbot）
+    try {
+      await apiService.manageConversationMemory({
+        command: 'delete_thread',
+        thread_id: sessionId,
+        agent_name: 'solvingbot',
+      })
+    } catch (error) {
+      console.warn('[AI_EXERCISE] 删除会话时同步后端记忆失败:', error)
+    }
+
+    // 删除本地存储中的该会话聊天历史
+    try {
+      const storageKey = `ai-exercise-${questionBmNo}-${sessionId}`
+      await chatStorage.removeChatHistory(storageKey)
+    } catch (error) {
+      console.warn('[AI_EXERCISE] 删除会话时清理本地历史失败:', error)
+    }
+
+    await saveSessionsList(questionBmNo)
+  }
+  
+  /**
+   * 获取用于 CardStack 展示的会话卡片数据
+   */
+  const getSessionCards = () => {
+    return sessions.value.map((session, index) => ({
+      id: session.id,
+      title: session.title || `会话 ${index + 1}`,
+      aiMessage: session.aiMessage,
+      userMessage: session.userMessage,
+      lastMessage: session.lastMessage,
+      updateTime: new Date(session.updatedAt).toLocaleString('zh-CN', {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      messageCount: session.messages.length,
+      previewMessagesMarkdown: session.previewMessagesMarkdown || [],
+    }))
   }
   
   // ==================== 返回接口 ====================
@@ -482,6 +874,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     enableWebSearch,
     canViewAnswer,
     VIEW_ANSWER_CHAT_TIMES,
+    currentSessionId,
+    sessions,
     
     // 方法
     sendMessage,
@@ -491,7 +885,15 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     loadChatHistory,
     clearChatHistory,
     resetState,
-    toggleWebSearch
+    toggleWebSearch,
+    
+    // 多会话管理
+    saveCurrentSession,
+    loadSessionsList,
+    switchToSession,
+    createNewSession,
+    deleteSession,
+    getSessionCards,
   }
 })
 

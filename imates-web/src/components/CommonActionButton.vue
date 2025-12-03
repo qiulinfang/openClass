@@ -19,7 +19,7 @@ const props = defineProps<{
   loading?: boolean
   disabled?: boolean
   size?: 'sm' | 'mdCompact' | 'md' | 'lg'
-  variant?: 'primary' | 'outline' | 'ghost'  // 按钮样式变体
+  variant?: 'primary' | 'outline' | 'ghost' | 'danger'  // 按钮样式变体
 }>()
 
 const emit = defineEmits<{
@@ -136,6 +136,17 @@ const handleClick = (evt: MouseEvent) => {
 .common-action-btn--ghost:hover:not(:disabled) {
   background-color: rgba(0, 0, 0, 0.04);
   border-color: #b0b0b0;
+}
+
+/* 危险/删除按钮样式 */
+.common-action-btn--danger {
+  background-color: #ff6b6b;
+  color: #ffffff;
+  border: none;
+}
+
+.common-action-btn--danger:hover:not(:disabled) {
+  background-color: #ee5a5a;
 }
 
 .common-action-btn:disabled {

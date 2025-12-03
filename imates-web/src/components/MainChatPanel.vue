@@ -47,7 +47,13 @@
               :compressed-height="339"
               @open-teacher-dialog="handleOpenTeacherDialog"
               @switch-to-teacher="handleSwitchToTeacher"
-            />
+            >
+              <template #header-right>
+                <div @click="handleNewChatClick" class="add-session-btn">
+                  <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                </div>
+              </template>
+            </ChatView>
             <ChatView
               v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
               type="teacher-general"
@@ -88,6 +94,7 @@ import { showMessage } from '../utils'
 import { authStorageService } from '@/services/auth-storage-service'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
+import addSessionIcon from '/icons/addsession.svg'
 import type { ChatBubble } from '@/types'
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherGeneralChatStore()
@@ -99,6 +106,10 @@ const emit = defineEmits<{
 
 // 引用
 const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
+
+// 老师选择相关状态（与 UnifiedChatDialog 逻辑保持一致）
+const availableTeachers = ref<any[]>([])
+const showTeacherSelectDialog = ref(false)
 
 // Tab 状态
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
@@ -127,6 +138,35 @@ const handleAiSessionDeleted = (
   if (wasCurrentSession) {
     activeCategory.value = 'ai-general'
   }
+}
+
+// 处理新增对话（可以是AI对话或教师对话）
+const handleNewChatClick = async () => {
+  // 根据当前选中的节点类型来决定创建哪种类型的对话
+  const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
+
+  if (selectedCategory === 'biology' || selectedCategory === 'math') {
+    // 如果选中的是教师分类，显示老师选择对话框
+    availableTeachers.value = teacherChatStore.getAvailableTeachers()
+
+    if (availableTeachers.value.length === 0) {
+      showMessage('所有老师都有对话记录', 'info')
+      return
+    }
+
+    showTeacherSelectDialog.value = true
+    return
+  }
+
+  // 默认创建AI对话
+  if (!aiGeneralStore.canCreateSession) {
+    if (!aiGeneralStore.isCreatingSession) {
+      showMessage('请先在当前会话中发送消息', 'warning')
+    }
+    return
+  }
+  aiGeneralStore.resetState()
+  activeCategory.value = 'ai-general'
 }
 
 // 老师会话删除
@@ -352,6 +392,12 @@ const handleSwitchToTeacher = async (forwardData?: {
   flex-direction: column;
   height: 100%;
   background: #ffffff;
+  max-width: 100%;
+}
+
+.add-session-icon {
+  width: 44px;
+  height: 44px;
 }
 
 .empty-chat {

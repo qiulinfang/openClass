@@ -1,18 +1,18 @@
 <template>
   <div class="chat-session-test-view">
     <div class="test-container">
-      <h2>ChatSessionList 组件测试</h2>
+      <h2>CardStack 组件测试</h2>
       
       <div class="component-wrapper">
         <!-- 组件内部已处理卡片宽度，这里只需要让容器 100% 宽度即可 -->
-        <ChatSessionList />
+        <CardStack />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import ChatSessionList from '@/components/ChatSessionList.vue'
+import CardStack from '@/components/CardStack.vue'
 
 defineOptions({
   name: 'ChatSessionTestView',

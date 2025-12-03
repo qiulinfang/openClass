@@ -659,16 +659,6 @@ const mergeServerAndLocalData = (
     }
   })
 
-  // 2. 添加本地独有的教材（如果存在）
-  localTextbooks.forEach((localTextbook) => {
-    const existsInServer = uniqueServerTextbooks.some(
-      (server) => server.textbookId === localTextbook.textbookId,
-    )
-    if (!existsInServer) {
-      mergedTextbooks.push(localTextbook)
-    }
-  })
-
   return mergedTextbooks
 }
 
@@ -1267,10 +1257,10 @@ const confirmDeleteTextbook = async () => {
 
 // 生命周期
 onMounted(async () => {
-  // 第1步：加载资源数据
-  await loadResources()
-
-  // 第2步：清理过期数据 - 延迟到后台执行
+  // 第1步：加载资源数据（始终走服务器刷新路径，保证账号隔离后一致性）
+  await loadResources(true)
+ 
+  // 第2步：启动周期性检查资源更新的定时器（例如每隔5分钟检查一次）
   resourceManager.cleanupExpiredData()
 
   // 定期检查更新（每60分钟）- 延迟启动

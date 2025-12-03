@@ -434,6 +434,7 @@ onUnmounted(async () => {
     overflow: hidden;
     background: #ffffff;
     border-radius: 8px;
+    max-width: 100%;
     
     .empty-chat {
       flex: 1;

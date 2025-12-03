@@ -199,14 +199,78 @@
 - **存储位置**: `aiGeneralChatStore.ts`
 - **生命周期**: 保存聊天记录时存储，删除会话时清除
 
-#### 3.2 AI题目会话存储
+#### 3.2 AI题目会话存储（多会话版）
 
-**特点**：不需要会话列表，直接按题目ID存储消息
+**存储概览**
 
-**消息存储键名**（IndexedDB）：
-- **存储键**: `{userId}_chat_history_ai-exercise-${questionId}`
-- **存储位置**: `aiExerciseChatStore.ts`
-- **生命周期**: 保存聊天记录时存储，删除题目时清除
+| 数据类型 | 存储技术 | 数据库 / 表 | 键格式 | 定义位置 |
+| -------- | -------- | ----------- | ------- | -------- |
+| 会话列表（元数据） | IndexedDB (`localforage`) | `ExerciseSolveApp_{userId}` / `ai_exercise_sessions` | `sessions_${questionBmNo}` | `chat-storage.ts#getSessionsLocalForage` |
+| 聊天记录（消息） | IndexedDB (`localforage`) | `ExerciseSolveApp_{userId}` / `chat_history` | `{userId}_chat_history_ai-exercise-${questionBmNo}` | `chat-storage.ts` |
+
+**会话元数据结构**（`SessionMeta`）
+
+```typescript
+interface SessionMeta {
+  id: string                // 会话ID：exercise-${questionBmNo}-${timestamp}
+  questionBmNo: string      // 题目标识
+  title: string             // 会话标题（默认："默认会话"）
+  chatResponseTimes: number // AI 回复次数
+  createdAt: number         // 创建时间戳
+  updatedAt: number         // 最近更新时间戳
+  messageCount: number      // 消息数量（快照）
+  aiMessage?: string        // 最近的 AI 消息摘要
+  userMessage?: string      // 最近的用户消息摘要
+  lastMessage?: string      // 最后一条消息摘要
+}
+```
+
+**存储流程（`aiExerciseChatStore.ts`）**
+
+1. **加载题目**：`loadChatHistory(questionBmNo)`
+   - 读取 IndexedDB 中的 `sessions_${questionBmNo}`，恢复会话列表到 `sessions` 状态
+   - 若存在会话 → 取 `updatedAt` 最新的会话并调用 `switchToSession(sessionId)`
+   - 若无会话 → 重置消息状态，等待新会话创建
+
+2. **发送/接收消息**：
+   - 消息保存在 `messages` 状态中
+   - 每次发送后调用 `saveChatHistory(questionBmNo)` 将完整消息写入 `chat_history`
+   - 同时调用 `saveCurrentSession(questionBmNo)` 生成快照并写入 `ai_exercise_sessions`
+
+3. **切换会话**：`switchToSession(sessionId)`
+   - 保存当前会话快照到 `ai_exercise_sessions`
+   - 读取目标会话的消息历史（从 `chat_history` 读取 `ai-exercise-${questionBmNo}`）
+
+4. **新建会话**：`createNewSession(questionBmNo)`
+   - 保存当前会话后，生成新 `SessionMeta`
+   - 会话列表写入 IndexedDB，`currentSessionId` 指向新会话
+
+5. **删除会话**：`deleteSession(sessionId, questionBmNo)`
+   - 从 `sessions` 状态移除并写回 IndexedDB
+   - 清理对应的消息历史（保留其他会话数据）
+
+**多会话选择与聊天记录流转**
+
+1. 在 `ChatView` 中点击会话卡片：
+   - 触发 `handleSwitchSession(card.id)`
+   - 调用 `aiExerciseStore.switchToSession(sessionId)`
+
+2. `switchToSession(sessionId)` 内部处理：
+   - 根据 `sessionId` 在 `sessions` 中找到目标会话
+   - 若存在当前会话且有消息：调用 `saveCurrentSession(session.questionBmNo)`
+     - 构造当前会话的 `SessionMeta`（包括 `messageCount`、`aiMessage`、`userMessage`、`lastMessage`）
+     - 写入 `ai_exercise_sessions` 表（`sessions_${questionBmNo}`）
+     - 同时调用 `saveChatHistory(questionBmNo)` 将当前题目的完整消息写入 `chat_history`
+   - 将 `currentSessionId` 切换为目标会话 ID
+   - 将 `messages`、`chatResponseTimes`、`canViewAnswer` 更新为目标会话的状态
+
+3. 在选中的会话中继续对话：
+   - 每次发送消息：
+     - 更新当前会话的 `messages`、`chatResponseTimes`
+     - 调用 `saveChatHistory(questionBmNo)` 持久化完整消息
+     - 调用 `saveCurrentSession(questionBmNo)` 更新会话快照和会话列表
+
+> **注意**：IndexedDB 不可用时会自动降级到 localStorage，同步使用 `{userId}_chat_history_ai-exercise-${questionBmNo}` 键。
 
 #### 3.3 AI教材会话存储
 

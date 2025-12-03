@@ -4,7 +4,7 @@ import { authStorageService } from './auth-storage-service'
 import type { ChatBubble } from '../types/chat'
 
 /**
- * 获取当前用户的 localforage 实例
+ * 获取当前用户的 localforage 实例（聊天历史表）
  * 使用用户ID作为数据库名前缀，实现账号隔离
  * 每个用户拥有独立的 IndexedDB 数据库
  */
@@ -16,6 +16,21 @@ function getUserLocalForage() {
     version: 1.0,
     storeName: 'chat_history', // 存储表名
     description: `练习解题应用聊天记录存储 (用户: ${userId})`
+  })
+}
+
+/**
+ * 获取当前用户的会话列表 localforage 实例
+ * 用于存储 AI 题目会话列表（多会话管理）
+ */
+function getSessionsLocalForage() {
+  const userId = authStorageService.getCurrentUserIdOrDefault()
+  return localforage.createInstance({
+    driver: localforage.INDEXEDDB,
+    name: `ExerciseSolveApp_${userId}`,
+    version: 1.0,
+    storeName: 'ai_exercise_sessions', // 会话列表表名
+    description: `AI题目会话列表存储 (用户: ${userId})`
   })
 }
 
@@ -432,6 +447,81 @@ export class ChatStorageService {
       return null
     }
   }
+
+  // ==================== AI 题目会话列表存储 ====================
+
+  /**
+   * 保存 AI 题目会话列表
+   * @param questionBmNo 题目 bmNo
+   * @param sessions 会话列表元数据
+   */
+  async saveSessionsList(questionBmNo: string, sessions: SessionMeta[]): Promise<void> {
+    try {
+      await this.initialize()
+      const sessionsLocalForage = getSessionsLocalForage()
+      const key = `sessions_${questionBmNo}`
+      // 使用 JSON 深拷贝，确保写入的是可结构化克隆的纯 JSON 数据
+      const plainSessions: SessionMeta[] = JSON.parse(JSON.stringify(sessions))
+      await sessionsLocalForage.setItem(key, plainSessions)
+      console.log('[CHAT_STORAGE] 保存会话列表成功:', questionBmNo, plainSessions.length)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 保存会话列表失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 加载 AI 题目会话列表
+   * @param questionBmNo 题目 bmNo
+   * @returns 会话列表元数据
+   */
+  async loadSessionsList(questionBmNo: string): Promise<SessionMeta[]> {
+    try {
+      await this.initialize()
+      const sessionsLocalForage = getSessionsLocalForage()
+      const key = `sessions_${questionBmNo}`
+      const sessions = await sessionsLocalForage.getItem<SessionMeta[]>(key)
+      console.log('[CHAT_STORAGE] 加载会话列表成功:', questionBmNo, sessions?.length || 0)
+      return sessions || []
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 加载会话列表失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 删除 AI 题目会话列表
+   * @param questionBmNo 题目 bmNo
+   */
+  async removeSessionsList(questionBmNo: string): Promise<void> {
+    try {
+      await this.initialize()
+      const sessionsLocalForage = getSessionsLocalForage()
+      const key = `sessions_${questionBmNo}`
+      await sessionsLocalForage.removeItem(key)
+      console.log('[CHAT_STORAGE] 删除会话列表成功:', questionBmNo)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 删除会话列表失败:', error)
+      throw error
+    }
+  }
+}
+
+/**
+ * 会话元数据接口（不包含完整消息，用于列表存储）
+ */
+export interface SessionMeta {
+  id: string
+  questionBmNo: string
+  title: string
+  chatResponseTimes: number
+  createdAt: number
+  updatedAt: number
+  messageCount: number
+  aiMessage?: string
+  userMessage?: string
+  lastMessage?: string
+  previewMessagesMarkdown?: string[]
 }
 
 // 导出单例实例

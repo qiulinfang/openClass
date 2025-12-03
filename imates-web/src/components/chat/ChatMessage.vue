@@ -72,15 +72,9 @@
             />
             <!-- 文本消息 -->
             <div v-else class="message-text" :ref="(el) => setMessageRef(el)" @click="handleImageClick">
-              <StreamingMessage
-                v-if="message.isStreaming"
-                :content="message.content"
-                :is-streaming="true"
-                :typewriter-speed="30"
-                :ref="(el) => setStreamingRef(el)"
-              />
+              <!-- 错误消息：直接渲染，不使用打字机 -->
               <div
-                v-else-if="message.isError"
+                v-if="message.isError"
                 class="error-message-wrapper"
                 :ref="(el) => setStaticRef(el)"
               >
@@ -91,6 +85,16 @@
                   </div>
                 </div>
               </div>
+              <!-- AI 消息：始终使用 StreamingMessage 组件，支持打字机效果 -->
+              <StreamingMessage
+                v-else-if="message.sender === 'ai' || message.sender === 'teacher'"
+                :content="message.content"
+                :is-streaming="message.isStreaming"
+                :typewriter-speed="30"
+                :enable-typewriter="isLastMessage && !!message.isStreaming"
+                :ref="(el) => setStreamingRef(el)"
+              />
+              <!-- 用户消息：直接渲染 -->
               <div v-else v-html="renderedContent" :ref="(el) => setStaticRef(el)" @click="handleImageClick"></div>
             </div>
 

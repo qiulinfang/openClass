@@ -28,7 +28,7 @@ import {
   validateMessageExists,
   type ChatImageData,
 } from './utils/chatStoreUtils'
-import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
+import type { AiChatMessageRequest, ChatBubble, UserInfo, QuotedMessageInfo, BackendHistoryMessage } from '../types'
 
 interface TextbookChatImageData {
   base64DataUrl: string
@@ -43,7 +43,7 @@ interface BuildTextbookMessageParams {
   imageData?: TextbookChatImageData
   useScreenshotApi?: boolean
   isNewSession?: boolean
-  focus?: string // 引用的消息内容
+  focus?: QuotedMessageInfo[] // 引用的消息列表
 }
 
 const buildAiTextbookMessage = ({
@@ -121,6 +121,64 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   // ==================== 消息管理 ====================
   
   /**
+   * 将后端 history_messages 映射为教材场景下的 ChatBubble 列表
+   * 约定：
+   * - history_messages 为当前会话的全量快照
+   * - human -> user，ai -> ai
+   * - id 同时作为 ChatBubble.id 和 ChatBubble.messageId
+   * - 根据 agentStatus 标记最后一条 ai 消息的 isStreaming
+   * - 保留前端独有字段（quotedMessage、imageData 等），后端不存储这些
+   */
+  const mapHistoryToChatBubbles = (
+    history: BackendHistoryMessage[],
+    agentStatus?: string,
+  ): ChatBubble[] => {
+    // 构建旧消息的 id -> ChatBubble 映射，用于保留前端独有字段
+    const oldMessagesMap = new Map<string, ChatBubble>()
+    for (const msg of messages.value) {
+      if (msg.id) {
+        oldMessagesMap.set(msg.id, msg)
+      }
+    }
+
+    const result: ChatBubble[] = history.map((m) => {
+      const sender: 'user' | 'ai' = m.type === 'human' ? 'user' : 'ai'
+
+      // 从旧消息中查找，保留前端独有字段
+      const oldMsg = oldMessagesMap.get(m.id)
+
+      const bubble: ChatBubble = {
+        id: m.id,
+        messageId: m.id,
+        content: m.content || '',
+        sender,
+        type: sender,
+        timestamp: oldMsg?.timestamp || new Date().toISOString(),
+        messageType: oldMsg?.messageType || 'text',
+        isStreaming: false,
+        // 保留前端独有字段（后端不存储）
+        quotedMessage: oldMsg?.quotedMessage,
+        imageData: oldMsg?.imageData,
+        originalMessage: oldMsg?.originalMessage,
+        canRetry: oldMsg?.canRetry,
+      }
+
+      return bubble
+    })
+
+    if (agentStatus === 'talking' || agentStatus === 'drawing') {
+      for (let i = result.length - 1; i >= 0; i--) {
+        if (result[i].sender === 'ai') {
+          result[i].isStreaming = true
+          break
+        }
+      }
+    }
+
+    return result
+  }
+  
+  /**
    * 添加消息到列表
    */
   const addMessage = (message: ChatBubble): void => {
@@ -151,25 +209,65 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
   
   /**
-   * 删除单条消息
-   * 
-   * 第1步：从消息列表中删除指定消息
-   * 第2步：保存更新后的聊天历史
+   * 删除消息及其之后的所有消息（AI教材场景）
+   *
+   * 规则与通用/解题一致：
+   * - 选中 user：删该 user 及其之后所有消息
+   * - 选中 ai：向前找到最近 user，从那条 user 起删到结尾
+   * 后端使用 backendSessionId 作为 thread_id，agent_name = chatbot
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
-      // 第1步：查找消息索引
+      // 第1步：查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index < 0) {
         throw new Error('消息不存在')
       }
-      
-      // 第2步：从列表中删除消息
-      messages.value.splice(index, 1)
-      
-      // 第3步：保存更新后的聊天历史
+
+      // 第2步：确定删除起点索引
+      let startIndex = index
+      const target = messages.value[index]
+
+      if (target.sender === 'ai') {
+        for (let i = index - 1; i >= 0; i--) {
+          if (messages.value[i].sender === 'user') {
+            startIndex = i
+            break
+          }
+        }
+      }
+
+      // 第3步：确定用于后端 delete_messages 的起始 message_id
+      let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
+      if (!startBackendMessageId) {
+        for (let i = startIndex; i < messages.value.length; i++) {
+          if (messages.value[i].messageId) {
+            startBackendMessageId = messages.value[i].messageId
+            break
+          }
+        }
+      }
+
+      // 第4步：本地删除：从起点到末尾
+      messages.value.splice(startIndex)
+
+      // 第5步：保存更新后的聊天历史
       if (resourceId.value) {
         await saveChatHistory()
+      }
+
+      // 第6步：调用后端 manageConversationMemory（教材场景仍归 chatbot）
+      if (backendSessionId.value && startBackendMessageId) {
+        try {
+          await apiService.manageConversationMemory({
+            command: 'delete_messages',
+            thread_id: backendSessionId.value,
+            message_id: startBackendMessageId,
+            agent_name: 'chatbot',
+          })
+        } catch (error) {
+          console.warn('[AI_TEXTBOOK] 删除消息时同步后端记忆失败:', error)
+        }
       }
     } catch (error) {
       console.error('[AI_TEXTBOOK] ❌ 删除消息失败:', error)
@@ -202,7 +300,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     }
 
     // 3. 都没有，创建新的会话ID并保存
-    const newSessionId = `textbook-session-${Date.now()}`
+    const userId = localStorage.getItem('userId') || ''
+    const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
     console.log('[AI_TEXTBOOK] 创建新 backendSessionId:', newSessionId)
     backendSessionId.value = newSessionId
     return newSessionId
@@ -220,7 +319,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     imageData?: ChatImageData,
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
-    focus?: string, // 引用的消息内容（发送给后端）
+    focus?: QuotedMessageInfo[], // 引用的消息列表（发送给后端）
     quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' } // 引用消息信息（用于消息气泡展示）
   ): Promise<void> => {
     // 第1步：创建并添加用户消息（可选）
@@ -263,12 +362,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
       // 注意：如果 currentSessionId 已经存在（比如从外部设置），则不覆盖它
       if (builderImageData && !currentSessionId.value) {
-        const newSessionId = `textbook-session-${Date.now()}`
+        const userId = localStorage.getItem('userId') || ''
+        const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
         console.log('[AI_TEXTBOOK] 创建新会话（有图片数据）', { sessionId: newSessionId })
         currentSessionId.value = newSessionId
         isNewSession.value = true
       } else if (!currentSessionId.value) {
-        const newSessionId = `textbook-session-${Date.now()}`
+        const userId = localStorage.getItem('userId') || ''
+        const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
         console.log('[AI_TEXTBOOK] 创建新会话（无图片数据）', { sessionId: newSessionId })
         currentSessionId.value = newSessionId
         isNewSession.value = true
@@ -344,7 +445,16 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
               isStreaming: true
             })
           }
-        }
+        },
+        // onHistoryUpdate: 基于后端全量快照同步历史
+        (history: BackendHistoryMessage[], agentStatus?: string) => {
+          if (!history || history.length === 0) return
+          messages.value = mapHistoryToChatBubbles(history, agentStatus)
+          // 同步保存历史，确保刷新后与后端一致
+          saveChatHistory().catch((error) => {
+            console.warn('[AI_TEXTBOOK] 同步 history_messages 保存本地历史失败:', error)
+          })
+        },
       )
       
       // 第8步：处理响应（如果轮询已完成，这里response已经是最终结果）

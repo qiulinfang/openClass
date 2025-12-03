@@ -3,6 +3,7 @@
  */
 
 import type { ChatImageData } from '../../../stores/utils/chatStoreUtils'
+import type { QuotedMessageInfo } from '../../../types'
 
 /**
  * 发送消息的选项
@@ -18,7 +19,7 @@ export interface SendMessageOptions {
   // 当前题目ID，由上层 ChatView 通过 props.questionId 传入
   currentQuestionId?: string
   // 引用的内容，用于发送给后端的 focus 字段
-  focus?: string
+  focus?: QuotedMessageInfo[]
   // 引用的消息信息，用于消息气泡展示
   quotedMessage?: {
     id: string

@@ -213,12 +213,13 @@ const cachedComponents = ref<string[]>([
   // 'htmlViewer',         // HTML 查看器
   // 'videoViewer',        // 视频查看器
   // 'ExerciseSolveView',  // 我的习题页面
-  'MyResourcesView', // 资源下载页面
+  'MyResourcesView', // 资源下载页面（资源页需要每次进入都强制刷新，这里不再缓存）
   // 'DrawingBoardView',   // 画板页面
   // 'FindExerciseView',   // 查找习题页面
   // 'MyFavoritesView',    // 我的收藏页面
   // 'learning',           // 去练习弹窗页（/app/learning）
   // 'learningContent'     // 去练习内容查看页（/app/learning-content）
+  'MyHomeworkView', // 我的作业页面
 ])
 
 // 对话框显示状态
@@ -874,7 +875,7 @@ const handleLogoutClick = async () => {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 12px 8px;
+    padding: 9px 8px;
     margin: 0;
     border-radius: 12px;
     cursor: pointer;

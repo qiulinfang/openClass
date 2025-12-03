@@ -158,7 +158,17 @@ onMounted(async () => {
       const parsed = JSON.parse(decoded)
       console.log(parsed)
       if (Array.isArray(parsed)) {
-        externalQuestions.value = parsed as ExerciseItem[]
+        // MyHomeworkView 传入的是 topics，结构为 { id, questionData }
+        // 这里统一转换为 ExerciseItem，至少补齐 id 和 question 字段
+        externalQuestions.value = parsed.map((item: any) => {
+          const id = (item?.id ?? '').toString()
+          const questionData = (item?.questionData ?? '').toString()
+          const exercise: ExerciseItem = {
+            id,
+            question: questionData,
+          } as ExerciseItem
+          return exercise
+        })
       }
     } catch (e) {
       console.error('[HomeworkAnswerView] 解析路由题目列表失败:', e)
@@ -476,6 +486,7 @@ const handleUploadConfirm = async (photos: string[]) => {
   flex: 1;
   background: #ffffff;
   overflow: hidden;
+  max-width: 100%;
 }
 
 .question-render-hidden {

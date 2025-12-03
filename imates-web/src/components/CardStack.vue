@@ -1,15 +1,10 @@
 <template>
   <div class="app-container">
 
-    <div class="scroll-container">
+    <div ref="scrollContainerRef" class="scroll-container">
       
       <div v-if="cards.length === 0" class="empty-state">
-        <p>无打开的标签页</p>
-        <button class="fab-button" @click="handleReset">
-          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
-            <path :d="ICONS.plus" />
-          </svg>
-        </button>
+        <p>{{ emptyText }}</p>
       </div>
 
       <div v-else class="cards-wrapper">
@@ -26,14 +21,9 @@
               
               <div class="card-header">
                 <div class="card-title-group">
-                  <div class="icon-box" :style="{ color: card.themeColor, backgroundColor: card.themeColor + '15' }">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none">
-                      <path :d="ICONS[card.icon]" />
-                    </svg>
-                  </div>
                   <span class="card-title">{{ card.title }}</span>
                 </div>
-                <button class="close-btn" @click.stop="handleRemove(card.id)" @touchstart.stop>
+                <button class="close-btn" @click.stop="requestRemove(card.id)" @touchstart.stop>
                   <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
                     <path :d="ICONS.x" />
                   </svg>
@@ -41,23 +31,8 @@
               </div>
 
               <div class="card-body">
-                <div class="skeleton-group">
-                  <div class="sk-line w-30"></div>
-                  <div class="sk-block"></div>
-                  <div class="sk-line w-full"></div>
-                  <div class="sk-line w-80"></div>
-                </div>
-
-                <div class="watermark">Quark</div>
-
-                <div class="delete-overlay">
-                  <div class="trash-icon left">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path :d="ICONS.trash" /></svg>
-                  </div>
-                  <div class="trash-icon right">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path :d="ICONS.trash" /></svg>
-                  </div>
-                </div>
+                <!-- 卡片主体内容插槽 -->
+                <slot name="card-body" :card="card"></slot>
               </div>
 
               <div class="highlight-border"></div>
@@ -67,69 +42,119 @@
       </div>
     </div>
 
-    <div class="bottom-bar">
-      <button class="tool-btn add" @click="handleReset">
-        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path :d="ICONS.plus" /></svg>
-      </button>
-      <span class="tab-count">{{ cards.length }}个标签页</span>
-      <div class="tool-btn">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path :d="ICONS.layers" /></svg>
-      </div>
-    </div>
-
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, nextTick, watch, onMounted } from 'vue';
 
-// --- 1. 配置常量 ---
-const CARD_HEIGHT = 550; 
-const HEADER_VISIBLE_HEIGHT = 140;
+// --- 1. Props 定义 ---
+const props = defineProps({
+  // v-model 绑定的卡片数据
+  modelValue: {
+    type: Array,
+    default: null, // null 表示使用内部默认数据
+  },
+  // 空状态提示文字
+  emptyText: {
+    type: String,
+    default: '无打开的标签页',
+  },
+  // 是否启用横向滑动删除功能
+  swipeToDelete: {
+    type: Boolean,
+    default: true,
+  },
+});
 
-// --- 2. 图标路径数据 (替代 Lucide) ---
+// --- 2. Events 定义 ---
+const emit = defineEmits([
+  'update:modelValue', // v-model 更新
+  'card-click',        // 卡片点击
+  'card-remove',       // 卡片删除完成
+  'card-remove-request', // 请求删除卡片（用于显示确认对话框）
+  'card-add',          // 卡片新增
+]);
+
+// --- 3. 配置常量 ---
+const CARD_HEIGHT = 400; 
+const HEADER_VISIBLE_HEIGHT = 160;
+
+// --- 4. 图标路径数据 ---
 const ICONS = {
-  home: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
-  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm10 2l-4.35-4.35",
-  globe: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18c-2.5 0-4.8-3-5.7-7h11.4c-.9 4-3.2 7-5.7 7zm-5.7-9c.9-4 3.2-7 5.7-7s4.8 3 5.7 7H6.3z",
-  book: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z",
-  layers: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
   plus: "M12 5v14M5 12h14",
   x: "M18 6L6 18M6 6l12 12",
-  trash: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
 };
 
-// --- 3. 初始数据 ---
-const INITIAL_CARDS = [
-  { id: 1, title: "主页 - Quark", icon: 'home', themeColor: '#3b82f6' },
-  { id: 2, title: "AI 智能搜索助手", icon: 'search', themeColor: '#f97316' },
-  { id: 3, title: "今日科技热点新闻", icon: 'globe', themeColor: '#3b82f6' },
-  { id: 4, title: "沉浸式阅读模式", icon: 'book', themeColor: '#10b981' },
-  { id: 5, title: "系统多任务管理", icon: 'layers', themeColor: '#8b5cf6' },
-  { id: 6, title: "个人中心", icon: 'user', themeColor: '#ec4899' },
+// --- 5. 默认卡片数据（当外部未传入 modelValue 时使用） ---
+const DEFAULT_CARDS = [
+  { id: 1, title: '默认会话 1' },
+  { id: 2, title: '默认会话 2' },
 ];
 
-// --- 4. 状态管理 ---
-const cards = ref([...INITIAL_CARDS]);
+// --- 6. 内部状态 ---
+const internalCards = ref([...DEFAULT_CARDS]);
 const cardRefs = ref(new Map());
+// 使用普通 ref，避免在 JS 脚本中使用 TS 泛型导致模板 ref 失效
+const scrollContainerRef = ref(null);
 
-// --- 5. 方法逻辑 ---
+// --- 7. 计算属性：实际使用的卡片数据 ---
+const cards = computed({
+  get() {
+    // 如果外部传入了 modelValue，使用外部数据
+    return props.modelValue !== null ? props.modelValue : internalCards.value;
+  },
+  set(newValue) {
+    if (props.modelValue !== null) {
+      // 外部控制模式：通知父组件更新
+      emit('update:modelValue', newValue);
+    } else {
+      // 内部控制模式：直接更新内部状态
+      internalCards.value = newValue;
+    }
+  },
+});
 
+// --- 8. 方法逻辑 ---
+
+// 重置为默认卡片
 const handleReset = () => {
-  cards.value = [...INITIAL_CARDS];
+  cards.value = [...DEFAULT_CARDS];
+};
+
+// 滚动到底部（显示最新的会话卡片区域）
+const scrollToBottom = async () => {
+  await nextTick();
+  const el = scrollContainerRef.value;
+  if (el) {
+    console.log('[CardStack] scrollToBottom before, scrollTop =', el.scrollTop, 'scrollHeight =', el.scrollHeight, 'clientHeight =', el.clientHeight);
+    el.scrollTop = el.scrollHeight;
+    console.log('[CardStack] scrollToBottom after, scrollTop =', el.scrollTop);
+  }
 };
 
 // 标记正在执行删除动画的卡片ID，避免重复触发
 const removingIds = ref(new Set());
 
+// 请求删除卡片（触发事件，由外部决定是否显示确认对话框）
+const requestRemove = (id) => {
+  emit('card-remove-request', id);
+};
+
+// 删除卡片（执行删除动画并移除数据）
 const handleRemove = (id, skipAnimation = false) => {
   // 如果正在删除中，忽略重复调用
   if (removingIds.value.has(id)) return;
   
+  const removeCard = () => {
+    const newCards = cards.value.filter(c => c.id !== id);
+    cards.value = newCards;
+    emit('card-remove', id);
+  };
+  
   // 滑动删除已经有自己的动画，直接移除数据
   if (skipAnimation) {
-    cards.value = cards.value.filter(c => c.id !== id);
+    removeCard();
     return;
   }
   
@@ -145,13 +170,13 @@ const handleRemove = (id, skipAnimation = false) => {
     
     // 动画结束后移除数据
     setTimeout(() => {
-      cards.value = cards.value.filter(c => c.id !== id);
+      removeCard();
       removingIds.value.delete(id);
       cardRefs.value.delete(id);
     }, 300);
   } else {
     // 没有元素引用，直接移除
-    cards.value = cards.value.filter(c => c.id !== id);
+    removeCard();
   }
 };
 
@@ -159,12 +184,17 @@ const setCardRef = (el, id) => {
   if (el) cardRefs.value.set(id, el);
 };
 
+
+onMounted(() => {
+  scrollToBottom();
+});
+
 // 获取卡片样式：核心堆叠逻辑
 const getCardStyle = (index) => {
   return {
     position: 'sticky',
-    top: `${index * 5}px`, // 顶部吸附位置 + 阶梯视差
-    zIndex: index,
+    top: `${index * 5}px`, // 每张卡往下错开一点，形成阶梯
+    zIndex: index, // z-index 保证堆叠顺序
     // 负 margin 实现覆盖效果
     marginTop: index === 0 ? '0px' : `-${CARD_HEIGHT - HEADER_VISIBLE_HEIGHT}px`,
     height: `${CARD_HEIGHT}px`,
@@ -175,6 +205,9 @@ const getCardStyle = (index) => {
 
 // --- 6. 触摸交互逻辑 (原生 Touch) ---
 const onTouchStart = (e, id) => {
+  // 如果禁用了滑动删除，直接返回
+  if (!props.swipeToDelete) return;
+  
   const cardEl = cardRefs.value.get(id);
   if (!cardEl) return;
 
@@ -268,6 +301,32 @@ const onTouchStart = (e, id) => {
   window.addEventListener('touchmove', onTouchMove, { passive: false });
   window.addEventListener('touchend', onTouchEnd);
 };
+// 新建卡片
+const addCard = (cardData = {}) => {
+  const newId = Date.now();
+  const newCard = {
+    id: newId,
+    title: cardData.title || `新会话 ${cards.value.length + 1}`,
+    ...cardData,
+  };
+  
+  // 更新卡片列表（会自动触发 v-model 更新）
+  const newCards = [newCard, ...cards.value];
+  cards.value = newCards;
+  
+  emit('card-add', newCard);
+  scrollToBottom();
+  return newCard;
+};
+
+// 暴露给父组件
+defineExpose({
+  cards,
+  addCard,
+  handleRemove,
+  handleReset,
+  scrollToBottom,
+});
 </script>
 
 
@@ -276,7 +335,7 @@ const onTouchStart = (e, id) => {
 .app-container {
   height: 100vh;
   width: 100%;
-  background-color: #f2f4f6;
+  background-color: #f7f6ff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
   position: relative;
@@ -289,8 +348,7 @@ const onTouchStart = (e, id) => {
 .scroll-container {
   flex: 1;
   overflow-y: auto;
-  scroll-behavior: smooth;
-  padding-bottom: 120px; /* 给底部留空间 */
+  padding-bottom: 230px; /* 给底部留空间 */
   /* 隐藏滚动条 */
   scrollbar-width: none; 
 }
@@ -308,24 +366,6 @@ const onTouchStart = (e, id) => {
   color: #9ca3af;
 }
 
-.fab-button {
-  margin-top: 24px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-.fab-button:active {
-  transform: scale(0.95);
-}
 
 /* --- 卡片样式 --- */
 .cards-wrapper {
@@ -375,14 +415,6 @@ const onTouchStart = (e, id) => {
   gap: 12px;
 }
 
-.icon-box {
-  padding: 6px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .card-title {
   font-size: 14px;
   font-weight: 700;
@@ -411,61 +443,6 @@ const onTouchStart = (e, id) => {
   position: relative;
 }
 
-/* 骨架屏装饰 */
-.skeleton-group {
-  padding: 24px;
-  opacity: 0.5;
-  pointer-events: none;
-}
-.sk-line { height: 16px; background: #e5e7eb; border-radius: 4px; margin-bottom: 12px; }
-.sk-block { height: 180px; background: #e5e7eb; border-radius: 12px; margin-bottom: 16px; width: 100%; }
-.w-30 { width: 30%; }
-.w-80 { width: 80%; }
-.w-full { width: 100%; }
-
-/* 水印 */
-.watermark {
-  position: absolute;
-  bottom: 40px;
-  width: 100%;
-  text-align: center;
-  font-size: 60px;
-  font-weight: 900;
-  color: rgba(0,0,0,0.03);
-  pointer-events: none;
-  letter-spacing: -2px;
-}
-
-/* 删除遮罩层 */
-.delete-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(254, 226, 226, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 32px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-  z-index: 30;
-}
-
-.is-dragging .delete-overlay {
-  opacity: 1;
-}
-
-.trash-icon {
-  color: #ef4444;
-  /* 简单的呼吸动画 */
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
-
 /* 高光边框 */
 .highlight-border {
   position: absolute;
@@ -480,33 +457,46 @@ const onTouchStart = (e, id) => {
   position: absolute;
   bottom: 0;
   width: 100%;
-  height: 64px;
-  background-color: rgba(242, 244, 246, 0.95);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(0,0,0,0.05);
+  height: 56px;
+  background-color: #ffffff;
+  border-top: 1px solid rgba(0,0,0,0.04);
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: space-between;
+  padding: 0 32px;
   z-index: 100;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
-.tool-btn {
-  background: none;
+.bottom-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
   border: none;
-  color: inherit;
-  padding: 8px;
+  background: transparent;
   cursor: pointer;
-  display: flex;
+  color: inherit;
+  font-size: 13px;
 }
 
-.tool-btn.add {
-  color: #2563eb;
+.bottom-action svg {
+  flex-shrink: 0;
 }
 
-.tab-count {
-  font-size: 14px;
+.bottom-action-text {
+  white-space: nowrap;
+}
+
+.bottom-action.primary {
+  color: #4b5563;
   font-weight: 500;
+}
+
+.bottom-action.disabled {
+  color: #d1d5db;
+  cursor: default;
 }
 
 /* --- 列表动画 (Vue TransitionGroup) --- */

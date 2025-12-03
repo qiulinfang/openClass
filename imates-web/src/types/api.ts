@@ -3,6 +3,8 @@
  * 包含所有API请求和响应类型
  */
 
+import type { QuotedMessageInfo } from './chat'
+
 // ========== 聊天相关API ==========
 
 /** AI 聊天消息请求接口 */
@@ -20,7 +22,8 @@ export interface AiChatMessageRequest {
   chatRole: string,
   subject: string,
   explanation?: string
-  focus?: string  // 引用的消息内容
+  /** 引用的消息列表，用于告诉后端当前消息重点参考哪些历史消息 */
+  focus?: QuotedMessageInfo[]
 }
 
 /** 聊天响应接口 */
@@ -29,6 +32,26 @@ export interface ChatResponse {
   messageId: string
   reply: string
   timestamp: number
+}
+
+// ========== 对话记忆管理 API ==========
+
+/** 对话记忆管理指令 */
+export type ManageMemoryCommand = 'delete_messages' | 'delete_thread'
+
+/** 对话记忆管理关联的智能体名称 */
+export type AgentName = 'chatbot' | 'solvingbot'
+
+/** 对话记忆管理请求体 */
+export interface ManageConversationMemoryRequest {
+  /** 操作指令：delete_messages / delete_thread */
+  command: ManageMemoryCommand
+  /** 要操作的对话线程唯一 ID（必填） */
+  thread_id: string
+  /** 起始消息 ID（command 为 delete_messages 时必填，delete_thread 时忽略） */
+  message_id?: string
+  /** 关联智能体名称，仅支持 chatbot / solvingbot */
+  agent_name: AgentName
 }
 
 /** 老师消息响应接口 */

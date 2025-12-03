@@ -46,7 +46,10 @@ export class AiExerciseStrategy implements ChatStrategy {
       getSubject(),
       options.selectedModel || 'mate',
       options.imageData,
-      hidePrefix
+      hidePrefix,
+      options.skipUserMessage,
+      options.focus,
+      options.quotedMessage,
     )
   }
   

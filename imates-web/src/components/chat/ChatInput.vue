@@ -1,38 +1,43 @@
 <template>
   <div class="modern-chat-container">
     <!-- 主容器上方扩展区域：顶部工具条 + 额外插槽内容 -->
-    <div class="chat-input-header">
-      <div class="chat-top-toolbar">
-        <!-- 前置插槽：允许外部在顶部工具条最前面插入内容（如“选中并问”按钮） -->
-        <slot name="header-prefix"></slot>
-
-        <!-- 草稿本 -->
-        <!-- <button type="button" class="toolbar-btn" @click="handleDraftClick">
-          <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
-        </button> -->
-
-        <!-- 公式 -->
-        <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
-          <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
-        </button>
-
-        <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
-        <button
-          v-if="props.type !== 'teacher-general' && props.type !== 'teacher-exercise'"
-          type="button"
-          class="toolbar-btn"
-          @click="handleAskTeacherClick"
-        >
-          <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
-        </button>
+    <div class="chat-input-header-flex">
+      <!-- 左侧：顶部工具条 -->
+      <div class="chat-input-header-left">
+        <div class="chat-top-toolbar">
+          <!-- 前置插槽：允许外部在顶部工具条最前面插入内容（如“选中并问”按钮） -->
+          <slot name="header-prefix"></slot>
+          <slot name="header-middle">
+            <!-- 公式 -->
+            <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
+              <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
+            </button>
+            <!-- 草稿本 -->
+            <!-- <button type="button" class="toolbar-btn" @click="handleDraftClick">
+              <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
+            </button> -->
+            <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
+            <button
+              v-if="props.type !== 'teacher-general' && props.type !== 'teacher-exercise'"
+              type="button"
+              class="toolbar-btn"
+              @click="handleAskTeacherClick"
+            >
+              <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
+            </button>
+          </slot>
+          <!-- 后置插槽：保持原有 header 插槽，方便在工具条下方追加内容 -->
+          <slot name="header-suffix"></slot>
+        </div>
       </div>
-
-      <!-- 后置插槽：保持原有 header 插槽，方便在工具条下方追加内容 -->
-      <slot name="header-suffix"></slot>
+      <!-- 右侧：额外 header 插槽区域 -->
+      <div class="chat-input-header-right">
+        <slot name="header-right"></slot>
+      </div>
     </div>
 
     <!-- 主容器 -->
-    <div class="chat-input-wrapper" ref="inputAreaRef" >
+    <div class="chat-input-wrapper" ref="inputAreaRef">
       <!-- 引用消息区域 -->
       <div v-if="props.quotedMessage" class="quote-bar">
         <div class="quote-content">
@@ -203,7 +208,12 @@
               }"
             >
               <!-- 加载状态图标 -->
-              <img v-if="props.isLoading" :src="waitingIcon" alt="等待中" class="send-loading-icon" />
+              <img
+                v-if="props.isLoading"
+                :src="waitingIcon"
+                alt="等待中"
+                class="send-loading-icon"
+              />
               <!-- 编辑状态图标 -->
               <img v-else-if="props.isEditing" :src="sendIcon" alt="发送" class="send-icon" />
               <!-- 自定义发送图标 -->
@@ -1020,6 +1030,27 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 顶部区域整体：左右分布 */
+.chat-input-header-flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: -4px;
+}
+
+.chat-input-header-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chat-input-header-right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 /* 顶部工具条样式 */
 .chat-top-toolbar {
   display: flex;
@@ -1053,7 +1084,7 @@ defineExpose({
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
-  background: #F7F6FF;
+  background: #f7f6ff;
   z-index: 1000; /* 确保整个输入容器在消息区域上方 */
 }
 
@@ -1063,10 +1094,8 @@ defineExpose({
   /* 使用透明边框 + 多重背景实现渐变描边 */
   border: 2px solid transparent;
   background:
-    /* 内层：白色填充区域 */
-    linear-gradient(#ffffff, #ffffff) padding-box,
-    /* 外层：紫色渐变描边 */
-    linear-gradient(90deg, #7a7cff, #b57cff) border-box;
+    /* 内层：白色填充区域 */ linear-gradient(#ffffff, #ffffff) padding-box,
+    /* 外层：紫色渐变描边 */ linear-gradient(90deg, #7a7cff, #b57cff) border-box;
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
@@ -1166,7 +1195,6 @@ defineExpose({
 .quote-close:hover {
   background: rgba(0, 0, 0, 0.08);
 }
-
 
 /* 附件栏 */
 .attachments-bar {

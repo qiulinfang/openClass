@@ -294,7 +294,8 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     // 使用题目ID和时间戳生成唯一ID
     const timestamp = Date.now()
     const random = Math.random().toString(36).substr(2, 9)
-    return `teacher-exercise-${questionId}-${timestamp}-${random}`
+    const userId = localStorage.getItem('userId') || ''
+    return `${userId ? userId + '-' : ''}teacher-exercise-${questionId}-${timestamp}-${random}`
   }
 
   /**
@@ -338,6 +339,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
   ): Promise<void> => {
+    console.log('[TEACHER_EXERCISE] 发送消息:', content)
     // 第1步：验证题目和会话
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')

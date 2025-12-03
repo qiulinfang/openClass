@@ -24,9 +24,10 @@ export interface ChatImageData {
 }
 
 /**
- * 引用消息信息
+ * UI 层使用的引用消息类型（与 ChatBubble.quotedMessage 对应）
+ * 注意：与后端用的 QuotedMessageInfo 区分开，后者 sender 使用 human/ai
  */
-export interface QuotedMessageInfo {
+export interface ChatQuotedMessage {
   id: string
   content: string
   sender: 'user' | 'ai' | 'teacher'
@@ -40,7 +41,7 @@ export function createUserMessage(
   imageData?: ChatImageData,
   hidePrefix: boolean = false,
   sessionId?: string,
-  quotedMessage?: QuotedMessageInfo,
+  quotedMessage?: ChatQuotedMessage,
 ): ChatBubble {
   // 第1步：处理内容显示
   let displayContent = content

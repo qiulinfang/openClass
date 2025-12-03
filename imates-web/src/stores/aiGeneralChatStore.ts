@@ -13,25 +13,43 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
-import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo } from '../types'
+import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, QuotedMessageInfo } from '../types'
+import type { ChatQuotedMessage } from './utils/chatStoreUtils'
 import { authStorageService } from '../services/auth-storage-service'
 import { getUserId } from '../services/auth-storage-service'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 
+/**
+ * 构建 AI 通用聊天消息请求
+ * @param content 用户输入内容
+ * @param userInfo 用户信息
+ * @param enableWebSearch 是否启用网络搜索
+ * @param chatRole 聊天角色（mate/mentor/researcher）
+ * @param sessionId 会话ID（可选，不传则自动生成）
+ * @param focus 引用的消息列表（可选，用于告诉后端重点参考哪些历史消息）
+ */
 const buildAiGeneralMessage = (
   content: string,
   userInfo: UserInfo | null,
   enableWebSearch: boolean,
   chatRole: string = 'mate',
   sessionId?: string | null,
+  focus?: QuotedMessageInfo[],
 ): AiChatMessageRequest => {
   // 优先使用传入的 sessionId，如果没有则新建
-  const finalSessionId = sessionId || `general-session-${Date.now()}`
-  console.log('finalSessionId', finalSessionId)
+  const createSessionId = (maybeSessionId?: string) => {
+    const userId = localStorage.getItem('userId') || ''
+    const finalSessionId = maybeSessionId || `${userId ? userId + '-' : ''}general-session-${Date.now()}`
+    return {
+      sessionId: finalSessionId,
+      newValue: '1',
+    }
+  }
+  const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
   return {
     sessionId: finalSessionId,
-    newValue: '1',
+    newValue,
     coversation: content,
     question: '',
     answer: '',
@@ -42,6 +60,7 @@ const buildAiGeneralMessage = (
     chatRole,
     subject: '',
     dstUrl: '/permission/chats',
+    focus: focus && focus.length > 0 ? focus : undefined,
   }
 }
 
@@ -79,15 +98,97 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   // （使用本文件内的 buildAiGeneralMessage）
   
   /**
-   * 创建用户消息
+   * 将后端 history_messages 映射为前端 ChatBubble[]
+   * 协议约定：
+   * - history_messages 是全量快照
+   * - 当前 streaming 消息也包含在 history 里
+   * - ID 统一由服务端生成并在前端全链路使用
+   * - 需要保留前端独有字段（quotedMessage、imageData 等），后端不存这些
    */
-  const createUserMessage = (content: string): ChatBubble => {
+  const mapHistoryToChatBubbles = (
+    history: BackendHistoryMessage[],
+    agentStatus?: string,
+  ): ChatBubble[] => {
+    const oldMessages = messages.value
+
+    // 1) 找到前后端共同的前缀长度（按 id / messageId 对比）
+    let prefixLen = 0
+    const maxPrefix = Math.min(oldMessages.length, history.length)
+    while (prefixLen < maxPrefix) {
+      const old = oldMessages[prefixLen]
+      const h = history[prefixLen]
+      const oldId = old.messageId || old.id
+      if (!oldId || oldId !== h.id) break
+      prefixLen++
+    }
+
+    // 2) 构建旧消息的 id -> ChatBubble 映射，用于后续 suffix merge
+    const oldMessagesMap = new Map<string, ChatBubble>()
+    for (const msg of oldMessages) {
+      const key = msg.messageId || msg.id
+      if (key) {
+        oldMessagesMap.set(key, msg)
+      }
+    }
+
+    const result: ChatBubble[] = []
+
+    // 2.1 复用前缀：前缀部分完全一致，直接使用旧消息，保留所有 UI 字段
+    for (let i = 0; i < prefixLen; i++) {
+      result.push(oldMessages[i])
+    }
+
+    // 2.2 从 prefixLen 开始，对新增 history 做映射（必要时 merge 旧字段）
+    for (let i = prefixLen; i < history.length; i++) {
+      const m = history[i]
+      const sender: 'user' | 'ai' = m.type === 'human' ? 'user' : 'ai'
+
+      const oldMsg = oldMessagesMap.get(m.id)
+
+      const bubble: ChatBubble = {
+        id: m.id,            // 直接用服务端 ID，全链路统一
+        messageId: m.id,     // 兼容 messageId 字段
+        content: m.content || '',
+        sender,
+        type: sender,
+        timestamp: oldMsg?.timestamp || new Date().toISOString(),
+        messageType: oldMsg?.messageType || 'text',
+        isStreaming: false,
+        // 保留前端独有字段（后端不存储）
+        quotedMessage: oldMsg?.quotedMessage,
+        imageData: oldMsg?.imageData,
+        originalMessage: oldMsg?.originalMessage,
+        canRetry: oldMsg?.canRetry,
+      }
+
+      result.push(bubble)
+    }
+
+    // 只在“还在说话”时，标记最后一条 AI 消息为 isStreaming=true
+    if (agentStatus === 'talking' || agentStatus === 'drawing') {
+      for (let i = result.length - 1; i >= 0; i--) {
+        if (result[i].sender === 'ai') {
+          result[i].isStreaming = true
+          break
+        }
+      }
+    }
+
+    return result
+  }
+  
+  /**
+   * 创建用户消息
+   * 支持挂前端引用信息（quotedMessage），仅用于 UI 展示，不发送给后端
+   */
+  const createUserMessage = (content: string, quotedMessage?: ChatQuotedMessage): ChatBubble => {
     return {
       id: Date.now().toString(),
       content,
       type: 'user',
       timestamp: new Date().toISOString(),
-      sender: 'user'
+      sender: 'user',
+      quotedMessage,
     }
   }
   
@@ -121,14 +222,24 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 第5步：发送请求
    * 第6步：更新消息
    * 第7步：保存历史
+   * 
+   * @param content 用户输入内容
+   * @param userInfo 用户信息
+   * @param subject 学科
+   * @param selectedModel 选择的模型
+   * @param skipUserMessage 是否跳过创建用户消息
+   * @param focus 引用的消息列表（可选）
    */
   const sendMessage = async (
     content: string,
     userInfo: UserInfo | null,
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
-    skipUserMessage?: boolean
+    skipUserMessage?: boolean,
+    focus?: QuotedMessageInfo[],
+    quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
+    console.log('[AI_GENERAL] 发送消息:', content, focus ? `引用${focus.length}条消息` : '')
     // 第1步：如果没有当前会话，创建新会话
     if (!currentSession.value) {
       await createSession(content)
@@ -136,7 +247,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     
     // 第2步：创建用户消息（可选）
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(content)
+      const userMessage = createUserMessage(content, quotedMessage)
       messages.value.push(userMessage)
     }
     
@@ -144,29 +255,65 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     const { message: tempReply, id: tempReplyId } = createTempReplyMessage(selectedModel)
     messages.value.push(tempReply)
     
-    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
+    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId 和 focus）
     const aiRequest = buildAiGeneralMessage(
       content,
       userInfo,
       enableWebSearch.value,
       selectedModel,
-      currentSession.value?.sessionId
+      currentSession.value?.sessionId,
+      focus,
     )
     
     try {
-      // 第5步：发送请求
-      const response = await apiService.sendChatMessage(aiRequest)
-      
-      // 第6步：更新临时消息为实际回复
-      const index = messages.value.findIndex(m => m.id === tempReplyId)
-      if (index >= 0) {
-        messages.value[index] = {
-          ...tempReply,
-          content: response.reply || '回复失败',
-          isStreaming: false,
-          messageId: response.messageId
-        }
-      }
+      // 第5步：发送请求（带流式回调）
+      let accumulatedContent = ''
+      const response = await apiService.sendChatMessage(
+        aiRequest,
+        // onComplete：轮询结束
+        (finalResponse) => {
+          // 如果有 history_messages 同步，这里的 onComplete 主要用于兜底
+          // 正常情况下 messages 已经被 onHistoryUpdate 覆盖
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index >= 0) {
+            messages.value[index] = {
+              ...tempReply,
+              content: finalResponse.reply || accumulatedContent || '回复失败',
+              isStreaming: false,
+              messageId: finalResponse.messageId,
+            }
+          }
+        },
+        // onStream：流式更新（作为兜底，当后端没有返回 history_messages 时使用）
+        (chunk: string, isComplete: boolean) => {
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index < 0) return
+          if (isComplete) {
+            console.log('[AI_GENERAL] 🟣 AI回复完成:', chunk)
+            messages.value[index] = {
+              ...messages.value[index],
+              isStreaming: false,
+            }
+          } else {
+            console.log('[AI_GENERAL] 🟣 AI回复中:', chunk)
+            accumulatedContent += chunk
+            messages.value[index] = {
+              ...messages.value[index],
+              content: accumulatedContent,
+              isStreaming: true,
+            }
+          }
+        },
+        // onHistoryUpdate：后端全量历史同步（策略A：以 history 为准，直接覆盖本地 messages）
+        (history: BackendHistoryMessage[], agentStatus?: string) => {
+          console.log('[AI_GENERAL] 🔄 收到 history_messages 同步:', {
+            count: history.length,
+            agentStatus,
+          })
+          // 将后端历史映射为 ChatBubble[] 并直接覆盖本地消息
+          messages.value = mapHistoryToChatBubbles(history, agentStatus)
+        },
+      )
       
       // 第7步：保存聊天历史
       await saveChatHistory()
@@ -247,25 +394,53 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     )
     
     try {
-      // 第5步：重新发送请求
-      const response = await apiService.sendChatMessage(aiRequest)
-      
-      // 第6步：判断是否成功
-      const isActuallySuccess = response.success && response.reply && response.reply !== '请求失败，请重试。'
-      
-      // 第7步：更新消息
-      messages.value[index] = {
-        ...message,
-        content: response.reply || '请求失败，请重试。',
-        timestamp: new Date().toISOString(),
-        messageId: response.messageId,
-        isStreaming: false,
-        isError: !isActuallySuccess,
-        canRetry: !isActuallySuccess && (retryCount + 1 < maxRetries),
-        retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
-        originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
-        selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
-      }
+      // 第5步：重新发送请求（带流式回调）
+      let accumulatedContent = ''
+      const response = await apiService.sendChatMessage(
+        aiRequest,
+        (finalResponse) => {
+          const isActuallySuccess =
+            finalResponse.success &&
+            finalResponse.reply &&
+            finalResponse.reply !== '请求失败，请重试。'
+
+          messages.value[index] = {
+            ...message,
+            content: finalResponse.reply || accumulatedContent || '请求失败，请重试。',
+            timestamp: new Date().toISOString(),
+            messageId: finalResponse.messageId,
+            isStreaming: false,
+            isError: !isActuallySuccess,
+            canRetry: !isActuallySuccess && retryCount + 1 < maxRetries,
+            retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
+            originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
+            selectedModel: selectedModel || message.selectedModel || 'mate', // 保留模式信息
+          }
+        },
+        (chunk: string, isComplete: boolean) => {
+          if (isComplete) {
+            messages.value[index] = {
+              ...messages.value[index],
+              isStreaming: false,
+            }
+          } else {
+            accumulatedContent += chunk
+            messages.value[index] = {
+              ...messages.value[index],
+              content: accumulatedContent,
+              isStreaming: true,
+            }
+          }
+        },
+        // onHistoryUpdate：后端全量历史同步
+        (history: BackendHistoryMessage[], agentStatus?: string) => {
+          console.log('[AI_GENERAL] 🔄 重试时收到 history_messages 同步:', {
+            count: history.length,
+            agentStatus,
+          })
+          messages.value = mapHistoryToChatBubbles(history, agentStatus)
+        },
+      )
       
       // 第8步：保存聊天历史
       await saveChatHistory()
@@ -324,8 +499,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第3步：生成会话信息
       const MAX_SESSION_NAME_LENGTH = 20 // 会话名称最大长度（约10个汉字）
+      const userId = localStorage.getItem('userId') || ''
       const newSession: AiGeneralSession = {
-        sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        sessionId: `${userId ? userId + '-' : ''}session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         sessionName: firstMessage.length > MAX_SESSION_NAME_LENGTH 
           ? firstMessage.substring(0, MAX_SESSION_NAME_LENGTH) + '...' 
           : firstMessage,
@@ -533,24 +709,65 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   }
   
   /**
-   * 删除单条消息
-   * 
-   * 第1步：从消息列表中删除指定消息
-   * 第2步：保存更新后的聊天历史
+   * 删除消息及其之后的所有消息（AI通用场景）
+   *
+   * 规则：
+   * - 如果选中的是 user 消息：删除该 user 及其之后的所有消息
+   * - 如果选中的是 ai 消息：向前找到最近一条 user 消息，从这条 user 开始删除直到最后
+   * 本地历史与后端 manageConversationMemory(delete_messages, chatbot) 同步
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
-      // 第1步：查找消息索引
+      // 第1步：查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index < 0) {
         throw new Error('消息不存在')
       }
-      
-      // 第2步：从列表中删除消息
-      messages.value.splice(index, 1)
-      
-      // 第3步：保存更新后的聊天历史
+
+      // 第2步：确定删除起点索引
+      let startIndex = index
+      const target = messages.value[index]
+
+      if (target.sender === 'ai') {
+        // 向前查找最近一条 user 消息
+        for (let i = index - 1; i >= 0; i--) {
+          if (messages.value[i].sender === 'user') {
+            startIndex = i
+            break
+          }
+        }
+      }
+
+      // 第3步：确定用于后端 delete_messages 的起始 message_id
+      let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
+      if (!startBackendMessageId) {
+        for (let i = startIndex; i < messages.value.length; i++) {
+          if (messages.value[i].messageId) {
+            startBackendMessageId = messages.value[i].messageId
+            break
+          }
+        }
+      }
+
+      // 第4步：先更新本地消息列表（从起点到末尾全部删除）
+      messages.value.splice(startIndex)
+
+      // 第5步：保存更新后的聊天历史
       await saveChatHistory()
+
+      // 第6步：调用后端 manageConversationMemory，同步删除对应线程的后续历史
+      if (currentSession.value?.sessionId && startBackendMessageId) {
+        try {
+          await apiService.manageConversationMemory({
+            command: 'delete_messages',
+            thread_id: currentSession.value.sessionId,
+            message_id: startBackendMessageId,
+            agent_name: 'chatbot',
+          })
+        } catch (error) {
+          console.warn('[AI_GENERAL] 删除消息时同步后端记忆失败:', error)
+        }
+      }
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 删除消息失败:', error)
       throw error

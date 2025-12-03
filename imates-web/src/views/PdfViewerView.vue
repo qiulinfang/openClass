@@ -445,9 +445,10 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
     }
     // 为本次截图会话生成会话ID（同时作为存储键使用）
     const now = Date.now()
+    const userId = localStorage.getItem('userId') || ''
     const sessionId = currentResourceId
-      ? `ai-textbook-${currentResourceId}-${now}`
-      : `ai-textbook-${now}`
+      ? `${userId ? userId + '-' : ''}ai-textbook-${currentResourceId}-${now}`
+      : `${userId ? userId + '-' : ''}ai-textbook-${now}`
     aiTextbookStore.currentSessionId = sessionId
 
     // 创建临时图片以获取宽高

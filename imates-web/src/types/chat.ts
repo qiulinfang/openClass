@@ -8,6 +8,17 @@ import type { ExerciseItem } from './exercise'
 
 // ========== 基础聊天类型 ==========
 
+/**
+ * 引用消息信息
+ * 用于 focus 字段，告诉后端当前消息引用了哪些历史消息
+ */
+export interface QuotedMessageInfo {
+  id: string
+  content: string
+  // 后端只区分 human / ai，这里用 human 表示“人类侧”的消息（学生提问等）
+  sender: 'ai' | 'human'
+}
+
 /** 对话记录接口（用于数据存储和传输） */
 export interface ConversationRecord {
   messageId: string
@@ -139,6 +150,7 @@ export interface StreamingMessageProps {
   content: string
   isStreaming?: boolean
   typewriterSpeed?: number // 打字机速度（毫秒）
+  enableTypewriter?: boolean // 是否启用打字机效果
 }
 
 /** ChatView Props接口 */
@@ -189,6 +201,31 @@ export interface QuestionRecord {
   resourceId?: string  // 关联的资源ID，用于加载消息历史
   storageKey?: string  // 存储键，用于加载消息历史（格式：ai-textbook-${resourceId}）
   hasImage?: boolean  // 是否包含图片消息，用于判断接口类型
+}
+
+// ========== 后端历史消息类型 ==========
+
+/**
+ * 后端返回的历史消息结构
+ * 用于 history_messages 字段的类型定义
+ * - id: 服务端生成的唯一标识，前端全链路使用
+ * - content: 消息内容
+ * - type: 消息来源，'ai' 或 'human'
+ */
+export interface BackendHistoryMessage {
+  id: string
+  content: string
+  type: 'ai' | 'human'
+}
+
+/**
+ * SSE 消息载荷类型
+ * 后端通过 data: {...} 格式返回的 JSON 结构
+ */
+export interface SSEPayload {
+  content?: string
+  agent_status?: 'talking' | 'drawing' | 'thinking' | string
+  history_messages?: BackendHistoryMessage[]
 }
 
 // ========== AI通用会话相关类型 ==========
