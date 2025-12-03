@@ -6,7 +6,7 @@ import android.util.Log;
 import com.cosinetech.imates.screencasting.api.DeviceApiClient;
 import com.cosinetech.imates.screencasting.core.ClassroomManager;
 import com.cosinetech.imates.screencasting.core.DeviceManager;
-import com.cosinetech.imates.screencasting.model.DeviceInfo;
+import com.cosinetech.imates.screencasting.model.DeviceLocationInfo;
 import com.cosinetech.imates.screencasting.model.DeviceType;
 import com.cosinetech.imates.screencasting.model.ClassroomInfo;
 import com.cosinetech.imates.screencasting.ui.ClassroomSelectionDialog;
@@ -48,6 +48,7 @@ public class DeviceClientWrapper {
     private final DeviceManager deviceManager;
     private final ClassroomManager classroomManager;
     private ClassroomSelectionDialog classroomDialog;
+    private String baseUrl;
 
     /**
      * 教室选择完成监听器
@@ -75,7 +76,7 @@ public class DeviceClientWrapper {
     public DeviceClientWrapper(Context context, String baseUrl, String deviceId, DeviceType type) {
         this.context = context;
         this.apiClient = new DeviceApiClient(baseUrl);
-        this.deviceManager = new DeviceManager(apiClient, new DeviceInfo(deviceId, type));
+        this.deviceManager = new DeviceManager(apiClient, new DeviceLocationInfo(deviceId, type));
         this.classroomManager = new ClassroomManager();
         Log.d(TAG, "DeviceClientWrapper created with URL: " + baseUrl + ", type: " + type);
     }
@@ -94,9 +95,10 @@ public class DeviceClientWrapper {
                               String deviceId, DeviceType type) {
         this.context = context;
         this.apiClient = new DeviceApiClient(host, port, useHttps);
-        this.deviceManager = new DeviceManager(apiClient, new DeviceInfo(deviceId, type));
+        this.deviceManager = new DeviceManager(apiClient, new DeviceLocationInfo(deviceId, type));
         this.classroomManager = new ClassroomManager();
         String protocol = useHttps ? "HTTPS" : "HTTP";
+        this.baseUrl = useHttps ? "https://" : "http://" + host + ":" + port;
         Log.d(TAG, "DeviceClientWrapper created: " + host + ":" + port + " (" + protocol + "), type: " + type);
     }
 
@@ -113,7 +115,7 @@ public class DeviceClientWrapper {
         // 使用新线程查询，然后显示Dialog
         new Thread(() -> {
             try {
-                String url = getApiBaseUrl() + "/all_classrooms";
+                String url = baseUrl + "/all_classrooms";
                 okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
                 okhttp3.Request request = new okhttp3.Request.Builder().url(url).build();
                 okhttp3.Response response = client.newCall(request).execute();
@@ -121,7 +123,7 @@ public class DeviceClientWrapper {
                 if (response.isSuccessful() && response.body() != null) {
                     String body = response.body().string();
                     JSONObject jsonObject = new JSONObject(body);
-                    JSONObject data = jsonObject.optJSONObject("data");
+                    JSONObject data = jsonObject.optJSONObject("classrooms");
                     
                     if (data != null) {
                         classroomManager.setClassroomTreeData(data);
@@ -147,7 +149,7 @@ public class DeviceClientWrapper {
         classroomDialog.setOnSelectionListener(new ClassroomSelectionDialog.OnSelectionListener() {
             @Override
             public void onSelected(String city, String school, ClassroomInfo classroom) {
-                deviceManager.updateDeviceLocation(city, school, classroom.getId());
+                deviceManager.updateDeviceLocation(city, school, classroom.getName());
                 if (listener != null) {
                     listener.onSelected(city, school, classroom);
                 }
@@ -175,11 +177,11 @@ public class DeviceClientWrapper {
     /**
      * 直接设置位置信息（城市、学校、教室）
      */
-    public boolean setLocation(String city, String school, String classroomId) {
-        boolean success = classroomManager.setLocation(city, school, classroomId);
+    public boolean setLocation(String city, String school, String classroom) {
+        boolean success = classroomManager.setLocation(city, school, classroom);
         if (success) {
-            deviceManager.updateDeviceLocation(city, school, classroomId);
-            Log.d(TAG, "Location set: " + city + " - " + school + " - " + classroomId);
+            deviceManager.updateDeviceLocation(city, school, classroom);
+            Log.d(TAG, "Location set: " + city + " - " + school + " - " + classroom);
         } else {
             Log.w(TAG, "Failed to set location");
         }
@@ -205,13 +207,6 @@ public class DeviceClientWrapper {
      */
     public ClassroomInfo getSelectedClassroom() {
         return classroomManager.getSelectedClassroom();
-    }
-
-    /**
-     * 获取当前选中的教室ID
-     */
-    public String getSelectedClassroomId() {
-        return classroomManager.getSelectedClassroomId();
     }
 
     // ========== 设备注册相关 ==========
@@ -420,13 +415,5 @@ public class DeviceClientWrapper {
         classroomManager.clear();
         dismissClassroomSelectionDialog();
         Log.d(TAG, "DeviceClientWrapper destroyed");
-    }
-
-    /**
-     * 获取API基础URL（内部使用）
-     */
-    private String getApiBaseUrl() {
-        // 这是一个示意，实际应该从apiClient中获取
-        return "http://localhost:8080";
     }
 }

@@ -98,8 +98,8 @@ public class DeviceApiClient {
     /**
      * 查询具体教室详情
      */
-    public ApiResponse getClassroomDetail(String classroomId) {
-        return getRequest("/classroom?id=" + classroomId);
+    public ApiResponse getClassroomDetail(String city, String school, String classroom) {
+        return getRequest("/classroom?city=" + city + "&school=" + school + "&classroom=" + classroom);
     }
 
     /**
@@ -155,11 +155,11 @@ public class DeviceApiClient {
             String responseBody = response.body() != null ? response.body().string() : "{}";
             JSONObject jsonObject = new JSONObject(responseBody);
 
-            String code = jsonObject.optString("code", "");
-            String msg = jsonObject.optString("msg", "");
-            JSONObject data = jsonObject.optJSONObject("data");
+            String code = jsonObject.optString("status", "");
+            String msg = jsonObject.optString("message", "");
+            JSONObject data = jsonObject.optJSONObject("classroom");
 
-            boolean success = response.isSuccessful() && "0".equals(code);
+            boolean success = response.isSuccessful() && "success".equals(code);
 
             Log.d(TAG, "Response code: " + code + ", msg: " + msg);
 

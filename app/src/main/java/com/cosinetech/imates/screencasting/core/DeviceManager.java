@@ -7,11 +7,9 @@ import android.util.Log;
 import com.cosinetech.imates.screencasting.api.DeviceApiClient;
 import com.cosinetech.imates.screencasting.model.ApiResponse;
 import com.cosinetech.imates.screencasting.model.ClassroomInfo;
-import com.cosinetech.imates.screencasting.model.DeviceInfo;
+import com.cosinetech.imates.screencasting.model.DeviceLocationInfo;
 import com.cosinetech.imates.screencasting.model.DeviceType;
 import com.cosinetech.imates.screencasting.listener.DeviceChangeListener;
-import com.cosinetech.imates.screencasting.listener.DeviceChange;
-import com.cosinetech.imates.screencasting.listener.DeviceChangeType;
 
 import org.json.JSONObject;
 
@@ -31,7 +29,7 @@ public class DeviceManager {
     private static final long HEARTBEAT_INTERVAL = 30; // 默认30秒
 
     private final DeviceApiClient apiClient;
-    private final DeviceInfo deviceInfo;
+    private final DeviceLocationInfo deviceLocationInfo;
     private final Handler mainHandler;
     private final List<DeviceChangeListener> changeListeners;
     private final DeviceInfoCache infoCache;
@@ -56,11 +54,11 @@ public class DeviceManager {
     /**
      * 构造函数
      * @param apiClient API客户端
-     * @param deviceInfo 设备信息
+     * @param deviceLocationInfo 设备信息
      */
-    public DeviceManager(DeviceApiClient apiClient, DeviceInfo deviceInfo) {
+    public DeviceManager(DeviceApiClient apiClient, DeviceLocationInfo deviceLocationInfo) {
         this.apiClient = apiClient;
-        this.deviceInfo = deviceInfo;
+        this.deviceLocationInfo = deviceLocationInfo;
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.changeListeners = new CopyOnWriteArrayList<>();
         this.infoCache = new DeviceInfoCache();
@@ -114,13 +112,13 @@ public class DeviceManager {
      * 同步注册设备
      */
     public ApiResponse registerDeviceSync() {
-        String classroom = deviceInfo.getClassroom() != null ? deviceInfo.getClassroom() : "";
+        String classroom = deviceLocationInfo.getClassroom() != null ? deviceLocationInfo.getClassroom() : "";
         
         ApiResponse response = apiClient.register(
-                deviceInfo.getDeviceId(),
-                deviceInfo.getType().getValue(),
-                deviceInfo.getCity() != null ? deviceInfo.getCity() : "",
-                deviceInfo.getSchool() != null ? deviceInfo.getSchool() : "",
+                deviceLocationInfo.getDeviceId(),
+                deviceLocationInfo.getType().getValue(),
+                deviceLocationInfo.getCity() != null ? deviceLocationInfo.getCity() : "",
+                deviceLocationInfo.getSchool() != null ? deviceLocationInfo.getSchool() : "",
                 classroom
         );
 
@@ -145,11 +143,6 @@ public class DeviceManager {
      * 开始心跳（只支持teacher和screen）
      */
     public void startHeartbeat(long intervalSeconds) {
-        if (deviceInfo.getType() == DeviceType.STUDENT) {
-            Log.w(TAG, "Student device does not need heartbeat");
-            return;
-        }
-
         if (isHeartbeatRunning) {
             Log.w(TAG, "Heartbeat is already running");
             return;
@@ -158,9 +151,7 @@ public class DeviceManager {
         heartbeatExecutor = Executors.newScheduledThreadPool(1);
         isHeartbeatRunning = true;
 
-        heartbeatExecutor.scheduleAtFixedRate(() -> {
-            sendHeartbeat();
-        }, 0, intervalSeconds, TimeUnit.SECONDS);
+        heartbeatExecutor.scheduleWithFixedDelay(this::sendHeartbeat, 0, intervalSeconds, TimeUnit.SECONDS);
 
         Log.d(TAG, "Heartbeat started with interval: " + intervalSeconds + "s");
     }
@@ -188,7 +179,12 @@ public class DeviceManager {
      */
     public void sendHeartbeat() {
         new Thread(() -> {
-            sendHeartbeatSync();
+            if(deviceLocationInfo.getType() == DeviceType.STUDENT) {
+                detectDeviceChanges();
+            } else {
+                detectDeviceChanges();
+                sendHeartbeatSync();
+            }
         }).start();
     }
 
@@ -197,8 +193,8 @@ public class DeviceManager {
      */
     public ApiResponse sendHeartbeatSync() {
         ApiResponse response = apiClient.heartbeat(
-                deviceInfo.getDeviceId(),
-                deviceInfo.getType().getValue()
+                deviceLocationInfo.getDeviceId(),
+                deviceLocationInfo.getType().getValue()
         );
 
         if (response.isSuccess()) {
@@ -225,15 +221,15 @@ public class DeviceManager {
      */
     private void detectDeviceChanges() {
         // 只有在设置了教室信息的设备才检测变化
-        String classroomId = deviceInfo.getClassroom();
+        String classroomId = deviceLocationInfo.getClassroom();
         if (classroomId == null || classroomId.isEmpty()) {
             return;
         }
 
         try {
-            ApiResponse response = apiClient.getClassroomDetail(classroomId);
+            ApiResponse response = apiClient.getClassroomDetail(deviceLocationInfo.getCity(), deviceLocationInfo.getSchool(), classroomId);
             if (response.isSuccess()) {
-                ClassroomInfo newClassroomInfo = parseClassroomInfo(response.getData());
+                ClassroomInfo newClassroomInfo = ClassroomInfo.parseClassroomInfo(response.getData());
                 if (newClassroomInfo != null) {
                     detectAndNotifyChanges(newClassroomInfo);
                 }
@@ -248,91 +244,30 @@ public class DeviceManager {
      */
     private void detectAndNotifyChanges(ClassroomInfo newClassroomInfo) {
         ClassroomInfo cachedInfo = infoCache.getCachedClassroomInfo();
-        
-        // 如果是第一次缓存，只更新缓存，不触发监听器
+
+        notifyListeners(cachedInfo, newClassroomInfo);
+
         if (cachedInfo == null) {
-            infoCache.updateCache(newClassroomInfo, deviceInfo.getDeviceId(), null);
-            return;
+            infoCache.updateCache(newClassroomInfo, deviceLocationInfo.getDeviceId(), null);
         }
-
-        // 检测教室信息变化
-        if (!newClassroomInfo.getName().equals(cachedInfo.getName())) {
-            notifyListeners(new DeviceChange(
-                    DeviceChangeType.CLASSROOM_INFO_CHANGED,
-                    deviceInfo.getDeviceId(),
-                    cachedInfo.getName(),
-                    newClassroomInfo.getName()
-            ));
-        }
-
-        if (!newClassroomInfo.getCity().equals(cachedInfo.getCity())) {
-            notifyListeners(new DeviceChange(
-                    DeviceChangeType.CLASSROOM_INFO_CHANGED,
-                    deviceInfo.getDeviceId(),
-                    cachedInfo.getCity(),
-                    newClassroomInfo.getCity()
-            ));
-        }
-
-        if (!newClassroomInfo.getSchool().equals(cachedInfo.getSchool())) {
-            notifyListeners(new DeviceChange(
-                    DeviceChangeType.CLASSROOM_INFO_CHANGED,
-                    deviceInfo.getDeviceId(),
-                    cachedInfo.getSchool(),
-                    newClassroomInfo.getSchool()
-            ));
-        }
-
-        if (newClassroomInfo.getCapacity() != cachedInfo.getCapacity()) {
-            notifyListeners(new DeviceChange(
-                    DeviceChangeType.CLASSROOM_INFO_CHANGED,
-                    deviceInfo.getDeviceId(),
-                    cachedInfo.getCapacity(),
-                    newClassroomInfo.getCapacity()
-            ));
-        }
-
         // 更新缓存
-        infoCache.updateCache(newClassroomInfo, deviceInfo.getDeviceId(), null);
+        infoCache.updateCache(newClassroomInfo, deviceLocationInfo.getDeviceId(), null);
     }
 
     /**
      * 通知所有监听器
      */
-    private void notifyListeners(DeviceChange change) {
-        Log.d(TAG, "Device change detected: " + change);
+    private void notifyListeners(ClassroomInfo oldInfo, ClassroomInfo newInfo) {
+        Log.d(TAG, "Device change detected: " + newInfo.toString());
         mainHandler.post(() -> {
             for (DeviceChangeListener listener : changeListeners) {
                 try {
-                    listener.onDeviceChanged(change);
+                    listener.onDeviceChanged(oldInfo, newInfo);
                 } catch (Exception e) {
                     Log.e(TAG, "Error notifying listener: " + e.getMessage());
                 }
             }
         });
-    }
-
-    /**
-     * 从API响应解析教室信息
-     */
-    private ClassroomInfo parseClassroomInfo(JSONObject data) {
-        try {
-            if (data == null) {
-                return null;
-            }
-            
-            String id = data.optString("id", "");
-            String name = data.optString("name", "");
-            String city = data.optString("city", "");
-            String school = data.optString("school", "");
-            String description = data.optString("description", "");
-            int capacity = data.optInt("capacity", 0);
-            
-            return new ClassroomInfo(id, name, city, school, description, capacity);
-        } catch (Exception e) {
-            Log.e(TAG, "Error parsing classroom info: " + e.getMessage());
-            return null;
-        }
     }
 
     /**
@@ -408,7 +343,7 @@ public class DeviceManager {
      * 同步查询教室详情
      */
     public ApiResponse queryClassroomDetailSync(String classroomId) {
-        ApiResponse response = apiClient.getClassroomDetail(classroomId);
+        ApiResponse response = apiClient.getClassroomDetail(deviceLocationInfo.getCity(), deviceLocationInfo.getSchool(), classroomId);
 
         if (response.isSuccess()) {
             Log.d(TAG, "Query classroom detail success: " + classroomId);
@@ -459,17 +394,17 @@ public class DeviceManager {
      * 更新设备的城市、学校、教室信息
      */
     public void updateDeviceLocation(String city, String school, String classroom) {
-        deviceInfo.setCity(city);
-        deviceInfo.setSchool(school);
-        deviceInfo.setClassroom(classroom);
+        deviceLocationInfo.setCity(city);
+        deviceLocationInfo.setSchool(school);
+        deviceLocationInfo.setClassroom(classroom);
         Log.d(TAG, "Device location updated: " + city + " - " + school + " - " + classroom);
     }
 
     /**
      * 获取设备信息
      */
-    public DeviceInfo getDeviceInfo() {
-        return deviceInfo;
+    public DeviceLocationInfo getDeviceInfo() {
+        return deviceLocationInfo;
     }
 
     /**

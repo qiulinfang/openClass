@@ -69,19 +69,19 @@ public class ClassroomManager {
     /**
      * 选择教室
      */
-    public boolean selectClassroom(String classroomId) {
+    public boolean selectClassroom(String classroomName) {
         if (selectedCity == null || selectedSchool == null) {
             Log.w(TAG, "Please select city and school first");
             return false;
         }
 
-        ClassroomInfo classroom = classroomTree.getClassroomInfo(selectedCity, selectedSchool, classroomId);
+        ClassroomInfo classroom = classroomTree.getClassroomInfo(selectedCity, selectedSchool, classroomName);
         if (classroom != null) {
             this.selectedClassroom = classroom;
             Log.d(TAG, "Classroom selected: " + classroom.getName());
             return true;
         } else {
-            Log.w(TAG, "Classroom not found: " + classroomId);
+            Log.w(TAG, "Classroom not found: " + classroomName);
             return false;
         }
     }
@@ -151,13 +151,6 @@ public class ClassroomManager {
      */
     public ClassroomInfo getSelectedClassroom() {
         return selectedClassroom;
-    }
-
-    /**
-     * 获取选中的教室ID
-     */
-    public String getSelectedClassroomId() {
-        return selectedClassroom != null ? selectedClassroom.getId() : null;
     }
 
     /**

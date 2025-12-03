@@ -21,31 +21,34 @@ public class ClassroomTree {
      */
     public static ClassroomTree fromApiResponse(JSONObject data) {
         ClassroomTree tree = new ClassroomTree();
-        
-        try {
-            JSONObject citiesObj = data.getJSONObject("cities");
 
-            for (Iterator<String> it = citiesObj.keys(); it.hasNext(); ) {
+        try {
+            // 直接遍历城市
+            for (Iterator<String> it = data.keys(); it.hasNext(); ) {
                 String cityName = it.next();
-                JSONObject cityData = citiesObj.getJSONObject(cityName);
-                JSONObject schoolsObj = cityData.getJSONObject("schools");
+                JSONObject schoolsObj = data.getJSONObject(cityName);
 
                 Map<String, List<ClassroomInfo>> schoolMap = new HashMap<>();
 
-                for (Iterator<String> iter = schoolsObj.keys(); iter.hasNext(); ) {
-                    String schoolName = iter.next();
+                // 遍历学校
+                for (Iterator<String> schoolIt = schoolsObj.keys(); schoolIt.hasNext(); ) {
+                    String schoolName = schoolIt.next();
                     JSONArray classroomsArray = schoolsObj.getJSONArray(schoolName);
                     List<ClassroomInfo> classroomList = new ArrayList<>();
 
+                    // 遍历教室名称（现在是字符串数组）
                     for (int i = 0; i < classroomsArray.length(); i++) {
-                        JSONObject classroomObj = classroomsArray.getJSONObject(i);
+                        String classroomName = classroomsArray.getString(i);
+
+                        // 创建ClassroomInfo对象，如果没有id等信息，可以生成默认值
                         ClassroomInfo info = new ClassroomInfo(
-                                classroomObj.getString("id"),
-                                classroomObj.getString("name"),
+                                classroomName,
                                 cityName,
                                 schoolName,
-                                classroomObj.optString("description", ""),
-                                classroomObj.optInt("capacity", 0)
+                                new ArrayList<>(),
+                                new ArrayList<>(),
+                                0,
+                                0   // 容量为0
                         );
                         classroomList.add(info);
                     }
@@ -58,7 +61,7 @@ public class ClassroomTree {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
         return tree;
     }
 
@@ -92,10 +95,10 @@ public class ClassroomTree {
     /**
      * 获取教室信息
      */
-    public ClassroomInfo getClassroomInfo(String city, String school, String classroomId) {
+    public ClassroomInfo getClassroomInfo(String city, String school, String classroomName) {
         List<ClassroomInfo> classrooms = getClassrooms(city, school);
         for (ClassroomInfo classroom : classrooms) {
-            if (classroom.getId().equals(classroomId)) {
+            if (classroom.getName().equals(classroomName)) {
                 return classroom;
             }
         }

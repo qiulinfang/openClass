@@ -3,7 +3,7 @@ package com.cosinetech.imates.screencasting.model;
 /**
  * 设备信息
  */
-public class DeviceInfo {
+public class DeviceLocationInfo {
     private String deviceId;
     private DeviceType type;
     private String classroom;
@@ -11,7 +11,7 @@ public class DeviceInfo {
     private String city;
     private String name;
 
-    public DeviceInfo(String deviceId, DeviceType type) {
+    public DeviceLocationInfo(String deviceId, DeviceType type) {
         this.deviceId = deviceId;
         this.type = type;
     }
@@ -58,7 +58,7 @@ public class DeviceInfo {
 
     @Override
     public String toString() {
-        return "DeviceInfo{" +
+        return "DeviceLocationInfo{" +
                 "deviceId='" + deviceId + '\'' +
                 ", type=" + type +
                 ", classroom='" + classroom + '\'' +

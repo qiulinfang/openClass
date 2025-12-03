@@ -230,7 +230,7 @@ public class ClassroomSelectionDialog {
                 List<ClassroomInfo> classrooms = classroomManager.getClassrooms();
                 if (position < classrooms.size()) {
                     ClassroomInfo classroom = classrooms.get(position);
-                    classroomManager.selectClassroom(classroom.getId());
+                    classroomManager.selectClassroom(classroom.getName());
                     updateInfoDisplay();
                 }
             }
