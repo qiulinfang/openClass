@@ -28,10 +28,17 @@ import {
   validateMessageExists,
   type ChatImageData,
 } from './utils/chatStoreUtils'
-import type { AiChatMessageRequest, ChatBubble, UserInfo, QuotedMessageInfo, BackendHistoryMessage } from '../types'
+import type { AiChatMessageRequest, ChatBubble, UserInfo, QuotedMessageInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
 
 interface TextbookChatImageData {
   base64DataUrl: string
+}
+
+// 截图的 DrawingBoard 状态（用于保存/恢复绘图）
+export interface ScreenshotDrawingState {
+  objects: unknown
+  history: unknown
+  historyIndex: number
 }
 
 interface BuildTextbookMessageParams {
@@ -44,6 +51,7 @@ interface BuildTextbookMessageParams {
   useScreenshotApi?: boolean
   isNewSession?: boolean
   focus?: QuotedMessageInfo[] // 引用的消息列表
+  imageList?: TextbookChatImageData[] // 多图数据列表（用于截图多图场景）
 }
 
 const buildAiTextbookMessage = ({
@@ -56,6 +64,7 @@ const buildAiTextbookMessage = ({
   useScreenshotApi = false,
   isNewSession = true,
   focus,
+  imageList,
 }: BuildTextbookMessageParams): AiChatMessageRequest => {
   // 从 localStorage 获取 userId
   const userId = getUserId() || 'User'
@@ -79,6 +88,7 @@ const buildAiTextbookMessage = ({
       subject: '',
       dstUrl: '/permission/previewPictureQA',
       focus, // 引用的消息内容
+      imageList, // 多图数据
     }
   }
 
@@ -98,6 +108,7 @@ const buildAiTextbookMessage = ({
     subject: '',
     dstUrl,
     focus, // 引用的消息内容
+    imageList,
   }
 }
 
@@ -114,6 +125,11 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const isNewSession = ref(true) // 是否是新会话
   const backendSessionId = ref<string | null>(null) // 后端会话ID，用于发送消息时的sessionId字段
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
+  // 当前挂在 AI 教材聊天输入框上的截图列表（PDF 场景）
+  const attachedScreenshots = ref<AttachedScreenshot[]>([])
+
+  // 每张截图的 DrawingBoard 状态（按截图 id 索引）
+  const screenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
@@ -197,6 +213,42 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     currentSessionId.value = null
     backendSessionId.value = null  // 同时重置后端会话ID
     isNewSession.value = true
+  }
+
+  // ========== 截图挂载管理（PDF 场景用） ==========
+
+  const setAttachedScreenshots = (shots: AttachedScreenshot[]): void => {
+    attachedScreenshots.value = shots
+  }
+
+  const appendAttachedScreenshots = (shots: AttachedScreenshot[]): void => {
+    if (!shots || shots.length === 0) return
+    attachedScreenshots.value = attachedScreenshots.value.concat(shots)
+  }
+
+  const removeAttachedScreenshot = (id: string): void => {
+    attachedScreenshots.value = attachedScreenshots.value.filter((shot) => shot.id !== id)
+  }
+
+  const clearAttachedScreenshots = (): void => {
+    attachedScreenshots.value = []
+  }
+
+  const setScreenshotDrawingStates = (states: Record<string, ScreenshotDrawingState>): void => {
+    screenshotDrawingStates.value = {
+      ...screenshotDrawingStates.value,
+      ...states,
+    }
+  }
+
+  const removeScreenshotDrawingState = (id: string): void => {
+    const copy = { ...screenshotDrawingStates.value }
+    delete copy[id]
+    screenshotDrawingStates.value = copy
+  }
+
+  const clearScreenshotDrawingStates = (): void => {
+    screenshotDrawingStates.value = {}
   }
   
   /**
@@ -311,18 +363,65 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
     focus?: QuotedMessageInfo[], // 引用的消息列表（发送给后端）
-    quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' } // 引用消息信息（用于消息气泡展示）
+    quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' }, // 引用消息信息（用于消息气泡展示）
+    imageList?: ChatImageData[], // 多图数据列表（用于截图多图场景）
   ): Promise<void> => {
     // 第1步：创建并添加用户消息（可选）
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(
-        content,
-        imageData,
-        hidePrefix,
-        currentSessionId.value || undefined,
-        quotedMessage, // 传递引用消息信息（前端展示用）
-      )
-      addMessage(userMessage)
+      // 如果有多张图片，则创建 multi_image 类型的消息气泡
+      if (imageList && imageList.length > 1) {
+        const standardImageList = imageList
+          .filter((img) => !!img.base64DataUrl)
+          .map((img) => ({
+            filePath: img.filePath || '',
+            width: img.width || 0,
+            height: img.height || 0,
+            fileSize: img.fileSize || 0,
+            base64DataUrl: img.base64DataUrl,
+            isLargeImage: img.isLargeImage || false,
+          }))
+
+        const now = Date.now()
+        
+        // 第一条消息：只包含图片，不包含文字
+        const imageMessage: ChatBubble = {
+          id: now.toString(),
+          content: '', // 图片消息不包含文字
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'multi_image',
+          imageList: standardImageList,
+          sessionId: currentSessionId.value || undefined,
+          quotedMessage, // 引用消息信息（前端展示用）
+        }
+        addMessage(imageMessage)
+
+        // 第二条消息：只包含文字（如果有文字内容）
+        if (content && content.trim()) {
+          const textMessage: ChatBubble = {
+            id: (now + 1).toString(), // 确保 id 不重复
+            content,
+            type: 'user',
+            timestamp: new Date().toISOString(),
+            sender: 'user',
+            messageType: 'text',
+            sessionId: currentSessionId.value || undefined,
+          }
+          addMessage(textMessage)
+        }
+      } else {
+        // 单图或纯文本，沿用原有逻辑
+        const userMessage = createUserMessage(
+          content,
+          imageData,
+          hidePrefix,
+          currentSessionId.value || undefined,
+          quotedMessage, // 传递引用消息信息（前端展示用）
+        )
+        addMessage(userMessage)
+      }
+
       // 用户消息创建后立即保存（确保即使AI回复未完成，用户消息也能被保存）
       await saveChatHistory()
     }
@@ -348,6 +447,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
       const builderImageData = imageData?.base64DataUrl
         ? { base64DataUrl: imageData.base64DataUrl }
+        : undefined
+
+      const builderImageList = imageList && imageList.length > 0
+        ? imageList
+            .filter((img) => !!img.base64DataUrl)
+            .map((img) => ({ base64DataUrl: img.base64DataUrl }))
         : undefined
 
       // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
@@ -377,6 +482,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
         focus, // 传递引用内容
+        imageList: builderImageList,
       })
 
       // 调试日志：验证文字和图片是否一起发送
@@ -660,6 +766,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     enableWebSearch,
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
+    attachedScreenshots,
+    screenshotDrawingStates,
     resourceId,
     useScreenshotApi,
     currentSessionId,
@@ -670,6 +778,13 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     addMessage,
     updateMessage,
     clearMessages,
+    setAttachedScreenshots,
+    appendAttachedScreenshots,
+    removeAttachedScreenshot,
+    clearAttachedScreenshots,
+    setScreenshotDrawingStates,
+    removeScreenshotDrawingState,
+    clearScreenshotDrawingStates,
     deleteMessage,
     sendMessage,
     retryAiMessage,

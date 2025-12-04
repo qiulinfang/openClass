@@ -49,7 +49,7 @@ export interface ChatBubble {
   sender: 'user' | 'ai' | 'teacher'
   type: 'user' | 'ai' | 'teacher'
   timestamp: string
-  messageType?: 'text' | 'voice' | 'image' | 'chat_record' | 'system' // 场景39：支持系统消息类型
+  messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'system' // 场景39：支持系统消息类型 + 多图消息
   isStreaming?: boolean
   isError?: boolean // 标记是否为错误消息
   canRetry?: boolean // 标记是否可以重发
@@ -71,6 +71,14 @@ export interface ChatBubble {
     base64DataUrl?: string  // base64数据URL，用于UI显示
     isLargeImage?: boolean  // 标记是否为大图片
   }
+  imageList?: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string  // base64数据URL，用于UI显示
+    isLargeImage?: boolean  // 标记是否为大图片
+  }[]
   chatRecordData?: {
     messages: ChatBubble[]
     additionalMessage?: string

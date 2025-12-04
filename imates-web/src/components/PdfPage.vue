@@ -222,6 +222,22 @@ const pageLayouts = ref<Array<{ width: number; height: number }>>([]) // 每页�
 const totalHeight = ref(0) // 全部页面总高度
 const maxWidth = ref(0) // 所有页面中最大宽度
 
+// ==================== 应用层撤销栈 ====================
+// 笔画记录数据结构
+interface StrokeRecord {
+  pageIndex: number // 页面索引
+  points: HighlightStrokePoint[] // 笔画点列表
+  mode: 'highlight' | 'pen' // 笔画模式
+  color: [number, number, number] // RGB 颜色 (0-1)
+  width: number // 线宽
+  opacity: number // 透明度
+}
+
+// 笔画历史列表（用于撤销）
+const strokeHistory = ref<StrokeRecord[]>([])
+// 撤销栈（用于重做）
+const redoStack = ref<StrokeRecord[]>([])
+
 // ==================== 布局与视口 ====================
 const toolbarHeight = ref(0) // 工具栏高度
 const containerWidth = ref(0) // 容器宽度（用于自适应）
@@ -1047,57 +1063,67 @@ const handleHighlightPointerUp = async (
     const pdf = pdfDoc.value.asPDF()
     if (!pdf) return
 
-    // 使用 MuPDF 操作历史，将“一笔”作为一个可撤销操作
-    pdf.beginOperation?.('stroke')
-    pdf.beginImplicitOperation?.()
-    try {
-      // 加载当前页
-      const page = pdf.loadPage(pageIndex) as mupdf.PDFPage
-      const annot = page.createAnnotation('Ink')
+    // 加载当前页
+    const page = pdf.loadPage(pageIndex) as mupdf.PDFPage
+    const annot = page.createAnnotation('Ink')
 
-      // 对 pen 模式的轨迹做一次简单平滑，高亮模式保持原始点列
-      const sourcePoints =
-        stroke.mode === 'pen' ? smoothStrokePoints(stroke.points) : stroke.points
+    // 对 pen 模式的轨迹做一次简单平滑，高亮模式保持原始点列
+    const sourcePoints =
+      stroke.mode === 'pen' ? smoothStrokePoints(stroke.points) : stroke.points
 
-      // 将高亮/画笔路径转换为 MuPDF 的 InkList 格式
-      const inkList = [sourcePoints.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
-      ;(annot as any).setInkList?.(inkList)
+    // 将高亮/画笔路径转换为 MuPDF 的 InkList 格式
+    const inkList = [sourcePoints.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
+    ;(annot as any).setInkList?.(inkList)
 
-      // 颜色和线宽从 pdfViewerStore.drawingConfig 读取，来源于 UnifiedToolbar
-      let color: [number, number, number]
-      let width: number
+    // 颜色和线宽从 pdfViewerStore.drawingConfig 读取，来源于 UnifiedToolbar
+    let color: [number, number, number]
+    let width: number
+    let opacity: number
 
-      if (stroke.mode === 'highlight') {
-        // 荧光笔：使用 highlighterColor / highlighterWidth
-        const hex = store.drawingConfig.highlighterColor || '#FFFF00'
-        const size = store.drawingConfig.highlighterWidth || 5
-        const r = parseInt(hex.slice(1, 3), 16) / 255
-        const g = parseInt(hex.slice(3, 5), 16) / 255
-        const b = parseInt(hex.slice(5, 7), 16) / 255
-        color = [r, g, b]
-        width = size
-        ;(annot as any).setOpacity?.(0.5)
-      } else {
-        // 画笔：使用 penColor / penWidth
-        const hex = store.drawingConfig.penColor || '#ff0000'
-        const size = store.drawingConfig.penWidth || 1
-        const r = parseInt(hex.slice(1, 3), 16) / 255
-        const g = parseInt(hex.slice(3, 5), 16) / 255
-        const b = parseInt(hex.slice(5, 7), 16) / 255
-        color = [r, g, b]
-        width = size
-        ;(annot as any).setOpacity?.(1.0)
-      }
-
-      ;(annot as any).setColor?.(color)
-      ;(annot as any).setBorderWidth?.(width)
-
-      // 更新页面
-      page.update()
-    } finally {
-      // 结束操作
-      pdf.endOperation?.()
+    if (stroke.mode === 'highlight') {
+      // 荧光笔：使用 highlighterColor / highlighterWidth
+      const hex = store.drawingConfig.highlighterColor || '#FFFF00'
+      const size = store.drawingConfig.highlighterWidth || 5
+      const r = parseInt(hex.slice(1, 3), 16) / 255
+      const g = parseInt(hex.slice(3, 5), 16) / 255
+      const b = parseInt(hex.slice(5, 7), 16) / 255
+      color = [r, g, b]
+      width = size
+      opacity = 0.5
+      ;(annot as any).setOpacity?.(opacity)
+    } else {
+      // 画笔：使用 penColor / penWidth
+      const hex = store.drawingConfig.penColor || '#ff0000'
+      const size = store.drawingConfig.penWidth || 1
+      const r = parseInt(hex.slice(1, 3), 16) / 255
+      const g = parseInt(hex.slice(3, 5), 16) / 255
+      const b = parseInt(hex.slice(5, 7), 16) / 255
+      color = [r, g, b]
+      width = size
+      opacity = 1.0
+      ;(annot as any).setOpacity?.(opacity)
     }
+
+    ;(annot as any).setColor?.(color)
+    ;(annot as any).setBorderWidth?.(width)
+
+    // 更新页面
+    page.update()
+
+    // 记录笔画到应用层撤销栈
+    const strokeRecord: StrokeRecord = {
+      pageIndex,
+      points: sourcePoints,
+      mode: stroke.mode as 'highlight' | 'pen',
+      color,
+      width,
+      opacity,
+    }
+    strokeHistory.value.push(strokeRecord)
+    // 新的绘图操作会清空重做栈
+    redoStack.value = []
+    console.log('[PdfPage] 笔画已记录到撤销栈，当前笔画数:', strokeHistory.value.length)
+
     // 仅重渲当前页，避免整份 PDF 频繁重渲导致卡顿
     await renderPage(pageIndex)
     // 笔迹创建完成后自动持久化到 IndexedDB
@@ -1600,23 +1626,108 @@ const saveNotesToDb = async () => {
   }
 }
 
-// 撤销最近一次笔画（包含高亮与画笔）
+// 撤销最近一次笔画（应用层撤销栈实现）
 const undoLastStroke = async () => {
-  if (!pdfDoc.value) return
+  console.log('[PdfPage] undoLastStroke 被调用，当前笔画数:', strokeHistory.value.length)
+  
+  if (!pdfDoc.value) {
+    console.log('[PdfPage] pdfDoc.value 不存在')
+    return
+  }
+
+  if (strokeHistory.value.length === 0) {
+    console.log('[PdfPage] 撤销栈为空，无法撤销')
+    return
+  }
 
   try {
     const pdf = pdfDoc.value.asPDF()
-    if (!pdf || !pdf.canUndo?.()) return
+    if (!pdf) return
 
-    pdf.undo?.()
+    // 从撤销栈弹出最后一笔
+    const lastStroke = strokeHistory.value.pop()!
+    console.log('[PdfPage] 撤销笔画，页面:', lastStroke.pageIndex)
 
-    // 撤销后重新渲染所有页面，或至少受影响的页面
-    await render()
+    // 删除对应页面上的最后一个 Ink 注释
+    const page = pdf.loadPage(lastStroke.pageIndex) as mupdf.PDFPage
+    const annots = page.getAnnotations() as any[]
+    
+    // 找到最后一个 Ink 类型的注释并删除
+    if (annots && annots.length > 0) {
+      // 从后往前找第一个 Ink 注释
+      for (let i = annots.length - 1; i >= 0; i--) {
+        const annot = annots[i]
+        if (annot.getType?.() === 'Ink') {
+          page.deleteAnnotation(annot)
+          console.log('[PdfPage] 已删除 Ink 注释')
+          break
+        }
+      }
+      page.update()
+    }
+
+    // 将撤销的笔画移到重做栈
+    redoStack.value.push(lastStroke)
+
+    // 重新渲染受影响的页面
+    await renderPage(lastStroke.pageIndex)
 
     // 撤销完成后自动持久化 PDF
     void saveCurrentPdfToStorage()
+    
+    console.log('[PdfPage] 撤销完成，剩余笔画数:', strokeHistory.value.length)
   } catch (e) {
     console.error('撤销最近一次笔画失败', e)
+  }
+}
+
+// 重做最近一次撤销的笔画（应用层撤销栈实现）
+const redoLastStroke = async () => {
+  console.log('[PdfPage] redoLastStroke 被调用，重做栈大小:', redoStack.value.length)
+  
+  if (!pdfDoc.value) {
+    console.log('[PdfPage] pdfDoc.value 不存在')
+    return
+  }
+
+  if (redoStack.value.length === 0) {
+    console.log('[PdfPage] 重做栈为空，无法重做')
+    return
+  }
+
+  try {
+    const pdf = pdfDoc.value.asPDF()
+    if (!pdf) return
+
+    // 从重做栈弹出最后一笔
+    const strokeRecord = redoStack.value.pop()!
+    console.log('[PdfPage] 重做笔画，页面:', strokeRecord.pageIndex)
+
+    // 在对应页面上重新创建 Ink 注释
+    const page = pdf.loadPage(strokeRecord.pageIndex) as mupdf.PDFPage
+    const annot = page.createAnnotation('Ink')
+
+    // 将笔画点转换为 MuPDF 的 InkList 格式
+    const inkList = [strokeRecord.points.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
+    ;(annot as any).setInkList?.(inkList)
+    ;(annot as any).setColor?.(strokeRecord.color)
+    ;(annot as any).setBorderWidth?.(strokeRecord.width)
+    ;(annot as any).setOpacity?.(strokeRecord.opacity)
+
+    page.update()
+
+    // 将笔画移回撤销栈
+    strokeHistory.value.push(strokeRecord)
+
+    // 重新渲染受影响的页面
+    await renderPage(strokeRecord.pageIndex)
+
+    // 重做完成后自动持久化 PDF
+    void saveCurrentPdfToStorage()
+    
+    console.log('[PdfPage] 重做完成，当前笔画数:', strokeHistory.value.length)
+  } catch (e) {
+    console.error('重做最近一次笔画失败', e)
   }
 }
 
@@ -2285,6 +2396,7 @@ defineExpose({
     currentMode.value = 'hand' // 防止高亮/画笔拦截 pointer 事件
   },
   undoLastStroke,
+  redoLastStroke,
   saveCurrentPdfToStorage,
 })
 </script>

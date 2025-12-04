@@ -81,6 +81,12 @@
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
         >
+          <!-- 新增会话按钮 -->
+          <template #header-right>
+            <div @click="handleNewChatClick" class="add-session-btn">
+              <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+            </div>
+          </template>
         </ChatView>
         <!-- 教师聊天界面 -->
         <ChatView
@@ -146,6 +152,7 @@ import DraggableDialog from './DraggableDialog.vue'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
+import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）

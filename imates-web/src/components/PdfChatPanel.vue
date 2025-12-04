@@ -35,7 +35,6 @@
           ref="chatViewRef"
           type="ai-textbook"
           :compressed-height="360"
-          :attached-screenshots="props.attachedScreenshots || []"
           @send-with-screenshot="(text, shots) => emit('send-with-screenshot', text, shots)"
           @remove-screenshot="(id) => emit('remove-screenshot', id)"
         >
@@ -87,6 +86,7 @@ const aiTextbookStore = useAiTextbookChatStore()
 const route = useRoute()
 
 const props = defineProps<{
+  // 目前不再通过 props 传递截图数组，保留占位以兼容旧调用方（不使用）
   attachedScreenshots?: AttachedScreenshot[]
 }>()
 

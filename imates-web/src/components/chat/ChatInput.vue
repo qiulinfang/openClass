@@ -309,6 +309,7 @@ import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
 import type { ContentBlock } from '../../types'
 import type { AttachedScreenshot } from '@/types'
+import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
 
 const props = defineProps({
   modelValue: {
@@ -415,8 +416,16 @@ const emit = defineEmits({
   'ask-teacher-click': () => true,
 })
 
-// 统一的截图列表：优先使用 attachedScreenshots，兼容旧的单张 attachedScreenshot
+const aiTextbookStore = useAiTextbookChatStore()
+
+// 统一的截图列表：
+// - ai-textbook 场景：直接使用 aiTextbookStore.attachedScreenshots
+// - 其它场景：优先使用 attachedScreenshots，兼容旧的单张 attachedScreenshot
 const screenshotsToShow = computed<AttachedScreenshot[]>(() => {
+  if (props.type === 'ai-textbook') {
+    return aiTextbookStore.attachedScreenshots
+  }
+
   if (Array.isArray(props.attachedScreenshots) && props.attachedScreenshots.length > 0) {
     return props.attachedScreenshots
   }

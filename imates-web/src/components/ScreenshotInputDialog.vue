@@ -10,6 +10,7 @@
     title-align="left"
     header-background-color="#ffffff"
     :show-footer="true"
+    :confirm-text="'给学伴'"
     @confirm="handleConfirm"
     @cancel="handleCancel"
   >
@@ -35,9 +36,8 @@
             <span>暂无截图</span>
           </div>
         </div>
-
-        <!-- 右侧：截图缩略图列表 + 继续截图按钮（竖直排列） -->
-        <div class="screenshot-side-panel">
+        <!-- 右侧：截图缩略图列表 + 继续截图按钮（竖直排列，仅多截图模式下显示） -->
+        <div v-if="props.mode === 'multiple'" class="screenshot-side-panel">
           <div class="side-panel-body">
             <div v-if="thumbnailList.length" class="side-thumbs-list">
               <ScreenshotThumb
@@ -46,13 +46,16 @@
                 :image-url="shot.dataUrl"
                 :active="shot.dataUrl === previewImage"
                 :show-delete="true"
-                @click="switchPreview(shot.dataUrl)"
+                @click="switchPreview(shot.id)"
                 @remove="handleRemoveThumbnail(shot.id)"
               />
             </div>
             <div v-else class="side-empty-text">暂无可用截图</div>
           </div>
-          <div class="side-panel-footer" v-if="thumbnailList.length < MAX_SCREENSHOTS">
+          <div
+            class="side-panel-footer"
+            v-if="thumbnailList.length < MAX_SCREENSHOTS"
+          >
             <button
               type="button"
               class="add-more-btn"
@@ -74,6 +77,7 @@ import DrawingBoard from '@/components/DrawingBoard.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
+import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 
 // 最多允许挂载的截图数量
 const MAX_SCREENSHOTS = 5
@@ -84,13 +88,9 @@ interface DrawingBoardExposed {
   hasContent: () => boolean
   clearAll: () => void
   // 保存当前画板状态（对象列表 + 历史记录）
-  saveData: () => {
-    objects: unknown
-    history: unknown
-    historyIndex: number
-  }
+  saveData: () => ScreenshotDrawingState
   // 加载指定的画板状态
-  loadData: (data: { objects: unknown; history: unknown; historyIndex: number }) => void
+  loadData: (data: ScreenshotDrawingState) => void
 }
 
 interface Props {
@@ -98,12 +98,16 @@ interface Props {
   screenshotDataUrl?: string
   // 已有的截图列表（来自上层，如 PdfViewerView 中的 pdfAttachedScreenshots）
   existingScreenshots?: AttachedScreenshot[]
+  // 截图模式：single=单截图，multiple=多截图（默认）
+  mode?: 'single' | 'multiple'
+  // 父组件传入的绘图状态 map（key: screenshotId, value: DrawingState）
+  drawingStatesFromParent?: Record<string, ScreenshotDrawingState>
 }
 
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
-  (e: 'confirm', screenshots: AttachedScreenshot[]): void
-  (e: 'add-more', screenshots: AttachedScreenshot[]): void
+  (e: 'confirm', screenshots: AttachedScreenshot[], states: Record<string, ScreenshotDrawingState>): void
+  (e: 'add-more', screenshots: AttachedScreenshot[], states: Record<string, ScreenshotDrawingState>): void
   (e: 'cancel'): void
   (e: 'remove-screenshot', id: string): void
 }
@@ -111,6 +115,8 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   screenshotDataUrl: '',
   existingScreenshots: () => [],
+  mode: 'multiple',
+  drawingStatesFromParent: () => ({}),
 })
 
 const emit = defineEmits<Emits>()
@@ -125,7 +131,7 @@ const currentShotId = ref<string | null>(null)
 const previewImage = ref<string>('')
 
 // 每张截图对应的画板状态（objects + history 等），按截图 ID 索引
-const drawingStates = ref<Record<string, { objects: unknown; history: unknown; historyIndex: number }>>({})
+const drawingStates = ref<Record<string, ScreenshotDrawingState>>({})
 
 // 使用 v-model 的本地状态
 const localVisible = computed({
@@ -138,6 +144,11 @@ watch(
   () => props.modelValue,
   async (newValue) => {
     if (newValue) {
+      // 先同步父组件传进来的绘图状态
+      if (props.drawingStatesFromParent) {
+        drawingStates.value = { ...props.drawingStatesFromParent }
+      }
+
       // 优先使用当前截图，其次使用已有截图列表中的第一张
       if (props.screenshotDataUrl) {
         currentShotId.value = 'current-capture'
@@ -247,12 +258,32 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
     return null
   }
 
+  // 确定本次导出的截图 id：如果当前 id 是已有截图，就继续用；否则生成新 id
+  let shotId = currentShotId.value
+  if (!shotId || shotId === 'current-capture') {
+    shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  }
+
   // 从 DrawingBoard 导出 JPG 图片（包含背景截图 + 用户标注）
   let finalImageData = previewImage.value || props.screenshotDataUrl || ''
   if (drawingBoardRef.value?.exportToJpg) {
     const exportedImage = drawingBoardRef.value.exportToJpg(0.9)
     if (exportedImage) {
       finalImageData = exportedImage
+    }
+  }
+
+  // 保存当前画板状态到本地 drawingStates
+  if (drawingBoardRef.value?.saveData) {
+    try {
+      const data = drawingBoardRef.value.saveData()
+      drawingStates.value[shotId] = {
+        objects: data.objects,
+        history: data.history,
+        historyIndex: data.historyIndex,
+      }
+    } catch (e) {
+      console.error('[ScreenshotInputDialog] saveData 失败', e)
     }
   }
 
@@ -269,11 +300,15 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
   })
 
   const shot: AttachedScreenshot = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: shotId,
     dataUrl: finalImageData,
     width: size.width,
     height: size.height,
   }
+
+  // 更新当前 id / 预览（保持一致）
+  currentShotId.value = shotId
+  previewImage.value = finalImageData
 
   return [shot]
 }
@@ -283,7 +318,7 @@ const handleConfirm = async () => {
   const shots = await exportCurrentScreenshot()
   if (!shots) return
 
-  emit('confirm', shots)
+  emit('confirm', shots, { ...drawingStates.value })
   localVisible.value = false
 }
 
@@ -292,7 +327,7 @@ const handleAddMore = async () => {
   const shots = await exportCurrentScreenshot()
   if (!shots) return
 
-  emit('add-more', shots)
+  emit('add-more', shots, { ...drawingStates.value })
   localVisible.value = false
 }
 

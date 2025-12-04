@@ -101,87 +101,17 @@
                       </q-btn>
                     </template>
 
-                    <div>
-                      <!-- 发送给AI -->
-                      <div
-                        class="more-menu-item-row"
-                        @click="closeMenuAndExecute(question.bmNo, () => sendToAi(question))"
-                      >
-                        <img src="icons/Deskmate.svg" alt="发送给AI" width="20" height="20" />
-                        <div>发送给AI</div>
-                      </div>
-
+                    <ActionList :items="buildMoreActions(question, index)">
                       <!-- 额外操作插槽：例如“开始作答”等，由父组件通过插槽扩展 -->
-                      <slot
-                        name="more-extra"
-                        :question="question"
-                        :index="index"
-                        :close="() => closeMoreMenuById(question.bmNo)"
-                      />
-
-                      <!-- 微课 -->
-                      <div
-                        class="more-menu-item-row"
-                        @click="closeMenuAndExecute(question.bmNo, () => openMiniClass(question))"
-                      >
-                        <img src="icons/my_exercises.svg" alt="微课" width="20" height="20" />
-                        <div>微课</div>
-                      </div>
-
-                      <!-- 置顶 -->
-                      <div
-                        class="more-menu-item-row"
-                        v-if="index > 0"
-                        @click="
-                          closeMenuAndExecute(question.bmNo, () => moveQuestionToTop(question.bmNo))
-                        "
-                      >
-                        <img src="icons/pin.svg" alt="置顶" width="20" height="20" />
-                        <div>置顶</div>
-                      </div>
-
-                      <!-- 收藏 -->
-                      <div
-                        class="more-menu-item-row"
-                        @click="closeMenuAndExecute(question.bmNo, () => toggleFavorite(question))"
-                      >
-                        <img src="icons/my_favorites.svg" alt="收藏" width="20" height="20" />
-                        <div>
-                          {{ isExerciseFavorite(question.bmNo) ? '取消收藏' : '收藏题目' }}
-                        </div>
-                      </div>
-
-                      <!-- 拍作业 -->
-                      <div
-                        class="more-menu-item-row"
-                        @click="
-                          closeMenuAndExecute(question.bmNo, () => takePictureToTeacher(question))
-                        "
-                      >
-                        <img src="icons/scan_homework.svg" alt="拍作业" width="20" height="20" />
-                        <div>拍作业</div>
-                      </div>
-
-                      <!-- 删除题目：底部整块粉色区域 -->
-                      <div
-                        class="more-menu-item-row"
-                        :class="{ 'is-loading': deletingIds.has(question.bmNo) }"
-                        @click="
-                          closeMenuAndExecute(question.bmNo, () => openDeleteDialog(question))
-                        "
-                      >
-                        <img
-                          src="icons/delete.svg"
-                          alt="删除题目"
-                          width="20"
-                          height="20"
-                          :class="{ 'icon-loading': deletingIds.has(question.bmNo) }"
+                      <template #extra>
+                        <slot
+                          name="more-extra"
+                          :question="question"
+                          :index="index"
+                          :close="() => closeMoreMenuById(question.bmNo)"
                         />
-                        <div>
-                          {{ deletingIds.has(question.bmNo) ? '删除中...' : '删除题目' }}
-                        </div>
-                      </div>
-                    </div>
+                      </template>
+                    </ActionList>
                   </BubblePopup>
                 </div>
               </div>
@@ -273,6 +203,7 @@ import ImageViewer from './ImageViewer.vue'
 import RubberBandList from './RubberBandList.vue'
 import Dialog from './Dialog.vue'
 import BubblePopup from './BubblePopup.vue'
+import ActionList from './ActionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
@@ -687,6 +618,63 @@ const toggleFavorite = (item: ExerciseItem) => {
 const throttledToggleFavorite = ThrottleUtils.fast((item: ExerciseItem) => {
   toggleFavorite(item)
 })
+
+// 通用操作列表：构造更多菜单的 actions
+const buildMoreActions = (question: ExerciseItem, index: number) => {
+  const bmNo = question.bmNo
+
+  const wrap = (handler: () => void) => {
+    if (!bmNo) return () => {}
+    return () => closeMenuAndExecute(bmNo, handler)
+  }
+
+  return [
+    {
+      key: 'send-ai',
+      label: '发送给AI',
+      icon: 'icons/Deskmate.svg',
+      visible: true,
+      onClick: wrap(() => throttledSendToAi(question)),
+    },
+    {
+      key: 'mini-class',
+      label: '微课',
+      icon: 'icons/my_exercises.svg',
+      visible: true,
+      onClick: wrap(() => throttledOpenMiniClass(question)),
+    },
+    {
+      key: 'pin',
+      label: '置顶',
+      icon: 'icons/pin.svg',
+      visible: index > 0,
+      onClick: wrap(() => throttledMoveToTop(bmNo)),
+    },
+    {
+      key: 'favorite',
+      label: isExerciseFavorite(bmNo) ? '取消收藏' : '收藏题目',
+      icon: 'icons/my_favorites.svg',
+      visible: true,
+      onClick: wrap(() => throttledToggleFavorite(question)),
+    },
+    {
+      key: 'take-picture',
+      label: '拍作业',
+      icon: 'icons/scan_homework.svg',
+      visible: true,
+      onClick: wrap(() => throttledTakePictureToTeacher(question)),
+    },
+    {
+      key: 'delete',
+      label: deletingIds.value.has(bmNo) ? '删除中...' : '删除题目',
+      icon: 'icons/delete.svg',
+      iconClass: deletingIds.value.has(bmNo) ? 'icon-loading' : '',
+      visible: true,
+      loading: deletingIds.value.has(bmNo),
+      onClick: wrap(() => openDeleteDialog(question)),
+    },
+  ]
+}
 
 // 拍作业功能
 const takePictureToTeacher = async (question: ExerciseItem) => {
@@ -2397,27 +2385,4 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// 更多菜单项通用行样式
-.more-menu-item-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
-  font-size: 14px;
-  line-height: 1.4;
-  padding: 6px 6px;
-  cursor: pointer;
-
-  &:hover {
-    background-color: rgba(15, 23, 42, 0.03);
-  }
-
-  > .q-icon {
-    flex-shrink: 0;
-  }
-}
-
-.more-menu-item-row:hover {
-  background-color: rgba(15, 23, 42, 0.03);
-}
 </style>

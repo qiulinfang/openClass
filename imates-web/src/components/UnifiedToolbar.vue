@@ -1151,8 +1151,7 @@ $color-bg-selected: #e3e2fe;
 
 .unified-toolbar-browser {
   .toolbar-content {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
     align-items: center;
     padding: 8px 12px;
     gap: 8px;
@@ -1161,16 +1160,21 @@ $color-bg-selected: #e3e2fe;
   }
 
   .left-section {
+    display: flex;
     justify-content: flex-start;
+    flex-shrink: 0;
   }
 
   .center-section {
-    grid-column: 2;
+    display: flex;
+    flex: 1;
+    justify-content: center;
   }
 
   .right-section {
+    display: flex;
     justify-content: flex-end;
-    grid-column: 3;
+    flex-shrink: 0;
   }
 
   .toolbar-divider {

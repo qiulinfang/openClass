@@ -4,7 +4,7 @@
     <div
       ref="triggerRef"
       class="bubble-popup-trigger"
-      @click.stop="toggle"
+      @click.stop="handleTriggerClick"
     >
       <slot name="trigger" />
     </div>
@@ -49,6 +49,8 @@ const props = defineProps<{
   offset?: number
   /** 是否展示三角箭头，默认展示 */
   showArrow?: boolean
+  /** 触发模式：click=内部点击触发，manual=完全由外部 v-model 控制 */
+  trigger?: 'click' | 'manual'
 }>()
 
 const emit = defineEmits<{
@@ -65,6 +67,9 @@ const debugLog = (...args: unknown[]) => {
 }
 
 const isVisible = ref<boolean>(props.modelValue ?? false)
+
+// 触发模式，默认 click
+const triggerMode = computed(() => props.trigger ?? 'click')
 
 const currentPlacement = ref<Placement>('bottom')
 
@@ -84,6 +89,12 @@ const toggle = () => {
   setVisible(!isVisible.value)
 }
 
+const handleTriggerClick = () => {
+  // manual 模式下不处理内部点击，完全交给外部控制
+  if (triggerMode.value !== 'click') return
+  toggle()
+}
+
 const setVisible = (value: boolean) => {
   if (isVisible.value === value) return
   isVisible.value = value
@@ -92,6 +103,8 @@ const setVisible = (value: boolean) => {
   debugLog('setVisible()', { value })
 
   if (value) {
+    // 记录显示时间戳，用于防止刚显示就被误关闭
+    visibleSince = Date.now()
     bindGlobalListeners()
     // 等待气泡 DOM 渲染后再计算位置
     nextTick(() => {
@@ -198,6 +211,8 @@ const updatePosition = () => {
 let onResize: (() => void) | null = null
 let onScroll: (() => void) | null = null
 let onClickOutside: ((e: PointerEvent) => void) | null = null
+// 记录气泡显示的时间戳，用于防止刚显示就被误关闭
+let visibleSince = 0
 
 const bindGlobalListeners = () => {
   if (!onResize) {
@@ -216,6 +231,13 @@ const bindGlobalListeners = () => {
 
   if (!onClickOutside) {
     onClickOutside = (e: PointerEvent) => {
+      // 防止刚显示就被误关闭：如果距离显示时间不足 300ms，忽略此次事件
+      const elapsed = Date.now() - visibleSince
+      if (elapsed < 300) {
+        debugLog('ignore pointerdown within 300ms of showing', { elapsed })
+        return
+      }
+
       const target = e.target as Node | null
       const triggerEl = triggerRef.value
       const popupEl = popupRef.value
