@@ -8,7 +8,7 @@
         <div
           v-if="
             displayedMessages.length === 0 &&
-            !aiExerciseStore.isChatLoading && 
+            !aiExerciseStore.isChatLoading &&
             type === 'ai-exercise'
           "
           class="empty-chat-state"
@@ -30,10 +30,13 @@
               </template>
               <!-- 显示模式 -->
               <template v-else>
+                <!-- 常用问题 -->
                 <span class="suggestion-text" @click="handleSuggestionClick(suggestion)">{{
                   suggestion
                 }}</span>
+                <!-- 操作按钮 -->
                 <div class="suggestion-actions">
+                  <!-- 编辑按钮 -->
                   <button
                     class="suggestion-edit-btn"
                     @click.stop="startEditSuggestion(idx)"
@@ -50,7 +53,8 @@
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
-                  </button>
+                  </button> 
+                  <!-- 箭头 -->
                   <svg
                     class="suggestion-arrow"
                     viewBox="0 0 24 24"
@@ -76,6 +80,7 @@
           :data-session-id="message.sessionId"
           :data-message-id="message.id"
         >
+          <!-- 消息组件 -->
           <ChatMessageComponent
             :message="message"
             :type="type"
@@ -123,6 +128,7 @@
           class="chat-session-list-overlay"
           @click.self="showSessionListPanel = false"
         >
+          <!-- 会话列表 -->
           <CardStack
             ref="cardStackRef"
             :model-value="sessionCards"
@@ -145,13 +151,11 @@
                       class="snapshot-bubble"
                       :class="idx % 2 === 0 ? 'user' : 'ai'"
                     >
-                      <div class="bubble-content">
-                        <div
-                          class="bubble-text line-clamp markdown-content"
-                          v-html="renderMessageContent(content)"
-                          v-mathjax-preview
-                        ></div>
-                      </div>
+                      <div
+                        class="bubble-text markdown-content"
+                        v-html="renderMessageContent(content)"
+                        v-mathjax-preview
+                      ></div>
                     </div>
                   </template>
                   <!-- 空状态 -->
@@ -161,11 +165,6 @@
                 </div>
                 <!-- 底部渐变遮罩 -->
                 <div class="snapshot-fade"></div>
-                <!-- 底部信息 -->
-                <div class="snapshot-footer">
-                  <span class="snapshot-count">{{ card.messageCount || 0 }} 条消息</span>
-                  <span class="snapshot-time">{{ card.updateTime || '' }}</span>
-                </div>
               </div>
             </template>
           </CardStack>
@@ -217,9 +216,9 @@
       <!-- 简单输入模式前置插槽 - 用于放置操作按钮等 -->
       <slot v-if="inputMode === 'simple'" name="input-prefix"></slot>
 
-      <slot name="input">
-        <!-- 完整输入模式 (ChatInput) -->
-        <ChatInput
+          <slot name="input">
+            <!-- 完整输入模式 (ChatInput) -->
+            <ChatInput
           v-if="inputMode === 'full'"
           ref="chatInputRef"
           v-model="inputMessage"
@@ -234,11 +233,11 @@
           :can-send="isEditingMessage ? canSendInEditMode : canSend"
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
-          :attached-screenshot="attachedScreenshot"
+          :attached-screenshots="props.attachedScreenshots || []"
           :quoted-message="quotedMessage"
           @send-message="sendMessage"
-          @send-with-screenshot="() => emit('send-with-screenshot', inputMessage)"
-          @remove-screenshot="emit('remove-screenshot')"
+          @send-with-screenshot="(shots) => emit('send-with-screenshot', inputMessage, shots)"
+          @remove-screenshot="(id) => emit('remove-screenshot', id)"
           @remove-quote="handleRemoveQuote"
           @blur="onInputBlur"
           @start-voice-input="startVoiceInput"
@@ -258,13 +257,29 @@
             }
           "
         >
-          <!-- 透传 ChatView 的 input-header 插槽到 ChatInput 的 header-prefix 前置插槽 -->
+          <!-- 透传 ChatView 的头部相关插槽到 ChatInput 对应插槽 -->
+
+          <!-- 顶层整块头部：用于完全替换 ChatInput 的 header-all 区域 -->
+          <template #header-all>
+            <slot name="header-all"></slot>
+          </template>
+
+          <!-- 前置区域：最前面的按钮，如“选中并问”等 -->
           <template #header-prefix>
             <slot name="header-prefix"></slot>
           </template>
+
+          <!-- 中间工具条：允许上层直接覆盖中间按钮（如公式/问老师） -->
+          <template #header-middle>
+            <slot name="header-middle"></slot>
+          </template>
+
+          <!-- 后置区域：工具条下方追加内容（说明文字等） -->
           <template #header-suffix>
             <slot name="header-suffix"></slot>
           </template>
+
+          <!-- 右侧额外区域：右上角单独按钮（如新增会话） -->
           <template #header-right>
             <slot name="header-right"></slot>
           </template>
@@ -299,24 +314,17 @@
     <DraggableDialog
       v-model="showDeleteConfirmDialog"
       title="确认删除"
-      :show-footer="false"
+      :show-footer="true"
+      confirm-variant="danger"
       :initial-width="320"
       :initial-height="180"
       :min-width="280"
       :min-height="150"
       @cancel="cancelDeleteSession"
+      @confirm="confirmDeleteSession"
     >
       <div class="delete-confirm-content">
-        <p class="delete-confirm-text">确认删除「{{ pendingDeleteSessionTitle }}」？</p>
-        <div class="delete-confirm-actions">
-          <CommonActionButton label="取消" variant="ghost" size="md" @click="cancelDeleteSession" />
-          <CommonActionButton
-            label="确认"
-            variant="danger"
-            size="md"
-            @click="confirmDeleteSession"
-          />
-        </div>
+        {{ `确认删除「${pendingDeleteSessionTitle}」？` }}
       </div>
     </DraggableDialog>
   </div>
@@ -367,17 +375,12 @@ const props = withDefaults(
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
     // 当前题目对象，由外层页面维护，ChatView 不直接依赖全局 questionStore
     question?: unknown
-    attachedScreenshot?: {
-      dataUrl: string
-      width: number
-      height: number
-    }
+    attachedScreenshots?: import('../types').AttachedScreenshot[]
   }>(),
   {
     inputMode: 'full',
   }
 )
-
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
 const emit = defineEmits<{
@@ -395,8 +398,8 @@ const emit = defineEmits<{
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
-  'remove-screenshot': []
-  'send-with-screenshot': [string]
+  'remove-screenshot': [string]
+  'send-with-screenshot': [string, import('../types').AttachedScreenshot[]]
   'focus-input': [] // 聚焦输入框事件
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
 }>()
@@ -1233,12 +1236,21 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
-    // 如果有引用消息，将其映射为 QuotedMessageInfo：sender 使用 human/ai 语义
-    const quotedMessageInfo = quotedMessage.value
+    // 如果有引用消息：
+    // - quotedMessageInfo: 发给后端的 QuotedMessageInfo（sender: human/ai）
+    // - quotedMessageForUi: 前端 UI 使用的引用信息（sender: user/ai/teacher）
+    const quotedMessageInfo: QuotedMessageInfo | undefined = quotedMessage.value
       ? {
           id: quotedMessage.value.id,
           content: quotedMessage.value.content,
           sender: quotedMessage.value.sender === 'user' ? 'human' : 'ai',
+        }
+      : undefined
+    const quotedMessageForUi = quotedMessage.value
+      ? {
+          id: quotedMessage.value.id,
+          content: quotedMessage.value.content,
+          sender: quotedMessage.value.sender,
         }
       : undefined
     const focus = quotedMessageInfo ? [quotedMessageInfo] : undefined
@@ -1248,7 +1260,7 @@ const sendMessage = async (attachedFile?: File) => {
       // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
       currentQuestion: currentQuestion.value ?? undefined,
       focus,
-      quotedMessage: quotedMessageInfo, // 引用的消息信息（用于消息气泡展示）
+      quotedMessage: quotedMessageForUi, // 引用的消息信息（用于消息气泡展示）
     })
     await scrollToBottom()
     emit('response')
@@ -2424,11 +2436,11 @@ defineExpose({
 
 .snapshot-messages {
   flex: 1;
+  min-height: 0;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: hidden;
 }
 
 /* 消息气泡 */
@@ -2444,11 +2456,6 @@ defineExpose({
 
 .snapshot-bubble.user {
   align-self: flex-end;
-}
-
-/* 气泡内容 */
-.bubble-content {
-  max-width: calc(100% - 36px);
 }
 
 .bubble-text {
@@ -2472,41 +2479,15 @@ defineExpose({
   border-top-right-radius: 4px;
 }
 
-/* 文本截断 */
-.bubble-text.line-clamp {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 /* 底部渐变遮罩 */
 .snapshot-fade {
   position: absolute;
-  bottom: 32px;
+  bottom: 0;
   left: 0;
   right: 0;
   height: 60px;
   background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.9));
   pointer-events: none;
-}
-
-/* 底部时间戳 */
-.snapshot-footer {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.snapshot-time {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-.snapshot-count {
-  font-size: 11px;
-  color: #6b7280;
 }
 
 /* 空状态 */
@@ -2517,16 +2498,6 @@ defineExpose({
   justify-content: center;
   color: #9ca3af;
   font-size: 14px;
-}
-
-/* 点击效果 */
-.chat-snapshot {
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.chat-snapshot:active {
-  background: linear-gradient(180deg, #eeecff 0%, #f5f5f5 100%);
 }
 
 /* 新消息提示按钮：居中且悬浮在消息区域底部上方 */
@@ -2707,7 +2678,9 @@ defineExpose({
 .chat-input-area {
   display: flex;
   flex-direction: column;
+  background: #f7f6ff;
   gap: 0;
+  z-index: 11;
 }
 
 /* ==================== 底部提示文案样式 ==================== */
@@ -2717,7 +2690,6 @@ defineExpose({
   color: #b0b0b0;
   font-size: 12px;
   line-height: 1.5;
-  background: #f7f6ff;
   z-index: 111;
 }
 
@@ -2730,37 +2702,12 @@ defineExpose({
   animation: highlight-pulse 1.5s ease-out;
 }
 
-@keyframes highlight-pulse {
-  0% {
-    background-color: rgba(122, 124, 255, 0.3);
-  }
-  50% {
-    background-color: rgba(122, 124, 255, 0.15);
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-
 /* ==================== 删除确认对话框样式 ==================== */
 .delete-confirm-content {
-  padding: 20px;
+  height: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.delete-confirm-text {
-  font-size: 16px;
-  color: #333;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.delete-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ==================== 空状态推荐问题样式 ==================== */
@@ -2870,5 +2817,17 @@ defineExpose({
 
 .suggestion-input::placeholder {
   color: #9ca3af;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(122, 124, 255, 0.3);
+  }
+  50% {
+    background-color: rgba(122, 124, 255, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 </style>

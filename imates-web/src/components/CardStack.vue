@@ -441,6 +441,7 @@ defineExpose({
   flex: 1;
   background-color: #f9fafb;
   position: relative;
+  overflow: hidden;
 }
 
 /* 高光边框 */

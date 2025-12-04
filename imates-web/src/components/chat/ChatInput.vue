@@ -2,38 +2,48 @@
   <div class="modern-chat-container">
     <!-- 主容器上方扩展区域：顶部工具条 + 额外插槽内容 -->
     <div class="chat-input-header-flex">
-      <!-- 左侧：顶部工具条 -->
-      <div class="chat-input-header-left">
-        <div class="chat-top-toolbar">
-          <!-- 前置插槽：允许外部在顶部工具条最前面插入内容（如“选中并问”按钮） -->
-          <slot name="header-prefix"></slot>
-          <slot name="header-middle">
-            <!-- 公式 -->
-            <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
-              <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
-            </button>
-            <!-- 草稿本 -->
-            <!-- <button type="button" class="toolbar-btn" @click="handleDraftClick">
-              <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
-            </button> -->
-            <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
-            <button
-              v-if="props.type !== 'teacher-general' && props.type !== 'teacher-exercise'"
-              type="button"
-              class="toolbar-btn"
-              @click="handleAskTeacherClick"
-            >
-              <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
-            </button>
-          </slot>
-          <!-- 后置插槽：保持原有 header 插槽，方便在工具条下方追加内容 -->
-          <slot name="header-suffix"></slot>
+      <!-- 顶层：允许整块头部完全自定义 -->
+      <slot name="header-all">
+        <!-- 默认实现：左 + 右 -->
+
+        <!-- 左侧：顶部工具条 -->
+        <div class="chat-input-header-left">
+          <div class="chat-top-toolbar">
+            <!-- 前置插槽：最前面的按钮，如“选中并问” -->
+            <slot name="header-prefix"></slot>
+
+            <!-- 默认中间工具条（公式 + 问老师） -->
+            <slot name="header-middle">
+              <!-- 公式 -->
+              <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
+                <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
+              </button>
+              <!-- 草稿本（暂时注释保留）
+              <button type="button" class="toolbar-btn" @click="handleDraftClick">
+                <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
+              </button>
+              -->
+              <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
+              <button
+                v-if="props.type !== 'teacher-general' && props.type !== 'teacher-exercise'"
+                type="button"
+                class="toolbar-btn"
+                @click="handleAskTeacherClick"
+              >
+                <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
+              </button>
+            </slot>
+
+            <!-- 后置插槽：工具条下方追加内容（说明文字等） -->
+            <slot name="header-suffix"></slot>
+          </div>
         </div>
-      </div>
-      <!-- 右侧：额外 header 插槽区域 -->
-      <div class="chat-input-header-right">
-        <slot name="header-right"></slot>
-      </div>
+
+        <!-- 右侧：额外 header 区域 -->
+        <div class="chat-input-header-right">
+          <slot name="header-right"></slot>
+        </div>
+      </slot>
     </div>
 
     <!-- 主容器 -->
@@ -47,25 +57,24 @@
             }}</span>
           </div>
         </div>
+        <!-- 关闭引用按钮 -->
         <button type="button" class="quote-close" @click.stop="emit('remove-quote')">
           <q-icon name="close" size="16px" color="grey-6" />
         </button>
       </div>
-      <!-- 截图缩略图（挂在输入框内左上角） -->
-      <div v-if="props.attachedScreenshot" class="screenshot-thumb-bar">
-        <div class="screenshot-thumb-inner">
-          <img
-            :src="props.attachedScreenshot.dataUrl"
-            alt="截图预览"
-            class="screenshot-thumb-img"
+      <!-- 截图缩略图（挂在输入框内左上角），支持多张 -->
+      <div v-if="screenshotsToShow.length" class="screenshot-thumb-bar">
+        <div
+          v-for="shot in screenshotsToShow"
+          :key="shot.id"
+          class="screenshot-thumb-inner"
+        >
+          <ScreenshotThumb
+            :image-url="shot.dataUrl"
+            :show-delete="true"
+            @click="openScreenshotPreview(shot.dataUrl)"
+            @remove="emit('remove-screenshot', shot.id)"
           />
-          <button
-            type="button"
-            class="screenshot-thumb-close"
-            @click.stop="emit('remove-screenshot')"
-          >
-            <q-icon name="close" size="14px" color="white" />
-          </button>
         </div>
       </div>
       <!-- 新的MathFormulaEditor输入区域 -->
@@ -267,6 +276,12 @@
         </q-list>
       </q-menu>
     </div>
+    <!-- 图片预览对话框（仅在 ChatInput 内部使用） -->
+    <ImageViewer
+      v-model="imageViewerVisible"
+      :image-url="imageViewerUrl"
+      alt="截图预览"
+    />
   </div>
 </template>
 
@@ -274,6 +289,8 @@
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
+import ImageViewer from '../ImageViewer.vue'
+import ScreenshotThumb from '../ScreenshotThumb.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
@@ -290,7 +307,8 @@ import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索�
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
-import type { ContentBlock, ChatInputProps, ChatInputEmits } from '../../types'
+import type { ContentBlock } from '../../types'
+import type { AttachedScreenshot } from '@/types'
 
 const props = defineProps({
   modelValue: {
@@ -357,6 +375,11 @@ const props = defineProps({
       | undefined,
     default: undefined,
   },
+  // 新增：支持多张截图缩略图
+  attachedScreenshots: {
+    type: Array as () => AttachedScreenshot[],
+    default: () => [],
+  },
   quotedMessage: {
     // 关键：这里显式声明 quotedMessage
     type: Object as () => import('../../types').ChatBubble | null | undefined,
@@ -382,14 +405,34 @@ const emit = defineEmits({
   'cancel-edit': () => true,
   focus: () => true,
   blur: () => true,
-  'remove-screenshot': () => true,
-  'send-with-screenshot': () => true,
+  'remove-screenshot': (_id: string) => true,
+  'send-with-screenshot': (_shots: AttachedScreenshot[]) => true,
   'remove-quote': () => true,
   // 顶部工具条相关事件，供上层接入真实行为
   'explore-click': () => true,
   'draft-click': () => true,
   'formula-click': () => true,
   'ask-teacher-click': () => true,
+})
+
+// 统一的截图列表：优先使用 attachedScreenshots，兼容旧的单张 attachedScreenshot
+const screenshotsToShow = computed<AttachedScreenshot[]>(() => {
+  if (Array.isArray(props.attachedScreenshots) && props.attachedScreenshots.length > 0) {
+    return props.attachedScreenshots
+  }
+
+  if (props.attachedScreenshot) {
+    return [
+      {
+        id: 'legacy-single',
+        dataUrl: props.attachedScreenshot.dataUrl,
+        width: props.attachedScreenshot.width,
+        height: props.attachedScreenshot.height,
+      },
+    ]
+  }
+
+  return []
 })
 
 // 截断引用内容，最多显示50个字符
@@ -418,6 +461,15 @@ const isOnlineSearchSelected = ref(false)
 const isDraftSelected = ref(false)
 const isFormulaSelected = ref(false)
 const isAskTeacherSelected = ref(false)
+
+// 本地图片预览状态（不透传给父组件）
+const imageViewerVisible = ref(false)
+const imageViewerUrl = ref('')
+
+const openScreenshotPreview = (url: string) => {
+  imageViewerUrl.value = url
+  imageViewerVisible.value = true
+}
 
 // 联网搜索图标：当前只使用普通态图标
 const onlineSearchIconToUse = computed(() =>
@@ -838,8 +890,8 @@ const handleSendMessage = () => {
   // 5. 先发送消息，然后再关闭键盘
   nextTick(() => {
     // 有挂起截图时，优先走截图发送通道
-    if (props.attachedScreenshot) {
-      emit('send-with-screenshot')
+    if (screenshotsToShow.value.length > 0) {
+      emit('send-with-screenshot', screenshotsToShow.value)
     } else {
       emit('send-message')
     }
@@ -1084,7 +1136,6 @@ defineExpose({
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
-  background: #f7f6ff;
   z-index: 1000; /* 确保整个输入容器在消息区域上方 */
 }
 
@@ -1111,6 +1162,13 @@ defineExpose({
 
 .screenshot-thumb-bar {
   padding: 0px 6px;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* 避免出现滚动条时影响布局 */
+  scrollbar-width: thin;
 }
 
 .screenshot-thumb-inner {
@@ -1119,11 +1177,15 @@ defineExpose({
   height: 48px;
   border-radius: 8px;
   overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+  flex: 0 0 auto; 
 }
-
 .screenshot-thumb-img {
-  width: 100%;
-  height: 100%;
+  width: 72px;
+  height: 48px;
   object-fit: cover;
 }
 

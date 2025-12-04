@@ -298,14 +298,6 @@ const setTypewriterContentRef = (el: any) => {
 /* Markdown 渲染出的图片样式 */
 :deep(img.markdown-image) {
   max-width: 100%;
-  max-height: 400px;
-  height: auto;
-  border-radius: 8px;
-  cursor: pointer;
-  display: block;
-  margin: 8px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
 }
 
 :deep(img.markdown-image:hover) {

@@ -35,6 +35,9 @@
           ref="chatViewRef"
           type="ai-textbook"
           :compressed-height="360"
+          :attached-screenshots="props.attachedScreenshots || []"
+          @send-with-screenshot="(text, shots) => emit('send-with-screenshot', text, shots)"
+          @remove-screenshot="(id) => emit('remove-screenshot', id)"
         >
           <!-- 通过 ChatView 的 header-prefix 插槽引入“选中并问”按钮 -->
           <template #header-prefix>
@@ -69,7 +72,7 @@ import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
-import type { AiTextbookSession } from '@/types'
+import type { AiTextbookSession, AttachedScreenshot } from '@/types'
 import {
   getScreenshotSessionsByResourceId,
   deleteScreenshotSession,
@@ -83,9 +86,15 @@ const pdfViewerStore = usePdfViewerStore()
 const aiTextbookStore = useAiTextbookChatStore()
 const route = useRoute()
 
+const props = defineProps<{
+  attachedScreenshots?: AttachedScreenshot[]
+}>()
+
 const emit = defineEmits<{
   'select-and-ask-click': []
-  'close': []
+  close: []
+  'send-with-screenshot': [string, AttachedScreenshot[]]
+  'remove-screenshot': [string]
 }>()
 
 // ChatView 实例引用

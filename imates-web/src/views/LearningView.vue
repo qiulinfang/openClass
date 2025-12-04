@@ -919,7 +919,6 @@ $spacing-xl: 32px;
 .scroll-wrapper.resources-list {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
   border-radius: 0;
   background-color: #f5f4ff;
 

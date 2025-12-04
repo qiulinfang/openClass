@@ -32,6 +32,14 @@ export interface ImageData {
   base64DataUrl?: string  // 可选的base64数据，用于前端渲染显示
 }
 
+/** 聊天输入等场景下挂载的截图缩略图数据 */
+export interface AttachedScreenshot {
+  id: string
+  dataUrl: string
+  width: number
+  height: number
+}
+
 /** 图片压缩结果接口 */
 export interface ImageCompressionResult {
   originalPath: string

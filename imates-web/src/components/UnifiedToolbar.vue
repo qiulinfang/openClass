@@ -1,7 +1,16 @@
 ﻿<template>
-  <div :class="['unified-toolbar-container', `variant-${variant}`]" @click="showPopup = false">
+  <div
+    :class="['unified-toolbar-container', `variant-${variant}`, `orientation-${orientation}`]"
+    @click="showPopup = false"
+  >
     <!-- 统一工具栏 -->
-    <div :class="['unified-toolbar', `unified-toolbar-${variant}`]">
+    <div
+      :class="[
+        'unified-toolbar',
+        `unified-toolbar-${variant}`,
+        `unified-toolbar-orientation-${orientation}`,
+      ]"
+    >
       <!-- 左侧插槽（工具栏外部） -->
       <div class="toolbar-slot toolbar-slot-left">
         <slot name="left-actions" />
@@ -10,6 +19,7 @@
       <!-- 工具栏内容（有背景和边框） -->
       <div
         class="toolbar-content"
+        :class="[`toolbar-content-orientation-${orientation}`]"
         :style="backgroundColor ? { 'background-color': backgroundColor } : {}"
       >
         <!-- 左侧区域 -->
@@ -365,6 +375,8 @@ const props = withDefaults(
     variant?: 'floating' | 'browser'
     // 背景色（仅对 browser 风格有效）
     backgroundColor?: string
+    // 工具栏方向：horizontal=水平，vertical=垂直
+    orientation?: 'horizontal' | 'vertical'
   }>(),
   {
     tools: () => [],
@@ -373,6 +385,7 @@ const props = withDefaults(
     toolStates: () => ({}),
     variant: 'floating',
     backgroundColor: undefined,
+    orientation: 'horizontal',
   }
 )
 
@@ -1087,6 +1100,53 @@ $color-bg-selected: #e3e2fe;
   border: 1px solid $color-border;
   border-radius: 14px;
   transition: all $transition-normal;
+}
+
+/* ========== 方向相关样式 ========== */
+
+/* 垂直方向整体：内部块纵向堆叠 */
+.unified-toolbar-orientation-vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* 垂直方向下，内容区域改为纵向布局 */
+.toolbar-content-orientation-vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* 左/中/右区块改为竖直排列 */
+.unified-toolbar-orientation-vertical {
+  .left-section,
+  .center-section,
+  .right-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .center-section {
+    .tool-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+  }
+
+  /* 垂直模式下，竖直分隔线改成横向分隔线 */
+  .toolbar-divider-vertical {
+    width: 100%;
+    height: 1px;
+    margin: 6px 0;
+  }
+
+  /* 操作按钮在竖直模式下左对齐，增加竖直间距 */
+  .tool-icon-wrapper,
+  .action-btn {
+    justify-content: flex-start;
+  }
 }
 
 .unified-toolbar-browser {

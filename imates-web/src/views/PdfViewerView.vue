@@ -46,11 +46,14 @@
             @screenshot-captured="handleScreenshotCaptured"
           />
 
-          <!-- 截图输入对话框 -->
+          <!-- 截图输入对话框：输出截图数组，交给 ChatInput 挂载 -->
           <ScreenshotInputDialog
             v-model="screenshotDialogVisible"
             :screenshot-data-url="screenshotDataUrl"
-            @confirm="handleScreenshotConfirm"
+            :existing-screenshots="pdfAttachedScreenshots"
+            @confirm="handleScreenshotConfirmShots"
+            @add-more="handleScreenshotAddMoreShots"
+            @remove-screenshot="handlePdfRemoveScreenshot"
             @cancel="handleScreenshotCancel"
           />
         </div>
@@ -60,6 +63,9 @@
       <template v-slot:after v-if="pdfViewerStore.chatPanelVisible">
         <PdfChatPanel 
           ref="chatPanelRef" 
+          :attached-screenshots="pdfAttachedScreenshots"
+          @send-with-screenshot="handlePdfSendWithScreenshot"
+          @remove-screenshot="handlePdfRemoveScreenshot"
           @select-and-ask-click="handleSelectAndAskFromChat" 
           @close="handleCloseChatPanel"
         />
@@ -81,7 +87,7 @@ import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { resourceManager } from '@/services/resource-storage'
-import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
+import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession, AttachedScreenshot } from '@/types'
 import {
   addScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
@@ -131,6 +137,9 @@ const splitterModel = ref(60) // 分隔比例（左侧占60%）
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表
 const chatPanelRef = ref<InstanceType<typeof PdfChatPanel> | null>(null)
+
+// 当前挂在聊天输入框上的截图数组（PDF 场景专用）
+const pdfAttachedScreenshots = ref<AttachedScreenshot[]>([])
 
 // 处理工具配置变化（颜色、粗细等），写入 pdfViewerStore.drawingConfig
 const handleConfigChange = (config: {
@@ -432,10 +441,47 @@ const handleScreenshotCaptured = async (blob: Blob) => {
   }
 }
 
-// 处理截图输入对话框确认：打开对话面板并将图片+问题发送给 AI
-const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
+// 处理截图输入对话框确认：仅挂载截图数组，不直接发送消息
+const handleScreenshotConfirmShots = (shots: AttachedScreenshot[]) => {
+  if (!shots || !shots.length) return
+  pdfAttachedScreenshots.value = pdfAttachedScreenshots.value.concat(shots)
+  // 打开对话面板并切换到 AI 问答 Tab
+  pdfViewerStore.openChatPanel()
+}
+
+// 处理“继续截图”：累积截图并重新进入截图模式
+const handleScreenshotAddMoreShots = (shots: AttachedScreenshot[]) => {
+  if (shots && shots.length) {
+    pdfAttachedScreenshots.value = pdfAttachedScreenshots.value.concat(shots)
+  }
+  screenshotDialogVisible.value = false
+  screenshotDataUrl.value = ''
+  // 再次切换到截图工具模式
+  console.log('继续截图')
+  // 如果当前仍是 screenshot，再次调用 handleToolChange 会被视为“取消选中”，所以先重置为 hand
+  if (pdfViewerStore.selectedTool === 'screenshot') {
+    pdfViewerStore.selectedTool = 'hand' as any
+  }
+  handleToolChange('screenshot')
+}
+
+// 处理截图输入对话框取消
+const handleScreenshotCancel = () => {
+  screenshotDialogVisible.value = false
+  screenshotDataUrl.value = ''
+}
+
+// 从 ChatInput 发送携带截图的消息：复用原 handleScreenshotConfirm 的逻辑
+const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreenshot[]) => {
+  if (!shots || !shots.length) {
+    return
+  }
+
+  const firstShot = shots[0]
+  const dataUrl = firstShot.dataUrl
+
   try {
-    console.log('[PdfViewerView] 截图输入对话框确认', { question, dataUrl })
+    console.log('[PdfViewerView] ChatInput send-with-screenshot', { text, shotsCount: shots.length })
     // 打开对话面板并切换到 AI 问答 Tab
     pdfViewerStore.openChatPanel()
     // 设置当前教材ID
@@ -451,26 +497,18 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       : `${userId ? userId + '-' : ''}ai-textbook-${now}`
     aiTextbookStore.currentSessionId = sessionId
 
-    // 创建临时图片以获取宽高
-    const img = new Image()
-    img.src = dataUrl
-
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-    })
-
     const fileName = `screenshot-${Date.now()}.jpg`
 
     const imageData = {
       filePath: fileName,
       base64DataUrl: dataUrl,
-      width: img.width,
-      height: img.height,
+      width: firstShot.width,
+      height: firstShot.height,
       fileSize: Math.round(dataUrl.length * 0.75),
     }
     // 仅通过 aiTextbookStore 发送一次请求，使用复用的 sessionId
     await aiTextbookStore.sendMessage(
-      question,
+      text,
       'mate',
       imageData,
       false,
@@ -480,7 +518,7 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
     console.log('[PdfViewerView] 创建会话', { sessionId })
     const newSession: AiTextbookSession = {
       sessionId,
-      sessionName: question,
+      sessionName: text,
       createTime: now,
       updateTime: now,
       msgCount: 0,
@@ -491,7 +529,7 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       resourceId: currentResourceId || undefined,
       // 兼容字段
       id: sessionId,
-      question,
+      question: text,
       answer: '',
     }
     addScreenshotSession(newSession)
@@ -500,15 +538,14 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
   } catch (error) {
     console.error('[PdfViewerView] 发送截图消息失败', error)
   } finally {
-    screenshotDialogVisible.value = false
-    screenshotDataUrl.value = ''
+    // 清空已挂载的截图
+    pdfAttachedScreenshots.value = []
   }
 }
 
-// 处理截图输入对话框取消
-const handleScreenshotCancel = () => {
-  screenshotDialogVisible.value = false
-  screenshotDataUrl.value = ''
+// 从 ChatInput 中删除某个已挂载的截图
+const handlePdfRemoveScreenshot = (id: string) => {
+  pdfAttachedScreenshots.value = pdfAttachedScreenshots.value.filter((shot) => shot.id !== id)
 }
 
 

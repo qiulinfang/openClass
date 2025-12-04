@@ -1,12 +1,13 @@
 ﻿<template>
-  <div class="canvas-demo-container">
-    <!-- 统一工具栏（浮动在顶部） -->
-    <div class="toolbar-wrapper">
+  <div class="canvas-demo-container" :class="{ 'toolbar-left': props.toolbarPosition === 'left' }">
+    <!-- 统一工具栏（根据 toolbarPosition 浮动在顶部或左侧） -->
+    <div class="toolbar-wrapper" :class="{ 'toolbar-wrapper-left': props.toolbarPosition === 'left' }">
       <UnifiedToolbar
         :tools="props.drawingBoardTools"
         :selected-tool="currentTool"
         :tool-config="toolConfig"
         :tool-states="{ undo: canUndo, redo: canRedo }"
+        :orientation="props.toolbarPosition === 'left' ? 'vertical' : 'horizontal'"
         @tool-change="handleToolChange"
         @config-change="handleConfigChange"
         @undo="undo"
@@ -127,6 +128,7 @@ interface Props {
   width?: number // 可选：外部指定画布宽度（优先级最高）
   height?: number // 可选：外部指定画布高度（优先级最高）
   initialZoom?: number // 可选：初始缩放倍数，默认 1
+  toolbarPosition?: 'top' | 'left' // 工具栏位置：顶部水平 or 左侧垂直，默认 top
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -147,6 +149,7 @@ const props = withDefaults(defineProps<Props>(), {
   currentQuestion: null,
   width: undefined,
   height: undefined,
+  toolbarPosition: 'top',
 })
 
 // 新增：定义对外事件
@@ -2016,6 +2019,27 @@ defineExpose({
 .toolbar-wrapper :deep(.unified-toolbar-container) {
   pointer-events: auto;
   padding: 0;
+}
+
+/* 左侧垂直工具栏布局 */
+.toolbar-wrapper-left {
+  top: 16px;
+  left: 16px;
+  right: auto;
+  bottom: 16px;
+  width: auto;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.toolbar-wrapper-left :deep(.unified-toolbar-container) {
+  flex-direction: column;
+}
+
+/* 当工具栏在左侧时，画布容器需要左侧留出空间 */
+.toolbar-left .canvas-wrapper {
+  padding-top: 24px;
+  padding-left: 80px;
 }
 
 /* 画布容器（占满整个对话框） */

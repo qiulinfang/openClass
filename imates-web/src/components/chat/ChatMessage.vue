@@ -1900,15 +1900,7 @@ onUnmounted(() => {
 
 /* Markdown 渲染出的图片样式 */
 :deep(.message-text img.markdown-image) {
-  max-width: 100%;
-  height: 200px;
-  height: auto;
-  border-radius: 8px;
-  cursor: pointer;
-  display: block;
-  margin: 8px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  max-width: 50%;
 }
 
 :deep(.message-text img.markdown-image:hover) {

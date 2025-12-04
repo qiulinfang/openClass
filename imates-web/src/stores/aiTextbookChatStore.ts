@@ -166,15 +166,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       return bubble
     })
 
-    if (agentStatus === 'talking' || agentStatus === 'drawing') {
-      for (let i = result.length - 1; i >= 0; i--) {
-        if (result[i].sender === 'ai') {
-          result[i].isStreaming = true
-          break
-        }
-      }
-    }
-
     return result
   }
   
@@ -493,8 +484,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    * 重试失败的消息
    * 第1步：查找并验证消息
    * 第2步：检查重试条件
-   * 第3步：更新消息为重试中状态
-   * 第4步：重新发送
+   * 第3步：删除失败的消息（本地+后端同步）
+   * 第4步：重新发送消息（复用 sendMessage 逻辑）
    */
   const retryAiMessage = async (
     messageId: string,
@@ -519,107 +510,38 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       return
     }
     
-    // 第3步：更新为重试中状态
-    const retryCount = (message.retryCount || 0) + 1
-    const retryingMessage = {
-      ...updateMessageRetrying(message, retryCount),
-      selectedModel: chatRole || message.selectedModel || 'mate' // 保留模式信息
-    }
-    updateMessage(messageId, retryingMessage)
+    // 第3步：保存原始内容，用于重新发送
+    const originalContent = message.originalMessage
+    const originalQuotedMessage = message.quotedMessage
+    const originalImageData = message.imageData || imageData
     
-    // 第4步：重新发送
+    if (!originalContent) {
+      showMessage('原始消息内容不存在', 'error')
+      return
+    }
+    
+    // 第4步：删除失败的消息（本地+后端同步）
     try {
-      const userInfo = getUserInfo()
-      // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
-      const builderImageData = imageData?.base64DataUrl
-        ? { base64DataUrl: imageData.base64DataUrl }
-        : undefined
-      if (!currentSessionId.value) {
-        const newSessionId = `textbook-session-${Date.now()}`
-        console.log('[AI_TEXTBOOK] 创建新会话（sendMessageWithImage）', { sessionId: newSessionId })
-        currentSessionId.value = newSessionId
-      }
-      const shouldUseScreenshotApi = !!builderImageData
-      
-      const aiMessage = buildAiTextbookMessage({
-        sessionId: currentSessionId.value,
-        content: message.originalMessage!,
-        userInfo: userInfo,
-        enableWebSearch: enableWebSearch.value,
+      await deleteMessage(messageId)
+    } catch (deleteError) {
+      console.warn('[AI_TEXTBOOK] retryAiMessage.deleteFailed, 继续重试', deleteError)
+      // 删除失败不阻塞重试，继续发送
+    }
+    
+    // 第5步：重新发送消息（复用 sendMessage 逻辑）
+    try {
+      await sendMessage(
+        originalContent,
         chatRole,
-        imageData: builderImageData,
-        useScreenshotApi: shouldUseScreenshotApi,
-        isNewSession: false,
-      })
-      useScreenshotApi.value = shouldUseScreenshotApi
-      
-      // 累积内容（用于流式更新）
-      let accumulatedContent = ''
-      const response = await apiService.sendChatMessage(
-        aiMessage,
-        // onComplete: 完成回调
-        (finalResponse) => {
-          if (isResponseSuccess(finalResponse)) {
-            // 重试成功
-            const successMessage = updateMessageSuccess(
-              message,
-              finalResponse.reply || accumulatedContent || '',
-              finalResponse.messageId
-            )
-            updateMessage(messageId, successMessage)
-            
-            chatResponseTimes.value++
-            saveChatHistory()
-          } else {
-            // 重试失败
-            const errorContent = buildRetryFailureMessage(retryCount, 3)
-            const errorMessage = updateMessageError(
-              message,
-              errorContent,
-              message.originalMessage,
-              imageData
-            )
-            updateMessage(messageId, errorMessage)
-          }
-        },
-        // onStream: 流式更新回调
-        (chunk: string, isComplete: boolean) => {
-          if (isComplete) {
-            // 流式完成，标记消息不再流式更新
-            updateMessage(messageId, { isStreaming: false })
-          } else {
-            // 累积内容并实时更新消息
-            accumulatedContent += chunk
-            updateMessage(messageId, {
-              content: accumulatedContent,
-              isStreaming: true
-            })
-          }
-        }
+        originalImageData,
+        false, // hidePrefix
+        false, // skipUserMessage: false，重新创建用户消息
+        undefined, // focus: 暂不传递
+        originalQuotedMessage, // 保留原始引用信息用于 UI 展示
       )
-      
-      // 处理响应（如果轮询已完成）
-      if (!isResponseSuccess(response) && !accumulatedContent) {
-        // 重试失败
-        const errorContent = buildRetryFailureMessage(retryCount, 3)
-        const errorMessage = updateMessageError(
-          message,
-          errorContent,
-          message.originalMessage,
-          imageData
-        )
-        updateMessage(messageId, errorMessage)
-      }
-    } catch (error) {
-      console.error('重试失败:', error)
-      const errorContent = buildRetryFailureMessage(retryCount, 3)
-      const errorMessage = updateMessageError(
-        message,
-        errorContent,
-        message.originalMessage,
-        imageData
-      )
-      updateMessage(messageId, errorMessage)
+    } catch (sendError) {
+      console.error('[AI_TEXTBOOK] retryAiMessage.sendFailed', sendError)
+      throw sendError
     }
   }
   

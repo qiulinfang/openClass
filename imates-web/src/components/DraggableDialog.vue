@@ -26,7 +26,7 @@
               </div>
             </template>
 
-            <!-- 主内容卡片 -->
+            <!-- 右侧面板 -->
             <template #after>
               <div class="draggable-dialog-card">
                 <!-- 对话框标题 -->
@@ -45,10 +45,17 @@
                   >
                     <slot name="header-left"></slot>
                   </div>
-
                   <!-- 标题 -->
                   <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
-
+                  <!-- 右侧插槽 -->
+                  <div
+                    v-if="$slots['header-right']"
+                    class="header-right"
+                    @mousedown.stop
+                    @touchstart.stop
+                  >
+                    <slot name="header-right"></slot>
+                  </div>
                   <!-- 关闭按钮 -->
                   <button class="close-btn" @click="handleClose" @mousedown.stop @touchstart.stop>
                     <svg
@@ -78,12 +85,21 @@
 
                 <!-- 底部操作按钮区域 -->
                 <div v-if="showFooter" class="dialog-footer-section">
-                  <button type="button" class="cancel-btn" @click="emit('cancel')">
-                    {{ cancelText }}
-                  </button>
-                  <button type="button" class="confirm-btn" :disabled="confirmDisabled" @click="emit('confirm')">
-                    {{ confirmText }}
-                  </button>
+                  <!-- 取消按钮 -->
+                  <CommonActionButton
+                    :label="cancelText"
+                    size="mdCompact"
+                    variant="ghost"
+                    @click="emit('cancel')"
+                  />
+                  <!-- 确定按钮 -->
+                  <CommonActionButton
+                    :label="confirmText"
+                    size="mdCompact"
+                    :variant="confirmVariant"
+                    :disabled="confirmDisabled"
+                    @click="emit('confirm')"
+                  />
                 </div>
 
                 <!-- 调整大小把手 -->
@@ -106,7 +122,7 @@
               @mousedown.prevent="startDrag"
               @touchstart.prevent="startDrag"
             >
-              <!-- 左侧插槽 -->
+              <!-- 标题左侧插槽 -->
               <div
                 v-if="$slots['header-left']"
                 class="header-left"
@@ -115,9 +131,18 @@
               >
                 <slot name="header-left"></slot>
               </div>
-
+              <!-- 标题 -->
               <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
-
+              <!-- 标题右侧插槽 -->
+              <div
+                v-if="$slots['header-right']"
+                class="header-right"
+                @mousedown.stop
+                @touchstart.stop
+              >
+                <slot name="header-right"></slot>
+              </div>
+              <!-- 关闭按钮 -->
               <button class="close-btn" @click="handleClose" @mousedown.stop @touchstart.stop>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -147,28 +172,33 @@
               />
 
               <!-- 右侧：关闭按钮 -->
-              <img
-                src="icons/close.svg"
-                alt="close"
-                class="close-btn"
-                @click.stop="handleClose"
-              />
+              <img src="icons/close.svg" alt="close" class="close-btn" @click.stop="handleClose" />
             </div>
 
+            <!-- 内容区域 -->
             <div class="dialog-content-section" :class="{ 'dialog-content-rounded': fullscreen }">
               <slot></slot>
             </div>
 
             <!-- 底部操作按钮区域 -->
             <div v-if="showFooter" class="dialog-footer-section">
-              <button type="button" class="cancel-btn" @click="emit('cancel')">
-                {{ cancelText }}
-              </button>
-              <button type="button" class="confirm-btn" :disabled="confirmDisabled" @click="emit('confirm')">
-                {{ confirmText }}
-              </button>
+              <!-- 取消按钮 -->
+              <CommonActionButton
+                :label="cancelText"
+                size="mdCompact"
+                variant="ghost"
+                @click="emit('cancel')"
+              />
+              <!-- 确定按钮 -->
+              <CommonActionButton
+                :label="confirmText"
+                size="mdCompact"
+                :variant="confirmVariant"
+                :disabled="confirmDisabled"
+                @click="emit('confirm')"
+              />
             </div>
-
+            <!-- 调整大小把手 -->
             <div
               class="resize-handle"
               @mousedown.prevent.stop="startResize"
@@ -183,6 +213,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CommonActionButton from './CommonActionButton.vue'
 
 interface Props {
   modelValue: boolean
@@ -200,6 +231,7 @@ interface Props {
   confirmText?: string // 确定按钮文本
   cancelText?: string // 取消按钮文本
   confirmDisabled?: boolean // 确定按钮是否禁用
+  confirmVariant?: 'primary' | 'danger' // 确认按钮样式：普通 / 删除
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -216,14 +248,15 @@ const props = withDefaults(defineProps<Props>(), {
   confirmText: '确定',
   cancelText: '取消',
   confirmDisabled: false,
+  confirmVariant: 'primary',
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'splitter-change': [value: number]
   'toggle-fullscreen': []
-  'confirm': []
-  'cancel': []
+  confirm: []
+  cancel: []
 }>()
 
 const isOpen = computed({
@@ -505,6 +538,17 @@ watch(isOpen, (newValue) => {
         padding-left: 0;
         font-size: 18px;
       }
+    }
+
+    /* 内容区域通用样式 */
+    .dialog-content-section {
+      flex: 1;
+      padding: 16px 20px;
+      background-color: #ffffff;
+      color: #333333;
+      font-size: 16px;
+      line-height: 1.5;
+      overflow: auto;
     }
 
     .close-btn {

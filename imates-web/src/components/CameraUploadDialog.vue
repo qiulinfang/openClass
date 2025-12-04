@@ -19,16 +19,13 @@
             v-for="(photo, index) in photos"
             :key="index"
             class="photo-item"
-            @click.stop="openPreview(index)"
           >
-            <img :src="photo" alt="照片" class="photo-thumbnail" />
-            <button
-              type="button"
-              class="remove-btn"
-              @click.stop="removePhoto(index)"
-            >
-              <q-icon name="close" size="14px" />
-            </button>
+            <ScreenshotThumb
+              :image-url="photo"
+              :show-delete="true"
+              @click="openPreview(index)"
+              @remove="removePhoto(index)"
+            />
           </div>
           
           <!-- 添加照片按钮 -->
@@ -79,6 +76,7 @@
 import { ref, computed, watch } from 'vue'
 import DraggableDialog from '@/components/DraggableDialog.vue'
 import CommonActionButton from '@/components/CommonActionButton.vue'
+import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 
 interface Props {
@@ -223,33 +221,6 @@ const handleCancel = () => {
   border-radius: 8px;
   overflow: hidden;
   background: #e0e0e0;
-  
-  .photo-thumbnail {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .remove-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    transition: background 0.2s;
-    
-    &:hover {
-      background: rgba(0, 0, 0, 0.7);
-    }
-  }
 }
 
 .add-photo-btn {

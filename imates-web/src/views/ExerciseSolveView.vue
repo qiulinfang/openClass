@@ -6,7 +6,7 @@
         <!-- 左侧返回按钮（从作业作答页跳转过来时显示） -->
         <div v-if="showBackButton" class="toolbar-left">
           <div class="back-btn" @click="goBackToHomework">
-            <img src="/icons/goback.svg" alt="返回" class="back-icon" />
+            <img :src="goBackIcon" alt="返回" class="back-icon" />
           </div>
         </div>
         <!-- 居中的功能导航 -->
@@ -117,37 +117,49 @@
                   @send-message="handleSendSuggestion"
                   @focus-input="handleFocusInput"
                 >
-                  <template #header-suffix>
-                    <!-- 会话管理按钮 -->
+                  <!-- 会话面板关闭：仅在 header-suffix 中显示右上角会话管理按钮 -->
+                  <template v-if="!aiChatViewRef?.showSessionListPanel" #header-suffix>
                     <button
                       type="button"
-                      class="session-manager-btn"
+                      class="session-toggle-btn"
                       @click="toggleSessionListPanel"
                     >
-                      <img
-                        src="/icons/session_manager.svg"
-                        alt="会话管理"
-                        class="session-manager-icon"
-                      />
+                      <img :src="sessionManagerIcon" alt="会话管理" class="session-toggle-icon" />
                     </button>
-                    <!-- 会话管理弹出层 -->
-                    <div v-if="aiChatViewRef?.showSessionListPanel" class="session-bottom-bar">
-                      <!-- 关闭按钮 -->
-                      <button class="session-bottom-action" @click="handleCloseSessionPanel">
-                        <img
-                          src="/icons/session_manager.svg"
-                          alt="会话管理"
-                          class="session-action-icon"
-                        />
+                  </template>
+
+                  <!-- 会话面板打开：使用 header-all 替换 ChatInput 头部整块为会话操作条 -->
+                  <template v-else #header-all>
+                    <div class="session-bottom-bar">
+                      <!-- 返回按钮 -->
+                      <button class="session-manager-btn" @click="handleCloseSessionPanel">
+                        <img :src="goBackIcon" alt="返回" class="session-manager-icon" />
+                        <span class="session-back-text">返回</span>
                       </button>
                       <!-- 新建按钮 -->
-                      <button class="session-bottom-action primary" @click="handleAddSessionCard">
-                        <img src="/icons/new.svg" alt="新建" class="session-action-icon" />
+                      <button class="session-manager-btn primary" @click="handleAddSessionCard">
+                        <img :src="newSessionIcon" alt="新建" class="session-manager-icon" />
+                        <span class="session-back-text">新建</span>
                       </button>
                       <!-- 分享按钮 -->
-                      <button class="session-bottom-action" @click="handleShareSession">
-                        <img src="/icons/share.svg" alt="分享" class="session-action-icon" />
+                      <!-- <button class="session-manager-btn" @click="handleShareSession">
+                        <img :src="shareIcon" alt="分享" class="session-manager-icon" />
+                      </button> -->
+                      <!-- 清除会话按钮：删除所有会话（先弹出确认对话框） -->
+                      <button
+                        class="session-manager-btn"
+                        :disabled="!hasAiSessions"
+                        @click="hasAiSessions && (showClearAllConfirmDialog = true)"
+                      >
+                        <img :src="deleteSessionIcon" alt="清除会话" class="session-manager-icon" />
+                        <span class="session-back-text">清除会话</span>
                       </button>
+                    </div>
+                  </template>
+                  <!-- 新增会话按钮：仅在 AI 引导答题且已选中题目时显示 -->
+                  <template #header-right v-if="currentFunction === 'chatAi' && currentQuestion">
+                    <div @click="handleAddSessionCard" class="add-session-btn">
+                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
                     </div>
                   </template>
                 </ChatView>
@@ -185,6 +197,24 @@
 
     <!-- 题目调试面板 - 只在开发场景下显示 -->
     <QuestionDebugPanel v-if="isDev" v-model="showQuestionDebugPanel" />
+
+    <!-- 清除所有会话确认对话框 -->
+    <DraggableDialog
+      v-model="showClearAllConfirmDialog"
+      title="确认清除会话"
+      :show-footer="true"
+      confirm-variant="danger"
+      :initial-width="360"
+      :initial-height="190"
+      :min-width="300"
+      :min-height="160"
+      @cancel="showClearAllConfirmDialog = false"
+      @confirm="confirmClearAllSessions"
+    >
+      <div class="delete-confirm-content">
+        {{ '确定要清除当前题目的所有会话吗？此操作不可撤销。' }}
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
@@ -208,11 +238,18 @@ import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
+import DraggableDialog from '../components/DraggableDialog.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
 import RubberBandList from '../components/RubberBandList.vue'
 import CommonSelect from '../components/CommonSelect.vue'
+import addSessionIcon from '/icons/addsession.png'
+import newSessionIcon from '/icons/new.svg'
+import goBackIcon from '/icons/goback_raw.svg'
+import sessionManagerIcon from '/icons/session_manager.svg'
+import shareIcon from '/icons/share.svg'
+import deleteSessionIcon from '/icons/delete.svg'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -265,9 +302,17 @@ const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
 
+// 清除所有会话确认对话框
+const showClearAllConfirmDialog = ref(false)
+
 // 当前科目（用于 UnifiedChatDialog）- 使用 computed 监听 localStorage 变化
 const currentSubject = computed(() => {
   return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
+})
+
+// 当前题目下是否存在 AI 会话（用于控制“清除会话”按钮可用状态）
+const hasAiSessions = computed(() => {
+  return Array.isArray(aiExerciseStore.sessions) && aiExerciseStore.sessions.length > 0
 })
 
 // 题目调试面板显示状态
@@ -326,10 +371,46 @@ const handleCloseSessionPanel = () => {
   }
 }
 
-// 新建会话
+// 确认清除所有会话（对话框确认按钮回调）
+const confirmClearAllSessions = async () => {
+  await handleClearAllSessions()
+  showClearAllConfirmDialog.value = false
+}
+
+// 新建会话（底部会话管理按钮 / 右上角新增会话按钮复用同一逻辑）
 const handleAddSessionCard = async () => {
   if (aiChatViewRef.value?.addSessionCard) {
     await aiChatViewRef.value.addSessionCard()
+  }
+}
+
+// 清除当前题目的所有 AI 会话
+const handleClearAllSessions = async () => {
+  try {
+    if (!currentQuestion.value) return
+    const questionBmNo = (currentQuestion.value.bmNo || currentQuestion.value.id || '').toString()
+    if (!questionBmNo) return
+
+    // 防御：如果没有会话，直接关闭面板
+    if (!aiExerciseStore.sessions || aiExerciseStore.sessions.length === 0) {
+      if (aiChatViewRef.value) {
+        aiChatViewRef.value.showSessionListPanel = false
+      }
+      return
+    }
+
+    // 并行删除：先拍一份当前会话 ID 快照，再使用 Promise.all 同时删除
+    const sessionIds = aiExerciseStore.sessions.map(session => session.id)
+    await Promise.all(
+      sessionIds.map(sessionId => aiExerciseStore.deleteSession(sessionId, questionBmNo))
+    )
+
+    // 关闭会话管理面板
+    if (aiChatViewRef.value) {
+      aiChatViewRef.value.showSessionListPanel = false
+    }
+  } catch (error) {
+    console.error('清除会话失败:', error)
   }
 }
 
@@ -1110,6 +1191,10 @@ $desktop-breakpoint: 1025px;
     overflow-y: auto;
     background-color: $background-color;
   }
+
+  :deep(.chat-input-area) {
+    background-color: #ffffff;
+  }
 }
 
 // 工具类
@@ -1144,22 +1229,40 @@ $desktop-breakpoint: 1025px;
   border-color: $border-color !important;
 }
 
-// 移除旧的按钮样式，使用新的导航样式
-
-// 会话管理按钮样式
-.session-manager-btn {
-  display: flex;
+.session-toggle-btn {
+  padding: 0;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  background-color: #ffffff;
   border: none;
-  background: transparent;
   cursor: pointer;
 }
 
-.session-manager-icon {
-  width: 32px;
+.session-toggle-icon {
+  display: block;
   height: 32px;
+  object-fit: contain;
+}
+
+// 会话管理按钮样式
+.session-manager-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px; // 图标与文字间距
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.session-manager-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 
@@ -1169,16 +1272,41 @@ $desktop-breakpoint: 1025px;
   object-fit: contain;
 }
 
+.add-session-icon {
+  width: 32px;
+  height: 32px;
+}
+
+// 底部会话操作按钮文字（返回 / 新建 / 清除会话）
+.session-back-text {
+  font-size: 14px;
+  line-height: 1;
+  color: inherit; // 跟随按钮颜色（普通 / primary）
+}
+
+// 清除所有会话确认弹窗内容样式
+.delete-confirm-content {
+  height: 100%;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  border: none;
+}
+
 // 响应式设计
 // 会话管理底部按钮栏
 .session-bottom-bar {
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
   background: #ffffff;
-  border-top: 1px solid #e5e7eb;
   z-index: 100;
+  width: 100%;
 }
 
 .session-bottom-action {

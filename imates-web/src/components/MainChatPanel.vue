@@ -2,88 +2,93 @@
   <!-- 全屏遮罩：点击遮罩空白区域时关闭面板 -->
   <div class="main-chat-overlay" @click.self="emit('close')">
     <div class="main-chat-panel" @click.stop>
-    <!-- 头部：Tab + 关闭按钮 -->
-    <div class="chat-panel-header">
-      <div class="chat-tabs">
-        <div class="tab-list">
-          <div
-            v-for="tab in tabOptions"
-            :key="tab.value"
-            :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
-            @click="activeTab = tab.value"
-          >
-            <span>{{ tab.label }}</span>
-          </div>
-        </div>
-      </div>
-      <!-- 形态切换按钮：panel <-> dialog -->
-      <button
-        type="button"
-        class="toggle-mode-button"
-        @click="emit('toggle-mode')"
-      >
-        <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
-      </button>
-      <q-btn
-        flat
-        round
-        dense
-        icon="close"
-        size="md"
-        @click="emit('close')"
-        class="close-button"
-      />
-    </div>
-
-    <!-- Tab 内容区域 -->
-    <div class="chat-content-container">
-      <!-- AI 问答 Tab：仅展示聊天内容区域 -->
-      <div v-show="activeTab === 'ai-chat'" class="tab-content">
-        <div class="main-chat-body">
-          <div class="right-panel">
-            <ChatView
-              v-if="activeCategory === 'ai-general'"
-              type="ai-general"
-              :compressed-height="339"
-              @open-teacher-dialog="handleOpenTeacherDialog"
-              @switch-to-teacher="handleSwitchToTeacher"
+      <!-- 头部：Tab + 关闭按钮 -->
+      <div class="chat-panel-header">
+        <!-- Tab -->
+        <div class="chat-tabs">
+          <div class="tab-list">
+            <div
+              v-for="tab in tabOptions"
+              :key="tab.value"
+              :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
+              @click="activeTab = tab.value"
             >
-              <template #header-right>
-                <div @click="handleNewChatClick" class="add-session-btn">
-                  <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
-                </div>
-              </template>
-            </ChatView>
-            <ChatView
-              v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
-              type="teacher-general"
-              :compressed-height="339"
-              :session-id="teacherChatStore.currentSession.sessionId"
-              :key="teacherChatStore.currentSession.sessionId"
-            />
-            <div v-else class="empty-chat">
-              <q-icon name="chat" size="48px" color="grey-4" />
-              <div class="empty-text">请选择或创建一个会话</div>
+              <span>{{ tab.label }}</span>
             </div>
           </div>
         </div>
+        <!-- 形态切换按钮：panel <-> dialog -->
+        <button type="button" class="toggle-mode-button" @click="emit('toggle-mode')">
+          <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
+        </button>
+        <!-- 关闭按钮 -->
+        <q-btn
+          flat
+          round
+          dense
+          icon="close"
+          size="md"
+          @click="emit('close')"
+          class="close-button"
+        />
       </div>
 
-      <!-- 会话记录 Tab：仅展示会话列表 -->
-      <div v-show="activeTab === 'question-record'" class="tab-content">
-        <div class="session-list-wrapper">
-          <SessionTree
-            ref="sessionTreeRef"
-            @session-switched="handleSessionSwitched"
-            @ai-session-deleted="handleAiSessionDeleted"
-            @teacher-session-deleted="handleTeacherSessionDeleted"
-            @category-should-change="handleCategoryShouldChange"
-          />
+      <!-- Tab 内容区域 -->
+      <div class="chat-content-container">
+        <!-- AI 问答 Tab：仅展示聊天内容区域 -->
+        <div v-show="activeTab === 'ai-chat'" class="tab-content">
+          <div class="main-chat-body">
+            <!-- 右侧聊天内容区域 -->
+            <div class="right-panel">
+              <!-- AI 问答 -->
+              <ChatView
+                v-if="activeCategory === 'ai-general'"
+                type="ai-general"
+                :compressed-height="339"
+                @open-teacher-dialog="handleOpenTeacherDialog"
+                @switch-to-teacher="handleSwitchToTeacher"
+              >
+                <!-- 新增会话按钮 -->
+                <template #header-right>
+                  <div @click="handleNewChatClick" class="add-session-btn">
+                    <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                  </div>
+                </template>
+              </ChatView>
+              <!-- 老师聊天内容区域 -->
+              <ChatView
+                v-else-if="
+                  activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId
+                "
+                type="teacher-general"
+                :compressed-height="339"
+                :session-id="teacherChatStore.currentSession.sessionId"
+                :key="teacherChatStore.currentSession.sessionId"
+              />
+              <!-- 无会话 -->
+              <div v-else class="empty-chat">
+                <q-icon name="chat" size="48px" color="grey-4" />
+                <div class="empty-text">请选择或创建一个会话</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 会话记录 Tab：仅展示会话列表 -->
+        <div v-show="activeTab === 'question-record'" class="tab-content">
+          <div class="session-list-wrapper">
+            <SessionTree
+              ref="sessionTreeRef"
+              @session-switched="handleSessionSwitched"
+              @ai-session-deleted="handleAiSessionDeleted"
+              @teacher-session-deleted="handleTeacherSessionDeleted"
+              @category-should-change="handleCategoryShouldChange"
+            />
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 </template>
 
 <script setup lang="ts">
@@ -94,7 +99,7 @@ import { showMessage } from '../utils'
 import { authStorageService } from '@/services/auth-storage-service'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
-import addSessionIcon from '/icons/addsession.svg'
+import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherGeneralChatStore()
@@ -203,7 +208,12 @@ const setTeacherSession = (sessionId: string) => {
 }
 
 // 从 AI 聊天转老师：打开指定老师会话
-const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message?: ChatBubble }) => {
+const handleOpenTeacherDialog = async ({
+  sessionId,
+}: {
+  sessionId: string
+  message?: ChatBubble
+}) => {
   try {
     setTeacherSession(sessionId)
     activeCategory.value = 'teacher'
@@ -380,7 +390,7 @@ const handleSwitchToTeacher = async (forwardData?: {
 
 .left-panel {
   width: 260px;
-  border-right: 1px solid #e0e0e0; 
+  border-right: 1px solid #e0e0e0;
   background: #f5f5f5;
   display: flex;
   flex-direction: column;
@@ -396,8 +406,8 @@ const handleSwitchToTeacher = async (forwardData?: {
 }
 
 .add-session-icon {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
 }
 
 .empty-chat {

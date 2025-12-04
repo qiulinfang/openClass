@@ -71,17 +71,20 @@ export class ApiService {
   public async manageConversationMemory(
     payload: ManageConversationMemoryRequest,
   ): Promise<any> {
-    try {
-      const url = getApiUrl('/permission/manageConversationMemory')
-      const response = await httpClient.post(url, payload)
-      return response.data
-    } catch (error) {
-      console.error('[API Service] manageConversationMemory 调用失败:', {
-        payload,
-        error: error instanceof Error ? error.message : String(error),
-      })
-      throw error
-    }
+    // try {
+    //   const url = getApiUrl('/permission/manageConversationMemory')
+    //   const response = await httpClient.post(url, payload)
+    //   return response.data
+    // } catch (error) {
+    //   console.error('[API Service] manageConversationMemory 调用失败:', {
+    //     payload,
+    //     error: error instanceof Error ? error.message : String(error),
+    //   })
+    //   throw error
+    // }
+
+    console.info('[API Service] manageConversationMemory 调用已被跳过(本地禁用)', payload)
+    return Promise.resolve(null)
   }
 
   public static getInstance(): ApiService {
