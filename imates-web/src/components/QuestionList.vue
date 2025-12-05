@@ -216,16 +216,20 @@ import { createQuestionListStrategy } from './question/strategies'
 // 导入拍照搜题图标
 import searchQuestionIcon from '/icons/search_question.svg'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   searchQuery?: string
   selectedSubjectFilter?: string | null
   // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
   externalQuestions?: ExerciseItem[]
   // 是否显示拍照搜题按钮，默认 true
   showPhotoSearch?: boolean
+  // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
+  showSendToAi?: boolean
   // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
   type?: QuestionListType
-}>()
+}>(), {
+  showSendToAi: true,
+})
 
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
@@ -646,7 +650,7 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
       key: 'send-ai',
       label: '发送给AI',
       icon: 'icons/Deskmate.svg',
-      visible: currentStrategy.canSendToAi(),
+      visible: currentStrategy.canSendToAi() && props.showSendToAi !== false,
       onClick: wrap(() => throttledSendToAi(question)),
     },
     {

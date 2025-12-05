@@ -10,17 +10,14 @@
     </header>
     <div class="answer-body">
       <div class="left-panel">
-        <QuestionList ref="questionListRef" type="homework" :external-questions="externalQuestions" :show-photo-search="false">
-          <template #more-extra="{ question, close }">
-            <div
-              class="more-menu-item-row"
-              @click="() => { close(); handleStartAnswer(question) }"
-            >
-              <img src="icons/my_exercises.svg" alt="开始作答" width="20" height="20" />
-              <div>开始作答</div> 
-            </div>
-          </template>
-        </QuestionList>
+        <QuestionList
+          ref="questionListRef"
+          type="homework"
+          :external-questions="externalQuestions"
+          :show-photo-search="false"
+          :show-send-to-ai="false"
+          @questionSelected="handleStartAnswer"
+        />
       </div>
       <div class="right-panel">
         <DrawingBoard

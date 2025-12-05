@@ -71,12 +71,12 @@ export class MyHomeworkStrategy implements QuestionListStrategy {
   
   /** 作业支持发送给 AI */
   canSendToAi(): boolean {
-    return false
+    return true
   }
   
   /** 作业不支持微课（作业场景通常没有微课） */
   canOpenMiniClass(): boolean {
-    return false
+    return true
   }
   
   /** 作业不支持置顶（作业按时间排序） */
@@ -86,7 +86,7 @@ export class MyHomeworkStrategy implements QuestionListStrategy {
   
   /** 作业不支持收藏 */
   canFavorite(): boolean {
-    return false
+    return true
   }
   
   /** 作业支持拍照发给老师 */
