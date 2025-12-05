@@ -7,6 +7,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.fragment.app.FragmentActivity;
+
+import com.cosinetech.imates.screencasting.model.ClassroomInfo;
+import com.cosinetech.imates.screencasting.model.DeviceType;
+import com.cosinetech.imates.utils.AppUtils;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.DatagramPacket;
@@ -78,11 +84,15 @@ public class ScreenCastingCommunicator {
     private volatile  String pcDeviceIp = "1.1.1.1";
     private volatile String teacherPadDeviceIp = "1.1.1.1";
 
-    public ScreenCastingCommunicator(Context ctx, String studentId, String studentName) {
-        this.context = ctx.getApplicationContext();
+    private DeviceClientWrapper deviceClientWrapper;
+
+    public ScreenCastingCommunicator(FragmentActivity ctx, String studentId, String studentName) {
+        this.context = ctx;
         this.studentId = studentId;
         this.studentName = studentName;
         this.tsStreamPort = TS_STREAM_PORT_BASE;
+
+        this.deviceClientWrapper = new DeviceClientWrapper(this.context, "www.imates.com.cn", 8889, AppUtils.getUserId(), DeviceType.STUDENT);
     }
 
     public int getTsStreamPort() {
@@ -162,6 +172,37 @@ public class ScreenCastingCommunicator {
             // 开始接收消息
             startReceivingMulticastMessages();
             startReceivingSingleCastMessage();
+
+            // 2. 获取所有教室并显示选择Dialog
+            deviceClientWrapper.showClassroomSelectionDialog(new DeviceClientWrapper.OnClassroomSelectedListener() {
+                public void onSelected(String city, String school, ClassroomInfo classroom) {
+                    deviceClientWrapper.register();
+                    deviceClientWrapper.startHeartbeat();
+                }
+
+                @Override
+                public void onCancelled() {
+
+                }
+            });
+
+            // 或者直接设置教室
+//            deviceClientWrapper.setLocation("北京", "第一中学", "classroom_001");
+//            deviceClientWrapper.register();
+//            deviceClientWrapper.startHeartbeat();
+
+            // 3. 监听设备信息变化
+            deviceClientWrapper.addDeviceChangeListener((oldInfo, newInfo) -> {
+                if(!newInfo.getScreens().isEmpty()) {
+                    this.pcDeviceIp = newInfo.getScreens().get(0).getIp();
+                    Log.e(TAG, "Screen Device: " + pcDeviceIp);
+                }
+
+                if(!newInfo.getTeachers().isEmpty()) {
+                    this.teacherPadDeviceIp = newInfo.getTeachers().get(0).getIp();
+                    Log.e(TAG, "TeacherPad Device: " + pcDeviceIp);
+                }
+            });
 
             Log.d(TAG, "学生端通信已启动，本地IP: " + localIp);
         } catch (IOException e) {
@@ -582,4 +623,31 @@ public class ScreenCastingCommunicator {
             });
         }
     }
+
+    /**
+     * 设备客户端Wrapper - 对外的主接口
+     *
+     * 用法示例：
+     *
+     * // 1. 创建Teacher客户端
+     * DeviceClientWrapper client = new DeviceClientWrapper(context, "192.168.1.100", 8080, "device_123", DeviceType.TEACHER);
+     *
+     * // 2. 获取所有教室并显示选择Dialog
+     * client.showClassroomSelectionDialog(new DeviceClientWrapper.OnClassroomSelectedListener() {
+     *     public void onSelected(String city, String school, ClassroomInfo classroom) {
+     *         client.register();
+     *         client.startHeartbeat();
+     *     }
+     * });
+     *
+     * // 或者直接设置教室
+     * client.setLocation("北京", "第一中学", "classroom_001");
+     * client.register();
+     * client.startHeartbeat();
+     *
+     * // 3. 监听设备信息变化
+     * client.addDeviceChangeListener(change -> {
+     *     Log.d("Change", "Device changed: " + change.getChangeType());
+     * });
+     */
 }
