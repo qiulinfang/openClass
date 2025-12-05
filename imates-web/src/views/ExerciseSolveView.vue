@@ -2,13 +2,13 @@
   <div class="exercise-solve-container">
     <!-- 顶部工具栏 -->
     <div class="app-header">
-      <div class="app-toolbar">
-        <!-- 左侧返回按钮（从作业作答页跳转过来时显示） -->
-        <div v-if="showBackButton" class="toolbar-left">
-          <div class="back-btn" @click="goBackToHomework">
-            <img :src="goBackIcon" alt="返回" class="back-icon" />
-          </div>
+      <!-- 左侧返回按钮（从作业作答页跳转过来时显示） -->
+      <div v-if="showBackButton" class="toolbar-left">
+        <div class="back-btn" @click="goBackToHomework">
+          <img :src="goBackIcon" alt="返回" class="back-icon" />
         </div>
+      </div>
+      <div class="app-toolbar">
         <!-- 居中的功能导航 -->
         <div class="toolbar-center">
           <div class="function-nav">
@@ -75,6 +75,7 @@
               <q-card-section class="q-pa-none full-height">
                 <QuestionList
                   ref="questionListRef"
+                  :type="isFromHomework ? 'homework' : 'exercise'"
                   :search-query="searchQuery"
                   :selected-subject-filter="selectedSubjectFilter"
                   @start-ai-guidance="handleStartAiGuidance"
@@ -227,6 +228,7 @@ defineOptions({
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
+import { useHomeworkStore } from '../stores/homeworkStore'
 import { getUserInfo, getSubject, initializeStore } from '../services/auth-storage-service'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
@@ -246,7 +248,7 @@ import RubberBandList from '../components/RubberBandList.vue'
 import CommonSelect from '../components/CommonSelect.vue'
 import addSessionIcon from '/icons/addsession.png'
 import newSessionIcon from '/icons/new.svg'
-import goBackIcon from '/icons/goback_raw.svg'
+import goBackIcon from '/icons/goback.svg'
 import sessionManagerIcon from '/icons/session_manager.svg'
 import shareIcon from '/icons/share.svg'
 import deleteSessionIcon from '/icons/delete.svg'
@@ -258,16 +260,29 @@ const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 const route = useRoute()
 const router = useRouter()
 const questionStore = useQuestionStore()
+const homeworkStore = useHomeworkStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherStore = useTeacherExerciseChatStore()
 const uiStore = useUIStore()
-const { currentQuestion, questions } = storeToRefs(questionStore)
+
+// 从两个 store 解构出各自的 currentQuestion（重命名避免冲突）
+const { currentQuestion: exerciseCurrentQuestion, questions } = storeToRefs(questionStore)
+const { currentQuestion: homeworkCurrentQuestion, questions: homeworkQuestions } =
+  storeToRefs(homeworkStore)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion' | ''>('')
 
-// 是否从作业答题路由进入（homeworkExercise）
+// 是否处于作业场景：通过路由参数 scene=homework 或 homeworkExercise 路由名判断
 const isFromHomework = computed(() => {
-  return route.name === 'homeworkExercise'
+  const scene = route.query.scene as string | undefined
+  return scene === 'homework' || route.name === 'homeworkExercise'
+})
+
+// 统一的 currentQuestion：根据场景选择来源
+// - 作业场景：使用 homeworkStore.currentQuestion
+// - 习题场景：使用 questionStore.currentQuestion
+const currentQuestion = computed(() => {
+  return isFromHomework.value ? homeworkCurrentQuestion.value : exerciseCurrentQuestion.value
 })
 
 // 是否显示返回按钮（从作业作答页跳转过来时显示）
@@ -275,16 +290,8 @@ const showBackButton = computed(() => {
   return isFromHomework.value || route.query.tab === 'chatAi'
 })
 
-// 返回作业作答页
+// 返回作业作答页（选中状态依赖 homeworkStore.currentQuestionIndex）
 const goBackToHomework = () => {
-  // 将当前题目的 questionId 存入 sessionStorage，供作业作答页恢复选中状态
-  if (currentQuestion.value) {
-    const questionId = (currentQuestion.value.bmNo || currentQuestion.value.id || '').toString()
-    if (questionId) {
-      sessionStorage.setItem('homeworkReturnQuestionId', questionId)
-    }
-  }
-
   router.back()
 }
 
@@ -400,9 +407,9 @@ const handleClearAllSessions = async () => {
     }
 
     // 并行删除：先拍一份当前会话 ID 快照，再使用 Promise.all 同时删除
-    const sessionIds = aiExerciseStore.sessions.map(session => session.id)
+    const sessionIds = aiExerciseStore.sessions.map((session) => session.id)
     await Promise.all(
-      sessionIds.map(sessionId => aiExerciseStore.deleteSession(sessionId, questionBmNo))
+      sessionIds.map((sessionId) => aiExerciseStore.deleteSession(sessionId, questionBmNo))
     )
 
     // 关闭会话管理面板
@@ -698,78 +705,85 @@ onMounted(async () => {
       console.log('[ExerciseSolveView] 从路由参数设置 tab:', tabParam)
     }
 
-    // 从路由参数中获取科目和题目ID（统一使用 query）
+    // 从路由参数中获取题目ID（统一使用 query）
     const routeSubject = route.query.subject as string | undefined
     const questionIdsParam = route.query.questionIds as string | undefined
     const questionIdParam = route.query.questionId as string | undefined
-    // 将 Subject 枚举值转换为科目名称
-    // 注意：Subject 枚举的值就是字符串，所以可以直接使用字符串作为键
-    const subjectMap: Record<string, string> = {
-      [Subject.SUBJECT_MATH]: 'math',
-      [Subject.SUBJECT_BIOLOGY]: 'biology',
-      [Subject.SUBJECT_CHEMISTRY]: 'chemistry',
-      [Subject.SUBJECT_PHYSICS]: 'physics',
-      [Subject.SUBJECT_CHINESE]: 'chinese',
-      [Subject.SUBJECT_ENGLISH]: 'english',
-    }
 
-    // 科目名称到筛选面板值的反向映射
-    const reverseSubjectMap: Record<string, string> = {
-      math: 'SUBJECT_MATH',
-      biology: 'SUBJECT_BIOLOGY',
-      chemistry: 'SUBJECT_CHEMISTRY',
-      physics: 'SUBJECT_PHYSICS',
-      chinese: 'SUBJECT_CHINESE',
-      english: 'SUBJECT_ENGLISH',
-    }
+    // 作业场景：不做学科推断，也不设置学科筛选（作业题目通常没有 subject 字段）
+    // 避免 QuestionList 按 subject 过滤把作业题目全部过滤掉
+    let subjectName = 'math'
+    let subjectFilterValue: string | null = null
 
-    // 确定要加载的科目
-    let subjectName = 'math' // 默认使用数学
-    let subjectFilterValue: string | null = null // 筛选面板的值
-
-    if (routeSubject) {
-      // 如果路由参数中提供了科目，使用路由参数中的科目
-      const routeSubjectUpper = String(routeSubject).toUpperCase()
-      subjectName =
-        subjectMap[routeSubjectUpper] ||
-        subjectMap[routeSubject] ||
-        routeSubject.toLowerCase() ||
-        'math'
-
-      // 将路由参数中的科目值（如 SUBJECT_BIOLOGY）设置为筛选面板的值
-      // 确保是标准的 Subject 枚举格式
-      if (routeSubjectUpper.startsWith('SUBJECT_')) {
-        subjectFilterValue = routeSubjectUpper
-      } else {
-        // 如果不是标准格式，尝试从科目名称反向映射
-        subjectFilterValue = reverseSubjectMap[subjectName] || null
+    if (!isFromHomework.value) {
+      // 将 Subject 枚举值转换为科目名称
+      const subjectMap: Record<string, string> = {
+        [Subject.SUBJECT_MATH]: 'math',
+        [Subject.SUBJECT_BIOLOGY]: 'biology',
+        [Subject.SUBJECT_CHEMISTRY]: 'chemistry',
+        [Subject.SUBJECT_PHYSICS]: 'physics',
+        [Subject.SUBJECT_CHINESE]: 'chinese',
+        [Subject.SUBJECT_ENGLISH]: 'english',
       }
-    } else {
-      // 否则从用户store中获取科目
-      const userSubject = getSubject()
-      if (userSubject) {
-        const userSubjectUpper = String(userSubject).toUpperCase()
+
+      // 科目名称到筛选面板值的反向映射
+      const reverseSubjectMap: Record<string, string> = {
+        math: 'SUBJECT_MATH',
+        biology: 'SUBJECT_BIOLOGY',
+        chemistry: 'SUBJECT_CHEMISTRY',
+        physics: 'SUBJECT_PHYSICS',
+        chinese: 'SUBJECT_CHINESE',
+        english: 'SUBJECT_ENGLISH',
+      }
+
+      // 确定要加载的科目
+      subjectName = 'math' // 默认使用数学
+      subjectFilterValue = null // 筛选面板的值
+
+      if (routeSubject) {
+        // 如果路由参数中提供了科目，使用路由参数中的科目
+        const routeSubjectUpper = String(routeSubject).toUpperCase()
         subjectName =
-          subjectMap[userSubjectUpper] ||
-          subjectMap[userSubject] ||
-          userSubject.toLowerCase() ||
+          subjectMap[routeSubjectUpper] ||
+          subjectMap[routeSubject] ||
+          routeSubject.toLowerCase() ||
           'math'
 
-        // 将用户store中的科目转换为筛选面板的值
-        if (userSubjectUpper.startsWith('SUBJECT_')) {
-          subjectFilterValue = userSubjectUpper
+        // 将路由参数中的科目值（如 SUBJECT_BIOLOGY）设置为筛选面板的值
+        if (routeSubjectUpper.startsWith('SUBJECT_')) {
+          subjectFilterValue = routeSubjectUpper
         } else {
-          // 否则尝试从科目名称反向映射
+          // 如果不是标准格式，尝试从科目名称反向映射
           subjectFilterValue = reverseSubjectMap[subjectName] || null
         }
-      }
-    }
+      } else {
+        // 否则从用户store中获取科目
+        const userSubject = getSubject()
+        if (userSubject) {
+          const userSubjectUpper = String(userSubject).toUpperCase()
+          subjectName =
+            subjectMap[userSubjectUpper] ||
+            subjectMap[userSubject] ||
+            userSubject.toLowerCase() ||
+            'math'
 
-    // 设置筛选面板的学科过滤下拉框
-    if (subjectFilterValue) {
-      selectedSubjectFilter.value = subjectFilterValue
+          // 将用户store中的科目转换为筛选面板的值
+          if (userSubjectUpper.startsWith('SUBJECT_')) {
+            subjectFilterValue = userSubjectUpper
+          } else {
+            subjectFilterValue = reverseSubjectMap[subjectName] || null
+          }
+        }
+      }
+
+      // 设置筛选面板的学科过滤下拉框（仅习题场景使用）
+      if (subjectFilterValue) {
+        selectedSubjectFilter.value = subjectFilterValue
+      } else {
+        selectedSubjectFilter.value = ''
+      }
     } else {
-      // 如果没有设置具体科目，设置为全部学科（空字符串）
+      // 作业场景：不做任何 subject 过滤
       selectedSubjectFilter.value = ''
     }
 
@@ -777,16 +791,28 @@ onMounted(async () => {
     // 否则优先使用本地数据
     const useLocalFirst = !questionIdsParam
 
-    // 根据筛选面板的学科过滤值决定加载方式
-    if (!selectedSubjectFilter.value) {
-      // 全部学科：加载所有学科的题目
-      await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
-    } else {
-      // 具体学科：加载指定学科的题目
-      await questionStore.fetchQuestions(subjectName, useLocalFirst)
-    }
     // 处理题目定位
     let targetQuestionId: string | undefined
+
+    // 获取当前场景下的题目列表（ref）
+    const activeQuestionsRef = isFromHomework.value ? homeworkQuestions : questions
+
+    // 习题场景：通过接口 / 本地缓存加载题目
+    if (!isFromHomework.value) {
+      // 根据筛选面板的学科过滤值决定加载方式
+      if (!selectedSubjectFilter.value) {
+        // 全部学科：加载所有学科的题目
+        await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
+      } else {
+        // 具体学科：加载指定学科的题目
+        await questionStore.fetchQuestions(subjectName, useLocalFirst)
+      }
+    }
+
+    // 注意：作业场景下不再重新拉取题目，直接使用 MyHomeworkView / HomeworkAnswerView 预先写入的 homeworkStore.questions
+
+    // 当前可用的题目数组
+    const activeQuestions = activeQuestionsRef.value
 
     // 优先使用 questionIds（多个题目，定位到第一个）
     if (questionIdsParam) {
@@ -795,17 +821,19 @@ onMounted(async () => {
         targetQuestionId = questionIds[0]
         // 验证这些题目是否在列表中
         const foundIds = questionIds.filter((id) =>
-          questions.value.some((q) => q.bmNo === id || q.id === id)
+          activeQuestions.some((q) => q.bmNo === id || q.id === id)
         )
         if (foundIds.length < questionIds.length) {
           console.warn('[ExerciseSolveView] ⚠️ 部分题目未在列表中，可能需要等待服务器同步')
-          // 如果部分题目未找到，尝试再次从服务器刷新
-          await questionStore.fetchQuestions(subjectName, false)
-
-          // 再次验证
-          const foundIdsAfterRefresh = questionIds.filter((id) =>
-            questions.value.some((q) => q.bmNo === id || q.id === id)
-          )
+          // 如果部分题目未找到，尝试再次从服务器刷新（仅习题场景）
+          if (!isFromHomework.value) {
+            await questionStore.fetchQuestions(subjectName, false)
+            // 刷新后更新本地题目数组
+            const refreshedQuestions = questions.value
+            const foundIdsAfterRefresh = questionIds.filter((id) =>
+              refreshedQuestions.some((q) => q.bmNo === id || q.id === id)
+            )
+          }
         }
       }
     } else if (questionIdParam) {
@@ -820,7 +848,7 @@ onMounted(async () => {
       await new Promise((resolve) => setTimeout(resolve, 300))
 
       // 在题目列表中查找对应的题目索引
-      const targetIndex = questions.value.findIndex(
+      const targetIndex = activeQuestions.findIndex(
         (q) => q.id === targetQuestionId || q.bmNo === targetQuestionId
       )
       if (targetIndex >= 0) {
@@ -843,10 +871,12 @@ onMounted(async () => {
   }
 })
 
-// 组件卸载时清空当前选中的题目
+// 组件卸载时清空习题场景下的当前选中题目
 onBeforeUnmount(() => {
-  // 清空当前选中的题目，避免离开页面后仍然保留选中状态
-  questionStore.clearCurrentQuestion()
+  // 作业场景依赖 homeworkStore.currentQuestionIndex 来在多个页面间保持选中状态
+  if (!isFromHomework.value) {
+    questionStore.clearCurrentQuestion()
+  }
 })
 </script>
 
@@ -960,6 +990,7 @@ $desktop-breakpoint: 1025px;
   box-shadow: none;
   background-color: #0f002e; /* 深紫色背景 */
   flex-shrink: 0;
+  position: relative;
 }
 
 .app-toolbar {
@@ -973,21 +1004,29 @@ $desktop-breakpoint: 1025px;
 
 .toolbar-left {
   position: absolute;
-  left: 28px;
-  top: 14.5px;
+  left: 24px;
+  top: 11px;
   z-index: 10;
 }
 
 .back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  // 其余样式保持不变
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  background: transparent;
+  transition: background-color 0.15s ease;
 }
 
 .back-icon {
   width: 25px;
   height: 25px;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 .toolbar-center {
   flex: 1;

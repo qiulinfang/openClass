@@ -101,12 +101,94 @@ function getMessageHistory(sessionId: string): MessageHistoryItem[] {
   }
 }
 
+// 清理历史消息，控制 mock 环境下的存储数量
+// 1）限制会话数量：只保留最近 MAX_SESSIONS 个会话
+// 2）当解析失败时，直接删除损坏的数据
+const MAX_SESSIONS = 20
+
+function cleanupOldHistories() {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(STORAGE_KEY_PREFIX)) {
+        keys.push(key)
+      }
+    }
+
+    if (keys.length <= MAX_SESSIONS) return
+
+    const histories: { key: string; lastTimestamp: number }[] = []
+
+    for (const key of keys) {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) {
+          localStorage.removeItem(key)
+          continue
+        }
+        const items = JSON.parse(raw) as MessageHistoryItem[]
+        const last = items.length ? items[items.length - 1].timestamp : 0
+        histories.push({ key, lastTimestamp: last })
+      } catch (e) {
+        console.warn('[MockTeacherBridge] ⚠️ 清理损坏的历史记录:', key, e)
+        localStorage.removeItem(key)
+      }
+    }
+
+    if (histories.length <= MAX_SESSIONS) return
+
+    // 按最后时间从早到晚排序，删除最旧的多余会话
+    histories.sort((a, b) => a.lastTimestamp - b.lastTimestamp)
+    const toDeleteCount = histories.length - MAX_SESSIONS
+    for (let i = 0; i < toDeleteCount; i++) {
+      const { key } = histories[i]
+      console.warn('[MockTeacherBridge] ⚠️ 删除过旧的历史会话:', key)
+      localStorage.removeItem(key)
+    }
+  } catch (error) {
+    console.warn('[MockTeacherBridge] ⚠️ 清理历史消息失败:', error)
+  }
+}
+
 // 保存消息历史
 function saveMessageHistory(sessionId: string, messages: MessageHistoryItem[]): void {
+  // 为当前会话构造存储 key，try/catch 内外都需要使用
+  const storageKey = `${STORAGE_KEY_PREFIX}${sessionId}`
   try {
-    const key = `${STORAGE_KEY_PREFIX}${sessionId}`
-    localStorage.setItem(key, JSON.stringify(messages))
+    // 保存前先清理过旧的历史，避免占用过多 localStorage
+    cleanupOldHistories()
+    localStorage.setItem(storageKey, JSON.stringify(messages))
   } catch (error) {
+    // 如果是配额错误，尝试更激进地清理一次：删除最老的一个会话后重试一次
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      try {
+        const keys: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && k.startsWith(STORAGE_KEY_PREFIX)) {
+            keys.push(k)
+          }
+        }
+
+        if (keys.length > 0) {
+          // 简单起见：按 key 名排序，认为最早创建的在前面（配合我们之前的清理策略使用）
+          keys.sort()
+          const oldestKey = keys[0]
+          console.warn('[MockTeacherBridge] ⚠️ 存储配额不足，删除最老的历史会话后重试:', oldestKey)
+          localStorage.removeItem(oldestKey)
+
+          // 再尝试一次保存当前会话的精简历史（只保留最后 50 条）
+          const trimmed =
+            messages.length > 50 ? messages.slice(messages.length - 50) : messages
+          localStorage.setItem(storageKey, JSON.stringify(trimmed))
+          return
+        }
+      } catch (retryError) {
+        console.error('[MockTeacherBridge] ❌ 配额错误重试保存历史失败:', retryError)
+      }
+    }
+
     console.error('[MockTeacherBridge] ❌ 保存消息历史失败:', error)
   }
 }
@@ -117,7 +199,7 @@ function addMessageToHistory(sessionId: string, message: MessageHistoryItem): vo
   history.push(message)
 
   // 为避免 mock 环境下 localStorage 占用过大，这里限制每个会话最多保留最近的 N 条消息
-  const MAX_HISTORY = 200
+  const MAX_HISTORY = 100
   const trimmedHistory =
     history.length > MAX_HISTORY ? history.slice(history.length - MAX_HISTORY) : history
 

@@ -79,6 +79,13 @@ export class AiExerciseStrategy implements ChatStrategy {
       await this.aiExerciseStore.saveChatHistory(questionBmNo)
     }
   }
+
+  // 删除消息：通过题目 bmNo 定位会话，由 ChatView 传入 currentQuestion
+  async deleteMessage(messageId: string, options?: { currentQuestion?: unknown }): Promise<void> {
+    const q = (options?.currentQuestion ?? null) as { bmNo?: string } | null
+    const bmNo = q?.bmNo
+    await this.aiExerciseStore.deleteMessage(messageId, bmNo)
+  }
   
   // 第9步：检查是否支持转发消息
   canForwardMessage(): boolean {
@@ -86,8 +93,13 @@ export class AiExerciseStrategy implements ChatStrategy {
   }
   
   // 第10步：获取当前科目（用于转发）
-  getCurrentSubjectForForward(question: unknown): 'biology' | 'math' | null {
-    // AI题目场景：通过题目的科目字段进行判断
+  // 策略接口中定义为无参数方法，这里提供一个占位实现，始终返回 null
+  getCurrentSubjectForForward(): 'biology' | 'math' | null {
+    return null
+  }
+
+  // 私有辅助方法：根据传入的题目对象判断科目
+  private getSubjectFromQuestion(question: unknown): 'biology' | 'math' | null {
     try {
       const q = question as { subject?: string } | null | undefined
       if (q?.subject) {
@@ -108,7 +120,12 @@ export class AiExerciseStrategy implements ChatStrategy {
   // 第11步：转发单条消息
   async forwardMessage(message: ChatBubble, options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
-      const question = (options.currentQuestion ?? null) as { id?: string; bmNo?: string; title?: string; subject?: string } | null
+      const question = (options.currentQuestion ?? null) as {
+        id?: string
+        bmNo?: string
+        title?: string
+        subject?: string
+      } | null
 
       // 验证是否选择了题目
       if (!question) {
@@ -118,7 +135,7 @@ export class AiExerciseStrategy implements ChatStrategy {
         }
       }
       
-      const subject = this.getCurrentSubjectForForward(question)
+      const subject = this.getSubjectFromQuestion(question)
       
       if (!subject) {
         return {
@@ -194,7 +211,7 @@ export class AiExerciseStrategy implements ChatStrategy {
         }
       }
       
-      const subject = this.getCurrentSubjectForForward(question)
+      const subject = this.getSubjectFromQuestion(question)
       
       if (!subject) {
         return {
@@ -608,5 +625,47 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
     
     return { successCount, totalCount: messages.length }
+  }
+
+  // ========== 会话管理方法（ChatStrategy 可选接口） ==========
+
+  // 获取会话卡片列表
+  getSessionCards(): unknown[] {
+    if (typeof this.aiExerciseStore.getSessionCards === 'function') {
+      return this.aiExerciseStore.getSessionCards()
+    }
+    return []
+  }
+
+  // 为当前题目创建新会话
+  async createNewSession(options?: { currentQuestion?: unknown }): Promise<void> {
+    const q = (options?.currentQuestion ?? null) as { bmNo?: string } | null
+    const bmNo = q?.bmNo
+    if (!bmNo) {
+      throw new Error('请先选择题目')
+    }
+    await this.aiExerciseStore.createNewSession(bmNo)
+  }
+
+  // 切换到指定会话
+  async switchToSession(sessionId: string): Promise<void> {
+    await this.aiExerciseStore.switchToSession(sessionId)
+  }
+
+  // 删除指定会话
+  async deleteSession(sessionId: string, options?: { currentQuestion?: unknown }): Promise<void> {
+    const q = (options?.currentQuestion ?? null) as { bmNo?: string } | null
+    const bmNo = q?.bmNo || ''
+    await this.aiExerciseStore.deleteSession(sessionId, bmNo)
+  }
+
+  // 获取联网搜索状态
+  getEnableWebSearch(): boolean {
+    return this.aiExerciseStore.enableWebSearch
+  }
+
+  // 切换联网搜索状态
+  toggleWebSearch(): void {
+    this.aiExerciseStore.toggleWebSearch()
   }
 }

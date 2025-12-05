@@ -13,7 +13,15 @@
               :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
               @click="activeTab = tab.value"
             >
-              <span>{{ tab.label }}</span>
+              <span>
+                {{
+                  tab.value === 'ai-chat'
+                    ? activeCategory === 'teacher'
+                      ? '老师答疑'
+                      : 'AI问答'
+                    : tab.label
+                }}
+              </span>
             </div>
           </div>
         </div>
@@ -128,9 +136,22 @@ const tabOptions = [
 // 当前激活的分类（AI 或 老师）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 
+// 同步逻辑：当需要切换到老师分类时，若还没有当前老师会话，则默认选中第一个老师会话
+const ensureTeacherSessionSelected = () => {
+  // 已经有当前老师会话则不干预
+  if (teacherChatStore.currentSession?.sessionId) return
+  const allSessions = teacherChatStore.getAllSessions()
+  if (!allSessions || allSessions.length === 0) return
+  const firstSession = allSessions[0]
+  teacherChatStore.setSession(firstSession)
+}
+
 // 处理会话切换（由 SessionTree 通知）
 const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
+  if (type === 'teacher') {
+    ensureTeacherSessionSelected()
+  }
 }
 
 // AI 会话删除
@@ -190,6 +211,7 @@ const handleTeacherSessionDeleted = (
 const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
   if (category === 'teacher') {
     activeCategory.value = 'teacher'
+    ensureTeacherSessionSelected()
   } else if (activeCategory.value === 'teacher') {
     activeCategory.value = 'ai-general'
   }
@@ -217,6 +239,7 @@ const handleOpenTeacherDialog = async ({
   try {
     setTeacherSession(sessionId)
     activeCategory.value = 'teacher'
+    ensureTeacherSessionSelected()
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -236,6 +259,7 @@ const handleSwitchToTeacher = async (forwardData?: {
   try {
     setTeacherSession(forwardData.sessionId)
     activeCategory.value = 'teacher'
+    ensureTeacherSessionSelected()
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')

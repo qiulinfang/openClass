@@ -10,7 +10,8 @@
     </div>
     <!-- 搜索输入框 -->
     <div class="search-container">
-      <q-btn v-if="props.showPhotoSearch !== false" flat round dense class="photo-search-btn" @click="handlePhotoSearch">
+      <!-- 拍照搜题按钮：根据策略能力和 props 决定是否显示 -->
+      <q-btn v-if="props.showPhotoSearch !== false && strategy.canPhotoSearch()" flat round dense class="photo-search-btn" @click="handlePhotoSearch">
         <img :src="searchQuestionIcon" alt="拍照搜题" class="photo-search-icon" />
         <q-tooltip>拍照搜题</q-tooltip>
       </q-btn>
@@ -39,11 +40,11 @@
       :loading="renderingQuestions"
       @refresh="handlePullDownRefresh"
     >
-      <!-- 空状态 -->
+      <!-- 空状态：根据策略获取文案 -->
       <div v-if="displayedQuestions.length === 0 && !loading" class="native-empty-state">
         <q-icon name="quiz" size="80px" color="grey-5" />
         <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">
-          {{ searchQuery || selectedSubjectFilter ? '未找到匹配的题目' : '暂无题目' }}
+          {{ searchQuery || selectedSubjectFilter ? strategy.getNoResultText() : strategy.getEmptyText() }}
         </div>
         <q-btn
           v-if="!searchQuery"
@@ -188,7 +189,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
-import { storeToRefs } from 'pinia'
+import { useHomeworkStore } from '../stores/homeworkStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useUIStore } from '../stores/uiStore'
@@ -208,6 +209,10 @@ import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/f
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 
+// 策略模式支持
+import type { QuestionListType } from './question/strategies'
+import { createQuestionListStrategy } from './question/strategies'
+
 // 导入拍照搜题图标
 import searchQuestionIcon from '/icons/search_question.svg'
 
@@ -218,6 +223,8 @@ const props = defineProps<{
   externalQuestions?: ExerciseItem[]
   // 是否显示拍照搜题按钮，默认 true
   showPhotoSearch?: boolean
+  // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
+  type?: QuestionListType
 }>()
 
 const emit = defineEmits<{
@@ -226,6 +233,9 @@ const emit = defineEmits<{
   openMiniClass: [question: ExerciseItem]
   'update:searchQuery': [value: string]
 }>()
+
+// 创建策略实例（根据 type prop 决定使用哪个策略）
+const strategy = computed(() => createQuestionListStrategy(props.type || 'exercise'))
 
 // 响应式数据
 const questions = ref<ExerciseItem[]>([])
@@ -249,17 +259,19 @@ const handleSearchInput = (value: string | number | null) => {
   emit('update:searchQuery', (value || '').toString())
 }
 
-// 题目 Store
+// 题目 Store（保留用于 sendToAi 等习题特有功能）
 const questionStore = useQuestionStore()
-const { currentQuestion } = storeToRefs(questionStore)
+
+// 当前选中的题目（从策略获取）
+const currentQuestion = computed(() => strategy.value.getCurrentQuestion())
 
 // 路由
 const router = useRouter()
 
 // 当前科目（用于拍照搜题）
 const currentSubjectForPhotoSearch = computed(() => {
-  const currentQuestion = questionStore.currentQuestion
-  if (currentQuestion?.subject) {
+  const current = currentQuestion.value
+  if (current?.subject) {
     const subjectMap: Record<string, string> = {
       SUBJECT_MATH: 'math',
       SUBJECT_BIOLOGY: 'biology',
@@ -268,7 +280,7 @@ const currentSubjectForPhotoSearch = computed(() => {
       SUBJECT_CHINESE: 'chinese',
       SUBJECT_ENGLISH: 'english',
     }
-    return subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
+    return subjectMap[current.subject] || current.subject.toLowerCase() || 'math'
   }
   // 如果没有当前题目，根据用户选择的科目判断
   const subjectMap: Record<string, string> = {
@@ -619,9 +631,10 @@ const throttledToggleFavorite = ThrottleUtils.fast((item: ExerciseItem) => {
   toggleFavorite(item)
 })
 
-// 通用操作列表：构造更多菜单的 actions
+// 通用操作列表：构造更多菜单的 actions（根据策略能力决定显示哪些操作）
 const buildMoreActions = (question: ExerciseItem, index: number) => {
   const bmNo = question.bmNo
+  const currentStrategy = strategy.value
 
   const wrap = (handler: () => void) => {
     if (!bmNo) return () => {}
@@ -633,35 +646,35 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
       key: 'send-ai',
       label: '发送给AI',
       icon: 'icons/Deskmate.svg',
-      visible: true,
+      visible: currentStrategy.canSendToAi(),
       onClick: wrap(() => throttledSendToAi(question)),
     },
     {
       key: 'mini-class',
       label: '微课',
       icon: 'icons/my_exercises.svg',
-      visible: true,
+      visible: currentStrategy.canOpenMiniClass(),
       onClick: wrap(() => throttledOpenMiniClass(question)),
     },
     {
       key: 'pin',
       label: '置顶',
       icon: 'icons/pin.svg',
-      visible: index > 0,
+      visible: currentStrategy.canMoveToTop() && index > 0,
       onClick: wrap(() => throttledMoveToTop(bmNo)),
     },
     {
       key: 'favorite',
       label: isExerciseFavorite(bmNo) ? '取消收藏' : '收藏题目',
       icon: 'icons/my_favorites.svg',
-      visible: true,
+      visible: currentStrategy.canFavorite(),
       onClick: wrap(() => throttledToggleFavorite(question)),
     },
     {
       key: 'take-picture',
       label: '拍作业',
       icon: 'icons/scan_homework.svg',
-      visible: true,
+      visible: currentStrategy.canTakePicture(),
       onClick: wrap(() => throttledTakePictureToTeacher(question)),
     },
     {
@@ -669,7 +682,7 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
       label: deletingIds.value.has(bmNo) ? '删除中...' : '删除题目',
       icon: 'icons/delete.svg',
       iconClass: deletingIds.value.has(bmNo) ? 'icon-loading' : '',
-      visible: true,
+      visible: currentStrategy.canDelete(),
       loading: deletingIds.value.has(bmNo),
       onClick: wrap(() => openDeleteDialog(question)),
     },
@@ -887,13 +900,15 @@ const deleteQuestion = async () => {
           const aiExerciseStore = useAiExerciseChatStore()
           await aiExerciseStore.clearChatHistory(question.bmNo)
         }
-        const questionStore = useQuestionStore()
-        // 从 store 和本地列表中移除已删除的题目，避免额外请求
-        const storeIndex = questionStore.questions.findIndex(
+        
+        // 通过策略从 store 中移除已删除的题目
+        const currentStrategy = strategy.value
+        const storeQuestions = currentStrategy.getQuestions()
+        const storeIndex = storeQuestions.findIndex(
           (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo
         )
         if (storeIndex !== -1) {
-          questionStore.questions.splice(storeIndex, 1)
+          storeQuestions.splice(storeIndex, 1)
         }
 
         const localIndex = questions.value.findIndex(
@@ -912,10 +927,10 @@ const deleteQuestion = async () => {
         // 根据当前筛选条件决定刷新方式
         if (selectedSubjectFilter.value === null) {
           // 全部学科：刷新所有学科的题目
-          await questionStore.fetchAllSubjectsQuestions(false)
+          await currentStrategy.fetchAllSubjectsQuestions(false)
         } else {
           // 具体学科：刷新指定学科的题目
-          await questionStore.fetchQuestions(subjectToDelete, false)
+          await currentStrategy.fetchQuestions({ subject: subjectToDelete, useLocalFirst: false })
         }
 
       } else {
@@ -996,32 +1011,29 @@ const loadQuestions = async () => {
     loading.value = false
     return
   }
+  
+  const currentStrategy = strategy.value
   console.log('[QuestionList] 开始加载题目', {
+    type: props.type || 'exercise',
     selectedSubjectFilter: selectedSubjectFilter.value,
   })
   loading.value = true
 
   try {
-    const questionStore = useQuestionStore()
-
-    // 第1步：如果 store 中已有题目，直接使用（避免覆盖父组件已加载的正确科目）
-    if (questionStore.questions.length > 0) {
+    // 第1步：如果策略的 store 中已有题目，直接使用
+    if (currentStrategy.hasQuestions()) {
       console.log('[QuestionList] 使用 store 缓存题目', {
-        count: questionStore.questions.length,
+        count: currentStrategy.getQuestions().length,
       })
-      questions.value = [...questionStore.questions]
+      questions.value = [...currentStrategy.getQuestions()]
     } else {
       // 第2步：如果 store 中没有题目，需要确定科目并加载
-      // 优先使用 selectedSubjectFilter 来确定科目
       if (selectedSubjectFilter.value === null) {
         // 全部学科：加载所有学科的题目
         console.log('[QuestionList] 从服务器加载全部学科题目')
-        await questionStore.fetchAllSubjectsQuestions(true)
+        await currentStrategy.fetchAllSubjectsQuestions(true)
       } else {
         // 具体学科：加载指定学科的题目
-        let subjectToLoad = selectedSubject.value // 默认使用 math
-
-        // 将 Subject 枚举值转换为科目名称
         const subjectMap: Record<string, string> = {
           SUBJECT_MATH: 'math',
           SUBJECT_BIOLOGY: 'biology',
@@ -1031,22 +1043,18 @@ const loadQuestions = async () => {
           SUBJECT_ENGLISH: 'english',
         }
         const filterValue = String(selectedSubjectFilter.value).toUpperCase()
-        subjectToLoad = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
-        // 更新 selectedSubject 以便后续使用
+        const subjectToLoad = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
         selectedSubject.value = subjectToLoad
 
-        // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
-        // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
         console.log('[QuestionList] 从服务器加载单一学科题目', { subjectToLoad })
-        await questionStore.fetchQuestions(subjectToLoad, true)
+        await currentStrategy.fetchQuestions({ subject: subjectToLoad, useLocalFirst: true })
       }
 
-      // 从store获取去重后的题目列表
-      questions.value = [...questionStore.questions]
+      // 从策略获取题目列表
+      questions.value = [...currentStrategy.getQuestions()]
     }
 
     if (questions.value.length > 0) {
-      // 重置显示数量为初始值
       displayedCount.value = INITIAL_DISPLAY_COUNT
       currentPage.value = 1
       console.log('[QuestionList] 加载题目完成', {
@@ -1064,12 +1072,12 @@ const loadQuestions = async () => {
 
 // 刷新题目列表数据（不重新加载，保持当前状态）
 const refreshQuestions = () => {
-  // 从store同步最新的题目列表
-  const questionStore = useQuestionStore()
-  questions.value = [...questionStore.questions]
+  // 从策略的 store 同步最新的题目列表
+  const currentStrategy = strategy.value
+  questions.value = [...currentStrategy.getQuestions()]
 
   // 保持当前选中的题目索引
-  const currentIndex = questionStore.currentQuestionIndex
+  const currentIndex = currentStrategy.getCurrentQuestionIndex()
   if (currentIndex >= 0 && currentIndex < questions.value.length) {
     selectedQuestionIndex.value = currentIndex
   }
@@ -1093,21 +1101,23 @@ const handlePullDownRefresh = async () => {
     }
     return
   }
+  
+  const currentStrategy = strategy.value
   try {
     console.log('[QuestionList] 下拉刷新开始', {
+      type: props.type || 'exercise',
       selectedSubject: selectedSubject.value,
       filter: selectedSubjectFilter.value,
     })
-    const questionStore = useQuestionStore()
 
     // 根据当前筛选条件决定刷新范围
     if (selectedSubjectFilter.value === null) {
       // 全部学科：强制从服务器拉取所有学科题目
-      await questionStore.fetchAllSubjectsQuestions(false)
+      await currentStrategy.fetchAllSubjectsQuestions(false)
     } else {
-      // 单一学科：使用当前 selectedSubject 作为学科 key，并强制从服务器拉取
+      // 单一学科：强制从服务器拉取
       const subjectToRefresh = selectedSubject.value || 'math'
-      await questionStore.fetchQuestions(subjectToRefresh, false)
+      await currentStrategy.fetchQuestions({ subject: subjectToRefresh, useLocalFirst: false })
     }
 
     // 接口成功后，同步本地 questions 列表和当前选中索引
@@ -1132,22 +1142,19 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
   if (index >= 0 && index < questions.value.length) {
     selectedQuestionIndex.value = index
 
-    const questionStore = useQuestionStore()
-    const storeIndex = questionStore.questions.findIndex(
+    // 通过策略选择题目
+    const currentStrategy = strategy.value
+    const storeQuestions = currentStrategy.getQuestions()
+    const storeIndex = storeQuestions.findIndex(
       (q: ExerciseItem) => q.bmNo === question.bmNo
     )
 
     if (storeIndex >= 0) {
-      // 使用store中的索引来选择题目
-      await questionStore.selectQuestion(storeIndex)
+      await currentStrategy.selectQuestion(storeIndex)
     }
 
     // 发出题目选择事件
     emit('questionSelected', question, index)
-
-    // 题目选择成功，已加载历史记录，无需自动开始AI指导
-  } else {
-    // 选择题目失败，通过界面状态反馈
   }
 }
 
@@ -1227,15 +1234,15 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     // 先更新选中状态
     selectedQuestionIndex.value = targetIndex
 
-    // 通知store更新当前选中的题目（需要转换为原始列表索引）
-    const questionStore = useQuestionStore()
-    // 关键修复：根据题目ID在store的questions数组中查找索引，而不是使用筛选后的索引
+    // 通过策略更新当前选中的题目
+    const currentStrategy = strategy.value
     const targetQuestion = list[targetIndex]
-    const storeIndex = questionStore.questions.findIndex(
+    const storeQuestions = currentStrategy.getQuestions()
+    const storeIndex = storeQuestions.findIndex(
       (q: ExerciseItem) => q.bmNo === targetQuestion.bmNo
     )
     if (storeIndex >= 0) {
-      await questionStore.selectQuestion(storeIndex)
+      await currentStrategy.selectQuestion(storeIndex)
     }
 
     // 等待DOM更新后滚动
@@ -1259,10 +1266,10 @@ const moveQuestionToTop = async (questionId: string) => {
     // 置顶后，直接将置顶的题目标记为选中（索引 0）
     selectedQuestionIndex.value = 0
 
-    // 同步到store，并将当前题目设置为置顶题
-    const questionStore = useQuestionStore()
-    await questionStore.setQuestions(questions.value, selectedSubject.value)
-    await questionStore.selectQuestion(0)
+    // 通过策略同步到 store
+    const currentStrategy = strategy.value
+    await currentStrategy.setQuestions(questions.value, selectedSubject.value)
+    await currentStrategy.selectQuestion(0)
 
     // 题目置顶后滚动到最顶部
     await nextTick()
@@ -1280,14 +1287,58 @@ const moveQuestionToTop = async (questionId: string) => {
 // 发送给AI
 const sendToAi = async (question: ExerciseItem) => {
   try {
-    const questionStore = useQuestionStore()
     const aiExerciseStore = useAiExerciseChatStore()
 
-    // 关键修复：在store的questions数组中查找题目索引，而不是在本地questions数组中查找
-    const storeIndex = questionStore.questions.findIndex(
-      (q: ExerciseItem) => q.bmNo === question.bmNo
-    )
-    if (storeIndex >= 0) {
+    // 根据当前列表类型 / 策略判断使用哪个 store
+    const isHomeworkType = strategy.value?.getListTitle?.() === '我的作业' || props.type === 'homework'
+
+    if (isHomeworkType) {
+      // 作业场景：使用 homeworkStore
+      const homeworkStore = useHomeworkStore()
+
+      const storeIndex = homeworkStore.questions.findIndex(
+        (q: ExerciseItem) => q.bmNo === question.bmNo
+      )
+      if (storeIndex < 0) {
+        showMessage('题目数据不同步，请重新加载', 'warning')
+        return
+      }
+
+      await homeworkStore.selectQuestion(storeIndex)
+
+      const current = homeworkStore.currentQuestion
+      if (!current) {
+        showMessage('请先选择一道题目', 'warning')
+        return
+      }
+
+      const questionBmNo = current.bmNo
+      await aiExerciseStore.clearChatHistory(questionBmNo)
+
+      const questionContent = current.question || current.title || '题目内容为空'
+      const initialMessage = `我们开始吧，${questionContent}`
+
+      await aiExerciseStore.sendMessage(
+        initialMessage,
+        current,
+        { id: '', userId: '' },
+        'MATH',
+        'mate',
+        undefined,
+        true,
+      )
+    } else {
+      // 习题场景：沿用 questionStore 逻辑
+      const questionStore = useQuestionStore()
+
+      const storeIndex = questionStore.questions.findIndex(
+        (q: ExerciseItem) => q.bmNo === question.bmNo
+      )
+      if (storeIndex < 0) {
+        showMessage('题目数据不同步，请重新加载', 'warning')
+        return
+      }
+
       // 使用store中的索引来选择题目
       await questionStore.selectQuestion(storeIndex)
 
@@ -1318,18 +1369,14 @@ const sendToAi = async (question: ExerciseItem) => {
         'MATH',
         'mate',
         undefined,
-        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
+        true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
-    } else {
-      // 如果store中没有找到题目，说明数据不同步，需要重新同步
-      showMessage('题目数据不同步，请重新加载', 'warning')
-      return
     }
 
     // 发出事件通知父组件切换到AI聊天界面
     emit('startAiGuidance', question)
   } catch (error) {
-    // 发生错误时重置AI指导状态
+    // 发生错误时重置AI指导状态（仅对习题场景有效）
     const questionStore = useQuestionStore()
     if (questionStore.currentQuestion) {
       questionStore.currentQuestion.isAiGuiding = false
@@ -1458,15 +1505,14 @@ watch(
     displayedCount.value = INITIAL_DISPLAY_COUNT
     currentPage.value = 1
 
-    const questionStore = useQuestionStore()
+    const currentStrategy = strategy.value
 
     if (newFilter === null) {
       // 全部学科：加载所有学科的题目
-      await questionStore.fetchAllSubjectsQuestions(true)
-      questions.value = [...questionStore.questions]
+      await currentStrategy.fetchAllSubjectsQuestions(true)
+      questions.value = [...currentStrategy.getQuestions()]
     } else {
       // 具体学科：加载指定学科的题目
-      // 将 Subject 枚举值转换为科目名称
       const subjectMap: Record<string, string> = {
         SUBJECT_MATH: 'math',
         SUBJECT_BIOLOGY: 'biology',
@@ -1478,8 +1524,8 @@ watch(
       const filterValue = String(newFilter).toUpperCase()
       const targetSubject = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
 
-      // 检查当前 store 中的题目是否属于目标科目
-      const currentQuestions = questionStore.questions
+      // 检查当前策略的 store 中的题目是否属于目标科目
+      const currentQuestions = currentStrategy.getQuestions()
       const hasTargetSubjectQuestions =
         currentQuestions.length > 0 &&
         currentQuestions.some((q) => {
@@ -1494,8 +1540,8 @@ watch(
       // 如果当前没有目标科目的题目，需要重新加载
       if (!hasTargetSubjectQuestions) {
         selectedSubject.value = targetSubject
-        await questionStore.fetchQuestions(targetSubject, true)
-        questions.value = [...questionStore.questions]
+        await currentStrategy.fetchQuestions({ subject: targetSubject, useLocalFirst: true })
+        questions.value = [...currentStrategy.getQuestions()]
       }
     }
   },

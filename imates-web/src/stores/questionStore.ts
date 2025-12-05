@@ -437,6 +437,7 @@ export const useQuestionStore = defineStore('question', () => {
     // 方法
     fetchQuestions,
     fetchAllSubjectsQuestions,
+    loadQuestionsFromLocal,
     selectQuestion,
     deleteQuestion,
     moveQuestionToTop,

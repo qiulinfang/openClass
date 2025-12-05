@@ -15,7 +15,8 @@ import { apiService } from '../services/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, QuotedMessageInfo } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
-import { useQuestionStore } from './questionStore'
+// 注意：此 store 不再直接依赖 questionStore/homeworkStore
+// 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
 import { authStorageService } from '../services/auth-storage-service'
 import { getUserId } from '../services/auth-storage-service'
 
@@ -108,8 +109,6 @@ export interface ExerciseSession {
 }
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
-  // 获取题目Store
-  const questionStore = useQuestionStore()
   // ==================== 状态定义 ====================
   
   /** 消息列表（当前会话） */
@@ -546,7 +545,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
    * - 如果选中的是 ai 消息：向前找到最近一条 user 消息，从这条 user 开始删除直到最后
    * 前端本地与后端 manageConversationMemory(delete_messages) 同步
    */
-  const deleteMessage = async (messageId: string): Promise<void> => {
+  /**
+   * @param messageId 要删除的消息ID
+   * @param questionBmNo 当前题目的bmNo（由调用方从 questionStore 或 homeworkStore 传入）
+   */
+  const deleteMessage = async (messageId: string, questionBmNo?: string): Promise<void> => {
     try {
       // 第1步：查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
@@ -580,14 +583,10 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         }
       }
 
-      // 需要题目 bmNo 和当前会话 ID
-      const currentQuestion = questionStore.currentQuestion
-      const questionBmNo = currentQuestion?.bmNo
-
       // 第4步：先更新本地消息列表（从起点到末尾全部删除）
       messages.value.splice(startIndex)
 
-      // 第5步：保存更新后的聊天历史
+      // 第5步：保存更新后的聊天历史（questionBmNo 由调用方传入）
       if (questionBmNo) {
         await saveChatHistory(questionBmNo)
       }
@@ -797,10 +796,17 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
    * 删除会话
    */
   const deleteSession = async (sessionId: string, questionBmNo: string): Promise<void> => {
-    const index = sessions.value.findIndex(s => s.id === sessionId)
+    // 保险：只删除 questionBmNo 与当前题目一致的会话
+    const index = sessions.value.findIndex(s => s.id === sessionId && s.questionBmNo === questionBmNo)
     if (index < 0) return
     
     sessions.value.splice(index, 1)
+    
+    // 删除后按题目维度重新编号会话标题，保证序号连续
+    const sameQuestionSessions = sessions.value.filter(s => s.questionBmNo === questionBmNo)
+    sameQuestionSessions.forEach((session, idx) => {
+      session.title = `会话 ${idx + 1}`
+    })
     
     // 如果删除的是当前会话，切换到第一个会话或清空
     if (currentSessionId.value === sessionId) {

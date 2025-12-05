@@ -1171,6 +1171,29 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       const storageKey = getSessionsStorageKey()
       localStorage.setItem(storageKey, JSON.stringify(sessions))
     } catch (error) {
+      // 如果是配额错误，尝试更激进地删除最老的会话后重试一次
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        try {
+          const entries = Object.entries(sessions)
+          if (entries.length > 0) {
+            // 按 createTime 从早到晚排序，删除最旧的 20% 会话（至少删除 1 个）
+            entries.sort((a, b) => (a[1].createTime || 0) - (b[1].createTime || 0))
+            const removeCount = Math.max(1, Math.floor(entries.length * 0.2))
+            for (let i = 0; i < removeCount; i++) {
+              const key = entries[i][0]
+              console.warn('[TeacherStore] ⚠️ 存储配额不足，删除过旧的会话:', key)
+              delete sessions[key]
+            }
+
+            const storageKey = getSessionsStorageKey()
+            localStorage.setItem(storageKey, JSON.stringify(sessions))
+            return
+          }
+        } catch (retryError) {
+          console.error('[TeacherStore] ❌ 配额错误重试保存会话列表失败:', retryError)
+        }
+      }
+
       console.error('[TeacherStore] ❌ 保存会话列表失败:', error)
     }
   }
@@ -1312,8 +1335,9 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     }
 
     const hex = Math.abs(hash).toString(16).padStart(8, '0')
-    const userId = localStorage.getItem('userId') || ''
-    return `${userId ? userId + '-' : ''}teacher-${hex}-${Date.now()}`
+    // 会话ID统一使用 teacher-{hex}-{timestamp} 格式，避免在前面再加 userId/guest 前缀
+    // 这样可以直接通过 validateSessionId 中的 teacher-{hex}-{timestamp} 校验
+    return `teacher-${hex}-${Date.now()}`
   }
 
 

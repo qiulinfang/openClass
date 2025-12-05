@@ -687,5 +687,15 @@ export class AiTextbookStrategy implements ChatStrategy {
       }
     })
   }
+
+  // 获取联网搜索状态
+  getEnableWebSearch(): boolean {
+    return this.aiTextbookStore.enableWebSearch
+  }
+
+  // 切换联网搜索状态
+  toggleWebSearch(): void {
+    this.aiTextbookStore.toggleWebSearch()
+  }
 }
 

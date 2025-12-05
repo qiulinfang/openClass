@@ -6,11 +6,11 @@
           <img src="/icons/goback.svg" alt="返回" class="back-icon" />
         </div>
       </div>
-      <div class="answer-title">{{ title }}</div>
+      <div class="answer-title">{{ displayTitle }}</div>
     </header>
     <div class="answer-body">
       <div class="left-panel">
-        <QuestionList ref="questionListRef" :external-questions="externalQuestions" :show-photo-search="false">
+        <QuestionList ref="questionListRef" type="homework" :external-questions="externalQuestions" :show-photo-search="false">
           <template #more-extra="{ question, close }">
             <div
               class="more-menu-item-row"
@@ -80,11 +80,13 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import QuestionList from '@/components/QuestionList.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import CommonActionButton from '@/components/CommonActionButton.vue'
 import CameraUploadDialog from '@/components/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
+import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { MathJaxUtils } from '@/utils/math/mathjax'
 import { apiService } from '@/services/api-service'
@@ -97,9 +99,10 @@ defineOptions({
 
 const route = useRoute()
 const router = useRouter()
+const homeworkStore = useHomeworkStore()
 
-// 作业题目列表：由路由参数（如 MyHomeworkView 传入）或后续作业接口填充
-const externalQuestions = ref<ExerciseItem[]>([])
+// 作业题目列表、当前选中索引和作业名称：从 homeworkStore 获取
+const { questions: externalQuestions, currentQuestionIndex, homeworkName } = storeToRefs(homeworkStore)
 
 // 当前在白板上作答的题目
 const currentAnswerQuestion = ref<ExerciseItem | null>(null)
@@ -149,64 +152,34 @@ const title = computed(() => {
   return homeworkId ? `作业作答 - ${homeworkId}` : '作业作答'
 })
 
-// 从路由 query 中解析题目列表（questions 为经过 encodeURIComponent 的 JSON 字符串）
+// 展示用标题：优先显示作业名称，缺省时回退到原有 title
+const displayTitle = computed(() => {
+  return (homeworkName.value && homeworkName.value.trim()) || title.value
+})
+
+// 题目列表已从 homeworkStore 获取，根据 currentQuestionIndex 恢复当前选中题目
 onMounted(async () => {
-  const raw = route.query.questions
-  if (typeof raw === 'string') {
-    try {
-      const decoded = decodeURIComponent(raw)
-      const parsed = JSON.parse(decoded)
-      console.log(parsed)
-      if (Array.isArray(parsed)) {
-        // MyHomeworkView 传入的是 topics，结构为 { id, questionData }
-        // 这里统一转换为 ExerciseItem，至少补齐 id 和 question 字段
-        externalQuestions.value = parsed.map((item: any) => {
-          const id = (item?.id ?? '').toString()
-          const questionData = (item?.questionData ?? '').toString()
-          const exercise: ExerciseItem = {
-            id,
-            question: questionData,
-          } as ExerciseItem
-          return exercise
-        })
-      }
-    } catch (e) {
-      console.error('[HomeworkAnswerView] 解析路由题目列表失败:', e)
-      externalQuestions.value = []
-    }
-  } else {
-    externalQuestions.value = []
+  if (!externalQuestions.value.length) return
+
+  // 优先使用 store 中记录的选中索引
+  let targetIndex = currentQuestionIndex.value ?? -1
+
+  // 如果没有选中或索引越界，则默认选中第一题
+  if (targetIndex < 0 || targetIndex >= externalQuestions.value.length) {
+    targetIndex = 0
   }
 
-  // 尝试恢复选中题目（统一使用 sessionStorage）
-  // - 从 my-homework 跳转时设置
-  // - 从 homework-exercise 返回时设置
-  const returnQuestionId = sessionStorage.getItem('homeworkReturnQuestionId')
-  if (returnQuestionId && externalQuestions.value.length > 0) {
-    // 找到对应题目的索引（bmNo 或 id 匹配）
-    const targetIndex = externalQuestions.value.findIndex((q) => {
-      const key = (q.bmNo || q.id || '').toString()
-      return key === returnQuestionId
-    })
+  // 等待 QuestionList 渲染完成后再调用滚动
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 300))
 
-    if (targetIndex >= 0) {
-      // 先选中并滚动到该题目（左侧列表）
-      // 等待 QuestionList 渲染完成后再调用滚动
-      await nextTick()
-      await new Promise(resolve => setTimeout(resolve, 300))
-      
-      if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
-        questionListRef.value.scrollToQuestionAndSelect(targetIndex)
-      }
-
-      // 同步到右侧作答区域
-      const targetQuestion = externalQuestions.value[targetIndex]
-      handleStartAnswer(targetQuestion)
-    }
-
-    // 使用一次后清理缓存
-    sessionStorage.removeItem('homeworkReturnQuestionId')
+  if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
+    questionListRef.value.scrollToQuestionAndSelect(targetIndex)
   }
+
+  // 同步到右侧作答区域
+  const targetQuestion = externalQuestions.value[targetIndex]
+  handleStartAnswer(targetQuestion)
 })
 
 // 获取题目唯一标识
@@ -357,7 +330,7 @@ const handleGoToXueban = () => {
   const questionId = selectedQuestion.bmNo || selectedQuestion.id
   router.push({ 
     name: 'homeworkExercise',
-    query: { questionId: questionId?.toString(), tab: 'chatAi' }
+    query: { questionId: questionId?.toString(), tab: 'chatAi', scene: 'homework' }
   })
 }
 

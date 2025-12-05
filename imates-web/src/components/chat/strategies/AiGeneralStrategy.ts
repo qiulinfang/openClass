@@ -646,4 +646,14 @@ export class AiGeneralStrategy implements ChatStrategy {
       }
     })
   }
+
+  // 获取联网搜索状态
+  getEnableWebSearch(): boolean {
+    return this.aiGeneralStore.enableWebSearch
+  }
+
+  // 切换联网搜索状态
+  toggleWebSearch(): void {
+    this.aiGeneralStore.toggleWebSearch()
+  }
 }

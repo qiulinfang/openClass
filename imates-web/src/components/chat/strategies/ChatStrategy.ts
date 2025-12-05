@@ -121,5 +121,26 @@ export interface ChatStrategy {
   
   // 第24步：重置会话（可选，仅部分策略需要）
   resetSession?(): void
+
+  // 第25步：删除消息（可选）
+  deleteMessage?(messageId: string, options?: { currentQuestion?: unknown }): Promise<void>
+
+  // 第26步：获取会话卡片列表（可选，仅部分策略需要）
+  getSessionCards?(): unknown[]
+
+  // 第27步：为当前题目创建新会话（可选，仅部分策略需要）
+  createNewSession?(options?: { currentQuestion?: unknown }): Promise<void>
+
+  // 第28步：切换到指定会话（可选，仅部分策略需要）
+  switchToSession?(sessionId: string): Promise<void>
+
+  // 第29步：删除指定会话（可选，仅部分策略需要）
+  deleteSession?(sessionId: string, options?: { currentQuestion?: unknown }): Promise<void>
+
+  // 第30步：获取联网搜索状态（可选）
+  getEnableWebSearch?(): boolean
+
+  // 第31步：切换联网搜索状态（可选）
+  toggleWebSearch?(): void
 }
 

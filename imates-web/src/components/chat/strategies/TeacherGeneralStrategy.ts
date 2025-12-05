@@ -411,6 +411,11 @@ export class TeacherGeneralStrategy implements ChatStrategy {
     return '向老师提问...'
   }
   
+  // 删除消息：直接委托给 Store
+  async deleteMessage(messageId: string): Promise<void> {
+    await this.teacherStore.deleteMessage(messageId)
+  }
+
   // 第18步：获取会话信息（教师策略需要）
   getSessionInfo(): ChatMessageSession | null {
     const session = this.teacherStore.currentSession
@@ -465,6 +470,16 @@ export class TeacherGeneralStrategy implements ChatStrategy {
     const userId = authStorageService.getCurrentUserIdOrDefault()
     const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
     return teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
+  }
+
+  // 获取联网搜索状态（教师策略不支持联网搜索）
+  getEnableWebSearch(): boolean {
+    return this.teacherStore.enableWebSearch
+  }
+
+  // 切换联网搜索状态
+  toggleWebSearch(): void {
+    this.teacherStore.toggleWebSearch()
   }
 }
 

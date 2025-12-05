@@ -96,6 +96,7 @@
             @image-loaded="handleImageLoaded"
             @quote-message="handleQuoteMessage"
             @scroll-to-message="handleScrollToMessage"
+            @delete-message="handleDeleteMessage"
           />
         </div>
       </RubberBandList>
@@ -396,6 +397,7 @@ const emit = defineEmits<{
   ] // 切换到老师对话事件
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
+  'scroll-to-message': [messageId: string] // 滚动到指定消息事件
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
   'remove-screenshot': [string]
   'send-with-screenshot': [string, import('../types').AttachedScreenshot[]]
@@ -461,31 +463,38 @@ const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单
 const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话卡片堆叠组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
 
-// 会话卡片数据（用于 CardStack v-model）
+// 会话卡片数据（用于 CardStack v-model）- 通过策略接口获取
 const sessionCards = computed(() => {
-  if (props.type === 'ai-exercise' && typeof aiExerciseStore.getSessionCards === 'function') {
-    return aiExerciseStore.getSessionCards()
-  }
-  return []
+  return chatStrategy.value?.getSessionCards?.() ?? []
 })
 
-// 新建会话
+// 新建会话 - 通过策略接口
 const handleCreateNewSession = async () => {
-  if (props.type === 'ai-exercise') {
-    const question = props.question as { bmNo?: string } | null
-    const questionBmNo = question?.bmNo || ''
-    if (questionBmNo) {
-      await aiExerciseStore.createNewSession(questionBmNo)
-      showSessionListPanel.value = false
+  try {
+    if (!chatStrategy.value?.createNewSession) {
+      return // 当前策略不支持会话管理
     }
+    await chatStrategy.value.createNewSession({
+      currentQuestion: currentQuestion.value ?? undefined,
+    })
+    showSessionListPanel.value = false
+  } catch (error) {
+    console.error('[ChatView] 新建会话失败:', error)
+    showMessage('新建会话失败', 'error')
   }
 }
 
-// 切换会话
+// 切换会话 - 通过策略接口
 const handleSwitchSession = async (sessionId: string) => {
-  if (props.type === 'ai-exercise') {
-    await aiExerciseStore.switchToSession(sessionId)
+  try {
+    if (!chatStrategy.value?.switchToSession) {
+      return // 当前策略不支持会话管理
+    }
+    await chatStrategy.value.switchToSession(sessionId)
     showSessionListPanel.value = false
+  } catch (error) {
+    console.error('[ChatView] 切换会话失败:', error)
+    showMessage('切换会话失败', 'error')
   }
 }
 
@@ -496,35 +505,40 @@ const pendingDeleteSessionTitle = ref('')
 
 // 请求删除会话（显示确认对话框）
 const handleDeleteSessionRequest = (sessionId: string) => {
-  if (props.type === 'ai-exercise') {
+  // 只有支持会话管理的策略才能删除会话
+  if (chatStrategy.value?.deleteSession) {
     // 查找会话标题
-    const session = sessionCards.value.find((s) => s.id === sessionId)
+    const cards = sessionCards.value as Array<{ id: string; title?: string }>
+    const session = cards.find((s) => s.id === sessionId)
     pendingDeleteSessionId.value = sessionId
     pendingDeleteSessionTitle.value = session?.title || '该会话'
     showDeleteConfirmDialog.value = true
   }
 }
 
-// 确认删除会话
+// 确认删除会话 - 通过策略接口
 const confirmDeleteSession = async () => {
-  if (props.type === 'ai-exercise' && pendingDeleteSessionId.value) {
-    const question = props.question as { bmNo?: string } | null
-    const questionBmNo = question?.bmNo || ''
+  try {
+    if (pendingDeleteSessionId.value && chatStrategy.value?.deleteSession) {
+      // 先执行 CardStack 的删除动画
+      if (cardStackRef.value?.handleRemove) {
+        cardStackRef.value.handleRemove(pendingDeleteSessionId.value)
+      }
 
-    // 先执行 CardStack 的删除动画
-    if (cardStackRef.value?.handleRemove) {
-      cardStackRef.value.handleRemove(pendingDeleteSessionId.value)
+      // 然后通过策略删除会话
+      await chatStrategy.value.deleteSession(pendingDeleteSessionId.value, {
+        currentQuestion: currentQuestion.value ?? undefined,
+      })
     }
-
-    // 然后从 store 中删除数据
-    if (questionBmNo) {
-      await aiExerciseStore.deleteSession(pendingDeleteSessionId.value, questionBmNo)
-    }
+  } catch (error) {
+    console.error('[ChatView] 删除会话失败:', error)
+    showMessage('删除会话失败', 'error')
+  } finally {
+    // 关闭对话框并清理状态
+    showDeleteConfirmDialog.value = false
+    pendingDeleteSessionId.value = null
+    pendingDeleteSessionTitle.value = ''
   }
-  // 关闭对话框并清理状态
-  showDeleteConfirmDialog.value = false
-  pendingDeleteSessionId.value = null
-  pendingDeleteSessionTitle.value = ''
 }
 
 // 取消删除会话
@@ -604,8 +618,8 @@ const getCSSAnimationParams = () => {
 }
 
 // ==================== 计算属性 ====================
-// 使用场景Store中的联网搜索状态
-const enableWebSearch = computed(() => getScenarioStore().enableWebSearch)
+// 使用策略接口获取联网搜索状态
+const enableWebSearch = computed(() => chatStrategy.value?.getEnableWebSearch?.() ?? false)
 const selectedModel = ref('mate') // 选中的AI模型
 
 // ==================== 消息管理相关状态 ====================
@@ -881,18 +895,20 @@ const enhancedPlaceholderText = computed(() => {
 /**
  * 是否可以发送消息
  * 作用：判断当前是否可以发送消息，用于控制发送按钮的启用状态
- * 条件：输入框有内容或已上传文件
+ * 条件：输入框有内容或已上传文件；且当前不处于会话管理面板（showSessionListPanel = false）
  */
 const canSend = computed(() => {
+  if (showSessionListPanel.value) return false
   return !!(inputMessage.value.trim() || uploadedFiles.value.length > 0)
 })
 
-// 编辑模式下是否可以发送：只有当输入内容非空且和原始内容不同时才允许
+// 编辑模式下是否可以发送：只有当输入内容非空且和原始内容不同时才允许，且不在会话管理面板中
 const canSendInEditMode = computed(() => {
+  if (showSessionListPanel.value) return false
   if (!isEditingMessage.value) return false
   const current = inputMessage.value
   const original = originalMessageContent.value || ''
-  return current !== '' && current.length !== original.length
+  return current.trim().length > 0 && current !== original
 })
 
 // 动态键盘高度（固定值）
@@ -1325,28 +1341,9 @@ const scrollToSession = async (sessionId: string) => {
 }
 
 // 滚动到指定消息（点击引用区域时触发）
-const handleScrollToMessage = async (messageId: string) => {
-  if (!messageId) return
-
-  await nextTick()
-
-  const wrapper = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
-  if (!wrapper) return
-
-  // 通过 data-message-id 查找目标消息元素
-  const selector = `.message-item[data-message-id="${messageId}"]`
-  const targetEl = wrapper.querySelector(selector) as HTMLElement | null
-  if (targetEl) {
-    // 滚动到目标元素，并高亮提示
-    const top = (targetEl as HTMLElement).offsetTop - 50
-    wrapper.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' })
-
-    // 添加高亮效果
-    targetEl.classList.add('highlight-message')
-    setTimeout(() => {
-      targetEl?.classList.remove('highlight-message')
-    }, 1500)
-  }
+// 注意：实际滚动和高亮逻辑由父组件或 RubberBandList 负责，这里仅转发事件
+const handleScrollToMessage = (messageId: string) => {
+  emit('scroll-to-message', messageId)
 }
 
 /**
@@ -1726,6 +1723,24 @@ const handleMessageClick = (message: ChatBubble) => {
   }
 }
 
+// 处理删除消息：完全通过策略接口
+const handleDeleteMessage = async (messageId: string) => {
+  try {
+    if (!chatStrategy.value?.deleteMessage) {
+      throw new Error('当前聊天策略未实现 deleteMessage')
+    }
+
+    await chatStrategy.value.deleteMessage(messageId, {
+      currentQuestion: currentQuestion.value ?? undefined,
+    })
+
+    showMessage('消息已删除', 'positive')
+  } catch (error) {
+    console.error('[ChatView] 删除消息失败:', error)
+    showMessage('删除失败，请稍后重试', 'error')
+  }
+}
+
 // ==================== 转发流程核心函数 ====================
 // 注意：转发功能已重构为策略模式，所有转发逻辑都在各个策略类中实现
 
@@ -2069,9 +2084,9 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
   }
 }
 
-// 作用：切换联网搜索功能的开启/关闭状态
+// 作用：切换联网搜索功能的开启/关闭状态 - 通过策略接口
 const toggleWebSearch = () => {
-  getScenarioStore().toggleWebSearch()
+  chatStrategy.value?.toggleWebSearch?.()
 }
 
 // 作用：移除已上传的文件
@@ -2175,8 +2190,8 @@ onMounted(async () => {
   // 步骤1.5：初始化完消息后滚动到底部
   await scrollToBottom()
 
-  // 初始化消息计数
-  lastMessageCount.value = getScenarioStore().messages.length
+  // 初始化消息计数 - 通过策略接口获取消息
+  lastMessageCount.value = chatStrategy.value?.getMessages?.().length ?? 0
 
   // 添加滚动监听，检测用户是否在底部
   nextTick(() => {
@@ -2237,9 +2252,9 @@ onUnmounted(() => {
 // 图片加载刷新定时器
 const imageLoadRefreshTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-// 消息变化监听器
+// 消息变化监听器 - 通过策略接口获取消息
 watch(
-  () => getScenarioStore().messages,
+  () => chatStrategy.value?.getMessages?.() ?? [],
   (newMessages) => {
     if (newMessages && newMessages.length > 0) {
       // 检测是否有新消息（消息数量增加）

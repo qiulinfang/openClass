@@ -42,8 +42,8 @@ const handleClick = () => {
 
 <style scoped lang="scss">
 .screenshot-thumb {
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  height: 100%;
   border-radius: 10px;
   overflow: hidden;
   background: #f5f5f5;

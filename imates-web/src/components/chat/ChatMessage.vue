@@ -317,6 +317,7 @@ const emit = defineEmits<{
   'image-loaded': [] // 图片加载完成事件，用于刷新滚动容器
   'quote-message': [message: ChatBubble] // 引用消息
   'scroll-to-message': [messageId: string] // 滚动到指定消息
+  'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
 }>()
 
 // 长按相关状态
@@ -886,34 +887,8 @@ const handleDelete = async () => {
     },
   }).onOk(async () => {
     try {
-      // 第3步：根据场景类型调用对应的删除方法
-      switch (props.type) {
-        case 'ai-exercise':
-          await aiExerciseStore.deleteMessage(props.message.id)
-          break
-        case 'ai-general':
-          await aiGeneralStore.deleteMessage(props.message.id)
-          break
-        case 'ai-textbook':
-          await aiTextbookStore.deleteMessage(props.message.id)
-          break
-        case 'teacher-general':
-          await teacherGeneralStore.deleteMessage(props.message.id)
-          break
-        case 'teacher-exercise':
-          await teacherExerciseStore.deleteMessage(props.message.id)
-          break
-        default:
-          throw new Error('未知的聊天类型')
-      }
-
-      // 第4步：显示成功提示
-      $q.notify({
-        type: 'positive',
-        message: '消息已删除',
-        position: 'top',
-        timeout: 2000,
-      })
+      // 第3步：仅向父组件抛出删除事件，由父组件根据场景和当前题目决定如何删除
+      emit('delete-message', props.message.id)
     } catch (error) {
       console.error('删除消息失败:', error)
       $q.notify({

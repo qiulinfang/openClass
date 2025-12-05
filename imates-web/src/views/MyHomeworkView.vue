@@ -63,6 +63,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService, type TopicPackageItem } from '@/services/api-service'
+import { useHomeworkStore } from '@/stores/homeworkStore'
+import type { ExerciseItem } from '@/types'
 import CommonActionButton from '@/components/CommonActionButton.vue'
 import CommonDatePicker from '@/components/CommonDatePicker.vue'
 import CommonSelect from '@/components/CommonSelect.vue'
@@ -189,12 +191,21 @@ watch(
 )
 
 const router = useRouter()
+const homeworkStore = useHomeworkStore()
 
-const goAnswer = (item: { id: string; topics?: Array<{ id: string; questionData: string }> }) => {
+const goAnswer = (item: { id: string; name?: string; topics?: Array<{ id: string; questionData: string }> }) => {
   const payload = item.topics || []
-  // 使用当前套餐中的第一题ID作为返回定位标记
-  const firstQuestionId = payload.length > 0 ? payload[0].id : item.id
-  sessionStorage.setItem('homeworkReturnQuestionId', firstQuestionId)
+
+  // 将题目列表存入 homeworkStore
+  const exerciseItems: ExerciseItem[] = payload.map((topic) => ({
+    id: topic.id,
+    bmNo: topic.id, // 作业题目使用 id 作为 bmNo
+    question: topic.questionData,
+  } as ExerciseItem))
+  homeworkStore.setQuestions(exerciseItems)
+  // 记录当前这份作业的名称，供 HomeworkAnswerView 使用
+  const name = item.name || ''
+  homeworkStore.setHomeworkName(name)
 
   router.push({
     name: 'homeworkAnswer',
@@ -202,7 +213,7 @@ const goAnswer = (item: { id: string; topics?: Array<{ id: string; questionData:
       homeworkId: item.id,
     },
     query: {
-      questions: encodeURIComponent(JSON.stringify(payload)),
+      scene: 'homework',
     },
   })
 }

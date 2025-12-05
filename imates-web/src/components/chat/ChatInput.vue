@@ -109,24 +109,31 @@
           <!-- 四个功能按钮：仅在非编辑状态下显示 -->
           <template v-if="!props.isEditing">
             <!-- 模式选择器（同桌按钮）- 仅在AI通用、AI题目和AI教材模式下显示 -->
-            <button
+            <BubblePopup
               v-if="
                 props.type === 'ai-general' ||
                 props.type === 'ai-exercise' ||
                 props.type === 'ai-textbook'
               "
-              class="action-mode-btn"
-              :class="{ active: true }"
-              @click.stop="toggleModeSelector"
-              ref="modeSelectorBtnRef"
+              v-model="showModeSelectorMenu"
+              placement="top"
+              :offset="8"
             >
-              <img
-                :src="getModelIcon(props.selectedModel)"
-                :alt="getModelDisplayName(props.selectedModel)"
-                style="width: 18px; height: 18px"
-              />
-              <span>{{ getModelDisplayName(props.selectedModel) }}</span>
-            </button>
+              <template #trigger>
+                <button
+                  class="action-mode-btn"
+                  :class="{ active: true }"
+                >
+                  <img
+                    :src="getModelIcon(props.selectedModel)"
+                    :alt="getModelDisplayName(props.selectedModel)"
+                    style="width: 18px; height: 18px"
+                  />
+                  <span>{{ getModelDisplayName(props.selectedModel) }}</span>
+                </button>
+              </template>
+              <ActionList :items="modelActionItems" />
+            </BubblePopup>
 
             <!-- 联网搜索按钮 - 使用顶部同款搜索图标 -->
             <button
@@ -234,47 +241,7 @@
         </div>
       </div>
 
-      <!-- 模式选择弹出框 - 仅在AI模式下显示，且target已绑定 -->
-      <q-menu
-        v-if="
-          (props.type === 'ai-general' ||
-            props.type === 'ai-exercise' ||
-            props.type === 'ai-textbook') &&
-          modeSelectorBtnRef
-        "
-        v-model="showModeSelectorMenu"
-        :target="modeSelectorBtnRef"
-        anchor="bottom left"
-        self="top left"
-        class="mode-selector-menu"
-        :style="{ zIndex: 10004 }"
-        no-parent-event
-        :breakpoint="0"
-      >
-        <q-list class="model-select-list">
-          <q-item
-            v-for="option in aiRoleOptions"
-            :key="option.value"
-            clickable
-            v-close-popup
-            @click="selectModel(option.value)"
-            :class="{ active: props.selectedModel === option.value }"
-            class="model-select-item"
-          >
-            <q-item-section avatar>
-              <q-avatar size="32px">
-                <img :src="getModelIcon(option.value)" :alt="option.label" />
-              </q-avatar>
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>{{ option.label }}</q-item-label>
-            </q-item-section>
-            <q-item-section side v-if="props.selectedModel === option.value">
-              <q-icon name="check" color="primary" />
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-menu>
+      
     </div>
     <!-- 图片预览对话框（仅在 ChatInput 内部使用） -->
     <ImageViewer
@@ -291,6 +258,8 @@ import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
 import ImageViewer from '../ImageViewer.vue'
 import ScreenshotThumb from '../ScreenshotThumb.vue'
+import BubblePopup from '../BubblePopup.vue'
+import ActionList from '../ActionList.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
@@ -524,15 +493,6 @@ onMounted(() => {
 
 // 模式选择器菜单显示状态
 const showModeSelectorMenu = ref(false)
-const modeSelectorBtnRef = ref<HTMLElement>()
-
-// 监听模式选择弹出框状态变化
-watch(showModeSelectorMenu, (newValue, oldValue) => {
-  // 如果弹出框打开但 target 未绑定，记录警告但不关闭（让 Quasar 自己处理）
-  if (newValue && !oldValue && !modeSelectorBtnRef.value) {
-    console.warn('[ChatInput] 弹出框打开但 target 未绑定')
-  }
-})
 
 // 保留原有的复杂状态用于向后兼容（如果需要）
 const contentCanvasRef = ref<HTMLElement>()
@@ -602,39 +562,25 @@ const getModelIcon = (model: string) => {
   return iconMap[model] || DeskmateIcon
 }
 
+// 适配到通用 ActionList 的 items 结构
+const modelActionItems = computed(() =>
+  aiRoleOptions.map((option) => ({
+    key: option.value,
+    label: option.label,
+    icon: getModelIcon(option.value),
+    visible: true,
+    // 当前选中的模型可以通过样式在 ActionList 里用 :class 实现，这里逻辑上始终可点击
+    onClick: () => selectModel(option.value),
+  }))
+)
+
 // 切换模式选择器菜单
-const toggleModeSelector = async (event?: Event) => {
+const toggleModeSelector = (event?: Event) => {
   // 阻止事件冒泡
   if (event) {
     event.stopPropagation()
   }
-  // 如果当前已经打开，则关闭
-  if (showModeSelectorMenu.value) {
-    showModeSelectorMenu.value = false
-    return
-  }
-
-  // 确保 ref 已经绑定，等待多个 tick 以确保 DOM 完全渲染
-  await nextTick()
-  await nextTick()
-
-  // 如果 ref 仍未绑定，尝试再次等待
-  if (!modeSelectorBtnRef.value) {
-    console.warn('[ChatInput] modeSelectorBtnRef 未绑定，延迟打开菜单')
-    setTimeout(async () => {
-      await nextTick()
-      if (modeSelectorBtnRef.value) {
-        showModeSelectorMenu.value = true
-      } else {
-        console.error('[ChatInput] modeSelectorBtnRef 仍然未绑定，无法打开菜单')
-      }
-    }, 100)
-  } else {
-    // 确保再次等待一个 tick，让 q-menu 组件完全渲染
-    await nextTick()
-    // 直接设置为 true，而不是切换
-    showModeSelectorMenu.value = true
-  }
+  showModeSelectorMenu.value = !showModeSelectorMenu.value
 }
 
 // 选择模型
@@ -2151,13 +2097,6 @@ defineExpose({
 
 /* 学习伙伴选择弹出框样式 */
 .model-select-popup {
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 10004 !important; /* 确保在拍照搜题场景中不被遮挡 */
-}
-
-.mode-selector-menu {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;

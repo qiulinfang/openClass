@@ -7,12 +7,12 @@ import type { ChatBubble } from '../../../types'
 import type { ChatStrategy } from './ChatStrategy'
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useTeacherExerciseChatStore } from '../../../stores/teacherExerciseChatStore'
-import { useQuestionStore } from '../../../stores/questionStore'
+// 注意：此策略不再直接依赖 questionStore/homeworkStore
+// 所有题目信息通过 options.currentQuestion 传入
 import { getUserInfo, getSubject } from '../../../services/auth-storage-service'
 
 export class TeacherExerciseStrategy implements ChatStrategy {
   private teacherExerciseStore = useTeacherExerciseChatStore()
-  private questionStore = useQuestionStore()
   
   // 第1步：获取消息列表
   getMessages(): ChatBubble[] {
@@ -26,8 +26,11 @@ export class TeacherExerciseStrategy implements ChatStrategy {
   
   // 第3步：发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
+    // 优先使用 options.currentQuestion（由 ChatView 通过 props.overrideQuestion 传入）
+    const currentQuestion = options.currentQuestion as unknown | undefined
+    
     // 验证是否选择了题目
-    if (!this.questionStore.currentQuestion) {
+    if (!currentQuestion) {
       throw new Error('请先选择题目')
     }
     
@@ -36,7 +39,7 @@ export class TeacherExerciseStrategy implements ChatStrategy {
     // 调用Store的sendMessage方法，传递所有必需参数
     await this.teacherExerciseStore.sendMessage(
       content,
-      this.questionStore.currentQuestion,
+      currentQuestion as any,
       getUserInfo(),
       getSubject(),
       (options.selectedModel || 'teacher') as string,
@@ -251,6 +254,21 @@ export class TeacherExerciseStrategy implements ChatStrategy {
   // 第24步：重置会话
   resetSession(): void {
     this.teacherExerciseStore.clearSession()
+  }
+
+  // 第25步：删除消息（题目老师场景）
+  async deleteMessage(messageId: string): Promise<void> {
+    await this.teacherExerciseStore.deleteMessage(messageId)
+  }
+
+  // 获取联网搜索状态
+  getEnableWebSearch(): boolean {
+    return this.teacherExerciseStore.enableWebSearch
+  }
+
+  // 切换联网搜索状态
+  toggleWebSearch(): void {
+    this.teacherExerciseStore.toggleWebSearch()
   }
 }
 
