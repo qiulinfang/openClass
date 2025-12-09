@@ -981,7 +981,7 @@ export class AndroidBridge {
   /**
    * 发送文本消息给老师
    */
-  public sendTextMessageToTeacher(content: string, sessionId: string, subject: string): boolean {
+  public sendTextMessageToTeacher(content: string, sessionId: string, subject: string, senderType: string = 'STUDENT'): boolean {
     const startTime = performance.now()
     
     try {
@@ -995,7 +995,7 @@ export class AndroidBridge {
         return false
       }
       const resp = this.callString(() => {
-        return window.AndroidBridge?.sendTextMessageToTeacher?.(content, sessionId, subject)
+        return window.AndroidBridge?.sendTextMessageToTeacher?.(content, sessionId, subject, senderType)
       })
       
       const result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
@@ -1017,7 +1017,7 @@ export class AndroidBridge {
   /**
    * 发送语音消息给老师
    */
-  public sendVoiceMessageToTeacher(voicePath: string, duration: string, sessionId: string, subject: string): boolean {
+  public sendVoiceMessageToTeacher(voicePath: string, duration: string, sessionId: string, subject: string, senderType: string = 'STUDENT'): boolean {
     const startTime = performance.now()
     
     try {
@@ -1031,7 +1031,7 @@ export class AndroidBridge {
         return false
       }
       const resp = this.callString(() => {
-        return window.AndroidBridge?.sendVoiceMessageToTeacher?.(voicePath, duration, sessionId, subject)
+        return window.AndroidBridge?.sendVoiceMessageToTeacher?.(voicePath, duration, sessionId, subject, senderType)
       })
       
       const result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
@@ -1053,7 +1053,7 @@ export class AndroidBridge {
   /**
    * 发送图片消息给老师
    */
-  public sendPictureToTeacher(imagePath: string, sessionId: string, subject: string): boolean {
+  public sendPictureToTeacher(imagePath: string, sessionId: string, subject: string, senderType: string = 'STUDENT'): boolean {
     const startTime = performance.now()
     
     try {
@@ -1067,7 +1067,7 @@ export class AndroidBridge {
         return false
       }
       const resp = this.callString(() => {
-        return window.AndroidBridge?.sendPictureToTeacher?.(imagePath, sessionId, subject)
+        return window.AndroidBridge?.sendPictureToTeacher?.(imagePath, sessionId, subject, senderType)
       })
       
       const result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
@@ -1451,6 +1451,53 @@ export class AndroidBridge {
    */
   public onClassroomError(callback: (error: string) => void): void {
     this.addEventListener('classroomError', callback)
+  }
+
+  // ========== 研伴 API 代理接口（测试环境走原生网络） ==========
+
+  /**
+   * 通过原生发起研伴 API 请求
+   * 用于测试环境下绕过 Web 的 HTTPS 证书问题
+   * 
+   * @param path 接口路径，如 "/api/app/teacher-textbook"
+   * @param body 请求体对象
+   * @param method HTTP 方法，默认 POST
+   * @param envType 环境类型，如 "INTERNAL_TEST" 或 "RELEASE"
+   * @param token 认证 Token
+   * @returns Promise<any> 原生返回的响应数据
+   */
+  public async callYanbanApi(path: string, body: any, method: string = 'POST', envType?: string, token?: string): Promise<any> {
+    try {
+      if (!this.isAvailable) {
+        console.error('[AndroidBridge] ❌ callYanbanApi: AndroidBridge 不可用')
+        return { success: false, message: 'AndroidBridge 不可用' }
+      }
+
+      if (!window.AndroidBridge?.callYanbanApi) {
+        console.error('[AndroidBridge] ❌ callYanbanApi: 方法不存在')
+        return { success: false, message: 'callYanbanApi 方法不存在' }
+      }
+
+      const hasBody = body !== undefined && body !== null
+      const jsonBody = hasBody ? JSON.stringify(body) : ''
+      console.log('[AndroidBridge] 📤 callYanbanApi 请求:', { path, method, envType, hasToken: !!token, hasBody })
+
+      // 传递环境类型和 Token 给原生，避免原生侧读 localStorage 导致死锁
+      const resp = this.callString(() => window.AndroidBridge?.callYanbanApi?.(path, jsonBody, method, envType || '', token || ''))
+      
+      if (!resp) {
+        console.warn('[AndroidBridge] ⚠️ callYanbanApi 返回空')
+        return { success: false, message: '原生返回空响应' }
+      }
+
+      const result = this.parseJSON<any>(resp, { success: false, message: '解析响应失败' })
+      console.log('[AndroidBridge] 📥 callYanbanApi 响应:', { success: result.success, hasData: !!result.data })
+      
+      return result
+    } catch (error) {
+      console.error('[AndroidBridge] ❌ callYanbanApi 异常:', error)
+      return { success: false, message: '调用异常: ' + (error instanceof Error ? error.message : String(error)) }
+    }
   }
 }
 

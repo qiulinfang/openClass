@@ -392,6 +392,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           imageData.filePath,
           sessionId,
           subject,
+          'STUDENT',
         )
       } else {
         // 如果没有filePath，回退使用base64DataUrl（兼容旧代码）
@@ -400,11 +401,12 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           imageData.base64DataUrl,
           sessionId,
           subject,
+          'STUDENT',
         )
       }
     } else {
       // 文本消息
-      return await window.AndroidBridge.sendTextMessageToTeacher(content, sessionId, subject)
+      return await window.AndroidBridge.sendTextMessageToTeacher(content, sessionId, subject, 'STUDENT')
     }
   }
 
@@ -711,6 +713,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
             messageImageData.filePath,
             sessionId,
             subject,
+            'STUDENT',
           )
         } else if (messageImageData.base64DataUrl) {
           console.warn('[TeacherStore] ⚠️ 重试时缺少filePath，使用base64DataUrl（不推荐）')
@@ -718,13 +721,14 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
             messageImageData.base64DataUrl,
             sessionId,
             subject,
+            'STUDENT',
           )
         } else {
           throw new Error('图片数据不完整')
         }
       } else {
         // 文本消息
-        result = await window.AndroidBridge.sendTextMessageToTeacher(content, sessionId, subject)
+        result = await window.AndroidBridge.sendTextMessageToTeacher(content, sessionId, subject, 'STUDENT')
       }
 
       // 解析响应
@@ -1570,6 +1574,7 @@ ${conversationSummary}
               msg.imageData.filePath, // 文件路径，用于发送给 Android 端
               currentSession.value.sessionId,
               currentSession.value.subject,
+              'STUDENT',
             )
           } else if (msg.voiceData?.filePath) {
             // 语音消息

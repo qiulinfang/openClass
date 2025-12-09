@@ -13,6 +13,7 @@ export enum AppEnvType {
 interface EnvConfig {
   baseUrl: string
   resourceBaseUrl: string
+  yanbanBaseUrl: string
   appUpdateUrl: string
   displayName: string
 }
@@ -21,13 +22,19 @@ interface EnvConfig {
 const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
   [AppEnvType.RELEASE]: {
     baseUrl: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-    resourceBaseUrl: 'https://www.imates.com.cn',
+    // 资源服务器：与 VITE_RESOURCE_FILE_BASE 保持一致，使用 9099 端口
+    resourceBaseUrl: 'https://www.imates.com.cn:9099',
+    // 研伴正式环境：使用 HTTPS 访问 9099 端口
+    yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     appUpdateUrl: '/bj101/appupdate.json',
     displayName: '',
   },
   [AppEnvType.INTERNAL_TEST]: {
     baseUrl: 'http://www.imates.com.cn:9222/blw-edu-service-alc',
-    resourceBaseUrl: 'https://www.imates.com.cn',
+    // 测试环境资源服务器同样通过 9099 提供 /resource 路径
+    resourceBaseUrl: 'https://www.imates.com.cn:9099',
+    // 研伴测试环境：使用 HTTPS 访问 50013 端口
+    yanbanBaseUrl: 'https://43.138.16.5:50013',
     appUpdateUrl: '/appupdate_test.json',
     displayName: 'Joined Testflight',
   },
@@ -42,7 +49,7 @@ const TEST_ENV_PASSWORD = '985211'
 /**
  * 获取当前环境类型（默认正式环境）
  */
-export function getCurrentEnvType(): AppEnvType {
+export function getCurrentEnvType(): AppEnvType { 
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored && Object.values(AppEnvType).includes(stored as AppEnvType)) {
@@ -110,6 +117,13 @@ export function getApiBaseUrl(): string {
  */
 export function getResourceBaseUrl(): string {
   return getCurrentEnvConfig().resourceBaseUrl
+}
+
+/**
+ * 获取研伴/题包服务 Base URL
+ */
+export function getYanbanBaseUrl(): string {
+  return getCurrentEnvConfig().yanbanBaseUrl
 }
 
 /**

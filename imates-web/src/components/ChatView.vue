@@ -100,7 +100,6 @@
           />
         </div>
       </RubberBandList>
-
       <!-- 新消息提示按钮 - 当用户不在底部时显示（原生实现） -->
       <button
         v-if="showNewMessageIndicator"
@@ -210,13 +209,11 @@
         </q-btn>
       </div>
     </div>
-
     <!-- 聊天输入组件插槽 - 支持自定义输入组件，默认使用 ChatInput -->
     <!-- 在多选模式下隐藏输入组件 -->
     <div v-if="!isSelectionMode" class="chat-input-area">
       <!-- 简单输入模式前置插槽 - 用于放置操作按钮等 -->
       <slot v-if="inputMode === 'simple'" name="input-prefix"></slot>
-
       <slot name="input">
         <!-- 完整输入模式 (ChatInput) -->
         <ChatInput
@@ -263,7 +260,6 @@
           <template #header-all>
             <slot name="header-all"></slot>
           </template>
-
           <!-- 前置区域：最前面的按钮，如“选中并问”等 -->
           <template #header-prefix>
             <slot name="header-prefix"></slot>
@@ -306,7 +302,6 @@
       <!-- 底部提示文案：移动到输入区域内部底部 -->
       <div class="chat-footer-text">与学伴共学，敢质疑、会判断，思维不设限!</div>
     </div>
-
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 

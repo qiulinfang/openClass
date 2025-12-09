@@ -24,6 +24,9 @@ export const useHomeworkStore = defineStore('homework', () => {
   
   /** 当前作业名称（来自 MyHomeworkView 选中的那份作业） */
   const homeworkName = ref('')
+
+  /** 每道题的作答数据缓存：key = 题目唯一标识，value = DrawingBoard.saveData() 返回的数据 */
+  const answerDataCache = ref<Record<string, unknown>>({})
   
   // ==================== 计算属性 ====================
   
@@ -109,6 +112,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     questions,
     currentQuestionIndex,
     homeworkName,
+    answerDataCache,
     
     // 计算属性
     currentQuestion,

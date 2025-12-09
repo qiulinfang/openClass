@@ -10,6 +10,7 @@ public class ApiUrl {
     public static String ZAMMAD_URL;
     public static String URL_RESOURCE_BASE;
     public static String URL_APP_UPDATE;
+    public static String URL_YANBAN_BASE;
 
     // URLs
     public static String URL_LOGIN;
@@ -47,6 +48,7 @@ public class ApiUrl {
             baseUrl = "http://www.imates.com.cn:8222/blw-edu-service-alc";
             URL_RESOURCE_BASE = "https://www.imates.com.cn";
             URL_APP_UPDATE = "https://www.imates.com.cn/bj101/appupdate.json";
+            URL_YANBAN_BASE = "http://www.imates.com.cn:9099/blw-edu-yb";
             MQ_HOST_BASE = "www.imates.com.cn";
             MQ_HOST_PORT = 5673;
             ZAMMAD_URL = "http://app.imates.com.cn:8080/api/v1";
@@ -54,6 +56,7 @@ public class ApiUrl {
             baseUrl = "https://api.showcode.xyz/blw-edu-service-alc";
             URL_RESOURCE_BASE = "https://www.showcode.xyz";
             URL_APP_UPDATE = "https://www.imates.com.cn/appupdate_test.json";
+            URL_YANBAN_BASE = "http://43.138.16.5:50013/blw-edu-yb";
             MQ_HOST_BASE = "www.imates.com.cn";
             MQ_HOST_PORT = 5673;
             ZAMMAD_URL = "http://app.imates.com.cn:8080/api/v1";

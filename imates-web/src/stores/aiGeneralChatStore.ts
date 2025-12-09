@@ -159,6 +159,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         imageData: oldMsg?.imageData,
         originalMessage: oldMsg?.originalMessage,
         canRetry: oldMsg?.canRetry,
+        // AI 消息需要 selectedModel 来显示正确的头像
+        // 优先从旧消息取，否则默认 'mate'
+        selectedModel: sender === 'ai' ? (oldMsg?.selectedModel || 'mate') : undefined,
       }
 
       result.push(bubble)
@@ -231,6 +234,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   ): Promise<void> => {
     // 第1步：如果没有当前会话，创建新会话
     if (!currentSession.value) {
+      console.log('没有当前会话，创建新会话')
       await createSession(content)
     }
     

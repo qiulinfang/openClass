@@ -66,6 +66,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
+
 public class WebAppInterface {
     Context mContext;
     private ExerciseSolveActivityBridge exerciseBridge;
@@ -1379,6 +1386,167 @@ public class WebAppInterface {
 
         } catch (Exception e) {
             Log.e(TAG, "getUserIdFromLocalStorage: 获取localStorage失败", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从 localStorage 获取 Web 环境类型 app_env_type
+     * 返回值示例："RELEASE" 或 "INTERNAL_TEST"，获取失败返回 null
+     * 注意：WebView 操作必须在主线程执行
+     */
+    private String getEnvTypeFromLocalStorage() {
+        if (webView == null) {
+            Log.e(TAG, "getEnvTypeFromLocalStorage: WebView为null，无法获取localStorage");
+            return null;
+        }
+
+        try {
+            final String[] result = { null };
+            final Object lock = new Object();
+            final boolean[] completed = { false };
+
+            // 必须在主线程执行 WebView 操作
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    try {
+                        LocalStorageHelper helper = new LocalStorageHelper(webView);
+                        helper.getItem("app_env_type", new LocalStorageHelper.ItemCallback() {
+                            @Override
+                            public void onResult(String value) {
+                                synchronized (lock) {
+                                    try {
+                                        if (value != null && !value.isEmpty() && !"null".equals(value) && !"undefined".equals(value)) {
+                                            result[0] = value;
+                                            Log.d(TAG, "getEnvTypeFromLocalStorage: 获取到 app_env_type=" + result[0]);
+                                        } else {
+                                            Log.w(TAG, "getEnvTypeFromLocalStorage: localStorage 中 app_env_type 为空或不存在");
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "getEnvTypeFromLocalStorage: 处理 app_env_type 失败", e);
+                                    } finally {
+                                        completed[0] = true;
+                                        lock.notify();
+                                    }
+                                }
+                            }
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "getEnvTypeFromLocalStorage: 主线程执行失败", e);
+                        synchronized (lock) {
+                            completed[0] = true;
+                            lock.notify();
+                        }
+                    }
+                });
+            } else {
+                Log.e(TAG, "getEnvTypeFromLocalStorage: Context 不是 Activity");
+                return null;
+            }
+
+            // 等待回调完成（最多等待 5 秒，分多次检查）
+            synchronized (lock) {
+                long startTime = System.currentTimeMillis();
+                while (!completed[0] && (System.currentTimeMillis() - startTime) < 5000) {
+                    try {
+                        lock.wait(500); // 每 500ms 检查一次
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, "getEnvTypeFromLocalStorage: 等待 localStorage 回调被中断", e);
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+
+            if (!completed[0]) {
+                Log.w(TAG, "getEnvTypeFromLocalStorage: 等待超时，使用默认值");
+            }
+
+            return result[0];
+
+        } catch (Exception e) {
+            Log.e(TAG, "getEnvTypeFromLocalStorage: 获取 localStorage 失败", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从 localStorage 获取指定 key 的 Token
+     * @param key localStorage 的 key，如 "YANBAN_TOKEN"
+     * @return Token 值，获取失败返回 null
+     * 注意：WebView 操作必须在主线程执行
+     */
+    private String getTokenFromLocalStorage(String key) {
+        if (webView == null) {
+            Log.e(TAG, "getTokenFromLocalStorage: WebView为null，无法获取localStorage");
+            return null;
+        }
+
+        try {
+            final String[] result = { null };
+            final Object lock = new Object();
+            final boolean[] completed = { false };
+
+            // 必须在主线程执行 WebView 操作
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    try {
+                        LocalStorageHelper helper = new LocalStorageHelper(webView);
+                        helper.getItem(key, new LocalStorageHelper.ItemCallback() {
+                            @Override
+                            public void onResult(String value) {
+                                synchronized (lock) {
+                                    try {
+                                        if (value != null && !value.isEmpty() && !"null".equals(value) && !"undefined".equals(value)) {
+                                            result[0] = value;
+                                            Log.d(TAG, "getTokenFromLocalStorage: 获取到 " + key + "=" + (result[0] != null ? "***" : "null"));
+                                        } else {
+                                            Log.w(TAG, "getTokenFromLocalStorage: localStorage 中 " + key + " 为空或不存在");
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "getTokenFromLocalStorage: 处理 " + key + " 失败", e);
+                                    } finally {
+                                        completed[0] = true;
+                                        lock.notify();
+                                    }
+                                }
+                            }
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "getTokenFromLocalStorage: 主线程执行失败", e);
+                        synchronized (lock) {
+                            completed[0] = true;
+                            lock.notify();
+                        }
+                    }
+                });
+            } else {
+                Log.e(TAG, "getTokenFromLocalStorage: Context 不是 Activity");
+                return null;
+            }
+
+            // 等待回调完成（最多等待 5 秒，分多次检查）
+            synchronized (lock) {
+                long startTime = System.currentTimeMillis();
+                while (!completed[0] && (System.currentTimeMillis() - startTime) < 5000) {
+                    try {
+                        lock.wait(500); // 每 500ms 检查一次
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, "getTokenFromLocalStorage: 等待 localStorage 回调被中断", e);
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+
+            if (!completed[0]) {
+                Log.w(TAG, "getTokenFromLocalStorage: 等待超时，Token 可能为空");
+            }
+
+            return result[0];
+
+        } catch (Exception e) {
+            Log.e(TAG, "getTokenFromLocalStorage: 获取 localStorage 失败", e);
             return null;
         }
     }
@@ -3215,5 +3383,225 @@ public class WebAppInterface {
             return "";
         }
         return fileName.replaceAll("[^a-zA-Z0-9\u4e00-\u9fa5._-]", "_");
+    }
+    
+    // ========== 研伴 API 代理接口（测试环境走原生网络） ==========
+    
+    /**
+     * 通过原生发起研伴 API 请求
+     * 用于测试环境下绕过 Web 的 HTTPS 证书问题
+     * 
+     * @param path 接口路径，如 "/api/app/teacher-textbook"
+     * @param jsonBody 请求体 JSON 字符串
+     * @param method HTTP 方法，如 "POST"、"GET"
+     * @param envType 环境类型，由 Web 传入，如 "INTERNAL_TEST" 或 "RELEASE"
+     * @param token 认证 Token，由 Web 传入
+     * @return JSON 字符串，格式为 { success, data, code, message }
+     */
+    @JavascriptInterface
+    public String callYanbanApi(String path, String jsonBody, String method, String envType, String token) {
+        Log.d(TAG, "callYanbanApi 请求: path=" + path + ", method=" + method + ", envType=" + envType + ", hasToken=" + (token != null && !token.isEmpty()));
+        
+        try {
+            // 1. 根据 Web 传入的环境类型决定使用哪个 BaseUrl
+            String actualEnvType = (envType != null && !envType.isEmpty()) ? envType : "RELEASE";
+            
+            String baseUrl;
+            if ("INTERNAL_TEST".equals(actualEnvType)) {
+                // 测试环境：走 HTTPS
+                baseUrl = "https://43.138.16.5:50013/blw-edu-yb";
+            } else {
+                // 正式环境：同样走 HTTPS
+                baseUrl = "https://www.imates.com.cn:9099/blw-edu-yb";
+            }
+            
+            String url = baseUrl + path;
+            Log.d(TAG, "callYanbanApi 环境=" + actualEnvType + ", 完整URL: " + url);
+            
+            // 2. 创建 OkHttpClient（测试环境信任所有证书）
+            OkHttpClient client;
+            if ("INTERNAL_TEST".equals(actualEnvType)) {
+                // 测试环境：信任所有证书（仅用于自签名证书的测试服务器）
+                try {
+                    // 创建信任所有证书的 TrustManager
+                    final javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
+                        new javax.net.ssl.X509TrustManager() {
+                            @Override
+                            public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                            @Override
+                            public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                            @Override
+                            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                                return new java.security.cert.X509Certificate[]{};
+                            }
+                        }
+                    };
+                    
+                    // 创建 SSLContext
+                    final javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("SSL");
+                    sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+                    final javax.net.ssl.SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+                    
+                    // 创建忽略主机名验证的 HostnameVerifier
+                    final javax.net.ssl.HostnameVerifier trustAllHostnames = (hostname, session) -> true;
+                    
+                    client = new OkHttpClient.Builder()
+                            .sslSocketFactory(sslSocketFactory, (javax.net.ssl.X509TrustManager) trustAllCerts[0])
+                            .hostnameVerifier(trustAllHostnames)
+                            .connectTimeout(15, TimeUnit.SECONDS)
+                            .readTimeout(30, TimeUnit.SECONDS)
+                            .writeTimeout(30, TimeUnit.SECONDS)
+                            .build();
+                    
+                    Log.d(TAG, "callYanbanApi 使用信任所有证书的 OkHttpClient（测试环境）");
+                } catch (Exception e) {
+                    Log.e(TAG, "callYanbanApi 创建信任所有证书的 OkHttpClient 失败，回退到默认", e);
+                    client = new OkHttpClient.Builder()
+                            .connectTimeout(15, TimeUnit.SECONDS)
+                            .readTimeout(30, TimeUnit.SECONDS)
+                            .writeTimeout(30, TimeUnit.SECONDS)
+                            .build();
+                }
+            } else {
+                // 正式环境：使用默认的证书校验
+                client = new OkHttpClient.Builder()
+                        .connectTimeout(15, TimeUnit.SECONDS)
+                        .readTimeout(30, TimeUnit.SECONDS)
+                        .writeTimeout(30, TimeUnit.SECONDS)
+                        .build();
+            }
+            
+            // 3. 构建请求体
+            RequestBody body = null;
+            if (!"GET".equalsIgnoreCase(method)) {
+                MediaType jsonType = MediaType.parse("application/json; charset=utf-8");
+                if (jsonBody != null && !jsonBody.isEmpty()) {
+                    // 有明确的 JSON 字符串时，正常作为请求体发送
+                    body = RequestBody.create(jsonType, jsonBody);
+                } else {
+                    // 与浏览器行为对齐：无请求体时发送 0 字节 Body
+                    body = RequestBody.create(null, new byte[0]);
+                }
+            }
+            
+            // 4. 构建请求
+            Request.Builder builder = new Request.Builder().url(url);
+            
+            // 设置 HTTP 方法
+            if ("GET".equalsIgnoreCase(method)) {
+                builder.get();
+            } else if ("POST".equalsIgnoreCase(method)) {
+                builder.post(body);
+            } else if ("PUT".equalsIgnoreCase(method)) {
+                builder.put(body);
+            } else if ("DELETE".equalsIgnoreCase(method)) {
+                if (body != null) {
+                    builder.delete(body);
+                } else {
+                    builder.delete();
+                }
+            } else {
+                return buildErrorResponse("不支持的 HTTP 方法: " + method);
+            }
+            
+            // 5. 添加认证头（使用 Web 传入的 Token），Header 名称与 Web http-client 保持一致
+            if (token != null && !token.isEmpty() && !"undefined".equals(token)) {
+                builder.addHeader("Token", token);
+                builder.addHeader("sa-token", token);
+                builder.addHeader("authorization", token);
+                Log.d(TAG, "callYanbanApi 添加 Token 头");
+            } else {
+                Log.w(TAG, "callYanbanApi 未找到 Token");
+            }
+            
+            // 添加通用请求头
+            builder.addHeader("Content-Type", "application/json");
+            
+            Request request = builder.build();
+
+            // 6. 调试日志：打印请求体和 Header（Token 值脱敏）
+            try {
+                // 打印请求体（最多 500 字符）
+                if (jsonBody != null) {
+                    String bodyPreview = jsonBody.length() > 500 ? jsonBody.substring(0, 500) + "..." : jsonBody;
+                    Log.d(TAG, "callYanbanApi 请求体(JSON 预览前500字): " + bodyPreview);
+                } else {
+                    Log.d(TAG, "callYanbanApi 请求体为空(jsonBody == null)");
+                }
+
+                // 打印 Header（不做脱敏，便于完整对比）
+                okhttp3.Headers headers = request.headers();
+                StringBuilder headerLog = new StringBuilder();
+                for (String name : headers.names()) {
+                    String value = headers.get(name);
+                    if (value == null) {
+                        continue;
+                    }
+                    headerLog.append(name).append(": ").append(value).append("\n");
+                }
+                Log.d(TAG, "callYanbanApi 请求头:\n" + headerLog.toString());
+            } catch (Exception e) {
+                Log.e(TAG, "callYanbanApi 打印请求日志时异常", e);
+            }
+
+            // 7. 同步执行请求
+            Response response = client.newCall(request).execute();
+            String respBody = response.body() != null ? response.body().string() : "";
+            
+            Log.d(TAG, "callYanbanApi 响应: code=" + response.code() + ", bodyLength=" + respBody.length());
+            
+            // 调试日志：login-student 成功时打印完整响应体（含 token）
+            if (path.contains("login-student") && response.isSuccessful()) {
+                Log.d(TAG, "callYanbanApi [login-student] 响应体: " + respBody);
+            }
+            
+            // 8. 判断响应格式并返回
+            if (isJsonObject(respBody)) {
+                // 后端已经返回标准 JSON，直接透传
+                return respBody;
+            } else {
+                // 包装成统一格式
+                JSONObject result = new JSONObject();
+                result.put("success", response.isSuccessful());
+                result.put("code", response.code());
+                result.put("message", response.message());
+                result.put("data", respBody);
+                return result.toString();
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "callYanbanApi 异常", e);
+            return buildErrorResponse("原生请求异常: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 判断字符串是否为有效的 JSON 对象
+     */
+    private boolean isJsonObject(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        try {
+            new JSONObject(text);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * 构建错误响应 JSON
+     */
+    private String buildErrorResponse(String message) {
+        try {
+            JSONObject error = new JSONObject();
+            error.put("success", false);
+            error.put("code", 0);
+            error.put("message", message);
+            return error.toString();
+        } catch (JSONException e) {
+            return "{\"success\":false,\"code\":0,\"message\":\"构建错误响应失败\"}";
+        }
     }
 }

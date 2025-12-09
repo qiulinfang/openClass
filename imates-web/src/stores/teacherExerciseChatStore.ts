@@ -394,6 +394,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
             imageData.filePath,
             sessionId,
             subjectLower,
+            'STUDENT',
           )
         } else {
           console.warn('[TEACHER_EXERCISE] ⚠️ 缺少filePath，使用base64DataUrl（不推荐）')
@@ -401,6 +402,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
             imageData.base64DataUrl,
             sessionId,
             subjectLower,
+            'STUDENT',
           )
         }
       } else {
@@ -413,6 +415,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
           fullContent,
           sessionId,
           subjectLower,
+          'STUDENT',
         )
       }
 
@@ -493,12 +496,14 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
                   imageData.filePath,
                   sessionId,
                   subjectLower,
+                  'STUDENT',
                 )
               } else {
                 result = await window.AndroidBridge.sendPictureToTeacher(
                   imageData.base64DataUrl,
                   sessionId,
                   subjectLower,
+                  'STUDENT',
                 )
               }
             } else {
@@ -508,6 +513,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
                 fullContent,
                 sessionId,
                 subjectLower,
+                'STUDENT',
               )
             }
 
@@ -621,6 +627,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
             messageImageData.filePath,
             sessionId,
             subjectLower,
+            'STUDENT',
           )
         } else if (messageImageData.base64DataUrl) {
           console.warn('[TEACHER_EXERCISE] ⚠️ 重试时缺少filePath，使用base64DataUrl（不推荐）')
@@ -628,6 +635,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
             messageImageData.base64DataUrl,
             sessionId,
             subjectLower,
+            'STUDENT',
           )
         } else {
           throw new Error('图片数据不完整')
@@ -641,12 +649,14 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
             fullContent,
             sessionId,
             subjectLower,
+            'STUDENT',
           )
         } else {
           result = await window.AndroidBridge.sendTextMessageToTeacher(
             content,
             sessionId,
             subjectLower,
+            'STUDENT',
           )
         }
       }

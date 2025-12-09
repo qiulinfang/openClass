@@ -126,9 +126,10 @@ declare global {
 
       // ========== 老师对话功能 ==========
       createTeacherChatSession(aiSessionId: string, aiSessionName: string, subject: string): string
-      sendTextMessageToTeacher(content: string, sessionId: string, subject: string): string
-      sendVoiceMessageToTeacher(voicePath: string, duration: string, sessionId: string, subject: string): string
-      sendPictureToTeacher(imagePath: string, sessionId: string, subject: string): string
+      // senderType: 'STUDENT' | 'TEACHER' 等，用于标识发送方；目前前端固定传 'STUDENT'
+      sendTextMessageToTeacher(content: string, sessionId: string, subject: string, senderType: string): string
+      sendVoiceMessageToTeacher(voicePath: string, duration: string, sessionId: string, subject: string, senderType: string): string
+      sendPictureToTeacher(imagePath: string, sessionId: string, subject: string, senderType: string): string
       forwardAiChatToTeacher(selectedMessagesData: string, teacherSessionId: string): string
       getTeacherChatHistory(sessionId: string): string
       checkTeacherSessionExists(sessionId: string): string

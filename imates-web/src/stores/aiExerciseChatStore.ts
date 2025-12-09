@@ -81,7 +81,7 @@ const buildAiExerciseMessage = (
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole: selectedModel,
     subject: subject,
-    dstUrl: '/permission/chatMath',
+    dstUrl: subject === 'MATH' ? '/permission/chatMath' : '/permission/chat',
     focus,
   }
 }

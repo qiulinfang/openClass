@@ -177,6 +177,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         imageData: oldMsg?.imageData,
         originalMessage: oldMsg?.originalMessage,
         canRetry: oldMsg?.canRetry,
+        // AI 消息需要 selectedModel 来显示正确的头像
+        // 优先从旧消息取，否则默认 'mate'
+        selectedModel: sender === 'ai' ? (oldMsg?.selectedModel || 'mate') : undefined,
       }
 
       return bubble

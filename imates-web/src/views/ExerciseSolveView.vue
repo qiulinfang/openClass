@@ -118,6 +118,20 @@
                   @send-message="handleSendSuggestion"
                   @focus-input="handleFocusInput"
                 >
+                  <!-- 作业场景下，在 ChatInput 头部前缀增加“返回作业”按钮（样式与问老师按钮一致） -->
+                  <template #header-prefix v-if="isFromHomework">
+                    <button
+                      type="button"
+                      class="toolbar-btn"
+                      @click="goBackToHomework"
+                    >
+                      <img
+                        :src="backToHomeworkIcon"
+                        alt="返回作业"
+                        class="toolbar-icon"
+                      />
+                    </button>
+                  </template>
                   <!-- 会话面板关闭：仅在 header-suffix 中显示右上角会话管理按钮 -->
                   <template v-if="!aiChatViewRef?.showSessionListPanel" #header-suffix>
                     <button
@@ -164,7 +178,6 @@
                     </div>
                   </template>
                 </ChatView>
-
                 <!-- 问老师界面 -->
                 <ChatView
                   v-show="currentFunction === 'askTeacher'"
@@ -252,6 +265,7 @@ import goBackIcon from '/icons/goback.svg'
 import sessionManagerIcon from '/icons/session_manager.svg'
 import shareIcon from '/icons/share.svg'
 import deleteSessionIcon from '/icons/delete.svg'
+import backToHomeworkIcon from '/icons/backtohomework.svg'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -1234,6 +1248,22 @@ $desktop-breakpoint: 1025px;
   :deep(.chat-input-area) {
     background-color: #ffffff;
   }
+}
+
+.toolbar-btn {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  border: none;
+  cursor: pointer;
+}
+
+.toolbar-icon {
+  display: block;
+  height: 32px;
+  object-fit: contain;
 }
 
 // 工具类

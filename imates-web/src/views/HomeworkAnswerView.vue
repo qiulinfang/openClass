@@ -3,7 +3,7 @@
     <header class="answer-header">
       <div class="toolbar-left">
         <div class="back-btn" @click="goBack">
-          <img src="/icons/goback.svg" alt="返回" class="back-icon" />
+          <img :src="goBackIcon" alt="返回" class="back-icon" />
         </div>
       </div>
       <div class="answer-title">{{ displayTitle }}</div>
@@ -17,13 +17,14 @@
           :show-photo-search="false"
           :show-send-to-ai="false"
           @questionSelected="handleStartAnswer"
+          @openMiniClass="handleOpenMiniClass"
         />
       </div>
       <div class="right-panel">
         <DrawingBoard
           ref="drawingBoardRef"
           :current-question="currentAnswerQuestion"
-          :background-image="questionBgImage"
+          :background-image="currentPageIndex === 0 ? questionBgImage : ''"
           layout-mode="doubleHeight"
           :initialZoom="0.5"
         >
@@ -53,6 +54,34 @@
               :disabled="!questionBgImage"
               @click="handleBoardUpload"
             />
+          </template>
+          <!-- 底部插槽：白板页控制按钮 -->
+          <template #toolbar-bottom>
+            <div class="page-controls-bottom">
+              <img
+                :src="pagePrevIcon"
+                alt="上一页"
+                class="page-btn-icon nav-icon-left"
+                :class="{ 'is-disabled': totalPages <= 1 || currentPageIndex === 0 }"
+                @click="(totalPages > 1 && currentPageIndex > 0) && handlePrevPage()"
+              />
+              <img
+                :src="pageAddIcon"
+                alt="新增白板"
+                class="page-btn-icon add-icon nav-icon-center"
+                @click="handleAddPage"
+              />
+              <img
+                :src="pageNextIcon"
+                alt="下一页"
+                class="page-btn-icon nav-icon-right"
+                :class="{ 'is-disabled': totalPages <= 1 || currentPageIndex >= totalPages - 1 }"
+                @click="(totalPages > 1 && currentPageIndex < totalPages - 1) && handleNextPage()"
+              />
+              <span class="page-info-bottom" v-if="totalPages > 0">
+                {{ currentPageIndex + 1 }}/{{ totalPages }}
+              </span>
+            </div>
           </template>
         </DrawingBoard>
       </div>
@@ -89,6 +118,12 @@ import { MathJaxUtils } from '@/utils/math/mathjax'
 import { apiService } from '@/services/api-service'
 import { showMessage } from '@/utils'
 import * as htmlToImage from 'html-to-image'
+import { useUIStore } from '@/stores/uiStore'
+import { getSubject } from '@/services/auth-storage-service'
+import goBackIcon from '/icons/goback.svg'
+import pagePrevIcon from '/icons/left.svg'
+import pageAddIcon from '/icons/addPaper.svg'
+import pageNextIcon from '/icons/right.svg'
 
 defineOptions({
   name: 'HomeworkAnswerView',
@@ -97,9 +132,15 @@ defineOptions({
 const route = useRoute()
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
+const uiStore = useUIStore()
 
-// 作业题目列表、当前选中索引和作业名称：从 homeworkStore 获取
-const { questions: externalQuestions, currentQuestionIndex, homeworkName } = storeToRefs(homeworkStore)
+// 作业题目列表、当前选中索引和作业名称、作答缓存：从 homeworkStore 获取
+const {
+  questions: externalQuestions,
+  currentQuestionIndex,
+  homeworkName,
+  answerDataCache,
+} = storeToRefs(homeworkStore)
 
 // 当前在白板上作答的题目
 const currentAnswerQuestion = ref<ExerciseItem | null>(null)
@@ -118,11 +159,6 @@ const hasSelectedQuestion = computed(() => {
   return questionListRef.value?.selectedQuestionIndex !== undefined 
     && questionListRef.value.selectedQuestionIndex >= 0
 })
-
-// 每道题的作答数据缓存：key = 题目唯一标识，value = DrawingBoard.saveData() 返回的数据
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DrawingData = ReturnType<InstanceType<typeof DrawingBoard>['saveData']>
-const answerDataCache = new Map<string, DrawingData>()
 
 // Markdown + 公式渲染工具
 const { renderMessageContent } = useMessageRenderer()
@@ -143,6 +179,14 @@ const questionBgImage = ref<string>('')
 
 // 题目截图缓存：key = 题目唯一标识（优先 bmNo，其次 id）
 const questionImageCache = new Map<string, string>()
+
+// 当前题目的白板页索引和总页数（UI 显示用，真实数据存储在 answerDataCache 中）
+const currentPageIndex = ref(0)
+const totalPages = ref(1)
+
+// 最近一次白板上传导出的图片与白板页索引映射：
+// lastUploadPageIndices[i] = 对应 initialUploadPhotos[i] 的白板页索引
+const lastUploadPageIndices = ref<number[]>([])
 
 const title = computed(() => {
   const homeworkId = route.params.homeworkId as string | undefined
@@ -185,34 +229,101 @@ const getQuestionKey = (question: ExerciseItem | null): string => {
   return (question.bmNo || question.id || '').toString()
 }
 
-// QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
-const handleStartAnswer = (question: ExerciseItem) => {
-  // 1. 保存当前题目的作答数据（如果有）
-  const currentKey = previousQuestionKey.value
-  if (currentKey && drawingBoardRef.value) {
-    const data = drawingBoardRef.value.saveData()
-    if (data) {
-      answerDataCache.set(currentKey, data as DrawingData)
-      console.log('[HomeworkAnswerView] 保存题目作答数据:', currentKey)
+// 获取指定题目的白板缓存结构（兼容旧数据结构）
+const getBoardCache = (questionKey: string): { pages: any[]; currentPageIndex: number } => {
+  const raw = (answerDataCache.value as Record<string, any>)[questionKey]
+
+  if (raw && Array.isArray(raw.pages)) {
+    const idx = typeof raw.currentPageIndex === 'number' ? raw.currentPageIndex : 0
+    return {
+      pages: raw.pages,
+      currentPageIndex: idx < raw.pages.length ? idx : 0,
     }
   }
+
+  if (raw) {
+    return {
+      pages: [raw],
+      currentPageIndex: 0,
+    }
+  }
+
+  return {
+    pages: [],
+    currentPageIndex: 0,
+  }
+}
+
+// 调试：监听当前白板页索引变化
+watch(
+  currentPageIndex,
+  (val, oldVal) => {
+    console.log('[HomeworkAnswerView] currentPageIndex changed', {
+      from: oldVal,
+      to: val,
+      hasQuestionBgImage: !!questionBgImage.value,
+    })
+  }
+)
+
+// 保存当前题目当前页的作答数据到全局缓存
+const saveCurrentPage = () => {
+  if (!currentAnswerQuestion.value || !drawingBoardRef.value) return
+
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  if (!questionKey) return
+
+  const data = drawingBoardRef.value.saveData()
+  if (!data) return
+
+  const cache = getBoardCache(questionKey)
+  const pageIndex = cache.currentPageIndex ?? 0
+  if (!cache.pages || !Array.isArray(cache.pages)) {
+    cache.pages = []
+  }
+  cache.pages[pageIndex] = data
+  cache.currentPageIndex = pageIndex
+
+  ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+  console.log('[HomeworkAnswerView] 保存当前页作答数据到全局缓存:', questionKey, 'page', pageIndex)
+}
+
+// 根据缓存恢复当前题目的当前页到画布
+const restoreCurrentPage = (question: ExerciseItem | null) => {
+  const questionKey = getQuestionKey(question)
+  if (!questionKey || !drawingBoardRef.value) {
+    currentPageIndex.value = 0
+    totalPages.value = 1
+    drawingBoardRef.value?.clearAll()
+    return
+  }
+
+  const cache = getBoardCache(questionKey)
+  totalPages.value = cache.pages.length > 0 ? cache.pages.length : 1
+  currentPageIndex.value = cache.currentPageIndex ?? 0
+
+  if (cache.pages.length > 0 && cache.pages[currentPageIndex.value]) {
+    drawingBoardRef.value.loadData(cache.pages[currentPageIndex.value] as any)
+    console.log('[HomeworkAnswerView] 从全局缓存恢复题目当前页作答数据:', questionKey, 'page', currentPageIndex.value)
+  } else {
+    drawingBoardRef.value.clearAll()
+    console.log('[HomeworkAnswerView] 无缓存页数据，清空画布:', questionKey)
+  }
+}
+
+// QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
+const handleStartAnswer = (question: ExerciseItem) => {
+  // 1. 保存当前题目当前页的作答数据（如果有）
+  saveCurrentPage()
 
   // 2. 切换到新题目
   currentAnswerQuestion.value = question
   const newKey = getQuestionKey(question)
   previousQuestionKey.value = newKey
 
-  // 3. 恢复新题目的作答数据（如果有缓存）
+  // 3. 恢复新题目的当前页作答数据（如果有缓存）
   nextTick(() => {
-    if (newKey && answerDataCache.has(newKey) && drawingBoardRef.value) {
-      const cachedData = answerDataCache.get(newKey)!
-      drawingBoardRef.value.loadData(cachedData)
-      console.log('[HomeworkAnswerView] 恢复题目作答数据:', newKey)
-    } else if (drawingBoardRef.value) {
-      // 没有缓存，清空画布（保留背景图）
-      drawingBoardRef.value.clearAll()
-      console.log('[HomeworkAnswerView] 新题目，清空画布:', newKey)
-    }
+    restoreCurrentPage(question)
   })
 }
 
@@ -306,6 +417,12 @@ watch(
       if (key) {
         questionImageCache.set(key, dataUrl)
       }
+
+      console.log('[HomeworkAnswerView] questionBgImage updated', {
+        questionKey: key,
+        dataUrlLength: dataUrl?.length || 0,
+        hasCurrentQuestion: !!currentAnswerQuestion.value,
+      })
     } catch (e) {
       console.error('[HomeworkAnswerView] 使用 html-to-image 生成题目截图失败:', e)
       questionBgImage.value = ''
@@ -318,9 +435,47 @@ const goBack = () => {
   router.push({ name: 'myHomework' })
 }
 
+// 打开微课（复用 ExerciseSolveView 中的逻辑）
+const handleOpenMiniClass = (question: ExerciseItem) => {
+  try {
+    const bmNo = (question.bmNo || '').trim()
+    if (!bmNo) {
+      showMessage('题目编号缺失，无法打开微课', 'warning')
+      return
+    }
+
+    // 规范化学科前缀
+    const subjectRaw =
+      (question.subject || getSubject() || 'SUBJECT_MATH').toString().toUpperCase()
+    let subjectPrefix = 'math'
+    if (subjectRaw.includes('BIOLOGY')) subjectPrefix = 'biology'
+    else if (subjectRaw.includes('MATH')) subjectPrefix = 'math'
+    else if (subjectRaw.includes('CHEMISTRY')) subjectPrefix = 'chemistry'
+    else if (subjectRaw.includes('PHYSICS')) subjectPrefix = 'physics'
+    else if (subjectRaw.includes('CHINESE')) subjectPrefix = 'chinese'
+    else if (subjectRaw.includes('ENGLISH')) subjectPrefix = 'english'
+
+    const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
+
+    if (!classUrl || classUrl.trim() === '') {
+      showMessage('该题目暂无微课', 'warning')
+      return
+    }
+
+    const questionTitle = question.title || question.question?.substring(0, 50) || ''
+    uiStore.openMiniClassDialog(classUrl, questionTitle)
+  } catch (error) {
+    console.error('[HomeworkAnswerView] 打开微课失败:', error)
+    showMessage('打开微课失败', 'error')
+  }
+}
+
 // 去学伴按钮点击 - 跳转到作业答题专用路由
 const handleGoToXueban = () => {
-  // 获取 QuestionList 选中的题目
+  // 1. 先保存当前题目当前页的作答数据到全局缓存，避免跳转后丢失
+  saveCurrentPage()
+
+  // 2. 获取 QuestionList 选中的题目，作为跳转参数
   const selectedQuestion = questionListRef.value?.getSelectedQuestion?.()
   if (!selectedQuestion) return
   
@@ -339,18 +494,177 @@ const initialUploadPhotos = ref<string[]>([])
 // 相机上传按钮点击 - 打开空对话框
 const handleCameraUpload = () => {
   initialUploadPhotos.value = []
+  // 相机上传不关联白板页索引
+  lastUploadPageIndices.value = []
   showCameraDialog.value = true
 }
 
 // 白板上传按钮点击 - 导出画布图片并打开对话框
-const handleBoardUpload = () => {
-  if (!drawingBoardRef.value) return
-  
-  const imageData = drawingBoardRef.value.exportToJpg(0.9)
-  if (imageData) {
-    initialUploadPhotos.value = [imageData]
-    showCameraDialog.value = true
+const handleBoardUpload = async () => {
+  if (!drawingBoardRef.value || !currentAnswerQuestion.value) return
+
+  console.log('[HomeworkAnswerView][handleBoardUpload] start', {
+    questionKey: getQuestionKey(currentAnswerQuestion.value),
+    currentPageIndex: currentPageIndex.value,
+  })
+
+  // 1. 先保存当前页内容到缓存
+  saveCurrentPage()
+
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  if (!questionKey) return
+
+  const cache = getBoardCache(questionKey)
+
+  console.log('[HomeworkAnswerView][handleBoardUpload] after saveCurrentPage', {
+    pagesLength: cache.pages.length,
+    cacheCurrentPageIndex: cache.currentPageIndex,
+  })
+
+  // 2. 如果没有任何页，直接返回
+  if (!cache.pages.length) {
+    showMessage('当前没有可上传的白板页', 'warning')
+    return
   }
+
+  const originalPageIndex = cache.currentPageIndex ?? 0
+  const photos: string[] = []
+  const pageIndexMap: number[] = []
+
+  // 3. 依次加载每一页到画布并导出为 JPG（供用户在对话框中多选/删除）
+  for (let i = 0; i < cache.pages.length; i++) {
+    console.log('[HomeworkAnswerView][handleBoardUpload] export page begin', {
+      pageIndex: i,
+      hasPageData: !!cache.pages[i],
+    })
+    const pageData = cache.pages[i]
+
+    // 根据页码设置背景：第 1 页有题目背景，其他页无背景
+    if (i === 0 && questionBgImage.value) {
+      await drawingBoardRef.value.setBackgroundImage(questionBgImage.value)
+    } else {
+      await drawingBoardRef.value.setBackgroundImage('')
+    }
+
+    // 如果该页有数据则加载，否则清空画布（空白页）
+    if (pageData) {
+      drawingBoardRef.value.loadData(pageData as any)
+    } else {
+      drawingBoardRef.value.clearAll()
+    }
+    await nextTick()
+
+    const imageData = drawingBoardRef.value.exportToJpg(0.9)
+    if (imageData) {
+      photos.push(imageData)
+      pageIndexMap.push(i)
+      console.log('[HomeworkAnswerView][handleBoardUpload] export page success', {
+        pageIndex: i,
+        imageLength: imageData.length,
+      })
+    }
+  }
+
+  // 4. 恢复当前页索引（让模板的 :background-image 响应式绑定自动处理背景）
+  cache.currentPageIndex = originalPageIndex
+  ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+  currentPageIndex.value = originalPageIndex
+  totalPages.value = cache.pages.length
+
+  // 等待 Vue 响应式更新 background-image prop
+  await nextTick()
+
+  // 恢复当前页的绘图数据
+  if (cache.pages[originalPageIndex]) {
+    drawingBoardRef.value.loadData(cache.pages[originalPageIndex] as any)
+  } else {
+    drawingBoardRef.value.clearAll()
+  }
+
+  console.log('[HomeworkAnswerView][handleBoardUpload] restore current page done', {
+    questionKey,
+    restorePageIndex: originalPageIndex,
+    totalPages: cache.pages.length,
+    photosCount: photos.length,
+    hasQuestionBgImage: !!questionBgImage.value,
+  })
+
+  if (photos.length) {
+    // 记录本次上传图片与白板页索引的映射
+    lastUploadPageIndices.value = pageIndexMap
+    initialUploadPhotos.value = photos
+    showCameraDialog.value = true
+  } else {
+    showMessage('当前没有可上传的白板页', 'warning')
+  }
+}
+
+// 白板页控制：上一页
+const handlePrevPage = () => {
+  if (!currentAnswerQuestion.value) return
+
+  saveCurrentPage()
+
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  const cache = getBoardCache(questionKey)
+
+  if (cache.pages.length <= 1 || cache.currentPageIndex <= 0) return
+
+  cache.currentPageIndex -= 1
+  ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+
+  totalPages.value = cache.pages.length
+  currentPageIndex.value = cache.currentPageIndex
+
+  if (cache.pages[currentPageIndex.value] && drawingBoardRef.value) {
+    drawingBoardRef.value.loadData(cache.pages[currentPageIndex.value] as any)
+  }
+}
+
+// 白板页控制：下一页
+const handleNextPage = () => {
+  if (!currentAnswerQuestion.value) return
+
+  saveCurrentPage()
+
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  const cache = getBoardCache(questionKey)
+
+  if (cache.pages.length <= 1 || cache.currentPageIndex >= cache.pages.length - 1) return
+
+  cache.currentPageIndex += 1
+  ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+
+  totalPages.value = cache.pages.length
+  currentPageIndex.value = cache.currentPageIndex
+
+  if (cache.pages[currentPageIndex.value] && drawingBoardRef.value) {
+    drawingBoardRef.value.loadData(cache.pages[currentPageIndex.value] as any)
+  }
+}
+
+// 白板页控制：新增白板页
+const handleAddPage = () => {
+  if (!currentAnswerQuestion.value || !drawingBoardRef.value) return
+
+  saveCurrentPage()
+
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  const cache = getBoardCache(questionKey)
+
+  if (!cache.pages || !Array.isArray(cache.pages)) {
+    cache.pages = []
+  }
+
+  cache.pages.push(null)
+  cache.currentPageIndex = cache.pages.length - 1
+
+  ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+
+  totalPages.value = cache.pages.length
+  currentPageIndex.value = cache.currentPageIndex
+
+  drawingBoardRef.value.clearAll()
 }
 
 // 上传确认回调
@@ -368,8 +682,113 @@ const handleUploadConfirm = async (photos: string[]) => {
   }
   
   try {
-    // 取第一张图片作为答案内容
-    const answerContent = photos[0]
+    // 如果这是一次白板上传（存在最近一次的页索引映射），
+    // 需要根据用户保留的图片计算需要保留/删除的白板页，并更新 answerDataCache。
+    if (lastUploadPageIndices.value.length && initialUploadPhotos.value.length) {
+      const originalPhotos = initialUploadPhotos.value
+
+      // 计算 originalPhotos 中哪些位置被保留（按内容匹配，考虑重复时按顺序消费）
+      const keepFlags = new Array(originalPhotos.length).fill(false)
+      const used = new Array(photos.length).fill(false)
+
+      for (let i = 0; i < originalPhotos.length; i++) {
+        const p = originalPhotos[i]
+        let found = -1
+        for (let j = 0; j < photos.length; j++) {
+          if (!used[j] && photos[j] === p) {
+            found = j
+            used[j] = true
+            break
+          }
+        }
+        if (found !== -1) {
+          keepFlags[i] = true
+        }
+      }
+
+      const keptPageIndices: number[] = []
+      for (let i = 0; i < originalPhotos.length; i++) {
+        if (keepFlags[i]) {
+          const pageIdx = lastUploadPageIndices.value[i]
+          if (typeof pageIdx === 'number') {
+            keptPageIndices.push(pageIdx)
+          }
+        }
+      }
+
+      console.log('[HomeworkAnswerView][handleUploadConfirm] 计算保留白板页', {
+        originalPhotosCount: originalPhotos.length,
+        confirmPhotosCount: photos.length,
+        lastUploadPageIndices: lastUploadPageIndices.value.slice(),
+        keptPageIndices: keptPageIndices.slice(),
+      })
+
+      if (currentAnswerQuestion.value) {
+        const questionKey = getQuestionKey(currentAnswerQuestion.value)
+        if (questionKey) {
+          const cache = getBoardCache(questionKey)
+
+          if (keptPageIndices.length === 0) {
+            // 用户删除了本次上传的所有图片：视为本题所有白板页废弃
+            cache.pages = []
+            cache.currentPageIndex = 0
+            ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+            currentPageIndex.value = 0
+            totalPages.value = 1
+            if (drawingBoardRef.value) {
+              drawingBoardRef.value.clearAll()
+            }
+            console.log('[HomeworkAnswerView][handleUploadConfirm] 所有白板页被删除，清空缓存', {
+              questionKey,
+            })
+          } else {
+            // 根据保留的页索引重建 pages，并计算新的 currentPageIndex
+            const uniqueKept = Array.from(new Set(keptPageIndices)).sort((a, b) => a - b)
+
+            const newPages: any[] = []
+            const originalToNew = new Map<number, number>()
+            uniqueKept.forEach((pageIdx, newIdx) => {
+              if (pageIdx >= 0 && pageIdx < cache.pages.length) {
+                newPages.push(cache.pages[pageIdx])
+                originalToNew.set(pageIdx, newIdx)
+              }
+            })
+
+            cache.pages = newPages
+
+            let newCurrent = 0
+            if (originalToNew.has(cache.currentPageIndex)) {
+              newCurrent = originalToNew.get(cache.currentPageIndex) || 0
+            } else if (newPages.length > 0) {
+              newCurrent = newPages.length - 1
+            }
+
+            cache.currentPageIndex = newCurrent
+            ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+
+            currentPageIndex.value = newCurrent
+            totalPages.value = newPages.length > 0 ? newPages.length : 1
+
+            if (drawingBoardRef.value) {
+              if (newPages.length > 0 && newPages[newCurrent]) {
+                drawingBoardRef.value.loadData(newPages[newCurrent] as any)
+              } else {
+                drawingBoardRef.value.clearAll()
+              }
+            }
+
+            console.log('[HomeworkAnswerView][handleUploadConfirm] 更新白板页缓存', {
+              questionKey,
+              newPagesLength: newPages.length,
+              newCurrent,
+            })
+          }
+        }
+      }
+    }
+
+    // 使用所有选择的图片作为答案内容（base64 字符串数组）
+    const answerContent = photos
     
     const success = await apiService.submitTopicAnswer(questionId, answerContent)
     
@@ -493,5 +912,85 @@ const handleUploadConfirm = async (photos: string[]) => {
   > .q-icon {
     flex-shrink: 0;
   }
+}
+
+/* 底部白板页控制按钮样式 */
+.page-controls-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-btn-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 左右页切换图标尺寸（略小） */
+.nav-icon-left,
+.nav-icon-right {
+  width: 42px;
+  height: 42px;
+}
+
+/* 中间新增页图标尺寸（略大一点） */
+.nav-icon-center {
+  width: 42px;
+  height: 42px;
+}
+
+.page-btn.add-page-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.page-btn.add-page-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5);
+}
+
+.page-btn.add-page-btn .add-icon {
+  width: 100%;
+  height: 100%;
+  filter: brightness(0) invert(1);
+}
+
+.page-info-bottom {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-left: 4px;
 }
 </style>

@@ -62,13 +62,11 @@
       @change="handleFileSelect"
     />
 
-    <!-- 图片预览：使用 Teleport 传送到 body 避免层级问题 -->
-    <Teleport to="body">
-      <ImageViewer
-        v-model="previewVisible"
-        :image-url="currentPreviewPhoto"
-      />
-    </Teleport>
+    <!-- 图片预览：直接使用 ImageViewer（内部 q-dialog 会 Teleport 到 body） -->
+    <ImageViewer
+      v-model="previewVisible"
+      :image-url="currentPreviewPhoto"
+    />
   </DraggableDialog>
 </template>
 
@@ -78,6 +76,9 @@ import DraggableDialog from '@/components/DraggableDialog.vue'
 import CommonActionButton from '@/components/CommonActionButton.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
+import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
+import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
+import { showMessage } from '@/utils'
 
 interface Props {
   modelValue: boolean
@@ -129,9 +130,40 @@ watch(
   }
 )
 
-// 打开相机/文件选择
-const openCamera = () => {
-  fileInputRef.value?.click()
+// 图片选择适配器（根据环境自动选择 Android / Web）
+const imagePickerAdapter: IImagePickerAdapter = ImagePickerAdapterFactory.getAdapter()
+
+// 打开相册/文件选择
+const openCamera = async () => {
+  try {
+    const env = ImagePickerAdapterFactory.getEnvironment()
+
+    // 在 Android 环境下优先走原生“相册选择”
+    if (env === 'android' && imagePickerAdapter.isAvailable()) {
+      const imageInfo = await imagePickerAdapter.selectFromGallery()
+
+      // 用户取消
+      if (!imageInfo) {
+        return
+      }
+
+      if (imageInfo.base64DataUrl) {
+        photos.value.push(imageInfo.base64DataUrl)
+      } else {
+        console.error('[CameraUploadDialog] 原生相册返回的数据缺少 base64DataUrl')
+        showMessage('选择图片失败，请重试', 'error')
+      }
+
+      return
+    }
+
+    // 其他环境（或适配器不可用）回退到浏览器文件选择
+    fileInputRef.value?.click()
+  } catch (error) {
+    console.error('[CameraUploadDialog] 打开相册/选择图片失败:', error)
+    // 出错时也回退到浏览器文件选择，至少在 H5 环境可以用
+    fileInputRef.value?.click()
+  }
 }
 
 // 处理文件选择

@@ -46,7 +46,7 @@
               ></div>
             </div>
             <div class="card-right">
-              <div class="card-date">{{ item.date }}</div>
+              <div class="card-date">{{ selectedDate }}</div>
               <CommonActionButton label="去作答" size="mdCompact"  @click="goAnswer(item)" />
             </div>
           </div>
@@ -157,17 +157,24 @@ const handleLoadMore = async () => {
 const homeworkList = computed(() => {
   return topicList.value.map((pkg, index) => {
     const firstTopic = pkg.topicList && pkg.topicList.length > 0 ? pkg.topicList[0] : null
+    // 题干内容：去掉可能存在的 main: 前缀
+    const rawQuestionContent = firstTopic?.questionData || ''
+    const cleanedQuestionContent = rawQuestionContent.replace(/^main:\s*/i, '')
     return {
       id: pkg.id || String(index + 1),
+      bmNo: pkg.bmNo || String(index + 1),
       name: pkg.name || `作业${index + 1}`,
       // 后端 tags 为字符串，这里拆分为数组，供界面展示使用
       tags: pkg.tags ? pkg.tags.split(/\s+/).filter(Boolean) : [],
-      // 当前接口未提供明确日期字段，这里暂时使用当天日期，占位展示
-      date: new Date().toISOString().slice(0, 10).replace(/-/g, '/'),
+      // 日期：优先使用后端返回的更新时间字段 updateTime，若不存在则退回到当天日期占位
+      date: pkg.updateTime || new Date().toISOString().slice(0, 10).replace(/-/g, '/'),
       // 预览内容：使用套餐中第一题的题干
-      questionContent: firstTopic?.questionData || '',
+      questionContent: cleanedQuestionContent,
       // 保留原始题目列表，供跳转答题时使用
       topics: pkg.topicList || [],
+      answer: pkg.answer || '',
+      explanation: pkg.explanation || '',
+      questionData: pkg.questionData || '',
     }
   })
 })
@@ -193,15 +200,34 @@ watch(
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
-const goAnswer = (item: { id: string; name?: string; topics?: Array<{ id: string; questionData: string }> }) => {
+// 这里 item 来自 homeworkList 计算属性，结构较为宽松，使用 any 简化类型约束
+const goAnswer = (item: any) => {
   const payload = item.topics || []
 
   // 将题目列表存入 homeworkStore
-  const exerciseItems: ExerciseItem[] = payload.map((topic) => ({
-    id: topic.id,
-    bmNo: topic.id, // 作业题目使用 id 作为 bmNo
-    question: topic.questionData,
-  } as ExerciseItem))
+  const exerciseItems: ExerciseItem[] = payload.map((topic: any, index: number) => {
+    const bmNo = topic.bmNo || item.bmNo || String(index + 1)
+    const question = topic.questionData || item.questionData || ''
+    // 优先使用 topic 自身的解析和答案，其次才退回到套餐级字段
+    const answer = topic.answer || item.answer || ''
+    const explanation =
+      topic.explanation || topic.analysisData || item.explanation || ''
+    const questionData = topic.questionData || item.questionData || ''
+
+    // 先展开 item，把作业级字段全部带过去，再覆盖题目级别字段
+    const merged = {
+      ...item,
+      id: topic.id,
+      bmNo,
+      question,
+      answer,
+      explanation,
+      questionData,
+    }
+
+    // 通过 unknown 再断言为 ExerciseItem，避免 TS 结构不完全重合的告警
+    return merged as unknown as ExerciseItem
+  })
   homeworkStore.setQuestions(exerciseItems)
   // 记录当前这份作业的名称，供 HomeworkAnswerView 使用
   const name = item.name || ''

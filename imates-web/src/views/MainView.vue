@@ -14,63 +14,40 @@
         <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px" />
       </div>
 
-      <!-- 导航菜单 -->
+      <!-- 导航菜单（根据学校配置渲染） -->
       <div class="nav-items-container">
-        <div class="nav-item" :class="{ active: showToolbox }" @click="handleToolBoxClick">
-          <img :src="currentToolBoxIcon" alt="工具箱" class="nav-icon" />
-          <span class="nav-text">工具箱</span>
-        </div>
         <div
+          v-for="item in navMainItems"
+          :key="item.key"
           class="nav-item"
-          :class="{ active: activeNavItem === 'knowledge' }"
-          @click="handleKnowledgeGraphClick"
+          :class="{ active: isNavItemActive(item.key) }"
+          @click="handleNavItemClick(item)"
         >
-          <img :src="currentKnowledgeGraphIcon" alt="知识图谱" class="nav-icon" />
-          <span class="nav-text">知识图谱</span>
-        </div>
-        <div
-          class="nav-item"
-          :class="{ active: activeNavItem === 'exercises' }"
-          @click="handleMyExercisesClick"
-        >
-          <img :src="currentExerciseIcon" alt="我的习题" class="nav-icon" />
-          <span class="nav-text">我的习题</span>
-        </div>
-        <!-- 示例：我的作业导航菜单 -->
-        <div
-          class="nav-item"
-          :class="{ active: activeNavItem === 'homework' }"
-          @click="handleMyHomeworkClick"
-        >
-          <img :src="currentHomeworkIcon" alt="我的作业" class="nav-icon" />
-          <span class="nav-text">我的作业</span>
-        </div>
-        <div
-          class="nav-item"
-          :class="{ active: activeNavItem === 'drawingBoard' }"
-          @click="handleDrawingBoardClick"
-        >
-          <img :src="currentDrawingBoardIcon" alt="草稿本" class="nav-icon" />
-          <span class="nav-text">草稿本</span>
+          <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
+          <span class="nav-text">{{ item.label }}</span>
         </div>
       </div>
 
       <!-- 底部菜单项 -->
       <div class="nav-items-bottom">
         <div
+          v-for="item in navBottomItems"
+          :key="item.key"
           class="nav-item"
-          :class="{ active: activeNavItem === 'resources' }"
-          @click="handleMyResourcesClick"
+          :class="{ active: isNavItemActive(item.key) }"
+          @click="handleNavItemClick(item)"
         >
-          <div class="nav-icon-wrapper">
-            <img :src="currentDownloadResourcesIcon" alt="资源下载" class="nav-icon" />
+          <div class="nav-icon-wrapper" v-if="item.key === 'resources'">
+            <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
             <span class="notification-dot" v-if="hasResourceNotification"></span>
           </div>
-          <span class="nav-text">资源下载</span>
-        </div>
-        <div class="nav-item" @click="handleLogoutClick">
-          <img :src="currentLogoutIcon" alt="退出登录" class="nav-icon" />
-          <span class="nav-text">退出登录</span>
+          <img
+            v-else
+            :src="getNavIcon(item)"
+            :alt="item.label"
+            class="nav-icon"
+          />
+          <span class="nav-text">{{ item.label }}</span>
         </div>
       </div>
     </div>
@@ -159,6 +136,7 @@ import MyProfileView from '@/views/MyProfileView.vue'
 import { resourceManager } from '@/services/resource-storage'
 import { apiService } from '@/services/api-service'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
 import type { UserTextbookInfo } from '@/types'
 
 // 流程：导入图标资源
@@ -170,6 +148,7 @@ import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import drawingBoardIcon from '/icons/draw.svg'
 import logoutIcon from '/icons/logout.svg'
+import homeworkIcon from '/icons/homework.png'
 
 // 第2步：导入选中状态图标
 import toolBoxSelectIcon from '/icons/toolBox_select.svg'
@@ -177,6 +156,7 @@ import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
 import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
 import drawingBoardSelectIcon from '/icons/draw_select.png'
+import homeworkSelectIcon from '/icons/homework_select.png'
 
 // 定义 props
 interface Props {
@@ -204,6 +184,13 @@ const teacherStore = useTeacherGeneralChatStore()
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
+
+// 当前学校应用配置（通过 VITE_SCHOOL_ID 区分不同学校版本）
+const currentSchoolAppConfig = getCurrentSchoolAppConfig()
+
+// 根据学校配置拆分主菜单和底部菜单
+const navMainItems = computed(() => currentSchoolAppConfig.nav.main)
+const navBottomItems = computed(() => currentSchoolAppConfig.nav.bottom)
 
 // keep-alive 缓存的组件列表
 // 注意：这里的名称必须与组件的 name 选项匹配（defineOptions 或组件 export default 中的 name）
@@ -367,7 +354,7 @@ const currentExerciseIcon = computed(() => {
 
 // 示例：我的作业图标（暂复用我的习题图标）
 const currentHomeworkIcon = computed(() => {
-  return activeNavItem.value === 'homework' ? exerciseSelectIcon : exerciseIcon
+  return activeNavItem.value === 'homework' ? homeworkSelectIcon : homeworkIcon
 })
 
 const currentDrawingBoardIcon = computed(() => {
@@ -382,6 +369,28 @@ const currentLogoutIcon = computed(() => {
   // 退出登录没有选中状态，始终使用普通图标
   return logoutIcon
 })
+
+// 根据导航项配置获取当前应显示的图标（普通/选中）
+const getNavIcon = (item: NavItemConfig) => {
+  switch (item.iconType) {
+    case 'toolbox':
+      return currentToolBoxIcon.value
+    case 'knowledge':
+      return currentKnowledgeGraphIcon.value
+    case 'exercises':
+      return currentExerciseIcon.value
+    case 'homework':
+      return currentHomeworkIcon.value
+    case 'drawingBoard':
+      return currentDrawingBoardIcon.value
+    case 'resources':
+      return currentDownloadResourcesIcon.value
+    case 'logout':
+      return currentLogoutIcon.value
+    default:
+      return currentLogoutIcon.value
+  }
+}
 
 // 开始拖动
 const startDrag = (event: MouseEvent | TouchEvent) => {
@@ -449,6 +458,14 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
 const stopDrag = () => {
   isDragging.value = false
   hasMoved.value = false
+}
+
+// 判断某个导航 key 是否处于激活状态
+const isNavItemActive = (key: NavKey) => {
+  if (key === 'toolbox') {
+    return showToolbox.value
+  }
+  return activeNavItem.value === key
 }
 
 // 检查教材更新状态和未下载状态
@@ -743,6 +760,39 @@ const handleToolBoxClick = () => {
   toggleToolbox()
   // 仍然向父组件通知当前交互的是工具箱（如有需要）
   emit('nav-item-change', 'toolbox')
+}
+
+// 统一处理导航项点击，具体行为由 key/routeName 决定
+const handleNavItemClick = (item: NavItemConfig) => {
+  switch (item.key) {
+    case 'toolbox':
+      handleToolBoxClick()
+      break
+    case 'knowledge':
+      handleKnowledgeGraphClick()
+      break
+    case 'exercises':
+      handleMyExercisesClick()
+      break
+    case 'homework':
+      handleMyHomeworkClick()
+      break
+    case 'drawingBoard':
+      handleDrawingBoardClick()
+      break
+    case 'resources':
+      handleMyResourcesClick()
+      break
+    case 'logout':
+      handleLogoutClick()
+      break
+    default:
+      // 兜底：如果配置了 routeName，则直接按路由跳转
+      if (item.routeName) {
+        router.push({ name: item.routeName })
+      }
+      break
+  }
 }
 
 const handleMyResourcesClick = () => {

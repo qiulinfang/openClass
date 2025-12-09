@@ -1,35 +1,29 @@
 <template>
-  <q-dialog
-    :model-value="modelValue"
-    @update:model-value="handleUpdate"
-    class="image-viewer-dialog"
-    :maximized="true"
-    transition-show="fade"
-    transition-hide="fade"
-  >
-    <div class="preview-overlay" @click="handleClose">
-      <!-- 关闭按钮 -->
-      <q-btn
-        flat
-        round
-        dense
-        icon="close"
-        color="white"
-        class="close-btn"
-        @click.stop="handleClose"
-      />
+  <!-- 使用 Teleport 将预览层挂到 body，避免受父级对话框影响 -->
+  <Teleport to="body">
+    <div v-if="modelValue" class="image-viewer-root">
+      <div class="preview-overlay" @click="handleClose">
+        <!-- 关闭按钮 -->
+        <button
+          type="button"
+          class="close-btn"
+          @click.stop="handleClose"
+        >
+          ✕
+        </button>
 
-      <!-- 图片预览区域 -->
-      <div class="preview-content" @click.stop>
-        <img
-          v-if="imageUrl"
-          :src="imageUrl"
-          :alt="alt || '图片预览'"
-          class="preview-image"
-        />
+        <!-- 图片预览区域 -->
+        <div class="preview-content" @click.stop>
+          <img
+            v-if="imageUrl"
+            :src="imageUrl"
+            :alt="alt || '图片预览'"
+            class="preview-image"
+          />
+        </div>
       </div>
     </div>
-  </q-dialog>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -47,22 +41,21 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const handleUpdate = (value: boolean) => {
-  emit('update:modelValue', value)
-}
-
 const handleClose = () => {
   emit('update:modelValue', false)
 }
 </script>
 
 <style scoped lang="scss">
-.image-viewer-dialog {
-  z-index: 9999;
+.image-viewer-root {
+  // 确保图片预览层级高于其他自定义对话框（如 DraggableDialog，遮罩层 z-index=9000）
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
 }
 
 .preview-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -83,6 +76,14 @@ const handleClose = () => {
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 

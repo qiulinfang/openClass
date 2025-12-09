@@ -693,6 +693,15 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
   ]
 }
 
+// 根据题目的 subject 字段推断用于 AI 接口的学科（'MATH' 或 'BIOLOGY'）
+const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' => {
+  const rawSubject = (question.subject || '').toString().toUpperCase()
+  if (rawSubject.includes('BIOLOGY') || rawSubject.includes('生物')) {
+    return 'BIOLOGY'
+  }
+  return 'MATH'
+}
+
 // 拍作业功能
 const takePictureToTeacher = async (question: ExerciseItem) => {
   try {
@@ -1293,6 +1302,9 @@ const sendToAi = async (question: ExerciseItem) => {
   try {
     const aiExerciseStore = useAiExerciseChatStore()
 
+    // 根据题目 subject 计算要传给 AI 的学科
+    const aiSubject = getAiSubjectFromQuestion(question)
+
     // 根据当前列表类型 / 策略判断使用哪个 store
     const isHomeworkType = strategy.value?.getListTitle?.() === '我的作业' || props.type === 'homework'
 
@@ -1326,7 +1338,7 @@ const sendToAi = async (question: ExerciseItem) => {
         initialMessage,
         current,
         { id: '', userId: '' },
-        'MATH',
+        aiSubject,
         'mate',
         undefined,
         true,
@@ -1370,7 +1382,7 @@ const sendToAi = async (question: ExerciseItem) => {
         initialMessage,
         questionStore.currentQuestion,
         { id: '', userId: '' },
-        'MATH',
+        aiSubject,
         'mate',
         undefined,
         true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀

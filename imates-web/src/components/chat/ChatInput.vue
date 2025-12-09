@@ -11,7 +11,6 @@
           <div class="chat-top-toolbar">
             <!-- 前置插槽：最前面的按钮，如“选中并问” -->
             <slot name="header-prefix"></slot>
-
             <!-- 默认中间工具条（公式 + 问老师） -->
             <slot name="header-middle">
               <!-- 公式 -->

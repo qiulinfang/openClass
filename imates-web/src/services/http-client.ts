@@ -6,7 +6,8 @@
 import type { ApiResponse, RequestConfig } from '../types'
 import { createTimeoutController } from '../utils/common/polyfills'
 import { showMessage } from '../utils'
-import { getApiBaseUrl, getResourceBaseUrl } from '../config/env-config'
+import { getApiBaseUrl, getResourceBaseUrl, getYanbanBaseUrl, getCurrentEnvType, AppEnvType } from '../config/env-config'
+import { AndroidBridge } from './android-bridge'
 
 export class HttpClient {
   private baseURL: string
@@ -18,6 +19,7 @@ export class HttpClient {
   private getRouteBaseMap(): Record<string, string> {
     const apiBaseUrl = getApiBaseUrl()
     const resourceBaseUrl = getResourceBaseUrl()
+    const yanbanBaseUrl = getYanbanBaseUrl()
     
     return {
       // 学班服务（根据环境动态切换）
@@ -25,12 +27,12 @@ export class HttpClient {
       '/permission': apiBaseUrl,
       '/biologyTopicKnowledge': apiBaseUrl,
       // 研伴/教材等走资源服务器
-      '/blw-edu-yb': 'https://www.imates.com.cn:9099',
+      '/blw-edu-yb': yanbanBaseUrl,
       // Zammad 示例
       '/api/v1': 'http://app.imates.com.cn:8080',
       // 资源服务器（根据环境动态切换）
-      '/resource': resourceBaseUrl + ':9099',
-      '/img': resourceBaseUrl + ':9099',
+      '/resource': resourceBaseUrl,
+      '/img': resourceBaseUrl,
       // 知识点查询服务
       '/knowledge': 'http://www.imates.com.cn:8090',
       '/bj101': resourceBaseUrl,
@@ -215,6 +217,36 @@ export class HttpClient {
       retries = 3,              // 重试次数，默认为3次
       skipAuth401Retry = false  // 是否跳过401认证重试
     } = config
+
+    // ========== 研伴接口分流：测试环境 + 有 AndroidBridge 时走原生 ==========
+    if (url.startsWith('/blw-edu-yb')) {
+      const envType = getCurrentEnvType()
+      const bridge = AndroidBridge.getInstance()
+      
+      if (envType === AppEnvType.INTERNAL_TEST && bridge.isAndroidBridgeAvailable()) {
+        // 测试环境 + 有原生桥接：走 Android 原生网络请求
+        console.log('[HttpClient] 🔀 研伴接口走原生:', { url, method })
+        
+        // 提取 /blw-edu-yb 后面的路径部分给原生
+        const apiPath = url.replace('/blw-edu-yb', '')
+        
+        // 从 localStorage 获取 Token，传给原生（避免原生读 localStorage 导致死锁）
+        const yanbanToken = localStorage.getItem('YANBAN_TOKEN') || ''
+
+        // 调试日志：打印当前用于研伴接口的 Token（注意仅用于开发环境）
+        console.log('[Debug][Yanban] teacher-textbook 使用的 YANBAN_TOKEN =', yanbanToken)
+        
+        const result = await bridge.callYanbanApi(apiPath, body, method, envType, yanbanToken)
+        
+        // 将原生返回转换为 ApiResponse 格式
+        return {
+          success: result?.success ?? false,
+          data: result?.data ?? result,
+          code: result?.code ?? (result?.success ? 200 : 0),
+          message: result?.message
+        } as ApiResponse<T>
+      }
+    }
 
     // 流程：构建完整URL（统一处理file://和http(s)环境）
     const fullUrl = this.buildFullUrl(url)

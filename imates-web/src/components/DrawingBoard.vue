@@ -87,6 +87,11 @@
       </div>
     </div>
 
+    <!-- 底部插槽（用于白板页控制等） -->
+    <div class="toolbar-bottom-wrapper">
+      <slot name="toolbar-bottom" />
+    </div>
+
     <!-- 清空画布确认对话框 -->
     <DraggableDialog
       v-model="showClearConfirmDialog"
@@ -437,25 +442,39 @@ const initCanvas = async () => {
   }
 }
 
+// 背景图片加载版本号（防止旧的异步加载结果覆盖当前状态）
+let bgLoadVersion = 0
+
 // 加载背景图片
-const loadBackgroundImage = (imageUrl: string) => {
+const loadBackgroundImage = (imageUrl: string): Promise<void> => {
+  // 每次调用都递增版本号，用于区分新旧加载
+  const currentVersion = ++bgLoadVersion
+
   if (!imageUrl) {
+    // 清空背景：只要是最新调用，直接重置状态并渲染
     backgroundImg.value = null
     backgroundLoaded.value = false
     bgDrawParams.value = null
     render()
-    return
+    return Promise.resolve()
   }
 
   const img = new Image()
-  img.onload = () => {
-    console.log('[DrawingBoard] 背景图片加载完成:', {
-      srcSample: imageUrl.slice(0, 48),
-      naturalWidth: img.naturalWidth,
-      naturalHeight: img.naturalHeight,
-    })
-    backgroundImg.value = img
-    backgroundLoaded.value = true
+  return new Promise<void>((resolve) => {
+    img.onload = () => {
+      // 仅当本次加载版本仍然是最新时才生效，避免旧请求覆盖当前背景
+      if (currentVersion !== bgLoadVersion) {
+        console.log('[DrawingBoard] 背景图片加载完成(过期，丢弃):', imageUrl.slice(0, 48))
+        return resolve()
+      }
+
+      console.log('[DrawingBoard] 背景图片加载完成:', {
+        srcSample: imageUrl.slice(0, 48),
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+      })
+      backgroundImg.value = img
+      backgroundLoaded.value = true
 
     // 根据 layoutMode / fillContainer 选择布局模式
     const useDoubleHeight = props.layoutMode === 'doubleHeight'
@@ -568,22 +587,33 @@ const loadBackgroundImage = (imageUrl: string) => {
       bgDrawParams.value = null
     }
 
-    render()
-  }
-  img.onerror = () => {
-    console.error('[DrawingBoard] 背景图片加载失败:', imageUrl.substring(0, 50))
-    backgroundImg.value = null
-    backgroundLoaded.value = false
-    bgDrawParams.value = null
-    render()
-  }
-  img.src = imageUrl
+      render()
+      resolve()
+    }
+    img.onerror = () => {
+      if (currentVersion !== bgLoadVersion) {
+        console.warn('[DrawingBoard] 背景图片加载失败(过期，丢弃):', imageUrl.substring(0, 50))
+        return resolve()
+      }
+      console.error('[DrawingBoard] 背景图片加载失败:', imageUrl.substring(0, 50))
+      backgroundImg.value = null
+      backgroundLoaded.value = false
+      bgDrawParams.value = null
+      render()
+      resolve()
+    }
+    img.src = imageUrl
+  })
 }
 
-// 监听背景图片变化
+// 监听背景图片变化（由父组件通过 props 传入）
 watch(
   () => props.backgroundImage,
   (newUrl) => {
+    console.log('[DrawingBoard] props.backgroundImage change', {
+      length: newUrl ? newUrl.length : 0,
+      isEmpty: !newUrl,
+    })
     if (newUrl) {
       console.log('[DrawingBoard] 收到新的背景图，长度 =', newUrl.length)
     } else {
@@ -596,6 +626,9 @@ watch(
 // 渲染画布
 const render = () => {
   if (!ctx || !canvasRef.value) return
+
+  // 调试：追踪 render 调用来源
+  console.trace('[DrawingBoard] render() called')
 
   // 清空画布
   ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
@@ -1982,8 +2015,12 @@ defineExpose({
   },
 
   // 流程：设置背景图片（动态）
-  setBackgroundImage: (imageUrl: string) => {
-    loadBackgroundImage(imageUrl)
+  setBackgroundImage: (imageUrl: string): Promise<void> => {
+    console.log('[DrawingBoard] setBackgroundImage called', {
+      hasImage: !!imageUrl,
+      length: imageUrl ? imageUrl.length : 0,
+    })
+    return loadBackgroundImage(imageUrl)
   },
 
   // 流程：获取画布是否有内容（背景图片或绘制对象）
@@ -2384,5 +2421,17 @@ defineExpose({
   justify-content: center;
   font-size: 16px;
   color: #333333;
+}
+
+/* 底部工具栏插槽容器 */
+.toolbar-bottom-wrapper {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

@@ -1126,7 +1126,7 @@ export class ApiService {
         console.error('[ApiService] ❌ sendTextMessageToTeacher: 方法不存在')
         return false
       }
-      const result = this.androidBridge.sendTextMessageToTeacher(content, sessionId, subject)
+      const result = this.androidBridge.sendTextMessageToTeacher(content, sessionId, subject, 'STUDENT')
       
       const duration = performance.now() - startTime
       
@@ -1198,7 +1198,7 @@ export class ApiService {
     try {
       // 使用AndroidBridge封装方法
       if (typeof window !== 'undefined' && window.AndroidBridge?.sendPictureToTeacher) {
-        const result = this.androidBridge.sendPictureToTeacher(imagePath, sessionId, subject)
+        const result = this.androidBridge.sendPictureToTeacher(imagePath, sessionId, subject, 'STUDENT')
         return result
       }
 
@@ -1443,22 +1443,32 @@ export class ApiService {
           loginRequest
         )
       
-      if (response.success && response.data && response.data.data) {
+      // 兼容两种响应结构：
+      // 1. 走 Vite 代理时：response.data.data.token
+      // 2. 走 Android 原生代理时：response.data.token（原生已经解包一层）
+      const respData = response.data as any
+      const tokenData = respData?.data || respData
+      
+      if (response.success && tokenData && tokenData.token) {
         const loginResponse: LoginResponse = {
-          token: response.data.data.token,
-          userId: response.data.data.userId,
-          defaultPassword: response.data.data.defaultPassword
+          token: tokenData.token,
+          userId: tokenData.userId,
+          defaultPassword: tokenData.defaultPassword
         }
         
         // 确保token和userId都保存到localStorage
-        localStorage.setItem('YANBAN_TOKEN', response.data.data.token)
-        localStorage.setItem('studentUserId', response.data.data.userId)
+        localStorage.setItem('YANBAN_TOKEN', tokenData.token)
+        localStorage.setItem('studentUserId', tokenData.userId)
         
         // 更新登录时间戳，用于会话管理
         localStorage.setItem('lastLoginTime', Date.now().toString())
+
+        // 调试日志：打印 login-student 返回的 Token（注意仅用于开发环境）
+        console.log('[Debug][Yanban] login-student 返回 token =', tokenData.token)
         
         return loginResponse
       } else {
+        console.warn('[Debug][Yanban] login-student 响应结构异常:', response)
         return null
       }
     } catch (error) {
@@ -1504,8 +1514,14 @@ export class ApiService {
         data: TextbookVersion[]
       }>(endpoint, {})
       
-      if (response.success && response.data && response.data.data) {
-        return response.data.data
+      // 兼容两种响应结构：
+      // 1. 走 Vite 代理时：response.data.data
+      // 2. 走 Android 原生代理时：response.data（原生已经解包一层）
+      const respData = response.data as any
+      const textbooks = respData?.data || respData
+      
+      if (response.success && Array.isArray(textbooks)) {
+        return textbooks
       }
       return []
     } catch (error) {
@@ -1529,8 +1545,12 @@ export class ApiService {
         data: ChapterNode[]
       }>(endpoint, request)
       
-      if (response.success && response.data && response.data.data && response.data.data.length > 0 && response.data.data[0]?.children && response.data.data[0].children.length > 0) {
-        return response.data.data[0].children
+      // 兼容两种响应结构
+      const respData = response.data as any
+      const structure = respData?.data || respData
+      
+      if (response.success && Array.isArray(structure) && structure.length > 0 && structure[0]?.children?.length > 0) {
+        return structure[0].children
       }
       
       return []
@@ -1552,9 +1572,13 @@ export class ApiService {
         data: LearningPackage[]
       }>(endpoint, request)
       
-      if (response.success && response.data && response.data.data) {
+      // 兼容两种响应结构
+      const respData = response.data as any
+      const packagesData = respData?.data || respData
+      
+      if (response.success && Array.isArray(packagesData)) {
         // 处理学习包数据，确保字段完整性
-        const packages = response.data.data.map((pkg: LearningPackage) => ({
+        const packages = packagesData.map((pkg: LearningPackage) => ({
           ...pkg,
           packageId: pkg.id,
           sectionId: pkg.sectionId || '',
@@ -1722,13 +1746,19 @@ export class ApiService {
         }
       })
       
-      if (response.success && response.data && response.data.data) {
+      // 兼容两种响应结构：
+      // 1. 走 Vite 代理时：response.data.data
+      // 2. 走 Android 原生代理时：response.data（原生已经解包一层）
+      const respData = response.data as any
+      const textbooks = respData?.data || respData
+      
+      if (response.success && Array.isArray(textbooks)) {
         // 🔥 处理封面URL拼接，与后端逻辑保持一致
         // 后端在 LearnResourceManager.fetchUserAllOnlineTextbooks() 第342行拼接URL
         // BASE_URL = "https://www.imates.com.cn:9099"
         const BASE_URL = 'https://www.imates.com.cn:9099'
         
-        return response.data.data.map((textbook) => {
+        return textbooks.map((textbook: UserTextbookInfo) => {
           // 如果 textbookCover 不是完整URL（不以 http 开头），则拼接 BASE_URL
           if (textbook.textbookCover && !textbook.textbookCover.startsWith('http')) {
             textbook.textbookCover = BASE_URL + textbook.textbookCover
@@ -1761,8 +1791,14 @@ export class ApiService {
         }
       })
       
-      if (response.success && response.data && response.data.data) {
-        return response.data.data
+      // 兼容两种响应结构：
+      // 1. 走 Vite 代理时：response.data.data
+      // 2. 走 Android 原生代理时：response.data（原生已经解包一层）
+      const respData = response.data as any
+      const textbooks = respData?.data || respData
+
+      if (response.success && Array.isArray(textbooks)) {
+        return textbooks as UserTextbookInfo[]
       }
       return []
     } catch (error) {
@@ -2657,24 +2693,37 @@ export class ApiService {
   /**
    * 提交习题回答
    * @param id 套餐题目ID
-   * @param answerContent 回答图片base64
+   * @param answerContent 回答图片 base64 数组
    * @returns Promise<boolean> 是否提交成功
    */
-  async submitTopicAnswer(id: string, answerContent: string): Promise<boolean> {
+  async submitTopicAnswer(id: string, answerContent: string[]): Promise<boolean> {
     try {
+      const requestBody = {
+        id,
+        answerContent, // base64 图片字符串数组
+      }
+
+      // 调试日志：打印提交作业的请求体（不包含 token）
+      console.log('[Debug][Homework] 提交习题回答 请求体 =', requestBody)
+
       const response = await httpClient.post<{
         code?: number
         data?: unknown
         message?: string
-      }>('/blw-edu-yb/api/app/topic-package-answer', {
-        id,
-        answerContent
+      }>('/blw-edu-yb/api/app/topic-package-answer', requestBody)
+
+      // 调试日志：打印基础响应信息，方便对比 Android 原生日志
+      console.log('[Debug][Homework] 提交习题回答 响应概要 =', {
+        success: response.success,
+        code: response.data?.code,
+        message: response.data?.message ?? response.message,
+        hasData: !!response.data,
       })
-      
+
       if (response.success && response.data?.code === 200) {
         return true
       }
-      
+
       console.error('[ApiService] 提交习题回答失败:', response.data?.message || response.message)
       return false
     } catch (error) {
@@ -2696,11 +2745,19 @@ export class ApiService {
         { pageNumber, pageSize }
       )
       
-      if (response.success && response.data?.data) {
-        return response.data.data
+      // 兼容两种响应结构：
+      // 1. Vite 代理：response.data.data
+      // 2. Android 原生代理：response.data（原生已解包一层）
+      const respData = response.data as any
+      const pageData = respData?.data || respData
+
+      if (response.success && pageData) {
+        const records = (pageData as TopicPackagePageResponse).records || []
+        console.log('[Debug][Homework] topic-package-page 返回条数 =', records.length)
+        return pageData as TopicPackagePageResponse
       }
-      
-      console.error('[ApiService] 获取习题分页列表失败:', response.message)
+
+      console.error('[ApiService] 获取习题分页列表失败:', response.message, response)
       return null
     } catch (error) {
       console.error('[ApiService] 获取习题分页列表异常:', error)

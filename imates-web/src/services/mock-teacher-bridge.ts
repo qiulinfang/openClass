@@ -243,7 +243,8 @@ export function initMockTeacherBridge(): void {
   bridge.sendTextMessageToTeacher = (
     content: string,
     sessionId: string,
-    subject: string
+    subject: string,
+    senderType: string, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): string => {
 
     // 保存用户消息到历史
@@ -297,7 +298,8 @@ export function initMockTeacherBridge(): void {
   bridge.sendPictureToTeacher = (
     imagePath: string,
     sessionId: string,
-    subject: string
+    subject: string,
+    senderType: string, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): string => {
 
     // 保存用户图片消息到历史
