@@ -2,6 +2,7 @@ package com.cosinetech.imates.screencasting.api;
 
 import android.util.Log;
 
+import com.cosinetech.imates.network.UnsafeOkHttpClient;
 import com.cosinetech.imates.screencasting.model.ApiResponse;
 
 import org.json.JSONException;
@@ -30,7 +31,7 @@ public class DeviceApiClient {
      */
     public DeviceApiClient(String baseUrl) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.httpClient = new OkHttpClient();
+        this.httpClient = UnsafeOkHttpClient.getUnsafeOkHttpClient();
     }
 
     /**
@@ -42,21 +43,22 @@ public class DeviceApiClient {
     public DeviceApiClient(String host, int port, boolean useHttps) {
         String protocol = useHttps ? "https" : "http";
         this.baseUrl = String.format("%s://%s:%d", protocol, host, port);
-        this.httpClient = new OkHttpClient();
+        this.httpClient = UnsafeOkHttpClient.getUnsafeOkHttpClient();
     }
 
     /**
      * 注册设备
      */
-    public ApiResponse register(String deviceId, String type, String city, 
-                               String school, String classroom) {
+    public ApiResponse register(String device_ip, String type, String city,
+                               String school, String classroom, String name) {
         try {
             JSONObject body = new JSONObject();
-            body.put("device_id", deviceId);
+            body.put("ip", device_ip);
             body.put("type", type);
             body.put("city", city);
             body.put("school", school);
             body.put("classroom", classroom);
+            body.put("name", name);
 
             return postRequest("/register", body);
         } catch (JSONException e) {
@@ -68,11 +70,16 @@ public class DeviceApiClient {
     /**
      * 心跳
      */
-    public ApiResponse heartbeat(String deviceId, String type) {
+    public ApiResponse heartbeat(String device_ip, String type, String city,
+                                 String school, String classroom, String name) {
         try {
             JSONObject body = new JSONObject();
-            body.put("device_id", deviceId);
+            body.put("ip", device_ip);
             body.put("type", type);
+            body.put("city", city);
+            body.put("school", school);
+            body.put("classroom", classroom);
+            body.put("name", name);
 
             return postRequest("/heartbeat", body);
         } catch (JSONException e) {

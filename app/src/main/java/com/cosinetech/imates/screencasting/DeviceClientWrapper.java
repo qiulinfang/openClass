@@ -3,6 +3,7 @@ package com.cosinetech.imates.screencasting;
 import android.content.Context;
 import android.util.Log;
 
+import com.cosinetech.imates.network.UnsafeOkHttpClient;
 import com.cosinetech.imates.screencasting.api.DeviceApiClient;
 import com.cosinetech.imates.screencasting.core.ClassroomManager;
 import com.cosinetech.imates.screencasting.core.DeviceManager;
@@ -109,14 +110,12 @@ public class DeviceClientWrapper {
      * 首先会自动查询所有教室
      */
     public void showClassroomSelectionDialog(OnClassroomSelectedListener listener) {
-        // 先查询所有教室
-        apiClient.getAllClassrooms();
-        
-        // 使用新线程查询，然后显示Dialog
         new Thread(() -> {
             try {
+                // 先查询所有教室
+                apiClient.getAllClassrooms();
                 String url = baseUrl + "/all_classrooms";
-                okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
+                okhttp3.OkHttpClient client = UnsafeOkHttpClient.getUnsafeOkHttpClient();
                 okhttp3.Request request = new okhttp3.Request.Builder().url(url).build();
                 okhttp3.Response response = client.newCall(request).execute();
                 
@@ -214,17 +213,9 @@ public class DeviceClientWrapper {
     /**
      * 注册设备（异步）
      */
-    public void register() {
-        deviceManager.registerDevice();
+    public void register(String device_ip) {
+        deviceManager.registerDevice(device_ip);
         Log.d(TAG, "Device registration initiated");
-    }
-
-    /**
-     * 同步注册设备
-     */
-    public boolean registerSync() {
-        com.cosinetech.imates.screencasting.model.ApiResponse response = deviceManager.registerDeviceSync();
-        return response.isSuccess();
     }
 
     // ========== 心跳相关 ==========

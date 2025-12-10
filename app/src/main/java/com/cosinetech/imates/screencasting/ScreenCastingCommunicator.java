@@ -176,7 +176,7 @@ public class ScreenCastingCommunicator {
             // 2. 获取所有教室并显示选择Dialog
             deviceClientWrapper.showClassroomSelectionDialog(new DeviceClientWrapper.OnClassroomSelectedListener() {
                 public void onSelected(String city, String school, ClassroomInfo classroom) {
-                    deviceClientWrapper.register();
+                    deviceClientWrapper.register(getLocalIpAddress());
                     deviceClientWrapper.startHeartbeat();
                 }
 
