@@ -3,6 +3,8 @@
  * 对齐 Android AppEnvConfig 的环境切换逻辑
  */
 
+import { getCurrentSchoolAppUpdatePath } from './school-app-config'
+
 // 环境类型枚举
 export enum AppEnvType {
   RELEASE = 'RELEASE',
@@ -26,6 +28,7 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
+    // 这里只存一个默认路径，实际返回由 getAppUpdateUrl 结合 SCHOOL_UPDATE_CONFIGS 计算
     appUpdateUrl: '/bj101/appupdate.json',
     displayName: '',
   },
@@ -130,5 +133,14 @@ export function getYanbanBaseUrl(): string {
  * 获取应用更新接口 URL
  */
 export function getAppUpdateUrl(): string {
-  return getCurrentEnvConfig().appUpdateUrl
+  const envType = getCurrentEnvType()
+  const envConfig = ENV_CONFIGS[envType]
+
+  // 测试环境：仍然使用固定的 /appupdate_test.json，由 http-client 路由到 https://www.imates.com.cn
+  if (envType === AppEnvType.INTERNAL_TEST) {
+    return envConfig.appUpdateUrl
+  }
+
+  // 其它环境：根据当前学校配置获取 appupdate.json 路径（由 school-app-config 统一维护）
+  return getCurrentSchoolAppUpdatePath() || envConfig.appUpdateUrl
 }

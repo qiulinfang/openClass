@@ -305,6 +305,7 @@
               :compressed-height="97"
               :question="currentQuestionData"
               @response="handleChatResponse"
+              @send-message="handleSendSuggestionInPhotoSearch"
             >
               <!-- 前置插槽：操作按钮组 -->
               <template #input-prefix>
@@ -449,6 +450,14 @@ const isChatLoading = ref(false) // 用于调试面板显示
 // ChatView 消息发送完成处理
 const handleChatResponse = () => {
   isChatLoading.value = false
+}
+
+// 处理推荐问题点击：直接发送消息（复用 ExerciseSolveView 中的模式）
+const handleSendSuggestionInPhotoSearch = (message: string) => {
+  if (chatViewRef.value?.sendMessage) {
+    chatViewRef.value.inputMessage = message
+    chatViewRef.value.sendMessage()
+  }
 }
 
 // 收藏状态管理（响应式）

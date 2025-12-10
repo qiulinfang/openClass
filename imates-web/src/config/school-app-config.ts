@@ -50,61 +50,16 @@ export interface SchoolAppConfig {
   schoolId: string
   /** 导航菜单配置 */
   nav: SchoolNavConfig
-}
-
-// 默认配置（适用于大多数学校）
-const defaultNavConfig: SchoolNavConfig = {
-  main: [
-    { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
-    {
-      key: 'knowledge',
-      label: '知识图谱',
-      iconType: 'knowledge',
-      position: 'main',
-      routeName: 'knowledgeGraph',
-    },
-    {
-      key: 'exercises',
-      label: '我的习题',
-      iconType: 'exercises',
-      position: 'main',
-      routeName: 'exerciseSolve',
-    },
-    {
-      key: 'homework',
-      label: '我的作业',
-      iconType: 'homework',
-      position: 'main',
-      routeName: 'myHomework',
-    },
-    {
-      key: 'drawingBoard',
-      label: '草稿本',
-      iconType: 'drawingBoard',
-      position: 'main',
-      routeName: 'drawingBoard',
-    },
-  ],
-  bottom: [
-    {
-      key: 'resources',
-      label: '资源下载',
-      iconType: 'resources',
-      position: 'bottom',
-      routeName: 'myResources',
-    },
-    { key: 'logout', label: '退出登录', iconType: 'logout', position: 'bottom' },
-  ],
+  /**
+   * 应用更新配置文件路径（相对路径），例如：/bj101/appupdate.json
+   * - 不包含域名和端口，由 http-client 路由表负责转发到实际服务器
+   */
+  appUpdatePath?: string
 }
 
 // 按学校划分的配置表：后续可以在这里新增/覆盖不同学校的配置
 const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
-  // 默认：未指定或找不到 schoolId 时使用
-  default: {
-    schoolId: 'default',
-    nav: defaultNavConfig,
-  },
-  // 金山远扬：不显示“我的作业”菜单
+  // 景山远洋：不显示“我的作业”菜单
   jinshanyuanyang: {
     schoolId: 'jinshanyuanyang',
     nav: {
@@ -132,13 +87,68 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           routeName: 'drawingBoard',
         },
       ],
-      bottom: defaultNavConfig.bottom,
+      bottom: [
+        {
+          key: 'resources',
+          label: '资源下载',
+          iconType: 'resources',
+          position: 'bottom',
+          routeName: 'myResources',
+        },
+        { key: 'logout', label: '退出登录', iconType: 'logout', position: 'bottom' },
+      ],
     },
+    // 目前沿用与默认学校相同的更新配置路径
+    appUpdatePath: '/bj101/appupdate.json',
   },
-  // 景开二中：当前与默认配置一致（如需差异可在此修改）
+  // 经开二中：当前与默认配置一致
   jingkaierzhong: {
     schoolId: 'jingkaierzhong',
-    nav: defaultNavConfig,
+    nav: {
+      main: [
+        { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
+        {
+          key: 'knowledge',
+          label: '知识图谱',
+          iconType: 'knowledge',
+          position: 'main',
+          routeName: 'knowledgeGraph',
+        },
+        {
+          key: 'exercises',
+          label: '我的习题',
+          iconType: 'exercises',
+          position: 'main',
+          routeName: 'exerciseSolve',
+        },
+        {
+          key: 'homework',
+          label: '我的作业',
+          iconType: 'homework',
+          position: 'main',
+          routeName: 'myHomework',
+        },
+        {
+          key: 'drawingBoard',
+          label: '草稿本',
+          iconType: 'drawingBoard',
+          position: 'main',
+          routeName: 'drawingBoard',
+        },
+      ],
+      bottom: [
+        {
+          key: 'resources',
+          label: '资源下载',
+          iconType: 'resources',
+          position: 'bottom',
+          routeName: 'myResources',
+        },
+        { key: 'logout', label: '退出登录', iconType: 'logout', position: 'bottom' },
+      ],
+    },
+    // 经开二中：与 default 一致
+    appUpdatePath: '/jinkai/appupdate.json',
   },
 }
 
@@ -150,7 +160,8 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
 export function getCurrentSchoolId(): string {
   const id = import.meta.env.VITE_SCHOOL_ID as string | undefined
   if (!id || typeof id !== 'string' || !id.trim()) {
-    return 'default'
+    // 未指定时，默认使用经开二中
+    return 'jingkaierzhong'
   }
   return id.trim()
 }
@@ -162,6 +173,25 @@ export function getCurrentSchoolId(): string {
  */
 export function getCurrentSchoolAppConfig(): SchoolAppConfig {
   const schoolId = getCurrentSchoolId()
-  return SCHOOL_CONFIGS[schoolId] || SCHOOL_CONFIGS.default
+  // 未配置时回退到经开二中
+  return SCHOOL_CONFIGS[schoolId] || SCHOOL_CONFIGS.jingkaierzhong
+}
+
+/**
+ * 获取当前学校的 app 更新配置路径（相对路径）
+ * 优先使用当前学校的 appUpdatePath，若未配置则回退到 default，再兜底 '/bj101/appupdate.json'
+ */
+export function getCurrentSchoolAppUpdatePath(): string {
+  const current = getCurrentSchoolAppConfig()
+  if (current.appUpdatePath && current.appUpdatePath.trim()) {
+    return current.appUpdatePath.trim()
+  }
+
+  const fallback = SCHOOL_CONFIGS.jingkaierzhong?.appUpdatePath
+  if (fallback && fallback.trim()) {
+    return fallback.trim()
+  }
+
+  return '/jinkai/update.json'
 }
 

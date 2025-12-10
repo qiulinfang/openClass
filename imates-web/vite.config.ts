@@ -155,13 +155,22 @@ export default defineConfig(({ mode }) => {
           })
         }
       },
-      // 匹配以 "/bj101" 开头的请求，转发到正式环境更新接口
+      // 匹配以 "/bj101" 开头的请求，转发到正式环境更新接口（景山远洋）
       '/bj101': {
         target: APP_UPDATE_BASE,
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
           attachBasicProxyLog(proxy, '/bj101')
+        },
+      },
+      // 匹配以 "/jinkai" 开头的请求，转发到经开二中的更新接口
+      '/jinkai': {
+        target: APP_UPDATE_BASE,
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/jinkai')
         },
       },
       // 测试环境更新接口

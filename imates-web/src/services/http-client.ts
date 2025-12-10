@@ -36,6 +36,8 @@ export class HttpClient {
       // 知识点查询服务
       '/knowledge': 'http://www.imates.com.cn:8090',
       '/bj101': resourceBaseUrl,
+      // 经开二中的应用更新配置（/jinkai/update.json）
+      '/jinkai': resourceBaseUrl,
       '/appupdate_test.json': 'https://www.imates.com.cn',
     }
   }

@@ -37,8 +37,6 @@ import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.WindowUtils;
-import com.cosinetech.imates.coreapiservice.ApiUrl;
-import com.cosinetech.imates.appenv.AppEnvConfig;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 import android.os.Build;
 
@@ -61,6 +59,9 @@ public class MainWebViewActivity extends AppCompatActivity
 
     /** 日志标签 */
     private static final String TAG = "MainWebViewActivity";
+    private static final String SCHOOL_ID = "jingkaierzhong";
+
+    private static final boolean IS_INTERNAL_TEST = false;
 
     // ========== WebView 相关 ==========
 
@@ -135,7 +136,7 @@ public class MainWebViewActivity extends AppCompatActivity
     private final Runnable mCheckUpdateRunnable = new Runnable() {
         @Override
         public void run() {
-            String updateUrl = ApiUrl.URL_APP_UPDATE;
+            String updateUrl = getUpdateUrl();
             
             // 每次检查都发送HTTP请求，判断是否需要更新
             checkUpdateWithHttpRequest(updateUrl);
@@ -144,6 +145,20 @@ public class MainWebViewActivity extends AppCompatActivity
             mCheckUpdateHandler.postDelayed(this, 60 * 60 * 1000);
         }
     };
+
+    private String getUpdateUrl() {
+        if (IS_INTERNAL_TEST) {
+            return "https://www.imates.com.cn/appupdate_test.json";
+        }
+
+        if ("jingkaierzhong".equals(SCHOOL_ID)) {
+            return "https://www.imates.com.cn/jinkai/appupdate.json";
+        } else if ("jinshanyuanyang".equals(SCHOOL_ID)) {
+            return "https://www.imates.com.cn/bj101/appupdate.json";
+        } else {
+            return "https://www.imates.com.cn/bj101/appupdate.json";
+        }
+    }
 
     /**
      * 启动 MainWebViewActivity 的静态方法
