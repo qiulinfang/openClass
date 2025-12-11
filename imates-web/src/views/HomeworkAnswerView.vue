@@ -38,21 +38,14 @@
               @click="handleGoToXueban"
             />
           </template>
-          <!-- 右侧插槽：相机上传 + 白板上传 -->
+          <!-- 右侧插槽：上传作业（相册/拍照选择图片） -->
           <template #toolbar-right>
             <CommonActionButton
-              label="相机上传"
-              variant="outline"
-              size="sm"
-              :disabled="!hasSelectedQuestion"
-              @click="handleCameraUpload"
-            />
-            <CommonActionButton
-              label="白板上传"
+              label="上传作业"
               variant="primary"
               size="sm"
-              :disabled="!questionBgImage"
-              @click="handleBoardUpload"
+              :disabled="!currentAnswerQuestion"
+              @click="handleUploadHomework"
             />
           </template>
           <!-- 底部插槽：白板页控制按钮 -->
@@ -365,8 +358,10 @@ watch(
     }
 
     try {
-      // 渲染 MathJax 公式
-      await MathJaxUtils.renderMath(el, false) 
+      // 先清除上一题在该容器上的 MathJax 渲染状态，然后再渲染当前题目的公式
+      // await MathJaxUtils.clearMath(el)
+      // 对于截图场景，需要等待 MathJax 完全排版完成后再生成 PNG
+      await MathJaxUtils.renderMathAndWait(el)
 
       // 统一规范题目内图片的布局：清理自身宽高属性，限制最大宽度为容器宽度
       const imgs = el.querySelectorAll('img')
@@ -491,12 +486,10 @@ const showCameraDialog = ref(false)
 // 初始照片列表（白板上传时使用）
 const initialUploadPhotos = ref<string[]>([])
 
-// 相机上传按钮点击 - 打开空对话框
-const handleCameraUpload = () => {
-  initialUploadPhotos.value = []
-  // 相机上传不关联白板页索引
-  lastUploadPageIndices.value = []
-  showCameraDialog.value = true
+// 上传作业按钮点击：先执行白板导出逻辑（handleBoardUpload）
+// handleBoardUpload 内部会根据现有白板页导出图片并打开上传对话框
+const handleUploadHomework = async () => {
+  await handleBoardUpload()
 }
 
 // 白板上传按钮点击 - 导出画布图片并打开对话框

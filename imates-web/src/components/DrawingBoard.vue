@@ -506,12 +506,16 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
           signaturePadRef.value.height = targetH
         }
 
-        // 背景图按 contain 缩放，紧贴上边缘
-        const scale = Math.min(containerW / img.width, targetH / img.height)
+        // 背景图按 contain 缩放，并在四周留出统一 padding，避免紧贴画布边缘
+        const padding = 24
+        const availableW = Math.max(containerW - padding * 2, 0)
+        const availableH = Math.max(targetH - padding * 2, 0)
+        const scale = Math.min(availableW / img.width, availableH / img.height)
         const drawW = img.width * scale
         const drawH = img.height * scale
-        const offsetX = (containerW - drawW) / 2
-        const offsetY = 0
+        const offsetX = padding + (availableW - drawW) / 2
+        // 水平方向居中，垂直方向贴紧上方 padding，不再居中
+        const offsetY = padding
         bgDrawParams.value = { scale, offsetX, offsetY }
       } else {
         bgDrawParams.value = null

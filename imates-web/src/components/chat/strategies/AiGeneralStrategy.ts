@@ -302,8 +302,11 @@ export class AiGeneralStrategy implements ChatStrategy {
     // 保存聊天记录
     await this.saveChatHistory()
     
-    // 发送编辑后的消息给AI
-    await this.sendMessage(newContent, { selectedModel: options?.selectedModel })
+    // 发送编辑后的消息给AI：跳过重新创建用户消息，只保留就地更新后的气泡
+    await this.sendMessage(newContent, {
+      selectedModel: options?.selectedModel,
+      skipUserMessage: true,
+    })
   }
   
   // 第17步：获取占位符文本

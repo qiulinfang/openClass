@@ -446,7 +446,7 @@ const tempScreenshots = ref<AttachedScreenshot[]>([])
 const tempDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
 
 // 最多允许挂载的截图数量（与 ScreenshotInputDialog 保持一致）
-const MAX_SCREENSHOTS = 5
+const MAX_SCREENSHOTS = 3
 
 // 处理截图捕获事件：接收 PdfPage 截图 blob，转换为 base64，并弹出输入对话框
 const handleScreenshotCaptured = async (blob: Blob) => {
@@ -551,7 +551,9 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
   aiTextbookStore.clearAttachedScreenshots()
   aiTextbookStore.clearScreenshotDrawingStates()
 
-  const firstShot = shots[0]
+  // 最多只保留前三张截图
+  const limitedShots = shots.slice(0, 3)
+  const firstShot = limitedShots[0]
   const dataUrl = firstShot.dataUrl
 
   try {
@@ -573,6 +575,7 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
 
     const fileName = `screenshot-${Date.now()}.jpg`
 
+    // 首图 imageData：用于截图接口（previewPictureQA）
     const imageData = {
       filePath: fileName,
       base64DataUrl: dataUrl,
@@ -581,8 +584,8 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
       fileSize: Math.round(dataUrl.length * 0.75),
     }
 
-    // 构建多图列表，包含所有截图
-    const imageList = shots.map((shot, index) => {
+    // 构建多图列表，包含最多前三张截图（全部放在 imageList 里传给 sendMessage）
+    const imageList = limitedShots.map((shot, index) => {
       const shotDataUrl = shot.dataUrl
       const shotFileName = `screenshot-${Date.now()}-${index}.jpg`
       return {
@@ -594,7 +597,7 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
       }
     })
 
-    // 通过 aiTextbookStore 发送消息，同时传入单图 imageData 和多图 imageList
+    // 通过 aiTextbookStore 发送消息：图片都挂在 imageList 上（最多3张），首图仍作为 imageData 走截图接口
     await aiTextbookStore.sendMessage(
       text,
       'mate',

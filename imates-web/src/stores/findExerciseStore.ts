@@ -117,18 +117,55 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       // 构建请求参数 - 去重 exercisesId
       const uniqueExerciseIds = [...new Set(questionsInFavor.value.map(q => q.bmNo).filter(id => id))].join(',')
       
-      // 参数验证
-      if (!config.value.knowledgeList || config.value.knowledgeList.trim() === '') {
+      const bmNoList = (config.value.bmNoList || '').trim()
+      const knowledgeList = (config.value.knowledgeList || '').trim()
+      const type = config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      const size = Math.max(1, pagination.value.pageSize)
+      const current = Math.max(1, pagination.value.currentPage + 1)
+      
+      if (bmNoList) {
+        const request = {
+          bmNoList,
+          exercisesId: uniqueExerciseIds,
+          type,
+          size,
+          current,
+        }
+        const result = await apiService.findSimilarQuestionsByBmNoList(request)
+        
+        result.questions.forEach((question: any) => {
+          question.atUserList = questionsInFavor.value.some(fav => fav.bmNo === question.bmNo)
+        })
+        
+        pagination.value.totalCount = result.totalCount
+        pagination.value.pageSize = result.pageSize
+        
+        if (result.questions.length === 0 && pagination.value.currentPage > 0) {
+          hasEmptyPage.value = true
+        }
+        
+        if (pagination.value.currentPage === 0) {
+          similarQuestions.value = result.questions
+          hasEmptyPage.value = false
+        } else {
+          similarQuestions.value.push(...result.questions)
+        }
+        
+        pagination.value.currentPage = result.currentPage - 1
+        return
+      }
+      
+      if (!knowledgeList) {
         console.error('知识点列表不能为空')
         return
       }
       
       const request: FindSimilarQuestionByKnowledgeRequest = {
-        knowledgeNo: config.value.knowledgeList,
+        knowledgeNo: knowledgeList,
         exercisesId: uniqueExerciseIds,
-        type: config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology',
-        size: Math.max(1, pagination.value.pageSize),        // 确保size至少为1
-        current: Math.max(1, pagination.value.currentPage + 1)  // 确保current至少为1
+        type,
+        size,
+        current,
       }
       
       const result = await apiService.findSimilarQuestionsByKnowledge(request)

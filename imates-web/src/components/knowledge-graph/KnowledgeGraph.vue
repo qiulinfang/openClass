@@ -58,7 +58,7 @@ import { showMessage } from '../../utils'
 import { apiService } from '../../services/api-service'
 import { authStorageService } from '../../services/auth-storage-service'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
-import { queryShijingshanKnowledgeId } from '../../utils/business/shijingshan-knowledge-utils'
+import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
 
 interface ChapterNode {
   id: string
@@ -493,30 +493,51 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
   }
   
   try {
-    // 第1步：检查是否是石景山学校的特殊业务逻辑
+    const subjectForApi = props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase()
+
+    const shijingshanBmNoList = await queryShijingshanBmNoList(
+      props.textbookId,
+      node.id,
+      node.name,
+      subjectForApi
+    )
+
+    if (shijingshanBmNoList && shijingshanBmNoList.trim()) {
+      const isBiology = props.subject === '生物' || props.subject === 'biology'
+      const isMath = props.subject === '数学' || props.subject === 'math'
+      const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+
+      router.push({
+        path: '/find-exercise',
+        query: {
+          bmNoList: shijingshanBmNoList.trim(),
+          subject: subjectParam,
+          token: authStorageService.getScopedStorageValue('token') || ''
+        }
+      })
+      return
+    }
+
     const shijingshanKnowledgeId = await queryShijingshanKnowledgeId(
       props.textbookId,
       node.id,
       node.name,
-      props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase()
+      subjectForApi
     )
     
     let knowledgeList: string
     
     if (shijingshanKnowledgeId) {
-      // 使用石景山学校特殊逻辑获取的知识点ID
       knowledgeList = shijingshanKnowledgeId
     } else {
-      // 使用默认逻辑：构建API请求（参考Android实现）
       const request = {
-        subject: props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase(),
+        subject: subjectForApi,
         param: [{
           textbook_id: props.textbookId,
           section_id: node.id
         }]
       }
       
-      // 调用API查询知识点ID
       knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
     }
     

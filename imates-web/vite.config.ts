@@ -182,6 +182,16 @@ export default defineConfig(({ mode }) => {
           attachBasicProxyLog(proxy, '/appupdate_test.json')
         },
       },
+        // 匹配以 "/ai" 开头的请求，转发到学班服务（与 /permission 相同）
+    '/ai': {
+        target: EDU_SERVICE_BASE,
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/ai')
+          // 如有需要，也可以仿照 /permission 加 proxyReq / proxyRes 日志
+        },
+      },
       // 匹配以 "/permission" 开头的请求，转发到学班服务（用于权限相关接口）
       '/permission': {
         target: EDU_SERVICE_BASE, // 学班服务地址（按环境切换）

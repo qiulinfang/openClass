@@ -60,11 +60,8 @@ const emit = defineEmits<{
 const triggerRef = ref<HTMLElement | null>(null)
 const popupRef = ref<HTMLElement | null>(null)
 
-// 简单调试日志（后续如不需要可整体搜索 [BubblePopup] 删除）
-const debugLog = (...args: unknown[]) => {
-  // 这里不做环境判断，方便排查问题；如果后续太吵可以加开关
-  console.log('[BubblePopup]', ...args)
-}
+// 简单调试日志：线上环境改为空实现，避免多余输出
+const debugLog = (..._args: unknown[]) => {}
 
 const isVisible = ref<boolean>(props.modelValue ?? false)
 

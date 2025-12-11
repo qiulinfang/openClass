@@ -175,6 +175,27 @@ export class MathJaxUtils {
     }
   }
 
+  /**
+   * 渲染指定元素中的数学公式并等待完成（用于截图等需要同步完成的场景）
+   * 不走队列，直接对单个元素调用 MathJax.typesetPromise
+   */
+  static async renderMathAndWait(element: HTMLElement | null): Promise<void> {
+    if (!element) return
+
+    await this.waitForMathJax()
+
+    if (typeof window !== 'undefined' && window.MathJax && window.MathJax.typesetPromise) {
+      try {
+        await window.MathJax.typesetPromise([element])
+        // 与批量渲染保持一致：渲染完成后禁用右键菜单等交互
+        this.disableMathJaxContextMenu(element)
+        this.renderedElements.add(element)
+      } catch (error) {
+        console.warn('MathJax 渲染单个元素错误(renderMathAndWait):', error)
+      }
+    }
+  }
+
   // 渲染整个文档中的数学公式（优化版本）
   static async renderAll(): Promise<void> {
     await this.waitForMathJax();

@@ -42,7 +42,9 @@ import type {
   BackendHistoryMessage,
   SSEPayload,
   ManageConversationMemoryRequest,
+  FindSimilarQuestionByBmNoRequest,
 } from '../types'
+import { date } from 'quasar'
 
 // 使用统一的类型定义，不再重复定义
 
@@ -637,9 +639,31 @@ export class ApiService {
         questions: [],
         totalCount: 0,
         currentPage: request.current,
-        pageSize: request.size
+        pageSize: request.size,
       }
     }
+  }
+
+  /**
+   * 根据 bmNoList 查找相似题目
+   * 目前复用按知识点查题接口：把 bmNoList 当作 knowledgeNo 传入
+   */
+  public async findSimilarQuestionsByBmNoList(request: FindSimilarQuestionByBmNoRequest): Promise<{
+    questions: any[]
+    totalCount: number
+    currentPage: number
+    pageSize: number
+  }> {
+    const mappedRequest: any = {
+      bmNoList: request.bmNoList,
+      exercisesId: request.exercisesId,
+      type: request.type,
+      size: request.size,
+      current: request.current,
+      totalCount: request.totalCount,
+    }
+
+    return this.findSimilarQuestionsByKnowledge(mappedRequest)
   }
 
   /**
@@ -704,7 +728,6 @@ export class ApiService {
         role: (message as any).chatRole ?? (message as any).role,
       }
 
-      
       // 2. 发送HTTP请求
       const response = await this.sendChatRequest(url, requestBody)
       
@@ -800,6 +823,152 @@ export class ApiService {
         : response.message ?? ''
     const trimmedChunk = String(rawMessage).trim()
 
+    // ========== 特殊处理：截图问答接口 /permission/previewPictureQA ==========
+    const raw = String(rawMessage)
+
+    // 兜底逻辑：对于 /permission/previewPictureQA，如果已经累计出了非空内容，
+    // 且当前帧不再包含任何 "data:" 片段，则视为后端在 end 之后返回的噪声帧，
+    // 直接按结束处理，避免继续通过 handleEmptyContent 触发新一轮轮询。
+    if (message.dstUrl === '/permission/previewPictureQA' && !raw.includes('data:') && accumulatedContent.length > 0) {
+      return this.handlePollingEnd(
+        messageId,
+        accumulatedContent,
+        response.data.sessionId,
+        message.sessionId,
+        onComplete,
+        onStream,
+      )
+    }
+
+    // 真正带 data: 的帧，继续走专用解析逻辑
+    if (message.dstUrl === '/permission/previewPictureQA' && raw.includes('data:')) {
+
+      const isEndFrame = raw.trim().endsWith('end')
+      // 按 "data:" 拆分，注意第一个片段可能是空串
+      const parts = raw
+        .split('data:')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      let accumulated = accumulatedContent
+      let latestHistory: BackendHistoryMessage[] | undefined
+      let agentStatus: string | undefined
+
+      for (const part of parts) {
+        try {
+          const jsonStr = part
+          if (!jsonStr) continue
+
+          const payload = JSON.parse(jsonStr) as SSEPayload
+
+          if (typeof payload.content === 'string' && payload.content.length > 0) {
+            accumulated += payload.content
+          }
+
+          if (Array.isArray(payload.history_messages) && payload.history_messages.length > 0) {
+            latestHistory = payload.history_messages as BackendHistoryMessage[]
+          }
+
+          // 无论 history_messages 是否为空，都要记录当前帧的 agent_status
+          // 这样像 { content: "", agent_status: "drawing", history_messages: [] }
+          // 这种纯控制帧也能正确触发前端的“绘图中”动画
+          if (typeof payload.agent_status === 'string' && payload.agent_status.length > 0) {
+            agentStatus = payload.agent_status
+          }
+        } catch (e) {
+          console.warn('[API Service] 预览截图接口 payload 解析失败:', { part, error: e })
+        }
+      }
+
+      // 如果既没有任何可见内容，也没有 history_messages，说明这只是一个控制帧（例如 drawing 状态），
+      // 不应当终止轮询，而是继续按空内容处理逻辑走下一轮 poll。
+      if (accumulated === accumulatedContent && (!latestHistory || latestHistory.length === 0)) {
+        // 如果是绘图状态，通知前端可以展示“绘图中”动画（不携带文本增量）
+        if (onStream && agentStatus === 'drawing') {
+          try {
+            onStream('', false)
+          } catch (e) {
+            console.warn('[API Service] 预览截图接口 onStream drawing 控制帧回调失败:', { error: e })
+          }
+        }
+
+        return this.handleEmptyContent(
+          message,
+          url,
+          onComplete,
+          onStream,
+          accumulatedContent,
+          messageId,
+          onHistoryUpdate,
+        )
+      }
+
+      // 如果存在 history_messages，则回调给前端（一次性）
+      if (onHistoryUpdate && latestHistory && latestHistory.length > 0) {
+        try {
+          onHistoryUpdate(latestHistory, agentStatus)
+        } catch (e) {
+          console.warn('[API Service] 预览截图接口 onHistoryUpdate 回调失败:', { error: e })
+        }
+      }
+
+      // 计算本帧新增的文本（相对于传入的 accumulatedContent）
+      const deltaText = accumulated.slice(accumulatedContent.length)
+
+      if (!isEndFrame) {
+        // 中间帧：如果有新增文本，按流式语义推给前端，然后继续轮询
+        if (onStream && deltaText) {
+          try {
+            onStream(deltaText, false)
+          } catch (e) {
+            console.warn('[API Service] 预览截图接口 onStream 中间帧回调失败:', { error: e })
+          }
+        }
+
+        const continueMessage = { ...message, reason: 'continue' }
+
+        // 为预览接口保持 1 秒轮询间隔
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        return await this.pollChatMessage(
+          continueMessage,
+          url,
+          onComplete,
+          onStream,
+          accumulated,
+          messageId,
+          onHistoryUpdate,
+        )
+      }
+
+      // 结束帧（以 end 结尾）：直接构造最终结果并返回（不再继续轮询）
+      const finalResult = {
+        success: true,
+        messageId,
+        reply: accumulated,
+        sessionId: response.data.sessionId || message.sessionId,
+        timestamp: Date.now(),
+      }
+
+      if (onComplete) {
+        try {
+          onComplete(finalResult)
+        } catch (e) {
+          console.warn('[API Service] 预览截图接口 onComplete 回调失败:', { error: e })
+        }
+      }
+
+      // 通知前端流式结束（如果有监听）
+      if (onStream) {
+        try {
+          onStream('', true)
+        } catch (e) {
+          console.warn('[API Service] 预览截图接口 onStream 结束回调失败:', { error: e })
+        }
+      }
+
+      return finalResult
+    }
+
     // 第1步：处理结束标记
     if (trimmedChunk === 'end') {
       return this.handlePollingEnd(
@@ -816,6 +985,7 @@ export class ApiService {
     let textChunk = ''
     let hasHistoryOnlyPayload = false
     let parsedPayload: SSEPayload | null = null
+    let agentStatus: string | undefined
     try {
       const raw = String(rawMessage).trim()
 
@@ -825,6 +995,11 @@ export class ApiService {
         if (jsonStr) {
           try {
             parsedPayload = JSON.parse(jsonStr) as SSEPayload
+
+            // 记录本帧的 agent_status，供 /permission/chats 等接口用于绘图中状态
+            if (typeof parsedPayload.agent_status === 'string' && parsedPayload.agent_status.length > 0) {
+              agentStatus = parsedPayload.agent_status
+            }
 
             if (typeof parsedPayload.content === 'string' && parsedPayload.content.length > 0) {
               // 正常内容帧：直接使用 content 作为文本片段
@@ -838,7 +1013,7 @@ export class ApiService {
               // 仅包含 history_messages 的控制帧，记录标记，后面避免回退到原始 rawMessage
               hasHistoryOnlyPayload = true
             }
-            
+
             // 第2.1步：如果有 history_messages，触发回调同步到前端
             if (
               onHistoryUpdate &&
@@ -849,6 +1024,32 @@ export class ApiService {
               onHistoryUpdate(
                 parsedPayload.history_messages as BackendHistoryMessage[],
                 parsedPayload.agent_status
+              )
+            }
+
+            // 增加与 /permission/previewPictureQA 类似的 drawing 控制帧处理
+            if (
+              message.dstUrl === '/permission/chats' &&
+              !parsedPayload.content &&
+              (!parsedPayload.history_messages || parsedPayload.history_messages.length === 0) &&
+              agentStatus === 'drawing'
+            ) {
+              if (onStream) {
+                try {
+                  onStream('', false)
+                } catch (e) {
+                  console.warn('[API Service] /permission/chats drawing 控制帧 onStream 回调失败:', { error: e })
+                }
+              }
+
+              return this.handleEmptyContent(
+                message,
+                url,
+                onComplete,
+                onStream,
+                accumulatedContent,
+                messageId,
+                onHistoryUpdate,
               )
             }
           } catch (e) {
@@ -864,6 +1065,35 @@ export class ApiService {
         messageId,
         error: e,
       })
+    }
+
+    // 如果是 /permission/chats 且仅为 drawing 控制帧（无文本、无 history），
+    // 则触发一次 onStream('', false) 通知前端“绘图中”，并继续轮询。
+    if (
+      message.dstUrl === '/permission/chats' &&
+      parsedPayload &&
+      agentStatus === 'drawing' &&
+      (!parsedPayload.content || parsedPayload.content.length === 0) &&
+      (!parsedPayload.history_messages || parsedPayload.history_messages.length === 0)
+    ) {
+      if (onStream) {
+        try {
+          onStream('', false)
+        } catch (e) {
+          console.warn('[API Service] /permission/chats drawing 控制帧 onStream 回调失败:', { error: e })
+        }
+      }
+
+      // 视为一帧“空内容”，继续轮询下一帧
+      return this.handleEmptyContent(
+        message,
+        url,
+        onComplete,
+        onStream,
+        accumulatedContent,
+        messageId,
+        onHistoryUpdate,
+      )
     }
 
     // 如果是仅携带 history_messages 的控制帧，则视为“无可见文本”，避免把 JSON 打到气泡中
@@ -956,6 +1186,12 @@ export class ApiService {
 
     // 设置为继续轮询并递归调用
     const continueMessage = { ...message, reason: 'continue' }
+
+    // 对截图问答接口（/permission/previewPictureQA）增加固定 1 秒的轮询间隔
+    if (message.dstUrl === '/permission/previewPictureQA') {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+
     return await this.pollChatMessage(
       continueMessage,
       url,
@@ -981,6 +1217,12 @@ export class ApiService {
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ) {
     const continueMessage = { ...message, reason: 'continue' }
+
+    // 对截图问答接口（/permission/previewPictureQA）增加固定 1 秒的轮询间隔
+    if (message.dstUrl === '/permission/previewPictureQA') {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+
     return await this.pollChatMessage(
       continueMessage,
       url,
@@ -2736,13 +2978,20 @@ export class ApiService {
    * 获取习题发布分页列表
    * @param pageNumber 当前页码（从0开始）
    * @param pageSize 分页大小
+   * @param updateTime 最后更新时间（可选）
+   * @param subject 学科（可选）
    * @returns Promise<TopicPackagePageResponse | null>
    */
-  async getTopicPackagePage(pageNumber: number = 0, pageSize: number = 20): Promise<TopicPackagePageResponse | null> {
+  async getTopicPackagePage(
+    pageNumber: number = 0,
+    pageSize: number = 20,
+    updateTime?: string,
+    subject?: string,
+  ): Promise<TopicPackagePageResponse | null> {
     try {
       const response = await httpClient.post<TopicPackagePageApiResponse>(
         '/blw-edu-yb/api/app/topic-package-page',
-        { pageNumber, pageSize }
+        { pageNumber, pageSize, updateTime, subject }
       )
       
       // 兼容两种响应结构：

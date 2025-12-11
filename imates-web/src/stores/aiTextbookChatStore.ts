@@ -77,8 +77,10 @@ const buildAiTextbookMessage = ({
     return {
       sessionId,
       newValue: isNewSession ? '1' : '0',
+      // 文本内容：使用用户输入的 content
       coversation: content,
-      question: questionDataUrl,
+      // 截图会话下，question 字段不用图片或文字，占位为空字符串即可
+      question: '',
       answer: '',
       name: userId,
       reason: 'start',
@@ -88,7 +90,8 @@ const buildAiTextbookMessage = ({
       subject: '',
       dstUrl: '/permission/previewPictureQA',
       focus, // 引用的消息内容
-      imageList, // 多图数据
+      // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
+      imageList,
     }
   }
 
@@ -180,6 +183,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         // AI 消息需要 selectedModel 来显示正确的头像
         // 优先从旧消息取，否则默认 'mate'
         selectedModel: sender === 'ai' ? (oldMsg?.selectedModel || 'mate') : undefined,
+        originalDstUrl: oldMsg?.originalDstUrl,
       }
 
       return bubble
@@ -371,8 +375,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   ): Promise<void> => {
     // 第1步：创建并添加用户消息（可选）
     if (!skipUserMessage) {
-      // 如果有多张图片，则创建 multi_image 类型的消息气泡
-      if (imageList && imageList.length > 1) {
+      // 如果有图片列表，则创建 multi_image 类型的消息气泡
+      if (imageList && imageList.length > 0) {
         const standardImageList = imageList
           .filter((img) => !!img.base64DataUrl)
           .map((img) => ({
@@ -455,7 +459,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const builderImageList = imageList && imageList.length > 0
         ? imageList
             .filter((img) => !!img.base64DataUrl)
-            .map((img) => ({ base64DataUrl: img.base64DataUrl }))
+            .map((img) => ({ base64DataUrl: img.base64DataUrl! }))
         : undefined
 
       // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
@@ -473,7 +477,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         currentSessionId.value = newSessionId
         isNewSession.value = true
       }
-      const shouldUseScreenshotApi = !!builderImageData
+      // 只要有单图或多图中的任意一种，就应走截图接口 /permission/previewPictureQA
+      const shouldUseScreenshotApi = !!builderImageData || !!(builderImageList && builderImageList.length > 0)
 
       const aiMessage = buildAiTextbookMessage({
         sessionId: sessionIdForBackend,
@@ -488,21 +493,26 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         imageList: builderImageList,
       })
 
-      // 调试日志：验证文字和图片是否一起发送
-      if (builderImageData) {
-        console.log('[AI_TEXTBOOK] 📤 发送截图消息:', {
-          coversation: aiMessage.coversation,
-          question: aiMessage.question?.substring(0, 50) + '...', // 只显示前50个字符
-          hasImage: !!aiMessage.question?.startsWith('data:image'),
-        })
-      }
+      // 调试日志：验证本次请求将走哪个接口，以及是否携带图片/多图
+      console.log('[AI_TEXTBOOK] sendMessage 构建请求', {
+        dstUrl: aiMessage.dstUrl,
+        hasBuilderImageData: !!builderImageData,
+        imageListCount: builderImageList?.length || 0,
+      })
+
+      // 记录本次 AI 回复对应的后端接口地址，供后续刷新(handleRefresh) 严格跟随原接口
+      updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
 
       useScreenshotApi.value = shouldUseScreenshotApi
       isNewSession.value = false
-      
-      // 第6步：累积内容（用于流式更新）
+
+      // 第6步：调用API发送消息
+      // 对于截图接口和文本接口，统一使用 onStream 累积内容：
+      // - drawing 控制帧：chunk 为空字符串，只打开 isStreaming（用于骨架屏）；
+      // - talking/内容帧：chunk 为非空字符串，立即追加到 accumulatedContent 并更新 content。
+
+      // 在 sendMessage 作用域内维护一份本地累积内容，仅用于 UI 展示
       let accumulatedContent = ''
-      // 第7步：调用API发送消息（带流式更新回调）
       const response = await apiService.sendChatMessage(
         aiMessage,
         // onComplete: 完成回调
@@ -511,14 +521,17 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           if (isResponseSuccess(finalResponse)) {
             const updatedMessage = updateMessageSuccess(
               tempReply,
-              finalResponse.reply || accumulatedContent || '',
+              finalResponse.reply || '',
               finalResponse.messageId
             )
             updateMessage(tempReplyId, updatedMessage)
-            
+
+            // 确保 originalDstUrl 不被覆盖
+            updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
+
             // 增加响应次数
             chatResponseTimes.value++
-            
+
             // 保存聊天历史
             saveChatHistory()
           } else {
@@ -530,36 +543,49 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
               imageData
             )
             updateMessage(tempReplyId, errorMessage)
+
+            // 确保错误消息也保留 originalDstUrl
+            updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
           }
         },
         // onStream: 流式更新回调
         (chunk: string, isComplete: boolean) => {
           if (isComplete) {
-            // 流式完成，标记消息不再流式更新
+            // 流式完成，关闭“绘图中”动画
             updateMessage(tempReplyId, { isStreaming: false })
-          } else {
-            // 累积内容并实时更新消息
-            accumulatedContent += chunk
-            updateMessage(tempReplyId, {
-              content: accumulatedContent,
-              isStreaming: true
-            })
+            return
           }
-        },
-        // onHistoryUpdate: 基于后端全量快照同步历史
-        (history: BackendHistoryMessage[], agentStatus?: string) => {
-          if (!history || history.length === 0) return
-          messages.value = mapHistoryToChatBubbles(history, agentStatus)
-          // 同步保存历史，确保刷新后与后端一致
-          saveChatHistory().catch((error) => {
-            console.warn('[AI_TEXTBOOK] 同步 history_messages 保存本地历史失败:', error)
+
+          // drawing 控制帧：chunk 为空字符串，仅标记为流式中，供骨架屏使用
+          if (!chunk) {
+            updateMessage(tempReplyId, { isStreaming: true })
+            return
+          }
+
+          // talking / 内容帧：累积内容并立即更新到气泡
+          accumulatedContent += chunk
+          updateMessage(tempReplyId, {
+            content: accumulatedContent,
+            isStreaming: true,
           })
         },
       )
+
+      // onHistoryUpdate 原始实现（已注释，只保留逻辑供参考）：
+      // // onHistoryUpdate: 基于后端全量快照同步历史
+      // // 说明：策略A：以前端以 history 为准，直接覆盖本地 messages
+      // (history: BackendHistoryMessage[], agentStatus?: string) => {
+      //   if (!history || history.length === 0) return
+      //   const newMessages = mapHistoryToChatBubbles(history, agentStatus)
+      //   messages.value = newMessages
+      //   saveChatHistory().catch((error) => {
+      //     console.warn('[AI_TEXTBOOK] 同步 history_messages 保存本地历史失败:', error)
+      //   })
+      // }
       
       // 第8步：处理响应（如果轮询已完成，这里response已经是最终结果）
       // 注意：由于使用了回调，这里主要是确保没有错误
-      if (!isResponseSuccess(response) && !accumulatedContent) {
+      if (!isResponseSuccess(response)) {
         // 如果既没有成功响应，也没有累积内容，标记为错误
         const errorMessage = updateMessageError(
           tempReply,
@@ -568,6 +594,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           imageData
         )
         updateMessage(tempReplyId, errorMessage)
+
+        // 保底：失败场景也记录 originalDstUrl
+        updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
       }
     } catch (error) {
       console.error('发送消息失败:', error)
@@ -622,7 +651,22 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     // 第3步：保存原始内容，用于重新发送
     const originalContent = message.originalMessage
     const originalQuotedMessage = message.quotedMessage
-    const originalImageData = message.imageData || imageData
+    const originalImageData = (message.imageData as ChatImageData | undefined) || imageData
+
+    // 如果是多图截图气泡，提取原始 imageList，确保重试时仍然使用截图接口
+    let originalImageList: ChatImageData[] | undefined
+    if (message.messageType === 'multi_image' && Array.isArray(message.imageList) && message.imageList.length > 0) {
+      originalImageList = message.imageList
+        .filter((img) => !!img.base64DataUrl)
+        .map((img) => ({
+          filePath: img.filePath || '',
+          width: img.width || 0,
+          height: img.height || 0,
+          fileSize: img.fileSize || 0,
+          base64DataUrl: img.base64DataUrl!,
+          isLargeImage: img.isLargeImage || false,
+        }))
+    }
     
     if (!originalContent) {
       showMessage('原始消息内容不存在', 'error')
@@ -647,6 +691,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         false, // skipUserMessage: false，重新创建用户消息
         undefined, // focus: 暂不传递
         originalQuotedMessage, // 保留原始引用信息用于 UI 展示
+        originalImageList, // 多图截图场景：确保仍然按截图接口发送
       )
     } catch (sendError) {
       console.error('[AI_TEXTBOOK] retryAiMessage.sendFailed', sendError)

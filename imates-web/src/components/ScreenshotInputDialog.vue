@@ -80,7 +80,7 @@ import type { AttachedScreenshot } from '@/types'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 
 // 最多允许挂载的截图数量
-const MAX_SCREENSHOTS = 5
+const MAX_SCREENSHOTS = 3
 
 // DrawingBoard 暴露的方法类型
 interface DrawingBoardExposed {
@@ -324,6 +324,12 @@ const handleConfirm = async () => {
 
 // 继续截图：返回当前截图数组并关闭对话框，交给父组件继续触发截图流程
 const handleAddMore = async () => {
+  // 安全保护：如果当前缩略图数量已达上限，给出提示并中止
+  if (thumbnailList.value.length >= MAX_SCREENSHOTS) {
+    showMessage(`最多只能添加${MAX_SCREENSHOTS}张截图`, 'warning')
+    return
+  }
+
   const shots = await exportCurrentScreenshot()
   if (!shots) return
 

@@ -4,6 +4,7 @@
       <div
         v-if="isOpen"
         class="dialog-overlay"
+        :style="{ zIndex: props.zIndex }"
         @click.self="handleOverlayClick"
         @mousemove="handleDrag"
         @mouseup="stopDrag"
@@ -232,6 +233,7 @@ interface Props {
   cancelText?: string // 取消按钮文本
   confirmDisabled?: boolean // 确定按钮是否禁用
   confirmVariant?: 'primary' | 'danger' // 确认按钮样式：普通 / 删除
+  zIndex?: number // 遮罩层 z-index，默认 9000
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -249,6 +251,7 @@ const props = withDefaults(defineProps<Props>(), {
   cancelText: '取消',
   confirmDisabled: false,
   confirmVariant: 'primary',
+  zIndex: 9000,
 })
 
 const emit = defineEmits<{

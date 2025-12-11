@@ -92,7 +92,8 @@ export function createTempAiReplyMessage(
     type: 'ai',
     timestamp: new Date().toISOString(),
     sender: 'ai',
-    isStreaming: true,
+    // 初始不处于流式状态，避免在还未收到任何服务端帧时就展示骨架屏
+    isStreaming: false,
     selectedModel: selectedModel || 'mate', // 保存当前模式
     sessionId,
   }
@@ -111,7 +112,8 @@ export function createTempTeacherReplyMessage(): { message: ChatBubble; id: stri
     type: 'teacher',
     timestamp: new Date().toISOString(),
     sender: 'teacher',
-    isStreaming: true
+    // 同样初始为非流式状态
+    isStreaming: false,
   }
   
   return { message: tempReplyMessage, id: tempReplyId }

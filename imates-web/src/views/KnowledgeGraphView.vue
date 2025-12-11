@@ -188,7 +188,7 @@ import LearningStatusControlPanel from '../components/debug/LearningStatusContro
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { authStorageService } from '../services/auth-storage-service'
 import { showMessage } from '../utils'
-import { queryShijingshanKnowledgeId } from '../utils/business/shijingshan-knowledge-utils'
+import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../utils/business/shijingshan-knowledge-utils'
 import {
   convertToChineseNumber
 } from '../utils/business/chapter-utils'
@@ -608,7 +608,6 @@ const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; l
   }
 }
 
-// 处理 newGrap 的“去练习”逻辑（复用 KnowledgeGraph 的业务）
 const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string; level?: number | null }) => {
   const subjectLabel = currentSubjectLabel.value
 
@@ -629,6 +628,29 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
         : subjectLabel.toLowerCase()
 
     // 2. 石景山特殊逻辑
+    const shijingshanBmNoList = await queryShijingshanBmNoList(
+      textbookId,
+      node.id,
+      node.name,
+      subjectForApi
+    )
+
+    if (shijingshanBmNoList && shijingshanBmNoList.trim()) {
+      const isBiology = subjectLabel === '生物' || subjectLabel === 'biology'
+      const isMath = subjectLabel === '数学' || subjectLabel === 'math'
+      const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+
+      router.push({
+        path: '/find-exercise',
+        query: {
+          bmNoList: shijingshanBmNoList.trim(),
+          subject: subjectParam,
+          token: authStorageService.getScopedStorageValue('token') || ''
+        }
+      })
+      return
+    }
+
     const shijingshanKnowledgeId = await queryShijingshanKnowledgeId(
       textbookId,
       node.id,

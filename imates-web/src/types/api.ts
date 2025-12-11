@@ -24,6 +24,10 @@ export interface AiChatMessageRequest {
   explanation?: string
   /** 引用的消息列表，用于告诉后端当前消息重点参考哪些历史消息 */
   focus?: QuotedMessageInfo[]
+  /** 截图会话使用的图片列表（单图或多图），目前用于教材/截图场景 */
+  imageList?: Array<{
+    base64DataUrl: string
+  }>
 }
 
 /** 聊天响应接口 */
@@ -89,6 +93,15 @@ export interface FindSimilarQuestionByKnowledgeRequest {
   type: string
   size: number        // 修复：与后端字段名一致
   current: number     // 修复：与后端字段名一致
+  totalCount?: number
+}
+
+export interface FindSimilarQuestionByBmNoRequest {
+  bmNoList: string
+  exercisesId: string
+  type: string
+  size: number
+  current: number
   totalCount?: number
 }
 

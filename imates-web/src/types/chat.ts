@@ -90,6 +90,7 @@ export interface ChatBubble {
     content: string
     sender: 'user' | 'ai' | 'teacher'
   }
+  originalDstUrl?: string
 }
 
 // ========== 转发相关类型 ==========

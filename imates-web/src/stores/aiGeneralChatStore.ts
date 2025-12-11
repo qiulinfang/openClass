@@ -196,7 +196,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       type: 'ai',
       timestamp: new Date().toISOString(),
       sender: 'ai',
-      isStreaming: true,
+      // 初始不处于流式状态，避免在还未收到任何服务端帧时就展示骨架屏
+      isStreaming: false,
       selectedModel: selectedModel || 'mate' // 保存当前模式
     }
     
@@ -266,7 +267,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         // onComplete：轮询结束
         (finalResponse) => {
           // 如果有 history_messages 同步，这里的 onComplete 主要用于兜底
-          // 正常情况下 messages 已经被 onHistoryUpdate 覆盖
+          // 原逻辑：正常情况下 messages 会被 onHistoryUpdate 覆盖
           const index = messages.value.findIndex((m) => m.id === tempReplyId)
           if (index >= 0) {
             messages.value[index] = {
@@ -295,13 +296,15 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
             }
           }
         },
-        // onHistoryUpdate：后端全量历史同步（策略A：以 history 为准，直接覆盖本地 messages）
-        (history: BackendHistoryMessage[], agentStatus?: string) => {
-          if (!history || history.length === 0) return
-          const newMessages = mapHistoryToChatBubbles(history, agentStatus)
-          messages.value = newMessages
-        },
       )
+
+      // onHistoryUpdate 原始实现（已注释，只保留覆盖逻辑供参考）：
+      // // onHistoryUpdate：后端全量历史同步（策略A：以 history 为准，直接覆盖本地 messages）
+      // (history: BackendHistoryMessage[], agentStatus?: string) => {
+      //   if (!history || history.length === 0) return
+      //   const newMessages = mapHistoryToChatBubbles(history, agentStatus)
+      //   messages.value = newMessages
+      // }
       
       // 第7步：保存聊天历史
       await saveChatHistory()

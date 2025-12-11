@@ -188,7 +188,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       type: 'ai',
       timestamp: new Date().toISOString(),
       sender: 'ai',
-      isStreaming: true,
+      // 题目聊天场景不需要骨架屏，这里不标记为流式中，避免触发 StreamingMessage 的 skeleton-card
+      isStreaming: false,
       selectedModel: selectedModel || 'mate' // 保存当前模式
     }
     messages.value.push(tempReply)
@@ -227,6 +228,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
             messages.value[index] = {
               ...tempReply,
               content: finalResponse.reply || accumulatedContent || '回复失败',
+              // 最终回复时也保持 isStreaming 为 false，仅更新内容
               isStreaming: false,
               messageId: finalResponse.messageId,
             }
@@ -238,14 +240,16 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
           if (isComplete) {
             messages.value[index] = {
               ...messages.value[index],
+              // 结束时保持 isStreaming 为 false
               isStreaming: false,
             }
           } else {
             accumulatedContent += chunk
             messages.value[index] = {
               ...messages.value[index],
+              // 流式中仅逐步累积内容，不开启 isStreaming，避免 skeleton-card
               content: accumulatedContent,
-              isStreaming: true,
+              isStreaming: false,
             }
           }
         },

@@ -45,5 +45,6 @@ export interface FindExerciseConfig {
   apiBaseURL: string
   subject: Subject
   token: string
-  knowledgeList: string
+  knowledgeList?: string
+  bmNoList?: string
 }

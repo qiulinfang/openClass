@@ -1,7 +1,7 @@
 <template>
   <DraggableDialog
     v-model="localVisible"
-    title="相机上传"
+    title="上传作业"
     :initial-width="600"
     :initial-height="500"
     :min-width="400"
@@ -51,17 +51,6 @@
       </div>
     </div>
 
-    <!-- 隐藏的文件输入（用于选择照片） -->
-    <input
-      ref="fileInputRef"
-      type="file"
-      accept="image/*"
-      capture="environment"
-      multiple
-      style="display: none"
-      @change="handleFileSelect"
-    />
-
     <!-- 图片预览：直接使用 ImageViewer（内部 q-dialog 会 Teleport 到 body） -->
     <ImageViewer
       v-model="previewVisible"
@@ -76,8 +65,7 @@ import DraggableDialog from '@/components/DraggableDialog.vue'
 import CommonActionButton from '@/components/CommonActionButton.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
-import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
-import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
+import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 
 interface Props {
@@ -130,65 +118,29 @@ watch(
   }
 )
 
-// 图片选择适配器（根据环境自动选择 Android / Web）
-const imagePickerAdapter: IImagePickerAdapter = ImagePickerAdapterFactory.getAdapter()
+// 全局图片选择器（调起 ImagePicker 组件）
+const { pickImage } = useImagePicker()
 
-// 打开相册/文件选择
+// 打开图片选择器（相册 / 拍照）
 const openCamera = async () => {
   try {
-    const env = ImagePickerAdapterFactory.getEnvironment()
+    const imageInfo = await pickImage()
 
-    // 在 Android 环境下优先走原生“相册选择”
-    if (env === 'android' && imagePickerAdapter.isAvailable()) {
-      const imageInfo = await imagePickerAdapter.selectFromGallery()
-
-      // 用户取消
-      if (!imageInfo) {
-        return
-      }
-
-      if (imageInfo.base64DataUrl) {
-        photos.value.push(imageInfo.base64DataUrl)
-      } else {
-        console.error('[CameraUploadDialog] 原生相册返回的数据缺少 base64DataUrl')
-        showMessage('选择图片失败，请重试', 'error')
-      }
-
+    // 用户取消
+    if (!imageInfo) {
       return
     }
 
-    // 其他环境（或适配器不可用）回退到浏览器文件选择
-    fileInputRef.value?.click()
+    if (imageInfo.base64DataUrl) {
+      photos.value.push(imageInfo.base64DataUrl)
+    } else {
+      console.error('[CameraUploadDialog] ImagePicker 返回的数据缺少 base64DataUrl')
+      showMessage('选择图片失败，请重试', 'error')
+    }
   } catch (error) {
     console.error('[CameraUploadDialog] 打开相册/选择图片失败:', error)
-    // 出错时也回退到浏览器文件选择，至少在 H5 环境可以用
-    fileInputRef.value?.click()
+    showMessage('选择图片失败，请重试', 'error')
   }
-}
-
-// 处理文件选择
-const handleFileSelect = (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const files = input.files
-  
-  if (!files || files.length === 0) return
-  
-  // 读取所有选中的文件
-  Array.from(files).forEach((file) => {
-    if (!file.type.startsWith('image/')) return
-    
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const result = e.target?.result as string
-      if (result) {
-        photos.value.push(result)
-      }
-    }
-    reader.readAsDataURL(file)
-  })
-  
-  // 清空 input，允许重复选择同一文件
-  input.value = ''
 }
 
 // 打开预览

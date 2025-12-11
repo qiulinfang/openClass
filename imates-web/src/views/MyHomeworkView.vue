@@ -12,7 +12,7 @@
           <CommonSelect
             v-model="selectedSubject"
             :options="subjects"
-            placeholder="请选择学科"
+            placeholder="全部"
           />
         </div>
       </div>
@@ -79,13 +79,19 @@ const today = new Date().toISOString().slice(0, 10)
 const selectedDate = ref(today)
 
 const subjects = [
-  { label: '数学', value: 'math' },
-  { label: '生物', value: 'biology' },
-  { label: '物理', value: 'physics' },
-  { label: '化学', value: 'chemistry' },
+  { label: '全部', value: '' },
+  { label: '语文', value: '1' },
+  { label: '数学', value: '2' },
+  { label: '英语', value: '3' },
+  { label: '物理', value: '4' },
+  { label: '化学', value: '5' },
+  { label: '生物', value: '6' },
+  { label: '政治', value: '7' },
+  { label: '历史', value: '8' },
+  { label: '地理', value: '9' },
 ]
 
-const selectedSubject = ref('math')
+const selectedSubject = ref('')
 
 const { renderMessageContent } = useMessageRenderer()
 const showImagePreview = ref(false)
@@ -114,7 +120,12 @@ const fetchTopicPackages = async (reset = false) => {
   
   loading.value = true
   try {
-    const result = await apiService.getTopicPackagePage(pageNumber.value, pageSize.value)
+    const result = await apiService.getTopicPackagePage(
+      pageNumber.value,
+      pageSize.value,
+      selectedDate.value || undefined,
+      selectedSubject.value || undefined,
+    )
     
     if (result?.records) {
       const records = result.records
@@ -157,9 +168,10 @@ const handleLoadMore = async () => {
 const homeworkList = computed(() => {
   return topicList.value.map((pkg, index) => {
     const firstTopic = pkg.topicList && pkg.topicList.length > 0 ? pkg.topicList[0] : null
-    // 题干内容：去掉可能存在的 main: 前缀
+    // 题干内容：去掉可能存在的 main: 前缀（支持前置空白和重复 main:）
     const rawQuestionContent = firstTopic?.questionData || ''
-    const cleanedQuestionContent = rawQuestionContent.replace(/^main:\s*/i, '')
+    const cleanedQuestionContent = rawQuestionContent.replace(/^(\s*main:\s*)+/i, '')
+    console.log("2222",cleanedQuestionContent)
     return {
       id: pkg.id || String(index + 1),
       bmNo: pkg.bmNo || String(index + 1),
@@ -207,12 +219,14 @@ const goAnswer = (item: any) => {
   // 将题目列表存入 homeworkStore
   const exerciseItems: ExerciseItem[] = payload.map((topic: any, index: number) => {
     const bmNo = topic.bmNo || item.bmNo || String(index + 1)
-    const question = topic.questionData || item.questionData || ''
+    const rawQuestion = topic.questionData || item.questionData || ''
+    const question = rawQuestion.replace(/^(\s*main:\s*)+/i, '')
     // 优先使用 topic 自身的解析和答案，其次才退回到套餐级字段
     const answer = topic.answer || item.answer || ''
     const explanation =
       topic.explanation || topic.analysisData || item.explanation || ''
-    const questionData = topic.questionData || item.questionData || ''
+    const rawQuestionData = topic.questionData || item.questionData || ''
+    const questionData = rawQuestionData.replace(/^(\s*main:\s*)+/i, '')
 
     // 先展开 item，把作业级字段全部带过去，再覆盖题目级别字段
     const merged = {

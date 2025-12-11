@@ -259,7 +259,8 @@ onMounted(async () => {
       apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
       subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
       token: (route.query.token as string) || authStorageService.getScopedStorageValue('token') || '',
-      knowledgeList: (route.query.knowledgeList as string) || ''
+      knowledgeList: (route.query.knowledgeList as string) || '',
+      bmNoList: (route.query.bmNoList as string) || ''
     }
     // 初始化store和获取数据
     await findExerciseStore.initializeStore(config)

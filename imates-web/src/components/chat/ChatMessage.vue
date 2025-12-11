@@ -106,7 +106,7 @@
                     :content="message.content"
                     :is-streaming="message.isStreaming"
                     :typewriter-speed="30"
-                    :enable-typewriter="isLastMessage && !!message.isStreaming"
+                    :enable-typewriter="false"
                     :ref="(el) => setStreamingRef(el)"
                   />
                   <!-- 用户消息：直接渲染 -->
@@ -262,6 +262,8 @@ import {
   type Ref,
   watch,
 } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
@@ -271,6 +273,7 @@ import { useAiGeneralChatStore } from '../../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
 import { useTeacherGeneralChatStore } from '../../stores/teacherGeneralChatStore'
 import { useQuestionStore } from '../../stores/questionStore'
+import { useHomeworkStore } from '../../stores/homeworkStore'
 import { useTeacherExerciseChatStore } from '../../stores/teacherExerciseChatStore'
 import { getUserInfo, getSubject } from '../../services/auth-storage-service'
 import VoiceMessage from './VoiceMessage.vue'
@@ -286,7 +289,6 @@ import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import shareIcon from '/icons/share.svg'
 import refreshIcon from '/icons/refresh.svg'
-import avantarIcon from '/icons/avantar.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
 import RepresentativeIcon from '/icons/Representative.svg'
 import GuruIcon from '/icons/Guru.svg'
@@ -348,6 +350,21 @@ const aiTextbookStore = useAiTextbookChatStore()
 const teacherGeneralStore = useTeacherGeneralChatStore()
 const teacherExerciseStore = useTeacherExerciseChatStore()
 const questionStore = useQuestionStore()
+const homeworkStore = useHomeworkStore()
+const route = useRoute()
+
+// 统一的 currentQuestion：根据场景选择来源（与 ExerciseSolveView 保持一致）
+const { currentQuestion: exerciseCurrentQuestion } = storeToRefs(questionStore)
+const { currentQuestion: homeworkCurrentQuestion } = storeToRefs(homeworkStore)
+
+const isFromHomework = computed(() => {
+  const scene = route.query.scene as string | undefined
+  return scene === 'homework' || route.name === 'homeworkExercise'
+})
+
+const currentQuestion = computed(() => {
+  return isFromHomework.value ? homeworkCurrentQuestion.value : exerciseCurrentQuestion.value
+})
 
 // 重发相关状态
 const isRetrying = ref(false)
@@ -376,10 +393,10 @@ const aiAvatarIcon = computed(() => {
   }
   // 如果是老师消息，使用默认老师头像
   if (props.message.sender === 'teacher') {
-    return avantarIcon
+    return DeskmateIcon
   }
   // 默认使用AI头像
-  return avantarIcon
+  return DeskmateIcon
 })
 
 // 移除调试日志以提高性能
@@ -401,7 +418,7 @@ const handleRetry = async () => {
       case 'ai-exercise':
         await aiExerciseStore.retryMessage(
           props.message.id,
-          questionStore.currentQuestion,
+          currentQuestion.value,
           userInfo,
           subject,
           props.message.selectedModel || 'mate',
@@ -462,7 +479,7 @@ const canForward = computed(() => {
   if (props.type === 'ai-exercise') {
     // AI练习场景：只有在教师答疑可用时才显示转发按钮
     // 条件：有选中题目 && 可以查看答案（与 ExerciseSolveView 的 canUseAskTeacher 逻辑一致）
-    return questionStore.currentQuestion !== null && aiExerciseStore.canViewAnswer
+    return currentQuestion.value !== null && aiExerciseStore.canViewAnswer
   }
 
   return false
@@ -508,7 +525,16 @@ const actionButtons = computed(() => {
   }
 
   const isUser = props.message.sender === 'user'
-  const canShow = isUser || !props.message.isStreaming
+  let canShow = false
+
+  if (isUser) {
+    // 用户消息：只要是最后一条、满足前置条件即可显示按钮
+    canShow = true
+  } else {
+    // AI/老师消息：必须回复已结束且已有内容（或错误文案）才显示按钮
+    const hasContentOrError = !!props.message.content || !!props.message.isError
+    canShow = !props.message.isStreaming && hasContentOrError
+  }
 
   if (!canShow) {
     return buttons
@@ -928,6 +954,7 @@ const handleRefresh = async () => {
       storeMessages = aiGeneralStore.messages
       break
     case 'ai-textbook':
+      console.log('刷新AI教材消息', props.message)
       storeMessages = aiTextbookStore.messages
       break
     case 'teacher-general':
@@ -973,6 +1000,49 @@ const handleRefresh = async () => {
     })
     return
   }
+  // 方案A：刷新严格跟随原接口
+  // 仅当当前 AI 消息最初是通过 /permission/previewPictureQA 生成时，刷新才携带截图信息；
+  // 如果最初走的是 /permission/chats，则刷新也保持走文本接口，不再从历史中补图。
+  let textbookImageData = undefined as ChatBubble['imageData'] | undefined
+  let textbookImageList = undefined as ChatBubble['imageList'] | undefined
+  let shouldUseScreenshotOnRefresh = false
+
+  if (props.type === 'ai-textbook') {
+    const originalDstUrl = props.message.originalDstUrl
+    shouldUseScreenshotOnRefresh = originalDstUrl === '/permission/previewPictureQA'
+
+    if (shouldUseScreenshotOnRefresh) {
+      // 对于 ai-textbook 场景，可能存在「一条纯图片 + 一条纯文字」的组合：
+      // 此时 userMessage 往往是纯文字，需要向前再找一条带图片的用户消息，
+      // 以确保刷新时仍然走 /permission/previewPictureQA。
+      textbookImageData = userMessage.imageData
+      textbookImageList = userMessage.imageList
+
+      const currentIndexInStore = storeMessages.findIndex((msg) => msg.id === userMessage.id)
+      if (currentIndexInStore > 0) {
+        for (let i = currentIndexInStore - 1; i >= 0; i--) {
+          const prev = storeMessages[i]
+          if (prev.sender !== 'user') continue
+          if (prev.imageData?.base64DataUrl || (prev.imageList && prev.imageList.length > 0)) {
+            textbookImageData = prev.imageData || textbookImageData
+            textbookImageList = prev.imageList || textbookImageList
+            break
+          }
+        }
+      }
+    }
+  }
+
+  console.log('[ChatMessage][handleRefresh]', {
+    type: props.type,
+    aiMessageId: props.message.id,
+    userMessageId: userMessage.id,
+    originalDstUrl: props.message.originalDstUrl,
+    shouldUseScreenshotOnRefresh,
+    hasUserImageData: !!userMessage.imageData?.base64DataUrl,
+    hasTextbookImageData: !!textbookImageData?.base64DataUrl,
+    textbookImageListCount: textbookImageList?.length || 0,
+  })
 
   // 使用用户消息的内容重新发送
   try {
@@ -996,7 +1066,7 @@ const handleRefresh = async () => {
         }
         await aiExerciseStore.sendMessage(
           userMessage.content,
-          questionStore.currentQuestion,
+          currentQuestion.value,
           userInfo,
           subject,
           'mate',
@@ -1028,9 +1098,12 @@ const handleRefresh = async () => {
         await aiTextbookStore.sendMessage(
           userMessage.content,
           'mate',
-          userMessage.imageData,
+          shouldUseScreenshotOnRefresh ? textbookImageData : undefined,
           false,
-          true // skipUserMessage: true，跳过创建用户消息
+          true, // skipUserMessage: true，跳过创建用户消息
+          undefined,
+          undefined,
+          shouldUseScreenshotOnRefresh ? textbookImageList : undefined,
         )
         break
       case 'teacher-general':

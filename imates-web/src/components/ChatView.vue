@@ -2177,40 +2177,23 @@ const cleanupGlobalEventListeners = () => {
  * 作用：初始化聊天消息、设置事件监听器、配置语音识别等
  */
 onMounted(async () => {
-  // 步骤0.5：创建策略实例
   createStrategy()
-
-  // 步骤1：初始化聊天消息
   await initializeMessages()
-  // 步骤1.5：初始化完消息后滚动到底部
   await scrollToBottom()
-
-  // 初始化消息计数 - 通过策略接口获取消息
   lastMessageCount.value = chatStrategy.value?.getMessages?.().length ?? 0
-
-  // 添加滚动监听，检测用户是否在底部
   nextTick(() => {
     const container = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
     if (container) {
       container.addEventListener('scroll', () => {
         checkIfUserAtBottom()
-        // 如果用户滚动到底部，隐藏新消息提示按钮
-        if (isUserAtBottom.value) {
-          showNewMessageIndicator.value = false
-        }
+        showNewMessageIndicator.value = !isUserAtBottom.value
       })
     }
   })
-
-  // 步骤2：初始化动态键盘高度
   setTimeout(() => {
     originalViewportHeight.value = window.innerHeight
   }, 100)
-
-  // 步骤3：设置全局事件监听器
   setupGlobalEventListeners()
-
-  // 步骤4：图片消息已直接保存到持久化存储，ChatView加载时会自动从store中读取并显示
 })
 
 /**

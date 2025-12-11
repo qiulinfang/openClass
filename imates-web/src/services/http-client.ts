@@ -25,6 +25,7 @@ export class HttpClient {
       // 学班服务（根据环境动态切换）
       '/admin': apiBaseUrl,
       '/permission': apiBaseUrl,
+      '/ai': apiBaseUrl,
       '/biologyTopicKnowledge': apiBaseUrl,
       // 研伴/教材等走资源服务器
       '/blw-edu-yb': yanbanBaseUrl,

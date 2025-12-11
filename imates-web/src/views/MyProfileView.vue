@@ -49,30 +49,22 @@
       </div>
     </RubberBandList>
 
-    <!-- 加入课堂确认对话框 -->
-    <q-dialog v-model="showJoinClassDialog" class="join-class-dialog">
-      <q-card class="dialog-card">
-        <q-card-section class="dialog-header">
-          <div class="dialog-title">课堂提示</div>
-        </q-card-section>
-        <q-card-section class="dialog-content">
-          <p class="dialog-message">{{ isInClass ? '退出课堂后将不能和老师互动，确认退出吗？' : '确定要加入课堂吗？' }}</p>
-        </q-card-section>
-        <q-card-actions align="right" class="dialog-actions">
-          <q-btn 
-            flat 
-            label="取消" 
-            class="dialog-btn-cancel"
-            @click="showJoinClassDialog = false" 
-          />
-          <q-btn 
-            label="确认" 
-            class="dialog-btn-confirm"
-            @click="confirmJoinClass" 
-          />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+    <!-- 加入课堂确认对话框：使用可拖拽对话框组件 -->
+    <DraggableDialog
+      v-model="showJoinClassDialog"
+      title="课堂提示"
+      :show-footer="true"
+      :initial-width="360"
+      :initial-height="190"
+      :min-width="300"
+      :min-height="160"
+      @cancel="showJoinClassDialog = false"
+      @confirm="confirmJoinClass"
+    >
+      <div class="delete-confirm-content">
+        {{ isInClass ? '退出课堂后将不能和老师互动，确认退出吗？' : '确定要加入课堂吗？' }}
+      </div>
+    </DraggableDialog>
 
   </div>
 </template>
@@ -92,6 +84,7 @@ import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import RubberBandList from '@/components/RubberBandList.vue'
+import DraggableDialog from '@/components/DraggableDialog.vue'
 
 // 导入 SVG 图标
 import joinClassIcon from '/icons/join_class.svg'
@@ -633,7 +626,18 @@ $bg-gray: #f9fafb;
     }
   }
 }
-
+// 清除所有会话确认弹窗内容样式
+.delete-confirm-content {
+  height: 100%;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  border: none;
+}
 // 对话框样式 - 统一的设计风格
 :deep(.join-class-dialog) {
   .q-dialog__inner {

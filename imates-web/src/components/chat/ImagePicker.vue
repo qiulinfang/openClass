@@ -1,30 +1,32 @@
 <template>
   <div class="image-picker">
-    <!-- 图片选择对话框 -->
-    <q-dialog v-model="isPickerVisible" class="image-picker-dialog">
-      <div class="picker-modal">
-        <!-- 标题栏 -->
-        <div class="picker-header">
-          <div class="picker-title">选择图片</div>
-          <div class="picker-close" @click="closeDialog">×</div>
+    <!-- 图片选择对话框：使用可拖拽对话框，尺寸与原来 q-dialog 模态宽度接近 -->
+    <DraggableDialog
+      v-model="isPickerVisible"
+      title="选择图片"
+      :initialWidth="400"
+      :initialHeight="260"
+      :minWidth="320"
+      :minHeight="220"
+      :showFooter="false"
+      :closeOnOverlayClick="true"
+      :zIndex="111111"
+    >
+      <!-- 选项区域：只保留相机/相册两个选项 -->
+      <div class="picker-options">
+        <!-- 相机选项 -->
+        <div class="picker-option" @click="captureFromCamera">
+          <q-icon name="camera_alt" size="48px" class="option-icon" />
+          <span class="option-label">相机</span>
         </div>
         
-        <!-- 选项区域 -->
-        <div class="picker-options">
-          <!-- 相机选项 -->
-          <div class="picker-option" @click="captureFromCamera">
-            <q-icon name="camera_alt" size="48px" class="option-icon" />
-            <span class="option-label">相机</span>
-          </div>
-          
-          <!-- 相册选项 -->
-          <div class="picker-option" @click="selectFromGallery">
-            <q-icon name="photo_library" size="48px" class="option-icon" />
-            <span class="option-label">相册</span>
-          </div>
+        <!-- 相册选项 -->
+        <div class="picker-option" @click="selectFromGallery">
+          <q-icon name="photo_library" size="48px" class="option-icon" />
+          <span class="option-label">相册</span>
         </div>
       </div>
-    </q-dialog>
+    </DraggableDialog>
   </div>
 </template>
 
@@ -33,6 +35,7 @@ import { showMessage } from '../../utils'
 import { useImagePicker } from '../../composables/useImagePicker'
 import { ImagePickerAdapterFactory } from '../../adapters/ImagePickerAdapterFactory'
 import type { IImagePickerAdapter } from '../../adapters/IImagePickerAdapter'
+import DraggableDialog from '@/components/DraggableDialog.vue'
 
 // 使用全局图片选择器 composable
 const { isPickerVisible, handleImageSelected, handleCancel } = useImagePicker()
@@ -94,61 +97,11 @@ const selectFromGallery = async () => {
 </script>
 
 <style scoped>
-/* 图片选择对话框样式 */
-.image-picker-dialog :deep(.q-dialog__inner) {
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.picker-modal {
-  background: #ffffff;
-  border-radius: 16px;
-  min-width: 320px;
-  max-width: 400px;
-  width: 90%;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-/* 标题栏 */
-.picker-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 20px 16px 20px;
-}
-
-.picker-title {
-  font-size: 18px;
-  font-weight: 500;
-  color: #333333;
-}
-
-.picker-close {
-  font-size: 28px;
-  color: #666666;
-  cursor: pointer;
-  line-height: 1;
-  user-select: none;
-  transition: color 0.2s ease;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.picker-close:hover {
-  color: #333333;
-}
-
 /* 选项区域 */
 .picker-options {
   display: flex;
   gap: 12px;
-  padding: 0 20px 20px 20px;
+  padding: 20px;
 }
 
 .picker-option {

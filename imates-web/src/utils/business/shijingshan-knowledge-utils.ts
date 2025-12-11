@@ -36,7 +36,7 @@ const HARDCODED_KNOWLEDGE_MAPPING = [
     {
       nodeId: '342839812707946496',
       nodeName: '【专题一】 隐圆与最值专题训练',
-      knowledge:
+      bmNoList:
         '7136,7137,7138,7139,7140,7141,7142,7143,7144,7145,7146,7147,7148,7149,7150,7151,7152,7153,7154,7155',
       id: '342839812707946496',
       name: '【专题一】 隐圆与最值专题训练',
@@ -44,7 +44,7 @@ const HARDCODED_KNOWLEDGE_MAPPING = [
     {
       nodeId: '342840516679929856',
       nodeName: '【专题二】辅助圆模型及应用',
-      knowledge:
+      bmNoList:
         '7202,7203,7204,7205,7206,7207,7208,7209,7210,7211,7212,7213,7214,7215,7216,7217,7218,7219,7220,7221,7222,7223',
       id: '342840516679929856',
       name: '【专题二】辅助圆模型及应用',
@@ -52,21 +52,21 @@ const HARDCODED_KNOWLEDGE_MAPPING = [
     {
       nodeId: '342840656350253056',
       nodeName: '【专题三】主从联动模型及应用',
-      knowledge: '7224,7225,7226,7227,7228,7229,7230,7231,7232,7233,7234,7235',
+      bmNoList: '7224,7225,7226,7227,7228,7229,7230,7231,7232,7233,7234,7235',
       id: '342840656350253056',
       name: '【专题三】主从联动模型及应用',
     },
     {
       nodeId: '342840699467698176',
       nodeName: '【专题四】圆综专题突破',
-      knowledge: '7156,7157,7158,7159,7160,7161',
+      bmNoList: '7156,7157,7158,7159,7160,7161',
       id: '342840699467698176',
       name: '【专题四】圆综专题突破',
     },
     {
       nodeId: '342840735366746112',
       nodeName: '【专题五】代数综合',
-      knowledge:
+      bmNoList:
         '7162,7163,7164,7165,7166,7167,7168,7169,7170,7171,7172,7173,7174,7175,7176,7177,7178,7179,7180,7181,7182,7183,7184,7185,7186,7187,7188,7189,7190,7191,7192,7193,7194,7195,7196,7197,7198,7199,7200,7201',
       id: '342840735366746112',
       name: '【专题五】代数综合',
@@ -74,7 +74,7 @@ const HARDCODED_KNOWLEDGE_MAPPING = [
     {
       nodeId: '342840772616359936',
       nodeName: '【专题六】几何综合',
-      knowledge:
+      bmNoList:
         '7235,7236,7237,7238,7239,7240,7241,7242,7243,7244,7245,7246,7247,7248,7249,7250,7251,7252,7253,7254,7255,7256,7257,7258,7259,7260,7261,7262,7263,7264,7265,7266,7267,7268,7269,7270,7271',
       id: '342840772616359936',
       name: '【专题六】几何综合',
@@ -82,7 +82,7 @@ const HARDCODED_KNOWLEDGE_MAPPING = [
     {
       nodeId: '342840814391627776',
       nodeName: '【专题七】新定义专题',
-      knowledge:
+      bmNoList:
         '7272,7273,7274,7275,7276,7277,7278,7279,7280,7281,7282,7283,7284,7285,7286,7287,7288,7289,7290,7291,7292,7293,7294,7295,7296,7297,7298,7299,7300,7301,7302',
       id: '342840814391627776',
       name: '【专题七】新定义专题',
@@ -933,6 +933,34 @@ function getKnowledgeFromHardcodedMapping(nodeId: string, nodeName: string): str
   return null
 }
 
+function getBmNoListFromHardcodedMapping(nodeId: string, nodeName: string): string | null {
+  const mappingArray = HARDCODED_KNOWLEDGE_MAPPING[0] as Array1Element[]
+
+  if (!mappingArray || !Array.isArray(mappingArray)) {
+    return null
+  }
+
+  if (nodeId) {
+    const matchById = mappingArray.find((item) => item.nodeId === nodeId)
+    const bmNoList = (matchById as any)?.bmNoList
+    if (bmNoList && typeof bmNoList === 'string') {
+      return bmNoList
+    }
+  }
+
+  if (nodeName) {
+    const matchByName = mappingArray.find(
+      (item) => item.nodeName === nodeName || item.name === nodeName,
+    ) as any
+    const bmNoList = matchByName?.bmNoList
+    if (bmNoList && typeof bmNoList === 'string') {
+      return bmNoList
+    }
+  }
+
+  return null
+}
+
 /**
  * 石景山学校特殊业务逻辑：查询知识点ID
  *
@@ -998,5 +1026,23 @@ export async function queryShijingshanKnowledgeId(
   }
 
   // 如果都没有找到映射，返回null，使用默认逻辑
+  return null
+}
+
+export async function queryShijingshanBmNoList(
+  textbookId: string | undefined,
+  nodeId: string,
+  nodeName: string,
+  subject: string,
+): Promise<string | null> {
+  if (!isShijingshanTextbook(textbookId)) {
+    return null
+  }
+
+  const bmNoList = getBmNoListFromHardcodedMapping(nodeId, nodeName)
+  if (bmNoList && bmNoList.trim()) {
+    return bmNoList.trim()
+  }
+
   return null
 }

@@ -1,9 +1,15 @@
 <template>
   <div class="streaming-message">
     <div class="message-content">
+      <!-- 绘图中骨架屏：当处于流式状态且暂时没有文本内容时，展示深色渐变卡片 -->
+      <div
+        v-if="props.isStreaming && !props.content"
+        class="skeleton-card"
+      ></div>
+
       <!-- 流式模式 & 非流式模式统一使用打字机效果，区别仅在于流式模式下内容会持续追加 -->
       <div
-        v-if="props.isStreaming"
+        v-else-if="props.isStreaming"
         class="streaming-content"
         :ref="(el) => setStreamingContentRef(el)"
       >
@@ -100,6 +106,15 @@ const startTypewriter = () => {
   if (!typingTimer) {
     typeNextChar()
   }
+}
+
+// 调试：在骨架屏渲染时输出一次日志
+const logSkeleton = () => {
+  console.log('[StreamingMessage][Skeleton]', {
+    isStreaming: props.isStreaming,
+    contentLength: props.content?.length ?? 0,
+  })
+  return ''
 }
 
 // 停止打字机效果，并直接展示全部内容
@@ -274,6 +289,41 @@ const setTypewriterContentRef = (el: any) => {
   flex: 1;
   word-wrap: break-word;
   white-space: pre-wrap;
+}
+
+/* 绘图中骨架屏样式：深色渐变 + 圆角 + 轻微晃动高光 */
+.skeleton-card {
+  /* 使用固定尺寸，避免受父级 shrink-to-fit 影响变成 0 宽 */
+  width: 260px;
+  min-height: 160px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #212226, #26272b, #1f2024);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0; /* 覆盖整个骨架区域 */
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.10) 30%,
+    rgba(255, 255, 255, 0.02) 60%
+  );
+  background-size: 200% 100%;
+  background-position: 0% 0;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
 }
 
 .typing-cursor {

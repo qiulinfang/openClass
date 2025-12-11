@@ -120,6 +120,17 @@ export class ChatStorageService {
           fileSize: msg.imageData.fileSize,
           base64DataUrl: msg.imageData.base64DataUrl // 保存base64数据，用于重新打开时显示图片
         } : undefined,
+        // 多图消息的 imageList 也需要完整序列化，否则刷新后多图气泡会丢失图片
+        imageList: Array.isArray(msg.imageList)
+          ? msg.imageList.map(item => ({
+              filePath: item.filePath,
+              width: item.width,
+              height: item.height,
+              fileSize: item.fileSize,
+              base64DataUrl: item.base64DataUrl,
+              isLargeImage: item.isLargeImage,
+            }))
+          : undefined,
         // 完整序列化 voiceData（之前缺失，导致语音消息丢失）
         voiceData: msg.voiceData ? {
           filePath: msg.voiceData.filePath,

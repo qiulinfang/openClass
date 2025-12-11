@@ -3,6 +3,8 @@ package com.cosinetech.imates.screencasting;
 import android.content.Context;
 import android.util.Log;
 
+import androidx.fragment.app.FragmentActivity;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -16,7 +18,7 @@ public class ScreenCastingManager {
     private static volatile boolean bHavingClassMode = false;
     private static volatile boolean bShouldProjection = false;
 
-    private static Context appContext;
+    private static FragmentActivity context;
     private static String currentUserId;
     private static String currentUserName;
     private static UdpForwarder udpForwarder;
@@ -24,8 +26,8 @@ public class ScreenCastingManager {
     private static volatile String pcDeviceIp = "1.1.1.1";
     private static volatile String teacherPadDeviceIp = "1.1.1.1";
 
-    public static synchronized void startLoop(Context context, String userId, String userName, UdpForwarder forwarder) {
-        appContext = context.getApplicationContext();
+    public static synchronized void startLoop(FragmentActivity ctx, String userId, String userName, UdpForwarder forwarder) {
+        context = ctx;
 
         if (started) {
             Log.i(TAG, "Loop already started, reinitializing communicator with new params");
@@ -58,7 +60,7 @@ public class ScreenCastingManager {
 
                     if (bHavingClassMode && udpCommunicator == null) {
                         udpCommunicator = new ScreenCastingCommunicator(
-                                appContext, currentUserId, currentUserName);
+                                context, currentUserId, currentUserName);
 
                         udpCommunicator.setNetworkStateListener(new ScreenCastingCommunicator.NetworkStateListener() {
                             @Override
@@ -142,7 +144,7 @@ public class ScreenCastingManager {
 
         if (executor != null && !executor.isShutdown()) {
             executor.shutdownNow();
-            executor = null;
+//            executor = null;
         }
 
         started = false;
