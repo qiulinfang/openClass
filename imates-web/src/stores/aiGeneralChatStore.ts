@@ -11,12 +11,12 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/api-service'
-import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
+import { apiService } from '../services/business/api-service'
+import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, QuotedMessageInfo } from '../types'
 import type { ChatQuotedMessage } from './utils/chatStoreUtils'
-import { authStorageService } from '../services/auth-storage-service'
-import { getUserId } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
+import { getUserId } from '../services/storage/auth-storage-service'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 
@@ -533,12 +533,11 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   
   /**
    * 保存会话列表
+   * 目标存储：ExerciseSolveApp 的 ai_general_sessions 表（IndexedDB/localforage）
    */
   const saveSessions = async (): Promise<void> => {
     try {
-      const userId = authStorageService.getCurrentUserIdOrDefault()
-      const key = `${userId}_ai-general-sessions`
-      localStorage.setItem(key, JSON.stringify(sessions.value))
+      await chatStorage.saveGeneralSessions(sessions.value)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存会话列表失败:', error)
     }
@@ -546,15 +545,26 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   
   /**
    * 加载会话列表
+   * 优先从老的 localStorage 迁移到新表，然后以后都走新表
    */
   const loadSessions = async (): Promise<void> => {
     try {
       const userId = authStorageService.getCurrentUserIdOrDefault()
-      const key = `${userId}_ai-general-sessions`
-      const data = localStorage.getItem(key)
-      if (data) {
-        sessions.value = JSON.parse(data)
+      const legacyKey = `${userId}_ai-general-sessions`
+      const legacyData = localStorage.getItem(legacyKey)
+
+      if (legacyData) {
+        // 一次性迁移：localStorage -> ExerciseSolveApp(ai_general_sessions)
+        const legacySessions = JSON.parse(legacyData) as AiGeneralSession[]
+        sessions.value = legacySessions
+        await chatStorage.saveGeneralSessions(legacySessions)
+        localStorage.removeItem(legacyKey)
+        return
       }
+
+      // 没有老数据时，直接从新表加载
+      const stored = await chatStorage.loadGeneralSessions()
+      sessions.value = stored
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 加载会话列表失败:', error)
       sessions.value = []

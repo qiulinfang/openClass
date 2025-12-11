@@ -6,11 +6,15 @@
 // 统一类型定义
 export * from '../types'
 
-// 核心服务
-export { apiService, ApiService } from './api-service'
-export { androidBridge, AndroidBridge } from './android-bridge'
-export { httpClient, HttpClient } from './http-client'
-export { authStorageService, AuthStorageService } from './auth-storage-service'
+// 核心服务 - 业务层
+export { apiService, ApiService } from './business/api-service'
+export { androidBridge, AndroidBridge } from './business/android-bridge'
+
+// 核心服务 - HTTP & 认证
+export { httpClient, HttpClient } from './http/http-client'
+
+// 认证信息存储
+export { authStorageService, AuthStorageService } from './storage/auth-storage-service'
 export {
   getUserInfo,
   setUserInfo,
@@ -25,9 +29,9 @@ export {
   initializeStore,
   cleanupOnAccountSwitch,
   setUserInfoWithCleanup
-} from './auth-storage-service'
+} from './storage/auth-storage-service'
 
 // API 配置
-export * from './api-endpoints'
+export * from './http/api-endpoints'
 
 // 请求配置类型已移至 types/index.ts

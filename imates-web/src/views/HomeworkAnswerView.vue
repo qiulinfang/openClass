@@ -31,7 +31,7 @@
           <!-- 左侧插槽：去学伴（QuestionList 选中题目即可） -->
           <template #toolbar-left>
             <CommonActionButton
-              label="去学伴"
+              label="学伴辅导"
               variant="ghost"
               size="sm"
               :disabled="!hasSelectedQuestion"
@@ -108,11 +108,11 @@ import type { ExerciseItem } from '@/types'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { MathJaxUtils } from '@/utils/math/mathjax'
-import { apiService } from '@/services/api-service'
+import { apiService } from '@/services/business/api-service'
 import { showMessage } from '@/utils'
 import * as htmlToImage from 'html-to-image'
 import { useUIStore } from '@/stores/uiStore'
-import { getSubject } from '@/services/auth-storage-service'
+import { getSubject } from '@/services/storage/auth-storage-service'
 import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
 import pageAddIcon from '/icons/addPaper.svg'

@@ -7,7 +7,7 @@ import { generatePdfThumbnail, isPdfFile } from './pdf-thumbnail'
 import { generateImageThumbnail, isImageFile } from './image-thumbnail'
 import { generateHtmlThumbnail, isHtmlFile } from './html-thumbnail'
 import { generateVideoThumbnail, isVideoFile } from './video-thumbnail'
-import { ResourceManager } from '../../services/resource-storage'
+import { ResourceManager } from '../../services/storage/resource-storage'
 
 interface ThumbnailTask {
   fileId: string

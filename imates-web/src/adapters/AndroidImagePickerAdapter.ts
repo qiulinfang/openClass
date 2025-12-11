@@ -4,7 +4,7 @@
  */
 import type { IImagePickerAdapter } from './IImagePickerAdapter'
 import type { ImageData } from '../types'
-import { androidBridge } from '../services/android-bridge'
+import { androidBridge } from '../services/business/android-bridge'
 
 export class AndroidImagePickerAdapter implements IImagePickerAdapter {
   private eventListeners: Map<string, (event: Event) => void> = new Map()

@@ -3,8 +3,8 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import ImagePicker from './components/chat/ImagePicker.vue'
 import StorageDebugPanel from './components/debug/StorageDebugPanel.vue'
 import StorageDebugButton from './components/debug/StorageDebugButton.vue'
-import { apiService } from './services/api-service'
-import { resourceManager } from './services/resource-storage'
+import { apiService } from './services/business/api-service'
+import { resourceManager } from './services/storage/resource-storage'
 // 注释掉缩略图相关导入以提升性能
 // import { thumbnailQueue } from './utils/thumbnail/thumbnail-queue'
 

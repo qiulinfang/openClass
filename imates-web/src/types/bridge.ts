@@ -143,6 +143,7 @@ declare global {
       joinClassroom(studentId: string, studentName: string, isGuest: boolean): string
       exitClassroom(): string
       getClassroomStatus(): string
+      fetchClassroomTree(): string
       startScreenProjection(): string
       stopScreenProjection(): string
       takeSnapshot(commandId: string): string

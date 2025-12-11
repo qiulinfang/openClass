@@ -338,7 +338,7 @@ import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useImagePicker } from '../composables/useImagePicker'
-import { androidBridge } from '../services/android-bridge'
+import { androidBridge } from '../services/business/android-bridge'
 import { showMessage } from '../utils'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 

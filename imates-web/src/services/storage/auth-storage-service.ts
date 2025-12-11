@@ -4,7 +4,7 @@
  * 包含原 userStore 的所有功能
  */
 
-import type { UserInfo } from '../types'
+import type { UserInfo } from '@/types'
 
 const STORAGE_KEY = 'userInfo'
 const SUBJECT_STORAGE_KEY = 'currentSubject'
@@ -353,7 +353,7 @@ export class AuthStorageService {
     try {
       // 第1步：清理消息监听器
       try {
-        const { useTeacherGeneralChatStore } = await import('../stores/teacherGeneralChatStore')
+        const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
         const teacherStore = useTeacherGeneralChatStore()
         await teacherStore.cleanupMessageReceiver()
       } catch (error) {
@@ -362,7 +362,7 @@ export class AuthStorageService {
       
       // 第2步：清理会话数据（使用动态导入避免循环依赖）
       try {
-        const { useTeacherGeneralChatStore } = await import('../stores/teacherGeneralChatStore')
+        const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
         const teacherStore = useTeacherGeneralChatStore()
         teacherStore.clearSession()
         teacherStore.clearMessages()

@@ -62,7 +62,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
-import { apiService, type TopicPackageItem } from '@/services/api-service'
+import { apiService, type TopicPackageItem } from '@/services/business/api-service'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import type { ExerciseItem } from '@/types'
 import CommonActionButton from '@/components/CommonActionButton.vue'

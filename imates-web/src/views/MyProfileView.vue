@@ -54,15 +54,57 @@
       v-model="showJoinClassDialog"
       title="课堂提示"
       :show-footer="true"
-      :initial-width="360"
-      :initial-height="190"
+      :initial-width="isInClass ? 360 : 420"
+      :initial-height="isInClass ? 190 : 280"
       :min-width="300"
-      :min-height="160"
+      :min-height="isInClass ? 160 : 220"
       @cancel="showJoinClassDialog = false"
       @confirm="confirmJoinClass"
     >
-      <div class="delete-confirm-content">
-        {{ isInClass ? '退出课堂后将不能和老师互动，确认退出吗？' : '确定要加入课堂吗？' }}
+      <div class="delete-confirm-content" v-if="isInClass">
+        退出课堂后将不能和老师互动，确认退出吗？
+      </div>
+
+      <!-- 加入课堂场景：展示教室选择 UI -->
+      <div class="join-classroom-content" v-else>
+        <div class="join-classroom-header">
+          <div class="title">选择要加入的教室</div>
+          <div class="subtitle">请先选择城市、学校，再选择具体教室</div>
+        </div>
+
+        <div class="join-classroom-body">
+          <div v-if="isLoadingClassrooms" class="status-text">正在加载教室列表...</div>
+          <div v-else-if="classroomLoadError" class="status-text error">{{ classroomLoadError }}</div>
+          <div v-else-if="!classroomTree || cityOptions.length === 0" class="status-text">暂无可用教室，请稍后重试</div>
+          <div v-else class="selector-grid">
+            <div class="selector-column">
+              <div class="label">城市</div>
+              <CommonSelect
+                v-model="selectedCity"
+                :options="cityOptions.map(city => ({ label: city, value: city }))"
+                placeholder="请选择城市"
+              />
+            </div>
+
+            <div class="selector-column" :class="{ disabled: !selectedCity }">
+              <div class="label">学校</div>
+              <CommonSelect
+                v-model="selectedSchool"
+                :options="schoolOptions.map(school => ({ label: school, value: school }))"
+                :placeholder="selectedCity ? '请选择学校' : '请先选择城市'"
+              />
+            </div>
+
+            <div class="selector-column" :class="{ disabled: !selectedSchool }">
+              <div class="label">教室</div>
+              <CommonSelect
+                v-model="selectedClassroom"
+                :options="classroomOptions.map(room => ({ label: roomLabel(room), value: roomKey(room) }))"
+                :placeholder="selectedSchool ? '请选择教室' : '请先选择学校'"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </DraggableDialog>
 
@@ -75,16 +117,17 @@ import { useRouter } from 'vue-router'
 import { Dialog } from 'quasar'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
-import { apiService } from '@/services/api-service'
-import { androidBridge } from '@/services/android-bridge'
+import { apiService } from '@/services/business/api-service'
+import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
-import { authStorageService } from '@/services/auth-storage-service'
-import { getUserInfo } from '../services/auth-storage-service'
+import { authStorageService } from '@/services/storage/auth-storage-service'
+import { getUserInfo } from '../services/storage/auth-storage-service'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import RubberBandList from '@/components/RubberBandList.vue'
 import DraggableDialog from '@/components/DraggableDialog.vue'
+import CommonSelect from '@/components/CommonSelect.vue'
 
 // 导入 SVG 图标
 import joinClassIcon from '/icons/join_class.svg'
@@ -106,8 +149,84 @@ const getTeacherChatDialogRef = inject<() => InstanceType<typeof UnifiedChatDial
 // 响应式数据
 const isInClass = ref(false)
 const showJoinClassDialog = ref(false)
+
+// 教室选择相关状态
+const classroomTree = ref<any | null>(null)
+const isLoadingClassrooms = ref(false)
+const classroomLoadError = ref<string | null>(null)
+const selectedCity = ref('')
+const selectedSchool = ref('')
+const selectedClassroom = ref('')
 // 全局图片选择器
 const { pickImage } = useImagePicker()
+
+// 教室选择下拉选项
+const cityOptions = computed<string[]>(() => {
+  if (!classroomTree.value) return []
+
+  // 优先使用后端直接提供的 cities 列表
+  if (Array.isArray((classroomTree.value as any).cities)) {
+    return (classroomTree.value as any).cities as string[]
+  }
+
+  // 回退：将顶层 key 视为城市
+  return Object.keys(classroomTree.value)
+})
+
+const schoolOptions = computed<string[]>(() => {
+  if (!classroomTree.value || !selectedCity.value) return []
+
+  const tree: any = classroomTree.value
+
+  // 常见结构1：schoolsMap[city] 为学校列表
+  if (tree.schoolsMap && Array.isArray(tree.schoolsMap[selectedCity.value])) {
+    return tree.schoolsMap[selectedCity.value] as string[]
+  }
+
+  // 常见结构2：schools[city] 为学校列表
+  if (tree.schools && Array.isArray(tree.schools[selectedCity.value])) {
+    return tree.schools[selectedCity.value] as string[]
+  }
+
+  // 回退：假设 classroomTree[city] 是一个以学校为 key 的对象
+  const cityNode = tree[selectedCity.value]
+  if (cityNode && typeof cityNode === 'object') {
+    return Object.keys(cityNode)
+  }
+
+  return []
+})
+
+const classroomOptions = computed<any[]>(() => {
+  if (!classroomTree.value || !selectedCity.value || !selectedSchool.value) return []
+
+  const tree: any = classroomTree.value
+
+  // 常见结构1：classroomsMap[city][school] 为教室数组
+  if (tree.classroomsMap && tree.classroomsMap[selectedCity.value] && Array.isArray(tree.classroomsMap[selectedCity.value][selectedSchool.value])) {
+    return tree.classroomsMap[selectedCity.value][selectedSchool.value] as any[]
+  }
+
+  // 常见结构2：以城市、学校为 key 的嵌套对象
+  const cityNode = tree[selectedCity.value]
+  const schoolNode = cityNode && cityNode[selectedSchool.value]
+  if (Array.isArray(schoolNode)) {
+    return schoolNode as any[]
+  }
+
+  return []
+})
+
+// 教室选项 key 与显示文案
+const roomKey = (room: any): string => {
+  if (!room) return ''
+  return room.id || room.classroomId || room.name || String(room)
+}
+
+const roomLabel = (room: any): string => {
+  if (!room) return ''
+  return room.name || room.displayName || roomKey(room)
+}
 
 // 使用 Store 管理用户信息 - 使用 computed 监听 localStorage 变化
 // 注意：这里直接导入 getUserInfo，因为 authStorage 不依赖 userStore，不会有循环依赖
@@ -167,7 +286,7 @@ onUnmounted(async () => {
 const loadUserInfo = async () => {
   try {
     // 第1步：尝试从持久化存储加载
-    const { loadFromStorage, getXuebanToken, setUserInfo } = await import('../services/auth-storage-service')
+    const { loadFromStorage, getXuebanToken, setUserInfo } = await import('../services/storage/auth-storage-service')
     const hasCache = loadFromStorage()
     if (hasCache) {
       return
@@ -197,8 +316,41 @@ const loadUserInfo = async () => {
   }
 }
 
+// 加载教室树数据
+const loadClassroomTree = () => {
+  if (!androidBridge.isAndroidBridgeAvailable()) {
+    classroomLoadError.value = '当前环境不支持课堂功能'
+    return
+  }
+
+  isLoadingClassrooms.value = true
+  classroomLoadError.value = null
+
+  try {
+    const data = androidBridge.fetchClassroomTree()
+    console.log('[MyProfileView] classroomTree from native:', data)
+    if (!data) {
+      classroomTree.value = null
+      classroomLoadError.value = '获取教室列表失败，请稍后重试'
+    } else {
+      classroomTree.value = data
+    }
+  } catch (error) {
+    console.error('[MyProfileView] 获取教室列表异常:', error)
+    classroomTree.value = null
+    classroomLoadError.value = '获取教室列表异常，请稍后重试'
+  } finally {
+    isLoadingClassrooms.value = false
+  }
+}
+
 // 切换加入课堂状态
 const toggleJoinClass = () => {
+  // 进入加入课堂弹窗时，如果还未加载过教室列表，则尝试加载
+  if (!isInClass.value && !classroomTree.value && !isLoadingClassrooms.value) {
+    loadClassroomTree()
+  }
+
   showJoinClassDialog.value = true
 }
 
@@ -216,6 +368,16 @@ const confirmJoinClass = () => {
     } else {
       showMessage('退出课堂失败', 'error')
     }
+    return
+  }
+
+  // 加入课堂前校验教室选择
+  if (!classroomTree.value) {
+    showMessage('教室列表未加载完成，请稍后重试', 'error')
+    return
+  }
+  if (!selectedCity.value || !selectedSchool.value || !selectedClassroom.value) {
+    showMessage('请先选择城市、学校和教室', 'error')
     return
   }
 

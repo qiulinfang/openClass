@@ -3,22 +3,23 @@
  * 处理所有网络请求相关的接口调用
  */
 
-import { httpClient } from './http-client'
-import { resourceManager, ResourceManager } from './resource-storage'
+import { httpClient } from '../http/http-client'
+import { resourceManager, ResourceManager } from '../storage/resource-storage'
 import CryptoJS from 'crypto-js'
-import { authStorageService } from './auth-storage-service'
+import { authStorageService } from '../storage/auth-storage-service'
+import { saveLearningPackagesToDB, loadLearningPackagesFromDB } from '../storage/learning-packages-storage'
 import {
   getApiUrl,
   getExerciseListUrl,
   getDeleteExerciseUrl,
   API_ENDPOINTS,
-} from './api-endpoints'
-import { AndroidBridge } from './android-bridge'
-import { generateUniqueId } from '../stores/utils/chatStoreUtils'
+} from '../http/api-endpoints'
+import { AndroidBridge } from '../business/android-bridge'
+import { generateUniqueId } from '@/stores/utils/chatStoreUtils'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 章节相关工具函数
-import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '../utils/business/chapter-utils'
+import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '@/utils/business/chapter-utils'
 
 // 使用统一类型定义
 import type {
@@ -43,8 +44,10 @@ import type {
   SSEPayload,
   ManageConversationMemoryRequest,
   FindSimilarQuestionByBmNoRequest,
-} from '../types'
+  ApiResponse,
+} from '@/types'
 import { date } from 'quasar'
+import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
 
 // 使用统一的类型定义，不再重复定义
 
@@ -190,6 +193,47 @@ export class ApiService {
   }
 
   /**
+   * 研伴接口统一调用封装
+   * - 保持与 Android 原生一致的分流策略：内部测试环境 + 有 AndroidBridge 时走原生网络
+   * - 其他环境直接通过 httpClient 调用 Web 接口
+   */
+  private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
+    const envType = getCurrentEnvType()
+
+    if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
+      // 测试环境 + 有原生桥接：走 Android 原生网络请求
+      console.log('[ApiService] 🔀 Yanban 接口走原生:', { url })
+
+      // 提取 /blw-edu-yb 后面的路径部分给原生
+      const apiPath = url.replace('/blw-edu-yb', '')
+
+      // 从统一存储获取 Token，传给原生（避免原生读 localStorage 导致死锁）
+      const yanbanToken = authStorageService.getYanbanToken() || ''
+
+      const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
+
+      return {
+        success: (result as any)?.success ?? false,
+        data: ((result as any)?.data ?? result) as T,
+        code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
+        message: (result as any)?.message,
+      }
+    }
+
+    // 其他环境：直接通过 Web HTTP 调用
+    const response = await httpClient.post<T>(url, body)
+    // 针对研伴登录等关键接口输出精简日志
+    if (url === API_ENDPOINTS.LEARNING_RESOURCE.YANBAN_LOGIN) {
+      console.log('[Debug][Yanban] Web login-student 响应概要:', {
+        httpSuccess: response.success,
+        hasData: !!response.data,
+        code: response.code,
+      })
+    }
+    return response
+  }
+
+  /**
    * 暂停教材下载
    * 对应Android LearnResourceManager.pauseDownload
    */
@@ -255,7 +299,7 @@ export class ApiService {
   public async checkAppUpdate(): Promise<{ versionName: string; raw: any } | null> {
     try {
       // 根据当前环境动态获取更新接口 URL
-      const { getAppUpdateUrl } = await import('../config/env-config')
+      const { getAppUpdateUrl } = await import('@/config/env-config')
       const url = getAppUpdateUrl()
       console.log("url",url)
       const response = await httpClient.get<any>(url)
@@ -632,7 +676,7 @@ export class ApiService {
         questions: [],
         totalCount: 0,
         currentPage: request.current,
-        pageSize: request.size
+        pageSize: request.size,
       }
     } catch (error) {
       return {
@@ -898,7 +942,7 @@ export class ApiService {
           onStream,
           accumulatedContent,
           messageId,
-          onHistoryUpdate,
+          onHistoryUpdate
         )
       }
 
@@ -1338,6 +1382,7 @@ export class ApiService {
 
       return null
     } catch (error) {
+      console.error('[ApiService] loginYanban 调用失败:', error)
       return null
     }
   }
@@ -1645,7 +1690,7 @@ export class ApiService {
       }
 
       try {
-        const { setUserInfoWithCleanup, initializeStore } = await import('./auth-storage-service')
+        const { setUserInfoWithCleanup, initializeStore } = await import("../storage/auth-storage-service");
         await setUserInfoWithCleanup(userInfo)
         await initializeStore()
       } catch (storeError) {
@@ -1674,23 +1719,23 @@ export class ApiService {
         password: md5Password
       }
       
-        // 使用代理路径，避免CORS问题
-        const response = await httpClient.post<{
-          code: number
-          success: boolean
-          message: string
-          data: LoginData
-        }>(
-          API_ENDPOINTS.LEARNING_RESOURCE.YANBAN_LOGIN,
-          loginRequest
-        )
+      // 使用代理路径，避免CORS问题
+      const response = await this.callYanban<{
+        code: number
+        success: boolean
+        message: string
+        data: LoginData
+      }>(
+        API_ENDPOINTS.LEARNING_RESOURCE.YANBAN_LOGIN,
+        loginRequest
+      )
       
       // 兼容两种响应结构：
       // 1. 走 Vite 代理时：response.data.data.token
       // 2. 走 Android 原生代理时：response.data.token（原生已经解包一层）
       const respData = response.data as any
       const tokenData = respData?.data || respData
-      
+
       if (response.success && tokenData && tokenData.token) {
         const loginResponse: LoginResponse = {
           token: tokenData.token,
@@ -1698,22 +1743,49 @@ export class ApiService {
           defaultPassword: tokenData.defaultPassword
         }
         
-        // 确保token和userId都保存到localStorage
-        localStorage.setItem('YANBAN_TOKEN', tokenData.token)
-        localStorage.setItem('studentUserId', tokenData.userId)
-        
-        // 更新登录时间戳，用于会话管理
-        localStorage.setItem('lastLoginTime', Date.now().toString())
+        // 本地状态写入放在独立的 try/catch 中，避免本地存储异常导致整个登录流程失败
+        try {
+          // 确保token和userId都保存到localStorage
+          localStorage.setItem('YANBAN_TOKEN', tokenData.token)
+          localStorage.setItem('studentUserId', tokenData.userId)
+          
+          // 同步更新统一认证存储中的当前用户ID，确保 isSessionValid/autoLogin 能正确识别已登录用户
+          try {
+            const effectiveUserId = tokenData.userId || account
+            if (effectiveUserId) {
+              authStorageService.setCurrentUserId(effectiveUserId, UserType.YANBAN)
+            }
+          } catch (e) {
+            
+          }
 
-        // 调试日志：打印 login-student 返回的 Token（注意仅用于开发环境）
-        console.log('[Debug][Yanban] login-student 返回 token =', tokenData.token)
-        
+          // 更新登录时间戳，用于会话管理
+          localStorage.setItem('lastLoginTime', Date.now().toString())
+
+          // 调试日志：写入完成后再次读取验证
+          try {
+            const storedToken = localStorage.getItem('YANBAN_TOKEN')
+            const storedStudentUserId = localStorage.getItem('studentUserId')
+            
+          } catch (e) {
+            
+          }
+        } catch (e) {
+          // 本地存储出现异常时，仍然返回 loginResponse，避免影响调用方判断登录成功
+        }
+
         return loginResponse
       } else {
-        console.warn('[Debug][Yanban] login-student 响应结构异常:', response)
+        // 登录接口 HTTP 成功但未能从响应中解析出 token，记录结构异常方便排查
+        console.warn('[ApiService] loginYanban 响应结构异常，未能解析出 token', {
+          httpSuccess: response.success,
+          httpCode: response.code,
+          hasData: !!response.data,
+        })
         return null
       }
     } catch (error) {
+      console.error('[ApiService] loginYanban 调用失败:', error)
       return null
     }
   }
@@ -1836,16 +1908,13 @@ export class ApiService {
           resourceList: pkg.resourceList || []
         }))
         
-        // 缓存到本地存储（加上用户ID前缀，实现账号隔离）
+        // 缓存到 IndexedDB（按用户ID实现账号隔离）
         if (useCache) {
           try {
-            const userId = authStorageService.getCurrentUserIdOrDefault()
-            localStorage.setItem(`learning_packages_${userId}_${id}`, JSON.stringify({
-              data: packages,
-              timestamp: Date.now()
-            }))
-          } catch (storageError) {
-            // 静默处理
+            // 这里的 id 即为学习包查询维度（与原 localStorage key 中的 id 一致）
+            await saveLearningPackagesToDB(id, packages)
+          } catch {
+            // 静默处理缓存失败
           }
         }
         
@@ -1854,23 +1923,24 @@ export class ApiService {
       
       return []
     } catch (error) {
-      // 尝试从本地缓存获取数据（加上用户ID前缀，实现账号隔离）
+      // 网络请求或解析失败，先记录错误，再尝试从 IndexedDB 缓存获取数据
+      console.warn('[ApiService] getLearningResources 调用失败，尝试使用缓存', {
+        id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+
+      // 尝试从 IndexedDB 缓存获取数据（按用户ID隔离）
       if (useCache) {
         try {
-          const userId = authStorageService.getCurrentUserIdOrDefault()
-          const cached = localStorage.getItem(`learning_packages_${userId}_${id}`)
-          if (cached) {
-            const cachedData = JSON.parse(cached)
-            // 检查缓存是否过期（24小时）
-            if (Date.now() - cachedData.timestamp < 24 * 60 * 60 * 1000) {
-              return cachedData.data
-            }
+          const cached = await loadLearningPackagesFromDB(id)
+          if (cached && Array.isArray(cached)) {
+            return cached
           }
-        } catch (cacheError) {
-          // 静默处理
+        } catch {
+          // 静默处理缓存读取失败
         }
       }
-      
+
       return []
     }
   }
@@ -2894,42 +2964,7 @@ export class ApiService {
       result.set(chunk, offset)
       offset += chunk.length
     }
-    
     return result
-  }
-
-
-  /**
-   * 自动登录功能
-   * 从localStorage获取保存的用户凭据并尝试登录
-   * @param enableLogging 是否启用详细日志输出，默认为false
-   * @returns Promise<boolean> 登录是否成功
-   */
-  async autoLogin(enableLogging: boolean = false): Promise<boolean> {
-    try {
-      // 从localStorage获取用户凭据
-      const userId = localStorage.getItem('userId')
-      const password = localStorage.getItem('userPassword')
-      
-      if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-        return false
-      }
-      
-      
-      // 使用apiService进行登录
-      const loginResult = await this.loginYanban(userId, password)
-      if (!loginResult) {
-
-        return false
-      }
-      
-      // 更新登录时间戳
-      localStorage.setItem('lastLoginTime', Date.now().toString())
-      
-      return true
-    } catch (error) {
-      return false
-    }
   }
 
   /**
@@ -2948,7 +2983,7 @@ export class ApiService {
       // 调试日志：打印提交作业的请求体（不包含 token）
       console.log('[Debug][Homework] 提交习题回答 请求体 =', requestBody)
 
-      const response = await httpClient.post<{
+      const response = await this.callYanban<{
         code?: number
         data?: unknown
         message?: string
@@ -2989,7 +3024,7 @@ export class ApiService {
     subject?: string,
   ): Promise<TopicPackagePageResponse | null> {
     try {
-      const response = await httpClient.post<TopicPackagePageApiResponse>(
+      const response = await this.callYanban<TopicPackagePageApiResponse>(
         '/blw-edu-yb/api/app/topic-package-page',
         { pageNumber, pageSize, updateTime, subject }
       )

@@ -7,7 +7,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ExerciseItem } from '../types'
-import { saveQuestionsToIndexedDB } from '../services/question-storage'
+import { saveQuestionsToIndexedDB } from '../services/storage/question-storage'
 import { showMessage } from '@/utils'
 
 // 作业存储的 key 前缀（区别于习题）

@@ -133,8 +133,9 @@ import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
-import { resourceManager } from '@/services/resource-storage'
-import { apiService } from '@/services/api-service'
+import { resourceManager } from '@/services/storage/resource-storage'
+import { apiService } from '@/services/business/api-service'
+import { authService } from '@/services/http/auth-service'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
 import type { UserTextbookInfo } from '@/types'
@@ -287,7 +288,7 @@ const mainViewStyle = computed(() => {
     case 'exerciseSolve':
       // 我的习题页：上半部分 #3d3070，下半部分 #f7f6ff
       return {
-        background: 'linear-gradient(to bottom, #ffffff 50%, #edeffe 50%)',
+        background: 'linear-gradient(to bottom, #0f002e 50%, #edeffe 50%)',
       }
     case 'myResources':
       // 资源下载页：上半部分 #ffffff，下半部分 #edeffe
@@ -479,8 +480,8 @@ const checkResourceUpdates = async () => {
       try {
         // 检查登录状态
         if (!resourceManager.isLoggedIn()) {
-          // 尝试自动登录
-          const autoLoginSuccess = await apiService.autoLogin(true)
+          // 尝试自动登录（直接通过 authService）
+          const autoLoginSuccess = await authService.autoLogin(true)
           if (!autoLoginSuccess) {
             hasResourceNotification.value = false
             return

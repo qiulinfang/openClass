@@ -172,7 +172,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { resourceManager } from '@/services/resource-storage'
+import { resourceManager } from '@/services/storage/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import ChatView from '@/components/ChatView.vue'

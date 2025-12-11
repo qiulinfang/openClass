@@ -336,9 +336,10 @@ defineOptions({
 
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { resourceManager } from '../services/resource-storage'
-import { apiService } from '../services/api-service'
-import { httpClient } from '../services/http-client'
+import { resourceManager } from '../services/storage/resource-storage'
+import { apiService } from '../services/business/api-service'
+import { httpClient } from '../services/http/http-client'
+import { authService } from '../services/http/auth-service'
 import { showMessage } from '../utils'
 import CommonSelect from '@/components/CommonSelect.vue'
 import type { UserTextbookInfo, TextbookVersion } from '../types'
@@ -803,7 +804,7 @@ const loadResources = async (isPullDownRefresh = false) => {
 
       if (!isLoggedIn) {
         // 自动登录失败则直接清空列表并结束本次加载
-        const autoLoginSuccess = await apiService.autoLogin(true)
+        const autoLoginSuccess = await authService.autoLogin(true)
 
         if (!autoLoginSuccess) {
           textbooks.value = []

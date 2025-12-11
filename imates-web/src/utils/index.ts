@@ -4,7 +4,7 @@
  */
 
 import { Notify } from 'quasar'
-import { androidBridge } from '../services/android-bridge'
+import { androidBridge } from '@/services/business/android-bridge'
 
 /**
  * 统一的消息提示函数（智能选择实现方式）
@@ -65,7 +65,7 @@ export {
 } from './business/chapter-utils'
 
 // 用户相关工具
-export { authStorageService } from '../services/auth-storage-service'
+export { authStorageService } from '../services/storage/auth-storage-service'
 
 // 收藏功能工具
 export {

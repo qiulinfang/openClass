@@ -53,10 +53,10 @@
 import { ref, onMounted, onUnmounted, watch, computed, inject, defineExpose } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
-import { ResourceManager } from '../../services/resource-storage'
+import { ResourceManager } from '../../services/storage/resource-storage'
 import { showMessage } from '../../utils'
-import { apiService } from '../../services/api-service'
-import { authStorageService } from '../../services/auth-storage-service'
+import { apiService } from '../../services/business/api-service'
+import { authStorageService } from '../../services/storage/auth-storage-service'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
 

@@ -5,7 +5,7 @@
 
 import type { QuestionRecord, AiGeneralSession, AiTextbookSession } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
-import { authStorageService } from '../../services/auth-storage-service'
+import { authStorageService } from '../../services/storage/auth-storage-service'
 
 // localStorage key 常量（带用户ID前缀）
 const getFavoritesStorageKey = (): string => {

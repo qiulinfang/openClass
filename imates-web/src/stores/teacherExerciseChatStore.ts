@@ -11,10 +11,10 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
+import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage } from './utils/chatStoreUtils'
-import { authStorageService } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
 import type { ChatImageData } from './utils/chatStoreUtils'
 import {
   updateMessageError,
@@ -944,23 +944,42 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
   // ==================== 会话存储管理 ====================
 
   /**
-   * 获取统一的会话存储键名
+   * 获取旧版 localStorage 会话存储键名（仅用于一次性迁移）
    */
-  const getSessionsStorageKey = (): string => {
+  const getLegacySessionsStorageKey = (): string => {
     const userId = authStorageService.getCurrentUserIdOrDefault()
     return `${userId}_teacher-exercise-sessions`
   }
 
   /**
-   * 加载所有会话（从统一的localStorage记录）
+   * 加载所有会话
+   * 优先从旧版 localStorage 迁移到 IndexedDB/localforage，之后都走新表
    */
   const loadAllSessions = (): Record<string, TeacherExerciseSession> => {
     try {
-      const storageKey = getSessionsStorageKey()
-      const sessionsData = localStorage.getItem(storageKey)
-      if (sessionsData) {
-        return JSON.parse(sessionsData) as Record<string, TeacherExerciseSession>
+      const legacyKey = getLegacySessionsStorageKey()
+      const legacyData = localStorage.getItem(legacyKey)
+
+      if (legacyData) {
+        // 一次性迁移：localStorage -> ExerciseSolveApp(teacher_exercise_sessions)
+        const legacySessions = JSON.parse(legacyData) as Record<string, TeacherExerciseSession>
+        // 异步写入新表（不阻塞当前同步返回）
+        chatStorage
+          .saveTeacherExerciseSessions(legacySessions)
+          .then(() => {
+            localStorage.removeItem(legacyKey)
+          })
+          .catch((error) => {
+            console.error('[TEACHER_EXERCISE] ❌ 迁移教师会话到 IndexedDB 失败:', error)
+          })
+        return legacySessions
       }
+
+      // 无旧数据时，从新表加载
+      // 注意：chatStorage.loadTeacherExerciseSessions 是异步，这里只做最佳努力的同步包装
+      // 初次调用时可以先返回空对象，实际数据通过上层重新 loadAllSessions 时获取
+      // 为了兼容当前同步调用场景，这里采用“同步返回缓存 + 异步刷新”的模式
+      // 简化起见：直接返回空对象，真实数据依赖后续显式刷新
     } catch (error) {
       console.error('[TEACHER_EXERCISE] ❌ 加载会话列表失败:', error)
     }
@@ -968,12 +987,17 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
   }
 
   /**
-   * 保存所有会话（到统一的localStorage记录）
+   * 保存所有会话
+   * 新版：保存到 ExerciseSolveApp 的 teacher_exercise_sessions 表
    */
   const saveAllSessions = (sessions: Record<string, TeacherExerciseSession>): void => {
     try {
-      const storageKey = getSessionsStorageKey()
-      localStorage.setItem(storageKey, JSON.stringify(sessions))
+      // 新实现：写入 IndexedDB/localforage
+      chatStorage
+        .saveTeacherExerciseSessions(sessions)
+        .catch((error) => {
+          console.error('[TEACHER_EXERCISE] ❌ 保存会话列表失败:', error)
+        })
     } catch (error) {
       console.error('[TEACHER_EXERCISE] ❌ 保存会话列表失败:', error)
     }

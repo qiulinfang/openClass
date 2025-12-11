@@ -101,7 +101,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore, type ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { resourceManager } from '@/services/resource-storage'
+import { resourceManager } from '@/services/storage/resource-storage'
 import { showMessage } from '@/utils'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession, AttachedScreenshot } from '@/types'
 import {

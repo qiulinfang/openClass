@@ -285,8 +285,8 @@ export default {
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { apiService } from '../services/api-service'
-import { resourceManager } from '../services/resource-storage'
+import { apiService } from '../services/business/api-service'
+import { resourceManager } from '../services/storage/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import LearningView from './LearningView.vue'
@@ -295,7 +295,8 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { authStorageService } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
+import { authService } from '../services/http/auth-service'
 import { useQuestionStore } from '../stores/questionStore'
 import { showMessage } from '../utils'
 import {
@@ -2032,7 +2033,7 @@ const sessionManager = {
   async isSessionValid(): Promise<boolean> {
     try {
       // 检查统一存储的token和userId
-      const { getYanbanToken, getUserId } = await import('../services/auth-storage-service')
+      const { getYanbanToken, getUserId } = await import('../services/storage/auth-storage-service')
       const token = getYanbanToken()
       const userId = getUserId()
       
@@ -2070,7 +2071,7 @@ const sessionManager = {
       return true
     }
     
-    const result = await apiService.autoLogin(false)
+    const result = await authService.autoLogin(false)
     return result
   },
   

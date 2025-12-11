@@ -3,11 +3,11 @@
  * 用于处理网络请求，替代部分 AndroidBridge 调用
  */
 
-import type { ApiResponse, RequestConfig } from '../types'
-import { createTimeoutController } from '../utils/common/polyfills'
-import { showMessage } from '../utils'
-import { getApiBaseUrl, getResourceBaseUrl, getYanbanBaseUrl, getCurrentEnvType, AppEnvType } from '../config/env-config'
-import { AndroidBridge } from './android-bridge'
+import type { ApiResponse, RequestConfig } from '@/types'
+import { createTimeoutController } from '@/utils/common/polyfills'
+import { showMessage } from '@/utils'
+import { getApiBaseUrl, getResourceBaseUrl, getYanbanBaseUrl } from '@/config/env-config'
+import { authService } from './auth-service'
 
 export class HttpClient {
   private baseURL: string
@@ -96,7 +96,7 @@ export class HttpClient {
     let selectedToken: string | null = null
     
     // 动态导入统一存储工具
-    const { getXuebanToken, getYanbanToken } = await import('./auth-storage-service')
+    const { getXuebanToken, getYanbanToken } = await import("../storage/auth-storage-service");
 
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
@@ -118,72 +118,6 @@ export class HttpClient {
     }
     
     return authConfig
-  }
-
-  /**
-   * 根据接口路径清除对应的token
-   * 第1步：判断接口类型
-   * 第2步：从统一存储清除对应的token
-   */
-  private async clearTokenByPath(url: string): Promise<void> {
-    const { setXuebanToken, setYanbanToken } = await import('./auth-storage-service')
-    
-    if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
-      // 学班管理员相关接口：清除XUEBAN_TOKEN
-      setXuebanToken(null)
-    } else if (url.startsWith('/blw-edu-yb')) {
-      // 研伴相关接口：清除YANBAN_TOKEN
-      setYanbanToken(null)
-    }
-  }
-
-  /**
-   * 尝试自动重新登录
-   * 第1步：获取保存的用户凭据
-   * 第2步：根据接口路径选择合适的登录方式
-   * 第3步：执行登录并保存新token
-   * 第4步：返回是否成功
-   */
-  private async tryAutoRelogin(url: string): Promise<boolean> {
-    try {
-      // 第1步：获取用户凭据（从统一存储）
-      const { getUserId, getPassword } = await import('./auth-storage-service')
-      const userId = getUserId()
-      const password = getPassword()
-      console.log('userId', userId)
-      console.log('password', password)
-      // 如果没有保存的凭据，无法自动登录
-      if (!userId || !password || userId === 'undefined' || password === 'undefined') {
-        return false
-      }
-      
-      // 动态导入apiService避免循环依赖
-      const { apiService } = await import('./api-service')
-      
-      // 第2步：根据接口路径选择登录方式
-      if (url.startsWith('/blw-edu-yb')) {
-        // 研伴相关接口：使用研伴登录
-        const loginResult = await apiService.loginYanban(userId, password)
-        // 第3步：loginYanban内部已保存token到YANBAN_TOKEN
-        return loginResult !== null
-      } else if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
-        // 学班管理员相关接口：使用学班登录
-        try {
-          const token = await apiService.loginXueban(userId, password)
-          // 第3步：loginXueban内部已保存token到XUEBAN_TOKEN
-          return !!token
-        } catch {
-          return false
-        }
-      } else {
-        // 其他接口：尝试通用登录（优先研伴登录）
-        const loginResult = await apiService.loginYanban(userId, password)
-        // 第3步：loginYanban内部已保存token
-        return loginResult !== null
-      }
-    } catch {
-      return false
-    }
   }
 
 
@@ -220,36 +154,6 @@ export class HttpClient {
       retries = 3,              // 重试次数，默认为3次
       skipAuth401Retry = false  // 是否跳过401认证重试
     } = config
-
-    // ========== 研伴接口分流：测试环境 + 有 AndroidBridge 时走原生 ==========
-    if (url.startsWith('/blw-edu-yb')) {
-      const envType = getCurrentEnvType()
-      const bridge = AndroidBridge.getInstance()
-      
-      if (envType === AppEnvType.INTERNAL_TEST && bridge.isAndroidBridgeAvailable()) {
-        // 测试环境 + 有原生桥接：走 Android 原生网络请求
-        console.log('[HttpClient] 🔀 研伴接口走原生:', { url, method })
-        
-        // 提取 /blw-edu-yb 后面的路径部分给原生
-        const apiPath = url.replace('/blw-edu-yb', '')
-        
-        // 从 localStorage 获取 Token，传给原生（避免原生读 localStorage 导致死锁）
-        const yanbanToken = localStorage.getItem('YANBAN_TOKEN') || ''
-
-        // 调试日志：打印当前用于研伴接口的 Token（注意仅用于开发环境）
-        console.log('[Debug][Yanban] teacher-textbook 使用的 YANBAN_TOKEN =', yanbanToken)
-        
-        const result = await bridge.callYanbanApi(apiPath, body, method, envType, yanbanToken)
-        
-        // 将原生返回转换为 ApiResponse 格式
-        return {
-          success: result?.success ?? false,
-          data: result?.data ?? result,
-          code: result?.code ?? (result?.success ? 200 : 0),
-          message: result?.message
-        } as ApiResponse<T>
-      }
-    }
 
     // 流程：构建完整URL（统一处理file://和http(s)环境）
     const fullUrl = this.buildFullUrl(url)
@@ -298,13 +202,10 @@ export class HttpClient {
         
         // 第1步：检测401未授权错误 - 统一处理所有接口
         if (response.status === 401 && !skipAuth401Retry) {
-          // 第2步：根据接口路径删除对应的token
-          await this.clearTokenByPath(url)
+          // 第2步：委托给 AuthService 处理 Token 清理与自动登录
+          const loginSuccess = await authService.handle401(url)
           
-          // 第3步：尝试自动重新登录获取新token
-          const loginSuccess = await this.tryAutoRelogin(url)
-          
-          // 第4步：如果登录成功，重新发起请求（只重试一次）
+          // 第3步：如果登录成功，重新发起请求（只重试一次）
           if (loginSuccess) {
             return await this.request<T>(url, { 
               ...config, 

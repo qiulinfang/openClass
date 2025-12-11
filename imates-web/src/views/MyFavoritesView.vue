@@ -181,9 +181,9 @@ import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import RubberBandList from '../components/RubberBandList.vue'
-import { authStorageService } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
 import ImageViewer from '../components/ImageViewer.vue'
-import { resourceManager } from '../services/resource-storage'
+import { resourceManager } from '../services/storage/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo } from '../types/textbook'
 
 // 定义组件名称

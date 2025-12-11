@@ -1,5 +1,5 @@
 import type { AiTextbookSession } from '@/types'
-import { resourceManager } from '@/services/resource-storage'
+import { resourceManager } from '@/services/storage/resource-storage'
 
 // 与 TextbookStorage 共用同一个 IndexedDB，单独建一个 ai_textbook_sessions 表
 const STORE_NAME = 'ai_textbook_sessions'

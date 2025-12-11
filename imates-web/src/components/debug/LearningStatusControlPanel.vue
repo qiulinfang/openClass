@@ -209,7 +209,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { authStorageService } from '../../services/auth-storage-service'
+import { authStorageService } from '../../services/storage/auth-storage-service'
 
 interface ChapterNode {
   id: string

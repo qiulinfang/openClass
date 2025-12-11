@@ -7,7 +7,7 @@ import {
   deleteScreenshotSessionFromDB,
   batchDeleteScreenshotSessionsFromDB,
   updateScreenshotSessionInDB,
-} from '@/services/ai-textbook-session-storage'
+} from '@/services/storage/ai-textbook-session-storage'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getSessionId = (session: AiTextbookSession): string => {

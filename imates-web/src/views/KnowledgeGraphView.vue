@@ -177,8 +177,8 @@ defineOptions({
 })
 import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { apiService } from '../services/api-service'
-import { resourceManager, ResourceManager } from '../services/resource-storage'
+import { apiService } from '../services/business/api-service'
+import { resourceManager, ResourceManager } from '../services/storage/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import NewGrap from '../components/knowledge-graph/newGrap.vue'
 import RubberBandList from '../components/RubberBandList.vue'
@@ -186,7 +186,8 @@ import CommonSelect from '@/components/CommonSelect.vue'
 import LearningView from './LearningView.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import { authStorageService } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
+import { authService } from '../services/http/auth-service'
 import { showMessage } from '../utils'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../utils/business/shijingshan-knowledge-utils'
 import {
@@ -1184,7 +1185,7 @@ const sessionManager = {
   async isSessionValid(): Promise<boolean> {
     try {
       // 检查统一存储的token和userId
-      const { getYanbanToken, getUserId } = await import('../services/auth-storage-service')
+      const { getYanbanToken, getUserId } = await import('../services/storage/auth-storage-service')
       const token = getYanbanToken()
       const userId = getUserId()
       
@@ -1222,7 +1223,7 @@ const sessionManager = {
       return true
     }
     
-    const result = await apiService.autoLogin(false)
+    const result = await authService.autoLogin(true)
     return result
   },
   

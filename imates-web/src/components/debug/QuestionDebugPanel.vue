@@ -255,7 +255,7 @@ import type { ExerciseItem } from '@/types'
 import {
   clearAllQuestionsFromIndexedDB,
   loadQuestionsFromIndexedDB
-} from '@/services/question-storage'
+} from '@/services/storage/question-storage'
 
 // Props
 interface Props {

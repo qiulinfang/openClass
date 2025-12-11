@@ -131,10 +131,10 @@ defineOptions({
 
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { resourceManager } from '../services/resource-storage'
+import { resourceManager } from '../services/storage/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/RubberBandList.vue'
-import { authStorageService } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
 import DraggableDialog from '../components/DraggableDialog.vue'
 import CommonActionButton from '../components/CommonActionButton.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'

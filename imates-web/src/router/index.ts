@@ -156,7 +156,7 @@ const router = createRouter({
 
 // 路由守卫 - 检查登录状态
 router.beforeEach(async (to, from, next) => {
-  const { getXuebanToken } = await import('../services/auth-storage-service')
+  const { getXuebanToken } = await import('../services/storage/auth-storage-service')
   const token = getXuebanToken()
   const isLoggedIn = !!token
   

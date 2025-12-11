@@ -1,7 +1,7 @@
 ﻿// 异步数据存储服务 - 使用 IndexedDB 替代 localStorage
 import localforage from 'localforage'
 import { authStorageService } from './auth-storage-service'
-import type { ChatBubble } from '../types/chat'
+import type { ChatBubble, AiGeneralSession } from '@/types'
 
 /**
  * 获取当前用户的 localforage 实例（聊天历史表）
@@ -31,6 +31,36 @@ function getSessionsLocalForage() {
     version: 1.0,
     storeName: 'ai_exercise_sessions', // 会话列表表名
     description: `AI题目会话列表存储 (用户: ${userId})`
+  })
+}
+
+/**
+ * 获取当前用户的教师题目会话列表 localforage 实例
+ * 用于存储 TeacherExercise 场景下的多会话列表
+ */
+function getTeacherExerciseSessionsLocalForage() {
+  const userId = authStorageService.getCurrentUserIdOrDefault()
+  return localforage.createInstance({
+    driver: localforage.INDEXEDDB,
+    name: `ExerciseSolveApp_${userId}`,
+    version: 1.0,
+    storeName: 'teacher_exercise_sessions',
+    description: `教师题目会话列表存储 (用户: ${userId})`
+  })
+}
+
+/**
+ * 获取当前用户的 AI 通用会话列表 localforage 实例
+ * 用于存储 AI 通用聊天多会话列表（ExerciseSolveApp 数据库中的独立表）
+ */
+function getGeneralSessionsLocalForage() {
+  const userId = authStorageService.getCurrentUserIdOrDefault()
+  return localforage.createInstance({
+    driver: localforage.INDEXEDDB,
+    name: `ExerciseSolveApp_${userId}`,
+    version: 1.0,
+    storeName: 'ai_general_sessions',
+    description: `AI通用会话列表存储 (用户: ${userId})`
   })
 }
 
@@ -514,6 +544,93 @@ export class ChatStorageService {
     } catch (error) {
       console.error('[CHAT_STORAGE] 删除会话列表失败:', error)
       throw error
+    }
+  }
+
+  // ==================== 教师题目会话列表存储 ====================
+
+  /**
+   * 保存教师题目会话列表（按统一 Map 结构存储）
+   */
+  async saveTeacherExerciseSessions(allSessions: Record<string, unknown>): Promise<void> {
+    try {
+      await this.initialize()
+      const sessionsLocalForage = getTeacherExerciseSessionsLocalForage()
+      const key = 'teacher_exercise_sessions'
+      const plain = JSON.parse(JSON.stringify(allSessions))
+      await sessionsLocalForage.setItem(key, plain)
+      console.log('[CHAT_STORAGE] 保存教师题目会话列表成功')
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 保存教师题目会话列表失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 加载教师题目会话列表
+   */
+  async loadTeacherExerciseSessions<T = unknown>(): Promise<Record<string, T>> {
+    try {
+      await this.initialize()
+      const sessionsLocalForage = getTeacherExerciseSessionsLocalForage()
+      const key = 'teacher_exercise_sessions'
+      const stored = await sessionsLocalForage.getItem<Record<string, T>>(key)
+      return stored || {}
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 加载教师题目会话列表失败:', error)
+      return {}
+    }
+  }
+
+  /**
+   * 清空教师题目会话列表
+   */
+  async clearTeacherExerciseSessions(): Promise<void> {
+    try {
+      await this.initialize()
+      const sessionsLocalForage = getTeacherExerciseSessionsLocalForage()
+      const key = 'teacher_exercise_sessions'
+      await sessionsLocalForage.removeItem(key)
+      console.log('[CHAT_STORAGE] 清空教师题目会话列表成功')
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 清空教师题目会话列表失败:', error)
+      throw error
+    }
+  }
+
+  // ==================== AI 通用会话列表存储 ====================
+
+  /**
+   * 保存 AI 通用会话列表
+   * 存储位置：ExerciseSolveApp_{userId} / ai_general_sessions 表
+   */
+  async saveGeneralSessions(sessions: AiGeneralSession[]): Promise<void> {
+    try {
+      await this.initialize()
+      const generalSessionsForage = getGeneralSessionsLocalForage()
+      const key = 'ai_general_sessions'
+      // 使用 JSON 深拷贝，确保写入的是可结构化克隆的纯 JSON 数据
+      const plainSessions: AiGeneralSession[] = JSON.parse(JSON.stringify(sessions))
+      await generalSessionsForage.setItem(key, plainSessions)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 保存 AI 通用会话列表失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 加载 AI 通用会话列表
+   */
+  async loadGeneralSessions(): Promise<AiGeneralSession[]> {
+    try {
+      await this.initialize()
+      const generalSessionsForage = getGeneralSessionsLocalForage()
+      const key = 'ai_general_sessions'
+      const stored = await generalSessionsForage.getItem<AiGeneralSession[]>(key)
+      return stored || []
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 加载 AI 通用会话列表失败:', error)
+      return []
     }
   }
 }

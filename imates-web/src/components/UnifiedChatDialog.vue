@@ -147,7 +147,7 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { showMessage } from '../utils'
-import { authStorageService } from '@/services/auth-storage-service'
+import { authStorageService } from '@/services/storage/auth-storage-service'
 import DraggableDialog from './DraggableDialog.vue'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
@@ -293,7 +293,7 @@ const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCur
 const createTeacherSession = async (subject: 'biology' | 'math') => {
   try {
     // 第1步：验证用户信息
-    const { getUserInfo } = await import('../services/auth-storage-service')
+    const { getUserInfo } = await import('../services/storage/auth-storage-service')
     const userInfo = getUserInfo() || {
       id: '',
       name: '',

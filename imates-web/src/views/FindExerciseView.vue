@@ -85,7 +85,7 @@ import FindExerciseQuestionList from '../components/FindExerciseQuestionList.vue
 import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
-import { authStorageService } from '../services/auth-storage-service'
+import { authStorageService } from '../services/storage/auth-storage-service'
 import { on } from 'events'
 
 // 定义组件名称，便于 Vue DevTools 识别

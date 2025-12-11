@@ -9,9 +9,9 @@ import { Quasar } from 'quasar'
 import router from './router'
 import { initPolyfills } from './utils/common/polyfills'
 import { initializeAppConfig } from './utils/config/config-utils'
-import { initQuestionStorage } from './services/question-storage'
-import { AndroidBridge } from './services/android-bridge'
-import { initMockTeacherBridge } from './services/mock-teacher-bridge'
+import { initQuestionStorage } from './services/storage/question-storage'
+import { AndroidBridge } from './services/business/android-bridge'
+import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'

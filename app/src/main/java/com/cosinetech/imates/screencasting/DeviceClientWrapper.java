@@ -141,6 +141,35 @@ public class DeviceClientWrapper {
     }
 
     /**
+     * 同步获取教室树数据 JSON 字符串（提供给上层/Web 使用，不直接弹出对话框）
+     *
+     * @return classrooms 字段对应的 JSON 字符串，失败时返回 null
+     */
+    public String fetchAllClassroomsTreeJsonSync() {
+        try {
+            apiClient.getAllClassrooms();
+            String url = baseUrl + "/all_classrooms";
+            okhttp3.OkHttpClient client = UnsafeOkHttpClient.getUnsafeOkHttpClient();
+            okhttp3.Request request = new okhttp3.Request.Builder().url(url).build();
+            okhttp3.Response response = client.newCall(request).execute();
+
+            if (response.isSuccessful() && response.body() != null) {
+                String body = response.body().string();
+                JSONObject jsonObject = new JSONObject(body);
+                JSONObject data = jsonObject.optJSONObject("classrooms");
+
+                if (data != null) {
+                    classroomManager.setClassroomTreeData(data);
+                    return data.toString();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error fetching classroom data synchronously", e);
+        }
+        return null;
+    }
+
+    /**
      * 内部显示Dialog方法
      */
     private void showClassroomDialogInternal(OnClassroomSelectedListener listener) {

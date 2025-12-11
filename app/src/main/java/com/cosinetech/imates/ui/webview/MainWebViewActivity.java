@@ -59,7 +59,7 @@ public class MainWebViewActivity extends AppCompatActivity
 
     /** 日志标签 */
     private static final String TAG = "MainWebViewActivity";
-    private static final String SCHOOL_ID = "jingkaierzhong";
+    private static final String SCHOOL_ID = "jinshanyuanyang"; //可以是 jingkaierzhong / jinshanyuanyang
 
     private static final boolean IS_INTERNAL_TEST = false;
 

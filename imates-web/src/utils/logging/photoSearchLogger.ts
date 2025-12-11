@@ -3,7 +3,7 @@
  * 用于记录拍照搜题的完整流程，便于调试和问题排查
  */
 
-import { androidBridge } from '@/services/android-bridge'
+import { androidBridge } from '@/services/business/android-bridge'
 
 interface LogEntry {
   timestamp: string

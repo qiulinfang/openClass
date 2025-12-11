@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
-import { androidBridge } from '../../services/android-bridge'
+import { androidBridge } from '../../services/business/android-bridge'
 import { showMessage } from '../../utils'
 
 // 导入类型定义

@@ -5,7 +5,7 @@
 import type { IImagePickerAdapter } from './IImagePickerAdapter'
 import { AndroidImagePickerAdapter } from './AndroidImagePickerAdapter'
 import { WebImagePickerAdapter } from './WebImagePickerAdapter'
-import { androidBridge } from '../services/android-bridge'
+import { androidBridge } from '../services/business/android-bridge'
 
 /**
  * 适配器工厂类

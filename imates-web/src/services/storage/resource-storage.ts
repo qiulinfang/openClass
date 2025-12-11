@@ -5,7 +5,7 @@
 
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
-import { DebounceUtils } from '../utils'
+import { DebounceUtils } from '@/utils'
 import { authStorageService } from './auth-storage-service'
 // 注释掉缩略图相关导入以提升性能
 // import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
@@ -16,7 +16,7 @@ import type {
   ChapterNode,
   LearningPackage,
   LocalFileInfo
-} from '../types'
+} from '@/types'
 
 export class ResourceManager {
   private static instance: ResourceManager | null = null
@@ -43,7 +43,7 @@ export class ResourceManager {
     const dbName = `TextbookStorage_${userId}`
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
-      version: 9, // 升级版本号，确保索引被创建（修复索引不存在问题），并新增 ai_textbook_sessions 表
+      version: 10, // 升级版本号，确保索引被创建（修复索引不存在问题），并新增 ai_textbook_sessions / learning_packages 表
       stores: [
         {
           name: 'textbooks',
@@ -71,6 +71,16 @@ export class ResourceManager {
             { name: 'resourceId', keyPath: 'resourceId' },
             { name: 'pinned', keyPath: 'pinned' },
             { name: 'updateTime', keyPath: 'updateTime' }
+          ]
+        },
+        {
+          name: 'learning_packages',
+          keyPath: 'id',
+          indexes: [
+            { name: 'userId', keyPath: 'userId' },
+            { name: 'packageId', keyPath: 'packageId' },
+            { name: 'textbookId', keyPath: 'textbookId' },
+            { name: 'timestamp', keyPath: 'timestamp' },
           ]
         }
       ]

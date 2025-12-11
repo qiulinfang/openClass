@@ -3,13 +3,13 @@
  * 简单的配置初始化和管理
  */
 
-import { httpClient } from '../../services/http-client'
-import { androidBridge } from '../../services/android-bridge'
-import { setBaseUrl } from '../../services/api-endpoints'
+import { httpClient } from '../../services/http/http-client'
+import { androidBridge } from '../../services/business/android-bridge'
+import { setBaseUrl } from '../../services/http/api-endpoints'
 import {
   authStorageService,
   UserType,
-} from '../../services/auth-storage-service'
+} from '../../services/storage/auth-storage-service'
 
 /**
  * 初始化应用配置

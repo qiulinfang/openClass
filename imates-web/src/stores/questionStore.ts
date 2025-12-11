@@ -5,13 +5,13 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ApiService } from '../services/api-service'
+import { ApiService } from '../services/business/api-service'
 import type { ExerciseItem } from '../types'
 import {
   saveQuestionsToIndexedDB,
   loadQuestionsFromIndexedDB,
   deleteQuestionsFromIndexedDB,
-} from '../services/question-storage'
+} from '../services/storage/question-storage'
 import { showMessage } from '@/utils'
 
 export const useQuestionStore = defineStore('question', () => {

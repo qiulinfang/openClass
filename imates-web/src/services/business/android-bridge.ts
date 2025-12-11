@@ -11,16 +11,16 @@ import type {
   UserInfo,
   VoiceRecordingResponse,
   ImagePickerResponse,
-} from '../types'
+} from '@/types'
 
 // 枚举需要普通导入才能作为值使用
-import { MessageType, ChatRole } from '../types'
+import { MessageType, ChatRole } from '@/types'
 
 // 使用统一类型定义
 import type {
   VoiceRecordingStatus,
   ImageCompressionResult,
-} from '../types'
+} from '@/types'
 
 // HTTP相关的接口定义已移至types/index.ts
 
@@ -1326,6 +1326,37 @@ export class AndroidBridge {
         return null
       }
       
+      return null
+    } catch (error) {
+      return null
+    }
+  }
+
+  /**
+   * 获取教室树数据
+   * @returns 教室树JSON对象，失败时返回 null
+   */
+  public fetchClassroomTree(): any | null {
+    try {
+      if (window.AndroidBridge?.fetchClassroomTree) {
+        const result = window.AndroidBridge.fetchClassroomTree()
+
+        const response = this.parseJSON<{
+          success: boolean
+          message: string
+          data?: any
+        }>(result, {
+          success: false,
+          message: '解析失败'
+        })
+
+        if (response.success && response.data) {
+          return response.data
+        }
+
+        return null
+      }
+
       return null
     } catch (error) {
       return null

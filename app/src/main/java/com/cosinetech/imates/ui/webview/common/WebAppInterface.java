@@ -37,6 +37,8 @@ import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.teachermessagemq.StudentMessage;
 import com.cosinetech.imates.utils.VoiceDbUtil;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
+import com.cosinetech.imates.screencasting.DeviceClientWrapper;
+import com.cosinetech.imates.screencasting.model.DeviceType;
 import com.cosinetech.imates.ApplicationModelShared;
 import androidx.lifecycle.ViewModelProvider;
 import org.loka.screensharekit.ScreenShareKit;
@@ -2867,6 +2869,44 @@ public class WebAppInterface {
             sendLogToWeb("ERROR", TAG, "========== 退出课堂流程异常 ==========");
             sendLogToWeb("ERROR", TAG, "异常信息: " + e.getMessage());
             return createResponse(false, "退出课堂失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 获取教室树数据
+     * 提供给Web端使用，不直接弹出原生教室选择对话框
+     *
+     * @return 包装后的响应JSON字符串，data字段为教室树JSON对象
+     */
+    @JavascriptInterface
+    public String fetchClassroomTree() {
+        Log.d(TAG, "📡 WebAppInterface.fetchClassroomTree 被调用");
+        try {
+            // 使用学生角色创建设备客户端，仅用于获取教室树
+            String userId = AppUtils.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                userId = "guest000";
+            }
+
+            DeviceClientWrapper client = new DeviceClientWrapper(
+                    mContext,
+                    "www.imates.com.cn",
+                    8889,
+                    userId,
+                    DeviceType.STUDENT
+            );
+
+            String classroomsJson = client.fetchAllClassroomsTreeJsonSync();
+            if (classroomsJson == null) {
+                Log.w(TAG, "fetchClassroomTree: 获取教室树数据失败，返回null");
+                return createResponse(false, "获取教室列表失败", null);
+            }
+
+            Log.d(TAG, "fetchClassroomTree: 获取到教室树数据长度=" + classroomsJson.length());
+            return createResponseWithJsonData(true, "获取教室列表成功", classroomsJson);
+        } catch (Exception e) {
+            Log.e(TAG, "fetchClassroomTree: 获取教室树数据异常", e);
+            return createResponse(false, "获取教室列表异常: " + e.getMessage(), null);
         }
     }
 

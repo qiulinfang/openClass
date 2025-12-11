@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ApiService } from '../services/api-service'
+import { ApiService } from '../services/business/api-service'
 import type { 
   ExerciseItem, 
   FindSimilarQuestionByKnowledgeRequest, 

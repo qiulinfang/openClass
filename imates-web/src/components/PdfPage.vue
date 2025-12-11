@@ -172,13 +172,13 @@ import {
   type CSSProperties,
 } from 'vue'
 import { useRoute } from 'vue-router'
-import { resourceManager } from '../services/resource-storage'
+import { resourceManager } from '../services/storage/resource-storage'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import * as mupdf from 'mupdf'
 import PdfGestureDebugPanel from './PdfGestureDebugPanel.vue'
 import PdfNoteListPanel from './PdfNoteListPanel.vue'
 import PdfNoteAnchor from './PdfNoteAnchor.vue'
-import { IndexedDBService, type IndexedDBConfig } from '@/services/indexeddb-service'
+import { IndexedDBService, type IndexedDBConfig } from '@/services/storage/indexeddb-service'
 
 // ==================== 对外接口（emits / props / store） ====================
 const emit = defineEmits<{

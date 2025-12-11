@@ -10,10 +10,10 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/api-service'
-import { chatStorage } from '../services/chat-storage'
+import { apiService } from '../services/business/api-service'
+import { chatStorage } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
-import { getUserInfo, getSubject, getUserId } from '../services/auth-storage-service'
+import { getUserInfo, getSubject, getUserId } from '../services/storage/auth-storage-service'
 import { useAiGeneralChatStore } from './aiGeneralChatStore'
 import {
   createUserMessage,

@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { resourceManager } from '@/services/resource-storage'
+import { resourceManager } from '@/services/storage/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo } from '@/types'
 
 // 使用路由

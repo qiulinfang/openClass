@@ -354,7 +354,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { resourceManager } from '@/services/resource-storage'
+import { resourceManager } from '@/services/storage/resource-storage'
 import type { UserTextbookInfo } from '@/types'
 import { useQuasar } from 'quasar'
 

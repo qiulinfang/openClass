@@ -5,7 +5,7 @@
 
 import { IndexedDBService } from './indexeddb-service'
 import { authStorageService } from './auth-storage-service'
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem } from '@/types'
 
 interface QuestionListData {
   subject: string
