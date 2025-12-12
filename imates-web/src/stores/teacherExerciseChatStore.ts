@@ -14,7 +14,7 @@ import { ref } from 'vue'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage } from './utils/chatStoreUtils'
-import { authStorageService } from '../services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '../services/http/auth-service'
 import type { ChatImageData } from './utils/chatStoreUtils'
 import {
   updateMessageError,
@@ -947,7 +947,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
    * 获取旧版 localStorage 会话存储键名（仅用于一次性迁移）
    */
   const getLegacySessionsStorageKey = (): string => {
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     return `${userId}_teacher-exercise-sessions`
   }
 

@@ -15,8 +15,7 @@ import { apiService } from '../services/business/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, QuotedMessageInfo } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
-import { authStorageService } from '../services/storage/auth-storage-service'
-import { getUserId } from '../services/storage/auth-storage-service'
+import { getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 
@@ -178,13 +177,15 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 创建用户消息
    * 支持挂前端引用信息（quotedMessage），仅用于 UI 展示，不发送给后端
    */
-  const createUserMessage = (content: string, quotedMessage?: ChatQuotedMessage): ChatBubble => {
+  const createUserMessage = (content: string, sessionId?: string, quotedMessage?: ChatQuotedMessage): ChatBubble => {
     return {
       id: Date.now().toString(),
       content,
       type: 'user',
       timestamp: new Date().toISOString(),
       sender: 'user',
+      messageType: 'text',
+      sessionId,
       quotedMessage,
     }
   }
@@ -247,7 +248,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     // 第2步：创建用户消息（可选）
     if (!skipUserMessage) {
       // 普通文本消息（无图片）
-      const userMessage = createUserMessage(content, undefined, false, currentSession.value?.sessionId, quotedMessage)
+      const userMessage = createUserMessage(content, currentSession.value?.sessionId, quotedMessage)
       messages.value.push(userMessage)
     } else if (imageData && imageData.base64DataUrl) {
       // 当上游已通过截图挂载方式传入图片数据时，这里负责创建图片气泡（以及可选的文本气泡）
@@ -615,7 +616,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const loadSessions = async (): Promise<void> => {
     try {
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
       const legacyKey = `${userId}_ai-general-sessions`
       const legacyData = localStorage.getItem(legacyKey)
 

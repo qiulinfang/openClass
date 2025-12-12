@@ -136,6 +136,7 @@ import MyProfileView from '@/views/MyProfileView.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/business/api-service'
 import { authService } from '@/services/http/auth-service'
+import { androidBridge } from '@/services/business/android-bridge'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
 import type { UserTextbookInfo } from '@/types'
@@ -854,6 +855,16 @@ const handleLogoutClick = async () => {
     // 如果工具箱区域是打开的，则关闭它
     if (showToolbox.value) {
       showToolbox.value = false
+    }
+    if (androidBridge.isAndroidBridgeAvailable()) {
+      try {
+        androidBridge.stopScreenProjection()
+      } catch {
+      }
+      try {
+        androidBridge.exitClassroom()
+      } catch {
+      }
     }
     // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
     router.push('/login')

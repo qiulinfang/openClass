@@ -105,7 +105,7 @@ utils/
 **用途**：处理用户身份和权限相关功能。
 
 **文件**：
-- `services/storage/auth-storage-service.ts` - 用户认证信息存储服务
+- `services/http/auth-service.ts` - 用户认证信息存储服务
   - `getUserId()` - 获取当前用户ID
   - `getCurrentUserIdOrDefault()` - 获取用户ID或默认值
   - 支持学班管理员和研伴学生两种登录方式
@@ -226,7 +226,7 @@ import { thumbnailQueue } from '@/utils'
 
 // 或从具体文件导入
 import { isPdfFile } from '@/utils/thumbnail/pdf-thumbnail'
-import { getCurrentUserIdOrDefault } from '@/services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
 import { toggleQaFavorite } from '@/utils/storage/favorites'
 ```
 

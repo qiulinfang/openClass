@@ -13,7 +13,7 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/business/api-service'
 import { chatStorage } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
-import { getUserInfo, getSubject, getUserId } from '../services/storage/auth-storage-service'
+import { getUserInfo, getSubject, getUserId } from '../services/http/auth-service'
 import { useAiGeneralChatStore } from './aiGeneralChatStore'
 import {
   createUserMessage,

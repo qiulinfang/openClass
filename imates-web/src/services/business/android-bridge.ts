@@ -173,7 +173,7 @@ export class AndroidBridge {
       if (!jsonStr) return defaultValue
       return JSON.parse(jsonStr) as T
     } catch (err) {
-      // 静默处理
+      console.warn('[AndroidBridge] parseJSON failed:', { jsonStr }, err)
       return defaultValue
     }
   }
@@ -1233,13 +1233,17 @@ export class AndroidBridge {
   public joinClassroom(studentId: string, studentName: string, isGuest: boolean = false): boolean {
     try {
       if (window.AndroidBridge?.joinClassroom) {
+        console.log('[Classroom][Bridge][Join] call', { studentId, studentName, isGuest })
         const result = window.AndroidBridge.joinClassroom(studentId, studentName, isGuest)
+        console.log('[Classroom][Bridge][Join] raw', { len: typeof result === 'string' ? result.length : -1 })
         
         // 流程：解析原生返回的JSON对象（包含success、message、data字段）
         const response = this.parseJSON<{ success: boolean, message: string, data?: string }>(result, { 
           success: false, 
           message: '解析失败' 
         })
+
+        console.log('[Classroom][Bridge][Join] resp', { success: response.success, message: response.message })
         
         // 流程：如果data字段是字符串形式的JSON，进行二次解析（可选）
         if (response.success && response.data && typeof response.data === 'string') {
@@ -1252,9 +1256,11 @@ export class AndroidBridge {
         
         return response.success
       }
-      
+
+      console.error('[AndroidBridge] joinClassroom: window.AndroidBridge.joinClassroom not found')
       return false
     } catch (error) {
+      console.error('[AndroidBridge] joinClassroom error:', error)
       return false
     }
   }
@@ -1266,19 +1272,25 @@ export class AndroidBridge {
   public exitClassroom(): boolean {
     try {
       if (window.AndroidBridge?.exitClassroom) {
+        console.log('[Classroom][Bridge][Exit] call')
         const result = window.AndroidBridge.exitClassroom()
+        console.log('[Classroom][Bridge][Exit] raw', { len: typeof result === 'string' ? result.length : -1 })
         
         // 流程：解析原生返回的JSON对象（包含success、message、data字段）
         const response = this.parseJSON<{ success: boolean, message: string, data?: string }>(result, { 
           success: false, 
           message: '解析失败' 
         })
+
+        console.log('[Classroom][Bridge][Exit] resp', { success: response.success, message: response.message })
         
         return response.success
       }
-      
+
+      console.error('[AndroidBridge] exitClassroom: window.AndroidBridge.exitClassroom not found')
       return false
     } catch (error) {
+      console.error('[AndroidBridge] exitClassroom error:', error)
       return false
     }
   }
@@ -1290,7 +1302,9 @@ export class AndroidBridge {
   public getClassroomStatus(): import('../types').BridgeClassroomStatus | null {
     try {
       if (window.AndroidBridge?.getClassroomStatus) {
+        console.log('[Classroom][Bridge][Status] call')
         const result = window.AndroidBridge.getClassroomStatus()
+        console.log('[Classroom][Bridge][Status] raw', { len: typeof result === 'string' ? result.length : -1 })
         
         // 流程：解析原生返回的包装对象（包含success、message、data字段）
         const response = this.parseJSON<{ 
@@ -1320,14 +1334,19 @@ export class AndroidBridge {
             tsStreamPort: 0,
             status: data.isProjecting ? 'streaming' : 'ready'
           }
+
+          console.log('[Classroom][Bridge][Status] resp', { isInClass: status.isInClass, status: status.status, studentId: status.studentId })
           return status
         }
         
+        console.log('[Classroom][Bridge][Status] resp null', { success: response.success, message: response.message })
         return null
       }
-      
+
+      console.error('[AndroidBridge] getClassroomStatus: window.AndroidBridge.getClassroomStatus not found')
       return null
     } catch (error) {
+      console.error('[AndroidBridge] getClassroomStatus error:', error)
       return null
     }
   }
@@ -1339,7 +1358,9 @@ export class AndroidBridge {
   public fetchClassroomTree(): any | null {
     try {
       if (window.AndroidBridge?.fetchClassroomTree) {
+        console.log('[Classroom][Bridge][Tree] call')
         const result = window.AndroidBridge.fetchClassroomTree()
+        console.log('[Classroom][Bridge][Tree] raw', { len: typeof result === 'string' ? result.length : -1 })
 
         const response = this.parseJSON<{
           success: boolean
@@ -1351,14 +1372,30 @@ export class AndroidBridge {
         })
 
         if (response.success && response.data) {
-          return response.data
+          const data = response.data as any
+          if (typeof data === 'string') {
+            const trimmed = data.trim()
+            if (!trimmed) {
+              return null
+            }
+            // 原生侧可能通过 createResponseWithJsonData 返回 JSON 字符串，这里做二次解析
+            const parsed = this.parseJSON<any>(trimmed, null)
+            console.log('[Classroom][Bridge][Tree] resp', { type: typeof parsed, keys: parsed && typeof parsed === 'object' ? Object.keys(parsed).length : -1 })
+            return parsed
+          }
+
+          console.log('[Classroom][Bridge][Tree] resp', { type: typeof data, keys: data && typeof data === 'object' ? Object.keys(data).length : -1 })
+          return data
         }
 
+        console.log('[Classroom][Bridge][Tree] resp null', { success: response.success, message: response.message })
         return null
       }
 
+      console.error('[AndroidBridge] fetchClassroomTree: window.AndroidBridge.fetchClassroomTree not found')
       return null
     } catch (error) {
+      console.error('[AndroidBridge] fetchClassroomTree error:', error)
       return null
     }
   }
@@ -1373,9 +1410,11 @@ export class AndroidBridge {
         const result = window.AndroidBridge.startScreenProjection()
         return this.parseJSON<boolean>(result, false)
       }
-      
+
+      console.error('[AndroidBridge] startScreenProjection: method not found on window.AndroidBridge')
       return false
     } catch (error) {
+      console.error('[AndroidBridge] startScreenProjection error:', error)
       return false
     }
   }
@@ -1390,9 +1429,11 @@ export class AndroidBridge {
         const result = window.AndroidBridge.stopScreenProjection()
         return this.parseJSON<boolean>(result, false)
       }
-      
+
+      console.error('[AndroidBridge] stopScreenProjection: method not found on window.AndroidBridge')
       return false
     } catch (error) {
+      console.error('[AndroidBridge] stopScreenProjection error:', error)
       return false
     }
   }
@@ -1408,9 +1449,11 @@ export class AndroidBridge {
         const result = window.AndroidBridge.takeSnapshot(commandId)
         return this.parseJSON<boolean>(result, false)
       }
-      
+
+      console.error('[AndroidBridge] takeSnapshot: method not found on window.AndroidBridge')
       return false
     } catch (error) {
+      console.error('[AndroidBridge] takeSnapshot error:', error)
       return false
     }
   }
@@ -1426,9 +1469,11 @@ export class AndroidBridge {
         const result = window.AndroidBridge.setClassroomMode(classMode)
         return this.parseJSON<boolean>(result, false)
       }
-      
+
+      console.error('[AndroidBridge] setClassroomMode: method not found on window.AndroidBridge')
       return false
     } catch (error) {
+      console.error('[AndroidBridge] setClassroomMode error:', error)
       return false
     }
   }

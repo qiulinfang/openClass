@@ -16,6 +16,7 @@ import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
+import { getXuebanToken } from '@/services/http/auth-service'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -156,7 +157,6 @@ const router = createRouter({
 
 // 路由守卫 - 检查登录状态
 router.beforeEach(async (to, from, next) => {
-  const { getXuebanToken } = await import('../services/storage/auth-storage-service')
   const token = getXuebanToken()
   const isLoggedIn = !!token
   

@@ -134,7 +134,7 @@ import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/storage/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/RubberBandList.vue'
-import { authStorageService } from '../services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '../services/http/auth-service'
 import DraggableDialog from '../components/DraggableDialog.vue'
 import CommonActionButton from '../components/CommonActionButton.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -427,7 +427,7 @@ const startLearning = async (resource: ResourceFile) => {
 // 标记节点为已学习
 const markNodeAsLearned = (nodeId: string) => {
   try {
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     const LEARNED_NODES_KEY = `${userId}_LEARNED_NODES`
     // 从localStorage加载已学习的节点ID列表
     const saved = localStorage.getItem(LEARNED_NODES_KEY)

@@ -195,6 +195,7 @@ import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { apiService } from '../services/business/api-service'
+import { getUserInfo, loadFromStorage } from '../services/http/auth-service'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 
@@ -751,7 +752,6 @@ const takePictureToTeacher = async (question: ExerciseItem) => {
 const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
   try {
     // 第1步：确保用户信息已加载
-    const { getUserInfo } = await import('../services/storage/auth-storage-service')
     const userInfo = getUserInfo() || {
       id: '',
       name: '',
@@ -761,7 +761,6 @@ const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
 
     if (!userInfo?.id) {
       // 尝试从localStorage加载
-      const { loadFromStorage } = await import('../services/storage/auth-storage-service')
       const hasCache = loadFromStorage()
       if (!hasCache) {
         showMessage('无法获取用户信息，请重新登录', 'error')

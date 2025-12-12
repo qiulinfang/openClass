@@ -5,11 +5,11 @@
 
 import type { QuestionRecord, AiGeneralSession, AiTextbookSession } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
-import { authStorageService } from '../../services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '../../services/http/auth-service'
 
 // localStorage key 常量（带用户ID前缀）
 const getFavoritesStorageKey = (): string => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_favorites`
 }
 const QA_FAVORITES_PREFIX = 'favorite_qa_'  

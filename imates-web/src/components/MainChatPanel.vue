@@ -104,7 +104,7 @@ import { ref } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { showMessage } from '../utils'
-import { authStorageService } from '@/services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import addSessionIcon from '/icons/addsession.png'
@@ -223,7 +223,7 @@ const setTeacherSession = (sessionId: string) => {
   const session = allSessions.find((s) => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   }

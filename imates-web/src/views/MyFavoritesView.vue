@@ -181,7 +181,7 @@ import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import RubberBandList from '../components/RubberBandList.vue'
-import { authStorageService } from '../services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../services/http/auth-service'
 import ImageViewer from '../components/ImageViewer.vue'
 import { resourceManager } from '../services/storage/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo } from '../types/textbook'
@@ -255,7 +255,7 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
     const teacherSession = teacherStore.getSession(session.sessionId)
     if (teacherSession) {
       // 设置 localStorage
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
       const storeSubject = teacherSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       // 调用 store 的 setSession（设置当前会话）
@@ -454,7 +454,7 @@ const handleExerciseCardClick = async (item: ExerciseItem) => {
       query: {
         questionId: item.bmNo || item.id,
         subject: item.subject === 'biology' ? 'SUBJECT_BIOLOGY' : 'SUBJECT_MATH',
-        token: authStorageService.getScopedStorageValue('token') || ''
+        token: getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {

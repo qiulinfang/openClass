@@ -50,13 +50,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed, inject, defineExpose } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/storage/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/business/api-service'
-import { authStorageService } from '../../services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../../services/http/auth-service'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
 
@@ -126,12 +126,12 @@ const activeNodeId = ref<string | null>(null)
 
 // 获取带用户ID前缀的存储key
 const getLastLearnedNodeKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_LEARNED_NODES`
 }
 
@@ -512,7 +512,7 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
         query: {
           bmNoList: shijingshanBmNoList.trim(),
           subject: subjectParam,
-          token: authStorageService.getScopedStorageValue('token') || ''
+          token: getScopedStorageValue('token') || ''
         }
       })
       return
@@ -554,7 +554,7 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
       query: {
         knowledgeList: knowledgeList,
         subject: subjectParam,
-        token: authStorageService.getScopedStorageValue('token') || ''
+        token: getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {

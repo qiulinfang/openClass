@@ -105,6 +105,7 @@
 
                 <!-- 调整大小把手 -->
                 <div
+                  v-if="!props.autoSize"
                   class="resize-handle"
                   @mousedown.prevent.stop="startResize"
                   @touchstart.prevent.stop="startResize"
@@ -201,6 +202,7 @@
             </div>
             <!-- 调整大小把手 -->
             <div
+              v-if="!props.autoSize"
               class="resize-handle"
               @mousedown.prevent.stop="startResize"
               @touchstart.prevent.stop="startResize"
@@ -223,6 +225,7 @@ interface Props {
   initialHeight?: number
   minWidth?: number
   minHeight?: number
+  autoSize?: boolean
   titleAlign?: 'left' | 'center'
   headerBackgroundColor?: string
   titleFontSize?: string | number
@@ -241,6 +244,7 @@ const props = withDefaults(defineProps<Props>(), {
   initialHeight: 600,
   minWidth: 400,
   minHeight: 300,
+  autoSize: false,
   titleAlign: 'center',
   headerBackgroundColor: '#fafafb',
   titleFontSize: 16,
@@ -296,6 +300,14 @@ const dialogStyle = computed(() => {
       width: '100vw',
       height: '100vh',
       transition: 'none',
+    }
+  }
+  if (props.autoSize) {
+    return {
+      transform: `translate(${dialogPosition.value.x}px, ${dialogPosition.value.y}px)`,
+      width: 'auto',
+      height: 'auto',
+      transition: isDragging.value ? 'none' : 'transform 0.1s ease-out',
     }
   }
   return {
@@ -631,6 +643,8 @@ watch(isOpen, (newValue) => {
     flex: 1;
     padding: 0;
     overflow: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     display: flex;
     flex-direction: column;
     background: #ffffff;
@@ -674,8 +688,8 @@ watch(isOpen, (newValue) => {
 
 /* Excalidraw 风格的滚动条 */
 .dialog-content-section::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
 }
 
 .dialog-content-section::-webkit-scrollbar-track {
@@ -683,12 +697,7 @@ watch(isOpen, (newValue) => {
 }
 
 .dialog-content-section::-webkit-scrollbar-thumb {
-  background: #d1d1d1;
-  border-radius: 4px;
-
-  &:hover {
-    background: #b1b1b1;
-  }
+  background: transparent;
 }
 
 /* 底部操作按钮区域样式（复用 ScreenshotInputDialog 样式） */

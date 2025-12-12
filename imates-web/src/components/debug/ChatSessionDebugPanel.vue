@@ -646,7 +646,7 @@ import { useTeacherExerciseChatStore, type TeacherExerciseSession } from '@/stor
 import type { AiGeneralSession, ChatBubble } from '@/types'
 import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import localforage from 'localforage'
-import { authStorageService } from '@/services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
 import { chatStorage } from '@/services/storage/chat-storage'
 import { showMessage } from '@/utils'
 
@@ -1216,17 +1216,17 @@ const memoryMessagesCount = computed(() => memoryMessages.value.length)
 const indexedDBMessagesCount = computed(() => indexedDBMessages.value.length)
 const indexedDBKey = computed(() => {
   if (!currentTeacherSession.value) return '无当前会话'
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   // 教师通用会话使用统一存储，所有会话的消息存储在同一个键下
   return `${userId}_chat_history_teacher-general`
 })
 const localStorageSessionKey = computed(() => {
   if (!currentTeacherSession.value) return '无当前会话'
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_teacher_chat_${currentTeacherSession.value.sessionId}_session`
 })
 const indexedDBDatabaseName = computed(() => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `ExerciseSolveApp_${userId}`
 })
 
@@ -1251,7 +1251,7 @@ const refreshStorageData = async () => {
     
     // 刷新localStorage会话信息
     if (currentTeacherSession.value) {
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
       const sessionKey = `${userId}_teacher_chat_${currentTeacherSession.value.sessionId}_session`
       const sessionData = localStorage.getItem(sessionKey)
       localStorageSessionData.value = sessionData ? JSON.stringify(JSON.parse(sessionData), null, 2) : '无数据'

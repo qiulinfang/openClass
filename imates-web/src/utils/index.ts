@@ -65,7 +65,17 @@ export {
 } from './business/chapter-utils'
 
 // 用户相关工具
-export { authStorageService } from '../services/storage/auth-storage-service'
+export {
+  UserType,
+  getUserId,
+  getPassword,
+  getYanbanToken,
+  getXuebanToken,
+  getCurrentUserId,
+  getCurrentUserType,
+  getCurrentUserIdOrDefault,
+  getScopedStorageValue,
+} from '../services/http/auth-service'
 
 // 收藏功能工具
 export {

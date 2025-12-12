@@ -52,26 +52,27 @@
     <!-- 加入课堂确认对话框：使用可拖拽对话框组件 -->
     <DraggableDialog
       v-model="showJoinClassDialog"
+      class="join-class-dialog"
       title="课堂提示"
       :show-footer="true"
-      :initial-width="isInClass ? 360 : 420"
-      :initial-height="isInClass ? 190 : 280"
-      :min-width="300"
-      :min-height="isInClass ? 160 : 220"
+      :auto-size="true"
+      :confirm-text="isInClass ? '确认退出' : '确认加入'"
+      :cancel-text="'取消'"
+      :confirm-variant="isInClass ? 'danger' : 'primary'"
+      :confirm-disabled="!canConfirmJoinClass"
       @cancel="showJoinClassDialog = false"
       @confirm="confirmJoinClass"
     >
-      <div class="delete-confirm-content" v-if="isInClass">
-        退出课堂后将不能和老师互动，确认退出吗？
+      <div class="exit-classroom" v-if="isInClass">
+        <div class="exit-icon">!</div>
+        <div class="exit-text">
+          <div class="primary">确认退出课堂？</div>
+          <div class="secondary">退出后将不能和老师互动，且投屏会结束。</div>
+        </div>
       </div>
 
       <!-- 加入课堂场景：展示教室选择 UI -->
       <div class="join-classroom-content" v-else>
-        <div class="join-classroom-header">
-          <div class="title">选择要加入的教室</div>
-          <div class="subtitle">请先选择城市、学校，再选择具体教室</div>
-        </div>
-
         <div class="join-classroom-body">
           <div v-if="isLoadingClassrooms" class="status-text">正在加载教室列表...</div>
           <div v-else-if="classroomLoadError" class="status-text error">{{ classroomLoadError }}</div>
@@ -120,8 +121,7 @@ import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/business/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
-import { authStorageService } from '@/services/storage/auth-storage-service'
-import { getUserInfo } from '../services/storage/auth-storage-service'
+import { getUserInfo, getCurrentUserIdOrDefault, getXuebanToken, setUserInfo } from '../services/http/auth-service'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
@@ -148,6 +148,7 @@ const getTeacherChatDialogRef = inject<() => InstanceType<typeof UnifiedChatDial
 
 // 响应式数据
 const isInClass = ref(false)
+const isProjecting = ref(false)
 const showJoinClassDialog = ref(false)
 
 // 教室选择相关状态
@@ -197,6 +198,14 @@ const schoolOptions = computed<string[]>(() => {
   return []
 })
 
+const canConfirmJoinClass = computed(() => {
+  if (isInClass.value) return true
+  if (isLoadingClassrooms.value) return false
+  if (classroomLoadError.value) return false
+  if (!classroomTree.value) return false
+  return !!selectedCity.value && !!selectedSchool.value && !!selectedClassroom.value
+})
+
 const classroomOptions = computed<any[]>(() => {
   if (!classroomTree.value || !selectedCity.value || !selectedSchool.value) return []
 
@@ -243,12 +252,16 @@ const userInfo = computed(() => {
 // 检查课堂状态的函数
 const checkClassroomStatus = () => {
   // 流程：读取原生课堂状态 -> 更新前端状态
+  console.log('[Classroom][Status] start')
   const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
+  console.log('[Classroom][Status] native =', status)
   
   if (status && status.isInClass === true) {
     isInClass.value = true
+    isProjecting.value = status.status === 'streaming'
   } else {
     isInClass.value = false
+    isProjecting.value = false
   }
 }
 
@@ -262,18 +275,34 @@ onMounted(() => {
 
   // 流程：绑定课堂事件 -> 根据原生回调同步前端状态
   androidBridge.onClassroomJoined(() => {
+    console.log('[MyProfileView] onClassroomJoined')
     isInClass.value = true
     showMessage('已加入课堂', 'success')
   })
   androidBridge.onClassroomExited(() => {
+    console.log('[MyProfileView] onClassroomExited')
     isInClass.value = false
     showMessage('已退出课堂', 'info')
   })
   androidBridge.onClassroomStatusChanged((newStatus: BridgeClassroomStatus) => {
+    console.log('[MyProfileView] onClassroomStatusChanged:', newStatus)
     const inClass = !!newStatus?.isInClass
     if (isInClass.value !== inClass) {
       isInClass.value = inClass
     }
+    const projecting = newStatus?.status === 'streaming'
+    if (isProjecting.value !== projecting) {
+      isProjecting.value = projecting
+    }
+  })
+
+  androidBridge.onScreenProjectionStarted(() => {
+    console.log('[MyProfileView] onScreenProjectionStarted')
+    isProjecting.value = true
+  })
+  androidBridge.onScreenProjectionStopped(() => {
+    console.log('[MyProfileView] onScreenProjectionStopped')
+    isProjecting.value = false
   })
 })
 
@@ -286,9 +315,8 @@ onUnmounted(async () => {
 const loadUserInfo = async () => {
   try {
     // 第1步：尝试从持久化存储加载
-    const { loadFromStorage, getXuebanToken, setUserInfo } = await import('../services/storage/auth-storage-service')
-    const hasCache = loadFromStorage()
-    if (hasCache) {
+    const cached = getUserInfo()
+    if (cached) {
       return
     }
 
@@ -319,7 +347,32 @@ const loadUserInfo = async () => {
 // 加载教室树数据
 const loadClassroomTree = () => {
   if (!androidBridge.isAndroidBridgeAvailable()) {
-    classroomLoadError.value = '当前环境不支持课堂功能'
+    console.warn('[Classroom][Tree] AndroidBridge unavailable, use mock classroom tree in web')
+    classroomLoadError.value = null
+    isLoadingClassrooms.value = false
+    classroomTree.value = {
+      cities: ['北京', '上海'],
+      schoolsMap: {
+        北京: ['第一中学', '第二中学'],
+        上海: ['实验中学']
+      },
+      classroomsMap: {
+        北京: {
+          第一中学: [
+            { id: 'BJ-1-101', name: '高一(1)班' },
+            { id: 'BJ-1-102', name: '高一(2)班' },
+          ],
+          第二中学: [
+            { id: 'BJ-2-201', name: '初二(1)班' },
+          ],
+        },
+        上海: {
+          实验中学: [
+            { id: 'SH-EX-301', name: '高二(3)班' },
+          ],
+        },
+      },
+    }
     return
   }
 
@@ -327,16 +380,27 @@ const loadClassroomTree = () => {
   classroomLoadError.value = null
 
   try {
+    const traceId = `CT_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
+    console.log('[Classroom][Tree] start', { traceId })
     const data = androidBridge.fetchClassroomTree()
-    console.log('[MyProfileView] classroomTree from native:', data)
-    if (!data) {
+    console.log('[Classroom][Tree] native =', { traceId, type: typeof data, isArray: Array.isArray(data) })
+
+    const isEmptyObject =
+      data &&
+      typeof data === 'object' &&
+      !Array.isArray(data) &&
+      Object.keys(data).length === 0
+
+    if (!data || isEmptyObject) {
       classroomTree.value = null
       classroomLoadError.value = '获取教室列表失败，请稍后重试'
+      console.warn('[Classroom][Tree] empty', { traceId })
     } else {
       classroomTree.value = data
+      console.log('[Classroom][Tree] ok', { traceId, keys: Object.keys(data || {}).length })
     }
   } catch (error) {
-    console.error('[MyProfileView] 获取教室列表异常:', error)
+    console.error('[Classroom][Tree] error:', error)
     classroomTree.value = null
     classroomLoadError.value = '获取教室列表异常，请稍后重试'
   } finally {
@@ -359,13 +423,26 @@ const confirmJoinClass = () => {
   // 流程：关闭确认弹窗 -> 分支(在课堂/不在课堂) -> 调用原生接口 -> 根据结果同步状态与提示
   showJoinClassDialog.value = false
 
+  const traceId = `JC_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
+  console.log('[Classroom][Action] start', { traceId, isInClass: isInClass.value })
+
+  if (!androidBridge.isAndroidBridgeAvailable()) {
+    console.error('[Classroom][Action] AndroidBridge unavailable', { traceId })
+    showMessage('Web 演示模式：已完成教室选择，但当前环境不支持真实加入课堂', 'info')
+    return
+  }
+
   if (isInClass.value) {
     // 流程：调用原生退出课堂 -> 成功则更新状态
+    console.log('[Classroom][Exit] call native', { traceId })
     const ok = androidBridge.exitClassroom()
     if (ok) {
       isInClass.value = false
+      isProjecting.value = false
+      console.log('[Classroom][Exit] ok', { traceId })
       showMessage('已退出课堂', 'success')
     } else {
+      console.error('[Classroom][Exit] failed', { traceId })
       showMessage('退出课堂失败', 'error')
     }
     return
@@ -395,11 +472,14 @@ const confirmJoinClass = () => {
   const isGuest = !studentId
 
   // 流程：调用原生加入课堂 -> 成功则更新状态
+  console.log('[Classroom][Join] call native', { traceId, studentId, studentName, isGuest })
   const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
   if (ok) {
     isInClass.value = true
+    console.log('[Classroom][Join] ok (waiting teacher cmd)', { traceId })
     showMessage('已加入课堂', 'success')
   } else {
+    console.error('[Classroom][Join] failed', { traceId })
     showMessage('加入课堂失败', 'error')
   }
 }
@@ -435,7 +515,7 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     }
 
     // 第3步：设置 localStorage 中的 currentTeacherSubject
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
@@ -545,7 +625,7 @@ const takePictureToTeacher = async () => {
           const targetSession = allSessions.find(s => s.subject === selectedSubject)
           if (targetSession) {
             // 设置 localStorage
-            const userId = authStorageService.getCurrentUserIdOrDefault()
+            const userId = getCurrentUserIdOrDefault()
             const storeSubject = targetSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
             localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
             // 调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
@@ -800,6 +880,105 @@ $bg-gray: #f9fafb;
   line-height: 1.5;
   border: none;
 }
+
+.exit-classroom {
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  .exit-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .exit-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    .primary {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111827;
+      line-height: 1.3;
+    }
+
+    .secondary {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+  }
+}
+
+.join-classroom-content {
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .join-classroom-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .status-text {
+    font-size: 13px;
+    color: #6b7280;
+
+    &.error {
+      color: #ef4444;
+    }
+  }
+
+  .selector-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .selector-column {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+
+    .label {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 500;
+      width: 44px;
+      flex-shrink: 0;
+    }
+
+    :deep(.common-select) {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &.disabled {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+  }
+}
+
 // 对话框样式 - 统一的设计风格
 :deep(.join-class-dialog) {
   .q-dialog__inner {

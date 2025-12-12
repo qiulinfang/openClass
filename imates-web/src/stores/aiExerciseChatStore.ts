@@ -17,8 +17,7 @@ import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, QuotedMe
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
 // 注意：此 store 不再直接依赖 questionStore/homeworkStore
 // 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
-import { authStorageService } from '../services/storage/auth-storage-service'
-import { getUserId } from '../services/storage/auth-storage-service'
+import { getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
 
 /**
  * 构建AI题目聊天消息请求

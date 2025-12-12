@@ -173,23 +173,15 @@ public class ScreenCastingCommunicator {
             startReceivingMulticastMessages();
             startReceivingSingleCastMessage();
 
-            // 2. 获取所有教室并显示选择Dialog
-            deviceClientWrapper.showClassroomSelectionDialog(new DeviceClientWrapper.OnClassroomSelectedListener() {
-                public void onSelected(String city, String school, ClassroomInfo classroom) {
-                    deviceClientWrapper.register(getLocalIpAddress());
-                    deviceClientWrapper.startHeartbeat();
-                }
-
-                @Override
-                public void onCancelled() {
-
-                }
-            });
-
-            // 或者直接设置教室
-//            deviceClientWrapper.setLocation("北京", "第一中学", "classroom_001");
-//            deviceClientWrapper.register();
-//            deviceClientWrapper.startHeartbeat();
+            String selectedCity = deviceClientWrapper.getSelectedCity();
+            String selectedSchool = deviceClientWrapper.getSelectedSchool();
+            ClassroomInfo selectedClassroom = deviceClientWrapper.getSelectedClassroom();
+            if (selectedCity != null && selectedSchool != null && selectedClassroom != null) {
+                deviceClientWrapper.register(getLocalIpAddress());
+                deviceClientWrapper.startHeartbeat();
+            } else {
+                Log.i(TAG, "Skip native classroom dialog: location not selected");
+            }
 
             // 3. 监听设备信息变化
             deviceClientWrapper.addDeviceChangeListener((oldInfo, newInfo) -> {

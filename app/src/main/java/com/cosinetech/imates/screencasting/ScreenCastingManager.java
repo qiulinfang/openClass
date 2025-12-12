@@ -26,6 +26,27 @@ public class ScreenCastingManager {
     private static volatile String pcDeviceIp = "1.1.1.1";
     private static volatile String teacherPadDeviceIp = "1.1.1.1";
 
+    public interface ProjectionStateListener {
+        void onProjectionStateChanged(boolean isProjecting);
+    }
+
+    private static volatile ProjectionStateListener projectionStateListener;
+
+    public static void setProjectionStateListener(ProjectionStateListener listener) {
+        projectionStateListener = listener;
+    }
+
+    private static void notifyProjectionStateChanged(boolean isProjecting) {
+        ProjectionStateListener listener = projectionStateListener;
+        if (listener != null) {
+            try {
+                listener.onProjectionStateChanged(isProjecting);
+            } catch (Exception e) {
+                Log.e(TAG, "ProjectionStateListener error", e);
+            }
+        }
+    }
+
     public static synchronized void startLoop(FragmentActivity ctx, String userId, String userName, UdpForwarder forwarder) {
         context = ctx;
 
@@ -87,6 +108,7 @@ public class ScreenCastingManager {
                                 Log.i(TAG, "Received command: StartProjection");
                                 bShouldProjection = true;
                                 udpForwarder.setForwardingEnabled(true);
+                                notifyProjectionStateChanged(true);
                             }
 
                             @Override
@@ -94,6 +116,7 @@ public class ScreenCastingManager {
                                 Log.i(TAG, "Received command: StopProjection");
                                 bShouldProjection = false;
                                 udpForwarder.setForwardingEnabled(false);
+                                notifyProjectionStateChanged(false);
                             }
 
                             @Override

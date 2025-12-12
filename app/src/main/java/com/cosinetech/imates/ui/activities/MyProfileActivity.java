@@ -155,7 +155,7 @@ public class MyProfileActivity extends BaseActivity {
                         .show();
             } else {
                 ScreenShareKit.INSTANCE.init(MyProfileActivity.this)
-                        .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 0, 0)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
                             try {
                                 // 编码后的数据

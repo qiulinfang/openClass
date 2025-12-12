@@ -6,16 +6,14 @@
 import { httpClient } from '../http/http-client'
 import { resourceManager, ResourceManager } from '../storage/resource-storage'
 import CryptoJS from 'crypto-js'
-import { authStorageService } from '../storage/auth-storage-service'
+import { getYanbanToken, UserType } from '../http/auth-service'
 import { saveLearningPackagesToDB, loadLearningPackagesFromDB } from '../storage/learning-packages-storage'
-import {
-  getApiUrl,
-  getExerciseListUrl,
-  getDeleteExerciseUrl,
-  API_ENDPOINTS,
-} from '../http/api-endpoints'
 import { AndroidBridge } from '../business/android-bridge'
 import { generateUniqueId } from '@/stores/utils/chatStoreUtils'
+
+import { XuebanApi } from './xueban-api'
+import { YanbanApi } from './yanban-api'
+import { authService } from '../http/auth-service'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 章节相关工具函数
@@ -54,6 +52,8 @@ import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
 export class ApiService {
   private static instance: ApiService
   private androidBridge: AndroidBridge
+  private xuebanApi: XuebanApi
+  private yanbanApi: YanbanApi
   
   // 连接池和请求优化
   private requestCache = new Map<string, { data: unknown, timestamp: number }>()
@@ -65,6 +65,8 @@ export class ApiService {
 
   private constructor() {
     this.androidBridge = AndroidBridge.getInstance()
+    this.xuebanApi = new XuebanApi()
+    this.yanbanApi = new YanbanApi(this.androidBridge)
   }
 
   // ========== 对话记忆管理相关接口 ==========
@@ -208,7 +210,7 @@ export class ApiService {
       const apiPath = url.replace('/blw-edu-yb', '')
 
       // 从统一存储获取 Token，传给原生（避免原生读 localStorage 导致死锁）
-      const yanbanToken = authStorageService.getYanbanToken() || ''
+      const yanbanToken = getYanbanToken() || ''
 
       const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
 
@@ -223,7 +225,7 @@ export class ApiService {
     // 其他环境：直接通过 Web HTTP 调用
     const response = await httpClient.post<T>(url, body)
     // 针对研伴登录等关键接口输出精简日志
-    if (url === API_ENDPOINTS.LEARNING_RESOURCE.YANBAN_LOGIN) {
+    if (url === '/blw-edu-yb/auth/login-student') {
       console.log('[Debug][Yanban] Web login-student 响应概要:', {
         httpSuccess: response.success,
         hasData: !!response.data,
@@ -341,79 +343,21 @@ export class ApiService {
    * 获取习题列表
    */
   public async getExerciseList(subject: string): Promise<any[]> {
-    try {
-      const url = getExerciseListUrl(subject)
-      
-      // HTTP客户端会自动根据接口路径选择合适的token
-      const response = await httpClient.get<{
-        success: boolean
-        data: {
-          questionsList: any[]
-        }
-      }>(url)
-
-      if (response.success && response.data?.data?.questionsList) {
-        return response.data.data.questionsList
-      }
-      return []
-    } catch (error) {
-      return []
-    }
+    return this.xuebanApi.getExerciseList(subject)
   }
 
   /**
    * 删除习题
    */
   public async deleteExercise(exerciseId: string, subject: string): Promise<boolean> {
-    try {
-      const url = getDeleteExerciseUrl(exerciseId, subject)
-      
-      // HTTP客户端会自动根据接口路径选择合适的token
-      const response = await httpClient.delete(url)
-      return response.success
-    } catch (error) {
-      return false
-    }
+    return this.xuebanApi.deleteExercise(exerciseId, subject)
   }
 
   /**
    * 添加题目到列表
    */
   public async addQuestionToList(questionData: any, subject: string): Promise<boolean> {
-    try {
-      // 动态导入日志工具（避免循环依赖）
-      const { photoSearchLogger } = await import('@/utils/logging/photoSearchLogger')
-      
-      const url = getApiUrl(API_ENDPOINTS.EXERCISES.ADD)
-
-      // 构造与Android AddQuestionRequest一致的请求体
-      // 只发送规范字段，避免把前端临时标记字段透传给后端
-      const requestBody = {
-        bmNo: questionData.bmNo || questionData.id,
-        type: subject.toLowerCase(),
-        exercisesId: questionData.exercisesId || '',
-        // 下面字段与后端/Android 模型对齐，按需从 questionData 中提取
-        title: questionData.title || questionData.question || '',
-        answer: questionData.answer || '',
-        explanation: questionData.explanation || questionData.aiExplanation || '',
-        analysisData: questionData.analysisData || questionData.answerAnalysis || '',
-      }
-
-      // 记录API调用
-      photoSearchLogger.apiAddToList(url, requestBody)
-
-      // HTTP客户端会自动根据接口路径选择合适的token
-      const response = await httpClient.post(url, requestBody)
-      
-      // 记录API响应（已在PhotoSearchView中记录，这里可选）
-      // photoSearchLogger.apiAddToListResponse(response.success)
-      
-      return response.success
-    } catch (error) {
-      // 记录API错误（已在PhotoSearchView中记录，这里可选）
-      // photoSearchLogger.error('添加到列表API', error)
-      return false
-    }
+    return this.xuebanApi.addQuestionToList(questionData, subject)
   }
 
   /**
@@ -423,72 +367,7 @@ export class ApiService {
    * @returns Promise<ExerciseItem | null> 识别到的题目，失败返回null
    */
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
-    try {
-      // 动态导入日志工具（避免循环依赖）
-      const { photoSearchLogger } = await import('@/utils/logging/photoSearchLogger')
-      
-      // 根据科目选择对应的API端点
-      const endpoint = subject.toLowerCase() === 'biology' 
-        ? API_ENDPOINTS.IMAGE_RECOGNITION.BIOLOGY 
-        : API_ENDPOINTS.IMAGE_RECOGNITION.MATH
-      
-      const url = getApiUrl(endpoint)
-
-      // 记录API调用
-      photoSearchLogger.apiRecognizeImage(subject, endpoint, imageFile.size)
-
-      // 构建FormData，与Android端保持一致
-      const formData = new FormData()
-      formData.append('imgFile', imageFile, 'default.jpg')
-
-      // 使用httpClient发送multipart/form-data请求
-      // 注意：不设置 Content-Type，让浏览器自动设置（包括 boundary）
-      const response = await httpClient.post<{
-        success: boolean
-        code: number
-        message: string
-        data: {
-          item: {
-            questionsConfirm: Array<{
-              bmNo: string
-              title: string
-              answer: string
-              explanation: string
-              analysisData: string
-              id: string
-            }>
-          }
-        }
-      }>(url, formData)
-
-      if (response.success && response.data?.data?.item?.questionsConfirm && response.data.data.item.questionsConfirm.length > 0) {
-        const questionData = response.data.data.item.questionsConfirm[0]
-        const result = {
-          id: questionData.id,
-          bmNo: questionData.bmNo,
-          title: questionData.title,
-          question: questionData.title, // 兼容旧版本
-          answer: questionData.answer,
-          explanation: questionData.explanation,
-          analysisData: questionData.analysisData,
-          subject: subject.toLowerCase(),
-        }
-        
-        // 记录API响应成功（已在PhotoSearchView中记录，这里可选）
-        // photoSearchLogger.apiRecognizeImageResponse(true, result)
-        
-        return result
-      }
-      
-      // 记录API响应失败
-      photoSearchLogger.apiRecognizeImageResponse(false)
-      return null
-    } catch (error) {
-      // 记录API错误（已在PhotoSearchView中记录，这里可选）
-      // photoSearchLogger.error('图片识别API', error)
-      console.error('[API] 图片识别失败:', error)
-      return null
-    }
+    return this.xuebanApi.recognizeImage(imageFile, subject)
   }
 
   /**
@@ -498,86 +377,14 @@ export class ApiService {
    * @returns Promise<ExerciseItem | null> 搜索到的题目，失败返回null
    */
   public async searchQuestionByText(keyText: string, subject: string): Promise<any | null> {
-    try {
-      // 根据科目选择对应的API端点
-      const endpoint = subject.toLowerCase() === 'biology'
-        ? API_ENDPOINTS.TEXT_SEARCH.BIOLOGY
-        : API_ENDPOINTS.TEXT_SEARCH.MATH
-      
-      const url = `${getApiUrl(endpoint)}/${encodeURIComponent(keyText)}`
-
-      // HTTP客户端会自动根据接口路径选择合适的token
-      const response = await httpClient.get<{
-        success: boolean
-        code: number
-        message: string
-        data: {
-          item: {
-            questionsConfirm: Array<{
-              bmNo: string
-              title: string
-              answer: string
-              explanation: string
-              analysisData: string
-              id: string
-            }>
-          }
-        }
-      }>(url)
-
-      if (response.success && response.data?.data?.item?.questionsConfirm && response.data.data.item.questionsConfirm.length > 0) {
-        const questionData = response.data.data.item.questionsConfirm[0]
-        return {
-          id: questionData.id,
-          bmNo: questionData.bmNo,
-          title: questionData.title,
-          question: questionData.title, // 兼容旧版本
-          answer: questionData.answer,
-          explanation: questionData.explanation,
-          analysisData: questionData.analysisData,
-          subject: subject.toLowerCase(),
-        }
-      }
-      return null
-    } catch (error) {
-      console.error('[API] 文本搜题失败:', error)
-      return null
-    }
+    return this.xuebanApi.searchQuestionByText(keyText, subject)
   }
 
   /**
    * 查找相似题目
    */
   public async findSimilarQuestions(questionData: any, subject: string): Promise<any[]> {
-    try {
-      const url = getApiUrl(API_ENDPOINTS.EXERCISES.SIMILAR)
-
-      // 构造与Android FindSimilarQuestionRequest一致的请求体
-      const requestBody = {
-        bmNo: questionData.bmNo || questionData.id,
-        title: questionData.title || questionData.question,
-        answer: questionData.answer || '',
-        explanation: questionData.explanation || questionData.aiExplanation || '',
-        analysisData: questionData.analysisData || questionData.answerAnalysis || '',
-        exercisesId: questionData.exercisesId || '',
-        type: subject.toLowerCase(),
-      }
-
-      // HTTP客户端会自动根据接口路径选择合适的token
-      const response = await httpClient.post<{
-        success: boolean
-        data: {
-          questions: any[]
-        }
-      }>(url, requestBody)
-
-      if (response.success && response.data?.data?.questions) {
-        return response.data.data.questions
-      }
-      return []
-    } catch (error) {
-      return []
-    }
+    return this.xuebanApi.findSimilarQuestions(questionData, subject)
   }
 
   /**
@@ -594,51 +401,7 @@ export class ApiService {
       section_id: string
     }>
   }): Promise<string> {
-    try {
-      const url = API_ENDPOINTS.EXERCISES.QUERY_KNOWLEDGE_BY_CHAPTER
-      
-      // 使用httpClient，会自动使用Vite代理（开发环境）或路由映射（生产环境）
-      const response = await httpClient.post<{
-        success: boolean
-        subject?: string
-        knowledge?: string
-        count?: number
-        message?: string
-      }>(url, request)
-      
-      // 第1步：检查响应格式（response.data 是原始响应JSON，包含 success、knowledge、count 等字段）
-      if (!response.success || !response.data) {
-        const message = (response.data as any)?.message || response.message || '查询知识点失败'
-        throw new Error(message)
-      }
-      
-      // 第2步：检查 count 字段，如果为 0 则说明没有题目
-      // response.data 是原始响应JSON，可以直接访问 count 字段
-      const responseData = response.data as { success?: boolean; subject?: string; knowledge?: string; count?: number; message?: string }
-      const count = responseData.count ?? (responseData.knowledge ? responseData.knowledge.split(',').filter(id => id.trim()).length : 0)
-      if (count === 0) {
-        const error = new Error('该知识点暂无相关练习题，请选择其他知识点进行练习')
-        ;(error as any).code = 'NO_QUESTIONS'
-        throw error
-      }
-      
-      // 第3步：检查 knowledge 字段是否存在且不为空
-      if (!responseData.knowledge || responseData.knowledge.trim() === '') {
-        const error = new Error('该知识点暂无相关练习题，请选择其他知识点进行练习')
-        ;(error as any).code = 'NO_QUESTIONS'
-        throw error
-      }
-      
-      // 第4步：返回知识点ID字符串
-      return responseData.knowledge as string
-    } catch (error) {
-      // 如果已经是带有 code 的错误，直接抛出
-      if (error instanceof Error && (error as any).code === 'NO_QUESTIONS') {
-        throw error
-      }
-      // 否则抛出通用错误
-      throw new Error(error instanceof Error ? error.message : '查询知识点失败')
-    }
+    return this.xuebanApi.queryKnowledgeIdsByNodeId(request)
   }
 
   /**
@@ -651,41 +414,7 @@ export class ApiService {
     currentPage: number
     pageSize: number
   }> {
-    try {
-      const url = getApiUrl(API_ENDPOINTS.EXERCISES.SIMILAR_BY_KNOWLEDGE)
-      
-      const response = await httpClient.post<{
-        success: boolean
-        totalCount?: string
-        pageNo?: string
-        pageSize?: string
-        data: {
-          questions: any[]
-        }
-      }>(url, request)
-      
-      if (response.success && response.data?.data?.questions) {
-        return {
-          questions: response.data.data.questions,
-          totalCount: parseInt(response.data.totalCount || '0') || response.data.data.questions.length,
-          currentPage: parseInt(response.data.pageNo || '1') || request.current,
-          pageSize: parseInt(response.data.pageSize || '5') || request.size
-        }
-      }
-      return {
-        questions: [],
-        totalCount: 0,
-        currentPage: request.current,
-        pageSize: request.size,
-      }
-    } catch (error) {
-      return {
-        questions: [],
-        totalCount: 0,
-        currentPage: request.current,
-        pageSize: request.size,
-      }
-    }
+    return this.xuebanApi.findSimilarQuestionsByKnowledge(request)
   }
 
   /**
@@ -698,16 +427,7 @@ export class ApiService {
     currentPage: number
     pageSize: number
   }> {
-    const mappedRequest: any = {
-      bmNoList: request.bmNoList,
-      exercisesId: request.exercisesId,
-      type: request.type,
-      size: request.size,
-      current: request.current,
-      totalCount: request.totalCount,
-    }
-
-    return this.findSimilarQuestionsByKnowledge(mappedRequest)
+    return this.xuebanApi.findSimilarQuestionsByBmNoList(request)
   }
 
   /**
@@ -730,7 +450,7 @@ export class ApiService {
       }
 
       // 第2步：构造完整的请求URL
-      const url = getApiUrl(message.dstUrl)
+      const url = message.dstUrl
 
       // 第3步：开始轮询聊天
       return await this.pollChatMessage(message, url, onComplete, onStream, '', generateUniqueId('ai'), onHistoryUpdate)
@@ -1596,48 +1316,7 @@ export class ApiService {
    * @returns Promise<string> 返回token
    */
   public async loginXueban(account: string, password: string): Promise<string> {
-    try {
-      // 第1步：发送登录请求
-      const response = await httpClient.post<XuebanLoginResponse>(
-        getApiUrl(API_ENDPOINTS.USER.XUEBAN_LOGIN),
-        {
-          account,
-          password
-        }
-      )
-      
-      // 检查响应结构：response.data 是 XuebanLoginResponse
-      if (!response.success) {
-        throw new Error(response?.data?.message || '登录失败')
-      }
-
-      const token = response.data.data.token
-      
-      if (!token) {
-        throw new Error('登录失败：未获取到token')
-      }
-      
-      // 第2步：保存token和用户凭据到localStorage
-      localStorage.setItem('XUEBAN_TOKEN', token)
-      localStorage.setItem('userId', account)
-      localStorage.setItem('userPassword', password)
-      
-      // 更新登录时间戳，用于会话管理
-      localStorage.setItem('lastLoginTime', Date.now().toString())
-
-      // 第3步：同步登录研伴系统获取YANBAN_TOKEN（切换账号后立即更新）
-      try {
-        await this.loginYanban(account, password)
-      } catch (yanbanError) {
-        // 研伴登录失败不影响主登录流程，仅打印警告
-        console.warn('[API] ⚠️ 研伴登录失败，将在需要时自动重试:', yanbanError)
-      }
-
-      // 第4步：返回token
-      return token
-    } catch (error: unknown) {
-      throw new Error(error instanceof Error ? error.message : '登录失败')
-    }
+    return authService.loginXueban(account, password)
   }
 
 
@@ -1651,56 +1330,7 @@ export class ApiService {
    * @returns Promise<UserInfo> 用户信息
    */
   public async getUserInfo(token: string): Promise<UserInfo> {
-    try {
-      // 第1步：调用API获取用户信息
-      const response = await httpClient.get<{
-        success: boolean
-        message: string
-        data: UserInfo
-      }>(`${getApiUrl(API_ENDPOINTS.USER.ADMIN_INFO)}?token=${token}`)
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.message || '获取用户信息失败')
-      }
-
-      const userInfo = response.data.data
-      
-      // 第2步：持久化用户信息到localStorage
-      try {
-        localStorage.setItem('userInfo', JSON.stringify(userInfo))
-      } catch (storageError) {
-        // 静默处理
-      }
-      
-      // 第3步：同步用户信息到Android原生ViewModel（关键！）
-      // 确保Android原生接口（如教师消息监听）能正常工作
-      try {
-        const userId = localStorage.getItem('userId')
-        const userPassword = localStorage.getItem('userPassword')
-        
-        if (userId && token) {
-          this.androidBridge.syncUserInfo(
-            userId,
-            token,
-            userPassword || ''
-          )
-        }
-      } catch (syncError) {
-        // 静默处理
-      }
-
-      try {
-        const { setUserInfoWithCleanup, initializeStore } = await import("../storage/auth-storage-service");
-        await setUserInfoWithCleanup(userInfo)
-        await initializeStore()
-      } catch (storeError) {
-        console.warn('[API] ⚠️ 同步 userStore 失败:', storeError)
-      }
-
-      return userInfo
-    } catch (error: unknown) {
-      throw new Error(error instanceof Error ? error.message : '获取用户信息失败')
-    }
+    return authService.getUserInfo(token)
   }
 
 
@@ -1710,101 +1340,21 @@ export class ApiService {
    * 学生登录 - 与Android端LearnResourceManager.login保持一致
    */
   public async loginYanban(account: string, password: string): Promise<LoginResponse | null> {
-    try {
-      // 使用MD5加密密码，与Android端保持一致
-      const md5Password = this.md5(password)
-      
-      const loginRequest: LoginRequest = {
-        account,
-        password: md5Password
-      }
-      
-      // 使用代理路径，避免CORS问题
-      const response = await this.callYanban<{
-        code: number
-        success: boolean
-        message: string
-        data: LoginData
-      }>(
-        API_ENDPOINTS.LEARNING_RESOURCE.YANBAN_LOGIN,
-        loginRequest
-      )
-      
-      // 兼容两种响应结构：
-      // 1. 走 Vite 代理时：response.data.data.token
-      // 2. 走 Android 原生代理时：response.data.token（原生已经解包一层）
-      const respData = response.data as any
-      const tokenData = respData?.data || respData
-
-      if (response.success && tokenData && tokenData.token) {
-        const loginResponse: LoginResponse = {
-          token: tokenData.token,
-          userId: tokenData.userId,
-          defaultPassword: tokenData.defaultPassword
-        }
-        
-        // 本地状态写入放在独立的 try/catch 中，避免本地存储异常导致整个登录流程失败
-        try {
-          // 确保token和userId都保存到localStorage
-          localStorage.setItem('YANBAN_TOKEN', tokenData.token)
-          localStorage.setItem('studentUserId', tokenData.userId)
-          
-          // 同步更新统一认证存储中的当前用户ID，确保 isSessionValid/autoLogin 能正确识别已登录用户
-          try {
-            const effectiveUserId = tokenData.userId || account
-            if (effectiveUserId) {
-              authStorageService.setCurrentUserId(effectiveUserId, UserType.YANBAN)
-            }
-          } catch (e) {
-            
-          }
-
-          // 更新登录时间戳，用于会话管理
-          localStorage.setItem('lastLoginTime', Date.now().toString())
-
-          // 调试日志：写入完成后再次读取验证
-          try {
-            const storedToken = localStorage.getItem('YANBAN_TOKEN')
-            const storedStudentUserId = localStorage.getItem('studentUserId')
-            
-          } catch (e) {
-            
-          }
-        } catch (e) {
-          // 本地存储出现异常时，仍然返回 loginResponse，避免影响调用方判断登录成功
-        }
-
-        return loginResponse
-      } else {
-        // 登录接口 HTTP 成功但未能从响应中解析出 token，记录结构异常方便排查
-        console.warn('[ApiService] loginYanban 响应结构异常，未能解析出 token', {
-          httpSuccess: response.success,
-          httpCode: response.code,
-          hasData: !!response.data,
-        })
-        return null
-      }
-    } catch (error) {
-      console.error('[ApiService] loginYanban 调用失败:', error)
-      return null
-    }
+    return authService.loginYanban(account, password)
   }
 
   /**
    * 检查学生登录状态
    */
   public isStudentLoggedIn(): boolean {
-    const token = localStorage.getItem('YANBAN_TOKEN')
-    const userId = localStorage.getItem('userId')
-    return !!(token && userId && token !== 'undefined' && userId !== 'undefined' && token.trim() !== '' && userId.trim() !== '')
+    return authService.isStudentLoggedIn()
   }
 
   /**
    * 学生登出
    */
   public logoutStudent(): void {
-    localStorage.removeItem('YANBAN_TOKEN')
-    localStorage.removeItem('studentUserId')
+    authService.logoutStudent()
   }
 
   /**
@@ -1818,29 +1368,7 @@ export class ApiService {
    * 获取教材版本列表 - 修正为与Android端一致的流程
    */
   public async getTextbookVersions(): Promise<TextbookVersion[]> {
-    try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.VERSIONS
-      
-      const response = await httpClient.post<{
-        code: number
-        success: boolean
-        message: string
-        data: TextbookVersion[]
-      }>(endpoint, {})
-      
-      // 兼容两种响应结构：
-      // 1. 走 Vite 代理时：response.data.data
-      // 2. 走 Android 原生代理时：response.data（原生已经解包一层）
-      const respData = response.data as any
-      const textbooks = respData?.data || respData
-      
-      if (response.success && Array.isArray(textbooks)) {
-        return textbooks
-      }
-      return []
-    } catch (error) {
-      return []
-    }
+    return this.yanbanApi.getTextbookVersions()
   }
 
 
@@ -1848,101 +1376,14 @@ export class ApiService {
    * 获取教材结构 - 修正为与Android端一致的流程
    */
   public async getTextbookStructure(id: string): Promise<ChapterNode[]> {
-    try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.STRUCTURE
-      
-      const request: TextbookStructureRequest = { id : id }
-      const response = await httpClient.post<{
-        code: number
-        success: boolean
-        message: string
-        data: ChapterNode[]
-      }>(endpoint, request)
-      
-      // 兼容两种响应结构
-      const respData = response.data as any
-      const structure = respData?.data || respData
-      
-      if (response.success && Array.isArray(structure) && structure.length > 0 && structure[0]?.children?.length > 0) {
-        return structure[0].children
-      }
-      
-      return []
-    } catch (error) {
-      throw error
-    }
+    return this.yanbanApi.getTextbookStructure(id)
   }
 
   /**
    * 获取学习资源包 - 修正为与Android端一致的流程，支持缓存
    */
   public async getLearningResources(id: string, useCache: boolean = true): Promise<LearningPackage[]> {
-    try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
-      const request: LearningResourcesRequest = { id: id }
-      
-      // 使用httpClient而不是optimizedRequest，确保认证头正确添加
-      const response = await httpClient.post<{
-        data: LearningPackage[]
-      }>(endpoint, request)
-      
-      // 兼容两种响应结构
-      const respData = response.data as any
-      const packagesData = respData?.data || respData
-      
-      if (response.success && Array.isArray(packagesData)) {
-        // 处理学习包数据，确保字段完整性
-        const packages = packagesData.map((pkg: LearningPackage) => ({
-          ...pkg,
-          packageId: pkg.id,
-          sectionId: pkg.sectionId || '',
-          packageName: pkg.packageName || '未命名方案',
-          description: pkg.description || '暂无描述',
-          updateTime: pkg.updateTime || new Date().toISOString(),
-          isDefault: pkg.isDefault || 0,
-          userId: pkg.userId || '',
-          releaseStatus: pkg.releaseStatus || false,
-          visibility: pkg.visibility || 0,
-          authors: pkg.authors || '{}',
-          tags: pkg.tags || '{}',
-          resourceList: pkg.resourceList || []
-        }))
-        
-        // 缓存到 IndexedDB（按用户ID实现账号隔离）
-        if (useCache) {
-          try {
-            // 这里的 id 即为学习包查询维度（与原 localStorage key 中的 id 一致）
-            await saveLearningPackagesToDB(id, packages)
-          } catch {
-            // 静默处理缓存失败
-          }
-        }
-        
-        return packages
-      }
-      
-      return []
-    } catch (error) {
-      // 网络请求或解析失败，先记录错误，再尝试从 IndexedDB 缓存获取数据
-      console.warn('[ApiService] getLearningResources 调用失败，尝试使用缓存', {
-        id,
-        error: error instanceof Error ? error.message : String(error),
-      })
-
-      // 尝试从 IndexedDB 缓存获取数据（按用户ID隔离）
-      if (useCache) {
-        try {
-          const cached = await loadLearningPackagesFromDB(id)
-          if (cached && Array.isArray(cached)) {
-            return cached
-          }
-        } catch {
-          // 静默处理缓存读取失败
-        }
-      }
-
-      return []
-    }
+    return this.yanbanApi.getLearningResources(id, useCache)
   }
 
   /**
@@ -2003,7 +1444,7 @@ export class ApiService {
       // 与Android保持一致：只依赖HTTP状态码判断成功/失败
       // HTTP状态码为2xx时，axios不会抛出异常，直接返回void表示成功
       await httpClient.post<FeedbackTicketResponse>(
-        `${API_ENDPOINTS.ZAMMAD.BASE_URL}/tickets`,
+        `/api/v1/tickets`,
         requestData,
         {
           headers: {
@@ -2045,43 +1486,7 @@ export class ApiService {
    * 使用与安卓原生一致的接口路径和认证方式
    */
   public async fetchUserAllOnlineTextbooks(): Promise<UserTextbookInfo[]> {
-    try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK_MANAGEMENT.FETCH_ONLINE
-      const response = await httpClient.post<{
-        code: number
-        success: boolean
-        message: string
-        data: UserTextbookInfo[]
-      }>(endpoint, {}, {
-        headers: {
-          'sa-token': localStorage.getItem('YANBAN_TOKEN') || ''
-        }
-      })
-      
-      // 兼容两种响应结构：
-      // 1. 走 Vite 代理时：response.data.data
-      // 2. 走 Android 原生代理时：response.data（原生已经解包一层）
-      const respData = response.data as any
-      const textbooks = respData?.data || respData
-      
-      if (response.success && Array.isArray(textbooks)) {
-        // 🔥 处理封面URL拼接，与后端逻辑保持一致
-        // 后端在 LearnResourceManager.fetchUserAllOnlineTextbooks() 第342行拼接URL
-        // BASE_URL = "https://www.imates.com.cn:9099"
-        const BASE_URL = 'https://www.imates.com.cn:9099'
-        
-        return textbooks.map((textbook: UserTextbookInfo) => {
-          // 如果 textbookCover 不是完整URL（不以 http 开头），则拼接 BASE_URL
-          if (textbook.textbookCover && !textbook.textbookCover.startsWith('http')) {
-            textbook.textbookCover = BASE_URL + textbook.textbookCover
-          }
-          return textbook
-        })
-      }
-      return []
-    } catch (error) {
-      return []
-    }
+    return this.yanbanApi.fetchUserAllOnlineTextbooks()
   }
 
   /**
@@ -2090,32 +1495,7 @@ export class ApiService {
    * 使用与安卓原生一致的接口路径和认证方式
    */
   public async loadUserAllLocalTextbooks(): Promise<UserTextbookInfo[]> {
-    try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK_MANAGEMENT.LOAD_LOCAL
-      const response = await httpClient.post<{
-        code: number
-        success: boolean
-        message: string
-        data: UserTextbookInfo[]
-      }>(endpoint, {}, {
-        headers: {
-          'sa-token': localStorage.getItem('YANBAN_TOKEN') || ''
-        }
-      })
-      
-      // 兼容两种响应结构：
-      // 1. 走 Vite 代理时：response.data.data
-      // 2. 走 Android 原生代理时：response.data（原生已经解包一层）
-      const respData = response.data as any
-      const textbooks = respData?.data || respData
-
-      if (response.success && Array.isArray(textbooks)) {
-        return textbooks as UserTextbookInfo[]
-      }
-      return []
-    } catch (error) {
-      return []
-    }
+    return this.yanbanApi.loadUserAllLocalTextbooks()
   }
 
   /**
@@ -2604,8 +1984,7 @@ export class ApiService {
       
       // 获取教材信息（使用降级策略：textbookId索引 -> getAll）
       const textbook = await resourceManager.getTextbookByTextbookIdWithFallback(
-        textbookId,
-        'ApiService.updateLocalFileInfo'
+        textbookId
       )
       
       if (!textbook) {
@@ -2967,88 +2346,18 @@ export class ApiService {
     return result
   }
 
-  /**
-   * 提交习题回答
-   * @param id 套餐题目ID
-   * @param answerContent 回答图片 base64 数组
-   * @returns Promise<boolean> 是否提交成功
-   */
-  async submitTopicAnswer(id: string, answerContent: string[]): Promise<boolean> {
-    try {
-      const requestBody = {
-        id,
-        answerContent, // base64 图片字符串数组
-      }
-
-      // 调试日志：打印提交作业的请求体（不包含 token）
-      console.log('[Debug][Homework] 提交习题回答 请求体 =', requestBody)
-
-      const response = await this.callYanban<{
-        code?: number
-        data?: unknown
-        message?: string
-      }>('/blw-edu-yb/api/app/topic-package-answer', requestBody)
-
-      // 调试日志：打印基础响应信息，方便对比 Android 原生日志
-      console.log('[Debug][Homework] 提交习题回答 响应概要 =', {
-        success: response.success,
-        code: response.data?.code,
-        message: response.data?.message ?? response.message,
-        hasData: !!response.data,
-      })
-
-      if (response.success && response.data?.code === 200) {
-        return true
-      }
-
-      console.error('[ApiService] 提交习题回答失败:', response.data?.message || response.message)
-      return false
-    } catch (error) {
-      console.error('[ApiService] 提交习题回答异常:', error)
-      return false
-    }
+  public async submitTopicAnswer(id: string, answerContent: string[]): Promise<boolean> {
+    return this.yanbanApi.submitTopicAnswer(id, answerContent)
   }
 
-  /**
-   * 获取习题发布分页列表
-   * @param pageNumber 当前页码（从0开始）
-   * @param pageSize 分页大小
-   * @param updateTime 最后更新时间（可选）
-   * @param subject 学科（可选）
-   * @returns Promise<TopicPackagePageResponse | null>
-   */
-  async getTopicPackagePage(
+  public async getTopicPackagePage(
     pageNumber: number = 0,
     pageSize: number = 20,
     updateTime?: string,
     subject?: string,
   ): Promise<TopicPackagePageResponse | null> {
-    try {
-      const response = await this.callYanban<TopicPackagePageApiResponse>(
-        '/blw-edu-yb/api/app/topic-package-page',
-        { pageNumber, pageSize, updateTime, subject }
-      )
-      
-      // 兼容两种响应结构：
-      // 1. Vite 代理：response.data.data
-      // 2. Android 原生代理：response.data（原生已解包一层）
-      const respData = response.data as any
-      const pageData = respData?.data || respData
-
-      if (response.success && pageData) {
-        const records = (pageData as TopicPackagePageResponse).records || []
-        console.log('[Debug][Homework] topic-package-page 返回条数 =', records.length)
-        return pageData as TopicPackagePageResponse
-      }
-
-      console.error('[ApiService] 获取习题分页列表失败:', response.message, response)
-      return null
-    } catch (error) {
-      console.error('[ApiService] 获取习题分页列表异常:', error)
-      return null
-    }
+    return this.yanbanApi.getTopicPackagePage(pageNumber, pageSize, updateTime, subject) as any
   }
-
 }
 
 // 习题分页接口响应类型（作业套餐 + 套餐内题目列表）

@@ -370,7 +370,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useStorageDebugPanel } from '@/composables/useStorageDebugPanel'
 import { showMessage } from '@/utils'
-import { authStorageService } from '@/services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
 
 // 检查是否是开发环境
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
@@ -630,7 +630,7 @@ const getKnownDatabases = (): Array<{
   version: number
   objectStores: Array<{ name: string }>
 }> => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return [
     {
       name: `ExerciseSolveApp_${userId}`,

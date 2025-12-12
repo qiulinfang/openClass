@@ -14,8 +14,7 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/business/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
-import { getUserInfo, getUserId } from '../services/storage/auth-storage-service'
-import { authStorageService } from '../services/storage/auth-storage-service'
+import { getUserInfo, getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import {
   checkAccountStatus,
@@ -830,7 +829,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       }
 
       // 第4步：保存会话信息到localStorage
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
       const sessionKey = `${userId}_${storageKey}_session`
       localStorage.setItem(sessionKey, JSON.stringify(currentSession.value))
 
@@ -901,7 +900,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           (msg.messageId || msg.id), // 确保有messageId或id（兼容两种字段名）
       )
       // 第3步：构建存储键（每个会话独立存储，已在第0步中定义，这里复用）
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
 
       // 第4步：保存消息到IndexedDB（每个会话独立存储）
       const historyData: ChatHistoryData = {
@@ -982,7 +981,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   const loadChatHistory = async (sessionId: string): Promise<void> => {
     try {
       const storageKey = `teacher-general-${sessionId}`
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
       const history = await chatStorage.loadChatHistory(storageKey)
       if (history) {
         const loadedMessages = history.messages || []
@@ -1120,7 +1119,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    * 获取统一的会话存储键名
    */
   const getSessionsStorageKey = (): string => {
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     return `${userId}_teacher-general-sessions`
   }
 
@@ -1583,6 +1582,7 @@ ${conversationSummary}
               msg.voiceData.duration.toString(),
               currentSession.value.sessionId,
               currentSession.value.subject,
+              'STUDENT',
             )
           } else {
             // 文本消息
@@ -1590,6 +1590,7 @@ ${conversationSummary}
               msg.content,
               currentSession.value.sessionId,
               currentSession.value.subject,
+              'STUDENT',
             )
           }
 
@@ -1888,7 +1889,7 @@ ${conversationSummary}
       // 第1步：从 localStorage 获取当前科目
       let subject: 'biology' | 'math' = 'math' // 默认使用数学
       try {
-        const userId = authStorageService.getCurrentUserIdOrDefault()
+        const userId = getCurrentUserIdOrDefault()
         const storedSubject = localStorage.getItem(`${userId}_currentTeacherSubject`)
         if (storedSubject === 'BIOLOGY') {
           subject = 'biology'

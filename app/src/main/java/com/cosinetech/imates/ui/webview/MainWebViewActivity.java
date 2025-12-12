@@ -129,6 +129,8 @@ public class MainWebViewActivity extends AppCompatActivity
     /** 更新检查的 Handler，用于定时执行更新检查 */
     private final Handler mCheckUpdateHandler = new Handler(Looper.getMainLooper());
 
+    private volatile boolean mForceUpdateRequired = false;
+
     /**
      * 更新检查的 Runnable，每 60 秒执行一次检查
      * 每次检查都会发送HTTP请求，如果服务器返回的版本号比当前版本新，则执行更新
@@ -307,6 +309,8 @@ public class MainWebViewActivity extends AppCompatActivity
                         try {
                             org.json.JSONObject jsonObj = new org.json.JSONObject(responseBody);
                             String serverVersion = jsonObj.optString("VersionName", "");
+                            int updateStatus = jsonObj.optInt("UpdateStatus", 0);
+                            mForceUpdateRequired = updateStatus == 2;
                             if (!serverVersion.isEmpty()) {
                                 Log.d(TAG, "服务器版本: " + serverVersion);
 
@@ -1439,6 +1443,9 @@ public class MainWebViewActivity extends AppCompatActivity
      */
     @Override
     public void onBackPressed() {
+        if (mForceUpdateRequired) {
+            return;
+        }
         if (webView != null) {
             // 第1步：获取当前 URL 的 hash 部分（Vue Router 使用 Hash 模式）
             String currentUrl = webView.getUrl();

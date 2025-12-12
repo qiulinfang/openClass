@@ -89,7 +89,7 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/business/api-service'
-import { getUserId, getPassword } from '../services/storage/auth-storage-service'
+import { getUserId, getPassword } from '../services/http/auth-service'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv } from '../config/env-config'
 import Dialog from '../components/Dialog.vue'
 

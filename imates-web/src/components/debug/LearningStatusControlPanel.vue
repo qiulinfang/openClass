@@ -209,7 +209,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { authStorageService } from '../../services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '../../services/http/auth-service'
 
 interface ChapterNode {
   id: string
@@ -249,12 +249,12 @@ const isVisible = computed({
 
 // 获取带用户ID前缀的存储key
 const getLastLearnedNodeKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_LEARNED_NODES`
 }
 

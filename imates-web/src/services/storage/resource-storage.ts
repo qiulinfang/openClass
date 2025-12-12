@@ -6,7 +6,7 @@
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '@/utils'
-import { authStorageService } from './auth-storage-service'
+import { getCurrentUserIdOrDefault, isYanbanLoggedIn, getCurrentYanbanAuth } from '../http/auth-service'
 // 注释掉缩略图相关导入以提升性能
 // import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 // import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -39,7 +39,7 @@ export class ResourceManager {
   private constructor() {
     // 初始化IndexedDB配置 - 分离存储架构：元数据和二进制数据分离
     // 使用用户ID作为数据库名称前缀，实现账号隔离
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     const dbName = `TextbookStorage_${userId}`
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
@@ -136,7 +136,7 @@ export class ResourceManager {
   // 获取单例实例
   public static getInstance(): ResourceManager {
     // 检查用户是否切换，如果切换则重新创建实例
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     if (!ResourceManager.instance || ResourceManager.currentUserId !== userId) {
       // 如果已有实例，先关闭旧的数据库连接
       if (ResourceManager.instance) {
@@ -153,24 +153,14 @@ export class ResourceManager {
    * 检查是否已登录
    */
   public async isLoggedIn(): Promise<boolean> {
-    const { getYanbanToken, getUserId } = await import('./auth-storage-service')
-    const token = getYanbanToken()
-    const userId = getUserId()
-    return !!(token && userId && token !== 'undefined')
+    return isYanbanLoggedIn()
   }
 
   /**
    * 获取当前用户信息
    */
   public async getCurrentUser(): Promise<{ token: string; username: string } | null> {
-    const { getYanbanToken, getUserId } = await import('./auth-storage-service')
-    const token = getYanbanToken()
-    const userId = getUserId()
-    
-    if (token && userId && token !== 'undefined') {
-      return { token, username: userId }
-    }
-    return null
+    return getCurrentYanbanAuth()
   }
 
   /**
@@ -179,7 +169,7 @@ export class ResourceManager {
   private async loadUserData(): Promise<void> {
     try {
       await this.indexedDBInstance.init()
-      const userInfo = this.getCurrentUser()
+      const userInfo = await this.getCurrentUser()
       if (userInfo) {
         this.currentToken = userInfo.token
         this.currentUsername = userInfo.username
@@ -319,8 +309,7 @@ export class ResourceManager {
       } else {
         // 使用降级策略查询：textbookId索引 -> getAll（兼容旧数据库无索引的情况）
         const foundTextbook = await this.getTextbookByTextbookIdWithFallback(
-          fileInfo.textbookId,
-          'ResourceManager.storeFileData'
+          fileInfo.textbookId
         )
         
         if (!foundTextbook) {
@@ -462,8 +451,7 @@ export class ResourceManager {
     try {
       // 第1步：获取教材信息（使用降级策略：textbookId索引 -> getAll）
       const textbook = await this.getTextbookByTextbookIdWithFallback(
-        textbookId,
-        'ResourceManager.updateThumbnail'
+        textbookId
       )
       
       if (!textbook) {
@@ -520,8 +508,7 @@ export class ResourceManager {
     try {
       // 第1步：获取教材信息（使用降级策略：textbookId索引 -> getAll）
       const textbook = await this.getTextbookByTextbookIdWithFallback(
-        textbookId,
-        'ResourceManager.cleanupTextbookRelatedData'
+        textbookId
       )
       
       if (!textbook) {
@@ -704,7 +691,7 @@ export class ResourceManager {
 
     // 如果通过主键查不到，尝试通过 textbookId 索引查询
     if (textbookId) {
-      return await this.getTextbookByTextbookIdWithFallback(textbookId, context)
+      return await this.getTextbookByTextbookIdWithFallback(textbookId)
     }
 
     return null
@@ -792,11 +779,11 @@ class ResourceManagerProxy {
     return this.instance.indexedDB
   }
   
-  isLoggedIn(): boolean {
+  async isLoggedIn(): Promise<boolean> {
     return this.instance.isLoggedIn()
   }
   
-  getCurrentUser(): { token: string; username: string } | null {
+  async getCurrentUser(): Promise<{ token: string; username: string } | null> {
     return this.instance.getCurrentUser()
   }
   
@@ -866,9 +853,8 @@ class ResourceManagerProxy {
   
   async getTextbookByTextbookIdWithFallback(
     textbookId: string,
-    context?: string
   ): Promise<UserTextbookInfo | null> {
-    return this.instance.getTextbookByTextbookIdWithFallback(textbookId, context)
+    return this.instance.getTextbookByTextbookIdWithFallback(textbookId)
   }
   
   async getTextbookByIdOrTextbookIdWithFallback(

@@ -275,7 +275,7 @@ import { useTeacherGeneralChatStore } from '../../stores/teacherGeneralChatStore
 import { useQuestionStore } from '../../stores/questionStore'
 import { useHomeworkStore } from '../../stores/homeworkStore'
 import { useTeacherExerciseChatStore } from '../../stores/teacherExerciseChatStore'
-import { getUserInfo, getSubject } from '../../services/storage/auth-storage-service'
+import { getUserInfo, getSubject } from '../../services/http/auth-service'
 import VoiceMessage from './VoiceMessage.vue'
 import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'

@@ -156,12 +156,36 @@ public class DeviceClientWrapper {
             if (response.isSuccessful() && response.body() != null) {
                 String body = response.body().string();
                 JSONObject jsonObject = new JSONObject(body);
-                JSONObject data = jsonObject.optJSONObject("classrooms");
 
-                if (data != null) {
-                    classroomManager.setClassroomTreeData(data);
-                    return data.toString();
+                String preview = body.length() > 200 ? body.substring(0, 200) : body;
+                Log.d(TAG, "[Classroom][Native][Tree] http ok url=" + url + " len=" + body.length() + " preview=" + preview);
+
+                JSONObject treeData = jsonObject.optJSONObject("classrooms");
+                String picked = "classrooms";
+
+                if (treeData == null) {
+                    treeData = jsonObject.optJSONObject("classroom");
+                    picked = "classroom";
                 }
+
+                if (treeData == null) {
+                    JSONObject dataObj = jsonObject.optJSONObject("data");
+                    if (dataObj != null) {
+                        JSONObject nested = dataObj.optJSONObject("classrooms");
+                        if (nested != null) {
+                            treeData = nested;
+                            picked = "data.classrooms";
+                        }
+                    }
+                }
+
+                if (treeData != null) {
+                    Log.d(TAG, "[Classroom][Native][Tree] parsed picked=" + picked + " keys=" + treeData.length());
+                    classroomManager.setClassroomTreeData(treeData);
+                    return treeData.toString();
+                }
+
+                Log.w(TAG, "[Classroom][Native][Tree] parsed no tree field, keys=" + jsonObject.length());
             }
         } catch (Exception e) {
             Log.e(TAG, "Error fetching classroom data synchronously", e);

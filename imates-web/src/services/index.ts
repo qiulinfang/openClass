@@ -13,9 +13,10 @@ export { androidBridge, AndroidBridge } from './business/android-bridge'
 // 核心服务 - HTTP & 认证
 export { httpClient, HttpClient } from './http/http-client'
 
-// 认证信息存储
-export { authStorageService, AuthStorageService } from './storage/auth-storage-service'
+// 认证
 export {
+  authService,
+  UserType,
   getUserInfo,
   setUserInfo,
   getUserId,
@@ -25,11 +26,12 @@ export {
   setYanbanToken,
   setXuebanToken,
   getSubject,
-  loadFromStorage,
-  initializeStore,
-  cleanupOnAccountSwitch,
-  setUserInfoWithCleanup
-} from './storage/auth-storage-service'
+  getCurrentUserId,
+  getCurrentUserType,
+  getCurrentUserIdOrDefault,
+  getScopedStorageKey,
+  setCurrentUser,
+} from './http/auth-service'
 
 // API 配置
 export * from './http/api-endpoints'

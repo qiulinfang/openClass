@@ -184,7 +184,7 @@ import { chatStorage } from '../services/storage/chat-storage'
 import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
-import { authStorageService } from '@/services/storage/auth-storage-service'
+import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
 import SearchInput from './SearchInput.vue'
 import RubberBandList from './RubberBandList.vue'
 import BubblePopup from './BubblePopup.vue'
@@ -589,7 +589,7 @@ const handleSessionClick = async (node: TreeNode) => {
       }
       
       // 设置 localStorage 中的 currentTeacherSubject
-      const userId = authStorageService.getCurrentUserIdOrDefault()
+      const userId = getCurrentUserIdOrDefault()
       const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       
@@ -1043,12 +1043,12 @@ onMounted(async () => {
 })
 
 // 切换教师会话（内部辅助方法，用于对话框打开时的会话恢复）
-const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'math') => {
-  const allSessions = teacherChatStore.getAllSessions()
+const setTeacherSubject = async (sessionId: string, subject: 'biology' | 'math') => {
+  const allSessions = teacherChatStore.allSessions
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (!session) return
   
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
@@ -1080,7 +1080,7 @@ const initializeSessions = async () => {
     const allTeacherSessions = teacherChatStore.getAllSessions()
     const session = allTeacherSessions.find(s => s.sessionId === teacherSession.sessionId)
     if (session && (session.subject === 'biology' || session.subject === 'math')) {
-      await switchTeacherSession(session.sessionId, session.subject)
+      await setTeacherSubject(session.sessionId, session.subject)
       return
     }
   }
@@ -1105,7 +1105,7 @@ const initializeSessions = async () => {
       // 如果有教师会话，选中第一个
       const firstTeacherSession = allTeacherSessions[0]
       if (firstTeacherSession.subject === 'biology' || firstTeacherSession.subject === 'math') {
-        await switchTeacherSession(firstTeacherSession.sessionId, firstTeacherSession.subject)
+        await setTeacherSubject(firstTeacherSession.sessionId, firstTeacherSession.subject)
       }
     } else {
       // 默认使用AI分类

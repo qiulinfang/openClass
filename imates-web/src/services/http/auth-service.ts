@@ -1,4 +1,110 @@
-import { getUserId, getPassword, getYanbanToken, setXuebanToken, setYanbanToken } from '../storage/auth-storage-service'
+import CryptoJS from 'crypto-js'
+import { httpClient } from './http-client'
+import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
+import { AndroidBridge } from '../business/android-bridge'
+import type {
+  UserInfo,
+  XuebanLoginResponse,
+  LoginResponse,
+  LoginRequest,
+  LoginData,
+  ApiResponse,
+} from '@/types'
+
+export enum UserType {
+  XUEBAN = 'XUEBAN',
+  YANBAN = 'YANBAN'
+}
+
+const STORAGE_KEY = 'userInfo'
+const SUBJECT_STORAGE_KEY = 'currentSubject'
+const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID'
+const CURRENT_USER_TYPE_KEY = 'CURRENT_USER_TYPE'
+
+const sanitize = (value: string | null | undefined): string | null => {
+  if (!value || value === 'undefined' || value.trim() === '') {
+    return null
+  }
+  return value
+}
+
+export const getUserId = (): string | null => sanitize(localStorage.getItem('userId'))
+export const getPassword = (): string | null => sanitize(localStorage.getItem('userPassword'))
+export const getYanbanToken = (): string | null => sanitize(localStorage.getItem('YANBAN_TOKEN'))
+export const getXuebanToken = (): string | null => sanitize(localStorage.getItem('XUEBAN_TOKEN'))
+export const setYanbanToken = (token: string | null): void => {
+  if (token === null) localStorage.removeItem('YANBAN_TOKEN')
+  else localStorage.setItem('YANBAN_TOKEN', token)
+}
+export const setXuebanToken = (token: string | null): void => {
+  if (token === null) localStorage.removeItem('XUEBAN_TOKEN')
+  else localStorage.setItem('XUEBAN_TOKEN', token)
+}
+export const getCurrentUserId = (): string | null => sanitize(localStorage.getItem(CURRENT_USER_ID_KEY))
+export const getCurrentUserType = (): UserType | null => {
+  const v = sanitize(localStorage.getItem(CURRENT_USER_TYPE_KEY))
+  if (v === UserType.XUEBAN || v === UserType.YANBAN) return v as UserType
+  return null
+}
+
+export const getCurrentYanbanUserId = (): string | null => {
+  return sanitize(getCurrentUserId() || localStorage.getItem('studentUserId'))
+}
+
+export const isYanbanLoggedIn = (): boolean => {
+  const token = getYanbanToken()
+  const userId = getCurrentYanbanUserId()
+  return !!(token && userId)
+}
+
+export const getCurrentYanbanAuth = (): { token: string; username: string } | null => {
+  const token = getYanbanToken()
+  const userId = getCurrentYanbanUserId()
+
+  if (token && userId) {
+    return { token, username: userId }
+  }
+  return null
+}
+export const getCurrentUserIdOrDefault = (defaultValue: string = 'default'): string => {
+  return getCurrentUserId() || getUserId() || defaultValue
+}
+export const getScopedStorageKey = (suffix: string): string => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_${suffix}`
+}
+export const getScopedStorageValue = (suffix: string): string | null => {
+  return sanitize(localStorage.getItem(getScopedStorageKey(suffix)))
+}
+export const setCurrentUser = (userId: string, userType: UserType): void => {
+  if (!userId || userId === 'undefined' || userId.trim() === '') return
+  localStorage.setItem(CURRENT_USER_ID_KEY, userId)
+  localStorage.setItem(CURRENT_USER_TYPE_KEY, userType)
+}
+export const getSubject = (): 'MATH' | 'BIOLOGY' => {
+  const stored = sanitize(localStorage.getItem(SUBJECT_STORAGE_KEY))
+  if (stored === 'BIOLOGY' || stored === 'MATH') return stored
+  return 'MATH'
+}
+export const getUserInfo = (): UserInfo | null => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return null
+    return JSON.parse(stored) as UserInfo
+  } catch {
+    return null
+  }
+}
+export const loadFromStorage = (): boolean => {
+  return getUserInfo() !== null
+}
+export const setUserInfo = (userInfo: UserInfo | null): void => {
+  try {
+    if (userInfo === null) localStorage.removeItem(STORAGE_KEY)
+    else localStorage.setItem(STORAGE_KEY, JSON.stringify(userInfo))
+  } catch {
+  }
+}
 
 /**
  * 认证相关业务逻辑
@@ -7,8 +113,11 @@ import { getUserId, getPassword, getYanbanToken, setXuebanToken, setYanbanToken 
  */
 export class AuthService {
   private static instance: AuthService
+  private androidBridge: AndroidBridge
 
-  private constructor() {}
+  private constructor() {
+    this.androidBridge = AndroidBridge.getInstance()
+  }
 
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -49,7 +158,7 @@ export class AuthService {
    * 尝试自动重新登录
    * - 从统一存储读取 userId / password
    * - 按路径选择学班或研伴登录
-   * - 调用 api-service 中的登录接口刷新 token
+   * - 直接调用本类的登录方法刷新 token
    */
   private async tryAutoRelogin(url: string): Promise<boolean> {
     try {
@@ -61,12 +170,9 @@ export class AuthService {
         return false
       }
 
-      // 动态导入 apiService，避免循环依赖
-      const { apiService } = await import('../business/api-service')
-
       if (url.startsWith('/blw-edu-yb')) {
         // 研伴相关接口：使用研伴登录
-        const loginResult = await apiService.loginYanban(userId, password)
+        const loginResult = await this.loginYanban(userId, password)
 
         // 补充检查：只要成功写入了 YANBAN_TOKEN，也视为重新登录成功
         const token = getYanbanToken()
@@ -88,14 +194,14 @@ export class AuthService {
       ) {
         // 学班管理员相关接口：使用学班登录
         try {
-          const token = await apiService.loginXueban(userId, password)
+          const token = await this.loginXueban(userId, password)
           return !!token
         } catch {
           return false
         }
       } else {
         // 其他接口：尝试通用登录（优先研伴登录）
-        const loginResult = await apiService.loginYanban(userId, password)
+        const loginResult = await this.loginYanban(userId, password)
         const token = getYanbanToken()
         const success = loginResult !== null || (token !== null && token !== 'undefined' && token.trim() !== '')
 
@@ -134,9 +240,8 @@ export class AuthService {
         return false
       }
 
-      // 使用 apiService 进行登录（动态导入避免循环依赖）
-      const { apiService } = await import('../business/api-service')
-      const loginResult = await apiService.loginYanban(userId, password)
+      // 直接调用本类的 loginYanban 方法
+      const loginResult = await this.loginYanban(userId, password)
       const token = getYanbanToken()
 
       // 判定成功条件：
@@ -159,6 +264,252 @@ export class AuthService {
     } catch (error) {
       console.warn('[AuthService] autoLogin 失败', error)
       return false 
+    }
+  }
+
+  // ========== 认证相关方法（从 xueban-api / yanban-api 迁移） ==========
+
+  /**
+   * MD5加密 - 与Android端保持一致
+   */
+  private md5(input: string): string {
+    return CryptoJS.MD5(input).toString()
+  }
+
+  /**
+   * 研伴接口统一调用封装
+   * - 保持与 Android 原生一致的分流策略：内部测试环境 + 有 AndroidBridge 时走原生网络
+   * - 其他环境直接通过 httpClient 调用 Web 接口
+   */
+  private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
+    const envType = getCurrentEnvType()
+
+    if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
+      const apiPath = url.replace('/blw-edu-yb', '')
+      const yanbanToken = getYanbanToken() || ''
+      const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
+
+      return {
+        success: (result as any)?.success ?? false,
+        data: ((result as any)?.data ?? result) as T,
+        code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
+        message: (result as any)?.message,
+      }
+    }
+
+    return await httpClient.post<T>(url, body)
+  }
+
+  /**
+   * 学伴登录
+   * @param account 账号
+   * @param password 密码（明文，与Android端LoginActivity保持一致）
+   * @returns Promise<string> 返回token
+   */
+  public async loginXueban(account: string, password: string): Promise<string> {
+    const response = await httpClient.post<XuebanLoginResponse>('/admin/login', {
+      account,
+      password,
+    })
+
+    if (!response.success) {
+      throw new Error((response as any)?.data?.message || '登录失败')
+    }
+
+    const token = (response.data as any)?.data?.token
+    if (!token) {
+      throw new Error('登录失败：未获取到token')
+    }
+
+    localStorage.setItem('XUEBAN_TOKEN', token)
+    localStorage.setItem('userId', account)
+    localStorage.setItem('userPassword', password)
+    localStorage.setItem('lastLoginTime', Date.now().toString())
+
+    // 同步登录研伴系统获取YANBAN_TOKEN
+    try {
+      await this.loginYanban(account, password)
+    } catch (yanbanError) {
+      console.warn('[AuthService] ⚠️ 研伴登录失败，将在需要时自动重试:', yanbanError)
+    }
+
+    return token
+  }
+
+  /**
+   * 获取用户信息
+   * @param token 用户token
+   * @returns Promise<UserInfo> 用户信息
+   */
+  public async getUserInfo(token: string): Promise<UserInfo> {
+    const response = await httpClient.get<{
+      success: boolean
+      message: string
+      data: UserInfo
+    }>(`/admin/info?token=${token}`)
+
+    if (!response.success || !response.data) {
+      throw new Error(response.message || '获取用户信息失败')
+    }
+
+    const userInfo = (response.data as any).data
+    try {
+      localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    } catch {
+    }
+
+    // 同步用户信息到Android原生ViewModel
+    try {
+      const userId = localStorage.getItem('userId')
+      const userPassword = localStorage.getItem('userPassword')
+      
+      if (userId && token) {
+        this.androidBridge.syncUserInfo(
+          userId,
+          token,
+          userPassword || ''
+        )
+      }
+    } catch {
+    }
+
+    // 同步到 userStore
+    try {
+      await this.setUserInfoWithCleanup(userInfo)
+    } catch (storeError) {
+      console.warn('[AuthService] ⚠️ 同步 userStore 失败:', storeError)
+    }
+
+    return userInfo
+  }
+
+  /**
+   * 研伴学生登录 - 与Android端LearnResourceManager.login保持一致
+   */
+  public async loginYanban(account: string, password: string): Promise<LoginResponse | null> {
+    try {
+      const md5Password = this.md5(password)
+
+      const loginRequest: LoginRequest = {
+        account,
+        password: md5Password,
+      }
+
+      const response = await this.callYanban<{
+        code: number
+        success: boolean
+        message: string
+        data: LoginData
+      }>('/blw-edu-yb/auth/login-student', loginRequest)
+
+      const respData = response.data as any
+      const tokenData = respData?.data || respData
+
+      if (response.success && tokenData && tokenData.token) {
+        const loginResponse: LoginResponse = {
+          token: tokenData.token,
+          userId: tokenData.userId,
+          defaultPassword: tokenData.defaultPassword,
+        }
+
+        try {
+          localStorage.setItem('YANBAN_TOKEN', tokenData.token)
+          localStorage.setItem('studentUserId', tokenData.userId)
+
+          try {
+            const effectiveUserId = tokenData.userId || account
+            if (effectiveUserId) {
+              setCurrentUser(effectiveUserId, UserType.YANBAN)
+            }
+          } catch {
+          }
+
+          localStorage.setItem('lastLoginTime', Date.now().toString())
+        } catch {
+        }
+
+        return loginResponse
+      }
+
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * 检查学生登录状态
+   */
+  public isStudentLoggedIn(): boolean {
+    const token = localStorage.getItem('YANBAN_TOKEN')
+    const studentUserId = localStorage.getItem('studentUserId')
+    return !!(
+      token &&
+      studentUserId &&
+      token !== 'undefined' &&
+      studentUserId !== 'undefined' &&
+      token.trim() !== '' &&
+      studentUserId.trim() !== ''
+    )
+  }
+
+  /**
+   * 学生登出
+   */
+  public logoutStudent(): void {
+    localStorage.removeItem('YANBAN_TOKEN')
+    localStorage.removeItem('studentUserId')
+  }
+
+  public async cleanupOnAccountSwitch(oldUserId?: string): Promise<void> {
+    try {
+      try {
+        const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
+        const teacherStore = useTeacherGeneralChatStore()
+        await teacherStore.cleanupMessageReceiver()
+      } catch {
+      }
+
+      try {
+        const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
+        const teacherStore = useTeacherGeneralChatStore()
+        teacherStore.clearSession()
+        teacherStore.clearMessages()
+      } catch {
+      }
+
+      try {
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (!key) continue
+          if (key.startsWith('teacher_chat_') || (oldUserId && key.startsWith(`${oldUserId}_teacher_chat_`))) {
+            keysToRemove.push(key)
+          }
+          if (key.startsWith('chat_history_') || (oldUserId && key.startsWith(`${oldUserId}_chat_history_`))) {
+            keysToRemove.push(key)
+          }
+          if (key.startsWith('ai-general-sessions') || (oldUserId && key.startsWith(`${oldUserId}_ai-general-sessions`))) {
+            keysToRemove.push(key)
+          }
+          if (key.startsWith('favorites') || (oldUserId && key.startsWith(`${oldUserId}_favorites`))) {
+            keysToRemove.push(key)
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k))
+      } catch {
+      }
+    } catch {
+    }
+  }
+
+  public async setUserInfoWithCleanup(user: UserInfo): Promise<void> {
+    const oldUserInfo = getUserInfo()
+    const oldUserId = (oldUserInfo as any)?.id as string | undefined
+    const newUserId = (user as any)?.id as string | undefined
+    setUserInfo(user)
+    if (oldUserId && newUserId && oldUserId !== newUserId) {
+      await this.cleanupOnAccountSwitch(oldUserId)
     }
   }
 }

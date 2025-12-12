@@ -242,7 +242,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useHomeworkStore } from '../stores/homeworkStore'
-import { getUserInfo, getSubject, initializeStore } from '../services/storage/auth-storage-service'
+import { getUserInfo, getSubject } from '../services/http/auth-service'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { storeToRefs } from 'pinia'
@@ -709,9 +709,6 @@ onMounted(async () => {
   console.log('[ExerciseSolveView] onMounted')
   // 静默初始化，不显示加载状态
   try {
-    // 初始化用户store
-    await initializeStore()
-
     // 从路由参数中获取 tab 参数，设置当前功能
     const tabParam = route.query.tab as string | undefined
     if (tabParam && ['chatAi', 'askTeacher', 'viewAnswer', 'similarQuestion'].includes(tabParam)) {

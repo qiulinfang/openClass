@@ -186,8 +186,8 @@ import CommonSelect from '@/components/CommonSelect.vue'
 import LearningView from './LearningView.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import { authStorageService } from '../services/storage/auth-storage-service'
 import { authService } from '../services/http/auth-service'
+import { getCurrentUserIdOrDefault, getScopedStorageValue, getYanbanToken, getCurrentUserId } from '../services/http/auth-service'
 import { showMessage } from '../utils'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../utils/business/shijingshan-knowledge-utils'
 import {
@@ -208,12 +208,12 @@ const lastLearnedNodeId = ref<string | null>(null)
 const learnedNodeIds = ref<Set<string>>(new Set())
 
 const getLastLearnedNodeKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
+  const userId = getCurrentUserIdOrDefault()
   return `${userId}_LEARNED_NODES`
 }
 
@@ -646,7 +646,7 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
         query: {
           bmNoList: shijingshanBmNoList.trim(),
           subject: subjectParam,
-          token: authStorageService.getScopedStorageValue('token') || ''
+          token: getScopedStorageValue('token') || ''
         }
       })
       return
@@ -686,7 +686,7 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
       query: {
         knowledgeList,
         subject: subjectParam,
-        token: authStorageService.getScopedStorageValue('token') || ''
+        token: getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {
@@ -983,7 +983,7 @@ const loadChapterStructureFromDB = async (textbookId: string): Promise<ChapterNo
   try {
     await ensureKGStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     const record = await db.get<KnowledgeGraphChapterStructureRecord>(
       'knowledge_graph_chapter_structure',
       buildKGRecordId(userId, textbookId)
@@ -1012,7 +1012,7 @@ const saveChapterStructureToDB = async (
   try {
     await ensureKGStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const userId = getCurrentUserIdOrDefault()
     const record: KnowledgeGraphChapterStructureRecord = {
       id: buildKGRecordId(userId, textbookId),
       userId,
@@ -1222,9 +1222,8 @@ const sessionManager = {
   async isSessionValid(): Promise<boolean> {
     try {
       // 检查统一存储的token和userId
-      const { getYanbanToken, getUserId } = await import('../services/storage/auth-storage-service')
       const token = getYanbanToken()
-      const userId = getUserId()
+      const userId = getCurrentUserId() || localStorage.getItem('studentUserId')
       
       if (!token || !userId || token === 'undefined') {
         return false

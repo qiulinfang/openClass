@@ -29,8 +29,8 @@ public class FFmpegPipeStreamer {
     private final int frameRate;
 
     private DatagramSocket socket;
-    private final ExecutorService executor;
-    private final ScheduledExecutorService heartbeatExecutor;
+    private ExecutorService executor;
+    private ScheduledExecutorService heartbeatExecutor;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final AtomicBoolean isFFmpegRunning = new AtomicBoolean(false);
 
@@ -70,6 +70,14 @@ public class FFmpegPipeStreamer {
                 return;
             }
 
+            // stop() 可能会关闭线程池；这里保证可重复 start
+            if (executor == null || executor.isShutdown() || executor.isTerminated()) {
+                executor = Executors.newFixedThreadPool(2);
+            }
+            if (heartbeatExecutor == null || heartbeatExecutor.isShutdown() || heartbeatExecutor.isTerminated()) {
+                heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
+            }
+
             // 创建UDP socket
             socket = new DatagramSocket();
 
@@ -105,7 +113,9 @@ public class FFmpegPipeStreamer {
 
         try {
             // 停止心跳检测
-            heartbeatExecutor.shutdown();
+            if (heartbeatExecutor != null && !heartbeatExecutor.isShutdown()) {
+                heartbeatExecutor.shutdownNow();
+            }
 
             // 停止FFmpeg进程
             if (currentSession != null && isFFmpegRunning.get()) {
@@ -130,7 +140,9 @@ public class FFmpegPipeStreamer {
             }
 
             // 关闭线程池
-            executor.shutdown();
+            if (executor != null && !executor.isShutdown()) {
+                executor.shutdownNow();
+            }
 
             Log.d(TAG, "FFmpegPipeStreamer stopped");
         } catch (Exception e) {

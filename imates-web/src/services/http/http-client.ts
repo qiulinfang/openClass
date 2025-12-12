@@ -94,16 +94,20 @@ export class HttpClient {
     
     // 根据请求路径选择不同的token（从统一存储读取）
     let selectedToken: string | null = null
-    
-    // 动态导入统一存储工具
-    const { getXuebanToken, getYanbanToken } = await import("../storage/auth-storage-service");
+
+    const sanitize = (value: string | null | undefined): string | null => {
+      if (!value || value === 'undefined' || value.trim() === '') {
+        return null
+      }
+      return value
+    }
 
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
-      selectedToken = getXuebanToken()
+      selectedToken = sanitize(localStorage.getItem('XUEBAN_TOKEN'))
     } else if (url.startsWith('/blw-edu-yb')) {
       // /blw-edu-yb开头的请求使用YANBAN_TOKEN
-      selectedToken = getYanbanToken()
+      selectedToken = sanitize(localStorage.getItem('YANBAN_TOKEN'))
     }
     
     // 如果找到了token，将其赋值给所有认证字段
