@@ -97,13 +97,20 @@ export function useMessageRenderer() {
         return contentStr
       }
 
-      // 4. 预处理LaTeX公式格式
-      const processedContent = preprocessLatexFormats(contentStr)
-      // 5. 执行Markdown渲染
+      // 4. 先反转义常见 HTML 实体，避免公式中出现 &gt; / &lt; / &amp; 之类的字面量
+      //    示例：$\scriptstyle x &gt; 0$ -> $\scriptstyle x > 0$
+      const unescaped = contentStr
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+
+      // 5. 预处理LaTeX公式格式
+      const processedContent = preprocessLatexFormats(unescaped)
+      // 6. 执行Markdown渲染
       const rendered = md.render(processedContent)
-      // 6. 后处理渲染结果（清理多余的换行符）
+      // 7. 后处理渲染结果（清理多余的换行符）
       const trimmedRendered = rendered.replace(/\n+$/, '')
-      // 7. 管理缓存
+      // 8. 管理缓存
       manageCache(contentStr, trimmedRendered)
 
       return trimmedRendered

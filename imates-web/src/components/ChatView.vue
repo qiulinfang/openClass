@@ -232,9 +232,10 @@
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
           :quoted-message="quotedMessage"
+          :attached-screenshots="props.type === 'ai-textbook' ? aiTextbookStore.attachedScreenshots : localAttachedScreenshots"
           @send-message="sendMessage"
-          @send-with-screenshot="(shots) => emit('send-with-screenshot', inputMessage, shots)"
-          @remove-screenshot="(id) => emit('remove-screenshot', id)"
+          @send-with-screenshot="handleSendWithScreenshot"
+          @remove-screenshot="handleRemoveScreenshot"
           @remove-quote="handleRemoveQuote"
           @blur="onInputBlur"
           @start-voice-input="startVoiceInput"
@@ -353,7 +354,8 @@ import CommonActionButton from './CommonActionButton.vue'
 import RubberBandList from './RubberBandList.vue'
 
 // 类型定义导入
-import type { ChatBubble, QuotedMessageInfo } from '../types'
+import type { ChatBubble, QuotedMessageInfo, AttachedScreenshot } from '../types'
+import type { ChatImageData } from '../stores/utils/chatStoreUtils'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -370,7 +372,7 @@ const props = withDefaults(
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
     // 当前题目对象，由外层页面维护，ChatView 不直接依赖全局 questionStore
     question?: unknown
-    attachedScreenshots?: import('../types').AttachedScreenshot[]
+    attachedScreenshots?: AttachedScreenshot[]
   }>(),
   {
     inputMode: 'full',
@@ -457,6 +459,33 @@ const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 完整输入组件
 const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单输入组件引用
 const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话卡片堆叠组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
+
+// 本地截图列表（用于非 ai-textbook 场景在输入框上方展示缩略图）
+const localAttachedScreenshots = ref<AttachedScreenshot[]>(props.attachedScreenshots ?? [])
+
+// 处理 ChatInput 发出的 send-with-screenshot 事件
+// - ai-general 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
+// - 其它场景（如 ai-textbook）：保持向上传递，由上层（如 PdfViewerView）处理多图截图发送
+const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
+  if (props.type === 'ai-general') {
+    // 对于 ai-general：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
+    void sendMessage()
+  } else {
+    emit('send-with-screenshot', inputMessage.value, shots)
+  }
+}
+
+// 处理 ChatInput 发出的移除缩略图事件
+const handleRemoveScreenshot = (id: string) => {
+  // AI 教材场景仍然交给上层（PdfViewerView / aiTextbookStore）处理
+  if (props.type === 'ai-textbook') {
+    emit('remove-screenshot', id)
+    return
+  }
+
+  // 其它场景：仅在本地列表中移除缩略图
+  localAttachedScreenshots.value = localAttachedScreenshots.value.filter((shot) => shot.id !== id)
+}
 
 // 会话卡片数据（用于 CardStack v-model）- 通过策略接口获取
 const sessionCards = computed(() => {
@@ -1186,10 +1215,15 @@ const sendSimpleMessage = async (message: string) => {
 
 // 作用：发送用户消息（策略模式）
 const sendMessage = async (attachedFile?: File) => {
-  if ((!inputMessage.value.trim() && !attachedFile) || isLoading.value) {
+  const hasText = !!inputMessage.value.trim()
+  const hasFile = !!attachedFile
+  const hasImageForAiGeneral = props.type === 'ai-general' && localAttachedScreenshots.value.length > 0
+
+  if ((!hasText && !hasFile && !hasImageForAiGeneral) || isLoading.value) {
     console.error('[ChatView] ❌ 发送消息失败:', {
       inputMessage: inputMessage.value,
       attachedFile: attachedFile,
+      hasImageForAiGeneral,
       isLoading: isLoading.value,
     })
     return
@@ -1265,12 +1299,26 @@ const sendMessage = async (attachedFile?: File) => {
       : undefined
     const focus = quotedMessageInfo ? [quotedMessageInfo] : undefined
     quotedMessage.value = null
+
+    // ai-general 场景：如果有挂在输入框上的截图，作为 imageData 传递给策略/Store，由 Store 决定走截图接口
+    let imageDataForApi: ChatImageData | undefined
+    if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
+      const firstShot = localAttachedScreenshots.value[0]
+      if (firstShot?.dataUrl) {
+        imageDataForApi = {
+          filePath: '',
+          base64DataUrl: firstShot.dataUrl,
+        }
+      }
+    }
+
     await chatStrategy.value?.sendMessage(messageContent, {
       selectedModel: selectedModel.value,
       // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
       currentQuestion: currentQuestion.value ?? undefined,
       focus,
       quotedMessage: quotedMessageForUi, // 引用的消息信息（用于消息气泡展示）
+      imageData: imageDataForApi,
     })
     await scrollToBottom()
     emit('response')
@@ -1288,6 +1336,10 @@ const sendMessage = async (attachedFile?: File) => {
     await addMessageToStore(errorMessage)
     await scrollToBottom()
   } finally {
+    // ai-general 场景：无论发送成功与否，点击发送后都清空本地挂载的截图缩略图
+    if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
+      localAttachedScreenshots.value = []
+    }
     isLoading.value = false
   }
 }
@@ -1679,6 +1731,27 @@ const onImageSelected = async (imageInfo: {
   base64DataUrl?: string
 }): Promise<void> => {
   if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
+    // ai-general 场景：只挂缩略图，不立即发送，等待用户输入文字后点击发送按钮
+    if (props.type === 'ai-general') {
+      // 限制最多只能挂载 1 张图片
+      if (localAttachedScreenshots.value.length >= 1) {
+        showMessage('最多只能添加 1 张图片', 'info')
+        return
+      }
+
+      if (imageInfo.base64DataUrl) {
+        const id = `local_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const shot: AttachedScreenshot = {
+          id,
+          dataUrl: imageInfo.base64DataUrl,
+          width: imageInfo.width,
+          height: imageInfo.height,
+        }
+        localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
+      }
+      return
+    }
+
     // 发送图片消息到后端（策略模式重构版）
     isLoading.value = true
     try {
@@ -1695,6 +1768,18 @@ const onImageSelected = async (imageInfo: {
       // 使用策略模式判断是否清空输入框
       if (chatStrategy.value?.shouldClearInputAfterImage()) {
         inputMessage.value = ''
+      }
+
+      // 第5步：在非 ai-textbook 场景下，将选择的图片挂到输入框上方的缩略图列表
+      if (props.type !== 'ai-textbook' && imageInfo.base64DataUrl) {
+        const id = `local_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const shot: AttachedScreenshot = {
+          id,
+          dataUrl: imageInfo.base64DataUrl,
+          width: imageInfo.width,
+          height: imageInfo.height,
+        }
+        localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
       }
 
       // 计算属性会自动响应 store 变化，无需手动同步

@@ -412,3 +412,93 @@
 ---
 
 > 本文档仅覆盖当前前端代码中**实际调用到**的接口。如后续在 `api-service.ts` 新增接口方法，请同步更新此文档，以保持 Web 与 Android 的接口使用对齐。
+
+## 2025-11-19 更新：/blw-edu-yb/api/app/topic-package-page 接口返回数据说明
+
+问题序号：1. /blw-edu-yb/api/app/topic-package-page 接口返回数据说明缺失
+
+## 问题元信息
+- **问题分类**：后端
+- **严重程度**：低
+- **影响范围**：`imates-web` 题库模块的“历史发布管理”页面
+- **发现日期**：2025-12-12
+- **解决状态**：已解决
+
+## 问题现象
+历史发布管理页面调用 `/blw-edu-yb/api/app/topic-package-page` 获取题目合集分页列表，但文档中缺少该接口的入参和返回字段说明，导致前端/测试无法确认字段含义及分页规则。
+
+## 复现步骤
+1. 在 Web 项目进入 “题库发布 > 历史发布管理” 页面；
+2. 页面发起 `questionBankAPI.package_page` 请求；
+3. 因缺少文档，团队成员无法快速确认 `records`、`status`、分页字段等含义。
+
+## 用户体验
+- 影响点1：研发查阅接口时需要反查代码，效率低。
+- 影响点2：测试编写用例时缺少字段定义，难以及时覆盖。
+- 影响点3：联调遇到字段异常时无法迅速定位责任端。
+
+## 相关文件/模块
+- **涉及文件**：
+  - `src/api/exercises/questionBank.js`：封装 `package_page` 请求。
+  - `src/views/exercises/questionBank/History.vue`：调用接口并消费返回字段。
+- **涉及模块**：
+  - 题库发布 API
+  - 历史发布管理前端页面
+
+## 技术原因 (❌)
+1. 接口文档遗漏了 /topic-package-page 条目，使得参数与返回结构只能通过阅读实现代码推断。
+
+错误代码示例：
+```javascript
+// src/api/exercises/questionBank.js
+package_page(data) {
+  return request.post("/api/topic/package-page", data)
+}
+```
+> 当前文档无法说明 `data` 的字段、分页结构以及返回的 `records` 数据模型。
+
+## 正确实现方案 (✅)
+1. 在接口文档中补充该接口的入参、返回值、调用场景说明；
+2. 明确 `records` 中的关键字段（如 `topicCount`、`tags`、`status`、`updateName` 等）；
+3. 记录分页字段 `pageNumber`、`pageSize`、`totalRow` 的语义，便于测试/前端复用。
+
+正确代码示例：
+```javascript
+// src/views/exercises/questionBank/History.vue
+questionBankAPI.package_page(param).then(res => {
+  historyDataList.value = res.data.records.map(item => ({
+    ...item,
+    tags: item.tags ? item.tags.trim().split(/\s+/) : [],
+    updateTime: item.updateTime.split(" ")[0],
+  }));
+  pageNumber.value = res.data.pageNumber;
+  pageSize.value = res.data.pageSize;
+  total.value = res.data.totalRow;
+})
+```
+
+## 关键代码/公式
+- 代码片段1：`src/api/exercises/questionBank.js` 中的 `package_page` 封装。
+- 代码片段2：`History.vue` 中对 `records` 的转换逻辑。
+
+## 测试验证
+- **测试场景**：
+  - 场景1：输入标签/日期筛选，确认 `records` 列表字段含义与文档一致。
+  - 场景2：切换分页（页码、条数）验证 `pageNumber/pageSize/totalRow`。
+- **验证方法**：
+  - 方法1：对比接口实际返回 JSON 与文档字段描述。
+  - 方法2：根据文档编写接口单测或 Postman collection，确认分页与字段无遗漏。
+
+## 预防措施
+- 措施1：新增后端接口时同步更新 `/sum` 文档。
+- 措施2：在接口封装处添加 `ts` 类型定义，降低靠阅读代码推断的成本。
+- 措施3：联调前使用统一的接口清单进行核对。
+
+## 相关链接/参考
+- 相关文档：`src/api/exercises/questionBank.js`
+- 参考资源：`History.vue` 组件中列表渲染逻辑
+
+## 可复用经验
+- 经验1：接口文档需覆盖分页字段与业务字段，否则测试/联调成本飙升。
+- 经验2：同主题问题优先在既有文档里采用“更新时间”小节补充。
+- 经验3：通过前端消费代码可以快速反推出接口字段，为文档补全提供依据。

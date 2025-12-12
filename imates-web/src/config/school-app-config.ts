@@ -80,6 +80,13 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           routeName: 'exerciseSolve',
         },
         {
+          key: 'homework',
+          label: '我的作业',
+          iconType: 'homework',
+          position: 'main',
+          routeName: 'myHomework',
+        },
+        {
           key: 'drawingBoard',
           label: '草稿本',
           iconType: 'drawingBoard',

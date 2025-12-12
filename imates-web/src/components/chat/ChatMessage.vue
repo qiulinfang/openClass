@@ -1007,11 +1007,12 @@ const handleRefresh = async () => {
   let textbookImageList = undefined as ChatBubble['imageList'] | undefined
   let shouldUseScreenshotOnRefresh = false
 
-  if (props.type === 'ai-textbook') {
+  // ai-textbook / ai-general 场景：根据 originalDstUrl 判断是否使用截图接口
+  if (props.type === 'ai-textbook' || props.type === 'ai-general') {
     const originalDstUrl = props.message.originalDstUrl
     shouldUseScreenshotOnRefresh = originalDstUrl === '/permission/previewPictureQA'
 
-    if (shouldUseScreenshotOnRefresh) {
+    if (props.type === 'ai-textbook' && shouldUseScreenshotOnRefresh) {
       // 对于 ai-textbook 场景，可能存在「一条纯图片 + 一条纯文字」的组合：
       // 此时 userMessage 往往是纯文字，需要向前再找一条带图片的用户消息，
       // 以确保刷新时仍然走 /permission/previewPictureQA。
@@ -1086,7 +1087,10 @@ const handleRefresh = async () => {
           userInfo,
           subject,
           'mate',
-          true // skipUserMessage: true，跳过创建用户消息
+          true, // skipUserMessage: true，跳过创建用户消息
+          undefined,
+          undefined,
+          shouldUseScreenshotOnRefresh ? (userMessage.imageData as any) : undefined,
         )
         break
       case 'ai-textbook':

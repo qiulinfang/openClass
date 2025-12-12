@@ -14,7 +14,7 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/business/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, QuotedMessageInfo } from '../types'
-import type { ChatQuotedMessage } from './utils/chatStoreUtils'
+import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { authStorageService } from '../services/storage/auth-storage-service'
 import { getUserId } from '../services/storage/auth-storage-service'
 import localforage from 'localforage'
@@ -36,6 +36,8 @@ const buildAiGeneralMessage = (
   chatRole: string = 'mate',
   sessionId?: string | null,
   focus?: QuotedMessageInfo[],
+  useScreenshotApi: boolean = false,
+  imageList?: { base64DataUrl: string }[],
 ): AiChatMessageRequest => {
   // 优先使用传入的 sessionId，如果没有则新建
   const createSessionId = (maybeSessionId?: string) => {
@@ -47,6 +49,7 @@ const buildAiGeneralMessage = (
     }
   }
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
+  const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chats'
   return {
     sessionId: finalSessionId,
     newValue,
@@ -59,8 +62,9 @@ const buildAiGeneralMessage = (
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole,
     subject: '',
-    dstUrl: '/permission/chats',
+    dstUrl,
     focus: focus && focus.length > 0 ? focus : undefined,
+    imageList: imageList && imageList.length > 0 ? imageList : undefined,
   }
 }
 
@@ -232,6 +236,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     skipUserMessage?: boolean,
     focus?: QuotedMessageInfo[],
     quotedMessage?: ChatQuotedMessage,
+    imageData?: ChatImageData,
   ): Promise<void> => {
     // 第1步：如果没有当前会话，创建新会话
     if (!currentSession.value) {
@@ -241,8 +246,46 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     
     // 第2步：创建用户消息（可选）
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(content, quotedMessage)
+      // 普通文本消息（无图片）
+      const userMessage = createUserMessage(content, undefined, false, currentSession.value?.sessionId, quotedMessage)
       messages.value.push(userMessage)
+    } else if (imageData && imageData.base64DataUrl) {
+      // 当上游已通过截图挂载方式传入图片数据时，这里负责创建图片气泡（以及可选的文本气泡）
+      const now = Date.now()
+
+      // 第1个气泡：仅包含图片
+      const imageMessage: ChatBubble = {
+        id: now.toString(),
+        content: '',
+        type: 'user',
+        timestamp: new Date().toISOString(),
+        sender: 'user',
+        messageType: 'image',
+        imageData: {
+          filePath: imageData.filePath || '',
+          width: imageData.width || 0,
+          height: imageData.height || 0,
+          fileSize: imageData.fileSize || 0,
+          base64DataUrl: imageData.base64DataUrl,
+        },
+        sessionId: currentSession.value?.sessionId,
+        quotedMessage,
+      }
+      messages.value.push(imageMessage)
+
+      // 第2个气泡：如果有文本内容，则单独再创建一条文本消息
+      if (content && content.trim()) {
+        const textMessage: ChatBubble = {
+          id: (now + 1).toString(),
+          content,
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'text',
+          sessionId: currentSession.value?.sessionId,
+        }
+        messages.value.push(textMessage)
+      }
     }
     
     // 第3步：创建临时AI回复
@@ -250,6 +293,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     messages.value.push(tempReply)
     
     // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId 和 focus）
+    // 当存在图片数据时，使用截图接口 /permission/previewPictureQA，并附带 imageList
+    const useScreenshotApi = !!imageData && !!imageData.base64DataUrl
+
+    const imageListForRequest = imageData && imageData.base64DataUrl
+      ? [{ base64DataUrl: imageData.base64DataUrl }]
+      : undefined
     const aiRequest = buildAiGeneralMessage(
       content,
       userInfo,
@@ -257,7 +306,18 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       selectedModel,
       currentSession.value?.sessionId,
       focus,
+      useScreenshotApi,
+      imageListForRequest,
     )
+    
+    // 记录本次 AI 回复对应的后端接口地址，供后续刷新(handleRefresh) 时严格跟随原接口
+    const tempIndex = messages.value.findIndex((m) => m.id === tempReplyId)
+    if (tempIndex >= 0) {
+      messages.value[tempIndex] = {
+        ...messages.value[tempIndex],
+        originalDstUrl: aiRequest.dstUrl,
+      }
+    }
     
     try {
       // 第5步：发送请求（带流式回调）
@@ -270,11 +330,14 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
           // 原逻辑：正常情况下 messages 会被 onHistoryUpdate 覆盖
           const index = messages.value.findIndex((m) => m.id === tempReplyId)
           if (index >= 0) {
+            const old = messages.value[index]
             messages.value[index] = {
               ...tempReply,
               content: finalResponse.reply || accumulatedContent || '回复失败',
               isStreaming: false,
               messageId: finalResponse.messageId,
+              // 保留 originalDstUrl，供后续刷新(handleRefresh) 使用
+              originalDstUrl: old.originalDstUrl,
             }
           }
         },
@@ -322,13 +385,16 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       // 更新消息为错误状态
       const index = messages.value.findIndex(m => m.id === tempReplyId)
       if (index >= 0) {
+        const old = messages.value[index]
         messages.value[index] = {
           ...tempReply,
           content: '发送失败，请重试',
           isStreaming: false,
           isError: true,
           canRetry: true,
-          originalMessage: content
+          originalMessage: content,
+          // 保留 originalDstUrl
+          originalDstUrl: old.originalDstUrl,
         }
       }
       

@@ -43,7 +43,8 @@ export class ResourceManager {
     const dbName = `TextbookStorage_${userId}`
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
-      version: 10, // 升级版本号，确保索引被创建（修复索引不存在问题），并新增 ai_textbook_sessions / learning_packages 表
+      // 升级版本号，新增 knowledge_graph_chapter_structure 表用于缓存知识图谱章节结构
+      version: 11,
       stores: [
         {
           name: 'textbooks',
@@ -81,6 +82,16 @@ export class ResourceManager {
             { name: 'packageId', keyPath: 'packageId' },
             { name: 'textbookId', keyPath: 'textbookId' },
             { name: 'timestamp', keyPath: 'timestamp' },
+          ]
+        },
+        {
+          // 知识图谱章节结构缓存表（/app/teacher-textbook-section-tree）
+          name: 'knowledge_graph_chapter_structure',
+          keyPath: 'id',
+          indexes: [
+            { name: 'userId', keyPath: 'userId' },
+            { name: 'textbookId', keyPath: 'textbookId' },
+            { name: 'timestamp', keyPath: 'timestamp' }
           ]
         }
       ]

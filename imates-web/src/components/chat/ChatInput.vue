@@ -172,13 +172,9 @@
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
           </button>
 
-          <!-- 图片上传 - AI通用、AI题目和AI教材模式下隐藏 -->
+          <!-- 图片上传 - 仅在 ai-general 场景下显示 -->
           <button
-            v-if="
-              props.type !== 'ai-general' &&
-              props.type !== 'ai-exercise' &&
-              props.type !== 'ai-textbook'
-            "
+            v-if="props.type === 'ai-general'"
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"
@@ -277,7 +273,6 @@ import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
 import type { ContentBlock } from '../../types'
 import type { AttachedScreenshot } from '@/types'
-import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
 
 const props = defineProps({
   modelValue: {
@@ -384,16 +379,10 @@ const emit = defineEmits({
   'ask-teacher-click': () => true,
 })
 
-const aiTextbookStore = useAiTextbookChatStore()
-
-// 统一的截图列表：
-// - ai-textbook 场景：直接使用 aiTextbookStore.attachedScreenshots
-// - 其它场景：优先使用 attachedScreenshots，兼容旧的单张 attachedScreenshot
+// 统一的截图列表：完全由 props 决定
+// - 优先使用 attachedScreenshots（多张）
+// - 兼容旧的单张 attachedScreenshot
 const screenshotsToShow = computed<AttachedScreenshot[]>(() => {
-  if (props.type === 'ai-textbook') {
-    return aiTextbookStore.attachedScreenshots
-  }
-
   if (Array.isArray(props.attachedScreenshots) && props.attachedScreenshots.length > 0) {
     return props.attachedScreenshots
   }

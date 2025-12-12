@@ -943,7 +943,7 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
   }
 }
 
-// 缓存键名常量 - 保留用于章节结构缓存
+// 缓存键名常量 - 仅用于统计 localStorage 中旧的知识图谱缓存键
 const CACHE_KEYS = {
   CHAPTER_STRUCTURE: 'knowledge_graph_chapter_structure_',
   CACHE_TIMESTAMP: 'knowledge_graph_cache_timestamp'
@@ -957,35 +957,74 @@ const isCacheExpired = (timestamp: number): boolean => {
   return Date.now() - timestamp > CACHE_EXPIRE_TIME
 }
 
-// 从localStorage获取缓存数据
-const getCachedData = (key: string) => {
-  try {
-    const cached = localStorage.getItem(key)
-    if (cached) {
-      const data = JSON.parse(cached)
-      // 检查是否过期
-      if (data.timestamp && isCacheExpired(data.timestamp)) {
-        localStorage.removeItem(key)
-        return null
-      }
-      return data.value
-    }
-  } catch {
-    // 读取缓存失败，静默处理
-  }
-  return null
+// ========== 知识图谱章节结构 IndexedDB 缓存（knowledge_graph_chapter_structure 表） ==========
+
+interface KnowledgeGraphChapterStructureRecord {
+  id: string // 主键：`${userId}_${textbookId}`
+  userId: string
+  textbookId: string
+  data: ChapterNode[]
+  timestamp: number
 }
 
-// 保存数据到localStorage
-const setCachedData = (key: string, value: unknown) => {
+const buildKGRecordId = (userId: string, textbookId: string): string => {
+  return `${userId}_${textbookId}`
+}
+
+const ensureKGStoreInitialized = async () => {
+  const db = resourceManager.indexedDB
+  if (!db.isInitialized) {
+    await db.init()
+  }
+}
+
+// 从 IndexedDB 读取章节结构缓存
+const loadChapterStructureFromDB = async (textbookId: string): Promise<ChapterNode[] | null> => {
   try {
-    const data = {
-      value,
+    await ensureKGStoreInitialized()
+    const db = resourceManager.indexedDB
+    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const record = await db.get<KnowledgeGraphChapterStructureRecord>(
+      'knowledge_graph_chapter_structure',
+      buildKGRecordId(userId, textbookId)
+    )
+
+    if (!record) {
+      return null
+    }
+
+    if (isCacheExpired(record.timestamp)) {
+      return null
+    }
+
+    return record.data || null
+  } catch (error) {
+    console.warn('[KnowledgeGraph] 读取章节结构 IndexedDB 缓存失败', error)
+    return null
+  }
+}
+
+// 将章节结构写入 IndexedDB 缓存
+const saveChapterStructureToDB = async (
+  textbookId: string,
+  data: ChapterNode[]
+): Promise<boolean> => {
+  try {
+    await ensureKGStoreInitialized()
+    const db = resourceManager.indexedDB
+    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const record: KnowledgeGraphChapterStructureRecord = {
+      id: buildKGRecordId(userId, textbookId),
+      userId,
+      textbookId,
+      data,
       timestamp: Date.now()
     }
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch {
-    // 保存缓存失败，静默处理
+    await db.put<KnowledgeGraphChapterStructureRecord>('knowledge_graph_chapter_structure', record)
+    return true
+  } catch (error) {
+    console.warn('[KnowledgeGraph] 保存章节结构到 IndexedDB 失败', error)
+    return false
   }
 }
 
@@ -1133,15 +1172,13 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
   }
 }
 
-// 加载章节结构
+// 加载章节结构（优先从 IndexedDB 的 knowledge_graph_chapter_structure 表读取缓存）
 const loadChapterStructure = async (textbookId: string) => {
   try {
-    // 先尝试从缓存加载章节结构
-    const cacheKey = `${CACHE_KEYS.CHAPTER_STRUCTURE}${textbookId}`
+    // 先尝试从 IndexedDB 缓存加载章节结构
+    const cachedChapterData = await loadChapterStructureFromDB(textbookId)
     
-    const cachedChapterData = getCachedData(cacheKey)
-    
-    if (cachedChapterData) {
+    if (cachedChapterData && cachedChapterData.length > 0) {
       // 直接使用后台返回的顺序，不进行排序
       chapterStructure.value = cachedChapterData
       
@@ -1160,8 +1197,8 @@ const loadChapterStructure = async (textbookId: string) => {
       // 直接使用后台返回的顺序，不进行排序
       chapterStructure.value = chapterData
       
-      // 缓存章节结构数据
-      setCachedData(cacheKey, chapterData)
+      // 缓存章节结构数据到 IndexedDB
+      await saveChapterStructureToDB(textbookId, chapterData)
       
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
       chapters.value = chapterData.map(chapter => convertToChineseNumber(chapter.name))
