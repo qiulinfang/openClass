@@ -48,7 +48,6 @@ export class AiExerciseStrategy implements ChatStrategy {
       options.imageData,
       hidePrefix,
       options.skipUserMessage,
-      options.focus,
       options.quotedMessage,
     )
   }
@@ -145,6 +144,13 @@ export class AiExerciseStrategy implements ChatStrategy {
       }
       
       // 选择或创建老师题目会话
+      if (!question.bmNo) {
+        return {
+          success: false,
+          error: '题目ID缺失，无法转发',
+        }
+      }
+
       const session = await this.selectOrCreateTeacherExerciseSession(
         question.bmNo,
         question.title || '题目',
@@ -221,6 +227,13 @@ export class AiExerciseStrategy implements ChatStrategy {
       }
       
       // 选择或创建老师题目会话
+      if (!question.bmNo) {
+        return {
+          success: false,
+          error: '题目ID缺失，无法转发',
+        }
+      }
+
       const session = await this.selectOrCreateTeacherExerciseSession(
         question.bmNo,
         question.title || '题目',

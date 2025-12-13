@@ -36,9 +36,9 @@ export class AiTextbookStrategy implements ChatStrategy {
       options.selectedModel,
       options.imageData,
       hidePrefix,
-      undefined,
-      options.focus, // 传递引用内容（发送给后端）
-      options.quotedMessage // 传递引用消息信息（用于消息气泡展示）
+      options.skipUserMessage,
+      options.quotedMessage, // 传递引用消息信息（用于消息气泡展示）
+      options.imageList,
     )
   }
   

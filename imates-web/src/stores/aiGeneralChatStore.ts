@@ -13,11 +13,16 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/business/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
-import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, QuotedMessageInfo } from '../types'
+import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
+import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
+import { useChatPersistence } from '@/composables/useChatPersistence'
+import { useChatSessions } from '@/composables/useChatSessions'
+import { useChatRetry } from '@/composables/useChatRetry'
+import { useChatEngine } from '@/composables/useChatEngine'
 
 /**
  * 构建 AI 通用聊天消息请求
@@ -26,7 +31,6 @@ import { generateUniqueId } from './utils/chatStoreUtils'
  * @param enableWebSearch 是否启用网络搜索
  * @param chatRole 聊天角色（mate/mentor/researcher）
  * @param sessionId 会话ID（可选，不传则自动生成）
- * @param focus 引用的消息列表（可选，用于告诉后端重点参考哪些历史消息）
  */
 const buildAiGeneralMessage = (
   content: string,
@@ -34,7 +38,6 @@ const buildAiGeneralMessage = (
   enableWebSearch: boolean,
   chatRole: string = 'mate',
   sessionId?: string | null,
-  focus?: QuotedMessageInfo[],
   useScreenshotApi: boolean = false,
   imageList?: { base64DataUrl: string }[],
 ): AiChatMessageRequest => {
@@ -62,7 +65,6 @@ const buildAiGeneralMessage = (
     chatRole,
     subject: '',
     dstUrl,
-    focus: focus && focus.length > 0 ? focus : undefined,
     imageList: imageList && imageList.length > 0 ? imageList : undefined,
   }
 }
@@ -72,6 +74,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   
   /** 消息列表 */
   const messages = ref<ChatBubble[]>([])
+  const lastHistorySignature = ref<string>('')
   
   /** 会话列表 */
   const sessions = ref<AiGeneralSession[]>([])
@@ -87,6 +90,37 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   
   /** 是否正在创建会话 */
   const isCreatingSession = ref(false)
+
+  const chatPersistence = useChatPersistence<ChatHistoryData>(
+    {
+      save: async (key: string, payload: ChatHistoryData) => {
+        await chatStorage.saveChatHistory(key, payload)
+      },
+      load: async (key: string) => {
+        return await chatStorage.loadChatHistory(key)
+      },
+    },
+    {
+      debounceMs: 0,
+    },
+  )
+
+  const sessionPersistence = useChatSessions<AiGeneralSession>({
+    save: async (data) => {
+      await chatStorage.saveGeneralSessions(data)
+    },
+    load: async () => {
+      return await chatStorage.loadGeneralSessions()
+    },
+  })
+
+  const retryHelper = useChatRetry({ maxRetries: 3 })
+
+  const chatEngine = useChatEngine({
+    messagesRef: messages,
+    lastHistorySignatureRef: lastHistorySignature,
+    onAfterHistorySync: () => saveChatHistory(),
+  })
   
   /** 待发送图片（用于拍作业场景） */
   const pendingImage = ref<{
@@ -138,7 +172,22 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
 
     // 2.1 复用前缀：前缀部分完全一致，直接使用旧消息，保留所有 UI 字段
     for (let i = 0; i < prefixLen; i++) {
-      result.push(oldMessages[i])
+      const old = oldMessages[i]
+      const h = history[i]
+      const sender: 'user' | 'ai' = h.type === 'human' ? 'user' : 'ai'
+      const roleFromHistory = (h as any)?.additional_kwargs?.role as string | undefined
+
+      // 以 history 为准覆盖核心字段（content / sender / selectedModel），保留旧消息的 UI 独有字段
+      result.push({
+        ...old,
+        id: h.id,
+        messageId: h.id,
+        content: old.content,
+        sender,
+        type: sender,
+        isStreaming: false,
+        selectedModel: sender === 'ai' ? (roleFromHistory || old.selectedModel || 'mate') : undefined,
+      })
     }
 
     // 2.2 从 prefixLen 开始，对新增 history 做映射（必要时 merge 旧字段）
@@ -148,10 +197,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
 
       const oldMsg = oldMessagesMap.get(m.id)
 
+      const roleFromHistory = (m as any)?.additional_kwargs?.role as string | undefined
+
       const bubble: ChatBubble = {
         id: m.id,            // 直接用服务端 ID，全链路统一
         messageId: m.id,     // 兼容 messageId 字段
-        content: m.content || '',
+        content: oldMsg?.content && oldMsg.content.trim() !== '' ? oldMsg.content : (m.content || ''),
         sender,
         type: sender,
         timestamp: oldMsg?.timestamp || new Date().toISOString(),
@@ -164,7 +215,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         canRetry: oldMsg?.canRetry,
         // AI 消息需要 selectedModel 来显示正确的头像
         // 优先从旧消息取，否则默认 'mate'
-        selectedModel: sender === 'ai' ? (oldMsg?.selectedModel || 'mate') : undefined,
+        selectedModel: sender === 'ai' ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
+        originalDstUrl: oldMsg?.originalDstUrl,
       }
 
       result.push(bubble)
@@ -212,22 +264,21 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   // ==================== 公开方法 ====================
   
   /**
-   * 发送聊天消息（AI通用场景）
+   * 发送消息到AI
    * 
-   * 第1步：如果没有当前会话，创建新会话
-   * 第2步：创建用户消息
-   * 第3步：创建临时AI回复
-   * 第4步：构建AI请求
-   * 第5步：发送请求
-   * 第6步：更新消息
-   * 第7步：保存历史
+   * 流程：
+   * 1. 如果没有当前会话，创建新会话
+   * 2. 创建用户消息（可选）
+   * 3. 创建临时AI回复
+   * 4. 构建AI请求
+   * 5. 发送请求并处理响应
+   * 6. 保存聊天历史
    * 
    * @param content 用户输入内容
    * @param userInfo 用户信息
    * @param subject 学科
    * @param selectedModel 选择的模型
    * @param skipUserMessage 是否跳过创建用户消息
-   * @param focus 引用的消息列表（可选）
    */
   const sendMessage = async (
     content: string,
@@ -235,9 +286,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
     skipUserMessage?: boolean,
-    focus?: QuotedMessageInfo[],
     quotedMessage?: ChatQuotedMessage,
     imageData?: ChatImageData,
+    imageList?: ChatImageData[],
   ): Promise<void> => {
     // 第1步：如果没有当前会话，创建新会话
     if (!currentSession.value) {
@@ -250,29 +301,57 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       // 普通文本消息（无图片）
       const userMessage = createUserMessage(content, currentSession.value?.sessionId, quotedMessage)
       messages.value.push(userMessage)
-    } else if (imageData && imageData.base64DataUrl) {
-      // 当上游已通过截图挂载方式传入图片数据时，这里负责创建图片气泡（以及可选的文本气泡）
+    } else if ((imageList && imageList.length > 0) || (imageData && imageData.base64DataUrl)) {
+      // 当上游已通过“挂载图片”方式传入图片数据时，这里负责创建图片气泡（以及可选的文本气泡）
       const now = Date.now()
 
-      // 第1个气泡：仅包含图片
-      const imageMessage: ChatBubble = {
-        id: now.toString(),
-        content: '',
-        type: 'user',
-        timestamp: new Date().toISOString(),
-        sender: 'user',
-        messageType: 'image',
-        imageData: {
-          filePath: imageData.filePath || '',
-          width: imageData.width || 0,
-          height: imageData.height || 0,
-          fileSize: imageData.fileSize || 0,
-          base64DataUrl: imageData.base64DataUrl,
-        },
-        sessionId: currentSession.value?.sessionId,
-        quotedMessage,
+      const hasMulti = !!(imageList && imageList.length > 0)
+
+      if (hasMulti) {
+        const standardImageList = (imageList || [])
+          .filter((img) => !!img.base64DataUrl)
+          .slice(0, 3)
+          .map((img) => ({
+            filePath: img.filePath || '',
+            width: img.width || 0,
+            height: img.height || 0,
+            fileSize: img.fileSize || 0,
+            base64DataUrl: img.base64DataUrl!,
+            isLargeImage: img.isLargeImage || false,
+          }))
+
+        const imageMessage: ChatBubble = {
+          id: now.toString(),
+          content: '',
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'multi_image',
+          imageList: standardImageList,
+          sessionId: currentSession.value?.sessionId,
+          quotedMessage,
+        }
+        messages.value.push(imageMessage)
+      } else if (imageData && imageData.base64DataUrl) {
+        const imageMessage: ChatBubble = {
+          id: now.toString(),
+          content: '',
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'image',
+          imageData: {
+            filePath: imageData.filePath || '',
+            width: imageData.width || 0,
+            height: imageData.height || 0,
+            fileSize: imageData.fileSize || 0,
+            base64DataUrl: imageData.base64DataUrl,
+          },
+          sessionId: currentSession.value?.sessionId,
+          quotedMessage,
+        }
+        messages.value.push(imageMessage)
       }
-      messages.value.push(imageMessage)
 
       // 第2个气泡：如果有文本内容，则单独再创建一条文本消息
       if (content && content.trim()) {
@@ -293,20 +372,26 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     const { message: tempReply, id: tempReplyId } = createTempReplyMessage(selectedModel)
     messages.value.push(tempReply)
     
-    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId 和 focus）
+    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     // 当存在图片数据时，使用截图接口 /permission/previewPictureQA，并附带 imageList
-    const useScreenshotApi = !!imageData && !!imageData.base64DataUrl
+    const hasMultiImages = !!(imageList && imageList.length > 0)
+    const hasSingleImage = !!(imageData && imageData.base64DataUrl)
+    const useScreenshotApi = hasMultiImages || hasSingleImage
 
-    const imageListForRequest = imageData && imageData.base64DataUrl
-      ? [{ base64DataUrl: imageData.base64DataUrl }]
-      : undefined
+    const imageListForRequest = hasMultiImages
+      ? (imageList || [])
+          .filter((img) => !!img.base64DataUrl)
+          .slice(0, 3)
+          .map((img) => ({ base64DataUrl: img.base64DataUrl! }))
+      : hasSingleImage
+        ? [{ base64DataUrl: imageData!.base64DataUrl! }]
+        : undefined
     const aiRequest = buildAiGeneralMessage(
       content,
       userInfo,
       enableWebSearch.value,
       selectedModel,
       currentSession.value?.sessionId,
-      focus,
       useScreenshotApi,
       imageListForRequest,
     )
@@ -322,53 +407,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     
     try {
       // 第5步：发送请求（带流式回调）
-      let accumulatedContent = ''
-      const response = await apiService.sendChatMessage(
-        aiRequest,
-        // onComplete：轮询结束
-        (finalResponse) => {
-          // 如果有 history_messages 同步，这里的 onComplete 主要用于兜底
-          // 原逻辑：正常情况下 messages 会被 onHistoryUpdate 覆盖
-          const index = messages.value.findIndex((m) => m.id === tempReplyId)
-          if (index >= 0) {
-            const old = messages.value[index]
-            messages.value[index] = {
-              ...tempReply,
-              content: finalResponse.reply || accumulatedContent || '回复失败',
-              isStreaming: false,
-              messageId: finalResponse.messageId,
-              // 保留 originalDstUrl，供后续刷新(handleRefresh) 使用
-              originalDstUrl: old.originalDstUrl,
-            }
-          }
-        },
-        // onStream：流式更新（作为兜底，当后端没有返回 history_messages 时使用）
-        (chunk: string, isComplete: boolean) => {
-          const index = messages.value.findIndex((m) => m.id === tempReplyId)
-          if (index < 0) return
-          if (isComplete) {
-            messages.value[index] = {
-              ...messages.value[index],
-              isStreaming: false,
-            }
-          } else {
-            accumulatedContent += chunk
-            messages.value[index] = {
-              ...messages.value[index],
-              content: accumulatedContent,
-              isStreaming: true,
-            }
-          }
-        },
-      )
-
-      // onHistoryUpdate 原始实现（已注释，只保留覆盖逻辑供参考）：
-      // // onHistoryUpdate：后端全量历史同步（策略A：以 history 为准，直接覆盖本地 messages）
-      // (history: BackendHistoryMessage[], agentStatus?: string) => {
-      //   if (!history || history.length === 0) return
-      //   const newMessages = mapHistoryToChatBubbles(history, agentStatus)
-      //   messages.value = newMessages
-      // }
+      const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
+      const response = await apiService.sendChatMessage(aiRequest, onComplete, onStream, onHistoryUpdate)
       
       // 第7步：保存聊天历史
       await saveChatHistory()
@@ -417,52 +457,25 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate'
   ): Promise<void> => {
-    // 第1步：查找消息
-    const index = messages.value.findIndex(m => m.id === messageId)
-    if (index < 0) {
-      throw new Error('消息不存在')
-    }
-    
-    const message = messages.value[index]
-    if (!message.canRetry || !message.originalMessage) {
-      throw new Error('该消息不支持重发')
-    }
-    
-    // 第2步：检查重试次数
-    const maxRetries = 3
-    const retryCount = message.retryCount || 0
-    
-    if (retryCount >= maxRetries) {
-      throw new Error('已达到最大重试次数')
-    }
-    
-    // 第3步：保存原始内容，用于重新发送
-    const originalContent = message.originalMessage
-    const originalQuotedMessage = message.quotedMessage
-    
-    // 第4步：删除失败的消息（本地+后端同步）
-    try {
-      await deleteMessage(messageId)
-    } catch (deleteError) {
-      console.warn('[AI_GENERAL] retryMessage.deleteFailed, 继续重试', deleteError)
-      // 删除失败不阻塞重试，继续发送
-    }
-    
-    // 第5步：重新发送消息（复用 sendMessage 逻辑）
-    try {
-      await sendMessage(
-        originalContent,
-        userInfo,
-        subject,
-        selectedModel,
-        false, // skipUserMessage: false，重新创建用户消息
-        undefined, // focus: 暂不传递，因为重试时引用关系已在后端
-        originalQuotedMessage, // 保留原始引用信息用于 UI 展示
-      )
-    } catch (sendError) {
-      console.error('[AI_GENERAL] retryMessage.sendFailed', sendError)
-      throw sendError
-    }
+    await retryHelper.retryByDeleteAndResend({
+      ctx: {
+        messages,
+        deleteMessage,
+      },
+      messageId,
+      selectedModel,
+      resend: async ({ originalContent, quotedMessage, selectedModel: model }) => {
+        await sendMessage(
+          originalContent,
+          userInfo,
+          subject,
+          model || selectedModel,
+          false,
+          quotedMessage,
+          undefined,
+        )
+      },
+    })
   }
   
   /**
@@ -503,7 +516,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       const MAX_SESSION_NAME_LENGTH = 20 // 会话名称最大长度（约10个汉字）
       const userId = localStorage.getItem('userId') || ''
       const newSession: AiGeneralSession = {
-        sessionId: `${userId ? userId + '-' : ''}session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        // 与 buildAiGeneralMessage 的默认 thread_id 生成规则保持一致，避免 thread_id 在同一对话中漂移
+        sessionId: `${userId ? userId + '-' : ''}general-session-${Date.now()}`,
         sessionName: firstMessage.length > MAX_SESSION_NAME_LENGTH 
           ? firstMessage.substring(0, MAX_SESSION_NAME_LENGTH) + '...' 
           : firstMessage,
@@ -566,7 +580,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     }
     
     try {
-      await chatStorage.saveChatHistory(`ai-general-${currentSession.value.sessionId}`, historyData)
+      await chatPersistence.save(`ai-general-${currentSession.value.sessionId}`, historyData)
       
       // 第3步：保存会话列表
       await saveSessions()
@@ -582,7 +596,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     try {
       isChatLoading.value = true
       
-      const historyData = await chatStorage.loadChatHistory(`ai-general-${sessionId}`)
+      const historyData = await chatPersistence.load(`ai-general-${sessionId}`)
       
       if (historyData) {
         messages.value = historyData.messages || []
@@ -604,7 +618,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const saveSessions = async (): Promise<void> => {
     try {
-      await chatStorage.saveGeneralSessions(sessions.value)
+      await sessionPersistence.save(sessions.value)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存会话列表失败:', error)
     }
@@ -618,20 +632,16 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     try {
       const userId = getCurrentUserIdOrDefault()
       const legacyKey = `${userId}_ai-general-sessions`
-      const legacyData = localStorage.getItem(legacyKey)
-
-      if (legacyData) {
-        // 一次性迁移：localStorage -> ExerciseSolveApp(ai_general_sessions)
-        const legacySessions = JSON.parse(legacyData) as AiGeneralSession[]
-        sessions.value = legacySessions
-        await chatStorage.saveGeneralSessions(legacySessions)
-        localStorage.removeItem(legacyKey)
-        return
-      }
-
-      // 没有老数据时，直接从新表加载
-      const stored = await chatStorage.loadGeneralSessions()
-      sessions.value = stored
+      sessions.value = await sessionPersistence.loadWithLegacy({
+        read: () => {
+          const legacyData = localStorage.getItem(legacyKey)
+          if (!legacyData) return null
+          return JSON.parse(legacyData) as AiGeneralSession[]
+        },
+        clear: () => {
+          localStorage.removeItem(legacyKey)
+        },
+      })
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 加载会话列表失败:', error)
       sessions.value = []
@@ -857,13 +867,15 @@ ${conversationSummary}
 
 标题：`
       
-      // 第5步：构建AI请求（使用传入的 sessionId）
+      // 第5步：构建AI请求（使用独立 session，避免提示词污染当前会话）
+      const titleSessionId = `${sessionId}-title-${Date.now()}`
       const titleRequest = buildAiGeneralMessage(
         titlePrompt,
         userInfo,
         false, // 不使用web搜索
         'mate',
-        sessionId
+        titleSessionId,
+        false,
       )
       // 第6步：调用AI接口
       const response = await apiService.sendChatMessage(titleRequest)

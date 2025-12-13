@@ -14,7 +14,7 @@ export const API_ENDPOINTS = {
   // 资源基础URL
   RESOURCE_BASE: {
     RELEASE: 'https://www.imates.com.cn',
-    INTERNAL_TEST: 'https://www.showcode.xyz',
+    INTERNAL_TEST: 'https://www.imates.com.cn',
     DEVELOPMENT: 'http://localhost:3000'
   },
 

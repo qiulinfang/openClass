@@ -10,7 +10,7 @@ import type { ExerciseItem } from './exercise'
 
 /**
  * 引用消息信息
- * 用于 focus 字段，告诉后端当前消息引用了哪些历史消息
+ * 引用信息的通用结构（保留兼容字段）
  */
 export interface QuotedMessageInfo {
   id: string

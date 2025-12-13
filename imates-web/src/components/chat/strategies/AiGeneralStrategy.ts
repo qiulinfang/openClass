@@ -31,7 +31,7 @@ export class AiGeneralStrategy implements ChatStrategy {
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     // 当 options.imageData 存在时，说明上游已插入了图片用户消息
     // 为避免再次插入空文本用户消息，传递 skipUserMessage 标记给 Store
-    const skipUserMessage = !!options.imageData || !!options.skipUserMessage
+    const skipUserMessage = !!options.imageData || !!(options.imageList && options.imageList.length > 0) || !!options.skipUserMessage
 
     await this.aiGeneralStore.sendMessage(
       content,
@@ -39,9 +39,9 @@ export class AiGeneralStrategy implements ChatStrategy {
       getSubject(),
       options.selectedModel || 'mate',
       skipUserMessage,
-      options.focus,
       options.quotedMessage,
       options.imageData,
+      options.imageList,
     )
   }
   

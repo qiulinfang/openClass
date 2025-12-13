@@ -3,7 +3,6 @@
  */
 
 import type { ChatImageData } from '../../../stores/utils/chatStoreUtils'
-import type { QuotedMessageInfo } from '../../../types'
 
 /**
  * 发送消息的选项
@@ -11,6 +10,7 @@ import type { QuotedMessageInfo } from '../../../types'
 export interface SendMessageOptions {
   selectedModel?: string
   imageData?: ChatImageData
+  imageList?: ChatImageData[]
   skipUserMessage?: boolean  // 是否跳过创建用户消息（乐观发送场景）
   // 当前题目对象，由上层 ChatView 通过 props.question 传入
   question?: unknown
@@ -18,8 +18,6 @@ export interface SendMessageOptions {
   currentQuestion?: unknown
   // 当前题目ID，由上层 ChatView 通过 props.questionId 传入
   currentQuestionId?: string
-  // 引用的内容，用于发送给后端的 focus 字段
-  focus?: QuotedMessageInfo[]
   // 引用的消息信息，用于消息气泡展示
   quotedMessage?: {
     id: string

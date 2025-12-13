@@ -587,12 +587,9 @@ export class ApiService {
         : response.message ?? ''
     const trimmedChunk = String(rawMessage).trim()
 
-    // ========== 特殊处理：截图问答接口 /permission/previewPictureQA ==========
     const raw = String(rawMessage)
 
-    // 兜底逻辑：对于 /permission/previewPictureQA，如果已经累计出了非空内容，
-    // 且当前帧不再包含任何 "data:" 片段，则视为后端在 end 之后返回的噪声帧，
-    // 直接按结束处理，避免继续通过 handleEmptyContent 触发新一轮轮询。
+    // 兜底：预览接口在 end 之后可能会回“噪声帧”（不含 data:），这里保持原行为直接结束
     if (message.dstUrl === '/permission/previewPictureQA' && !raw.includes('data:') && accumulatedContent.length > 0) {
       return this.handlePollingEnd(
         messageId,
@@ -602,135 +599,6 @@ export class ApiService {
         onComplete,
         onStream,
       )
-    }
-
-    // 真正带 data: 的帧，继续走专用解析逻辑
-    if (message.dstUrl === '/permission/previewPictureQA' && raw.includes('data:')) {
-
-      const isEndFrame = raw.trim().endsWith('end')
-      // 按 "data:" 拆分，注意第一个片段可能是空串
-      const parts = raw
-        .split('data:')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
-      let accumulated = accumulatedContent
-      let latestHistory: BackendHistoryMessage[] | undefined
-      let agentStatus: string | undefined
-
-      for (const part of parts) {
-        try {
-          const jsonStr = part
-          if (!jsonStr) continue
-
-          const payload = JSON.parse(jsonStr) as SSEPayload
-
-          if (typeof payload.content === 'string' && payload.content.length > 0) {
-            accumulated += payload.content
-          }
-
-          if (Array.isArray(payload.history_messages) && payload.history_messages.length > 0) {
-            latestHistory = payload.history_messages as BackendHistoryMessage[]
-          }
-
-          // 无论 history_messages 是否为空，都要记录当前帧的 agent_status
-          // 这样像 { content: "", agent_status: "drawing", history_messages: [] }
-          // 这种纯控制帧也能正确触发前端的“绘图中”动画
-          if (typeof payload.agent_status === 'string' && payload.agent_status.length > 0) {
-            agentStatus = payload.agent_status
-          }
-        } catch (e) {
-          console.warn('[API Service] 预览截图接口 payload 解析失败:', { part, error: e })
-        }
-      }
-
-      // 如果既没有任何可见内容，也没有 history_messages，说明这只是一个控制帧（例如 drawing 状态），
-      // 不应当终止轮询，而是继续按空内容处理逻辑走下一轮 poll。
-      if (accumulated === accumulatedContent && (!latestHistory || latestHistory.length === 0)) {
-        // 如果是绘图状态，通知前端可以展示“绘图中”动画（不携带文本增量）
-        if (onStream && agentStatus === 'drawing') {
-          try {
-            onStream('', false)
-          } catch (e) {
-            console.warn('[API Service] 预览截图接口 onStream drawing 控制帧回调失败:', { error: e })
-          }
-        }
-
-        return this.handleEmptyContent(
-          message,
-          url,
-          onComplete,
-          onStream,
-          accumulatedContent,
-          messageId,
-          onHistoryUpdate
-        )
-      }
-
-      // 如果存在 history_messages，则回调给前端（一次性）
-      if (onHistoryUpdate && latestHistory && latestHistory.length > 0) {
-        try {
-          onHistoryUpdate(latestHistory, agentStatus)
-        } catch (e) {
-          console.warn('[API Service] 预览截图接口 onHistoryUpdate 回调失败:', { error: e })
-        }
-      }
-
-      // 计算本帧新增的文本（相对于传入的 accumulatedContent）
-      const deltaText = accumulated.slice(accumulatedContent.length)
-
-      if (!isEndFrame) {
-        // 中间帧：如果有新增文本，按流式语义推给前端，然后继续轮询
-        if (onStream && deltaText) {
-          try {
-            onStream(deltaText, false)
-          } catch (e) {
-            console.warn('[API Service] 预览截图接口 onStream 中间帧回调失败:', { error: e })
-          }
-        }
-
-        const continueMessage = { ...message, reason: 'continue' }
-
-        // 为预览接口保持 1 秒轮询间隔
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        return await this.pollChatMessage(
-          continueMessage,
-          url,
-          onComplete,
-          onStream,
-          accumulated,
-          messageId,
-          onHistoryUpdate,
-        )
-      }
-
-      // 结束帧（以 end 结尾）：直接构造最终结果并返回（不再继续轮询）
-      const finalResult = {
-        success: true,
-        messageId,
-        reply: accumulated,
-        sessionId: response.data.sessionId || message.sessionId,
-        timestamp: Date.now(),
-      }
-
-      if (onComplete) {
-        try {
-          onComplete(finalResult)
-        } catch (e) {
-          console.warn('[API Service] 预览截图接口 onComplete 回调失败:', { error: e })
-        }
-      }
-
-      // 通知前端流式结束（如果有监听）
-      if (onStream) {
-        try {
-          onStream('', true)
-        } catch (e) {
-          console.warn('[API Service] 预览截图接口 onStream 结束回调失败:', { error: e })
-        }
-      }
-
-      return finalResult
     }
 
     // 第1步：处理结束标记
@@ -745,110 +613,71 @@ export class ApiService {
       )
     }
 
-    // 第2步：基于 rawMessage（单行 data: {...} 或普通文本）解析 SSE，提取 content
-    let textChunk = ''
-    let hasHistoryOnlyPayload = false
-    let parsedPayload: SSEPayload | null = null
-    let agentStatus: string | undefined
-    try {
-      const raw = String(rawMessage).trim()
+    // 第2步：统一解析 SSE（支持单行/多行/被 JSON 包装到 message 字段）
+    const parsed = this.parseSseText(raw)
 
-      // 后端保证每次只有一行 data:，因此这里只需处理单行
-      if (raw.startsWith('data:')) {
-        const jsonStr = raw.slice('data:'.length).trim()
-        if (jsonStr) {
+    if (parsed.hasData) {
+      if (onHistoryUpdate && parsed.latestHistory && parsed.latestHistory.length > 0) {
+        try {
+          onHistoryUpdate(parsed.latestHistory, parsed.agentStatus)
+        } catch (e) {
+          console.warn('[API Service] SSE onHistoryUpdate 回调失败:', { error: e })
+        }
+      }
+
+      // drawing 控制帧（无文本、无 history）：用于触发前端“绘图中/生成中”的骨架屏
+      if (
+        parsed.agentStatus === 'drawing' &&
+        !parsed.textChunk &&
+        (!parsed.latestHistory || parsed.latestHistory.length === 0)
+      ) {
+        if (onStream) {
           try {
-            parsedPayload = JSON.parse(jsonStr) as SSEPayload
-
-            // 记录本帧的 agent_status，供 /permission/chats 等接口用于绘图中状态
-            if (typeof parsedPayload.agent_status === 'string' && parsedPayload.agent_status.length > 0) {
-              agentStatus = parsedPayload.agent_status
-            }
-
-            if (typeof parsedPayload.content === 'string' && parsedPayload.content.length > 0) {
-              // 正常内容帧：直接使用 content 作为文本片段
-              textChunk = parsedPayload.content
-            } else if (
-              parsedPayload &&
-              parsedPayload.history_messages &&
-              Array.isArray(parsedPayload.history_messages) &&
-              (!parsedPayload.content || parsedPayload.content.length === 0)
-            ) {
-              // 仅包含 history_messages 的控制帧，记录标记，后面避免回退到原始 rawMessage
-              hasHistoryOnlyPayload = true
-            }
-
-            // 第2.1步：如果有 history_messages，触发回调同步到前端
-            if (
-              onHistoryUpdate &&
-              parsedPayload.history_messages &&
-              Array.isArray(parsedPayload.history_messages) &&
-              parsedPayload.history_messages.length > 0
-            ) {
-              onHistoryUpdate(
-                parsedPayload.history_messages as BackendHistoryMessage[],
-                parsedPayload.agent_status
-              )
-            }
-
-            // 增加与 /permission/previewPictureQA 类似的 drawing 控制帧处理
-            if (
-              message.dstUrl === '/permission/chats' &&
-              !parsedPayload.content &&
-              (!parsedPayload.history_messages || parsedPayload.history_messages.length === 0) &&
-              agentStatus === 'drawing'
-            ) {
-              if (onStream) {
-                try {
-                  onStream('', false)
-                } catch (e) {
-                  console.warn('[API Service] /permission/chats drawing 控制帧 onStream 回调失败:', { error: e })
-                }
-              }
-
-              return this.handleEmptyContent(
-                message,
-                url,
-                onComplete,
-                onStream,
-                accumulatedContent,
-                messageId,
-                onHistoryUpdate,
-              )
-            }
+            onStream('', false)
           } catch (e) {
-            console.warn('[API Service] SSE 行解析失败:', { raw, error: e })
+            console.warn('[API Service] drawing 控制帧 onStream 回调失败:', { error: e })
           }
         }
-      } else {
-        // 非 data: 开头，视为普通文本
-        textChunk = raw
-      }
-    } catch (e) {
-      console.warn('[API Service] SSE 消息解析异常，将回退到原始 message 文本:', {
-        messageId,
-        error: e,
-      })
-    }
 
-    // 如果是 /permission/chats 且仅为 drawing 控制帧（无文本、无 history），
-    // 则触发一次 onStream('', false) 通知前端“绘图中”，并继续轮询。
-    if (
-      message.dstUrl === '/permission/chats' &&
-      parsedPayload &&
-      agentStatus === 'drawing' &&
-      (!parsedPayload.content || parsedPayload.content.length === 0) &&
-      (!parsedPayload.history_messages || parsedPayload.history_messages.length === 0)
-    ) {
-      if (onStream) {
-        try {
-          onStream('', false)
-        } catch (e) {
-          console.warn('[API Service] /permission/chats drawing 控制帧 onStream 回调失败:', { error: e })
-        }
+        return this.handleEmptyContent(
+          message,
+          url,
+          onComplete,
+          onStream,
+          accumulatedContent,
+          messageId,
+          onHistoryUpdate,
+        )
       }
 
-      // 视为一帧“空内容”，继续轮询下一帧
+      // 结束帧：把本帧增量拼进 accumulatedContent 后直接结束
+      if (parsed.ended) {
+        const newAccumulated = accumulatedContent + (parsed.textChunk || '')
+        return this.handlePollingEnd(
+          messageId,
+          newAccumulated,
+          response.data.sessionId,
+          message.sessionId,
+          onComplete,
+          onStream,
+        )
+      }
+
+      // 非结束帧：有内容则按正常增量处理（会触发 onStream(chunk,false) 并继续轮询）
+      if (parsed.textChunk && parsed.textChunk.trim() !== '') {
+        return this.handleNewContent(
+          parsed.textChunk,
+          message,
+          url,
+          onComplete,
+          onStream,
+          accumulatedContent,
+          messageId,
+          onHistoryUpdate,
+        )
+      }
+
+      // 无内容但未结束：继续轮询
       return this.handleEmptyContent(
         message,
         url,
@@ -860,12 +689,8 @@ export class ApiService {
       )
     }
 
-    // 如果是仅携带 history_messages 的控制帧，则视为“无可见文本”，避免把 JSON 打到气泡中
-    let effectiveChunk = ''
-    if (!(hasHistoryOnlyPayload && textChunk === '')) {
-      // 如果成功解析出 SSE 内容或前置纯文本，则以解析出的文本为准；否则回退到原始 message 文本
-      effectiveChunk = textChunk !== '' ? textChunk : String(rawMessage)
-    }
+    // fallback：不是 SSE(data:) 文本，沿用旧逻辑（纯文本/其它格式）
+    const effectiveChunk = String(rawMessage)
 
     // 第3步：根据内容类型进行处理
     if (/^[\r\n]+$/.test(effectiveChunk)) {
@@ -889,6 +714,124 @@ export class ApiService {
 
     // 空内容但未结束 - 继续轮询
     return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
+  }
+
+  private parseSseText(raw: string): {
+    hasData: boolean
+    ended: boolean
+    textChunk: string
+    latestHistory?: BackendHistoryMessage[]
+    agentStatus?: string
+  } {
+    const input = String(raw || '')
+    const normalized = input.replace(/\r\n/g, '\n')
+    const lines = normalized
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+
+    // 兼容：有些接口可能把多个 data: 片段直接拼在一行里（无换行）
+    // 例如："data: {...}\n\ndata: {...}\n\n" 或者 "data:{...}data:{...}end"
+    // 这里统一把 input 里的 data: 片段拆出来。
+    const dataParts = normalized.includes('data:')
+      ? normalized
+          .split('data:')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      : []
+
+    let hasData = false
+    let ended = false
+    let textChunk = ''
+    let latestHistory: BackendHistoryMessage[] | undefined
+    let agentStatus: string | undefined
+
+    // 兼容：可能直接返回 end
+    if (lines.length === 1 && lines[0] === 'end') {
+      return { hasData: false, ended: true, textChunk: '' }
+    }
+
+    const handlePayloadString = (payloadStr: string) => {
+      const trimmed = payloadStr.trim()
+      if (!trimmed) return
+
+      // 兼容：片段末尾可能带 end（例如 "{...}\n\nend" 或 "{...}end"）
+      const withoutTrailingEnd = trimmed.endsWith('end')
+        ? trimmed.slice(0, -'end'.length).trim()
+        : trimmed
+      if (trimmed !== withoutTrailingEnd) {
+        ended = true
+      }
+
+      if (!withoutTrailingEnd) return
+
+      // 兼容：直接是 end
+      if (withoutTrailingEnd === 'end') {
+        ended = true
+        return
+      }
+
+      try {
+        const payload = JSON.parse(withoutTrailingEnd) as SSEPayload
+
+        if (typeof payload.agent_status === 'string' && payload.agent_status.length > 0) {
+          agentStatus = payload.agent_status
+        }
+
+        if (typeof payload.content === 'string' && payload.content.length > 0) {
+          textChunk += payload.content
+        }
+
+        if (Array.isArray(payload.history_messages) && payload.history_messages.length > 0) {
+          latestHistory = payload.history_messages as BackendHistoryMessage[]
+        }
+      } catch (e) {
+        console.warn('[API Service] SSE payload 解析失败:', { payloadStr: withoutTrailingEnd, error: e })
+      }
+    }
+
+    // 优先按 data: 拆分（兼容连续片段），否则按行模式解析
+    if (dataParts.length > 0) {
+      hasData = true
+      for (const part of dataParts) {
+        // part 可能是 "{...}" 或 "end" 或 "{...}\n\n"
+        if (part === 'end') {
+          ended = true
+          continue
+        }
+        handlePayloadString(part)
+      }
+    } else {
+      for (const line of lines) {
+        if (line === 'end') {
+          ended = true
+          continue
+        }
+
+        if (!line.startsWith('data:')) {
+          continue
+        }
+
+        hasData = true
+        const jsonStr = line.slice('data:'.length).trim()
+        if (!jsonStr) continue
+
+        if (jsonStr === 'end') {
+          ended = true
+          continue
+        }
+
+        handlePayloadString(jsonStr)
+      }
+    }
+
+    return {
+      hasData,
+      ended,
+      textChunk,
+      latestHistory,
+      agentStatus,
+    }
   }
 
   /**

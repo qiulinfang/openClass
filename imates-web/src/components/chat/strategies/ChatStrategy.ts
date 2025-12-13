@@ -33,6 +33,10 @@ export interface ForwardOptions {
    * 转发失败后的回调
    */
   onError?: (error: string) => void
+  /**
+   * 可选：当前题目对象（题目场景转发需要）
+   */
+  currentQuestion?: unknown
 }
 
 export interface ChatStrategy {

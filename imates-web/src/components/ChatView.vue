@@ -323,6 +323,19 @@
         {{ `确认删除「${pendingDeleteSessionTitle}」？` }}
       </div>
     </DraggableDialog>
+
+    <!-- 图片批注对话框：复用 PdfViewerView 的截图批注能力（DrawingBoard） -->
+    <ScreenshotInputDialog
+      v-model="annotateDialogVisible"
+      :mode="props.type === 'ai-general' ? 'multiple' : 'single'"
+      :screenshot-data-url="annotateSourceDataUrl"
+      :existing-screenshots="annotateExistingShots"
+      :drawing-states-from-parent="annotateDrawingStates"
+      @confirm="handleAnnotateConfirm"
+      @add-more="handleAnnotateAddMore"
+      @cancel="handleAnnotateCancel"
+      @remove-screenshot="handleAnnotateRemoveScreenshot"
+    />
   </div>
 </template>
 
@@ -346,6 +359,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
+import ScreenshotInputDialog from './ScreenshotInputDialog.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 import CardStack from './CardStack.vue'
@@ -354,8 +368,14 @@ import CommonActionButton from './CommonActionButton.vue'
 import RubberBandList from './RubberBandList.vue'
 
 // 类型定义导入
-import type { ChatBubble, QuotedMessageInfo, AttachedScreenshot } from '../types'
+import type { ChatBubble, AttachedScreenshot } from '../types'
 import type { ChatImageData } from '../stores/utils/chatStoreUtils'
+
+interface ScreenshotDrawingState {
+  objects: unknown
+  history: unknown
+  historyIndex: number
+}
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -462,6 +482,202 @@ const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) 
 
 // 本地截图列表（用于非 ai-textbook 场景在输入框上方展示缩略图）
 const localAttachedScreenshots = ref<AttachedScreenshot[]>(props.attachedScreenshots ?? [])
+
+// ========== 图片批注（DrawingBoard） ========== 
+
+// 选图后先弹出批注对话框：确认后再走原有发送/挂载逻辑
+const annotateDialogVisible = ref(false)
+const annotateSourceDataUrl = ref('')
+const annotateExistingShots = ref<AttachedScreenshot[]>([])
+const annotatePendingImageInfo = ref<{
+  filePath: string
+  width: number
+  height: number
+  fileSize: number
+  base64DataUrl?: string
+} | null>(null)
+
+// 单图批注场景不需要跨会话保存绘图状态，但 ScreenshotInputDialog 的 props 需要该字段
+const annotateDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
+
+const shouldAnnotatePickedImage = () => {
+  // ai-textbook 场景有自己独立的“截图挂载+批注”流程（ScreenshotInputDialog 已在 PdfViewerView 中使用）
+  if (props.type === 'ai-textbook') return false
+  // 当前需求：MainChatPanel / UnifiedChatDialog 的输入区（ai-general）需要支持
+  // 同时为保持一致，这里也允许其它非教材场景复用批注能力
+  return true
+}
+
+const openAnnotateDialog = (imageInfo: {
+  filePath: string
+  width: number
+  height: number
+  fileSize: number
+  base64DataUrl?: string
+}) => {
+  if (!imageInfo.base64DataUrl) {
+    // 无 base64 无法进入批注
+    void onImageSelected(imageInfo)
+    return
+  }
+
+  annotatePendingImageInfo.value = { ...imageInfo }
+  annotateSourceDataUrl.value = imageInfo.base64DataUrl
+  // ai-general 多图模式下，可能来自“继续添加”，需要保留已选图片的绘图状态
+  if (props.type === 'ai-general') {
+    // 首次进入批注弹窗时，把当前输入框已挂载的图片作为 existingShots
+    if (annotateExistingShots.value.length === 0 && localAttachedScreenshots.value.length > 0) {
+      annotateExistingShots.value = [...localAttachedScreenshots.value]
+    }
+  } else {
+    annotateDrawingStates.value = {}
+    annotateExistingShots.value = []
+  }
+  annotateDialogVisible.value = true
+}
+
+const handleAnnotateConfirm = async (
+  shots: AttachedScreenshot[],
+  _states: Record<string, ScreenshotDrawingState>,
+) => {
+  const pending = annotatePendingImageInfo.value
+  if (!pending) {
+    annotateDialogVisible.value = false
+    annotatePendingImageInfo.value = null
+    annotateSourceDataUrl.value = ''
+    annotateDrawingStates.value = {}
+    annotateExistingShots.value = []
+    return
+  }
+
+  // multiple 模式下：确认时返回的是“当前正在编辑的那张”导出结果
+  // 我们需要把它合并进 existingShots，然后最终取前3张作为挂载结果
+  const exported = shots && shots.length > 0 ? shots : []
+  const merged = [...annotateExistingShots.value]
+  for (const s of exported) {
+    if (s?.dataUrl) {
+      merged.push(s)
+    }
+  }
+
+  const finalShots = merged.slice(0, 3)
+
+  // ai-general：只挂载缩略图（最多3张），等待用户点击发送
+  if (props.type === 'ai-general') {
+    // 追加到当前已挂载列表（而不是覆盖）；不做去重
+    const combined: AttachedScreenshot[] = [...localAttachedScreenshots.value, ...finalShots]
+
+    // 超出 3 张时丢弃最旧的，保留最新 3 张
+    localAttachedScreenshots.value = combined.slice(-3)
+
+    annotateDialogVisible.value = false
+    annotatePendingImageInfo.value = null
+    annotateSourceDataUrl.value = ''
+    annotateDrawingStates.value = {}
+    annotateExistingShots.value = []
+    return
+  }
+
+  // 其它非教材场景：仍保持单图逻辑（取第一张导出结果）
+  const finalShot = finalShots[0] || null
+  if (!finalShot?.dataUrl) {
+    annotateDialogVisible.value = false
+    annotatePendingImageInfo.value = null
+    annotateSourceDataUrl.value = ''
+    annotateDrawingStates.value = {}
+    annotateExistingShots.value = []
+    return
+  }
+
+  // 用批注后的 dataUrl 覆盖原 base64，再走原有逻辑（挂载/发送）
+  const annotatedImageInfo = {
+    ...pending,
+    base64DataUrl: finalShot.dataUrl,
+    width: finalShot.width || pending.width,
+    height: finalShot.height || pending.height,
+  }
+
+  annotateDialogVisible.value = false
+  annotatePendingImageInfo.value = null
+  annotateSourceDataUrl.value = ''
+  annotateDrawingStates.value = {}
+  annotateExistingShots.value = []
+
+  await onImageSelected(annotatedImageInfo)
+}
+
+const handleAnnotateAddMore = async (
+  shots: AttachedScreenshot[],
+  states: Record<string, ScreenshotDrawingState>,
+) => {
+  // 仅 ai-general 需要支持“继续添加”（最多3张）
+  if (props.type !== 'ai-general') {
+    return
+  }
+
+  // 如果输入框已挂载到上限，直接提示并终止
+  if (localAttachedScreenshots.value.length >= 3) {
+    showMessage('最多只能添加 3 张图片', 'info')
+    annotateDialogVisible.value = false
+    annotatePendingImageInfo.value = null
+    annotateSourceDataUrl.value = ''
+    annotateDrawingStates.value = {}
+    annotateExistingShots.value = []
+    return
+  }
+
+  if (shots && shots.length > 0) {
+    const merged = [...annotateExistingShots.value]
+    for (const s of shots) {
+      if (s?.dataUrl) {
+        merged.push(s)
+      }
+    }
+    annotateExistingShots.value = merged.slice(0, 3)
+  }
+
+  // 保存最新绘图状态（由 ScreenshotInputDialog 透传回来）
+  annotateDrawingStates.value = { ...states }
+
+  annotateDialogVisible.value = false
+  annotateSourceDataUrl.value = ''
+
+  // 已达上限，不再继续
+  if (annotateExistingShots.value.length >= 3) {
+    annotatePendingImageInfo.value = null
+    return
+  }
+
+  // 继续选择下一张图片并进入批注
+  const nextImageInfo = await pickImage()
+  if (!nextImageInfo) {
+    annotatePendingImageInfo.value = null
+    return
+  }
+
+  openAnnotateDialog(nextImageInfo)
+}
+
+const handleAnnotateCancel = () => {
+  annotateDialogVisible.value = false
+  annotatePendingImageInfo.value = null
+  annotateSourceDataUrl.value = ''
+  annotateDrawingStates.value = {}
+  annotateExistingShots.value = []
+}
+
+const handleAnnotateRemoveScreenshot = (id: string) => {
+  // ai-general 多图批注：允许在弹窗内删除已添加的图片
+  if (props.type === 'ai-general') {
+    annotateExistingShots.value = annotateExistingShots.value.filter((s) => s.id !== id)
+
+    // 同步清理绘图状态（如果有）
+    const copy = { ...annotateDrawingStates.value }
+    delete copy[id]
+    annotateDrawingStates.value = copy
+    return
+  }
+}
 
 // 处理 ChatInput 发出的 send-with-screenshot 事件
 // - ai-general 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
@@ -1280,16 +1496,9 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
-    // 如果有引用消息：
-    // - quotedMessageInfo: 发给后端的 QuotedMessageInfo（sender: human/ai）
-    // - quotedMessageForUi: 前端 UI 使用的引用信息（sender: user/ai/teacher）
-    const quotedMessageInfo: QuotedMessageInfo | undefined = quotedMessage.value
-      ? {
-          id: quotedMessage.value.id,
-          content: quotedMessage.value.content,
-          sender: quotedMessage.value.sender === 'user' ? 'human' : 'ai',
-        }
-      : undefined
+    // 引用功能：
+    // - 文本引用：把被引用内容拼接到消息文本前面（后端无需 focus 字段）
+    // - 图片引用：将图片内容写入 image_url（这里用 imageUrl 传给策略/Store -> request.image_url）
     const quotedMessageForUi = quotedMessage.value
       ? {
           id: quotedMessage.value.id,
@@ -1297,28 +1506,93 @@ const sendMessage = async (attachedFile?: File) => {
           sender: quotedMessage.value.sender,
         }
       : undefined
-    const focus = quotedMessageInfo ? [quotedMessageInfo] : undefined
-    quotedMessage.value = null
 
-    // ai-general 场景：如果有挂在输入框上的截图，作为 imageData 传递给策略/Store，由 Store 决定走截图接口
+    let imageListForApi: ChatImageData[] | undefined
+    let finalMessageContent = messageContent
+
+    // ai-general 场景：如果有挂在输入框上的截图
+    // - 1张：走 imageData
+    // - 2~3张：走 imageList
     let imageDataForApi: ChatImageData | undefined
     if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
-      const firstShot = localAttachedScreenshots.value[0]
-      if (firstShot?.dataUrl) {
-        imageDataForApi = {
-          filePath: '',
-          base64DataUrl: firstShot.dataUrl,
+      if (localAttachedScreenshots.value.length > 1) {
+        imageListForApi = localAttachedScreenshots.value
+          .filter((s) => !!s.dataUrl)
+          .slice(0, 3)
+          .map((s) => ({
+            filePath: '',
+            width: s.width || 0,
+            height: s.height || 0,
+            fileSize: 0,
+            base64DataUrl: s.dataUrl,
+            isLargeImage: false,
+          }))
+      } else {
+        const firstShot = localAttachedScreenshots.value[0]
+        if (firstShot?.dataUrl) {
+          imageDataForApi = {
+            filePath: '',
+            base64DataUrl: firstShot.dataUrl,
+          }
         }
       }
     }
 
-    await chatStrategy.value?.sendMessage(messageContent, {
+    // ai-general：点击发送后立刻清空输入区缩略图（不等待 AI 回复完成）
+    if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
+      localAttachedScreenshots.value = []
+    }
+
+    if (quotedMessage.value) {
+      const isUser = quotedMessage.value.sender === 'user'
+      const isSingleImageBubble = quotedMessage.value.messageType === 'image'
+      const hasBase64 = !!quotedMessage.value.imageData?.base64DataUrl
+      const isMultiImageBubble = quotedMessage.value.messageType === 'multi_image'
+      const hasMultiBase64 =
+        Array.isArray(quotedMessage.value.imageList) &&
+        quotedMessage.value.imageList.some((img) => !!img.base64DataUrl)
+
+      // 方向A：仅允许引用“用户图片气泡”，且必须具备 base64
+      if (isUser && isSingleImageBubble && hasBase64) {
+        // 图片引用：走 imageData -> previewPictureQA；不使用 imageUrl 承载 base64
+        if (!imageDataForApi) {
+          imageDataForApi = {
+            filePath: quotedMessage.value.imageData?.filePath || '',
+            base64DataUrl: quotedMessage.value.imageData?.base64DataUrl,
+          }
+        }
+      } else if (props.type === 'ai-textbook' && isUser && isMultiImageBubble && hasMultiBase64) {
+        // ai-textbook 专属：支持引用用户多图，走 imageList -> previewPictureQA
+        imageListForApi = (quotedMessage.value.imageList || [])
+          .filter((img) => !!img.base64DataUrl)
+          .map((img) => ({
+            filePath: img.filePath || '',
+            width: img.width || 0,
+            height: img.height || 0,
+            fileSize: img.fileSize || 0,
+            base64DataUrl: img.base64DataUrl,
+            isLargeImage: img.isLargeImage || false,
+          }))
+      } else {
+        if ((quotedMessage.value.messageType === 'image' || quotedMessage.value.messageType === 'multi_image') && !isUser) {
+          showMessage('仅支持引用“用户上传/截图”的图片，AI 图片暂不支持引用', 'warning')
+        } else if ((quotedMessage.value.messageType === 'image' || quotedMessage.value.messageType === 'multi_image') && isUser && !hasBase64) {
+          showMessage('该图片缺少 base64 数据，无法引用，请重新上传/截图', 'warning')
+        }
+
+        // 非图片引用：不再将引用文本拼进发送内容，引用关系仅通过 quotedMessage 字段传递
+      }
+    }
+
+    quotedMessage.value = null
+
+    await chatStrategy.value?.sendMessage(finalMessageContent, {
       selectedModel: selectedModel.value,
       // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
       currentQuestion: currentQuestion.value ?? undefined,
-      focus,
       quotedMessage: quotedMessageForUi, // 引用的消息信息（用于消息气泡展示）
       imageData: imageDataForApi,
+      imageList: imageListForApi,
     })
     await scrollToBottom()
     emit('response')
@@ -1336,10 +1610,6 @@ const sendMessage = async (attachedFile?: File) => {
     await addMessageToStore(errorMessage)
     await scrollToBottom()
   } finally {
-    // ai-general 场景：无论发送成功与否，点击发送后都清空本地挂载的截图缩略图
-    if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
-      localAttachedScreenshots.value = []
-    }
     isLoading.value = false
   }
 }
@@ -1710,6 +1980,12 @@ const showImagePickerDialog = async () => {
     return
   }
 
+  // ai-general：最多挂载 3 张图片，达到上限后禁止继续添加
+  if (props.type === 'ai-general' && localAttachedScreenshots.value.length >= 3) {
+    showMessage('最多只能添加 3 张图片', 'info')
+    return
+  }
+
   // 第2步：打开全局图片选择器并等待结果
   const imageInfo = await pickImage()
 
@@ -1719,6 +1995,11 @@ const showImagePickerDialog = async () => {
   }
 
   // 第4步：处理选择的图片
+  if (shouldAnnotatePickedImage()) {
+    openAnnotateDialog(imageInfo)
+    return
+  }
+
   await onImageSelected(imageInfo)
 }
 
@@ -1733,9 +2014,9 @@ const onImageSelected = async (imageInfo: {
   if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
     // ai-general 场景：只挂缩略图，不立即发送，等待用户输入文字后点击发送按钮
     if (props.type === 'ai-general') {
-      // 限制最多只能挂载 1 张图片
-      if (localAttachedScreenshots.value.length >= 1) {
-        showMessage('最多只能添加 1 张图片', 'info')
+      // 限制最多只能挂载 3 张图片
+      if (localAttachedScreenshots.value.length >= 3) {
+        showMessage('最多只能添加 3 张图片', 'info')
         return
       }
 

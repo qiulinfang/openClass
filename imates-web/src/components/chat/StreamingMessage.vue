@@ -13,7 +13,7 @@
         class="streaming-content"
         :ref="(el) => setStreamingContentRef(el)"
       >
-        <span v-html="displayedContent"></span><span class="typing-cursor">|</span>
+        <span v-html="displayedContent"></span><span v-if="props.enableTypewriter" class="typing-cursor">|</span>
       </div>
       <div v-else class="typewriter-content" :ref="(el) => setTypewriterContentRef(el)">
         <span v-html="displayedContent"></span><span v-if="isTyping" class="typing-cursor">|</span>
@@ -139,6 +139,7 @@ watch(
     if (!props.enableTypewriter) {
       displayedLength.value = newLen
       lastContentLength.value = newLen
+      isTyping.value = false
       return
     }
 

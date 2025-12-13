@@ -23,7 +23,7 @@ interface EnvConfig {
 // 环境配置映射
 const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
   [AppEnvType.RELEASE]: {
-    baseUrl: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+    baseUrl: 'http://www.imates.com.cn:9222/blw-edu-service-alc',
     // 资源服务器：与 VITE_RESOURCE_FILE_BASE 保持一致，使用 9099 端口
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴正式环境：使用 HTTPS 访问 9099 端口

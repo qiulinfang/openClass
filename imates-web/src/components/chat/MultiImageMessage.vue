@@ -54,6 +54,8 @@ const handleClick = (img: ImageItem, index: number) => {
   position: relative;
   overflow: hidden;
   border-radius: 8px;
+  aspect-ratio: 1 / 1;
+  min-height: 80px;
 }
 
 .multi-image-img {

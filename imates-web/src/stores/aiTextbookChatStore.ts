@@ -15,6 +15,9 @@ import { chatStorage } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
 import { getUserInfo, getSubject, getUserId } from '../services/http/auth-service'
 import { useAiGeneralChatStore } from './aiGeneralChatStore'
+import { useChatPersistence } from '@/composables/useChatPersistence'
+import { useChatRetry } from '@/composables/useChatRetry'
+import { useChatEngine } from '@/composables/useChatEngine'
 import {
   createUserMessage,
   createTempAiReplyMessage,
@@ -28,7 +31,15 @@ import {
   validateMessageExists,
   type ChatImageData,
 } from './utils/chatStoreUtils'
-import type { AiChatMessageRequest, ChatBubble, UserInfo, QuotedMessageInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
+import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
+import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
+
+interface TextbookChatHistoryData {
+  questionId: string
+  messages: ChatBubble[]
+  lastUpdated: number
+  chatResponseTimes: number
+}
 
 interface TextbookChatImageData {
   base64DataUrl: string
@@ -42,15 +53,15 @@ export interface ScreenshotDrawingState {
 }
 
 interface BuildTextbookMessageParams {
-  sessionId: string
   content: string
   userInfo: UserInfo | null
-  enableWebSearch: boolean
-  chatRole?: string
+  subject: 'MATH' | 'BIOLOGY'
+  chatRole: string
+  sessionId: string
+  resourceId?: string | null
   imageData?: TextbookChatImageData
   useScreenshotApi?: boolean
   isNewSession?: boolean
-  focus?: QuotedMessageInfo[] // 引用的消息列表
   imageList?: TextbookChatImageData[] // 多图数据列表（用于截图多图场景）
 }
 
@@ -58,12 +69,11 @@ const buildAiTextbookMessage = ({
   sessionId,
   content,
   userInfo,
-  enableWebSearch,
+  subject,
   chatRole = 'mate',
   imageData,
   useScreenshotApi = false,
   isNewSession = true,
-  focus,
   imageList,
 }: BuildTextbookMessageParams): AiChatMessageRequest => {
   // 从 localStorage 获取 userId
@@ -85,11 +95,10 @@ const buildAiTextbookMessage = ({
       name: userId,
       reason: 'start',
       bmNo: sessionId,
-      isWebSearch: enableWebSearch ? '1' : '0',
+      isWebSearch: '0',
       chatRole,
-      subject: '',
+      subject,
       dstUrl: '/permission/previewPictureQA',
-      focus, // 引用的消息内容
       // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
       imageList,
     }
@@ -106,11 +115,10 @@ const buildAiTextbookMessage = ({
     name: userId,
     reason: 'start',
     bmNo: sessionId,
-    isWebSearch: enableWebSearch ? '1' : '0',
+    isWebSearch: '0',
     chatRole,
-    subject: '',
+    subject,
     dstUrl,
-    focus, // 引用的消息内容
     imageList,
   }
 }
@@ -119,6 +127,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   // ==================== 状态管理 ====================
   
   const messages = ref<ChatBubble[]>([])
+  const lastHistorySignature = ref<string>('')
   const isChatLoading = ref(false) // 聊天加载状态
   const chatResponseTimes = ref(0) // 聊天响应次数计数器，记录已完成的对话轮数（用于判断是否可以查看答案）
   const enableWebSearch = ref(false) // 是否启用网络搜索功能（当前未使用，保留用于未来扩展）
@@ -130,6 +139,28 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   // 当前挂在 AI 教材聊天输入框上的截图列表（PDF 场景）
   const attachedScreenshots = ref<AttachedScreenshot[]>([])
+
+  const chatPersistence = useChatPersistence<TextbookChatHistoryData>(
+    {
+      save: async (key: string, payload: TextbookChatHistoryData) => {
+        await chatStorage.saveChatHistory(key, payload)
+      },
+      load: async (key: string) => {
+        return await chatStorage.loadChatHistory(key)
+      },
+    },
+    {
+      debounceMs: 0,
+    },
+  )
+
+  const retryHelper = useChatRetry({ maxRetries: 3 })
+
+  const chatEngine = useChatEngine({
+    messagesRef: messages,
+    lastHistorySignatureRef: lastHistorySignature,
+    onAfterHistorySync: () => saveChatHistory(),
+  })
 
   // 每张截图的 DrawingBoard 状态（按截图 id 索引）
   const screenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
@@ -166,10 +197,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 从旧消息中查找，保留前端独有字段
       const oldMsg = oldMessagesMap.get(m.id)
 
+      const roleFromHistory = (m as any)?.additional_kwargs?.role as string | undefined
+
       const bubble: ChatBubble = {
         id: m.id,
         messageId: m.id,
-        content: m.content || '',
+        content: oldMsg?.content || '',
         sender,
         type: sender,
         timestamp: oldMsg?.timestamp || new Date().toISOString(),
@@ -182,7 +215,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         canRetry: oldMsg?.canRetry,
         // AI 消息需要 selectedModel 来显示正确的头像
         // 优先从旧消息取，否则默认 'mate'
-        selectedModel: sender === 'ai' ? (oldMsg?.selectedModel || 'mate') : undefined,
+        selectedModel: sender === 'ai' ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
         originalDstUrl: oldMsg?.originalDstUrl,
       }
 
@@ -369,7 +402,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     imageData?: ChatImageData,
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
-    focus?: QuotedMessageInfo[], // 引用的消息列表（发送给后端）
     quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' }, // 引用消息信息（用于消息气泡展示）
     imageList?: ChatImageData[], // 多图数据列表（用于截图多图场景）
   ): Promise<void> => {
@@ -481,15 +513,15 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const shouldUseScreenshotApi = !!builderImageData || !!(builderImageList && builderImageList.length > 0)
 
       const aiMessage = buildAiTextbookMessage({
-        sessionId: sessionIdForBackend,
         content,
-        userInfo: userInfo,
-        enableWebSearch: enableWebSearch.value,
+        userInfo,
+        subject: getSubject(),
         chatRole: selectedModel || 'mate',
+        sessionId: sessionIdForBackend,
+        resourceId: resourceId.value,
         imageData: builderImageData,
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
-        focus, // 传递引用内容
         imageList: builderImageList,
       })
 
@@ -513,75 +545,38 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
       // 在 sendMessage 作用域内维护一份本地累积内容，仅用于 UI 展示
       let accumulatedContent = ''
-      const response = await apiService.sendChatMessage(
-        aiMessage,
-        // onComplete: 完成回调
-        (finalResponse) => {
-          // 最终完成：更新消息为最终状态
-          if (isResponseSuccess(finalResponse)) {
-            const updatedMessage = updateMessageSuccess(
-              tempReply,
-              finalResponse.reply || '',
-              finalResponse.messageId
-            )
-            updateMessage(tempReplyId, updatedMessage)
 
-            // 确保 originalDstUrl 不被覆盖
-            updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
+      const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
 
-            // 增加响应次数
-            chatResponseTimes.value++
+      const wrappedOnStream = (chunk: string, isComplete: boolean) => {
+        if (isComplete) {
+          onStream?.(chunk, isComplete)
+          return
+        }
 
-            // 保存聊天历史
-            saveChatHistory()
-          } else {
-            // 失败：标记为错误
-            const errorMessage = updateMessageError(
-              tempReply,
-              '抱歉，我暂时无法回答这个问题。请稍后重试。',
-              content,
-              imageData
-            )
-            updateMessage(tempReplyId, errorMessage)
+        // drawing 控制帧：chunk 为空字符串，仅标记为流式中，供骨架屏使用
+        if (!chunk) {
+          updateMessage(tempReplyId, { isStreaming: true })
+          return
+        }
 
-            // 确保错误消息也保留 originalDstUrl
-            updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
-          }
-        },
-        // onStream: 流式更新回调
-        (chunk: string, isComplete: boolean) => {
-          if (isComplete) {
-            // 流式完成，关闭“绘图中”动画
-            updateMessage(tempReplyId, { isStreaming: false })
-            return
-          }
+        accumulatedContent += chunk
+        onStream?.(chunk, isComplete)
+      }
 
-          // drawing 控制帧：chunk 为空字符串，仅标记为流式中，供骨架屏使用
-          if (!chunk) {
-            updateMessage(tempReplyId, { isStreaming: true })
-            return
-          }
+      const wrappedOnComplete = (finalResponse: any) => {
+        onComplete?.(finalResponse)
 
-          // talking / 内容帧：累积内容并立即更新到气泡
-          accumulatedContent += chunk
-          updateMessage(tempReplyId, {
-            content: accumulatedContent,
-            isStreaming: true,
-          })
-        },
-      )
+        if (isResponseSuccess(finalResponse)) {
+          chatResponseTimes.value++
+          saveChatHistory()
+        }
 
-      // onHistoryUpdate 原始实现（已注释，只保留逻辑供参考）：
-      // // onHistoryUpdate: 基于后端全量快照同步历史
-      // // 说明：策略A：以前端以 history 为准，直接覆盖本地 messages
-      // (history: BackendHistoryMessage[], agentStatus?: string) => {
-      //   if (!history || history.length === 0) return
-      //   const newMessages = mapHistoryToChatBubbles(history, agentStatus)
-      //   messages.value = newMessages
-      //   saveChatHistory().catch((error) => {
-      //     console.warn('[AI_TEXTBOOK] 同步 history_messages 保存本地历史失败:', error)
-      //   })
-      // }
+        // 确保 originalDstUrl 不被覆盖（包括失败态）
+        updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
+      }
+
+      const response = await apiService.sendChatMessage(aiMessage, wrappedOnComplete, wrappedOnStream, onHistoryUpdate)
       
       // 第8步：处理响应（如果轮询已完成，这里response已经是最终结果）
       // 注意：由于使用了回调，这里主要是确保没有错误
@@ -672,31 +667,26 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       showMessage('原始消息内容不存在', 'error')
       return
     }
-    
-    // 第4步：删除失败的消息（本地+后端同步）
-    try {
-      await deleteMessage(messageId)
-    } catch (deleteError) {
-      console.warn('[AI_TEXTBOOK] retryAiMessage.deleteFailed, 继续重试', deleteError)
-      // 删除失败不阻塞重试，继续发送
-    }
-    
-    // 第5步：重新发送消息（复用 sendMessage 逻辑）
-    try {
-      await sendMessage(
-        originalContent,
-        chatRole,
-        originalImageData,
-        false, // hidePrefix
-        false, // skipUserMessage: false，重新创建用户消息
-        undefined, // focus: 暂不传递
-        originalQuotedMessage, // 保留原始引用信息用于 UI 展示
-        originalImageList, // 多图截图场景：确保仍然按截图接口发送
-      )
-    } catch (sendError) {
-      console.error('[AI_TEXTBOOK] retryAiMessage.sendFailed', sendError)
-      throw sendError
-    }
+
+    await retryHelper.retryByDeleteAndResend({
+      ctx: {
+        messages,
+        deleteMessage,
+      },
+      messageId,
+      selectedModel: chatRole,
+      resend: async ({ originalContent, quotedMessage, selectedModel }) => {
+        await sendMessage(
+          originalContent,
+          selectedModel || chatRole,
+          originalImageData,
+          false,
+          false,
+          quotedMessage,
+          originalImageList,
+        )
+      },
+    })
   }
   
   // ==================== 聊天历史 ====================
@@ -732,12 +722,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 新的存储键：只按 resourceId 维度
       const storageKey = `ai-textbook-${resourceId.value}`
 
-      await chatStorage.saveChatHistory(storageKey, {
+      const payload: TextbookChatHistoryData = {
         questionId: storageKey,
         messages: messages.value,
         lastUpdated: Date.now(),
         chatResponseTimes: chatResponseTimes.value,
-      })
+      }
+
+      await chatPersistence.save(storageKey, payload)
     } catch (error) {
       console.error('保存聊天历史失败:', error)
     }
@@ -759,7 +751,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
       const storageKey = `ai-textbook-${targetResourceId}`
 
-      const data = await chatStorage.loadChatHistory(storageKey)
+      const data = await chatPersistence.load(storageKey)
       if (data && Array.isArray(data.messages)) {
         // 统一按资源维度加载全部消息，具体按会话过滤由上层逻辑决定
         messages.value = data.messages

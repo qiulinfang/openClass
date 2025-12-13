@@ -3,7 +3,6 @@
  * 包含所有API请求和响应类型
  */
 
-import type { QuotedMessageInfo } from './chat'
 
 // ========== 聊天相关API ==========
 
@@ -22,8 +21,6 @@ export interface AiChatMessageRequest {
   chatRole: string,
   subject: string,
   explanation?: string
-  /** 引用的消息列表，用于告诉后端当前消息重点参考哪些历史消息 */
-  focus?: QuotedMessageInfo[]
   /** 截图会话使用的图片列表（单图或多图），目前用于教材/截图场景 */
   imageList?: Array<{
     base64DataUrl: string

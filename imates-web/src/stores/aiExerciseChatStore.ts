@@ -13,8 +13,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/business/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
-import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, QuotedMessageInfo } from '../types'
+import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, BackendHistoryMessage } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
+import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
+import { useChatPersistence } from '@/composables/useChatPersistence'
+import { useChatRetry } from '@/composables/useChatRetry'
+import { useChatEngine } from '@/composables/useChatEngine'
 // 注意：此 store 不再直接依赖 questionStore/homeworkStore
 // 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
 import { getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
@@ -31,7 +35,6 @@ const buildAiExerciseMessage = (
   selectedModel: string = 'mate',
   imageData?: ChatImageData,
   sessionId?: string | null,
-  focus?: QuotedMessageInfo[],
 ): AiChatMessageRequest => {
   
   // 获取题目ID
@@ -52,17 +55,16 @@ const buildAiExerciseMessage = (
       sessionId: finalSessionId,
       newValue: '1',
       coversation: content,
-      question: questionDataUrl,
-      answer: '题目截图',
-      name: userId,
+      question: currentQuestion.title || '',
+      answer: currentQuestion.answer || '',
+      name: getUserId() || 'User',
       reason: 'start',
-      bmNo: questionId,
+      bmNo: finalSessionId,
       isWebSearch: enableWebSearch ? '1' : '0',
       chatRole: selectedModel,
       subject: subject,
       dstUrl: '/permission/previewPictureQA',
       explanation: currentQuestion.explanation || '',
-      focus,
     }
   }
   
@@ -71,17 +73,15 @@ const buildAiExerciseMessage = (
     sessionId: finalSessionId,
     newValue: '1',
     coversation: content,
-    question: currentQuestion.question || '',
+    question: currentQuestion.title || '',
     answer: currentQuestion.answer || '',
-    explanation: currentQuestion.explanation || '',
-    name: userId,
+    name: getUserId() || 'User',
     reason: 'start',
-    bmNo: questionId,
+    bmNo: finalSessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole: selectedModel,
     subject: subject,
     dstUrl: subject === 'MATH' ? '/permission/chatMath' : '/permission/chat',
-    focus,
   }
 }
 
@@ -112,6 +112,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   /** 消息列表（当前会话） */
   const messages = ref<ChatBubble[]>([])
+  const lastHistorySignature = ref<string>('')
   
   /** 当前会话ID */
   const currentSessionId = ref<string | null>(null)
@@ -133,6 +134,66 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   /** 是否可以查看答案 */
   const canViewAnswer = ref(false)
+
+  const chatPersistence = useChatPersistence<ChatHistoryData>(
+    {
+      save: async (key: string, payload: ChatHistoryData) => {
+        await chatStorage.saveChatHistory(key, payload)
+      },
+      load: async (key: string) => {
+        return await chatStorage.loadChatHistory(key)
+      },
+    },
+    {
+      debounceMs: 0,
+    },
+  )
+
+  const retryHelper = useChatRetry({ maxRetries: 3 })
+
+  const chatEngine = useChatEngine({
+    messagesRef: messages,
+    lastHistorySignatureRef: lastHistorySignature,
+  })
+
+  /**
+   * 将后端 history_messages（最新快照，最多20条）映射为前端 ChatBubble[]
+   * 约定：
+   * - history_messages 为当前会话的快照（后端只返回最新20条）
+   * - human -> user，ai -> ai
+   * - id 同时作为 ChatBubble.id 和 ChatBubble.messageId
+   * - 尽量保留前端独有字段（quotedMessage、imageData 等）
+   */
+  const mapHistoryToChatBubbles = (history: BackendHistoryMessage[]): ChatBubble[] => {
+    const oldMessagesMap = new Map<string, ChatBubble>()
+    for (const msg of messages.value) {
+      const key = msg.messageId || msg.id
+      if (key) oldMessagesMap.set(key, msg)
+    }
+
+    return history.map((m) => {
+      const sender: 'user' | 'ai' = m.type === 'human' ? 'user' : 'ai'
+      const oldMsg = oldMessagesMap.get(m.id)
+
+      const roleFromHistory = (m as any)?.additional_kwargs?.role as string | undefined
+      return {
+        id: m.id,
+        messageId: m.id,
+        content: oldMsg?.content,
+        sender,
+        type: sender,
+        timestamp: oldMsg?.timestamp || new Date().toISOString(),
+        messageType: oldMsg?.messageType || 'text',
+        isStreaming: false,
+        quotedMessage: oldMsg?.quotedMessage,
+        imageData: oldMsg?.imageData,
+        originalMessage: oldMsg?.originalMessage,
+        canRetry: oldMsg?.canRetry,
+        selectedModel: sender === 'ai' ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
+        originalDstUrl: oldMsg?.originalDstUrl,
+      } as ChatBubble
+    })
+  }
   
   // ==================== 公开方法 ====================
   
@@ -156,7 +217,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     imageData?: ChatImageData,
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
-    focus?: QuotedMessageInfo[],
     quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
     console.log('[AI_EXERCISE] 发送消息:', content)
@@ -213,46 +273,34 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       selectedModel,
       imageData,
       currentSessionId.value,
-      focus,
     )
     
     try {
       // 第5步：发送请求（带流式回调）
-      let accumulatedContent = ''
-      const response = await apiService.sendChatMessage(
-        aiRequest,
-        (finalResponse) => {
+      const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
+
+      const wrappedOnStream = (chunk: string, isComplete: boolean) => {
+        if (isComplete) {
+          onStream?.(chunk, isComplete)
+          return
+        }
+
+        // drawing 控制帧：chunk 为空字符串，仅标记流式中以展示骨架
+        if (!chunk) {
           const index = messages.value.findIndex((m) => m.id === tempReplyId)
           if (index >= 0) {
             messages.value[index] = {
-              ...tempReply,
-              content: finalResponse.reply || accumulatedContent || '回复失败',
-              // 最终回复时也保持 isStreaming 为 false，仅更新内容
-              isStreaming: false,
-              messageId: finalResponse.messageId,
+              ...messages.value[index],
+              isStreaming: true,
             }
           }
-        },
-        (chunk: string, isComplete: boolean) => {
-          const index = messages.value.findIndex((m) => m.id === tempReplyId)
-          if (index < 0) return
-          if (isComplete) {
-            messages.value[index] = {
-              ...messages.value[index],
-              // 结束时保持 isStreaming 为 false
-              isStreaming: false,
-            }
-          } else {
-            accumulatedContent += chunk
-            messages.value[index] = {
-              ...messages.value[index],
-              // 流式中仅逐步累积内容，不开启 isStreaming，避免 skeleton-card
-              content: accumulatedContent,
-              isStreaming: false,
-            }
-          }
-        },
-      )
+          return
+        }
+
+        onStream?.(chunk, isComplete)
+      }
+
+      const response = await apiService.sendChatMessage(aiRequest, onComplete, wrappedOnStream, onHistoryUpdate)
       
       // 第7步：更新回复次数
       chatResponseTimes.value++
@@ -310,7 +358,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
     imageData?: ChatImageData,
-    focus?: QuotedMessageInfo[],
     quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
     // 第1步：验证题目
@@ -318,24 +365,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       throw new Error('请先选择一道题目')
     }
     
-    // 第2步：查找消息
-    const index = messages.value.findIndex(m => m.id === messageId)
-    if (index < 0) {
-      throw new Error('消息不存在')
-    }
-    
-    const message = messages.value[index]
-    if (!message.canRetry || !message.originalMessage) {
-      throw new Error('该消息不支持重发')
-    }
-    
-    // 第3步：检查重试次数
-    const maxRetries = 3
-    const retryCount = message.retryCount || 0
-    
-    if (retryCount >= maxRetries) {
-      throw new Error('已达到最大重试次数')
-    }
+    const { index, message, retryCount, originalContent } = retryHelper.prepareRetryInfo(messages, messageId)
+    const maxRetries = retryHelper.maxRetries
     
     // 第4步：更新为重试中状态
     messages.value[index] = {
@@ -350,7 +381,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     
     // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     const aiRequest = buildAiExerciseMessage(
-      message.originalMessage,
+      originalContent,
       currentQuestion,
       userInfo,
       subject,
@@ -358,7 +389,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       selectedModel,
       imageData,
       currentSessionId.value,
-      focus,
     )
     
     try {
@@ -447,7 +477,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     try {
-      await chatStorage.saveChatHistory(storageKey, historyData)
+      await chatPersistence.save(storageKey, historyData)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
     }
@@ -472,7 +502,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       if (sessions.value.length === 0) {
         const legacyKey = `ai-exercise-${questionBmNo}`
         try {
-          const legacyData = await chatStorage.loadChatHistory(legacyKey)
+          const legacyData = await chatPersistence.load(legacyKey)
           if (legacyData && Array.isArray(legacyData.messages) && legacyData.messages.length > 0) {
             
             // 创建一个默认会话 ID

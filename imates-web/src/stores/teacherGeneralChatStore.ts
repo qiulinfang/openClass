@@ -317,10 +317,10 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       if (index < 0) {
         throw new Error('消息不存在')
       }
-      
+
       // 第2步：从列表中删除消息
       messages.value.splice(index, 1)
-      
+
       // 第3步：直接保存更新后的聊天历史（不合并，避免已删除的消息重新加载）
       if (currentSession.value) {
         await saveChatHistoryDirect()
@@ -820,7 +820,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       }
 
       await chatStorage.saveChatHistory(storageKey, historyData)
-      
+
       // 保存消息快照，用于后续对比
       lastSavedMessagesSnapshot.value = {
         sessionId,
@@ -858,15 +858,15 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       // 第0步：先加载本地消息，避免覆盖已有消息
       const storageKey = `teacher-general-${sessionId}`
       console.log('storageKey', storageKey)
-      
+
       // 在加载历史消息之前，先备份当前应该保存的新消息（避免被其他会话的消息污染）
       const currentMessagesSnapshot = [...messages.value]
-      
+
       const history = await chatStorage.loadChatHistory(storageKey)
       if (history && history.messages) {
         const loadedMessages = history.messages || []
         console.log('loadedMessages', loadedMessages)
-        
+
         // 合并当前消息和已加载的消息（去重）
         const existingIds = new Set(loadedMessages.map((m) => m.id || m.messageId))
         // 只从当前会话的消息快照中筛选新消息，避免混入其他会话的消息
@@ -911,7 +911,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       }
 
       await chatStorage.saveChatHistory(storageKey, historyData)
-      
+
       // 保存消息快照，用于后续对比
       lastSavedMessagesSnapshot.value = {
         sessionId,
@@ -1133,36 +1133,38 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       const sessionsData = localStorage.getItem(storageKey)
       if (sessionsData) {
         const sessions = JSON.parse(sessionsData) as Record<string, TeacherSession>
-        // 清理键不一致的历史数据：确保所有会话的键都等于其 sessionId
+
         const cleanedSessions: Record<string, TeacherSession> = {}
         let hasInconsistentKeys = false
-        
+
         for (const key in sessions) {
           const session = sessions[key]
-          if (session && session.sessionId) {
-            // 如果键不等于 sessionId，说明是历史数据，需要修复
-            if (key !== session.sessionId) {
+          const sid = session?.sessionId || ''
+          if (sid) {
+            if (key !== sid) {
               hasInconsistentKeys = true
-              console.warn(`[TeacherStore] ⚠️ 发现键不一致的会话: key="${key}", sessionId="${session.sessionId}"，已自动修复`)
             }
-            // 使用 sessionId 作为键，如果已存在则保留最新的（createTime 更大的）
-            if (!cleanedSessions[session.sessionId] || 
-                (cleanedSessions[session.sessionId].createTime < session.createTime)) {
-              cleanedSessions[session.sessionId] = session
+
+            const existing = cleanedSessions[sid]
+            const existingCreateTime = existing?.createTime || 0
+            const sessionCreateTime = session?.createTime || 0
+            if (!existing || existingCreateTime < sessionCreateTime) {
+              cleanedSessions[sid] = session
             }
           }
         }
-        
-        // 如果有不一致的键，保存清理后的数据
+
         if (hasInconsistentKeys) {
           saveAllSessions(cleanedSessions)
         }
-        
+
         return cleanedSessions
       }
     } catch (error) {
       console.error('[TeacherStore] ❌ 加载会话列表失败:', error)
+      return {}
     }
+
     return {}
   }
 
@@ -1174,17 +1176,16 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       const storageKey = getSessionsStorageKey()
       localStorage.setItem(storageKey, JSON.stringify(sessions))
     } catch (error) {
-      // 如果是配额错误，尝试更激进地删除最老的会话后重试一次
       if (error instanceof DOMException && error.name === 'QuotaExceededError') {
         try {
           const entries = Object.entries(sessions)
           if (entries.length > 0) {
-            // 按 createTime 从早到晚排序，删除最旧的 20% 会话（至少删除 1 个）
-            entries.sort((a, b) => (a[1].createTime || 0) - (b[1].createTime || 0))
+            entries.sort(
+              (a, b) => (a[1]?.createTime || 0) - (b[1]?.createTime || 0),
+            )
             const removeCount = Math.max(1, Math.floor(entries.length * 0.2))
             for (let i = 0; i < removeCount; i++) {
               const key = entries[i][0]
-              console.warn('[TeacherStore] ⚠️ 存储配额不足，删除过旧的会话:', key)
               delete sessions[key]
             }
 
@@ -1192,11 +1193,10 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
             localStorage.setItem(storageKey, JSON.stringify(sessions))
             return
           }
-        } catch (retryError) {
-          console.error('[TeacherStore] ❌ 配额错误重试保存会话列表失败:', retryError)
+        } catch {
+          // ignore
         }
       }
-
       console.error('[TeacherStore] ❌ 保存会话列表失败:', error)
     }
   }
@@ -1365,7 +1365,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       // 第3步：检查是否已存在相同科目的会话（可选：复用最近创建的相同科目会话）
       const allSessions = loadAllSessions()
       let existingSession: TeacherSession | null = null
-      
+
       // 查找相同科目的最近会话
       for (const sid in allSessions) {
         const session = allSessions[sid]
@@ -1482,13 +1482,14 @@ ${conversationSummary}
 
 标题：`
 
-      // 第4步：构建AI请求（使用教师接口生成标题，传入传入的 sessionId）
+      // 第4步：构建AI请求（使用独立 session，避免提示词污染当前会话）
+      const titleSessionId = `${sessionId}-title-${Date.now()}`
       const titleRequest = buildTeacherMessage(
         titlePrompt,
         userInfo,
         false, // 不使用web搜索
         'mate',
-        sessionId
+        titleSessionId
       )
 
       // 第5步：调用AI接口
@@ -1907,24 +1908,24 @@ ${conversationSummary}
       if (newSession.sessionId !== data.sessionId) {
         // 删除旧会话
         deleteSession(newSession.sessionId)
-        
+
         // 创建新会话，使用消息中的 sessionId
         const updatedSession: TeacherSession = {
           ...newSession,
           sessionId: data.sessionId,
         }
-        
+
         // 保存新会话
         saveSession(updatedSession)
         currentSession.value = updatedSession
-        
+
         // 尝试加载聊天历史（使用新的 sessionId）
         try {
           await loadChatHistory(data.sessionId)
         } catch (error) {
           console.warn('[TeacherStore] ⚠️ 加载聊天历史失败:', error)
         }
-        
+
         // 触发自定义事件，通知组件刷新会话列表
         try {
           window.dispatchEvent(
