@@ -22,6 +22,8 @@ export class HttpClient {
     const yanbanBaseUrl = getYanbanBaseUrl()
     
     return {
+      // 应用更新配置（/bj101/appupdate.json）永远走学班服务
+      '/bj101': 'http://www.imates.com.cn:9222/blw-edu-service-alc',
       // 学班服务（根据环境动态切换）
       '/admin': apiBaseUrl,
       '/permission': apiBaseUrl,
@@ -36,7 +38,6 @@ export class HttpClient {
       '/img': resourceBaseUrl,
       // 知识点查询服务
       '/knowledge': 'http://www.imates.com.cn:8090',
-      '/bj101': resourceBaseUrl,
       // 经开二中的应用更新配置（/jinkai/update.json）
       '/jinkai': resourceBaseUrl,
       '/appupdate_test.json': 'https://www.imates.com.cn',
@@ -47,7 +48,7 @@ export class HttpClient {
     this.baseURL = baseURL
     this.timeout = timeout
     this.defaultHeaders = {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json', 
     }
   }
 
