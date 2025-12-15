@@ -454,6 +454,21 @@ onUnmounted(async () => {
   }
 }
 
+ .add-session-btn {
+   width: 52px;
+   height: 52px;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   cursor: pointer;
+ }
+
+ .add-session-icon {
+   width: 38px;
+   height: 38px;
+   display: block;
+ }
+
 // 响应式设计
 @media (max-width: 768px) {
   .unified-chat-content {

@@ -23,7 +23,7 @@ export class HttpClient {
     
     return {
       // 应用更新配置（/bj101/appupdate.json）永远走学班服务
-      '/bj101': 'http://www.imates.com.cn:9222/blw-edu-service-alc',
+      '/bj101': 'https://www.imates.com.cn',
       // 学班服务（根据环境动态切换）
       '/admin': apiBaseUrl,
       '/permission': apiBaseUrl,

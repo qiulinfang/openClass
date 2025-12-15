@@ -304,7 +304,8 @@ export class ApiService {
       const { getAppUpdateUrl } = await import('@/config/env-config')
       const url = getAppUpdateUrl()
       console.log("url",url)
-      const response = await httpClient.get<any>(url)
+      const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
+      const response = await httpClient.get<any>(cacheBustedUrl)
       const data = response?.data ?? response
       if (!data) {
         return null

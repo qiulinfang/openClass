@@ -320,6 +320,7 @@ const emit = defineEmits<{
   'quote-message': [message: ChatBubble] // 引用消息
   'scroll-to-message': [messageId: string] // 滚动到指定消息
   'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
+  'open-link': [url: string] // 打开链接（由父组件决定展示方式）
 }>()
 
 // 长按相关状态
@@ -1377,6 +1378,15 @@ const handleImageClick = (event: MouseEvent) => {
   }
 
   const target = event.target as HTMLElement
+
+  const linkElement = target?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (linkElement && linkElement.href) {
+    event.preventDefault()
+    event.stopPropagation()
+    emit('open-link', linkElement.href)
+    return
+  }
+
   if (target && target.tagName === 'IMG' && target.classList.contains('markdown-image')) {
     event.stopPropagation()
     const imgElement = target as HTMLImageElement
@@ -1438,315 +1448,10 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 /* 现代化聊天消息布局 - 参照主流大模型体验 */
-.message-item {
-  padding-bottom: 20px;
-  width: 100%;
-  position: relative;
-  /* 移除transition效果 */
-  user-select: none; /* 禁用文本选择 */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* IE/Edge */
-}
 
+/* 全局 deep 样式 */
 :deep(p) {
   margin: 0;
-}
-
-/* AI/老师消息样式 */
-.ai-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 0 20px;
-  max-width: 100%;
-}
-
-.ai-avatar {
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.avatar-img {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.ai-content {
-  flex: 1;
-  min-width: 0;
-  max-width: calc(100% - 60px);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  align-items: flex-start;
-}
-
-/* AI内容容器 */
-.ai-content-container {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  width: fit-content; /* 根据内容自适应宽度 */
-  max-width: 80%;
-}
-
-.ai-message-content {
-  word-wrap: break-word;
-  width: fit-content; /* 根据内容自适应宽度 */
-  padding: 0;
-  position: relative;
-  color: #000000; /* 字体颜色为黑色 */
-}
-
-/* 用户消息样式 */
-.user-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 0 20px;
-  justify-content: flex-end;
-  width: 100%;
-}
-
-.user-content {
-  flex: 1;
-  min-width: 0;
-  max-width: calc(100% - 60px);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  max-width: 80%;
-}
-
-.user-bubble {
-  background: #7a7cff;
-  color: white;
-  border-radius: 12px 0 12px 12px;
-  padding: 12px 16px;
-  position: relative;
-  box-shadow: 0 2px 8px rgba(122, 124, 255, 0.25);
-  word-wrap: break-word;
-}
-
-/* 消息中的引用区域样式 */
-.quoted-message-area {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  padding: 8px 10px;
-  margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  max-width: 100%;
-}
-
-.quoted-message-area.clickable {
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.quoted-message-area.clickable:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.quoted-message-area.clickable:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.quoted-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.quoted-text {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 消息文本样式 */
-.message-text {
-  line-height: 1.5;
-  font-size: 15px;
-  word-wrap: break-word;
-  word-break: break-word;
-  white-space: pre-wrap; /* 保持换行符和空格 */
-  user-select: none; /* 禁用文本选择 */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* IE/Edge */
-}
-
-:deep(.message-text h1),
-:deep(.message-text h2),
-:deep(.message-text h3),
-:deep(.message-text h4),
-:deep(.message-text h5),
-:deep(.message-text h6) {
-  font-size: 16px; /* 所有标题统一大小 */
-  line-height: 1.5;
-  font-weight: 600;
-  margin: 8px 0;
-}
-
-.user-bubble .message-text {
-  color: white;
-}
-
-.ai-message-content .message-text {
-  color: #2c3e50;
-}
-
-/* 多图消息下方文本，与图片网格之间增加间距 */
-.multi-image-text {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
-/* 错误消息包装器 */
-.error-message-wrapper {
-  position: relative;
-}
-
-/* 错误消息样式 - 与普通AI回复相同 */
-
-.retry-count {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
-/* 功能按钮区域 */
-.message-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 0;
-}
-
-/* 功能按钮样式 */
-.action-button {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #9e9e9e;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  padding: 0;
-  position: relative;
-}
-
-.action-button:hover {
-  background: #f5f5f5;
-  color: #757575;
-}
-
-.action-button:active {
-  transform: scale(0.95);
-  background: #eeeeee;
-}
-
-.action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-button--active {
-  color: #1976d2;
-}
-
-.action-button--active:hover {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-/* 自定义图标样式 */
-.action-icon {
-  width: 18px;
-  height: 18px;
-  display: block;
-}
-
-/* 消息选择相关样式 */
-.message-selectable {
-  cursor: pointer;
-}
-
-.message-selectable .ai-message,
-.message-selectable .user-message {
-  padding-left: 60px;
-}
-
-.message-checkbox {
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-
-  :deep(q-checkbox__bg absolute) {
-    border-radius: 5px;
-  }
-
-  :deep(.q-checkbox__inner--truthy .q-checkbox__bg, .q-checkbox__inner--indet .q-checkbox__bg) {
-    background-color: #7a7cff;
-  }
-
-  :deep(.q-checkbox__bg) {
-    border-color: #7a7cff;
-  }
-}
-
-/* 移除hover效果 - 已禁用背景色变化 */
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .ai-message-content .message-text {
-    color: #000000;
-  }
-
-  /* 深色模式下的功能按钮样式 */
-  .action-button {
-    color: #666;
-  }
-
-  .action-button:hover {
-    background: #333;
-    color: #999;
-  }
-
-  .action-button:active {
-    background: #444;
-  }
-
-  .action-button--active {
-    color: #64b5f6;
-  }
-
-  .action-button--active:hover {
-    background: #333;
-    color: #90caf9;
-  }
-}
-
-/* 长按气泡确认框样式 */
-.message-action-menu {
-  z-index: 1000;
 }
 
 /* 禁用MathJax右键菜单和MathLive功能列表的样式 */
@@ -1758,42 +1463,478 @@ onUnmounted(() => {
   -moz-user-select: none !important;
   -ms-user-select: none !important;
   cursor: default !important;
-  /* 禁用触摸事件 */
-  touch-action: none !important;
-  /* 禁用拖拽 */
-  -webkit-user-drag: none !important;
-  -khtml-user-drag: none !important;
-  -moz-user-drag: none !important;
-  -o-user-drag: none !important;
-}
-
-/* 确保公式元素内部所有子元素都不会触发交互 */
-:deep(.mjx-chtml *),
-:deep(.mjx-math *),
-:deep([data-mjx-texclass] *) {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  cursor: default !important;
   touch-action: none !important;
   -webkit-user-drag: none !important;
   -khtml-user-drag: none !important;
   -moz-user-drag: none !important;
   -o-user-drag: none !important;
+
+  * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    cursor: default !important;
+    touch-action: none !important;
+    -webkit-user-drag: none !important;
+    -khtml-user-drag: none !important;
+    -moz-user-drag: none !important;
+    -o-user-drag: none !important;
+  }
 }
 
-/* Markdown 渲染出的图片样式 */
-:deep(.message-text img.markdown-image) {
-  max-width: 100%;
+/* 根容器 */
+.message-item {
+  padding-bottom: 20px;
+  width: 100%;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+
+  /* 选择模式 */
+  &.message-selectable {
+    cursor: pointer;
+
+    .ai-message,
+    .user-message {
+      padding-left: 60px;
+    }
+  }
+
+  /* 选择模式下的复选框 */
+  .message-checkbox {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+
+    :deep(.q-checkbox__bg) {
+      border-color: #7a7cff;
+      border-radius: 5px;
+    }
+
+    :deep(.q-checkbox__inner--truthy .q-checkbox__bg),
+    :deep(.q-checkbox__inner--indet .q-checkbox__bg) {
+      background-color: #7a7cff;
+    }
+  }
+
+  /* AI/老师消息 */
+  .ai-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 20px;
+    max-width: 100%;
+
+    .ai-avatar {
+      flex-shrink: 0;
+      margin-top: 4px;
+
+      .avatar-img {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+    }
+
+    .ai-content {
+      flex: 1;
+      min-width: 0;
+      max-width: calc(100% - 60px);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      align-items: flex-start;
+
+      .ai-content-container {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        width: fit-content;
+        max-width: 80%;
+
+        .ai-message-content {
+          word-wrap: break-word;
+          width: fit-content;
+          padding: 0;
+          position: relative;
+          color: #000000;
+
+          /* MathJax 公式横向滚动 */
+          :deep(mjx-container.MathJax) {
+            max-width: 300px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+
+            &[display='true'] {
+              display: block;
+            }
+
+            &:not([display='true']) {
+              display: inline-block;
+            }
+
+            &::-webkit-scrollbar {
+              height: 6px;
+            }
+
+            &::-webkit-scrollbar-track {
+              background: transparent;
+            }
+
+            &::-webkit-scrollbar-thumb {
+              background: rgba(0, 0, 0, 0.22);
+              border-radius: 999px;
+
+              &:hover {
+                background: rgba(0, 0, 0, 0.35);
+              }
+            }
+          }
+
+          .message-text {
+            line-height: 1.5;
+            font-size: 15px;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            color: #2c3e50;
+
+            :deep(h1),
+            :deep(h2),
+            :deep(h3),
+            :deep(h4),
+            :deep(h5),
+            :deep(ol),
+            :deep(ul),
+            :deep(li),
+            :deep(h6) {
+              font-size: 16px;
+              line-height: 1.5;
+              font-weight: 600;
+              margin: 8px 0;
+              margin: 0;
+            }
+
+            :deep(img.markdown-image) {
+              max-width: 100%;
+
+              &:hover {
+                transform: scale(1.02);
+              }
+
+              &.image-error {
+                opacity: 0.5;
+                filter: grayscale(100%);
+              }
+            }
+          }
+
+          .error-message-wrapper {
+            position: relative;
+
+            .retry-count {
+              font-size: 12px;
+              color: #999;
+              margin-top: 4px;
+            }
+          }
+        }
+      }
+
+      .message-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-left: 0;
+
+        .action-button {
+          width: 32px;
+          height: 32px;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: #9e9e9e;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          padding: 0;
+          position: relative;
+
+          &:hover {
+            background: #f5f5f5;
+            color: #757575;
+          }
+
+          &:active {
+            transform: scale(0.95);
+            background: #eeeeee;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          &--active {
+            color: #1976d2;
+
+            &:hover {
+              background: #e3f2fd;
+              color: #1565c0;
+            }
+          }
+
+          .action-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+          }
+        }
+      }
+    }
+  }
+
+  /* 用户消息 */
+  .user-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 20px;
+    justify-content: flex-end;
+    width: 100%;
+
+    .user-content {
+      flex: 1;
+      min-width: 0;
+      max-width: 80%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+
+      .user-bubble {
+        background: #7a7cff;
+        color: white;
+        border-radius: 12px 0 12px 12px;
+        padding: 12px 16px;
+        position: relative;
+        box-shadow: 0 2px 8px rgba(122, 124, 255, 0.25);
+        word-wrap: break-word;
+
+        .quoted-message-area {
+          display: flex;
+          align-items: stretch;
+          gap: 8px;
+          padding: 8px 10px;
+          margin-bottom: 8px;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 8px;
+          max-width: 100%;
+
+          &.clickable {
+            cursor: pointer;
+            transition: background 0.2s ease;
+
+            &:hover {
+              background: rgba(255, 255, 255, 0.25);
+            }
+
+            &:active {
+              background: rgba(255, 255, 255, 0.3);
+            }
+          }
+
+          .quoted-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            overflow: hidden;
+
+            .quoted-text {
+              font-size: 12px;
+              color: rgba(255, 255, 255, 0.9);
+              line-height: 1.3;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+          }
+        }
+
+        .message-text {
+          line-height: 1.5;
+          font-size: 15px;
+          word-wrap: break-word;
+          word-break: break-word;
+          white-space: pre-wrap;
+          user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          color: white;
+
+          :deep(h1),
+          :deep(h2),
+          :deep(h3),
+          :deep(h4),
+          :deep(h5),
+          :deep(h6) {
+            font-size: 16px;
+            line-height: 1.5;
+            font-weight: 600;
+            margin: 8px 0;
+          }
+
+          :deep(img.markdown-image) {
+            max-width: 100%;
+
+            &:hover {
+              transform: scale(1.02);
+            }
+
+            &.image-error {
+              opacity: 0.5;
+              filter: grayscale(100%);
+            }
+          }
+        }
+
+        /* 多图消息下方文本 */
+        .multi-image-text {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 8px;
+        }
+      }
+
+      .message-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-left: 0;
+
+        .action-button {
+          width: 32px;
+          height: 32px;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: #9e9e9e;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          padding: 0;
+          position: relative;
+
+          &:hover {
+            background: #f5f5f5;
+            color: #757575;
+          }
+
+          &:active {
+            transform: scale(0.95);
+            background: #eeeeee;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          &--active {
+            color: #1976d2;
+
+            &:hover {
+              background: #e3f2fd;
+              color: #1565c0;
+            }
+          }
+
+          .action-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+          }
+        }
+      }
+    }
+  }
 }
 
-:deep(.message-text img.markdown-image:hover) {
-  transform: scale(1.02);
+/* 长按气泡确认框样式 */
+.message-action-menu {
+  z-index: 1000;
 }
 
-:deep(.message-text img.markdown-image.image-error) {
-  opacity: 0.5;
-  filter: grayscale(100%);
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .message-item {
+    .ai-message .ai-content {
+      .ai-content-container .ai-message-content .message-text {
+        color: #000000;
+      }
+
+      .message-actions .action-button {
+        color: #666;
+
+        &:hover {
+          background: #333;
+          color: #999;
+        }
+
+        &:active {
+          background: #444;
+        }
+
+        &--active {
+          color: #64b5f6;
+
+          &:hover {
+            background: #333;
+            color: #90caf9;
+          }
+        }
+      }
+    }
+
+    .user-message .user-content .message-actions .action-button {
+      color: #666;
+
+      &:hover {
+        background: #333;
+        color: #999;
+      }
+
+      &:active {
+        background: #444;
+      }
+
+      &--active {
+        color: #64b5f6;
+
+        &:hover {
+          background: #333;
+          color: #90caf9;
+        }
+      }
+    }
+  }
 }
 </style>

@@ -605,7 +605,6 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
       false,
       false,
       undefined,
-      undefined,
       imageList,
     )
 

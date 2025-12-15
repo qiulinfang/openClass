@@ -662,26 +662,27 @@ watch(isOpen, (newValue) => {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
     cursor: nwse-resize;
-    z-index: 10;
+    z-index: 1000;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.04) 100%);
 
     &::after {
       content: '';
       position: absolute;
-      bottom: 6px;
-      right: 6px;
-      width: 12px;
-      height: 12px;
-      border-right: 2px solid #d1d1d1;
-      border-bottom: 2px solid #d1d1d1;
+      bottom: 8px;
+      right: 8px;
+      width: 16px;
+      height: 16px;
+      border-right: 3px solid #c4c4c4;
+      border-bottom: 3px solid #c4c4c4;
       border-radius: 0 0 2px 0;
       transition: border-color 0.2s ease;
     }
 
     &:hover::after {
-      border-color: #6b6b6b;
+      border-color: #4a4a4a;
     }
   }
 }
