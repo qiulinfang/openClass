@@ -401,9 +401,20 @@ public class ChatDisplayItem {
             }
 
             processedLength = len; // 更新已处理长度
-            String result = preprocess(sb.toString());
+            String result = addNewLineAfterImage(preprocess(sb.toString()));
             Log.d("ChatDisplayItem", "Processed string: " + result);
             return result;  // 返回完整处理结果
+        }
+
+        private static String addNewLineAfterImage(String markdown) {
+            if (markdown == null || markdown.isEmpty()) {
+                return markdown;
+            }
+
+            return markdown.replaceAll(
+                    "(!\\[[^\\]]*\\]\\([^\\)]+\\))(?!\\n\\n)",
+                    "$1\n\n"
+            );
         }
 
         private static String preprocess(String input) {
