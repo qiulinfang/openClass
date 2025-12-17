@@ -3,6 +3,7 @@ package com.cosinetech.imates.ui.views;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -35,6 +36,8 @@ import com.lzf.easyfloat.EasyFloat;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class ScratchToolsView extends RelativeLayout {
@@ -307,6 +310,9 @@ public class ScratchToolsView extends RelativeLayout {
                     false,
                     "all");
             chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
+            List<String> base64Images = new ArrayList<>();
+            base64Images.add(chatRequest.getQuestion());
+            chatRequest.setBase64Images(base64Images);
             try {
                 app.chatRequest = chatRequest;
 

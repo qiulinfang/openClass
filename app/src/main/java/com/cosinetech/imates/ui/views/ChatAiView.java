@@ -1170,15 +1170,19 @@ public class ChatAiView extends RelativeLayout {
                 url,
                 mUserInfoViewModel.token.getValue(),
                 (success, response, sessionId, msgId) -> handler.post(() -> {
+                    mAiChatRequest.setBase64Images(new ArrayList<>());
+                    mAiChatRequest.setQuestion("");
                     if (success) {
-                        if (!response.trim().isEmpty() && !response.equals("end")) {
-                            mLastReceivingMsg.appendContent(response);
-                            mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, false);
-
+                        if (!response.trim().isEmpty()) {
+                            String msgContent = response.endsWith("end") ? response.substring(0, response.length() - "end".length()) : response;
+                            if(!msgContent.isEmpty()) {
+                                mLastReceivingMsg.appendContent(msgContent);
+                                mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, false);
+                            }
                             Log.d("%%%%%%%%", response);
                         }
 
-                        if (!response.equals("end")) {
+                        if (!response.endsWith("end")) {
                             mAiChatRequest.setReason("continue");
                             pollChat();
                         } else {
@@ -1284,7 +1288,7 @@ public class ChatAiView extends RelativeLayout {
                     String localPath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + msg.messageId + ".png";
                     msg.content = localPath;
                     ImageUtils.saveImageFile(question, localPath);
-
+                    mAiChatRequest.setQuestion("");
                 } else {
                     msg = new ChatMessage(question,
                             true,
@@ -1293,6 +1297,7 @@ public class ChatAiView extends RelativeLayout {
                             System.currentTimeMillis(),
                             ChatRole.CHAT_ROLE_MYSELF);
                 }
+
                 mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(msg, false, getContext()));
                 mChatDb.addChatMessageDetail(msg);
             }
@@ -1402,7 +1407,10 @@ public class ChatAiView extends RelativeLayout {
             sendPictureToTeacher(path);
         } else {
             mAiChatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
-            mAiChatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(BitmapFactory.decodeFile(path)));
+            List<String> base64Images = new ArrayList<>();
+            base64Images.add(ImageUtils.bitmapToHtmlJpgBase64(BitmapFactory.decodeFile(path)));
+            mAiChatRequest.setBase64Images(base64Images);
+            mAiChatRequest.setQuestion(base64Images.get(0));
             sendMessageToAi(mAiChatRequest, true);
         }
     }

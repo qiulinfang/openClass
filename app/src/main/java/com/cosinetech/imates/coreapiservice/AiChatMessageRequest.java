@@ -1,5 +1,8 @@
 package com.cosinetech.imates.coreapiservice;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AiChatMessageRequest {
     private String sessionId;
     private String newValue;
@@ -17,6 +20,8 @@ public class AiChatMessageRequest {
     private String chatRole;
 
     private String subject;
+
+    private List<String> base64Images;
 
     public String getBmNo() {
         return bmNo;
@@ -64,6 +69,8 @@ public class AiChatMessageRequest {
         this.bmNo = bmNo;
         this.isWebSearch = isWebSearch ? "1" : "0";
         this.subject = subject;
+        this.dstUrl = "";
+        this.base64Images = new ArrayList<>();
     }
 
     // Getters 和 Setters 方法
@@ -129,5 +136,13 @@ public class AiChatMessageRequest {
 
     public void setDstUrl(String dstUrl) {
         this.dstUrl = dstUrl;
+    }
+
+    public List<String> getBase64Images() {
+        return base64Images;
+    }
+
+    public void setBase64Images(List<String> base64Images) {
+        this.base64Images = base64Images;
     }
 }
