@@ -156,6 +156,10 @@ export class YanbanApi {
     }
   }
 
+  public async getTextbookLearningPackages(id: string): Promise<LearningPackage[]> {
+    return this.getLearningResources(id)
+  }
+
   public async fetchUserAllOnlineTextbooks(): Promise<UserTextbookInfo[]> {
     const endpoint = '/blw-edu-yb/api/app/teacher-textbook'
 

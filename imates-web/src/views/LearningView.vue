@@ -720,7 +720,7 @@ $spacing-xl: 32px;
   gap: 16px;
   padding: 12px 16px;
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
 }
 
@@ -808,7 +808,7 @@ $spacing-xl: 32px;
 .scroll-wrapper.scheme-list {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   background-color: #f5f4ff;
 
   .scroll-content-schemeList {

@@ -68,7 +68,11 @@
         </q-btn>
       </div>
 
-      <DrawingBoard ref="drawingBoardRef" @content-change="updateCurrentDraftThumbnail" />
+      <DrawingBoard
+        ref="drawingBoardRef"
+        :drawing-board-tools="drawingBoardTools"
+        @content-change="updateCurrentDraftThumbnail"
+      />
     </div>
   </div>
 </template>
@@ -82,6 +86,17 @@ defineOptions({
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { showMessage } from '@/utils'
 import DrawingBoard from '@/components/DrawingBoard.vue'
+
+const drawingBoardTools = [
+  'undo',
+  'redo',
+  'clear',
+  'select',
+  'hand',
+  'draw',
+  'eraser-draw',
+  'shape',
+]
 
 // ==================== 草稿本数据模型 ====================
 interface DrawObject {

@@ -256,12 +256,23 @@ const displayedCount = ref(INITIAL_DISPLAY_COUNT) // 已显示的题目数量
 const currentPage = ref(1) // 当前页码
 
 // 从 props 获取搜索和过滤状态
-const searchQuery = computed(() => props.searchQuery || '') //搜索关键词
+// 兼容两种模式：
+// 1) 受控：父组件传入 searchQuery，并通过 update:searchQuery 更新
+// 2) 非受控：父组件不传 searchQuery，由组件内部维护
+const internalSearchQuery = ref('')
+const searchQuery = computed(() => {
+  return props.searchQuery !== undefined ? (props.searchQuery || '') : internalSearchQuery.value
+}) //搜索关键词
 const selectedSubjectFilter = computed(() => props.selectedSubjectFilter || null) //全部学科
 
 // 处理搜索输入
 const handleSearchInput = (value: string | number | null) => {
-  emit('update:searchQuery', (value || '').toString())
+  const next = (value || '').toString()
+  if (props.searchQuery !== undefined) {
+    emit('update:searchQuery', next)
+  } else {
+    internalSearchQuery.value = next
+  }
 }
 
 // 题目 Store（保留用于 sendToAi 等习题特有功能）

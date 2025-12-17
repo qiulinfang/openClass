@@ -26,6 +26,10 @@ public class ScreenCastingManager {
     private static volatile String pcDeviceIp = "1.1.1.1";
     private static volatile String teacherPadDeviceIp = "1.1.1.1";
 
+    private static volatile String selectedCity;
+    private static volatile String selectedSchool;
+    private static volatile String selectedClassroom;
+
     public interface ProjectionStateListener {
         void onProjectionStateChanged(boolean isProjecting);
     }
@@ -193,6 +197,24 @@ public class ScreenCastingManager {
 
     public static boolean isProjecting() {
         return bShouldProjection;
+    }
+
+    public static void setSelectedClassroomLocation(String city, String school, String classroom) {
+        selectedCity = city;
+        selectedSchool = school;
+        selectedClassroom = classroom;
+    }
+
+    public static String getSelectedCity() {
+        return selectedCity;
+    }
+
+    public static String getSelectedSchool() {
+        return selectedSchool;
+    }
+
+    public static String getSelectedClassroom() {
+        return selectedClassroom;
     }
 }
 

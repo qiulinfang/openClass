@@ -5,13 +5,26 @@ import mathjax3 from 'markdown-it-mathjax3'
 const md = new MarkdownIt({
   html: true,
   linkify: true,
-  typographer: false, // 完全禁用typographer功能，防止 (C) -> © 等字符转换
+  typographer: false, // 完全禁用typographer功能，防止 (C) -> 等字符转换
 }).use(mathjax3)
 
 export function useMessageRenderer() {
   // 渲染缓存，避免重复渲染相同内容
   const renderCache = new Map<string, string>()
   const MAX_CACHE_SIZE = 100
+
+  const preprocessMarkdownHeadings = (contentStr: string): string => {
+    // 仅对非代码块区域进行处理：把非行首出现的标题标记补成新的一行
+    // 例："### 1" -> "\n### 1"
+    // 避免误伤 fenced code block（```...```）内部
+    const parts = contentStr.split(/(```[\s\S]*?```)/g)
+    return parts
+      .map((part) => {
+        if (part.startsWith('```')) return part
+        return part.replace(/([^\n])\s*(#{1,6}\s+)/g, '$1\n$2')
+      })
+      .join('')
+  }
 
   /**
    * 预处理LaTeX公式格式
@@ -104,8 +117,11 @@ export function useMessageRenderer() {
         .replace(/&gt;/g, '>')
         .replace(/&amp;/g, '&')
 
-      // 5. 预处理LaTeX公式格式
-      const processedContent = preprocessLatexFormats(unescaped)
+      // 5. 预处理 Markdown 标题（容错：允许标题标记不在行首时自动换行）
+      const preprocessedMarkdown = preprocessMarkdownHeadings(unescaped)
+
+      // 6. 预处理LaTeX公式格式
+      const processedContent = preprocessLatexFormats(preprocessedMarkdown)
       // 6. 执行Markdown渲染
       const rendered = md.render(processedContent)
       // 7. 后处理渲染结果（清理多余的换行符）

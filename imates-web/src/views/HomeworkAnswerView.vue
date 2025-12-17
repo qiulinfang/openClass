@@ -13,6 +13,8 @@
         <QuestionList
           ref="questionListRef"
           type="homework"
+          :search-query="questionSearchQuery"
+          @update:searchQuery="(v) => (questionSearchQuery = v)"
           :external-questions="externalQuestions"
           :show-photo-search="false"
           :show-send-to-ai="false"
@@ -146,6 +148,8 @@ const drawingBoardRef = ref<InstanceType<typeof DrawingBoard> | null>(null)
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
+
+const questionSearchQuery = ref('')
 
 // 是否有选中的题目（QuestionList 中选中即可，不需要渲染到 canvas）
 const hasSelectedQuestion = computed(() => {

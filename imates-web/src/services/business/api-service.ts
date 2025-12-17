@@ -6,7 +6,7 @@
 import { httpClient } from '../http/http-client'
 import { resourceManager, ResourceManager } from '../storage/resource-storage'
 import CryptoJS from 'crypto-js'
-import { getYanbanToken, UserType } from '../http/auth-service'
+import { UserType } from '../http/auth-service'
 import { saveLearningPackagesToDB, loadLearningPackagesFromDB } from '../storage/learning-packages-storage'
 import { AndroidBridge } from '../business/android-bridge'
 import { generateUniqueId } from '@/stores/utils/chatStoreUtils'
@@ -54,12 +54,7 @@ export class ApiService {
   private androidBridge: AndroidBridge
   private xuebanApi: XuebanApi
   private yanbanApi: YanbanApi
-  
-  // 连接池和请求优化
-  private requestCache = new Map<string, { data: unknown, timestamp: number }>()
-  private readonly CACHE_TTL = 5 * 60 * 1000 // 5分钟缓存
-  private activeRequests = new Map<string, Promise<unknown>>() // 请求去重
-  
+
   // 下载请求管理
   private downloadControllers = new Map<string, AbortController>() // 存储每个教材的下载控制器
 
@@ -78,20 +73,16 @@ export class ApiService {
   public async manageConversationMemory(
     payload: ManageConversationMemoryRequest,
   ): Promise<any> {
-    // try {
-    //   const url = getApiUrl('/permission/manageConversationMemory')
-    //   const response = await httpClient.post(url, payload)
-    //   return response.data
-    // } catch (error) {
-    //   console.error('[API Service] manageConversationMemory 调用失败:', {
-    //     payload,
-    //     error: error instanceof Error ? error.message : String(error),
-    //   })
-    //   throw error
-    // }
-
-    console.info('[API Service] manageConversationMemory 调用已被跳过(本地禁用)', payload)
-    return Promise.resolve(null)
+    console.log('[API Service] manageConversationMemory:', { payload })
+    try {
+      return await this.xuebanApi.manageConversationMemory(payload)
+    } catch (error) {
+      console.error('[API Service] manageConversationMemory 调用失败:', {
+        payload,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
   }
 
   public static getInstance(): ApiService {
@@ -99,140 +90,6 @@ export class ApiService {
       ApiService.instance = new ApiService()
     }
     return ApiService.instance
-  }
-
-  /**
-   * 优化的请求方法，支持缓存和请求去重
-   * @param url 请求URL
-   * @param options 请求选项
-   * @param useCache 是否使用缓存
-   * @returns Promise<any>
-   */
-  private async optimizedRequest(
-    url: string, 
-    options: RequestInit = {}, 
-    useCache: boolean = true
-  ): Promise<unknown> {
-    const cacheKey = `${url}_${JSON.stringify(options)}`
-    
-    // 检查缓存
-    if (useCache && this.requestCache.has(cacheKey)) {
-      const cached = this.requestCache.get(cacheKey)!
-      if (Date.now() - cached.timestamp < this.CACHE_TTL) {
-        return cached.data
-      } else {
-        this.requestCache.delete(cacheKey)
-      }
-    }
-    
-    // 检查是否有相同的请求正在进行
-    if (this.activeRequests.has(cacheKey)) {
-      return this.activeRequests.get(cacheKey)
-    }
-    
-    // 创建新请求
-    const requestPromise = this.executeRequest(url, options)
-    this.activeRequests.set(cacheKey, requestPromise)
-    
-    try {
-      const result = await requestPromise
-      
-      // 缓存结果
-      if (useCache) {
-        this.requestCache.set(cacheKey, {
-          data: result,
-          timestamp: Date.now()
-        })
-      }
-      
-      return result
-    } finally {
-      this.activeRequests.delete(cacheKey)
-    }
-  }
-
-  /**
-   * 执行实际的请求
-   * @param url 请求URL
-   * @param options 请求选项
-   * @returns Promise<any>
-   */
-  private async executeRequest(url: string, options: RequestInit = {}): Promise<unknown> {
-    const defaultOptions: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Cache-Control': 'no-cache',
-        ...options.headers
-      },
-      ...options
-    }
-    
-    const response = await fetch(url, defaultOptions)
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-    
-    const contentType = response.headers.get('content-type')
-    if (contentType && contentType.includes('application/json')) {
-      return response.json()
-    } else {
-      return response.text()
-    }
-  }
-
-  /**
-   * 清理过期缓存
-   */
-  private cleanupCache(): void {
-    const now = Date.now()
-    for (const [key, value] of this.requestCache.entries()) {
-      if (now - value.timestamp > this.CACHE_TTL) {
-        this.requestCache.delete(key)
-      }
-    }
-  }
-
-  /**
-   * 研伴接口统一调用封装
-   * - 保持与 Android 原生一致的分流策略：内部测试环境 + 有 AndroidBridge 时走原生网络
-   * - 其他环境直接通过 httpClient 调用 Web 接口
-   */
-  private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
-    const envType = getCurrentEnvType()
-
-    if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
-      // 测试环境 + 有原生桥接：走 Android 原生网络请求
-      console.log('[ApiService] 🔀 Yanban 接口走原生:', { url })
-
-      // 提取 /blw-edu-yb 后面的路径部分给原生
-      const apiPath = url.replace('/blw-edu-yb', '')
-
-      // 从统一存储获取 Token，传给原生（避免原生读 localStorage 导致死锁）
-      const yanbanToken = getYanbanToken() || ''
-
-      const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
-
-      return {
-        success: (result as any)?.success ?? false,
-        data: ((result as any)?.data ?? result) as T,
-        code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
-        message: (result as any)?.message,
-      }
-    }
-
-    // 其他环境：直接通过 Web HTTP 调用
-    const response = await httpClient.post<T>(url, body)
-    // 针对研伴登录等关键接口输出精简日志
-    if (url === '/blw-edu-yb/auth/login-student') {
-      console.log('[Debug][Yanban] Web login-student 响应概要:', {
-        httpSuccess: response.success,
-        hasData: !!response.data,
-        code: response.code,
-      })
-    }
-    return response
   }
 
   /**
@@ -1908,7 +1765,7 @@ export class ApiService {
    */
   public async getTextbookLearningPackages(id: string): Promise<LearningPackage[]> {
     try {
-      return await this.getLearningResources(id)
+      return await this.yanbanApi.getTextbookLearningPackages(id)
     } catch (error) {
       return []
     }

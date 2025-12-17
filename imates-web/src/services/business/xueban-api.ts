@@ -1,11 +1,25 @@
 import { httpClient } from '../http/http-client'
 import type {
   FindSimilarQuestionByBmNoRequest,
+  ManageConversationMemoryRequest,
 } from '@/types'
 
 // 注意：loginXueban 和 getUserInfo 已迁移到 auth-service.ts
 
 export class XuebanApi {
+  private readonly HISTORY_MANAGE_BASE_URL = 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443'
+
+  public async manageConversationMemory(payload: ManageConversationMemoryRequest): Promise<any> {
+    const url = `${this.HISTORY_MANAGE_BASE_URL}/history_manage`
+    const response = await httpClient.post<any>(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    })
+    return response?.data ?? response
+  }
+
   public async getExerciseList(subject: string): Promise<any[]> {
     const subjectLower = subject.toLowerCase()
     const url =

@@ -211,8 +211,8 @@ const canvasRef = ref<HTMLCanvasElement>()
 let ctx: CanvasRenderingContext2D | null = null
 
 // 画布尺寸（如果外部通过 props.width / props.height 指定，则优先使用）
-const canvasWidth = ref<number>(props.width ?? 2100)
-const canvasHeight = ref<number>(props.height ?? 2400)
+const canvasWidth = ref<number>(props.width ?? 1000)
+const canvasHeight = ref<number>(props.height ?? 1000)
 
 // 当前工具
 const currentTool = ref('select')

@@ -1617,14 +1617,18 @@ onUnmounted(() => {
             :deep(h3),
             :deep(h4),
             :deep(h5),
-            :deep(ol),
-            :deep(ul),
-            :deep(li),
             :deep(h6) {
               font-size: 16px;
               line-height: 1.5;
               font-weight: 600;
               margin: 8px 0;
+              margin: 0;
+            }
+
+            :deep(li) {
+              font-size: 16px;
+              line-height: 1.5;
+              font-weight: 400;
               margin: 0;
             }
 
