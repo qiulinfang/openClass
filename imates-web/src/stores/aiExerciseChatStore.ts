@@ -11,7 +11,7 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiService } from '../services/business/api-service'
+import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, BackendHistoryMessage } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
@@ -21,7 +21,7 @@ import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
 // 注意：此 store 不再直接依赖 questionStore/homeworkStore
 // 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
-import { getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
+import { getUserId, getCurrentUserIdOrDefault } from '../services'
 
 /**
  * 构建AI题目聊天消息请求

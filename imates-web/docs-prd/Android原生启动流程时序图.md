@@ -122,7 +122,7 @@ sequenceDiagram
     WebView->>Vue: 加载index.html
     Vue->>Vue: 加载JavaScript资源
     Vue->>Vue: initPolyfills()
-    Vue->>Vue: initializeAppConfig()
+    Vue->>Vue: httpClient.setBaseURL('')
     Vue->>Vue: initQuestionStorage()
     Vue->>Vue: createApp(PageComponent)
     Vue->>Vue: app.use(pinia)
@@ -410,9 +410,7 @@ sequenceDiagram
     Polyfills->>Polyfills: 初始化WebView兼容性polyfills
     Polyfills-->>Vue: Polyfills初始化完成
     
-    Vue->>Vue: initializeAppConfig()
-    Vue->>Vue: 读取应用配置
-    Vue->>Vue: 设置认证token
+    Vue->>Vue: httpClient.setBaseURL('')
     Vue->>Vue: 配置完成
     
     Vue->>Storage: initQuestionStorage()

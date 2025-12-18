@@ -20,6 +20,7 @@ export interface AiChatMessageRequest {
   isWebSearch: string
   chatRole: string,
   subject: string,
+  sectionName?: string,
   explanation?: string
   /** 截图会话使用的图片列表（单图或多图），目前用于教材/截图场景 */
   imageList?: Array<{

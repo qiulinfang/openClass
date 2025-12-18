@@ -646,7 +646,7 @@ import { useTeacherExerciseChatStore, type TeacherExerciseSession } from '@/stor
 import type { AiGeneralSession, ChatBubble } from '@/types'
 import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import localforage from 'localforage'
-import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
+import { getCurrentUserIdOrDefault } from '@/services'
 import { chatStorage } from '@/services/storage/chat-storage'
 import { showMessage } from '@/utils'
 

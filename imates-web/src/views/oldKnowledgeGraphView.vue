@@ -285,7 +285,7 @@ export default {
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { apiService } from '../services/business/api-service'
+import { apiService } from '../services/http/api-service'
 import { resourceManager } from '../services/storage/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
@@ -295,8 +295,8 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { authService } from '../services/http/auth-service'
-import { getYanbanToken, getCurrentUserId } from '../services/http/auth-service'
+import { authService } from '../services'
+import { getYanbanToken, getCurrentUserId } from '../services'
 import { useQuestionStore } from '../stores/questionStore'
 import { showMessage } from '../utils'
 import {

@@ -178,13 +178,13 @@ import { getFavoriteSessions, getFavoriteQas, getFavoriteExercises, removeSessio
 import { showMessage } from '../utils'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
-import type { ExerciseItem } from '../types/exercise'
-import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
-import RubberBandList from '../components/RubberBandList.vue'
-import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../services/http/auth-service'
-import ImageViewer from '../components/ImageViewer.vue'
-import { resourceManager } from '../services/storage/resource-storage'
-import type { UserTextbookInfo, LocalFileInfo } from '../types/textbook'
+ import type { ExerciseItem } from '../types/exercise'
+ import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
+ import RubberBandList from '../components/RubberBandList.vue'
+ import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../services'
+ import ImageViewer from '../components/ImageViewer.vue'
+ import { resourceManager } from '../services/storage/resource-storage'
+ import type { UserTextbookInfo, LocalFileInfo } from '../types/textbook'
 
 // 定义组件名称
 defineOptions({

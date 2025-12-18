@@ -209,7 +209,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { getCurrentUserIdOrDefault } from '../../services/http/auth-service'
+import { getCurrentUserIdOrDefault } from '../../services'
 
 interface ChapterNode {
   id: string

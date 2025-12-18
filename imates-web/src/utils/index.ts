@@ -75,7 +75,7 @@ export {
   getCurrentUserType,
   getCurrentUserIdOrDefault,
   getScopedStorageValue,
-} from '../services/http/auth-service'
+} from '../services'
 
 // 收藏功能工具
 export {

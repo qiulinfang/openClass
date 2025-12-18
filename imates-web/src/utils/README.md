@@ -34,9 +34,6 @@ utils/
 │   ├── throttle.ts             # 节流和防抖工具函数
 │   └── polyfills.ts            # 浏览器兼容性补丁
 │
-├── 📂 config/                  # 配置管理 (Configuration)
-│   └── config-utils.ts         # 应用配置初始化工具
-│
 ├── index.ts                    # 统一导出文件
 └── README.md                   # 本说明文档
 ```
@@ -105,7 +102,7 @@ utils/
 **用途**：处理用户身份和权限相关功能。
 
 **文件**：
-- `services/http/auth-service.ts` - 用户认证信息存储服务
+- `services/business/auth-service.ts` - 用户认证信息存储服务（统一由 `services/index.ts` 导出）
   - `getUserId()` - 获取当前用户ID
   - `getCurrentUserIdOrDefault()` - 获取用户ID或默认值
   - 支持学班管理员和研伴学生两种登录方式
@@ -189,27 +186,8 @@ utils/
 - 可配置的延迟时间
 - 浏览器兼容性支持
 
----
 
-### 9. 配置管理 (Configuration)
-
-**用途**：处理应用配置的初始化和管理。
-
-**文件**：
-- `config/config-utils.ts` - 应用配置初始化工具
-  - `initializeAppConfig()` - 初始化应用配置
-  - 设置API基础URL
-  - 处理认证信息（cookie、token等）
-  - 环境检测
-
-**特点**：
-- 统一配置入口
-- 支持多环境配置
-- 自动处理认证信息
-
----
-
-### 10. 统一导出 (Index)
+### 9. 统一导出 (Index)
 
 **文件**：
 - `index.ts` - 统一导出文件
@@ -226,7 +204,7 @@ import { thumbnailQueue } from '@/utils'
 
 // 或从具体文件导入
 import { isPdfFile } from '@/utils/thumbnail/pdf-thumbnail'
-import { getCurrentUserIdOrDefault } from '@/services/http/auth-service'
+import { getCurrentUserIdOrDefault } from '@/services'
 import { toggleQaFavorite } from '@/utils/storage/favorites'
 ```
 

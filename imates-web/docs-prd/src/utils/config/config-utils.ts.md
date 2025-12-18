@@ -2,9 +2,9 @@
 
 ## 📋 概述
 
-**文件路径**：`src/utils/config/config-utils.ts`  
+**文件路径**：`src/utils/config/config-utils.ts`（已删除）  
 **文件类型**：`TypeScript 服务/工具`  
-**主要职责**：`位于 src/utils/config 目录的 TypeScript 服务/工具`
+**主要职责**：该文件已从 `src` 中移除，启动阶段改为在入口文件直接执行 `httpClient.setBaseURL('')`（策略1），用户信息/认证相关逻辑由 `services/business/auth-service.ts` 统一维护。
 
 ## 🎯 功能需求
 
@@ -28,27 +28,7 @@
 
 ### 2. 关键代码逻辑
 ```typescript
-// config-utils.ts 的核心代码
-/**
- * 配置工具函数
- * 简单的配置初始化和管理
- */
-
-import { httpClient } from '../../services/http-client'
-import { androidBridge } from '../../services/android-bridge'
-import { setBaseUrl } from '../../services/api-endpoints'
-
-/**
- * 初始化应用配置
- */
-export async function initializeAppConfig(initData: unknown = {}) {
-  // 1. 设置API基础URL - 使用相对路径让Vite代理处理
-  const baseUrl = "" // 使用空字符串，让所有请求都通过Vite代理
-  httpClient.setBaseURL(baseUrl)
-  setBaseUrl(baseUrl) // 设置 api-endpoints 中的基础URL
-
-  // 2. 收集所有认证信息
-  const authConfig
+// 已删除：不再作为真实代码的参考实现
 ```
 
 ## 🔄 迁移到 React Native

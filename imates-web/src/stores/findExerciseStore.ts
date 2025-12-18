@@ -5,7 +5,8 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ApiService } from '../services/business/api-service'
+import { ApiService } from '../services/http/api-service'
+import { httpClient } from '../services/http/http-client'
 import type { 
   ExerciseItem, 
   FindSimilarQuestionByKnowledgeRequest, 
@@ -67,9 +68,8 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
    * 对应Android中的initData方法
    */
   const initializeStore = async (newConfig: FindExerciseConfig) => {
-    // 初始化应用配置（包括设置基础URL）
-    const { initializeAppConfig } = await import('../utils/config/config-utils')
-    await initializeAppConfig(newConfig)
+    // 设置API基础URL - 使用相对路径让Vite代理处理（策略1）
+    httpClient.setBaseURL('')
     
     config.value = newConfig
     pagination.value.currentPage = 0

@@ -6,7 +6,7 @@
 import type { ApiResponse, RequestConfig } from '@/types'
 import { createTimeoutController } from '@/utils/common/polyfills'
 import { showMessage } from '@/utils'
-import { getApiBaseUrl, getResourceBaseUrl, getYanbanBaseUrl } from '@/config/env-config'
+import { getApiBaseUrl, getHistoryManageBaseUrl, getResourceBaseUrl, getYanbanBaseUrl } from '@/config/env-config'
 import { authService } from './auth-service'
 
 export class HttpClient {
@@ -20,6 +20,7 @@ export class HttpClient {
     const apiBaseUrl = getApiBaseUrl()
     const resourceBaseUrl = getResourceBaseUrl()
     const yanbanBaseUrl = getYanbanBaseUrl()
+    const historyManageBaseUrl = getHistoryManageBaseUrl()
     
     return {
       // 应用更新配置（/bj101/appupdate.json）永远走学班服务
@@ -28,6 +29,7 @@ export class HttpClient {
       '/admin': apiBaseUrl,
       '/permission': apiBaseUrl,
       '/ai': apiBaseUrl,
+      '/history_manage': historyManageBaseUrl,
       '/biologyTopicKnowledge': apiBaseUrl,
       // 研伴/教材等走资源服务器
       '/blw-edu-yb': yanbanBaseUrl,
@@ -156,107 +158,83 @@ export class HttpClient {
       headers = {},             // 额外请求头，默认为空对象
       body,                     // 请求体数据
       timeout = this.timeout,  // 超时时间，使用实例默认值
-      retries = 3,              // 重试次数，默认为3次
       skipAuth401Retry = false  // 是否跳过401认证重试
     } = config
 
     // 流程：构建完整URL（统一处理file://和http(s)环境）
     const fullUrl = this.buildFullUrl(url)
     
-    // 记录最后一次错误，用于重试失败后的错误信息
-    let lastError: Error | null = null
+    // 单次请求：不做通用重试（由业务层自行决定是否重试）
+    const { controller, cleanup } = createTimeoutController(timeout)
 
-    // 重试机制：最多尝试 retries + 1 次（包括首次尝试）
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      // 为每次尝试创建新的超时控制器，避免重复使用已取消的AbortController
-      const { controller, cleanup } = createTimeoutController(timeout)
-      
-      // 构建请求选项
-      const dynamicAuthConfig = await this.getDynamicAuthConfig(url)
-      const requestOptions: RequestInit = {
-        method,                    // HTTP方法
-        headers: {
-          ...this.defaultHeaders,  // 默认请求头（如Content-Type）
-          ...dynamicAuthConfig,     // 动态获取认证配置（包含全局认证配置和路径相关token）
-          ...headers,              // 用户自定义请求头（优先级最高）
-        },
-        ...(controller && { signal: controller.signal }), // 超时控制信号
-      }
+    const dynamicAuthConfig = await this.getDynamicAuthConfig(url)
+    const requestOptions: RequestInit = {
+      method,
+      headers: {
+        ...this.defaultHeaders,
+        ...dynamicAuthConfig,
+        ...headers,
+      },
+      ...(controller && { signal: controller.signal }),
+    }
 
-      // 处理请求体：只有非GET请求才添加body，且自动序列化JSON
-      // 注意：FormData 和 Blob 需要直接传递，不能序列化
-      if (body && method !== 'GET') {
-        if (body instanceof FormData || body instanceof Blob) {
-          // FormData 和 Blob 直接传递，不设置 Content-Type（让浏览器自动设置）
-          requestOptions.body = body
-          // 删除 Content-Type，让浏览器自动设置（包括 multipart/form-data 的 boundary）
-          delete (requestOptions.headers as Record<string, string>)['Content-Type']
-        } else if (typeof body === 'string') {
-          requestOptions.body = body
-        } else {
-          requestOptions.body = JSON.stringify(body)
-        }
-      }
-
-      try {
-        // 发送HTTP请求
-        const response = await fetch(fullUrl, requestOptions)
-        
-        // 请求成功，清除超时定时器
-        cleanup()
-        
-        // 第1步：检测401未授权错误 - 统一处理所有接口
-        if (response.status === 401 && !skipAuth401Retry) {
-          // 第2步：委托给 AuthService 处理 Token 清理与自动登录
-          const loginSuccess = await authService.handle401(url)
-          
-          // 第3步：如果登录成功，重新发起请求（只重试一次）
-          if (loginSuccess) {
-            return await this.request<T>(url, { 
-              ...config, 
-              skipAuth401Retry: true // 设置标志位避免无限循环
-            })
-          }
-          
-          // 第5步：登录失败，提示用户并抛出401错误
-          showMessage('登录已过期，请重新登录', 'warning')
-          throw new Error(`认证失败(401): 请重新登录`)
-        }
-        
-        // 检查HTTP状态码，非2xx状态码视为错误
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        // 解析响应JSON数据
-        const data = await response.json()
-        
-        // 返回统一的API响应格式
-        return {
-          success: data.success,  // 业务层成功标识
-          data,                   // 响应数据
-          code: response.status   // HTTP状态码
-        }
-      } catch (error) {
-        // 请求失败，记录错误信息
-        lastError = error as Error
-        
-        // 清除超时定时器
-        cleanup()
-        
-        // 如果不是最后一次尝试，等待后重试
-        // 使用递增延迟：第1次重试等待1秒，第2次等待2秒，第3次等待3秒
-        if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
-        }
+    if (body && method !== 'GET') {
+      if (body instanceof FormData || body instanceof Blob) {
+        requestOptions.body = body
+        delete (requestOptions.headers as Record<string, string>)['Content-Type']
+      } else if (typeof body === 'string') {
+        requestOptions.body = body
+      } else {
+        requestOptions.body = JSON.stringify(body)
       }
     }
 
-    // 所有重试都失败了，返回错误响应
-    return {
-      success: false,
-      message: lastError?.message || '网络请求失败',
-      code: 0  // 0表示网络错误或重试失败
+    try {
+      const response = await fetch(fullUrl, requestOptions)
+      cleanup()
+
+      if (response.status === 401 && !skipAuth401Retry) {
+        const loginSuccess = await authService.handle401(url)
+
+        if (loginSuccess) {
+          return await this.request<T>(url, {
+            ...config,
+            skipAuth401Retry: true,
+          })
+        }
+
+        showMessage('登录已过期，请重新登录', 'warning')
+        throw new Error(`认证失败(401): 请重新登录`)
+      }
+
+      let data: any = null
+      try {
+        data = await response.json()
+      } catch {
+        data = null
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          data,
+          message: (data && (data.message || data.msg)) || `HTTP ${response.status}: ${response.statusText}`,
+          code: response.status,
+        }
+      }
+
+      return {
+        success: data.success,
+        data,
+        code: response.status,
+      }
+    } catch (error) {
+      cleanup()
+      return {
+        success: false,
+        message: (error as Error)?.message || '网络请求失败',
+        code: 0,
+      }
     }
   }
 

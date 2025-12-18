@@ -7,7 +7,7 @@
 export * from '../types'
 
 // 核心服务 - 业务层
-export { apiService, ApiService } from './business/api-service'
+export { apiService, ApiService } from './http/api-service'
 export { androidBridge, AndroidBridge } from './business/android-bridge'
 
 // 核心服务 - HTTP & 认证
@@ -30,10 +30,12 @@ export {
   getCurrentUserType,
   getCurrentUserIdOrDefault,
   getScopedStorageKey,
+  getScopedStorageValue,
+  loadFromStorage,
   setCurrentUser,
 } from './http/auth-service'
 
-// API 配置
-export * from './http/api-endpoints'
+// 环境配置（统一出口）
+export { getMqHost, getMqPort } from '@/config/env-config'
 
 // 请求配置类型已移至 types/index.ts

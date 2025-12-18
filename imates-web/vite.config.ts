@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
+import type { Connect } from 'vite'
 
 // https://vite.dev/config/
 // 使用工厂函数形式，根据 mode 区分正式/测试环境
@@ -29,6 +30,8 @@ export default defineConfig(({ mode }) => {
   const APP_UPDATE_BASE = isTest
     ? 'https://www.imates.com.cn'
     : 'https://www.imates.com.cn'
+
+  const HISTORY_MANAGE_BASE = 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443'
 
   // 启动时输出当前环境及各后端基础地址，便于确认 Vite 实际走的是哪套接口
   // 这些日志只在 Node 侧输出，不会影响前端运行时
@@ -86,8 +89,8 @@ export default defineConfig(({ mode }) => {
       allow: ['..']
     },
     // 添加中间件来设置 WASM 文件的正确 MIME 类型
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
+    configureServer(server: any) {
+      server.middlewares.use((req: Connect.IncomingMessage, res: any, next: Connect.NextFunction) => {
         // 如果是 WASM 文件请求，设置正确的 MIME 类型
         if (req.url?.endsWith('.wasm')) {
           res.setHeader('Content-Type', 'application/wasm')
@@ -220,7 +223,7 @@ export default defineConfig(({ mode }) => {
             console.log('  - 状态信息:', proxyRes.statusMessage)
             
             // 如果是错误响应，记录更多信息
-            if (proxyRes.statusCode >= 400) {
+            if ((proxyRes.statusCode ?? 0) >= 400) {
               console.error('❌ [代理错误] permission:', {
                 url: req.url,
                 status: proxyRes.statusCode,
@@ -248,6 +251,15 @@ export default defineConfig(({ mode }) => {
             })
           })
         }
+      },
+      // 对话记忆管理接口：/history_manage -> 学班服务
+      '/history_manage': {
+        target: HISTORY_MANAGE_BASE,
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/history_manage')
+        },
       },
       // 匹配以 "/biologyTopicKnowledge" 开头的请求，转发到学班服务（用于生物知识点相关接口）
       '/biologyTopicKnowledge': {

@@ -39,7 +39,7 @@ import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import router from './router'
 import { initPolyfills } from './utils/common/polyfills'
-import { initializeAppConfig } from './utils/config/config-utils'
+import { httpClient } from './services/http/http-client'
 import { initQuestionStorage } from './services/question-storage'
 
 // 导入 Quasar 样式
@@ -47,10 +47,13 @@ import 'quasar/src/css/index.sass'
 import '@quasar/extras/material-icons/material-icons.css'
 
 // 导入应用样式
-import './styles/nati
+import './styles/nati'
+
+// 设置 API BaseURL（策略1：相对路径/代理）
+httpClient.setBaseURL('')
 ```
 
-## 🔄 迁移到 React Native
+## 迁移到 React Native
 
 ### 1. 等价实现
 - **当前实现**：`待补充`

@@ -40,7 +40,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
-import { initializeAppConfig } from './utils/config/config-utils'
+import { httpClient } from './services/http/http-client'
 import { initQuestionStorage } from './services/question-storage'
 import App from './App.vue'
 import router from './router'
@@ -53,9 +53,9 @@ import router from './router'
 initPolyfills()
 ```
 
-#### 步骤 2：初始化应用配置
+#### 步骤 2：设置 API BaseURL（策略1：相对路径/代理）
 ```typescript
-initializeAppConfig()
+httpClient.setBaseURL('')
 ```
 
 #### 步骤 3：提前初始化 IndexedDB
@@ -244,7 +244,7 @@ async function initStorage() {
 
 #### 当前实现
 ```typescript
-initializeAppConfig()
+httpClient.setBaseURL('')
 ```
 
 #### React Native 实现

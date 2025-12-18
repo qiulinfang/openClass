@@ -11,11 +11,11 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/business/api-service'
+import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
-import { getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
+import { getUserId, getCurrentUserIdOrDefault } from '../services'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'

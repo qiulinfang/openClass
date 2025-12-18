@@ -7,7 +7,7 @@
  *   使用342841755937378304和342841783456206848中的知识点的id
  */
 
-import { apiService } from '../../services/business/api-service'
+import { apiService } from '../../services/http/api-service'
 import type { ChapterNode } from '../../types'
 
 /**

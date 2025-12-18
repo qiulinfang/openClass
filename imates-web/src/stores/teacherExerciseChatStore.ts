@@ -14,7 +14,7 @@ import { ref } from 'vue'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage } from './utils/chatStoreUtils'
-import { getCurrentUserIdOrDefault } from '../services/http/auth-service'
+import { getCurrentUserIdOrDefault } from '../services'
 import type { ChatImageData } from './utils/chatStoreUtils'
 import {
   updateMessageError,

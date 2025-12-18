@@ -1,25 +1,7 @@
 import { httpClient } from '../http/http-client'
-import type {
-  FindSimilarQuestionByBmNoRequest,
-  ManageConversationMemoryRequest,
-} from '@/types'
+import type { FindSimilarQuestionByBmNoRequest } from '@/types'
 
-// 注意：loginXueban 和 getUserInfo 已迁移到 auth-service.ts
-
-export class XuebanApi {
-  private readonly HISTORY_MANAGE_BASE_URL = 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443'
-
-  public async manageConversationMemory(payload: ManageConversationMemoryRequest): Promise<any> {
-    const url = `${this.HISTORY_MANAGE_BASE_URL}/history_manage`
-    const response = await httpClient.post<any>(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    })
-    return response?.data ?? response
-  }
-
+export class QuestionSearchApi {
   public async getExerciseList(subject: string): Promise<any[]> {
     const subjectLower = subject.toLowerCase()
     const url =
@@ -235,7 +217,8 @@ export class XuebanApi {
     if (response.success && (response.data as any)?.data?.questions) {
       return {
         questions: (response.data as any).data.questions,
-        totalCount: parseInt((response.data as any).totalCount || '0') || (response.data as any).data.questions.length,
+        totalCount:
+          parseInt((response.data as any).totalCount || '0') || (response.data as any).data.questions.length,
         currentPage: parseInt((response.data as any).pageNo || '1') || request.current,
         pageSize: parseInt((response.data as any).pageSize || '5') || request.size,
       }

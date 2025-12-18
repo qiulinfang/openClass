@@ -2428,7 +2428,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { getCurrentUserIdOrDefault } from '../../services/http/auth-service'
+import { getCurrentUserIdOrDefault } from '../../services'
 
 // 定义参数接口
 /**

@@ -16,6 +16,9 @@ interface EnvConfig {
   baseUrl: string
   resourceBaseUrl: string
   yanbanBaseUrl: string
+  historyManageBaseUrl: string
+  mqHost: string
+  mqPort: number
   appUpdateUrl: string
   displayName: string
 }
@@ -28,6 +31,9 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
+    historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
+    mqHost: 'www.imates.com.cn',
+    mqPort: 5673,
     // 这里只存一个默认路径，实际返回由 getAppUpdateUrl 结合 SCHOOL_UPDATE_CONFIGS 计算
     appUpdateUrl: '/bj101/appupdate.json',
     displayName: '',
@@ -38,6 +44,9 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴测试环境：使用 HTTPS 访问 50013 端口
     yanbanBaseUrl: 'https://43.138.16.5:50013',
+    historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
+    mqHost: 'www.imates.com.cn',
+    mqPort: 5673,
     appUpdateUrl: '/appupdate_test.json',
     displayName: 'Joined Testflight',
   },
@@ -127,6 +136,27 @@ export function getResourceBaseUrl(): string {
  */
 export function getYanbanBaseUrl(): string {
   return getCurrentEnvConfig().yanbanBaseUrl
+}
+
+/**
+ * 获取对话记忆管理服务 Base URL
+ */
+export function getHistoryManageBaseUrl(): string {
+  return getCurrentEnvConfig().historyManageBaseUrl
+}
+
+/**
+ * 获取 MQ Host
+ */
+export function getMqHost(): string {
+  return getCurrentEnvConfig().mqHost
+}
+
+/**
+ * 获取 MQ Port
+ */
+export function getMqPort(): number {
+  return getCurrentEnvConfig().mqPort
 }
 
 /**

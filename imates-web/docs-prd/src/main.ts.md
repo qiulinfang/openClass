@@ -33,7 +33,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
-import { initializeAppConfig } from './utils/config/config-utils'
+import { httpClient } from './services/http/http-client'
 import { initQuestionStorage } from './services/question-storage'
 import './styles/native-app.css'
 import './styles/mathlive-custom.css'
@@ -43,10 +43,11 @@ import App from './App.vue'
 import router from './router'
 
 // 初始化 WebView 兼容性 polyfills
-initPo
+initPolyfills()
+httpClient.setBaseURL('')
 ```
 
-## 🔄 迁移到 React Native
+## 迁移到 React Native
 
 ### 1. 等价实现
 - **当前实现**：`待补充`

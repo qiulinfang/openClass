@@ -118,10 +118,9 @@ import { useRouter } from 'vue-router'
 import { Dialog } from 'quasar'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
-import { apiService } from '@/services/business/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
-import { getUserInfo, getCurrentUserIdOrDefault, getXuebanToken, setUserInfo } from '../services/http/auth-service'
+import { authService, getUserInfo, getCurrentUserIdOrDefault, getXuebanToken, setUserInfo } from '../services'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
@@ -328,7 +327,7 @@ const loadUserInfo = async () => {
     }
 
     // 第3步：调用 /admin/info 接口获取用户信息
-    const userData = await apiService.getUserInfo(token)
+    const userData = await authService.getUserInfo(token)
     
     // 第4步：更新用户信息并持久化
     if (userData) {

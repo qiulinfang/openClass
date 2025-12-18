@@ -134,7 +134,7 @@ import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/storage/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/RubberBandList.vue'
-import { getCurrentUserIdOrDefault } from '../services/http/auth-service'
+import { getCurrentUserIdOrDefault } from '../services'
 import DraggableDialog from '../components/DraggableDialog.vue'
 import CommonActionButton from '../components/CommonActionButton.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -398,6 +398,7 @@ const startLearning = async (resource: ResourceFile) => {
         query: {
           id: id.value,
           textbookName: sectionName.value,
+          sectionName: sectionName.value,
           resourceId: resource.id,
           fileName: resource.fileName,
           packageId: selectedScheme.id,

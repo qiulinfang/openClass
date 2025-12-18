@@ -10,10 +10,10 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/business/api-service'
+import { apiService } from '../services/http/api-service'
 import { chatStorage } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
-import { getUserInfo, getSubject, getUserId } from '../services/http/auth-service'
+import { getUserInfo, getSubject, getUserId } from '../services'
 import { useAiGeneralChatStore } from './aiGeneralChatStore'
 import { useChatPersistence } from '@/composables/useChatPersistence'
 import { useChatRetry } from '@/composables/useChatRetry'
@@ -59,6 +59,7 @@ interface BuildTextbookMessageParams {
   chatRole: string
   sessionId: string
   resourceId?: string | null
+  sectionName?: string | null
   imageData?: TextbookChatImageData
   useScreenshotApi?: boolean
   isNewSession?: boolean
@@ -71,6 +72,7 @@ const buildAiTextbookMessage = ({
   userInfo,
   subject,
   chatRole = 'mate',
+  sectionName,
   imageData,
   useScreenshotApi = false,
   isNewSession = true,
@@ -91,13 +93,14 @@ const buildAiTextbookMessage = ({
       coversation: content,
       // 截图会话下，question 字段不用图片或文字，占位为空字符串即可
       question: '',
-      answer: '',
+      answer: sectionName || '',
       name: userId,
       reason: 'start',
       bmNo: sessionId,
       isWebSearch: '0',
       chatRole,
       subject,
+      sectionName: sectionName || undefined,
       dstUrl: '/permission/previewPictureQA',
       // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
       imageList,
@@ -111,13 +114,14 @@ const buildAiTextbookMessage = ({
     newValue: isNewSession ? '1' : '0',
     coversation: content,
     question: '',
-    answer: '',
+    answer: sectionName || '',
     name: userId,
     reason: 'start',
     bmNo: sessionId,
     isWebSearch: '0',
     chatRole,
     subject,
+    sectionName: sectionName || undefined,
     dstUrl,
     imageList,
   }
@@ -132,6 +136,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const chatResponseTimes = ref(0) // 聊天响应次数计数器，记录已完成的对话轮数（用于判断是否可以查看答案）
   const enableWebSearch = ref(false) // 是否启用网络搜索功能（当前未使用，保留用于未来扩展）
   const resourceId = ref<string | null>(null) // 资源ID，用于加载消息历史
+  const sectionName = ref<string | null>(null) // 章节名称：用于聊天接口透传上下文（PDF/学习场景）
   const useScreenshotApi = ref(false)  // 是否使用截图接口（用于截图会话的后续消息）
   const currentSessionId = ref<string | null>(null) // 当前会话ID，用于加载消息历史
   const isNewSession = ref(true) // 是否是新会话
@@ -519,6 +524,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         chatRole: selectedModel || 'mate',
         sessionId: sessionIdForBackend,
         resourceId: resourceId.value,
+        sectionName: sectionName.value,
         imageData: builderImageData,
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
@@ -708,6 +714,10 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       isNewSession.value = true
     }
   }
+
+  const setSectionName = (name: string | null): void => {
+    sectionName.value = name
+  }
   
   /**
    * 保存聊天历史（立即保存）
@@ -809,6 +819,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     attachedScreenshots,
     screenshotDrawingStates,
     resourceId,
+    sectionName,
     useScreenshotApi,
     currentSessionId,
     isNewSession,
@@ -833,6 +844,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     clearChatHistory,
     toggleWebSearch,
     setResourceId,
+    setSectionName,
   }
 })
 

@@ -297,7 +297,7 @@ const handleGoBack = () => {
         // 传递学习对话框所需的信息，用于自动打开对话框
         openLearning: 'true',
         learningNodeId: route.query.learningNodeId as string,
-        learningSectionName: route.query.textbookName as string,
+        learningSectionName: (route.query.sectionName as string) || (route.query.textbookName as string),
         learningLevel: route.query.learningLevel as string,
         textbookId: route.query.id as string,
       },
@@ -416,6 +416,9 @@ const loadPdfWithService = async (file: File) => {
       // 同时设置到 aiTextbookStore，确保会话列表能正确过滤
       aiTextbookStore.setResourceId(resourceId)
     }
+
+    const currentSectionName = (route.query.sectionName as string) || (route.query.textbookName as string) || null
+    aiTextbookStore.setSectionName(currentSectionName)
 
     // 2. 设置当前文件，PdfPage 组件会自动加载
     currentFile.value = file

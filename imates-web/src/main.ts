@@ -2,7 +2,7 @@
 import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
-import { initializeAppConfig } from './utils/config/config-utils'
+import { httpClient } from './services/http/http-client'
 import { initQuestionStorage } from './services/storage/question-storage'
 import { initNetworkStatusListener } from './utils/network-status'
 import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
@@ -21,7 +21,7 @@ initPolyfills()
 // 这样确保在 store 检查 AndroidBridge 时，模拟功能已经就绪
 initMockTeacherBridge()
 
-initializeAppConfig()
+httpClient.setBaseURL('')
 
 // 初始化网络状态监听
 initNetworkStatusListener()

@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ApiService } from '../services/business/api-service'
+import { ApiService } from '../services/http/api-service'
 import type { ExerciseItem } from '../types'
 import {
   saveQuestionsToIndexedDB,

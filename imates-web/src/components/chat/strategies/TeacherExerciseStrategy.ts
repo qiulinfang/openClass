@@ -9,7 +9,7 @@ import type { SendMessageOptions, InitializeOptions } from './types'
 import { useTeacherExerciseChatStore } from '../../../stores/teacherExerciseChatStore'
 // 注意：此策略不再直接依赖 questionStore/homeworkStore
 // 所有题目信息通过 options.currentQuestion 传入
-import { getUserInfo, getSubject } from '../../../services/http/auth-service'
+import { getUserInfo, getSubject } from '../../../services'
 
 export class TeacherExerciseStrategy implements ChatStrategy {
   private teacherExerciseStore = useTeacherExerciseChatStore()

@@ -16,7 +16,7 @@ import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
-import { getXuebanToken } from '@/services/http/auth-service'
+import { getXuebanToken } from '@/services'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式

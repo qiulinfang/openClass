@@ -11,10 +11,10 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/business/api-service'
+import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
-import { getUserInfo, getUserId, getCurrentUserIdOrDefault } from '../services/http/auth-service'
+import { getUserInfo, getUserId, getCurrentUserIdOrDefault } from '../services'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import {
   checkAccountStatus,

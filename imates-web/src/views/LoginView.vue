@@ -88,9 +88,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiService } from '../services/business/api-service'
-import { getUserId, getPassword } from '../services/http/auth-service'
-import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv } from '../config/env-config'
+import { authService, getUserId, getPassword, httpClient } from '../services'
+import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
 import Dialog from '../components/Dialog.vue'
 
 import usernameIcon from '/icons/username_icon.svg'
@@ -160,7 +159,10 @@ const saveAppVersion = (version: string): void => {
 // Web 端主动检查应用更新并同步服务器版本号
 const checkAppUpdate = async () => {
   try {
-    const result = await apiService.checkAppUpdate?.()
+    const url = getAppUpdateUrl()
+    const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
+    const response = await httpClient.get<any>(cacheBustedUrl)
+    const result = response?.data ?? response
     if (!result) {
       console.log("端主动检查应用更新无结果");
       return
@@ -347,13 +349,13 @@ const handleLogin = async () => {
   try {
     // 第1步：直接发送明文密码，与Android端LoginActivity保持一致
     // loginXueban内部已自动保存token和用户凭据到localStorage
-    const token = await apiService.loginXueban(loginForm.account, loginForm.password)
+    const token = await authService.loginXueban(loginForm.account, loginForm.password)
 
     // 第2步：获取用户信息
     // getUserInfo内部已自动完成：
     // - 持久化到localStorage
     // - 同步到Android原生ViewModel
-    await apiService.getUserInfo(token)
+    await authService.getUserInfo(token)
     
     // 第3步：跳转到首页（使用 replace 避免登录页留在历史记录中）
     router.replace('/app')
