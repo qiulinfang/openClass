@@ -59,7 +59,7 @@ const buildAiExerciseMessage = (
       answer: currentQuestion.answer || '',
       name: getUserId() || 'User',
       reason: 'start',
-      bmNo: finalSessionId,
+      bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
       isWebSearch: enableWebSearch ? '1' : '0',
       chatRole: selectedModel,
       subject: subject,
@@ -77,11 +77,12 @@ const buildAiExerciseMessage = (
     answer: currentQuestion.answer || '',
     name: getUserId() || 'User',
     reason: 'start',
-    bmNo: finalSessionId,
+    bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole: selectedModel,
     subject: subject,
     dstUrl: subject === 'MATH' ? '/permission/chatMath' : '/permission/chat',
+    explanation: currentQuestion.explanation || '', // 添加 explanation 字段
   }
 }
 

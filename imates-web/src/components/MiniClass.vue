@@ -240,10 +240,16 @@ const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
 const showControls = ref(true)
-let loadTimeout: NodeJS.Timeout | null = null  // 加载超时定时器
-let check404Timeout: NodeJS.Timeout | null = null  // 404检测超时定时器
+let loadTimeout: ReturnType<typeof setTimeout> | null = null  // 加载超时定时器
+let check404Timeout: ReturnType<typeof setTimeout> | null = null  // 404检测超时定时器
 
-// ==================== 方法 ====================
+// 监听 is404 状态变化，用于调试占位页显示问题
+watch(is404, (newVal, oldVal) => {
+  console.log('[MiniClass] is404 changed:', { old: oldVal, new: newVal })
+  if (newVal) {
+    console.log('[MiniClass] should show placeholder UI')
+  }
+})
 
 // 规范化 URL，确保是正确的绝对 URL
 const normalizeUrl = (url: string): string | null => {
@@ -351,6 +357,10 @@ const isVideoUrl = (url: string): boolean => {
          lowerUrl.includes('video')
 }
 
+const isMicroClassWkUrl = (url: string): boolean => {
+  return typeof url === 'string' && url.includes('/wk/')
+}
+
 // 处理视频加载开始
 const handleVideoLoadStart = () => {
   loading.value = true
@@ -395,7 +405,7 @@ const handleVideoError = async () => {
   if (videoPlayer.value?.src) {
     try {
       const response = await fetch(videoPlayer.value.src, {
-        method: 'HEAD',
+        method: 'GET',
         cache: 'no-cache'
       })
       if (response.status === 404) {
@@ -404,7 +414,12 @@ const handleVideoError = async () => {
         return
       }
     } catch {
-      // 跨域限制，无法检测
+      // 兜底：微课 wk 链接检测失败时，直接进入 404 占位（避免一直白屏/报错）
+      if (isMicroClassWkUrl(videoPlayer.value.src)) {
+        is404.value = true
+        error.value = null
+        return
+      }
     }
   }
   
@@ -415,12 +430,17 @@ const handleVideoError = async () => {
 
 // 处理iframe加载
 const handleIframeLoad = async () => {
+  console.log('[MiniClass] iframe load:', {
+    src: iframePlayer.value?.src,
+    is404: is404.value,
+    error: error.value,
+    loading: loading.value,
+  })
   if (loadTimeout) {
     clearTimeout(loadTimeout)
     loadTimeout = null
   }
   
-  // 清除404检测超时
   if (check404Timeout) {
     clearTimeout(check404Timeout)
     check404Timeout = null
@@ -428,70 +448,46 @@ const handleIframeLoad = async () => {
   
   loading.value = false
   
-  // 延迟检测404，给iframe一些时间加载
-  // 如果iframe加载的是错误页面，可能需要一些时间
-  check404Timeout = setTimeout(async () => {
-    if (!iframePlayer.value) return
-    
+  // 简化检测：直接 ajax 探测当前 iframe URL
+  const url = iframePlayer.value?.src
+  if (url && url !== 'about:blank') {
     try {
-      // 尝试访问 iframe 的 contentWindow
-      // 如果跨域，会抛出异常，但这不是404的标识
-      const iframeWindow = iframePlayer.value.contentWindow
-      if (!iframeWindow) {
-        // 无法访问，可能是跨域或404
-        // 尝试通过 fetch 检测原始URL
-        const url = iframePlayer.value.src
-        if (url && url !== 'about:blank') {
-          try {
-            const response = await fetch(url, {
-              method: 'HEAD',
-              cache: 'no-cache'
-            })
-            if (response.status === 404) {
-              is404.value = true
-              error.value = null
-              return
-            }
-          } catch {
-            // 跨域限制，无法检测
-          }
-        }
-      } else {
-        // 可以访问，尝试检测是否为404页面
-        try {
-          const iframeDoc = iframePlayer.value.contentDocument
-          if (iframeDoc) {
-            // 检查页面标题或内容是否包含404相关文本
-            const title = iframeDoc.title?.toLowerCase() || ''
-            const bodyText = iframeDoc.body?.innerText?.toLowerCase() || ''
-            if (title.includes('404') || 
-                title.includes('not found') || 
-                bodyText.includes('404') || 
-                bodyText.includes('not found') ||
-                bodyText.includes('页面不存在')) {
-              is404.value = true
-              error.value = null
-              return
-            }
-          }
-        } catch {
-          // 跨域限制，无法访问文档内容
-        }
+      console.log('[MiniClass] 开始检测微课URL:', url)
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-cache',
+      })
+
+      if (response.status === 404) {
+        console.warn('[MiniClass] 微课404检测成功:', { url })
+        is404.value = true
+        error.value = null
+        return
       }
-      
-      // 如果检测完成且不是404，清除404状态
-      is404.value = false
-      error.value = null
-    } catch (err) {
-      console.warn('[MiniClass] 404检测失败:', err)
-      // 检测失败，不清除404状态，保持当前状态
+
+      console.log('[MiniClass] 微课检测通过:', { url, status: response.status })
+    } catch (e) {
+      // 兜底：微课 wk 链接检测失败时，直接进入 404 占位
+      if (isMicroClassWkUrl(url)) {
+        console.warn('[MiniClass] 微课检测失败，进入占位页:', { url, error: e })
+        is404.value = true
+        error.value = null
+        return
+      }
+      console.warn('[MiniClass] 微课检测失败但不是wk链接:', { url, error: e })
     }
-  }, 2000) // 延迟2秒检测，给iframe时间加载
+  }
+
+  // 检测完成，清除状态
+  is404.value = false
+  error.value = null
 }
 
 // 处理iframe错误
 const handleIframeError = async () => {
-  console.error('[MiniClass] iframe 加载错误')
+  console.error('[MiniClass] iframe error:', {
+    src: iframePlayer.value?.src,
+  })
   if (loadTimeout) {
     clearTimeout(loadTimeout)
     loadTimeout = null
@@ -508,16 +504,23 @@ const handleIframeError = async () => {
   if (iframePlayer.value?.src) {
     try {
       const response = await fetch(iframePlayer.value.src, {
-        method: 'HEAD',
+        method: 'GET',
         cache: 'no-cache'
       })
       if (response.status === 404) {
+        console.warn('[MiniClass] iframe 404 detected by HEAD in error handler:', { src: iframePlayer.value.src })
         is404.value = true
         error.value = null
         return
       }
     } catch {
-      // 跨域限制，无法检测
+      // 兜底：微课 wk 链接检测失败时，直接进入 404 占位
+      if (isMicroClassWkUrl(iframePlayer.value.src)) {
+        console.warn('[MiniClass] iframe HEAD failed in error handler, fallback to is404 for /wk/ url:', { src: iframePlayer.value.src })
+        is404.value = true
+        error.value = null
+        return
+      }
     }
   }
   
@@ -578,17 +581,30 @@ const retryLoad = () => {
 }
 
 // 加载内容的函数
-const loadContent = (url: string) => {
+const loadContent = async (url: string) => {
   if (!url) return
+
+  console.log('[MiniClass] loadContent:', {
+    url,
+    useDialog: props.useDialog,
+    localVisible: localVisible.value,
+  })
   
   // 规范化 URL
   const normalizedUrl = normalizeUrl(url)
   if (!normalizedUrl) {
+    console.warn('[MiniClass] normalizeUrl failed:', { url })
     error.value = 'URL 无效，请检查URL格式'
     loading.value = false
     is404.value = false
     return
   }
+
+  console.log('[MiniClass] normalizedUrl:', {
+    original: url,
+    normalized: normalizedUrl,
+    isVideo: isVideoUrl(normalizedUrl),
+  })
   
   // 如果 URL 被修改，输出警告
   if (normalizedUrl !== url) {
@@ -609,6 +625,33 @@ const loadContent = (url: string) => {
     check404Timeout = null
   }
   
+  // 预检测：如果是微课 /wk/ 链接，先ajax检测是否404
+  if (isMicroClassWkUrl(normalizedUrl)) {
+    try {
+      console.log('[MiniClass] 预检测微课URL:', normalizedUrl)
+      const response = await fetch(normalizedUrl, {
+        method: 'GET',
+        cache: 'no-cache',
+      })
+      
+      if (response.status === 404) {
+        console.warn('[MiniClass] 预检测发现微课404，直接显示占位符:', { url: normalizedUrl })
+        loading.value = false
+        is404.value = true
+        return
+      }
+      
+      console.log('[MiniClass] 预检测通过:', { url: normalizedUrl, status: response.status })
+    } catch (e) {
+      console.warn('[MiniClass] 预检测失败:', { url: normalizedUrl, error: e })
+      // 检测失败也直接显示占位符，避免显示404页面
+      loading.value = false
+      is404.value = true
+      return
+    }
+  }
+  
+  // 非微课链接或预检测通过的微课链接，走正常加载流程
   loading.value = true
   error.value = null
   is404.value = false
