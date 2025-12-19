@@ -76,6 +76,7 @@
                 <QuestionList
                   ref="questionListRef"
                   :type="isFromHomework ? 'homework' : 'exercise'"
+                  :show-photo-search="!isFromHomework"
                   :search-query="searchQuery"
                   :selected-subject-filter="selectedSubjectFilter"
                   @start-ai-guidance="handleStartAiGuidance"

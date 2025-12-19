@@ -84,6 +84,7 @@
           <ChatMessageComponent
             :message="message"
             :type="type"
+            :current-question="currentQuestion"
             :is-selected="selectedMessages.has(message.id)"
             :is-selection-mode="isSelectionMode"
             :message-index="index"
@@ -247,7 +248,7 @@
           :selected-model="selectedModel"
           :type="type"
           :uploaded-files="uploadedFiles"
-          :active-mode="activeMode"
+          :active-mode="activeMode ?? undefined"
           :can-send="isEditingMessage ? canSendInEditMode : canSend"
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
@@ -509,7 +510,8 @@ const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话�
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
 
 // 本地截图列表（用于非 ai-textbook 场景在输入框上方展示缩略图）
-const localAttachedScreenshots = ref<AttachedScreenshot[]>(props.attachedScreenshots ?? [])
+// 注意：必须深拷贝 props.attachedScreenshots，避免引用共享导致删除时影响父组件
+const localAttachedScreenshots = ref<AttachedScreenshot[]>(props.attachedScreenshots ? [...props.attachedScreenshots] : [])
 
 // ========== 图片批注（DrawingBoard） ========== 
 
@@ -592,11 +594,16 @@ const handleAnnotateConfirm = async (
 
   // ai-general：只挂载缩略图（最多3张），等待用户点击发送
   if (props.type === 'ai-general') {
-    // 追加到当前已挂载列表（而不是覆盖）；不做去重
-    const combined: AttachedScreenshot[] = [...localAttachedScreenshots.value, ...finalShots]
+    const uniqueFinalShots: AttachedScreenshot[] = []
+    const seen = new Set<string>()
+    for (const s of finalShots) {
+      if (!s?.id || !s?.dataUrl) continue
+      if (seen.has(s.id)) continue
+      seen.add(s.id)
+      uniqueFinalShots.push(s)
+    }
 
-    // 超出 3 张时丢弃最旧的，保留最新 3 张
-    localAttachedScreenshots.value = combined.slice(-3)
+    localAttachedScreenshots.value = uniqueFinalShots
 
     annotateDialogVisible.value = false
     annotatePendingImageInfo.value = null
@@ -721,6 +728,11 @@ const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
 
 // 处理 ChatInput 发出的移除缩略图事件
 const handleRemoveScreenshot = (id: string) => {
+  console.log('[ChatView] 删除截图前:', {
+    id,
+    currentScreenshots: localAttachedScreenshots.value.map(s => ({ id: s.id, dataUrl: s.dataUrl?.substring(0, 50) + '...' }))
+  })
+  
   // AI 教材场景仍然交给上层（PdfViewerView / aiTextbookStore）处理
   if (props.type === 'ai-textbook') {
     emit('remove-screenshot', id)
@@ -728,7 +740,16 @@ const handleRemoveScreenshot = (id: string) => {
   }
 
   // 其它场景：仅在本地列表中移除缩略图
+  const beforeLength = localAttachedScreenshots.value.length
   localAttachedScreenshots.value = localAttachedScreenshots.value.filter((shot) => shot.id !== id)
+  const afterLength = localAttachedScreenshots.value.length
+  
+  console.log('[ChatView] 删除截图后:', {
+    id,
+    beforeLength,
+    afterLength,
+    remainingScreenshots: localAttachedScreenshots.value.map(s => ({ id: s.id, dataUrl: s.dataUrl?.substring(0, 50) + '...' }))
+  })
 }
 
 // 会话卡片数据（用于 CardStack v-model）- 通过策略接口获取

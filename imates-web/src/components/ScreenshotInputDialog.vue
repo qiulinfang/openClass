@@ -44,7 +44,7 @@
                 v-for="shot in thumbnailList"
                 :key="shot.id"
                 :image-url="shot.dataUrl"
-                :active="shot.dataUrl === previewImage"
+                :active="shot.id === currentShotId"
                 :show-delete="true"
                 @click="switchPreview(shot.id)"
                 @remove="handleRemoveThumbnail(shot.id)"
@@ -234,6 +234,13 @@ const switchPreview = async (id: string) => {
 const handleRemoveThumbnail = (id: string) => {
   if (!id) return
 
+  console.log('[ScreenshotInputDialog] remove thumbnail (before)', {
+    id,
+    currentShotId: currentShotId.value,
+    thumbnailCount: thumbnailList.value.length,
+    thumbnails: thumbnailList.value.map((s) => ({ id: s.id, dataUrlHead: (s.dataUrl || '').slice(0, 40) })),
+  })
+
   // 移除本地缓存的画板状态
   if (drawingStates.value[id]) {
     delete drawingStates.value[id]
@@ -249,12 +256,32 @@ const handleRemoveThumbnail = (id: string) => {
   }
 
   emit('remove-screenshot', id)
+
+  console.log('[ScreenshotInputDialog] remove thumbnail (after emit)', {
+    id,
+    currentShotId: currentShotId.value,
+    previewImageHead: (previewImage.value || '').slice(0, 40),
+  })
 }
 
 // 将当前截图导出为 AttachedScreenshot 数组
 const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> => {
+  console.log('[ScreenshotInputDialog] export screenshot (start)', {
+    currentShotId: currentShotId.value,
+    previewImageHead: (previewImage.value || '').slice(0, 40),
+    screenshotDataUrlHead: (props.screenshotDataUrl || '').slice(0, 40),
+    thumbnailCount: thumbnailList.value.length,
+  })
+
   if (!previewImage.value && !props.screenshotDataUrl) {
     showMessage('截图数据丢失，请重新截图', 'error')
+
+    console.log('[ScreenshotInputDialog] export screenshot (abort: missing data)', {
+      currentShotId: currentShotId.value,
+      previewImageHead: (previewImage.value || '').slice(0, 40),
+      screenshotDataUrlHead: (props.screenshotDataUrl || '').slice(0, 40),
+    })
+
     return null
   }
 
@@ -310,23 +337,52 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
   currentShotId.value = shotId
   previewImage.value = finalImageData
 
+  console.log('[ScreenshotInputDialog] export screenshot (done)', {
+    shotId,
+    finalImageDataHead: (finalImageData || '').slice(0, 40),
+    width: size.width,
+    height: size.height,
+  })
+
   return [shot]
 }
 
 // 确定按钮：返回当前截图数组，但不直接发送消息
 const handleConfirm = async () => {
+  console.log('[ScreenshotInputDialog] confirm (start)', {
+    currentShotId: currentShotId.value,
+    thumbnailCount: thumbnailList.value.length,
+  })
+
   const shots = await exportCurrentScreenshot()
   if (!shots) return
 
   emit('confirm', shots, { ...drawingStates.value })
   localVisible.value = false
+
+  console.log('[ScreenshotInputDialog] confirm (emitted)', {
+    shots: shots.map((s) => ({ id: s.id, dataUrlHead: (s.dataUrl || '').slice(0, 40) })),
+    statesKeys: Object.keys(drawingStates.value || {}).length,
+  })
 }
 
 // 继续截图：返回当前截图数组并关闭对话框，交给父组件继续触发截图流程
 const handleAddMore = async () => {
+  console.log('[ScreenshotInputDialog] add-more (start)', {
+    currentShotId: currentShotId.value,
+    thumbnailCount: thumbnailList.value.length,
+    max: MAX_SCREENSHOTS,
+  })
+
   // 安全保护：如果当前缩略图数量已达上限，给出提示并中止
   if (thumbnailList.value.length >= MAX_SCREENSHOTS) {
     showMessage(`最多只能添加${MAX_SCREENSHOTS}张截图`, 'warning')
+
+    console.log('[ScreenshotInputDialog] add-more (abort: reach max)', {
+      thumbnailCount: thumbnailList.value.length,
+      max: MAX_SCREENSHOTS,
+    })
+
     return
   }
 
@@ -335,6 +391,11 @@ const handleAddMore = async () => {
 
   emit('add-more', shots, { ...drawingStates.value })
   localVisible.value = false
+
+  console.log('[ScreenshotInputDialog] add-more (emitted)', {
+    shots: shots.map((s) => ({ id: s.id, dataUrlHead: (s.dataUrl || '').slice(0, 40) })),
+    statesKeys: Object.keys(drawingStates.value || {}).length,
+  })
 }
 
 // 取消按钮

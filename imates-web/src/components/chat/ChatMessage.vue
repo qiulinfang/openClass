@@ -249,6 +249,25 @@
 
     <!-- Markdown 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl || ''" alt="图片预览" />
+
+    <DraggableDialog
+      v-model="showDeleteConfirmDialog"
+      title="删除确认"
+      :show-footer="true"
+      confirm-variant="danger"
+      confirm-text="删除"
+      cancel-text="取消"
+      :initial-width="360"
+      :initial-height="190"
+      :min-width="300"
+      :min-height="160"
+      @cancel="handleCancelDelete"
+      @confirm="confirmDelete"
+    >
+      <div>
+        确定要删除这条消息吗？删除后无法恢复。
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
@@ -264,7 +283,6 @@ import {
 } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
@@ -276,11 +294,13 @@ import { useTeacherExerciseChatStore } from '../../stores/teacherExerciseChatSto
 import { useQuestionStore } from '../../stores/questionStore'
 import { useHomeworkStore } from '../../stores/homeworkStore'
 import { getUserInfo, getSubject } from '../../services'
+import { showMessage } from '../../utils'
 import VoiceMessage from './VoiceMessage.vue'
 import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
 import ImageViewer from '../ImageViewer.vue'
+import DraggableDialog from '../DraggableDialog.vue'
 import BubblePopup from '../BubblePopup.vue'
 import ActionList from '../ActionList.vue'
 import MultiImageMessage from './MultiImageMessage.vue'
@@ -297,6 +317,8 @@ import GuruIcon from '/icons/Guru.svg'
 interface Props {
   message: ChatBubble
   type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+  // 当前题目（由父组件 ChatView 传入；用于刷新/重试等需要题目上下文的操作）
+  currentQuestion?: unknown
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
@@ -341,8 +363,8 @@ const currentBubbleType = ref<'ai' | 'user' | null>(null)
 
 const { renderMessageContent } = useMessageRenderer()
 
-// Quasar 通知
-const $q = useQuasar()
+const showDeleteConfirmDialog = ref(false)
+const pendingDeleteMessageId = ref<string | null>(null)
 
 // 场景Store
 const aiExerciseStore = useAiExerciseChatStore()
@@ -364,6 +386,10 @@ const isFromHomework = computed(() => {
 })
 
 const currentQuestion = computed(() => {
+  // 优先使用父组件透传的题目（避免非题目列表场景下全局 store 为空）
+  if (props.currentQuestion) {
+    return props.currentQuestion as any
+  }
   return isFromHomework.value ? homeworkCurrentQuestion.value : exerciseCurrentQuestion.value
 })
 
@@ -451,20 +477,10 @@ const handleRetry = async () => {
         throw new Error('未知的聊天类型')
     }
 
-    $q.notify({
-      type: 'positive',
-      message: '正在重新生成消息',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('正在重新生成消息', 'success')
   } catch (error) {
     console.error('重发失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '重发失败，请稍后重试',
-      position: 'top',
-      timeout: 3000,
-    })
+    showMessage('重发失败，请稍后重试', 'error')
   } finally {
     isRetrying.value = false
   }
@@ -745,12 +761,7 @@ const handleForward = () => {
   try {
     emit('forward-message', props.message)
   } catch (error) {
-    $q.notify({
-      type: 'negative',
-      message: '转发失败: ' + (error instanceof Error ? error.message : String(error)),
-      position: 'top',
-      timeout: 3000,
-    })
+    showMessage('转发失败: ' + (error instanceof Error ? error.message : String(error)), 'error')
   }
 }
 
@@ -790,12 +801,7 @@ const handleMultiSelect = () => {
 const handleEdit = () => {
   showActionMenu.value = false
   emit('edit-message', props.message)
-  $q.notify({
-    type: 'info',
-    message: '进入编辑模式',
-    position: 'top',
-    timeout: 1500,
-  })
+  showMessage('进入编辑模式', 'info')
 }
 
 // 构造 AI/老师消息侧长按菜单 items
@@ -898,34 +904,26 @@ const handleDelete = async () => {
   // 第1步：关闭菜单
   showActionMenu.value = false
 
-  // 第2步：显示确认对话框
-  $q.dialog({
-    title: '删除确认',
-    message: '确定要删除这条消息吗？删除后无法恢复。',
-    persistent: true,
-    ok: {
-      label: '删除',
-      color: 'negative',
-      flat: true,
-    },
-    cancel: {
-      label: '取消',
-      flat: true,
-    },
-  }).onOk(async () => {
-    try {
-      // 第3步：仅向父组件抛出删除事件，由父组件根据场景和当前题目决定如何删除
-      emit('delete-message', props.message.id)
-    } catch (error) {
-      console.error('删除消息失败:', error)
-      $q.notify({
-        type: 'negative',
-        message: '删除失败，请稍后重试',
-        position: 'top',
-        timeout: 3000,
-      })
-    }
-  })
+  pendingDeleteMessageId.value = props.message.id
+  showDeleteConfirmDialog.value = true
+}
+
+const handleCancelDelete = () => {
+  showDeleteConfirmDialog.value = false
+  pendingDeleteMessageId.value = null
+}
+
+const confirmDelete = async () => {
+  try {
+    if (!pendingDeleteMessageId.value) return
+    emit('delete-message', pendingDeleteMessageId.value)
+  } catch (error) {
+    console.error('删除消息失败:', error)
+    showMessage('删除失败，请稍后重试', 'error')
+  } finally {
+    showDeleteConfirmDialog.value = false
+    pendingDeleteMessageId.value = null
+  }
 }
 
 // 处理刷新
@@ -973,12 +971,7 @@ const handleRefresh = async () => {
   const currentIndex = storeMessages.findIndex((msg) => msg.id === props.message.id)
   if (currentIndex < 0) {
     console.error('未找到当前消息')
-    $q.notify({
-      type: 'negative',
-      message: '刷新失败：未找到消息',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('刷新失败：未找到消息', 'error')
     return
   }
 
@@ -993,12 +986,7 @@ const handleRefresh = async () => {
 
   if (!userMessage) {
     console.error('未找到前一条用户消息')
-    $q.notify({
-      type: 'negative',
-      message: '刷新失败：未找到对应的用户消息',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('刷新失败：未找到对应的用户消息', 'error')
     return
   }
   // 方案A：刷新严格跟随原接口
@@ -1052,12 +1040,7 @@ const handleRefresh = async () => {
     const subject = getSubject() as 'MATH' | 'BIOLOGY'
     const userInfo = getUserInfo()
 
-    $q.notify({
-      type: 'positive',
-      message: '正在重新生成消息',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('正在重新生成消息', 'success')
 
     switch (props.type) {
       case 'ai-exercise':
@@ -1114,24 +1097,14 @@ const handleRefresh = async () => {
       case 'teacher-general':
       case 'teacher-exercise':
         // 教师场景需要通过 emit 事件触发，因为需要特殊处理
-        $q.notify({
-          type: 'info',
-          message: '教师场景的刷新功能正在开发中',
-          position: 'top',
-          timeout: 2000,
-        })
+        showMessage('教师场景的刷新功能正在开发中', 'info')
         break
       default:
         throw new Error('未知的聊天类型')
     }
   } catch (error) {
     console.error('刷新失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '刷新失败，请稍后重试',
-      position: 'top',
-      timeout: 3000,
-    })
+    showMessage('刷新失败，请稍后重试', 'error')
   } finally {
     isRetrying.value = false
   }
@@ -1163,17 +1136,10 @@ const handleCopy = async () => {
     await navigator.clipboard.writeText(textContent)
 
     // 显示复制成功提示
-    $q.notify({
-      type: 'positive',
-      message: '已复制到剪贴板',
-      position: 'top',
-      timeout: 2000,
-      icon: 'content_copy',
-    })
-
-    showActionMenu.value = false
+    showMessage('已复制到剪贴板', 'success')
   } catch (error) {
     console.error('复制失败:', error)
+
     // 降级方案：使用传统的复制方法
     try {
       let fallbackTextContent = ''
@@ -1197,23 +1163,10 @@ const handleCopy = async () => {
       document.execCommand('copy')
       document.body.removeChild(textArea)
 
-      $q.notify({
-        type: 'positive',
-        message: '已复制到剪贴板',
-        position: 'top',
-        timeout: 2000,
-        icon: 'content_copy',
-      })
-
-      showActionMenu.value = false
+      showMessage('已复制到剪贴板', 'success')
     } catch (fallbackError) {
       console.error('降级复制也失败:', fallbackError)
-      $q.notify({
-        type: 'negative',
-        message: '复制失败，请重试',
-        position: 'top',
-        timeout: 3000,
-      })
+      showMessage('复制失败，请重试', 'error')
     }
   }
 }
@@ -1611,6 +1564,26 @@ onUnmounted(() => {
             -moz-user-select: none;
             -ms-user-select: none;
             color: #2c3e50;
+
+            /* KaTeX 公式排版修复：避免与文本行重叠/错位 */
+            :deep(.katex) {
+              font-size: 1em;
+              line-height: 1.2;
+              vertical-align: baseline;
+              white-space: normal;
+            }
+
+            :deep(.katex-display) {
+              display: block;
+              margin: 8px 0;
+              overflow-x: auto;
+              overflow-y: hidden;
+              -webkit-overflow-scrolling: touch;
+            }
+
+            :deep(.katex-display > .katex) {
+              white-space: nowrap;
+            }
 
             :deep(h1),
             :deep(h2),

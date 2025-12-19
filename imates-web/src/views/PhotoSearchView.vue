@@ -233,6 +233,9 @@
     <!-- 抽屉：拍照问答结果 -->
     <Transition name="drawer-slide">
       <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
+        <button type="button" class="drawer-back-btn" @click="handleCloseDrawer">
+          <img src="/icons/goback.svg" alt="返回" class="drawer-back-icon" />
+        </button>
         <div class="drawer-content" @click.stop>
           <!-- 识别图片区域 -->
           <!-- 图片标签页 -->
@@ -2484,6 +2487,29 @@ onUnmounted(() => {
   margin: 12px;
 }
 
+.drawer-back-btn {
+  border-radius: 50%;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 35px;
+  height: 35px;
+  border: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.drawer-back-icon {
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 // 抽屉动画
 .drawer-slide-enter-active {
   transition: all 0.3s ease-out;
@@ -2765,6 +2791,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   max-height: 60vh; // 限制最大高度，避免占满整个屏幕
+
+  :deep(.chat-messages-container) {
+    background-color: #ffffff;
+  }
+
+  :deep(.chat-input-area) {
+      background-color: #ffffff;
+    }
 }
 
 .chat-action-group {

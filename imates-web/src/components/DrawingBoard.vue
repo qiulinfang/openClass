@@ -36,7 +36,8 @@
       @touchmove="handleTouchMove"
       @touchend="handleTouchEnd"
     >
-      <canvas ref="canvasRef" class="canvas-container" :style="canvasStyle"></canvas>
+      <canvas ref="historyCanvasRef" class="canvas-container canvas-history" :style="canvasStyle"></canvas>
+      <canvas ref="liveCanvasRef" class="canvas-container canvas-live" :style="canvasStyle"></canvas>
       <!-- Signature Pad 画布（覆盖在主画布上，仅在signature模式下显示） -->
       <canvas 
         ref="signaturePadRef" 
@@ -85,11 +86,22 @@
         </q-btn>
 
       </div>
+
     </div>
 
     <!-- 底部插槽（用于白板页控制等） -->
     <div class="toolbar-bottom-wrapper">
       <slot name="toolbar-bottom" />
+      
+      <q-btn
+        v-if="enableDebugTools"
+        flat
+        round
+        dense
+        icon="tune"
+        class="pf-config-btn"
+        @click.stop="pfConfigDialogVisible = true"
+      />
     </div>
 
     <!-- 清空画布确认对话框 -->
@@ -110,6 +122,13 @@
         确定要清空当前草稿内容？
       </div>
     </DraggableDialog>
+
+    <PerfectFreehandConfigDialog
+      v-model="pfConfigDialogVisible"
+      :pf-config="pfConfig"
+      @update:pfConfig="updatePfConfig"
+      @reset="resetPfConfig"
+    />
   </div>
 </template>
 
@@ -117,8 +136,12 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
 import DraggableDialog from './DraggableDialog.vue'
+import PerfectFreehandConfigDialog from './debug/PerfectFreehandConfigDialog.vue'
 import SignaturePad from 'signature_pad'
 import type { ExerciseItem } from '@/types'
+import { getStroke } from 'perfect-freehand'
+
+const enableDebugTools = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
 
 // Props 定义
 interface Props {
@@ -176,6 +199,8 @@ interface DrawObject {
   color: string
   lineWidth: number
   points?: { x: number; y: number }[]
+  pfTaperStart?: boolean
+  pfTaperEnd?: boolean
   x?: number
   y?: number
   width?: number
@@ -207,8 +232,26 @@ interface ObjectPosition {
 }
 
 // Canvas 引用
-const canvasRef = ref<HTMLCanvasElement>()
+const historyCanvasRef = ref<HTMLCanvasElement>()
+const liveCanvasRef = ref<HTMLCanvasElement>()
 let ctx: CanvasRenderingContext2D | null = null
+let liveCtx: CanvasRenderingContext2D | null = null
+
+// history 层是否需要重绘（objects/background 变化时置为 true）
+let historyDirty = true
+
+// ==================== DPR 适配 ====================
+const dpr = Math.max(1, window.devicePixelRatio || 1)
+
+const resizeCanvasBackingStore = (canvas: HTMLCanvasElement, cssW: number, cssH: number) => {
+  canvas.width = Math.round(cssW * dpr)
+  canvas.height = Math.round(cssH * dpr)
+}
+
+const prepareCtxForLogicalDrawing = (c: CanvasRenderingContext2D) => {
+  // 先重置矩阵，再按 DPR 缩放：后续绘制使用逻辑坐标（CSS px）
+  c.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
 
 // 画布尺寸（如果外部通过 props.width / props.height 指定，则优先使用）
 const canvasWidth = ref<number>(props.width ?? 1000)
@@ -223,6 +266,34 @@ const toolConfig = ref<{ color?: string; size?: number; handwritingStyle?: 'sign
   size: 3,
   handwritingStyle: 'normal',
 })
+
+const pfConfigDialogVisible = ref(false)
+
+const DEFAULT_PF_CONFIG = {
+  size: 3,
+  // 默认改为“普通马克笔”：线宽更稳定、无笔锋
+  // 更新：默认风格改为“圆珠笔”（线宽稳定 + 轻微顺滑），仍然不需要笔锋
+  thinning: 0.15,
+  smoothing: 0.65,
+  streamline: 0.7,
+  taper: 0,
+  startTaper: 0,
+  endTaper: 0,
+  startCap: true,
+  endCap: true,
+  simulatePressure: false,
+  easingName: 'linear',
+}
+
+const pfConfig = ref({ ...DEFAULT_PF_CONFIG })
+
+const resetPfConfig = () => {
+  pfConfig.value = { ...DEFAULT_PF_CONFIG }
+}
+
+const updatePfConfig = (v: typeof pfConfig.value) => {
+  pfConfig.value = v
+}
 
 // 初始化时如果有强制颜色，覆盖一次
 if (props.forcePenColor) {
@@ -279,6 +350,206 @@ const drawSignaturePath = (
   ctx.restore()
 }
 
+const drawNormalSmoothPath = (
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+) => {
+  if (points.length < 2) return
+
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y)
+    ctx.stroke()
+    return
+  }
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i]
+    const next = points[i + 1]
+    const midX = (p.x + next.x) / 2
+    const midY = (p.y + next.y) / 2
+    ctx.quadraticCurveTo(p.x, p.y, midX, midY)
+  }
+
+  const last = points[points.length - 1]
+  ctx.lineTo(last.x, last.y)
+  ctx.stroke()
+}
+
+const drawNormalVariableWidthPath = (
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+  baseWidth: number,
+) => {
+  if (points.length < 2) return
+
+  const chaikin = (pts: { x: number; y: number }[], iterations: number) => {
+    if (pts.length < 3 || iterations <= 0) return pts
+    let cur = pts
+    for (let it = 0; it < iterations; it++) {
+      const next: { x: number; y: number }[] = [cur[0]]
+      for (let i = 0; i < cur.length - 1; i++) {
+        const p0 = cur[i]
+        const p1 = cur[i + 1]
+        next.push({
+          x: p0.x * 0.75 + p1.x * 0.25,
+          y: p0.y * 0.75 + p1.y * 0.25,
+        })
+        next.push({
+          x: p0.x * 0.25 + p1.x * 0.75,
+          y: p0.y * 0.25 + p1.y * 0.75,
+        })
+      }
+      next.push(cur[cur.length - 1])
+      cur = next
+      if (cur.length > 600) break
+    }
+    return cur
+  }
+
+  const smoothIterations = points.length > 8 ? 1 : 0
+  const drawPoints = smoothIterations ? chaikin(points, smoothIterations) : points
+
+  // 速度（相邻点距离）越大线越细；越小越粗。纯函数、确定性。
+  const minW = Math.max(0.6, baseWidth * 0.55)
+  const maxW = Math.max(minW, baseWidth * 1.25)
+
+  const widthFromDist = (dist: number) => {
+    const t = clamp(dist / 10, 0, 1)
+    return maxW - (maxW - minW) * t
+  }
+
+  // 用“分段 stroke”实现可变线宽：视觉上更像笔锋，成本也可控。
+  for (let i = 1; i < drawPoints.length; i++) {
+    const p0 = drawPoints[i - 1]
+    const p1 = drawPoints[i]
+    const dx = p1.x - p0.x
+    const dy = p1.y - p0.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    const w = widthFromDist(dist)
+
+    ctx.lineWidth = w
+    ctx.beginPath()
+    ctx.moveTo(p0.x, p0.y)
+    ctx.lineTo(p1.x, p1.y)
+    ctx.stroke()
+  }
+}
+
+const drawNormalFilledStroke = (
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+  baseWidth: number,
+  mode: 'live' | 'final' = 'live',
+  taperStart = true,
+  taperEnd = true,
+) => {
+  if (points.length === 0) return
+
+  // perfect-freehand 期望 points = [x, y, pressure?]，pressure 可选
+  const pfPoints: Array<[number, number, number?]> = points.map((p) => [p.x, p.y])
+
+  const cfg = pfConfig.value
+  // 关键：为了避免“分段固化”时段与段之间出现缝隙，live/final 必须使用一致的 PF 参数。
+  // size 使用倍率：pfConfig.size 相对于默认 size 的比例，乘到 baseWidth 上。
+  const sizeScale = DEFAULT_PF_CONFIG.size > 0 ? cfg.size / DEFAULT_PF_CONFIG.size : 1
+  const size = Math.max(1, baseWidth * sizeScale)
+  const thinning = cfg.thinning
+  const smoothing = cfg.smoothing
+  const streamline = cfg.streamline
+  const taper = cfg.taper
+
+  const easing =
+    cfg.easingName === 'easeInOut'
+      ? (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+      : cfg.easingName === 'easeOut'
+        ? (t: number) => 1 - Math.pow(1 - t, 2)
+        : cfg.easingName === 'easeIn'
+          ? (t: number) => t * t
+          : (t: number) => t
+
+  const startTaper = taperStart ? taper : 0
+  const endTaper = taperEnd ? taper : 0
+  const startCap = cfg.startCap && startTaper > 0
+  const endCap = cfg.endCap && endTaper > 0
+
+  const startTaper2 = taperStart ? Math.max(0, cfg.startTaper) : 0
+  const endTaper2 = taperEnd ? Math.max(0, cfg.endTaper) : 0
+  const startCap2 = cfg.startCap && (startTaper2 > 0 || startCap)
+  const endCap2 = cfg.endCap && (endTaper2 > 0 || endCap)
+
+  // 单点（点击/极短移动）也要有可见笔迹：用圆点兜底
+  // 这样不会依赖 addDrawPointIfFarEnough 的距离阈值。
+  if (pfPoints.length === 1) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(pfPoints[0][0], pfPoints[0][1], size / 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  const stroke = getStroke(pfPoints, {
+    size,
+    thinning,
+    smoothing,
+    streamline,
+    easing,
+    simulatePressure: cfg.simulatePressure,
+    start: { taper: startTaper2, cap: startCap2 },
+    end: { taper: endTaper2, cap: endCap2 },
+  })
+
+  if (!stroke || stroke.length === 0) return
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(stroke[0][0], stroke[0][1])
+  for (let i = 1; i < stroke.length; i++) {
+    ctx.lineTo(stroke[i][0], stroke[i][1])
+  }
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+
+const distPointToSegment = (
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) => {
+  const abx = b.x - a.x
+  const aby = b.y - a.y
+  const apx = p.x - a.x
+  const apy = p.y - a.y
+
+  const ab2 = abx * abx + aby * aby
+  if (ab2 === 0) {
+    return Math.sqrt(apx * apx + apy * apy)
+  }
+  const t = clamp((apx * abx + apy * aby) / ab2, 0, 1)
+  const cx = a.x + abx * t
+  const cy = a.y + aby * t
+  const dx = p.x - cx
+  const dy = p.y - cy
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+const isPointNearPath = (
+  p: { x: number; y: number },
+  points: { x: number; y: number }[],
+  tolerance: number,
+) => {
+  if (!points || points.length < 2) return false
+  for (let i = 1; i < points.length; i++) {
+    const d = distPointToSegment(p, points[i - 1], points[i])
+    if (d <= tolerance) return true
+  }
+  return false
+}
+
 // ==================== 绘制对象管理 ====================
 // 绘制对象列表
 const objects = ref<DrawObject[]>([])
@@ -294,6 +565,7 @@ const canRedo = computed(() => historyIndex.value < history.value.length - 1)
 // 当前绘制状态
 const isDrawing = ref(false)
 const currentPath = ref<{ x: number; y: number }[]>([])
+const strokeHasFlushedChunks = ref(false)
 const startPoint = ref<{ x: number; y: number } | null>(null)
 const tempObject = ref<DrawObject | null>(null)
 
@@ -335,7 +607,23 @@ let singleTouchTimer: number | null = null
 // ==================== 普通画笔采样与平滑参数 ====================
 
 // 普通 draw 模式下，相邻采样点的最小距离平方（画布坐标系）
-const MIN_DRAW_POINT_DIST2 = 0.8 * 0.8
+// 注意：这里的点坐标已经是 world 坐标（逻辑坐标），不是 backing store 像素。
+// 采样策略：
+// - 慢速更密（更顺滑）
+// - 快速更稀（更省性能）
+// - 距离过大时插点，避免断线
+const MIN_DRAW_POINT_DIST = 0.6
+// 降低高速场景的“稀疏采样”强度，避免快速画圆出现锯齿
+const MAX_DRAW_POINT_DIST = 1.4
+// 距离过大时更积极插点，避免弧线段过长
+const MAX_DRAW_SEGMENT_LEN = 4
+
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
+
+// 实时绘制时单笔过长会导致每帧轮廓重算越来越慢（掉帧->丢点->锯齿加剧）。
+// 这里做“分段固化”：超过阈值就把前段追加到 objects，currentPath 只保留尾部继续。
+const LIVE_STROKE_CHUNK_POINTS = 220
+const LIVE_STROKE_CHUNK_OVERLAP_POINTS = 8
 
 // 在现有路径上追加一个点：仅当与上一个点距离足够远时才追加
 const addDrawPointIfFarEnough = (
@@ -349,8 +637,27 @@ const addDrawPointIfFarEnough = (
   const last = path[path.length - 1]
   const dx = point.x - last.x
   const dy = point.y - last.y
-  const dist2 = dx * dx + dy * dy
-  if (dist2 >= MIN_DRAW_POINT_DIST2) {
+  const dist = Math.sqrt(dx * dx + dy * dy)
+
+  // 自适应阈值：速度越快（dist 越大）采样越稀
+  const t = clamp(dist / 18, 0, 1)
+  const minDist = MIN_DRAW_POINT_DIST + (MAX_DRAW_POINT_DIST - MIN_DRAW_POINT_DIST) * t
+
+  // 距离很大：插点补线，避免断线
+  if (dist > MAX_DRAW_SEGMENT_LEN) {
+    const steps = Math.ceil(dist / MAX_DRAW_SEGMENT_LEN)
+    for (let i = 1; i <= steps; i++) {
+      const k = i / steps
+      const p = {
+        x: last.x + dx * k,
+        y: last.y + dy * k,
+      }
+      path.push(p)
+    }
+    return
+  }
+
+  if (dist >= minDist) {
     path.push(point)
   }
 }
@@ -395,10 +702,53 @@ const canvasStyle = computed(() => {
   return {
     width: `${canvasWidth.value}px`,
     height: `${canvasHeight.value}px`,
-    // 先居中，再偏移，最后缩放（从右往左执行）
-    transform: `translate(-50%, -50%) translate(${canvasOffset.value.x}px, ${canvasOffset.value.y}px) scale(${zoomLevel.value})`,
+    // 仅做居中，缩放/平移由 viewport（ctx transform）完成，避免 CSS scale 导致位图放大变糊
+    transform: `translate(-50%, -50%)`,
   }
 })
+
+// ==================== viewport（世界坐标 -> 屏幕坐标） ====================
+// 约定：screen = canvasOffset + world * zoomLevel
+const screenToWorld = (p: { x: number; y: number }) => {
+  return {
+    x: (p.x - canvasOffset.value.x) / zoomLevel.value,
+    y: (p.y - canvasOffset.value.y) / zoomLevel.value,
+  }
+}
+
+const applyViewportTransform = (c: CanvasRenderingContext2D) => {
+  c.translate(canvasOffset.value.x, canvasOffset.value.y)
+  c.scale(zoomLevel.value, zoomLevel.value)
+}
+
+// ==================== 渲染节流（rAF 合帧） ====================
+let rafRenderId: number | null = null
+let renderScheduled = false
+
+const scheduleRender = () => {
+  if (renderScheduled) return
+  renderScheduled = true
+  rafRenderId = window.requestAnimationFrame(() => {
+    renderScheduled = false
+    rafRenderId = null
+    render()
+  })
+}
+
+// ==================== 坐标换算缓存（避免 move 频繁读布局） ====================
+let cachedCanvasRect: DOMRect | null = null
+let cachedScaleX = 1
+let cachedScaleY = 1
+
+const updateCanvasRectCache = () => {
+  const el = liveCanvasRef.value || historyCanvasRef.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  cachedCanvasRect = rect
+  // 这里要返回“逻辑坐标（CSS px）”，而不是 backing store 像素坐标
+  cachedScaleX = canvasWidth.value / rect.width
+  cachedScaleY = canvasHeight.value / rect.height
+}
 
 // 初始化画布
 const initCanvas = async () => {
@@ -406,19 +756,21 @@ const initCanvas = async () => {
   await nextTick()
 
   // 获取canvas元素和上下文
-  if (!canvasRef.value) return
+  if (!historyCanvasRef.value || !liveCanvasRef.value) return
 
-  ctx = canvasRef.value.getContext('2d')
+  ctx = historyCanvasRef.value.getContext('2d')
   if (!ctx) return
 
+  liveCtx = liveCanvasRef.value.getContext('2d')
+  if (!liveCtx) return
+
   // 设置画布尺寸
-  canvasRef.value.width = canvasWidth.value
-  canvasRef.value.height = canvasHeight.value
+  resizeCanvasBackingStore(historyCanvasRef.value, canvasWidth.value, canvasHeight.value)
+  resizeCanvasBackingStore(liveCanvasRef.value, canvasWidth.value, canvasHeight.value)
 
   // 初始化 Signature Pad（用于交互式绘制）
   if (signaturePadRef.value) {
-    signaturePadRef.value.width = canvasWidth.value
-    signaturePadRef.value.height = canvasHeight.value
+    resizeCanvasBackingStore(signaturePadRef.value, canvasWidth.value, canvasHeight.value)
     signaturePad = new SignaturePad(signaturePadRef.value, {
       backgroundColor: 'rgba(255, 255, 255, 0)',
       penColor: toolConfig.value.color || '#000000',
@@ -438,6 +790,7 @@ const initCanvas = async () => {
     loadBackgroundImage(props.backgroundImage)
   } else {
     // 渲染画布
+    historyDirty = true
     render()
   }
 }
@@ -455,6 +808,7 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
     backgroundImg.value = null
     backgroundLoaded.value = false
     bgDrawParams.value = null
+    historyDirty = true
     render()
     return Promise.resolve()
   }
@@ -482,7 +836,7 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
 
     // 优先级 1：doubleHeight 模式（宽度=容器宽，高度=容器高*2）
     if (useDoubleHeight) {
-      const wrapper = canvasRef.value?.parentElement
+      const wrapper = historyCanvasRef.value?.parentElement
       if (wrapper) {
         const containerW = wrapper.clientWidth
         const baseH = wrapper.clientHeight
@@ -497,13 +851,14 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
         // 画布尺寸
         canvasWidth.value = containerW
         canvasHeight.value = targetH
-        if (canvasRef.value) {
-          canvasRef.value.width = containerW
-          canvasRef.value.height = targetH
+        if (historyCanvasRef.value) {
+          resizeCanvasBackingStore(historyCanvasRef.value, containerW, targetH)
+        }
+        if (liveCanvasRef.value) {
+          resizeCanvasBackingStore(liveCanvasRef.value, containerW, targetH)
         }
         if (signaturePadRef.value) {
-          signaturePadRef.value.width = containerW
-          signaturePadRef.value.height = targetH
+          resizeCanvasBackingStore(signaturePadRef.value, containerW, targetH)
         }
 
         // 背景图按 contain 缩放，并在四周留出统一 padding，避免紧贴画布边缘
@@ -528,7 +883,7 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
       let containerH = props.height ?? 0
 
       if (!containerW || !containerH) {
-        const wrapper = canvasRef.value?.parentElement
+        const wrapper = historyCanvasRef.value?.parentElement
         if (wrapper) {
           containerW = wrapper.clientWidth
           containerH = wrapper.clientHeight
@@ -544,13 +899,14 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
         // 设置 Canvas 尺寸为容器/指定尺寸
         canvasWidth.value = containerW
         canvasHeight.value = containerH
-        if (canvasRef.value) {
-          canvasRef.value.width = containerW
-          canvasRef.value.height = containerH
+        if (historyCanvasRef.value) {
+          resizeCanvasBackingStore(historyCanvasRef.value, containerW, containerH)
+        }
+        if (liveCanvasRef.value) {
+          resizeCanvasBackingStore(liveCanvasRef.value, containerW, containerH)
         }
         if (signaturePadRef.value) {
-          signaturePadRef.value.width = containerW
-          signaturePadRef.value.height = containerH
+          resizeCanvasBackingStore(signaturePadRef.value, containerW, containerH)
         }
 
         // 计算缩放与偏移：等比 contain，紧贴 Canvas 上边缘（offsetY = 0），水平居中
@@ -564,9 +920,13 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
         // 无法得到容器尺寸时，退回到图片尺寸
         canvasWidth.value = img.width
         canvasHeight.value = img.height
-        if (canvasRef.value) {
-          canvasRef.value.width = img.width
-          canvasRef.value.height = img.height
+        if (historyCanvasRef.value) {
+          historyCanvasRef.value.width = img.width
+          historyCanvasRef.value.height = img.height
+        }
+        if (liveCanvasRef.value) {
+          liveCanvasRef.value.width = img.width
+          liveCanvasRef.value.height = img.height
         }
         if (signaturePadRef.value) {
           signaturePadRef.value.width = img.width
@@ -578,19 +938,21 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
       // fitBackground 模式：Canvas 尺寸 = 图片尺寸
       canvasWidth.value = img.width
       canvasHeight.value = img.height
-      if (canvasRef.value) {
-        canvasRef.value.width = img.width
-        canvasRef.value.height = img.height
+      if (historyCanvasRef.value) {
+        resizeCanvasBackingStore(historyCanvasRef.value, img.width, img.height)
+      }
+      if (liveCanvasRef.value) {
+        resizeCanvasBackingStore(liveCanvasRef.value, img.width, img.height)
       }
       if (signaturePadRef.value) {
-        signaturePadRef.value.width = img.width
-        signaturePadRef.value.height = img.height
+        resizeCanvasBackingStore(signaturePadRef.value, img.width, img.height)
       }
       bgDrawParams.value = null
     } else {
       bgDrawParams.value = null
     }
 
+      historyDirty = true
       render()
       resolve()
     }
@@ -603,6 +965,7 @@ const loadBackgroundImage = (imageUrl: string): Promise<void> => {
       backgroundImg.value = null
       backgroundLoaded.value = false
       bgDrawParams.value = null
+      historyDirty = true
       render()
       resolve()
     }
@@ -629,131 +992,117 @@ watch(
 
 // 渲染画布
 const render = () => {
-  if (!ctx || !canvasRef.value) return
+  if (!ctx || !historyCanvasRef.value || !liveCtx || !liveCanvasRef.value) return
 
-  // 调试：追踪 render 调用来源
-  console.trace('[DrawingBoard] render() called')
+  if (historyDirty) {
+    // history 层：背景 + 已完成对象（较少重绘）
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, historyCanvasRef.value.width, historyCanvasRef.value.height)
+    prepareCtxForLogicalDrawing(ctx)
+    applyViewportTransform(ctx)
 
-  // 清空画布
-  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+    if (backgroundImg.value && backgroundLoaded.value) {
+      const img = backgroundImg.value
+      const canvas = historyCanvasRef.value
+      if (bgDrawParams.value) {
+        const { scale, offsetX, offsetY } = bgDrawParams.value
+        const drawW = img.width * scale
+        const drawH = img.height * scale
+        ctx.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawW, drawH)
+      } else if (props.fitBackground) {
+        ctx.drawImage(img, 0, 0)
+      } else {
+        const canvasW = canvas.width
+        const canvasH = canvas.height
+        const scale = Math.min(canvasW / img.width, canvasH / img.height)
+        const drawW = img.width * scale
+        const drawH = img.height * scale
+        const offsetX = (canvasW - drawW) / 2
+        const offsetY = (canvasH - drawH) / 2
+        ctx.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawW, drawH)
+      }
+    }
 
-  // 绘制背景图片（如果有）
-  if (backgroundImg.value && backgroundLoaded.value) {
-    const img = backgroundImg.value
-    const canvas = canvasRef.value
-    console.log('[DrawingBoard] render 绘制背景开始', {
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      imgWidth: img.width,
-      imgHeight: img.height,
-      layoutMode: props.layoutMode,
-      fitBackground: props.fitBackground,
-      hasBgDrawParams: !!bgDrawParams.value,
+    objects.value.forEach((obj) => {
+      if (!ctx) return
+      ctx.save()
+      if (obj.opacity !== undefined) {
+        ctx.globalAlpha = obj.opacity
+      }
+      drawObject(ctx, obj)
+      ctx.restore()
     })
-    
-    if (bgDrawParams.value) {
-      // 布局模式（fill / doubleHeight）下：使用预计算的参数绘制
-      const { scale, offsetX, offsetY } = bgDrawParams.value
-      const drawW = img.width * scale
-      const drawH = img.height * scale
-      ctx.drawImage(
-        img,
-        0, 0, img.width, img.height,
-        offsetX, offsetY, drawW, drawH
-      )
-    } else if (props.fitBackground) {
-      // fitBackground 模式：canvas 尺寸等于图片尺寸，直接 1:1 绘制
-      ctx.drawImage(img, 0, 0)
-    } else {
-      // 默认模式：contain 方式绘制
-      const canvasW = canvas.width
-      const canvasH = canvas.height
-      const scale = Math.min(canvasW / img.width, canvasH / img.height)
-      const drawW = img.width * scale
-      const drawH = img.height * scale
-      const offsetX = (canvasW - drawW) / 2
-      const offsetY = (canvasH - drawH) / 2
-      console.log('[DrawingBoard] render 默认模式绘制背景', {
-        canvasW,
-        canvasH,
-        scale,
-        drawW,
-        drawH,
-        offsetX,
-        offsetY,
-      })
-      ctx.drawImage(
-        img,
-        0, 0, img.width, img.height,
-        offsetX, offsetY, drawW, drawH
-      )
+
+    historyDirty = false
+  }
+
+  // live 层：临时对象/选框/高亮/hover（每帧重绘）
+  liveCtx.setTransform(1, 0, 0, 1, 0, 0)
+  liveCtx.clearRect(0, 0, liveCanvasRef.value.width, liveCanvasRef.value.height)
+  prepareCtxForLogicalDrawing(liveCtx)
+  applyViewportTransform(liveCtx)
+
+  // 橡皮擦悬停对象半透明提示
+  if (currentTool.value === 'eraser-draw' && hoveredObject.value !== null) {
+    const obj = objects.value[hoveredObject.value]
+    if (obj) {
+      liveCtx.save()
+      liveCtx.globalAlpha = 0.5
+      drawObject(liveCtx, obj)
+      liveCtx.restore()
     }
   }
 
-  // 绘制所有对象
-  objects.value.forEach((obj, index) => {
-    if (!ctx) return
-
-    // 保存上下文状态
-    ctx.save()
-
-    // 设置透明度（橡皮擦悬停效果）
-    if (index === hoveredObject.value && currentTool.value === 'eraser-draw') {
-      ctx.globalAlpha = 0.5
-    } else if (obj.opacity !== undefined) {
-      ctx.globalAlpha = obj.opacity
-    }
-
-    // 根据类型绘制对象
-    drawObject(obj)
-
-    // 恢复上下文状态
-    ctx.restore()
-
-    // 如果对象被选中，绘制高亮边框
-    if (selectedObjects.value.has(index)) {
+  // 选中对象高亮
+  if (selectedObjects.value.size > 0) {
+    selectedObjects.value.forEach((index) => {
+      const obj = objects.value[index]
+      if (!obj) return
       drawObjectHighlight(obj)
-    }
-  })
-
-  // 绘制临时对象（正在绘制中）
-  if (tempObject.value) {
-    ctx.save()
-    drawObject(tempObject.value)
-    ctx.restore()
+    })
   }
 
-  // 绘制选框
+  // 临时对象
+  if (tempObject.value) {
+    liveCtx.save()
+    const obj = tempObject.value
+    if (obj.type === 'path' && obj.points && obj.points.length > 0 && obj.handwritingStyle !== 'signature') {
+      const taperStart = obj.pfTaperStart !== false
+      const taperEnd = obj.pfTaperEnd !== false
+      liveCtx.fillStyle = obj.color
+      drawNormalFilledStroke(liveCtx, obj.points, obj.lineWidth, 'live', taperStart, taperEnd)
+    } else {
+      drawObject(liveCtx, obj)
+    }
+    liveCtx.restore()
+  }
+
+  // 选框
   if (selectionBox.value) {
     drawSelectionBox(selectionBox.value)
   }
 }
 
 // 绘制单个对象
-const drawObject = (obj: DrawObject) => {
-  if (!ctx) return
-
-  ctx.strokeStyle = obj.color
-  ctx.fillStyle = obj.color
-  ctx.lineWidth = obj.lineWidth
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
+const drawObject = (targetCtx: CanvasRenderingContext2D, obj: DrawObject) => {
+  targetCtx.strokeStyle = obj.color
+  targetCtx.fillStyle = obj.color
+  targetCtx.lineWidth = obj.lineWidth
+  targetCtx.lineCap = 'round'
+  targetCtx.lineJoin = 'round'
 
   switch (obj.type) {
     case 'path':
       // 绘制路径
-      if (obj.points && obj.points.length > 1) {
+      if (obj.points && obj.points.length > 0) {
         if (obj.handwritingStyle === 'signature') {
           // Signature Pad 风格：使用平滑的贝塞尔曲线绘制（模拟Signature Pad效果）
-          drawSignaturePath(ctx, obj.points, obj.lineWidth, obj.color)
+          drawSignaturePath(targetCtx, obj.points, obj.lineWidth, obj.color)
         } else {
-          // 普通风格：使用直线连接
-          ctx.beginPath()
-          ctx.moveTo(obj.points[0].x, obj.points[0].y)
-          for (let i = 1; i < obj.points.length; i++) {
-            ctx.lineTo(obj.points[i].x, obj.points[i].y)
-          }
-          ctx.stroke()
+          // 普通笔：轮廓填充（减少折痕，笔锋更自然）
+          const taperStart = obj.pfTaperStart !== false
+          const taperEnd = obj.pfTaperEnd !== false
+          drawNormalFilledStroke(targetCtx, obj.points, obj.lineWidth, 'final', taperStart, taperEnd)
         }
       }
       break
@@ -766,16 +1115,16 @@ const drawObject = (obj: DrawObject) => {
         obj.width !== undefined &&
         obj.height !== undefined
       ) {
-        ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+        targetCtx.strokeRect(obj.x, obj.y, obj.width, obj.height)
       }
       break
 
     case 'circle':
       // 绘制圆形
       if (obj.x !== undefined && obj.y !== undefined && obj.radius !== undefined) {
-        ctx.beginPath()
-        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2)
-        ctx.stroke()
+        targetCtx.beginPath()
+        targetCtx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2)
+        targetCtx.stroke()
       }
       break
 
@@ -787,10 +1136,10 @@ const drawObject = (obj: DrawObject) => {
         obj.x2 !== undefined &&
         obj.y2 !== undefined
       ) {
-        ctx.beginPath()
-        ctx.moveTo(obj.x1, obj.y1)
-        ctx.lineTo(obj.x2, obj.y2)
-        ctx.stroke()
+        targetCtx.beginPath()
+        targetCtx.moveTo(obj.x1, obj.y1)
+        targetCtx.lineTo(obj.x2, obj.y2)
+        targetCtx.stroke()
       }
       break
 
@@ -802,20 +1151,20 @@ const drawObject = (obj: DrawObject) => {
         obj.width !== undefined &&
         obj.height !== undefined
       ) {
-        ctx.beginPath()
-        ctx.moveTo(obj.x + obj.width / 2, obj.y)
-        ctx.lineTo(obj.x, obj.y + obj.height)
-        ctx.lineTo(obj.x + obj.width, obj.y + obj.height)
-        ctx.closePath()
-        ctx.stroke()
+        targetCtx.beginPath()
+        targetCtx.moveTo(obj.x + obj.width / 2, obj.y)
+        targetCtx.lineTo(obj.x, obj.y + obj.height)
+        targetCtx.lineTo(obj.x + obj.width, obj.y + obj.height)
+        targetCtx.closePath()
+        targetCtx.stroke()
       }
       break
 
     case 'text':
       // 绘制文本
       if (obj.text && obj.x !== undefined && obj.y !== undefined) {
-        ctx.font = `${obj.fontSize || 16}px Arial`
-        ctx.fillText(obj.text, obj.x, obj.y)
+        targetCtx.font = `${obj.fontSize || 16}px Arial`
+        targetCtx.fillText(obj.text, obj.x, obj.y)
       }
       break
   }
@@ -823,38 +1172,38 @@ const drawObject = (obj: DrawObject) => {
 
 // 绘制选框（虚线矩形）
 const drawSelectionBox = (box: { x: number; y: number; width: number; height: number }) => {
-  if (!ctx) return
+  if (!liveCtx) return
 
-  ctx.save()
-  ctx.setLineDash([5, 5])
-  ctx.strokeStyle = '#0080FF'
-  ctx.lineWidth = 2
-  ctx.strokeRect(box.x, box.y, box.width, box.height)
-  ctx.restore()
+  liveCtx.save()
+  liveCtx.setLineDash([5, 5])
+  liveCtx.strokeStyle = '#0080FF'
+  liveCtx.lineWidth = 2
+  liveCtx.strokeRect(box.x, box.y, box.width, box.height)
+  liveCtx.restore()
 }
 
 // 绘制对象高亮边框
 const drawObjectHighlight = (obj: DrawObject) => {
-  if (!ctx) return
+  if (!liveCtx) return
 
   const bounds = getObjectBounds(obj)
   if (!bounds) return
 
-  ctx.save()
-  ctx.strokeStyle = '#0080FF'
-  ctx.lineWidth = 3
-  ctx.setLineDash([5, 5])
+  liveCtx.save()
+  liveCtx.strokeStyle = '#0080FF'
+  liveCtx.lineWidth = 3
+  liveCtx.setLineDash([5, 5])
 
   // 绘制高亮矩形（稍微放大）
   const padding = 5
-  ctx.strokeRect(
+  liveCtx.strokeRect(
     bounds.x - padding,
     bounds.y - padding,
     bounds.width + padding * 2,
     bounds.height + padding * 2,
   )
 
-  ctx.restore()
+  liveCtx.restore()
 }
 
 // 获取对象边界
@@ -931,6 +1280,13 @@ const getObjectBounds = (
 
 // 检查点是否在对象内
 const isPointInObject = (x: number, y: number, obj: DrawObject): boolean => {
+  // path：用点到线段距离做命中（更准）
+  if (obj.type === 'path' && obj.points && obj.points.length > 1) {
+    // 轮廓填充后“视觉宽度”会比 baseWidth 略大（maxW ~ 1.25 * baseWidth）
+    const tol = Math.max(10, (obj.lineWidth || 3) * 2)
+    return isPointNearPath({ x, y }, obj.points, tol)
+  }
+
   const bounds = getObjectBounds(obj)
   if (!bounds) return false
 
@@ -990,9 +1346,11 @@ const findObjectsInRect = (rect: {
 
 // 获取鼠标在canvas上的坐标
 const getCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } | null => {
-  if (!canvasRef.value) return null
+  const el = liveCanvasRef.value || historyCanvasRef.value
+  if (!el) return null
 
-  const rect = canvasRef.value.getBoundingClientRect()
+  // 优先使用缓存 rect，避免在 move 中频繁触发布局计算
+  const rect = cachedCanvasRect ?? el.getBoundingClientRect()
   let clientX, clientY
 
   if (e instanceof MouseEvent) {
@@ -1007,8 +1365,8 @@ const getCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } |
 
   // 计算 CSS 缩放比例（解决 Canvas 被 CSS 缩放时坐标不准的问题）
   // 注意：rect 已包含 CSS transform scale 的影响，所以 scaleX/Y 已隐式考虑了 zoomLevel
-  const scaleX = canvasRef.value.width / rect.width
-  const scaleY = canvasRef.value.height / rect.height
+  const scaleX = cachedCanvasRect ? cachedScaleX : canvasWidth.value / rect.width
+  const scaleY = cachedCanvasRect ? cachedScaleY : canvasHeight.value / rect.height
 
   return {
     x: (clientX - rect.left) * scaleX,
@@ -1018,8 +1376,11 @@ const getCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } |
 
 // 鼠标按下
 const handleMouseDown = (e: MouseEvent) => {
-  const coords = getCanvasCoords(e)
-  if (!coords) return
+  // 一次交互开始时更新 rect 缓存（后续 move 复用）
+  updateCanvasRectCache()
+  const screen = getCanvasCoords(e)
+  if (!screen) return
+  const coords = screenToWorld(screen)
 
   startPoint.value = coords
   isDrawing.value = true
@@ -1030,8 +1391,8 @@ const handleMouseDown = (e: MouseEvent) => {
       isPanning.value = true
       panStartPoint.value = { x: e.clientX, y: e.clientY }
       panStartOffset.value = { ...canvasOffset.value }
-      if (canvasRef.value) {
-        canvasRef.value.style.cursor = 'grabbing'
+      if (liveCanvasRef.value) {
+        liveCanvasRef.value.style.cursor = 'grabbing'
       }
       break
 
@@ -1057,8 +1418,8 @@ const handleMouseDown = (e: MouseEvent) => {
           objectsOriginalPositions.value.set(index, cloneObjectPosition(obj))
         })
 
-        if (canvasRef.value) {
-          canvasRef.value.style.cursor = 'grabbing'
+        if (liveCanvasRef.value) {
+          liveCanvasRef.value.style.cursor = 'grabbing'
         }
       } else {
         // 点击在空白处或未选中的图形上，开始框选
@@ -1080,6 +1441,7 @@ const handleMouseDown = (e: MouseEvent) => {
         currentPath.value = []
       } else {
         // 普通模式：开始记录路径点
+        strokeHasFlushedChunks.value = false
         currentPath.value = [coords]
       }
       break
@@ -1100,8 +1462,9 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   // 手型工具拖动
   if (isPanning.value && panStartPoint.value) {
-    const dx = e.clientX - panStartPoint.value.x
-    const dy = e.clientY - panStartPoint.value.y
+    // client 像素 -> 逻辑 canvas 坐标（CSS px），与 canvasOffset 同单位
+    const dx = (e.clientX - panStartPoint.value.x) * cachedScaleX
+    const dy = (e.clientY - panStartPoint.value.y) * cachedScaleY
     canvasOffset.value = {
       x: panStartOffset.value.x + dx,
       y: panStartOffset.value.y + dy,
@@ -1109,15 +1472,16 @@ const handleMouseMove = (e: MouseEvent) => {
     return
   }
 
-  const coords = getCanvasCoords(e)
-  if (!coords) return
+  const screen = getCanvasCoords(e)
+  if (!screen) return
+  const coords = screenToWorld(screen)
 
   // 橡皮擦悬停效果
   if (currentTool.value === 'eraser-draw') {
     const objIndex = findObjectAtPoint(coords.x, coords.y)
     if (hoveredObject.value !== objIndex) {
       hoveredObject.value = objIndex
-      render()
+      scheduleRender()
     }
   }
 
@@ -1141,7 +1505,7 @@ const handleMouseMove = (e: MouseEvent) => {
           }
         })
 
-        render()
+        scheduleRender()
       } else if (selectionBox.value) {
         // 绘制选框
         selectionBox.value = {
@@ -1150,7 +1514,7 @@ const handleMouseMove = (e: MouseEvent) => {
           width: Math.abs(coords.x - startPoint.value.x),
           height: Math.abs(coords.y - startPoint.value.y),
         }
-        render()
+        scheduleRender()
       }
       break
 
@@ -1160,14 +1524,48 @@ const handleMouseMove = (e: MouseEvent) => {
       if (toolConfig.value.handwritingStyle !== 'signature') {
         // 使用距离阈值控制采样密度，减少锯齿与过密点
         addDrawPointIfFarEnough(currentPath.value, coords)
+
+        // 分段固化：避免 currentPath 过长导致每帧 getStroke 变慢
+        if (currentPath.value.length >= LIVE_STROKE_CHUNK_POINTS) {
+          // 保留尾部重叠点，保证同一笔的几何连续（优先消除“缝隙/断裂”）
+          // 这里采用“重叠覆盖”策略：固化段保留更多尾部点，与下一段中心线重叠。
+          // 在我们关闭中间段 taper/cap 的前提下，重叠带来的轻微变厚通常比“断裂”更可接受。
+          const lastIdx = currentPath.value.length - 1
+          const tailStart = Math.max(0, lastIdx - LIVE_STROKE_CHUNK_OVERLAP_POINTS)
+          // 固化段：不包含最后一个点（最后一个点会在下一段继续被更新/修正）
+          const chunkPoints = currentPath.value.slice(0, lastIdx)
+          // 下一段：保留尾部重叠点
+          const tailPoints = currentPath.value.slice(tailStart)
+          if (chunkPoints.length > 1) {
+            objects.value.push({
+              type: 'path',
+              color: toolConfig.value.color || '#000000',
+              lineWidth: toolConfig.value.size || 3,
+              points: chunkPoints,
+              handwritingStyle: 'normal',
+              // 中间段不做 taper（否则每段末端变尖，视觉上像断开）
+              pfTaperStart: !strokeHasFlushedChunks.value,
+              pfTaperEnd: false,
+            })
+            historyDirty = true
+            strokeHasFlushedChunks.value = true
+          }
+          // 继续当前一笔：保留尾部重叠点作为下一段起点
+          currentPath.value = tailPoints
+        }
+
         tempObject.value = {
           type: 'path',
           color: toolConfig.value.color || '#000000',
           lineWidth: toolConfig.value.size || 3,
           points: [...currentPath.value],
           handwritingStyle: 'normal',
+          // 如果前面已经固化过分段，那么当前段不是整笔起点：关闭起笔 taper，避免连接处变细
+          pfTaperStart: !strokeHasFlushedChunks.value,
+          // 实时预览永远不做“收笔 taper”（否则每帧都在收尖，视觉上会断）
+          pfTaperEnd: false,
         }
-        render()
+        scheduleRender()
       }
       break
 
@@ -1187,7 +1585,7 @@ const handleMouseMove = (e: MouseEvent) => {
         width: Math.abs(coords.x - startPoint.value.x),
         height: Math.abs(coords.y - startPoint.value.y),
       }
-      render()
+      scheduleRender()
       break
 
     case 'circle':
@@ -1206,7 +1604,7 @@ const handleMouseMove = (e: MouseEvent) => {
         y: centerY,
         radius,
       }
-      render()
+      scheduleRender()
       break
 
     case 'line':
@@ -1220,7 +1618,7 @@ const handleMouseMove = (e: MouseEvent) => {
         x2: coords.x,
         y2: coords.y,
       }
-      render()
+      scheduleRender()
       break
 
     case 'triangle':
@@ -1234,19 +1632,21 @@ const handleMouseMove = (e: MouseEvent) => {
         width: Math.abs(coords.x - startPoint.value.x),
         height: Math.abs(coords.y - startPoint.value.y),
       }
-      render()
+      scheduleRender()
       break
   }
 }
 
 // 鼠标抬起
 const handleMouseUp = () => {
+  // 一次交互结束后清空缓存，避免布局变化导致坐标漂移
+  cachedCanvasRect = null
   // 手型工具：结束拖动
   if (isPanning.value) {
     isPanning.value = false
     panStartPoint.value = null
-    if (canvasRef.value) {
-      canvasRef.value.style.cursor = currentTool.value === 'hand' ? 'grab' : 'crosshair'
+    if (liveCanvasRef.value) {
+      liveCanvasRef.value.style.cursor = currentTool.value === 'hand' ? 'grab' : 'crosshair'
     }
     return
   }
@@ -1266,11 +1666,11 @@ const handleMouseUp = () => {
       // 框选结束，选中与选框相交的所有对象
       const selectedIndices = findObjectsInRect(selectionBox.value)
       selectedObjects.value = new Set(selectedIndices)
-      render()
+      scheduleRender()
     } else {
       // 点击空白处，清空选择
       selectedObjects.value.clear()
-      render()
+      scheduleRender()
     }
 
     // 统一重置选择工具的状态
@@ -1280,12 +1680,13 @@ const handleMouseUp = () => {
     selectionBox.value = null
 
     // 恢复光标
-    if (canvasRef.value) {
-      canvasRef.value.style.cursor = 'crosshair'
+    if (liveCanvasRef.value) {
+      liveCanvasRef.value.style.cursor = 'crosshair'
     }
   } else if (tempObject.value && isDrawing.value && currentTool.value !== 'draw') {
     // 添加临时对象到列表（非draw工具）
     objects.value.push(tempObject.value)
+    historyDirty = true
     tempObject.value = null
     saveState()
     // 第X步：通知父组件内容已变化
@@ -1313,11 +1714,12 @@ const handleMouseUp = () => {
               points: points,
               handwritingStyle: 'signature',
             })
+            historyDirty = true
             saveState()
             
             // 清空Signature Pad并重新渲染主画布
             signaturePad.clear()
-            render()
+            scheduleRender()
             emit('content-change')
           }
         }
@@ -1325,12 +1727,13 @@ const handleMouseUp = () => {
     } else {
       // draw工具普通模式：添加路径对象
       if (tempObject.value && tempObject.value.points && tempObject.value.points.length > 0) {
-        // 对普通画笔路径做一次平滑后再入栈，提升最终线条圆滑度
-        const smoothedPoints = smoothDrawPoints(tempObject.value.points)
         objects.value.push({
           ...tempObject.value,
-          points: smoothedPoints,
+          points: tempObject.value.points,
+          pfTaperStart: !strokeHasFlushedChunks.value,
+          pfTaperEnd: true,
         })
+        historyDirty = true
         saveState()
         emit('content-change')
       }
@@ -1341,6 +1744,7 @@ const handleMouseUp = () => {
   // 统一重置绘制状态
   isDrawing.value = false
   currentPath.value = []
+  strokeHasFlushedChunks.value = false
   startPoint.value = null
 }
 
@@ -1421,6 +1825,8 @@ const handleTouchStart = (e: TouchEvent) => {
     singleTouchTimer = window.setTimeout(() => {
       // 流程：延迟后仍是单指且未开始绘图，执行绘图操作
       if (pendingSingleTouch.value && !isTwoFingerGesture.value) {
+        // 即将触发 mousedown：刷新 rect 缓存，避免首次 move 读布局
+        updateCanvasRectCache()
         const mouseEvent = new MouseEvent('mousedown', {
           clientX: pendingTouchX.value,
           clientY: pendingTouchY.value,
@@ -1501,39 +1907,23 @@ const handleTouchMove = (e: TouchEvent) => {
 
     // 流程：缩放时需要补偿，确保手指下的内容"钉住"
     if (hasZoomIntent) {
-      // 关键算法：保持手指位置的canvas坐标不变
-      // 1. 计算手指在初始canvas上的逻辑坐标（相对于canvas中心）
-      //    由于canvas居中，屏幕中心就是canvas中心
-      //    手指的canvas坐标 = (手指屏幕位置 - 屏幕中心 - offset) / scale
-      
-      // 获取屏幕中心（wrapper中心）
-      if (!canvasRef.value) return
-      const wrapperEl = canvasRef.value.closest('.canvas-wrapper') as HTMLElement
-      if (!wrapperEl) return
-      const wrapperRect = wrapperEl.getBoundingClientRect()
-      const screenCenterX = wrapperRect.left + wrapperRect.width / 2
-      const screenCenterY = wrapperRect.top + wrapperRect.height / 2
-      
-      // 计算手指相对于屏幕中心的位置（初始）
-      const fingerRelativeX = initialTouchCenterX.value - screenCenterX
-      const fingerRelativeY = initialTouchCenterY.value - screenCenterY
-      
-      // 计算手指在canvas上的逻辑坐标
-      const canvasPointX = (fingerRelativeX - initialTouchTranslateX.value) / initialTouchScale.value
-      const canvasPointY = (fingerRelativeY - initialTouchTranslateY.value) / initialTouchScale.value
-      
-      // 2. 应用新的缩放
+      // 以手指中心点作为锚点：保持该点对应的 world 坐标不变
+      const canvasEl = liveCanvasRef.value || historyCanvasRef.value
+      if (!canvasEl) return
+      const rect = canvasEl.getBoundingClientRect()
+      const centerCanvasX = (currentCenter.x - rect.left) * (canvasWidth.value / rect.width)
+      const centerCanvasY = (currentCenter.y - rect.top) * (canvasHeight.value / rect.height)
+
+      // 手势开始时，中心点对应的 world 坐标
+      const startCenterCanvasX = (gestureStartCenterX.value - rect.left) * (canvasWidth.value / rect.width)
+      const startCenterCanvasY = (gestureStartCenterY.value - rect.top) * (canvasHeight.value / rect.height)
+      const worldX = (startCenterCanvasX - initialTouchTranslateX.value) / initialTouchScale.value
+      const worldY = (startCenterCanvasY - initialTouchTranslateY.value) / initialTouchScale.value
+
       zoomLevel.value = clampedScale
-      
-      // 3. 计算新的offset，使该逻辑坐标点保持在当前手指位置
-      //    手指屏幕位置 = 屏幕中心 + canvas坐标 × 新scale + 新offset
-      //    所以：新offset = 手指屏幕位置 - 屏幕中心 - canvas坐标 × 新scale
-      const currentFingerRelativeX = currentCenter.x - screenCenterX
-      const currentFingerRelativeY = currentCenter.y - screenCenterY
-      
       canvasOffset.value = {
-        x: currentFingerRelativeX - canvasPointX * clampedScale,
-        y: currentFingerRelativeY - canvasPointY * clampedScale,
+        x: centerCanvasX - worldX * clampedScale,
+        y: centerCanvasY - worldY * clampedScale,
       }
     } else {
       // 流程：没有缩放意图，只平移
@@ -1655,16 +2045,25 @@ const handleEraser = (coords: { x: number; y: number }) => {
   const toDelete: number[] = []
 
   objects.value.forEach((obj, index) => {
+    if (obj.type === 'path' && obj.points && obj.points.length > 1) {
+      const tol = eraserRadius + (obj.lineWidth || 3)
+      if (isPointNearPath(coords, obj.points, tol)) {
+        toDelete.push(index)
+      }
+      return
+    }
+
     const bounds = getObjectBounds(obj)
     if (!bounds) return
 
-    // 计算橡皮擦圆心到对象边界框最近点的距离
+    // 计算橡皮擦圆心到对象边界框最近点的距离（非 path 仍用 bbox 快速近似）
     const closestX = Math.max(bounds.x, Math.min(coords.x, bounds.x + bounds.width))
     const closestY = Math.max(bounds.y, Math.min(coords.y, bounds.y + bounds.height))
 
-    const distance = Math.sqrt(Math.pow(coords.x - closestX, 2) + Math.pow(coords.y - closestY, 2))
+    const dx = coords.x - closestX
+    const dy = coords.y - closestY
+    const distance = Math.sqrt(dx * dx + dy * dy)
 
-    // 如果距离小于橡皮擦半径，标记删除
     if (distance < eraserRadius) {
       toDelete.push(index)
     }
@@ -1673,6 +2072,7 @@ const handleEraser = (coords: { x: number; y: number }) => {
   // 删除对象
   if (toDelete.length > 0) {
     objects.value = objects.value.filter((_, index) => !toDelete.includes(index))
+    historyDirty = true
     saveState()
     render()
     // 第X步：通知父组件内容已变化
@@ -1696,6 +2096,7 @@ const addText = (coords: { x: number; y: number }) => {
   }
 
   objects.value.push(textObj)
+  historyDirty = true
   saveState()
   render()
   // 第X步：通知父组件内容已变化
@@ -1729,6 +2130,7 @@ const undo = () => {
 
   historyIndex.value--
   objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  historyDirty = true
   render()
   // 第X步：通知父组件内容已变化
   emit('content-change')
@@ -1740,6 +2142,7 @@ const redo = () => {
 
   historyIndex.value++
   objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  historyDirty = true
   render()
   // 第X步：通知父组件内容已变化
   emit('content-change')
@@ -1759,6 +2162,7 @@ const performClearCanvas = () => {
 
   // 保存状态并重新渲染
   saveState()
+  historyDirty = true
   render()
   // 第X步：通知父组件内容已变化
   emit('content-change')
@@ -1797,10 +2201,11 @@ const handleToolChange = (tool: string) => {
   }
 
   // 更新光标样式
-  if (canvasRef.value) {
-    canvasRef.value.style.cursor = tool === 'hand' ? 'grab' : 'crosshair'
+  if (liveCanvasRef.value) {
+    liveCanvasRef.value.style.cursor = tool === 'hand' ? 'grab' : 'crosshair'
   }
 
+  historyDirty = true
   render()
 }
 
@@ -1842,6 +2247,9 @@ const zoomIn = () => {
   zoomLevel.value = Math.min(3, zoomLevel.value + 0.1)
   // 第3步：记录缩放变化
   console.warn('[DrawingBoard] zoomIn: 触发点击，缩放从', before, '到', zoomLevel.value)
+  // viewport 变化需要重绘
+  historyDirty = true
+  scheduleRender()
 }
 
 const zoomOut = () => {
@@ -1855,12 +2263,33 @@ const zoomOut = () => {
   zoomLevel.value = Math.max(0.1, zoomLevel.value - 0.1)
   // 第3步：记录缩放变化
   console.warn('[DrawingBoard] zoomOut: 触发点击，缩放从', before, '到', zoomLevel.value)
+  // viewport 变化需要重绘
+  historyDirty = true
+  scheduleRender()
 }
 
 // 监控缩放变化并记录应用到样式的transform
 watch(zoomLevel, (val, oldVal) => {
   console.warn('[DrawingBoard] zoomLevel变更:', oldVal, '=>', val)
 })
+
+// viewport 变化：需要触发重绘（history 重新按新的 viewport 渲染）
+watch(
+  () => zoomLevel.value,
+  () => {
+    historyDirty = true
+    scheduleRender()
+  },
+)
+
+watch(
+  () => canvasOffset.value,
+  () => {
+    historyDirty = true
+    scheduleRender()
+  },
+  { deep: true },
+)
 
 // 键盘事件处理
 const handleKeyDown = (e: KeyboardEvent) => {
@@ -1910,6 +2339,13 @@ onMounted(() => {
 onUnmounted(() => {
   // 流程：清理资源
   ctx = null
+  liveCtx = null
+
+  if (rafRenderId !== null) {
+    window.cancelAnimationFrame(rafRenderId)
+    rafRenderId = null
+    renderScheduled = false
+  }
 
   // 流程：清理单指延迟定时器
   if (singleTouchTimer !== null) {
@@ -1944,6 +2380,7 @@ defineExpose({
     
     // 重新渲染
     nextTick(() => {
+      historyDirty = true
       render()
     })
   },
@@ -1957,7 +2394,8 @@ defineExpose({
     // 重置缩放和偏移
     zoomLevel.value = props.initialZoom ?? 1
     canvasOffset.value = { x: 0, y: 0 }
-    
+
+    historyDirty = true
     render()
   },
   
@@ -1970,23 +2408,40 @@ defineExpose({
   // 流程：获取缩略图
   getThumbnail: (maxWidth = 200, maxHeight = 150): string => {
     // 第1步：检查canvas是否存在
-    if (!canvasRef.value) return ''
+    if (!historyCanvasRef.value) return ''
+
+    // 确保 history 已是最新
+    if (historyDirty) {
+      render()
+    }
     
     // 第2步：创建临时canvas生成缩略图
-    const sourceCanvas = canvasRef.value
+    const sourceCanvas = historyCanvasRef.value
+    const overlayCanvas = liveCanvasRef.value
     const tempCanvas = document.createElement('canvas')
     const tempCtx = tempCanvas.getContext('2d')
     if (!tempCtx) return ''
+
+    // 先合成一张完整画面（history + live）
+    const compositeCanvas = document.createElement('canvas')
+    compositeCanvas.width = sourceCanvas.width
+    compositeCanvas.height = sourceCanvas.height
+    const compositeCtx = compositeCanvas.getContext('2d')
+    if (!compositeCtx) return ''
+    compositeCtx.drawImage(sourceCanvas, 0, 0)
+    if (overlayCanvas) {
+      compositeCtx.drawImage(overlayCanvas, 0, 0)
+    }
     
     // 第3步：计算缩放比例
-    const scale = Math.min(maxWidth / sourceCanvas.width, maxHeight / sourceCanvas.height)
-    tempCanvas.width = sourceCanvas.width * scale
-    tempCanvas.height = sourceCanvas.height * scale
+    const scale = Math.min(maxWidth / compositeCanvas.width, maxHeight / compositeCanvas.height)
+    tempCanvas.width = compositeCanvas.width * scale
+    tempCanvas.height = compositeCanvas.height * scale
     
     // 第4步：绘制缩略图
     tempCtx.fillStyle = '#ffffff'
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
-    tempCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height)
+    tempCtx.drawImage(compositeCanvas, 0, 0, tempCanvas.width, tempCanvas.height)
     
     // 第5步：返回base64数据
     return tempCanvas.toDataURL('image/png', 0.8)
@@ -1995,10 +2450,16 @@ defineExpose({
   // 流程：导出画布为 JPG 图片
   exportToJpg: (quality = 0.9): string => {
     // 第1步：检查canvas是否存在
-    if (!canvasRef.value) return ''
+    if (!historyCanvasRef.value) return ''
+
+    // 确保 history 已是最新
+    if (historyDirty) {
+      render()
+    }
     
     // 第2步：创建临时canvas（确保有白色背景）
-    const sourceCanvas = canvasRef.value
+    const sourceCanvas = historyCanvasRef.value
+    const overlayCanvas = liveCanvasRef.value
     const tempCanvas = document.createElement('canvas')
     const tempCtx = tempCanvas.getContext('2d')
     if (!tempCtx) return ''
@@ -2011,8 +2472,11 @@ defineExpose({
     tempCtx.fillStyle = '#ffffff'
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
     
-    // 第5步：绘制原canvas内容
+    // 第5步：绘制原canvas内容（history + live）
     tempCtx.drawImage(sourceCanvas, 0, 0)
+    if (overlayCanvas) {
+      tempCtx.drawImage(overlayCanvas, 0, 0)
+    }
     
     // 第6步：返回 JPG base64 数据
     return tempCanvas.toDataURL('image/jpeg', quality)
@@ -2110,6 +2574,15 @@ defineExpose({
   will-change: transform;
 }
 
+ .canvas-history {
+   z-index: 1;
+ }
+
+ .canvas-live {
+   z-index: 2;
+   background-color: transparent;
+ }
+
 .canvas-container:hover {
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.03),
@@ -2173,19 +2646,31 @@ defineExpose({
 }
 
 .zoom-btn:disabled {
-  color: #d1d1d1;
-  cursor: not-allowed;
+color: #d1d1d1;
+cursor: not-allowed;
 }
 
 .zoom-display {
-  color: #1e1e1e;
-  font-size: 13px;
-  font-weight: 500;
-  min-width: 50px;
-  text-align: center;
-  padding: 0 8px;
-  user-select: none;
-  letter-spacing: -0.01em;
+color: #1e1e1e;
+font-size: 13px;
+font-weight: 500;
+min-width: 50px;
+text-align: center;
+padding: 0 8px;
+user-select: none;
+letter-spacing: -0.01em;
+}
+
+.pf-config-help {
+margin-left: 6px;
+color: #9aa0a6;
+}
+
+.pf-config-desc {
+margin-top: 6px;
+font-size: 12px;
+line-height: 16px;
+color: #6b6b6b;
 }
 
 /* 响应式设计 */
@@ -2194,11 +2679,9 @@ defineExpose({
     padding: 16px;
     padding-top: 70px;
   }
-
   .toolbar-wrapper {
     top: 12px;
   }
-
   .zoom-control-panel {
     bottom: 0;
     right: 0;

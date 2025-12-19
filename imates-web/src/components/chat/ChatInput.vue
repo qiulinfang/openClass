@@ -314,7 +314,8 @@ const props = defineProps({
   },
   activeMode: {
     type: Object,
-    required: true,
+    required: false,
+    default: null,
   },
   canSend: {
     type: Boolean,
@@ -400,6 +401,47 @@ const screenshotsToShow = computed<AttachedScreenshot[]>(() => {
 
   return []
 })
+
+watch(
+  () => props.attachedScreenshots,
+  (val) => {
+    console.log('[ChatInput] props.attachedScreenshots changed', {
+      count: Array.isArray(val) ? val.length : 0,
+      items: (Array.isArray(val) ? val : []).map((s) => ({
+        id: s.id,
+        dataUrlHead: (s.dataUrl || '').slice(0, 40),
+      })),
+    })
+  },
+  { deep: true, immediate: true }
+)
+
+watch(
+  () => props.attachedScreenshot,
+  (val) => {
+    console.log('[ChatInput] props.attachedScreenshot changed', {
+      exists: !!val,
+      dataUrlHead: (val?.dataUrl || '').slice(0, 40),
+      width: val?.width,
+      height: val?.height,
+    })
+  },
+  { deep: true, immediate: true }
+)
+
+watch(
+  () => screenshotsToShow.value,
+  (val) => {
+    console.log('[ChatInput] screenshotsToShow changed', {
+      count: Array.isArray(val) ? val.length : 0,
+      items: (Array.isArray(val) ? val : []).map((s) => ({
+        id: s.id,
+        dataUrlHead: (s.dataUrl || '').slice(0, 40),
+      })),
+    })
+  },
+  { deep: true, immediate: true }
+)
 
 // 截断引用内容，最多显示50个字符
 const truncateQuoteContent = (content: string): string => {

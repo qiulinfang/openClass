@@ -9,6 +9,7 @@ import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
 import './styles/native-app.css'
 import './styles/mathlive-custom.css'
 import './styles/gemini-notify.css'
+import 'katex/dist/katex.min.css'
 
 import App from './App.vue'
 import mathjaxPreview from './directives/mathjaxPreview'
