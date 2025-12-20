@@ -385,7 +385,7 @@ class Moon {
     this.scale += Math.abs(diff) > 0.001 ? diff * 0.1 : 0; // 缩放
     if (Math.abs(diff) <= 0.001) this.scale = this.targetScale; // 确保缩放完成
 
-    let targetOp = (this.index === state.focusedIndex) ? 1.0 : 0.5; // 计算透明度
+    const targetOp = (this.index === state.focusedIndex) ? 1.0 : 0.5; // 计算透明度
     this.opacity += (targetOp - this.opacity) * 0.1; // 更新透明度
 
     const currentAngle = state.globalAngle + this.angleOffset;  // 当前角度 
@@ -944,11 +944,11 @@ function drawMultilineTextWithEllipsis(ctx, text, x, y, maxWidth, lineHeight, ma
 
   if (lines.length > maxLines) {
     const lastLineIndex = maxLines - 1;
-    let remainingText = lines.slice(lastLineIndex).join(''); 
+    const remainingText = lines.slice(lastLineIndex).join(''); 
     // 合并剩余行重新计算，确保尽可能多的文字
     // 简单点：取出最后一行原本的内容加上后面的内容尝试截断
     // 这里直接用暴力尝试法
-    let fullRemaining = text.substring(lines.slice(0, lastLineIndex).join('').length);
+    const fullRemaining = text.substring(lines.slice(0, lastLineIndex).join('').length);
     let testStr = fullRemaining;
     while (ctx.measureText(testStr + '...').width > maxWidth && testStr.length > 0) {
       testStr = testStr.slice(0, -1);

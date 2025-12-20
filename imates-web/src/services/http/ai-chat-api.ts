@@ -35,11 +35,7 @@ export class AiChatApi {
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
     try {
-      if (!message.dstUrl) {
-        throw new Error('dstUrl is required. Please set message.dstUrl explicitly in the message builder.')
-      }
-
-      const url = message.dstUrl
+      const url = message.dstUrl!
 
       return await this.pollChatMessage(message, url, onComplete, onStream, '', generateUniqueId('ai'), onHistoryUpdate)
     } catch (error) {
@@ -68,12 +64,7 @@ export class AiChatApi {
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
     try {
-      const requestBody = {
-        ...message,
-        role: (message as any).chatRole ?? (message as any).role,
-      }
-
-      const response = await this.sendChatRequest(url, requestBody)
+      const response = await this.sendChatRequest(url, message)
 
       return await this.handleChatResponse(
         response,

@@ -1519,37 +1519,18 @@ onUnmounted(() => {
           color: #000000;
 
           /* MathJax 公式横向滚动 */
+          :deep(mjx-container),
           :deep(mjx-container.MathJax) {
-            max-width: 300px;
-            overflow-x: auto;
-            overflow-y: hidden;
+            max-width: 300px !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            display: inline-block !important; /* 所有公式都用 inline-block 以支持滚动 */
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
-
-            &[display='true'] {
-              display: block;
-            }
-
-            &:not([display='true']) {
-              display: inline-block;
-            }
+            scrollbar-width: none !important; /* Firefox */
+            -ms-overflow-style: none !important; /* IE/Edge */
 
             &::-webkit-scrollbar {
-              height: 6px;
-            }
-
-            &::-webkit-scrollbar-track {
-              background: transparent;
-            }
-
-            &::-webkit-scrollbar-thumb {
-              background: rgba(0, 0, 0, 0.22);
-              border-radius: 999px;
-
-              &:hover {
-                background: rgba(0, 0, 0, 0.35);
-              }
+              display: none !important; /* Chrome/Safari/Opera */
             }
           }
 
@@ -1558,12 +1539,50 @@ onUnmounted(() => {
             font-size: 15px;
             word-wrap: break-word;
             word-break: break-word;
-            white-space: pre-wrap;
+            white-space: normal;
             user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
             color: #2c3e50;
+
+            :deep(mjx-container),
+            :deep(mjx-container.MathJax),
+            :deep(.mjx-chtml),
+            :deep(.mjx-math) {
+              overflow-x: auto !important;
+              overflow-y: hidden !important;
+              max-width: 300px !important;
+              display: inline-block !important;
+              vertical-align: middle !important;
+              scrollbar-width: none !important; /* Firefox */
+              -ms-overflow-style: none !important; /* IE/Edge */
+
+              &::-webkit-scrollbar {
+                display: none !important; /* Chrome/Safari/Opera */
+              }
+            }
+
+            :deep(mjx-container[display='inline']),
+            :deep(.mjx-chtml[display='inline']) {
+              max-width: 300px !important;
+              overflow-x: auto !important;
+              white-space: nowrap !important;
+            }
+
+            :deep(mjx-container[display='block']),
+            :deep(.mjx-chtml[display='block']) {
+              max-width: 300px !important;
+              overflow-x: auto !important;
+              margin: 8px 0;
+              text-align: center;
+              scrollbar-width: none !important; /* Firefox */
+              -ms-overflow-style: none !important; /* IE/Edge */
+
+              &::-webkit-scrollbar {
+                display: none !important; /* Chrome/Safari/Opera */
+              }
+            }
 
             /* KaTeX 公式排版修复：避免与文本行重叠/错位 */
             :deep(.katex) {
@@ -1758,7 +1777,7 @@ onUnmounted(() => {
           font-size: 15px;
           word-wrap: break-word;
           word-break: break-word;
-          white-space: pre-wrap;
+          white-space: normal;
           user-select: none;
           -webkit-user-select: none;
           -moz-user-select: none;

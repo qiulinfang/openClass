@@ -23,6 +23,7 @@ import { useChatPersistence } from '@/composables/useChatPersistence'
 import { useChatSessions } from '@/composables/useChatSessions'
 import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
+import { validateGeneralChatRequest } from './utils/requestValidator'
 
 /**
  * 构建 AI 通用聊天消息请求
@@ -52,7 +53,8 @@ const buildAiGeneralMessage = (
   }
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
   const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chats'
-  return {
+  
+  const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
     newValue,
     coversation: content,
@@ -62,11 +64,17 @@ const buildAiGeneralMessage = (
     reason: 'start',
     bmNo: finalSessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
-    chatRole,
+    role: chatRole,
     subject: '',
     dstUrl,
+    explanation: '', // 通用对话占位
     imageList: imageList && imageList.length > 0 ? imageList : undefined,
   }
+  
+  // 校验请求参数完整性
+  validateGeneralChatRequest(request, finalSessionId)
+  
+  return request
 }
 
 export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {

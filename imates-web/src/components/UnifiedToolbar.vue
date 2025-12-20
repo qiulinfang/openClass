@@ -1,8 +1,5 @@
 ﻿<template>
-  <div
-    :class="['unified-toolbar-container', `variant-${variant}`, `orientation-${orientation}`]"
-    @click="showPopup = false"
-  >
+  <div :class="['unified-toolbar-container', `variant-${variant}`, `orientation-${orientation}`]">
     <!-- 统一工具栏 -->
     <div
       :class="[
@@ -58,11 +55,13 @@
               @click="toolStates[tool.value] !== false && handleActionClick(tool.value)"
             >
               <div
-                :style="getMaskIconStyle(
-                  tool.icon, 
-                  SELECTABLE_ACTION_TOOLS.includes(tool.value) ? 'tool' : 'action',
-                  SELECTABLE_ACTION_TOOLS.includes(tool.value) ? tool.value : undefined
-                )"
+                :style="
+                  getMaskIconStyle(
+                    tool.icon,
+                    SELECTABLE_ACTION_TOOLS.includes(tool.value) ? 'tool' : 'action',
+                    SELECTABLE_ACTION_TOOLS.includes(tool.value) ? tool.value : undefined
+                  )
+                "
                 class="tool-icon mask-icon"
               />
               <q-tooltip>{{ tool.label }}</q-tooltip>
@@ -72,164 +71,167 @@
             <div v-if="drawingTools.length > 0" class="toolbar-divider-vertical"></div>
 
             <!-- 绘图工具 -->
-            <template v-for="tool in drawingTools">
-              <!-- 带下拉菜单的工具（如形状） -->
+            <!-- eslint-disable-next-line vue/no-v-for-template-key -->
+            <template v-for="tool in drawingTools" :key="tool.value">
               <BubblePopup
-                v-if="tool.subTools && tool.subTools.length > 0"
-                :key="tool.value + '-dropdown'"
-                v-model="showShapeDropdown"
-                placement="bottom"
+                :model-value="activeToolPopup === tool.value"
+                @update:model-value="
+                  (val) => {
+                    console.log('🎈 BubblePopup update:', {
+                      tool: tool.value,
+                      val,
+                      currentPopup: activeToolPopup,
+                    })
+                    activeToolPopup = val ? tool.value : null
+                  }
+                "
+                :placement="orientation === 'vertical' ? 'right' : 'bottom'"
                 :show-arrow="true"
                 :offset="4"
               >
                 <template #trigger>
-                  <div class="tool-icon-wrapper tool-with-dropdown">
+                  <div
+                    v-if="tool"
+                    class="tool-icon-wrapper"
+                    :class="{ 'tool-with-dropdown': tool.subTools && tool.subTools.length > 0 }"
+                    @click.stop="handleToolClick(tool.value)"
+                  >
                     <div
-                      :style="getMaskIconStyle(getShapeIcon(), 'tool', currentShapeTool)"
+                      :style="
+                        getMaskIconStyle(
+                          isSubToolActive(tool) ? ALL_TOOLS[selectedTool].icon : tool.icon,
+                          'tool',
+                          isSubToolActive(tool) ? selectedTool : tool.value
+                        )
+                      "
                       class="tool-icon mask-icon"
                     />
-                    <!-- 下拉箭头（旋转90度） -->
-                    <div class="dropdown-arrow">
+                    <!-- 下拉箭头（对于有子工具的） -->
+                    <div v-if="tool.subTools && tool.subTools.length > 0" class="dropdown-arrow">
                       <q-icon name="arrow_drop_down" size="14px" />
                     </div>
+                    <q-tooltip>{{ tool.label }}</q-tooltip>
                   </div>
                 </template>
-                <!-- 下拉菜单内容 -->
-                <div class="shape-dropdown-content">
-                    <div
-                      v-for="subTool in getSubToolOptions(tool.subTools)"
-                      :key="subTool.value"
-                      class="shape-dropdown-item"
-                      :class="{ 'shape-dropdown-item-selected': currentShapeTool === subTool.value }"
-                      @click="selectShapeTool(subTool.value)"
-                    >
-                      <div
-                        :style="getMaskIconStyle(subTool.icon, 'tool', subTool.value)"
-                        class="shape-dropdown-icon mask-icon"
-                      />
-                      <span class="shape-dropdown-label">{{ subTool.label }}</span>
-                    </div>
-                  </div>
-              </BubblePopup>
-              <!-- 普通工具 -->
-              <div v-else :key="tool.value" class="tool-icon-wrapper">
-                <div
-                  :style="getMaskIconStyle(tool.icon, 'tool', tool.value)"
-                  class="tool-icon mask-icon"
-                  @click="handleToolClick(tool.value)"
-                />
-              </div>
-            </template>
 
-            <!-- 配置弹窗 -->
-            <div v-if="showPopup" class="config-popup">
-              <div class="popup-content">
-                <!-- 配置内容区域 -->
-                <div class="config-sections">
-                  <!-- 颜色配置 -->
-                  <div v-if="currentToolConfig.config?.showColorPicker" class="config-section">
-                    <div class="section-title">
-                      <q-icon name="palette" size="16px" />
-                      <span>颜色</span>
-                    </div>
-                    <div class="section-content">
-                      <div class="color-options">
-                        <div
-                          v-for="color in currentToolConfig.config?.colors"
-                          :key="color.value"
-                          class="color-option"
-                          :class="{ 'color-selected': toolConfig.color === color.value }"
-                          @click="updateConfig({ color: color.value })"
-                        >
+                <!-- 弹出内容：包含项（子工具选择）和 配置项 -->
+                <div class="combined-popup-content">
+                  <div class="popup-inner">
+                    <!-- 1. 子工具选择器 (如形状切换) -->
+                    <div v-if="tool.subTools && tool.subTools.length > 0" class="config-section">
+                      <div class="section-title">
+                        <q-icon name="category" size="16px" />
+                        <span>切换形状</span>
+                      </div>
+                      <div class="section-content">
+                        <div style="display: flex; justify-content: space-between">
                           <div
-                            class="color-display"
-                            :style="{ backgroundColor: color.value }"
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 粗细/大小配置 -->
-                  <div v-if="currentToolConfig.config?.showSizePicker" class="config-section">
-                    <div class="section-title">
-                      <q-icon name="line_weight" size="16px" />
-                      <span>{{ currentToolConfig.config?.sizeLabel || '粗细' }}</span>
-                    </div>
-                    <div class="section-content">
-                      <!-- 固定选项 -->
-                      <div class="size-options">
-                        <div
-                          v-for="size in currentToolConfig.config?.sizes"
-                          :key="size.value"
-                          class="size-option"
-                          :class="{ 'size-selected': toolConfig.size === size.value }"
-                          @click="updateConfig({ size: size.value })"
-                        >
-                          <!-- 图标方式显示 -->
-                          <img v-if="size.icon" :src="size.icon" class="size-icon" />
-                          <!-- 线条方式显示 -->
-                          <div v-else class="size-display">
+                            v-for="subTool in getSubToolOptions(tool.subTools)"
+                            :key="subTool.value"
+                            class="shape-grid-item"
+                            :class="{ 'item-selected': selectedTool === subTool.value }"
+                            @click="selectShapeTool(subTool.value)"
+                          >
                             <div
-                              class="size-line"
-                              :style="{ height: size.displayHeight || '2px' }"
-                            ></div>
-                            <span class="size-label">{{ size.label }}</span>
+                              :style="getMaskIconStyle(subTool.icon, 'tool', subTool.value)"
+                              class="shape-grid-icon mask-icon"
+                            />
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <!-- 形状配置（截图用） -->
-                  <div v-if="currentToolConfig.config?.showShapePicker" class="config-section">
-                    <div class="section-title">
-                      <q-icon name="crop" size="16px" />
-                      <span>形状</span>
-                    </div>
-                    <div class="section-content">
-                      <div class="shape-options">
-                        <div
-                          v-for="shape in currentToolConfig.config?.shapes"
-                          :key="shape.value"
-                          class="shape-option"
-                          :class="{ 'shape-selected': toolConfig.shape === shape.value }"
-                          @click="updateConfig({ shape: shape.value })"
-                        >
-                          <q-icon :name="shape.icon" size="24px" />
-                          <span class="shape-label">{{ shape.label }}</span>
+                    <!-- 2. 具体的工具配置 (颜色、粗细、浓度、模式等) -->
+                    <div v-if="getToolConfig(tool)" class="config-sections-wrapper">
+                      <!-- 颜色配置 -->
+                      <div v-if="getToolConfig(tool)?.showColorPicker" class="config-section">
+                        <div class="section-title">
+                          <q-icon name="palette" size="16px" />
+                          <span>颜色</span>
+                        </div>
+                        <div class="section-content">
+                          <div class="color-options">
+                            <div
+                              v-for="color in getToolConfig(tool)?.colors || []"
+                              :key="color.value"
+                              class="color-option"
+                              :class="{ 'color-selected': toolConfig.color === color.value }"
+                              @click="updateConfig({ color: color.value })"
+                            >
+                              <div
+                                class="color-display"
+                                :style="{ backgroundColor: color.value }"
+                              ></div>
+                              <q-tooltip>{{ color.label }}</q-tooltip>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <!-- 选择模式配置（选择工具用） -->
-                  <div
-                    v-if="currentToolConfig.config?.showSelectionModePicker"
-                    class="config-section"
-                  >
-                    <div class="section-title">
-                      <q-icon name="crop_free" size="16px" />
-                      <span>{{ currentToolConfig.config?.selectionModeLabel || '选择模式' }}</span>
-                    </div>
-                    <div class="section-content">
-                      <div class="handwriting-style-options">
-                        <div
-                          v-for="mode in currentToolConfig.config?.selectionModes"
-                          :key="mode.value"
-                          class="handwriting-style-option"
-                          :class="{
-                            'handwriting-style-selected': toolConfig.selectMode === mode.value,
-                          }"
-                          @click="updateConfig({ selectMode: mode.value })"
-                        >
-                          <div class="handwriting-style-icon">
-                            <q-icon :name="mode.icon" size="20px" />
+                      <!-- 粗细/大小配置 -->
+                      <div v-if="getToolConfig(tool)?.showSizePicker" class="config-section">
+                        <div class="section-title">
+                          <q-icon name="line_weight" size="16px" />
+                          <span>{{ getToolConfig(tool)?.sizeLabel || '粗细' }}</span>
+                        </div>
+                        <div class="section-content">
+                          <div class="size-slider-wrapper" style="padding: 0 8px; width: 100%">
+                            <PurpleSlider
+                              :model-value="toolConfig.size || getMinSize(tool)"
+                              @update:model-value="(val) => updateConfig({ size: val })"
+                              :min="getMinSize(tool)"
+                              :max="getMaxSize(tool)"
+                              :step="getStepSize(tool)"
+                            />
                           </div>
-                          <div class="handwriting-style-info">
-                            <div class="handwriting-style-label">{{ mode.label }}</div>
-                            <div v-if="mode.description" class="handwriting-style-desc">
-                              {{ mode.description }}
+                        </div>
+                      </div>
+
+                      <!-- 透明度/浓度配置 -->
+                      <div v-if="getToolConfig(tool)?.showOpacityPicker" class="config-section">
+                        <div class="section-title">
+                          <q-icon name="opacity" size="16px" />
+                          <span>浓度</span>
+                        </div>
+                        <div class="section-content">
+                          <div class="size-slider-wrapper" style="padding: 0 8px; width: 100%">
+                            <PurpleSlider
+                              :model-value="(toolConfig.opacity ?? 1) * 100"
+                              @update:model-value="(val) => updateConfig({ opacity: val / 100 })"
+                              :min="1"
+                              :max="100"
+                              :step="1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 选择模式配置 -->
+                      <div
+                        v-if="getToolConfig(tool)?.showSelectionModePicker"
+                        class="config-section"
+                      >
+                        <div class="section-title">
+                          <q-icon name="crop_free" size="16px" />
+                          <span>{{ getToolConfig(tool)?.selectionModeLabel || '选择模式' }}</span>
+                        </div>
+                        <div class="section-content">
+                          <div class="selection-mode-options">
+                            <div
+                              v-for="mode in getToolConfig(tool)?.selectionModes || []"
+                              :key="mode.value"
+                              class="selection-mode-card"
+                              :class="{
+                                'selection-mode-selected': toolConfig.selectMode === mode.value,
+                              }"
+                              @click="updateConfig({ selectMode: mode.value })"
+                            >
+                              <div class="selection-mode-icon">
+                                <q-icon :name="mode.icon" size="24px" />
+                              </div>
+                              <div class="selection-mode-info">
+                                <div class="selection-mode-label">{{ mode.label }}</div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -237,21 +239,8 @@
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 配置弹出框按钮 -->
-          <div
-            v-if="hasConfigurableTools && currentToolConfig.config"
-            class="popup-icon-wrapper"
-            @click.stop
-          >
-            <div
-              :style="getMaskIconStyle(getPopupIcon(), 'config')"
-              class="popup-icon mask-icon"
-              @click.stop="togglePopup"
-            />
+              </BubblePopup>
+            </template>
           </div>
         </div>
         <!-- 右侧区域（包含分隔线） -->
@@ -289,6 +278,7 @@
 import { ref, computed, watch } from 'vue'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import BubblePopup from '@/components/BubblePopup.vue'
+import PurpleSlider from '@/components/PurpleSlider.vue'
 
 // 流程：导入图标资源
 import eraserSettingsIcon from '/icons/erasersettingsIcon.svg' // 橡皮设置
@@ -314,6 +304,8 @@ import rectangleIcon from '/icons/rectangle.svg' // 矩形
 import circleIcon from '/icons/circle.svg' // 圆形
 import lineIcon from '/icons/line.svg' // 线
 import triangleIcon from '/icons/triangle.svg' // 三角形
+import shapeConfigIcon from '/icons/shape_config.svg' // 形状配置
+import selectConfigIcon from '/icons/select_config.svg' // 选择配置
 import redoIcon from '/icons/undo.svg' // 撤销
 import undoIcon from '/icons/redo.svg' // 重做
 import dustbinIcon from '/icons/dustbin.svg' // 清空（垃圾桶）
@@ -330,6 +322,7 @@ interface ToolConfig {
   showSelectionModePicker?: boolean // 选择模式选择器
   selectionModes?: Array<{ value: string; label: string; icon?: string; description?: string }> // 选择模式选项
   selectionModeLabel?: string // 选择模式标签
+  showOpacityPicker?: boolean // 透明度选择器
 }
 
 interface ToolOption {
@@ -347,6 +340,7 @@ interface ToolConfigState {
   color?: string
   size?: number
   shape?: string
+  opacity?: number
   selectMode?: string // 选择模式
   [key: string]: string | number | boolean | undefined
 }
@@ -392,29 +386,8 @@ const props = withDefaults(
 // 内置的所有工具配置定义
 const ALL_TOOLS: Record<string, ToolOption> = {
   // PDF 批注工具
-  pen: {
-    value: 'pen',
-    label: '签字笔',
-    icon: signaturePenIcon,
-    config: {
-      showColorPicker: true,
-      colors: [
-        { value: '#ff0000', label: '红色' },
-        { value: '#ffd400', label: '黄色' },
-        { value: '#007bff', label: '蓝色' },
-        { value: '#13df00', label: '绿色' },
-        { value: '#8000ff', label: '紫色' },
-        { value: '#111111', label: '黑色' },
-      ],
-      showSizePicker: true,
-      sizes: [
-        { value: 2.5, label: '细', displayHeight: '1px' },
-        { value: 3.0, label: '中', displayHeight: '2px' },
-        { value: 3.5, label: '粗', displayHeight: '3px' },
-      ],
-      sizeLabel: '粗细',
-    },
-  },
+  // 移除冗余的 pen 配置，统一使用 draw
+
   highlighter: {
     value: 'highlighter',
     label: '荧光笔',
@@ -436,6 +409,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 16, label: '粗', displayHeight: '10px' },
       ],
       sizeLabel: '粗细',
+      showOpacityPicker: true,
     },
   },
   eraser: {
@@ -501,12 +475,12 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showColorPicker: true,
       colors: [
-        { value: '#000000', label: '黑色' },
-        { value: '#FF0000', label: '红色' },
-        { value: '#00FF00', label: '绿色' },
-        { value: '#0000FF', label: '蓝色' },
-        { value: '#FFFF00', label: '黄色' },
-        { value: '#FF00FF', label: '紫色' },
+        { value: '#212529', label: '黑色' },
+        { value: '#dc3545', label: '红色' },
+        { value: '#198754', label: '绿色' },
+        { value: '#0d6efd', label: '蓝色' },
+        { value: '#ffc107', label: '黄色' },
+        { value: '#6610f2', label: '紫色' },
       ],
       showSizePicker: true,
       sizes: [
@@ -516,6 +490,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 10, label: '特粗', displayHeight: '8px' },
       ],
       sizeLabel: '粗细',
+      showOpacityPicker: true,
     },
   },
   'eraser-draw': {
@@ -536,6 +511,15 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     value: 'eraser-stroke',
     label: '笔画橡皮',
     icon: eraserIcon,
+    config: {
+      showSizePicker: true,
+      sizes: [
+        { value: 10, label: '小', icon: eraserSmallIcon },
+        { value: 20, label: '中', icon: eraserMediumIcon },
+        { value: 35, label: '大', icon: eraserLargeIcon },
+      ],
+      sizeLabel: '擦除范围',
+    },
   },
   text: {
     value: 'text',
@@ -592,12 +576,12 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showColorPicker: true,
       colors: [
-        { value: '#000000', label: '黑色' },
-        { value: '#FF0000', label: '红色' },
-        { value: '#00FF00', label: '绿色' },
-        { value: '#0000FF', label: '蓝色' },
-        { value: '#FFFF00', label: '黄色' },
-        { value: '#FF00FF', label: '紫色' },
+        { value: '#212529', label: '黑色' },
+        { value: '#dc3545', label: '红色' },
+        { value: '#198754', label: '绿色' },
+        { value: '#0d6efd', label: '蓝色' },
+        { value: '#ffc107', label: '黄色' },
+        { value: '#6610f2', label: '紫色' },
       ],
       showSizePicker: true,
       sizes: [
@@ -607,6 +591,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 10, label: '特粗', displayHeight: '8px' },
       ],
       sizeLabel: '边框粗细',
+      showOpacityPicker: true,
     },
   },
   circle: {
@@ -616,12 +601,12 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showColorPicker: true,
       colors: [
-        { value: '#000000', label: '黑色' },
-        { value: '#FF0000', label: '红色' },
-        { value: '#00FF00', label: '绿色' },
-        { value: '#0000FF', label: '蓝色' },
-        { value: '#FFFF00', label: '黄色' },
-        { value: '#FF00FF', label: '紫色' },
+        { value: '#212529', label: '黑色' },
+        { value: '#dc3545', label: '红色' },
+        { value: '#198754', label: '绿色' },
+        { value: '#0d6efd', label: '蓝色' },
+        { value: '#ffc107', label: '黄色' },
+        { value: '#6610f2', label: '紫色' },
       ],
       showSizePicker: true,
       sizes: [
@@ -631,6 +616,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 10, label: '特粗', displayHeight: '8px' },
       ],
       sizeLabel: '边框粗细',
+      showOpacityPicker: true,
     },
   },
   line: {
@@ -640,12 +626,12 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showColorPicker: true,
       colors: [
-        { value: '#000000', label: '黑色' },
-        { value: '#FF0000', label: '红色' },
-        { value: '#00FF00', label: '绿色' },
-        { value: '#0000FF', label: '蓝色' },
-        { value: '#FFFF00', label: '黄色' },
-        { value: '#FF00FF', label: '紫色' },
+        { value: '#212529', label: '黑色' },
+        { value: '#dc3545', label: '红色' },
+        { value: '#198754', label: '绿色' },
+        { value: '#0d6efd', label: '蓝色' },
+        { value: '#ffc107', label: '黄色' },
+        { value: '#6610f2', label: '紫色' },
       ],
       showSizePicker: true,
       sizes: [
@@ -655,6 +641,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 10, label: '特粗', displayHeight: '8px' },
       ],
       sizeLabel: '粗细',
+      showOpacityPicker: true,
     },
   },
   triangle: {
@@ -664,12 +651,12 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showColorPicker: true,
       colors: [
-        { value: '#000000', label: '黑色' },
-        { value: '#FF0000', label: '红色' },
-        { value: '#00FF00', label: '绿色' },
-        { value: '#0000FF', label: '蓝色' },
-        { value: '#FFFF00', label: '黄色' },
-        { value: '#FF00FF', label: '紫色' },
+        { value: '#212529', label: '黑色' },
+        { value: '#dc3545', label: '红色' },
+        { value: '#198754', label: '绿色' },
+        { value: '#0d6efd', label: '蓝色' },
+        { value: '#ffc107', label: '黄色' },
+        { value: '#6610f2', label: '紫色' },
       ],
       showSizePicker: true,
       sizes: [
@@ -679,6 +666,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 10, label: '特粗', displayHeight: '8px' },
       ],
       sizeLabel: '边框粗细',
+      showOpacityPicker: true,
     },
   },
 
@@ -753,24 +741,41 @@ const emit = defineEmits<{
 // 使用 Store
 const store = usePdfViewerStore()
 
-// 弹出框状态
-const showPopup = ref(false)
+// 弹出框控制
+const activeToolPopup = ref<string | null>(null)
 
-// 形状下拉菜单状态（由 BubblePopup 通过 v-model 管理）
-const showShapeDropdown = ref(false)
-// 当前选中的形状工具（默认矩形）
-const currentShapeTool = ref('rectangle')
+// 跟踪上一次选中的形状
+const lastSelectedShape = ref<string | null>(null)
 
 // 选择形状工具
 const selectShapeTool = (tool: string) => {
-  currentShapeTool.value = tool
-  showShapeDropdown.value = false
+  // 记录上一次选中的形状（如果是形状工具的话）
+  const shapeTool = ALL_TOOLS['shape']
+  if (shapeTool?.subTools?.includes(tool)) {
+    lastSelectedShape.value = tool
+  }
   emit('tool-change', tool)
+}
+
+// 判断当前工具包（如形状）的子工具是否被选中
+const isSubToolActive = (tool: ToolOption) => {
+  if (props.selectedTool === tool.value) return true
+  if (tool.subTools && tool.subTools.includes(props.selectedTool)) return true
+  return false
+}
+
+// 获取指定工具的配置
+const getToolConfig = (tool: ToolOption) => {
+  if (props.selectedTool === tool.value) return tool.config
+  if (tool.subTools && tool.subTools.includes(props.selectedTool)) {
+    return ALL_TOOLS[props.selectedTool]?.config
+  }
+  return tool.config
 }
 
 // 获取当前形状工具的图标
 const getShapeIcon = () => {
-  const tool = ALL_TOOLS[currentShapeTool.value]
+  const tool = ALL_TOOLS[props.selectedTool]
   return tool?.icon || ALL_TOOLS['rectangle'].icon
 }
 
@@ -844,14 +849,29 @@ const rightTools = computed(() => {
   return getToolOptions(toolsDistribution.value.right)
 })
 
-// 所有工具选项（用于配置等）
+// 所有工具选项（包含子工具，用于配置查找）
 const toolOptions = computed(() => {
   const allToolNames = [
     ...toolsDistribution.value.left,
     ...toolsDistribution.value.middle,
     ...toolsDistribution.value.right,
   ]
-  return getToolOptions(allToolNames)
+  const baseTools = getToolOptions(allToolNames)
+
+  // 额外查找子工具，确保子工具被选中时也能找到配置
+  const allPossibleTools = [...baseTools]
+  baseTools.forEach((tool) => {
+    if (tool.subTools) {
+      tool.subTools.forEach((subName) => {
+        if (!allPossibleTools.find((t) => t.value === subName)) {
+          const subTool = ALL_TOOLS[subName]
+          if (subTool) allPossibleTools.push(subTool)
+        }
+      })
+    }
+  })
+
+  return allPossibleTools
 })
 
 // 是否有可配置的工具
@@ -861,17 +881,47 @@ const hasConfigurableTools = computed(() => {
 
 // 当前工具的配置选项
 const currentToolConfig = computed((): ToolOption => {
-  const tool = toolOptions.value.find((t) => t.value === props.selectedTool)
+  // 1. 优先从当前工具栏工具中找
+  let tool = toolOptions.value.find((t) => t.value === props.selectedTool)
+
+  // 2. 如果找不到，尝试从所有内置工具库中直接查找（兜底，支持不在 tools 数组但在 ALL_TOOLS 中的工具，如具体形状）
+  if (!tool) {
+    tool = ALL_TOOLS[props.selectedTool]
+  }
+
   return tool || { value: '', label: '', icon: '' }
 })
+
+// 粗细滑块配置
+const getMinSize = (tool: ToolOption) => {
+  const cfg = getToolConfig(tool)
+  const sizes = cfg?.sizes
+  if (!sizes || sizes.length === 0) return 1
+  return Math.min(...sizes.map((s) => s.value))
+}
+
+const getMaxSize = (tool: ToolOption) => {
+  const cfg = getToolConfig(tool)
+  const sizes = cfg?.sizes
+  if (!sizes || sizes.length === 0) return 10
+  return Math.max(...sizes.map((s) => s.value))
+}
+
+const getStepSize = (tool: ToolOption) => {
+  const cfg = getToolConfig(tool)
+  const sizes = cfg?.sizes
+  if (!sizes) return 1
+  const hasDecimal = sizes.some((s) => s.value % 1 !== 0)
+  return hasDecimal ? 0.5 : 1
+}
 
 // 监听工具切换，如果切换到没有配置的工具，关闭配置面板
 watch(
   () => props.selectedTool,
   (newTool) => {
     const tool = toolOptions.value.find((t) => t.value === newTool)
-    if (!tool?.config && showPopup.value) {
-      showPopup.value = false
+    if (!tool?.config && activeToolPopup.value) {
+      activeToolPopup.value = null
     }
   }
 )
@@ -885,13 +935,40 @@ const isImageIcon = (icon: string) => {
 }
 
 // 处理工具点击
-const handleToolClick = (tool: string) => {
-  // 1. 通知父组件工具变化
-  emit('tool-change', tool)
+const handleToolClick = (toolName: string) => {
+  console.log('🔧 handleToolClick:', toolName, {
+    isSubToolActive: isSubToolActive(ALL_TOOLS[toolName]),
+    selectedTool: props.selectedTool,
+    activeToolPopup: activeToolPopup,
+  })
+
+  if (isSubToolActive(ALL_TOOLS[toolName])) {
+    // 再次点击已选中的工具，切换弹出框
+    const shouldOpen = activeToolPopup.value !== toolName
+    console.log('📱 切换弹出框:', { current: activeToolPopup.value, shouldOpen, tool: toolName })
+    activeToolPopup.value = shouldOpen ? toolName : null
+  } else {
+    // 点击未选中的工具，仅切换工具
+    console.log('🔄 切换工具:', toolName)
+    // 如果是形状工具，立即选择形状
+    if (toolName === 'shape') {
+      const shapeToSelect = lastSelectedShape.value || 'rectangle'
+      console.log('🎯 选择形状:', shapeToSelect)
+      selectShapeTool(shapeToSelect)
+    } else {
+      emit('tool-change', toolName)
+    }
+    console.log('❌ 关闭弹出框')
+    activeToolPopup.value = null
+  }
 }
 
 // 处理操作工具点击
 const handleActionClick = (action: string) => {
+  // 点击操作按钮时，自动选择形状
+  const shapeToSelect = lastSelectedShape.value || 'rectangle' // 默认选择第一个形状
+  emit('tool-change', shapeToSelect)
+
   // 1. 根据操作类型触发对应的事件
   switch (action) {
     case 'back':
@@ -925,46 +1002,30 @@ const handleActionClick = (action: string) => {
   }
 }
 
-// 切换弹出框
-const togglePopup = (event?: Event) => {
-  // 1. 阻止事件冒泡
-  if (event) {
-    event.stopPropagation()
-  }
-
-  // 2. 检查当前工具是否有配置，如果没有则不打开
-  if (!currentToolConfig.value.config) {
-    return
-  }
-
-  // 3. 切换显示状态
-  showPopup.value = !showPopup.value
-}
-
-// 更新工具配置
-const updateConfig = (config: ToolConfigState) => {
-  // 1. 合并配置
-  const newConfig = { ...props.toolConfig, ...config }
-
-  // 2. 通知父组件配置变化
-  emit('config-change', newConfig)
-}
-
 // 配置按钮图标：根据当前选中工具使用对应 *_config 图标
 const getPopupIcon = () => {
   const currentTool = currentToolConfig.value?.value
-
   switch (currentTool) {
-    case 'pen':
-      return signaturePenConfigIcon || eraserSettingsIcon
+    case 'draw':
+      return signaturePenConfigIcon
+    case 'select':
+      return selectIcon
+    case 'rectangle':
+      return rectangleIcon
+    case 'circle':
+      return circleIcon
+    case 'triangle':
+      return triangleIcon
+    case 'line':
+      return lineIcon
     case 'highlighter':
-      return highlighterConfigIcon || eraserSettingsIcon
+      return highlighterConfigIcon
     case 'eraser':
     case 'eraser-draw':
-      // 橡皮暂时没有单独的 config 图标，使用通用设置图标
-      return eraserSettingsIcon
+    case 'eraser-stroke':
+      return eraserIcon
     default:
-      return eraserSettingsIcon
+      return signaturePenConfigIcon
   }
 }
 
@@ -1003,9 +1064,16 @@ const getMaskIconStyle = (
       backgroundColor = props.variant === 'browser' ? '#ffffff' : '#000000'
     }
   } else if (type === 'config') {
-    // 配置按钮：使用当前工具的颜色（保留原逻辑）
-    if (props.toolConfig?.color) {
+    // 配置按钮：使用当前工具的颜色，但对橡皮擦做特殊处理防止不可见
+    const currentTool = currentToolConfig.value?.value
+    if (currentTool?.includes('eraser')) {
+      backgroundColor = props.variant === 'browser' ? '#ffffff' : '#000000'
+    } else if (props.toolConfig?.color) {
       backgroundColor = props.toolConfig.color.toString()
+      // 如果颜色非常接近白色且不是 browser 模式，强制改为黑色以保证可见性
+      if (backgroundColor.toLowerCase() === '#ffffff' && props.variant !== 'browser') {
+        backgroundColor = '#000000'
+      }
     } else {
       backgroundColor = props.variant === 'browser' ? '#ffffff' : '#000000'
     }
@@ -1016,10 +1084,19 @@ const getMaskIconStyle = (
   return maskStyle
 }
 
+// 更新工具配置
+const updateConfig = (config: ToolConfigState) => {
+  // 1. 合并配置
+  const newConfig = { ...props.toolConfig, ...config }
+
+  // 2. 通知父组件配置变化
+  emit('config-change', newConfig)
+}
+
 // 暴露关闭弹出框方法供外部调用
 defineExpose({
   closePopup: () => {
-    showPopup.value = false
+    activeToolPopup.value = null
   },
 })
 </script>
@@ -1032,6 +1109,7 @@ $color-primary: #6965db;
 $color-border: #e8e8e8;
 $color-text: #1e1e1e;
 $color-text-secondary: #6b6b6b;
+$color-text-tertiary: #9e9e9e;
 $color-bg-hover: #f5f5f5;
 $color-bg-selected: #e3e2fe;
 
@@ -1215,7 +1293,7 @@ $color-bg-selected: #e3e2fe;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  
+
   &.tool-disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -1224,16 +1302,15 @@ $color-bg-selected: #e3e2fe;
 }
 
 // BubblePopup 在工具栏中的对齐修复
-:deep(.bubble-popup-wrapper) {
-  display: inline-flex;
-  align-items: center;
+:deep(:global(.bubble-popup)) {
+  width: 300px !important;
 }
 
 // 带下拉菜单的工具
 .tool-with-dropdown {
   position: relative;
   cursor: pointer;
-  
+
   .dropdown-arrow {
     position: absolute;
     right: -5px;
@@ -1262,11 +1339,11 @@ $color-bg-selected: #e3e2fe;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color $transition-fast;
-  
+
   &:hover {
     background-color: $color-bg-hover;
   }
-  
+
   &.shape-dropdown-item-selected {
     background-color: $color-bg-selected;
     color: $color-primary;
@@ -1322,7 +1399,8 @@ $color-bg-selected: #e3e2fe;
 }
 
 .popup-icon-wrapper {
-  position: relative; /* 为 config-popup 提供定位参考，不设置 z-index 避免创建堆叠上下文 */
+  position: relative;
+  /* 为 config-popup 提供定位参考，不设置 z-index 避免创建堆叠上下文 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1375,64 +1453,66 @@ $color-bg-selected: #e3e2fe;
   margin: 0 8px;
 }
 
-// 配置弹窗
-.config-popup {
-  position: absolute;
-  top: 100%;
-  left: 65%;
-  transform: translateX(-50%);
-  z-index: 3000;
-  min-width: 300px;
-  max-width: 400px;
-  animation: popup-fade-in 0.2s ease-out;
-}
-
 @keyframes popup-fade-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-10px);
+    transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
 }
 
-.popup-content {
+// 统一配置弹出框内容
+.combined-popup-content {
   background: #ffffff;
-  border: 1px solid $color-border;
-  border-radius: 12px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.1),
-    0 4px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
   overflow: hidden;
 }
 
-.config-sections {
+.popup-inner {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width:265px;
+}
+
+.config-sections-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .config-section {
-  margin-bottom: 16px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: $color-text;
+  color: #1e1e1e;
   font-weight: 600;
-  margin-bottom: 12px;
   font-size: 13px;
-  letter-spacing: -0.01em;
   user-select: none;
+
+  .q-icon {
+    color: $color-primary;
+    opacity: 0.8;
+  }
+
+  span {
+    opacity: 0.9;
+  }
 }
 
 .section-content {
-  color: $color-text;
+  width: 100%;
 }
 
 // 颜色选项
@@ -1529,46 +1609,47 @@ $color-bg-selected: #e3e2fe;
   font-weight: 500;
 }
 
-// 形状选项
-.shape-options {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.shape-option {
+.shape-grid-item {
   cursor: pointer;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 12px 8px;
+  border-radius: 12px;
   border: 1.5px solid $color-border;
   transition: all $transition-fast;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  min-width: 80px;
+  justify-content: center;
+  gap: 6px;
   background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 
-  &:hover {
+  &.item-selected {
     border-color: $color-primary;
-    background-color: #fafafb;
-  }
+    background-color: $color-bg-selected;
 
-  &:active {
-    transform: scale(0.98);
+    .shape-grid-icon {
+      background-color: $color-primary !important;
+    }
+
+    .shape-grid-label {
+      color: $color-primary;
+      font-weight: 700;
+    }
   }
 }
 
-.shape-selected {
-  border-color: $color-primary;
-  background-color: $color-bg-selected;
-  font-weight: 600;
+.shape-grid-icon {
+  width: 24px;
+  height: 24px;
+  background-color: #666;
+  transition: background-color $transition-fast;
 }
 
-.shape-label {
+.shape-grid-label {
   font-size: 12px;
   color: $color-text-secondary;
   font-weight: 500;
+  transition: color $transition-fast;
 }
 
 // 笔迹样式选择器
@@ -1578,22 +1659,35 @@ $color-bg-selected: #e3e2fe;
   flex-wrap: wrap;
 }
 
-.handwriting-style-option {
+// 选择模式选项 (重命名并增强布局)
+.selection-mode-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.selection-mode-card {
   cursor: pointer;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 12px 8px;
+  border-radius: 12px;
   border: 1.5px solid $color-border;
   transition: all $transition-fast;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  min-width: 120px;
   background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  min-height: 80px;
 
   &:hover {
     border-color: $color-primary;
     background-color: #fafafb;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   }
 
   &:active {
@@ -1601,37 +1695,53 @@ $color-bg-selected: #e3e2fe;
   }
 }
 
-.handwriting-style-selected {
+.selection-mode-selected {
   border-color: $color-primary;
   background-color: $color-bg-selected;
-  font-weight: 600;
+  border-width: 2px;
+  padding: 9.5px 13.5px; // 抵消边框加粗
 
-  .handwriting-style-label {
+  .selection-mode-icon {
     color: $color-primary;
-    font-weight: 600;
+  }
+
+  .selection-mode-label {
+    color: $color-primary;
+    font-weight: 700;
+  }
+
+  .selection-mode-desc {
+    color: rgba($color-primary, 0.7);
   }
 }
 
-.handwriting-style-icon {
-  font-size: 20px;
-  line-height: 1;
+.selection-mode-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $color-text-secondary;
+  transition: color $transition-fast;
 }
 
-.handwriting-style-info {
+.selection-mode-info {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 2px;
 }
 
-.handwriting-style-label {
+.selection-mode-label {
   font-size: 13px;
-  color: #333333;
-  font-weight: 500;
+  color: $color-text;
+  font-weight: 600;
+  transition: color $transition-fast;
 }
 
-.handwriting-style-desc {
+.selection-mode-desc {
   font-size: 11px;
-  color: $color-text-secondary;
+  color: $color-text-tertiary;
+  transition: color $transition-fast;
 }
 
 // 悬浮风格操作按钮

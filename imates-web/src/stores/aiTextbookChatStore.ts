@@ -33,6 +33,7 @@ import {
 } from './utils/chatStoreUtils'
 import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
+import { validateTextbookChatRequest } from './utils/requestValidator'
 
 interface TextbookChatHistoryData {
   questionId: string
@@ -86,7 +87,7 @@ const buildAiTextbookMessage = ({
       ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
       : imageData.base64DataUrl
 
-    return {
+    const request: AiChatMessageRequest = {
       sessionId,
       newValue: isNewSession ? '1' : '0',
       // 文本内容：使用用户输入的 content
@@ -98,18 +99,24 @@ const buildAiTextbookMessage = ({
       reason: 'start',
       bmNo: sessionId,
       isWebSearch: '0',
-      chatRole,
+      role: chatRole,
       subject,
       sectionName: sectionName || undefined,
       dstUrl: '/permission/previewPictureQA',
+      explanation: '', // 教材场景占位
       // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
       imageList,
     }
+    
+    // 校验请求参数完整性
+    validateTextbookChatRequest(request, sessionId)
+    
+    return request
   }
 
   const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chats'
 
-  return {
+  const request: AiChatMessageRequest = {
     sessionId,
     newValue: isNewSession ? '1' : '0',
     coversation: content,
@@ -119,12 +126,18 @@ const buildAiTextbookMessage = ({
     reason: 'start',
     bmNo: sessionId,
     isWebSearch: '0',
-    chatRole,
+    role: chatRole,
     subject,
     sectionName: sectionName || undefined,
     dstUrl,
+    explanation: '', // 教材场景占位
     imageList,
   }
+  
+  // 校验请求参数完整性
+  validateTextbookChatRequest(request, sessionId)
+  
+  return request
 }
 
 export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {

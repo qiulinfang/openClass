@@ -1,12 +1,12 @@
 import MarkdownIt from 'markdown-it'
-import katex from 'markdown-it-katex'
+import mathjax3 from 'markdown-it-mathjax3'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: false, // 完全禁用typographer功能，防止 (C) -> 等字符转换
-}).use(katex)
+}).use(mathjax3)
 
 export function useMessageRenderer() {
   // 渲染缓存，避免重复渲染相同内容
@@ -33,12 +33,22 @@ export function useMessageRenderer() {
   const preprocessLatexFormats = (contentStr: string): string => {
     let processedContent = contentStr
 
+    // 0. 合并“孤立 $ 块”为块级公式：
+    //    形如：
+    //    $\n ... \n$
+    //    或：$  \n ... \n  $
+    //    这种写法在 markdown 中容易被拆成多个段落/换行，导致渲染碎片化。
+    //    这里将其统一转换为：\n\n$$...$$\n\n
+    const lonelyDollarBlockRegex = /(^|\n)\s*\$(?:\s*)\n([\s\S]*?)\n\s*\$\s*(?=\n|$)/g
+    processedContent = processedContent.replace(lonelyDollarBlockRegex, (_m, prefix, content) => {
+      const trimmed = String(content ?? '').trim()
+      return `${prefix}\n\n$$${trimmed}$$\n\n`
+    })
+
     // 1. 处理MathLive输出格式 - 检测MathLive的数学模式标记
     // MathLive通常输出带有数学模式标记的内容
     const mathLiveRegex = /\\begin\{math\}(.*?)\\end\{math\}/gs
-    processedContent = processedContent.replace(mathLiveRegex, (_match, content) => {
-      return `$$${content}$$`
-    })
+    processedContent = processedContent.replace(mathLiveRegex, '$$$1$$')
 
     // 2. 处理分段函数 - 将包含array环境的行内公式转换为块级公式
     const piecewiseFunctionRegex = /\\\(([^)]*\\begin\{array\}[^)]*\\end\{array\}[^)]*)\\\)/gs
@@ -57,15 +67,15 @@ export function useMessageRenderer() {
     // 处理行内公式 \(...\) 格式，转换为 $...$ 格式
     // 支持 \(...\) 和 \( ... \` 两种格式（允许空格）
     const inlineRegex = /\\\(\s*(.*?)\s*\\\)/gs
-    processedContent = processedContent.replace(inlineRegex, (_match, content) => {
-      return `$${content}$`
-    })
+    processedContent = processedContent.replace(inlineRegex, '$$$1$')
 
     // 5. 处理块级公式 \[...\] 格式
     const displayRegex = /\\\[(.*?)\\\]/gs
-    processedContent = processedContent.replace(displayRegex, (_match, content) => {
-      return `$$${content}$$`
-    })
+    processedContent = processedContent.replace(displayRegex, '$$$$$1$$$$')
+
+    // 6. 处理MathLive的AsciiMath格式（如果存在）
+    const asciiMathRegex = /\`(.*?)\`/gs
+    processedContent = processedContent.replace(asciiMathRegex, '$$$1$$')
 
     // 7. 处理MathLive的MathML格式（转换为LaTeX）
     const mathMLRegex = /<math[^>]*>(.*?)<\/math>/gs

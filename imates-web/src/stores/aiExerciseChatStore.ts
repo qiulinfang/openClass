@@ -22,6 +22,7 @@ import { useChatEngine } from '@/composables/useChatEngine'
 // 注意：此 store 不再直接依赖 questionStore/homeworkStore
 // 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
 import { getUserId, getCurrentUserIdOrDefault } from '../services'
+import { validateExerciseChatRequest } from './utils/requestValidator'
 
 /**
  * 构建AI题目聊天消息请求
@@ -51,7 +52,7 @@ const buildAiExerciseMessage = (
       ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
       : imageData.base64DataUrl
     
-    return {
+    const request: AiChatMessageRequest = {
       sessionId: finalSessionId,
       newValue: '1',
       coversation: content,
@@ -61,15 +62,20 @@ const buildAiExerciseMessage = (
       reason: 'start',
       bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
       isWebSearch: enableWebSearch ? '1' : '0',
-      chatRole: selectedModel,
+      role: selectedModel,
       subject: subject,
       dstUrl: '/permission/previewPictureQA',
       explanation: currentQuestion.explanation || '',
     }
+    
+    // 校验请求参数完整性
+    validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
+    
+    return request
   }
   
   // 普通文本消息
-  return {
+  const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
     newValue: '1',
     coversation: content,
@@ -79,11 +85,16 @@ const buildAiExerciseMessage = (
     reason: 'start',
     bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
     isWebSearch: enableWebSearch ? '1' : '0',
-    chatRole: selectedModel,
+    role: selectedModel,
     subject: subject,
     dstUrl: subject === 'MATH' ? '/permission/chatMath' : '/permission/chat',
     explanation: currentQuestion.explanation || '', // 添加 explanation 字段
   }
+  
+  // 校验请求参数完整性
+  validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
+  
+  return request
 }
 
 /**

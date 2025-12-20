@@ -31,6 +31,7 @@ import {
   type ChatImageData,
 } from './utils/chatStoreUtils'
 import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
+import { validateGeneralChatRequest } from './utils/requestValidator'
 
 const buildTeacherMessage = (
   content: string,
@@ -44,7 +45,7 @@ const buildTeacherMessage = (
   const userId = localStorage.getItem('userId') || ''
   const finalSessionId = sessionId || `${userId ? userId + '-' : ''}teacher-session-${Date.now()}`
 
-  return {
+  const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
     newValue: '1',
     coversation: content,
@@ -54,10 +55,16 @@ const buildTeacherMessage = (
     reason: 'start',
     bmNo: finalSessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
-    chatRole,
+    role: chatRole,
     subject: '',
     dstUrl: '/permission/chats',
+    explanation: '',
   }
+  
+  // 校验请求参数完整性
+  validateGeneralChatRequest(request, finalSessionId)
+  
+  return request
 }
 
 /**

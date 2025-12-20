@@ -2103,48 +2103,23 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   word-break: break-word;
 
   // MathJax 公式样式处理
+  :deep(mjx-container),
+  :deep(mjx-container.MathJax),
   :deep(.mjx-chtml),
   :deep(.mjx-math) {
-    overflow-x: auto;
-    overflow-y: hidden;
-    max-width: 100%;
-    display: inline-block;
-    vertical-align: middle;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    max-width: 300px !important;
+    display: inline-block !important; /* 所有公式都用 inline-block */
+    vertical-align: middle !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE/Edge */
+
+    &::-webkit-scrollbar {
+      display: none !important; /* Chrome/Safari/Opera */
+    }
   }
 
-  // 行内公式处理
-  :deep(.mjx-chtml[display='inline']) {
-    max-width: 100%;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-  // 块级公式处理
-  :deep(.mjx-chtml[display='block']) {
-    max-width: 100%;
-    overflow-x: auto;
-    margin: 8px 0;
-    text-align: center;
-  }
-
-  // 公式容器滚动条样式
-  :deep(.mjx-chtml)::-webkit-scrollbar {
-    height: 3px;
-  }
-
-  :deep(.mjx-chtml)::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 2px;
-  }
-
-  :deep(.mjx-chtml)::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 2px;
-  }
-
-  :deep(.mjx-chtml)::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.5);
-  }
 
   :deep(p) {
     margin: 0 0 8px 0;

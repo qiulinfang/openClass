@@ -1557,7 +1557,7 @@ const sendMessage = async (attachedFile?: File) => {
       : undefined
 
     let imageListForApi: ChatImageData[] | undefined
-    let finalMessageContent = messageContent
+    const finalMessageContent = messageContent
 
     // ai-general 场景：如果有挂在输入框上的截图
     // - 1张：走 imageData

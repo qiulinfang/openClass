@@ -15,13 +15,13 @@ export interface AiChatMessageRequest {
   answer: string
   name: string
   reason: string
-  dstUrl?: string  // 与Java接口保持一致
+  dstUrl: string  // 与Java接口保持一致
   bmNo: string
   isWebSearch: string
-  chatRole: string,
+  role: string,
   subject: string,
   sectionName?: string,
-  explanation?: string
+  explanation: string
   /** 截图会话使用的图片列表（单图或多图），目前用于教材/截图场景 */
   imageList?: Array<{
     base64DataUrl: string

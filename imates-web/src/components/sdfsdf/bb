@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>H5矢量速写板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            overscroll-behavior: none;
+            touch-action: none;
+            background-color: #f3f4f6;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            touch-action: none;
+            cursor: crosshair;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            /* 避免在高分屏缩放时模糊 */
+            image-rendering: pixelated; 
+        }
+        .tool-btn {
+            transition: all 0.2s;
+        }
+        .tool-btn.active {
+            background-color: #e5e7eb;
+            color: #000;
+            transform: translateY(-2px);
+            border-color: #3b82f6;
+        }
+        /* 选择模式下的光标 */
+        body.mode-select canvas {
+            cursor: default;
+        }
+        input[type="range"] {
+            accent-color: #374151;
+        }
+        .color-wrapper {
+            position: relative;
+            overflow: hidden;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+            cursor: pointer;
+        }
+        input[type="color"] {
+            position: absolute;
+            left: -50%;
+            top: -50%;
+            width: 200%;
+            height: 200%;
+            cursor: pointer;
+            padding: 0;
+            border: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center overflow-hidden">
+
+    <!-- 画布容器 -->
+    <div id="canvas-container" class="relative w-full h-full flex items-center justify-center bg-gray-100">
+        <canvas id="sketchpad"></canvas>
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white px-4 py-3 rounded-2xl shadow-xl border border-gray-200 flex items-center gap-3 w-[95%] max-w-2xl justify-between z-10 overflow-x-auto">
+        
+        <!-- 工具组：选择、画笔、橡皮 -->
+        <div class="flex gap-2 flex-shrink-0">
+            <button id="btn-select" class="tool-btn p-2 rounded-lg border border-transparent hover:bg-gray-100" title="选择/移动">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
+            </button>
+            <button id="btn-pen" class="tool-btn active p-2 rounded-lg border border-transparent hover:bg-gray-100" title="画笔">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-11z"></path><path d="M2 2l7.5 8.6"></path><path d="M22 22l-5.5-5.5"></path></svg>
+            </button>
+            <button id="btn-eraser" class="tool-btn p-2 rounded-lg border border-transparent hover:bg-gray-100" title="橡皮擦">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"></path><path d="M17 17L7 7"></path></svg>
+            </button>
+        </div>
+
+        <div class="w-px h-8 bg-gray-200 flex-shrink-0"></div>
+
+        <!-- 属性调节 -->
+        <div class="flex items-center gap-3 flex-1 justify-center min-w-[100px]">
+            <div class="color-wrapper shadow-sm flex-shrink-0" id="color-preview">
+                <input type="color" id="color-picker" value="#000000">
+            </div>
+            
+            <div class="flex flex-col w-full max-w-[100px]">
+                <input type="range" id="line-width" min="1" max="50" value="3" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            </div>
+        </div>
+
+        <div class="w-px h-8 bg-gray-200 flex-shrink-0"></div>
+
+        <!-- 操作按钮 -->
+        <div class="flex gap-2 flex-shrink-0">
+            <button id="btn-undo" class="tool-btn p-2 rounded-lg border border-transparent hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed" title="撤销">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+            </button>
+            <button id="btn-clear" class="tool-btn p-2 rounded-lg border border-transparent hover:bg-gray-100 text-red-500" title="清空">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <button id="btn-save" class="tool-btn p-2 rounded-lg border border-transparent hover:bg-gray-100 text-blue-600" title="保存">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 顶部状态提示 -->
+    <div id="status-toast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-1 rounded-full text-xs opacity-0 transition-opacity duration-300 pointer-events-none z-50">
+        已保存
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('sketchpad');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const container = document.getElementById('canvas-container');
+            
+            // --- 核心数据结构 ---
+            // strokes: Array<{ 
+            //   points: Array<{x, y}>, 
+            //   color: string, 
+            //   size: number, 
+            //   mode: 'pen'|'eraser',
+            //   bounds: {minX, maxX, minY, maxY} 
+            // }>
+            let strokes = []; 
+            let history = []; // 存储 strokes 数组的 JSON 快照
+            let historyStep = -1;
+            const MAX_HISTORY = 30;
+
+            // --- 状态变量 ---
+            let isPointerDown = false;
+            let currentMode = 'pen'; // 'pen', 'eraser', 'select'
+            let currentColor = '#000000';
+            let currentSize = 3;
+            
+            // 拖拽相关状态
+            let selectedStrokeIndex = -1; // 当前选中的笔画索引
+            let isDraggingStroke = false;
+            let dragStartPos = { x: 0, y: 0 };
+            let activeStroke = null; // 当前正在绘制的笔画
+
+            // --- DOM 元素 ---
+            const btnSelect = document.getElementById('btn-select');
+            const btnPen = document.getElementById('btn-pen');
+            const btnEraser = document.getElementById('btn-eraser');
+            const btnUndo = document.getElementById('btn-undo');
+            const btnClear = document.getElementById('btn-clear');
+            const btnSave = document.getElementById('btn-save');
+            const colorPicker = document.getElementById('color-picker');
+            const colorPreview = document.getElementById('color-preview');
+            const sizeSlider = document.getElementById('line-width');
+            const toast = document.getElementById('status-toast');
+            const body = document.body;
+
+            // --- 画布初始化 ---
+            function resizeCanvas() {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                const dpr = window.devicePixelRatio || 1;
+                
+                // 只有尺寸真正改变时才调整，避免移动端地址栏显隐触发重置
+                if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+                    canvas.width = width * dpr;
+                    canvas.height = height * dpr;
+                    canvas.style.width = `${width}px`;
+                    canvas.style.height = `${height}px`;
+                    
+                    ctx.scale(dpr, dpr);
+                    renderAll(); // 尺寸改变后重绘所有内容
+                }
+            }
+
+            // --- 渲染核心 ---
+            function renderAll() {
+                // 清空画布
+                const width = canvas.width / (window.devicePixelRatio || 1);
+                const height = canvas.height / (window.devicePixelRatio || 1);
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                strokes.forEach((stroke, index) => {
+                    if (stroke.points.length === 0) return;
+
+                    ctx.beginPath();
+                    ctx.lineWidth = stroke.size;
+                    ctx.strokeStyle = stroke.mode === 'eraser' ? '#ffffff' : stroke.color;
+
+                    if (stroke.points.length < 2) {
+                        // 绘制单点
+                        const p = stroke.points[0];
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p.x, p.y);
+                    } else {
+                        // 绘制平滑曲线
+                        const p0 = stroke.points[0];
+                        ctx.moveTo(p0.x, p0.y);
+
+                        for (let i = 1; i < stroke.points.length - 1; i++) {
+                            const p1 = stroke.points[i];
+                            const p2 = stroke.points[i + 1];
+                            const midX = (p1.x + p2.x) / 2;
+                            const midY = (p1.y + p2.y) / 2;
+                            ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+                        }
+                        // 连接最后一点
+                        const last = stroke.points[stroke.points.length - 1];
+                        ctx.lineTo(last.x, last.y);
+                    }
+                    ctx.stroke();
+
+                    // 如果被选中，绘制包围盒
+                    if (index === selectedStrokeIndex && currentMode === 'select') {
+                        drawSelectionBox(stroke);
+                    }
+                });
+            }
+
+            function drawSelectionBox(stroke) {
+                const padding = 5;
+                const b = stroke.bounds;
+                ctx.save();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 3]);
+                ctx.strokeRect(
+                    b.minX - padding - stroke.size/2, 
+                    b.minY - padding - stroke.size/2, 
+                    (b.maxX - b.minX) + padding*2 + stroke.size, 
+                    (b.maxY - b.minY) + padding*2 + stroke.size
+                );
+                ctx.restore();
+            }
+
+            // --- 历史记录管理 ---
+            function saveState() {
+                // 深度拷贝当前 strokes
+                const snapshot = JSON.stringify(strokes);
+                
+                // 如果当前不在最新，截断后面
+                if (historyStep < history.length - 1) {
+                    history = history.slice(0, historyStep + 1);
+                }
+                
+                // 限制长度
+                if (history.length >= MAX_HISTORY) {
+                    history.shift();
+                    historyStep--;
+                }
+
+                history.push(snapshot);
+                historyStep++;
+                updateUndoButton();
+            }
+
+            // 初始化保存一次空白状态
+            saveState();
+
+            function undo() {
+                if (historyStep > 0) {
+                    historyStep--;
+                    try {
+                        strokes = JSON.parse(history[historyStep]);
+                        selectedStrokeIndex = -1; // 撤销后取消选中
+                        renderAll();
+                    } catch (e) {
+                        console.error('Undo error', e);
+                    }
+                }
+                updateUndoButton();
+            }
+
+            function updateUndoButton() {
+                btnUndo.disabled = historyStep <= 0;
+                btnUndo.style.opacity = historyStep <= 0 ? '0.3' : '1';
+            }
+
+            // --- 几何计算 ---
+            function getCoordinates(e) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+
+            function calculateBounds(points) {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (const p of points) {
+                    if (p.x < minX) minX = p.x;
+                    if (p.x > maxX) maxX = p.x;
+                    if (p.y < minY) minY = p.y;
+                    if (p.y > maxY) maxY = p.y;
+                }
+                return { minX, maxX, minY, maxY };
+            }
+
+            // 点到线段的距离平方（性能优化）
+            function distToSegmentSquared(p, v, w) {
+                const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+                if (l2 === 0) return (p.x - v.x)**2 + (p.y - v.y)**2;
+                let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                return (p.x - (v.x + t * (w.x - v.x)))**2 + (p.y - (v.y + t * (w.y - v.y)))**2;
+            }
+
+            function hitTest(x, y) {
+                // 倒序遍历（优先选中最上面的图层）
+                for (let i = strokes.length - 1; i >= 0; i--) {
+                    const s = strokes[i];
+                    const padding = s.size + 10; // 扩大点击区域
+
+                    // 1. 包围盒粗测
+                    if (x < s.bounds.minX - padding || x > s.bounds.maxX + padding ||
+                        y < s.bounds.minY - padding || y > s.bounds.maxY + padding) {
+                        continue;
+                    }
+
+                    // 2. 详细点测 (检查所有线段)
+                    const hitDist = (s.size / 2 + 10) ** 2; // 阈值平方
+                    for (let j = 0; j < s.points.length - 1; j++) {
+                        if (distToSegmentSquared({x, y}, s.points[j], s.points[j+1]) < hitDist) {
+                            return i;
+                        }
+                    }
+                    // 单点情况
+                    if (s.points.length === 1) {
+                        const dx = x - s.points[0].x;
+                        const dy = y - s.points[0].y;
+                        if (dx*dx + dy*dy < hitDist) return i;
+                    }
+                }
+                return -1;
+            }
+
+            // --- 交互事件处理 ---
+            function onPointerDown(e) {
+                // 仅响应左键
+                if (e.button !== 0) return;
+                
+                isPointerDown = true;
+                const { x, y } = getCoordinates(e);
+
+                if (currentMode === 'select') {
+                    const hitIndex = hitTest(x, y);
+                    if (hitIndex !== -1) {
+                        selectedStrokeIndex = hitIndex;
+                        isDraggingStroke = true;
+                        dragStartPos = { x, y };
+                        renderAll(); // 重绘以显示选中框
+                    } else {
+                        // 点击空白处取消选中
+                        if (selectedStrokeIndex !== -1) {
+                            selectedStrokeIndex = -1;
+                            renderAll();
+                        }
+                    }
+                } else {
+                    // 绘画模式 (Pen or Eraser)
+                    // 取消选中
+                    if (selectedStrokeIndex !== -1) {
+                        selectedStrokeIndex = -1;
+                        renderAll(); // 立即重绘去除选中框
+                    }
+
+                    activeStroke = {
+                        points: [{ x, y }],
+                        color: currentColor,
+                        size: parseInt(currentSize),
+                        mode: currentMode,
+                        bounds: { minX: x, maxX: x, minY: y, maxY: y }
+                    };
+                    strokes.push(activeStroke);
+                    
+                    // 绘制当前点
+                    renderAll();
+                }
+            }
+
+            function onPointerMove(e) {
+                if (!isPointerDown) return;
+                e.preventDefault(); // 防止滚动
+
+                const { x, y } = getCoordinates(e);
+
+                if (currentMode === 'select' && isDraggingStroke && selectedStrokeIndex !== -1) {
+                    // 移动笔画
+                    const dx = x - dragStartPos.x;
+                    const dy = y - dragStartPos.y;
+                    
+                    const stroke = strokes[selectedStrokeIndex];
+                    
+                    // 更新所有点坐标
+                    stroke.points.forEach(p => {
+                        p.x += dx;
+                        p.y += dy;
+                    });
+
+                    // 更新包围盒
+                    stroke.bounds.minX += dx;
+                    stroke.bounds.maxX += dx;
+                    stroke.bounds.minY += dy;
+                    stroke.bounds.maxY += dy;
+
+                    dragStartPos = { x, y };
+                    renderAll();
+
+                } else if (currentMode !== 'select' && activeStroke) {
+                    // 绘画
+                    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+                    
+                    events.forEach(ev => {
+                        const p = getCoordinates(ev);
+                        activeStroke.points.push(p);
+                        
+                        // 实时更新包围盒 (用于后续选中检测)
+                        if (p.x < activeStroke.bounds.minX) activeStroke.bounds.minX = p.x;
+                        if (p.x > activeStroke.bounds.maxX) activeStroke.bounds.maxX = p.x;
+                        if (p.y < activeStroke.bounds.minY) activeStroke.bounds.minY = p.y;
+                        if (p.y > activeStroke.bounds.maxY) activeStroke.bounds.maxY = p.y;
+                    });
+                    
+                    renderAll();
+                }
+            }
+
+            function onPointerUp(e) {
+                if (!isPointerDown) return;
+                isPointerDown = false;
+                
+                if (currentMode === 'select') {
+                    if (isDraggingStroke) {
+                        isDraggingStroke = false;
+                        saveState(); // 移动结束保存状态
+                    }
+                } else {
+                    activeStroke = null;
+                    saveState(); // 绘画结束保存状态
+                }
+            }
+
+            // --- 事件监听 ---
+            canvas.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('pointermove', onPointerMove); // 绑在window上防止画出界
+            window.addEventListener('pointerup', onPointerUp);
+            // 处理触控取消
+            canvas.addEventListener('pointercancel', (e) => {
+                isPointerDown = false;
+                activeStroke = null;
+                isDraggingStroke = false;
+            });
+
+            // --- 工具栏逻辑 ---
+            function setMode(mode) {
+                currentMode = mode;
+                
+                // UI 更新
+                [btnPen, btnEraser, btnSelect].forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.style.borderColor = 'transparent';
+                });
+
+                let activeBtn;
+                if (mode === 'pen') activeBtn = btnPen;
+                else if (mode === 'eraser') activeBtn = btnEraser;
+                else if (mode === 'select') activeBtn = btnSelect;
+
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                    activeBtn.style.borderColor = '#3b82f6';
+                }
+
+                // Cursor 更新
+                if (mode === 'select') {
+                    body.classList.add('mode-select');
+                } else {
+                    body.classList.remove('mode-select');
+                    selectedStrokeIndex = -1; // 切回画笔时取消选中
+                    renderAll();
+                }
+            }
+
+            btnSelect.addEventListener('click', () => setMode('select'));
+            btnPen.addEventListener('click', () => setMode('pen'));
+            btnEraser.addEventListener('click', () => setMode('eraser'));
+
+            colorPicker.addEventListener('input', (e) => {
+                currentColor = e.target.value;
+                colorPreview.style.backgroundColor = currentColor;
+                if (currentMode === 'eraser' || currentMode === 'select') {
+                    setMode('pen');
+                }
+            });
+
+            sizeSlider.addEventListener('input', (e) => {
+                currentSize = parseInt(e.target.value);
+                // 如果当前选中了笔画，修改其大小? 
+                // 可选功能：修改选中笔画属性。这里暂不实现，仅改变下次绘制大小。
+            });
+
+            btnUndo.addEventListener('click', undo);
+
+            btnClear.addEventListener('click', () => {
+                if (strokes.length === 0) return;
+                if (confirm('确定要清空画布吗？')) {
+                    strokes = [];
+                    selectedStrokeIndex = -1;
+                    renderAll();
+                    saveState();
+                }
+            });
+
+            btnSave.addEventListener('click', () => {
+                // 取消选中状态再保存，避免把选中框保存进去
+                const prevSelection = selectedStrokeIndex;
+                selectedStrokeIndex = -1;
+                renderAll();
+
+                // 创建临时链接
+                const link = document.createElement('a');
+                link.download = `sketch_${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                
+                // 恢复选中状态
+                selectedStrokeIndex = prevSelection;
+                renderAll();
+
+                toast.style.opacity = '1';
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                }, 2000);
+            });
+
+            // 监听窗口大小变化
+            window.addEventListener('resize', () => {
+                clearTimeout(window.resizeTimer);
+                window.resizeTimer = setTimeout(resizeCanvas, 100);
+            });
+            
+            // 初始化
+            setMode('pen');
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>

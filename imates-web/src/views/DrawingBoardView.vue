@@ -15,17 +15,16 @@
           >
             <!-- 左上角序号 -->
             <div class="draft-number">{{ index + 1 }}</div>
-            
+
             <!-- 中间缩略图 -->
             <div class="draft-thumbnail">
-              <img 
-                v-if="draft.thumbnail" 
-                :src="draft.thumbnail" 
+              <img
+                v-if="draft.thumbnail"
+                :src="draft.thumbnail"
                 alt="草稿缩略图"
                 class="thumbnail-image"
               />
-              <div v-else class="thumbnail-placeholder">
-              </div>
+              <div v-else class="thumbnail-placeholder"></div>
             </div>
             <!-- 右上角删除按钮 -->
             <q-btn
@@ -68,25 +67,46 @@
         </q-btn>
       </div>
 
-      <DrawingBoard
+      <DrawingBoardNew
         ref="drawingBoardRef"
         :drawing-board-tools="drawingBoardTools"
         @content-change="updateCurrentDraftThumbnail"
+        @clear="handleClearRequest"
       />
     </div>
+
+    <!-- 清空画布确认对话框 -->
+    <DraggableDialog
+      v-model="showClearDialog"
+      title="确认清空画布"
+      :show-footer="true"
+      confirm-text="清空"
+      cancel-text="取消"
+      confirm-variant="danger"
+      :initial-width="360"
+      :initial-height="190"
+      :min-width="300"
+      :min-height="160"
+      @confirm="confirmClearCanvas"
+      @cancel="cancelClearCanvas"
+    >
+      <div class="delete-confirm-content">
+        {{ '确定要清空画布吗？此操作不可撤销。' }}
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 // 定义组件名称，便于 keep-alive 缓存和 Vue DevTools 识别
 defineOptions({
-  name: 'DrawingBoardView'
+  name: 'DrawingBoardView',
 })
 
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { showMessage } from '@/utils'
-import DrawingBoard from '@/components/DrawingBoard.vue'
-
+import DrawingBoardNew from '@/components/drawingBoardNew.vue'
+import DraggableDialog from '@/components/DraggableDialog.vue'
 const drawingBoardTools = [
   'undo',
   'redo',
@@ -133,7 +153,7 @@ interface Draft {
 // ==================== 响应式数据 ====================
 const showDraftPanel = ref(true) // 控制草稿列表显示隐藏
 
-const drawingBoardRef = ref<InstanceType<typeof DrawingBoard> | null>(null)
+const drawingBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
 const draftList = ref<Draft[]>([
   {
     id: `draft-${Date.now()}`,
@@ -142,10 +162,13 @@ const draftList = ref<Draft[]>([
     updatedAt: Date.now(),
     objects: [],
     history: [[]],
-    historyIndex: 0
-  }
+    historyIndex: 0,
+  },
 ])
 const currentDraftIndex = ref(0)
+
+// 清空画布确认对话框
+const showClearDialog = ref(false)
 
 // ==================== 方法 ====================
 // 流程：切换草稿列表面板显示隐藏
@@ -164,7 +187,7 @@ const handleNewDraft = () => {
     draftList.value[currentDraftIndex.value].historyIndex = currentData.historyIndex
     draftList.value[currentDraftIndex.value].thumbnail = thumbnail
   }
-  
+
   // 第2步：创建新草稿
   const newDraft: Draft = {
     id: `draft-${Date.now()}`,
@@ -173,18 +196,18 @@ const handleNewDraft = () => {
     updatedAt: Date.now(),
     objects: [],
     history: [[]],
-    historyIndex: 0
+    historyIndex: 0,
   }
-  
+
   draftList.value.push(newDraft)
   currentDraftIndex.value = draftList.value.length - 1
-  
+
   // 第3步：清空绘图板并生成新草稿的缩略图
   if (drawingBoardRef.value) {
     drawingBoardRef.value.loadData({
       objects: [],
       history: [[]],
-      historyIndex: 0
+      historyIndex: 0,
     })
     // 第4步：为新建的空白草稿立即生成缩略图
     setTimeout(() => {
@@ -202,7 +225,7 @@ const switchDraft = (index: number) => {
     console.warn('[DrawingBoardView] ⚠️ 无效的草稿索引:', index)
     return
   }
-  
+
   // 如果点击的是当前草稿，不需要切换
   if (index === currentDraftIndex.value) {
     return
@@ -217,17 +240,17 @@ const switchDraft = (index: number) => {
     draftList.value[currentDraftIndex.value].thumbnail = thumbnail
     draftList.value[currentDraftIndex.value].updatedAt = Date.now()
   }
-  
+
   // 第2步：切换到新草稿
   currentDraftIndex.value = index
-  
+
   // 第3步：加载新草稿的绘图数据
   if (drawingBoardRef.value) {
     const newDraft = draftList.value[index]
     drawingBoardRef.value.loadData({
       objects: newDraft.objects,
       history: newDraft.history,
-      historyIndex: newDraft.historyIndex
+      historyIndex: newDraft.historyIndex,
     })
     // 如果新草稿没有缩略图，生成一个
     setTimeout(() => {
@@ -237,7 +260,7 @@ const switchDraft = (index: number) => {
       }
     }, 100)
   }
-  
+
   // 第4步：更新草稿修改时间
   draftList.value[index].updatedAt = Date.now()
 }
@@ -249,21 +272,21 @@ const confirmDeleteDraft = (index: number) => {
     showMessage('第一个草稿不能删除', 'warning')
     return
   }
-  
+
   // 第1步：如果删除的是当前草稿，保存数据
   const oldCurrentIndex = currentDraftIndex.value
   const isDeletingCurrent = index === currentDraftIndex.value
-  
+
   if (isDeletingCurrent && drawingBoardRef.value) {
     const currentData = drawingBoardRef.value.saveData()
     draftList.value[currentDraftIndex.value].objects = currentData.objects
     draftList.value[currentDraftIndex.value].history = currentData.history
     draftList.value[currentDraftIndex.value].historyIndex = currentData.historyIndex
   }
-  
+
   // 第2步：删除草稿
   draftList.value.splice(index, 1)
-  
+
   // 第3步：计算新的当前索引
   let newIndex = currentDraftIndex.value
   if (currentDraftIndex.value >= draftList.value.length) {
@@ -274,17 +297,17 @@ const confirmDeleteDraft = (index: number) => {
     // 删除的是当前草稿之前的，索引需要减1
     newIndex = currentDraftIndex.value - 1
   }
-  
+
   // 第4步：如果当前索引改变了，加载新草稿的数据
   if (newIndex !== oldCurrentIndex || isDeletingCurrent) {
     currentDraftIndex.value = newIndex
-    
+
     if (drawingBoardRef.value) {
       const newDraft = draftList.value[newIndex]
       drawingBoardRef.value.loadData({
         objects: newDraft.objects,
         history: newDraft.history,
-        historyIndex: newDraft.historyIndex
+        historyIndex: newDraft.historyIndex,
       })
     }
   }
@@ -299,6 +322,29 @@ const updateCurrentDraftThumbnail = () => {
   // 第3步：写入当前草稿
   draftList.value[currentDraftIndex.value].thumbnail = thumbnail
   draftList.value[currentDraftIndex.value].updatedAt = Date.now()
+}
+
+// 清空画布确认对话框处理
+const handleClearRequest = () => {
+  showClearDialog.value = true
+}
+
+const confirmClearCanvas = () => {
+  if (drawingBoardRef.value) {
+    // 清空画布数据
+    drawingBoardRef.value.loadData({
+      objects: [],
+      history: [[]],
+      historyIndex: 0,
+    })
+    // 更新缩略图
+    updateCurrentDraftThumbnail()
+  }
+  showClearDialog.value = false
+}
+
+const cancelClearCanvas = () => {
+  showClearDialog.value = false
 }
 
 // 生命周期：页面挂载时为当前草稿生成缩略图
@@ -326,7 +372,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.drawing-board-view { 
+.drawing-board-view {
   width: 100%;
   height: 100vh;
   display: flex;
@@ -348,7 +394,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   background: #fafafb;
-  
+
   .draft-list {
     flex: 1;
     overflow-y: auto;
@@ -357,7 +403,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .draft-item {
     position: relative;
     display: flex;
@@ -372,28 +418,28 @@ onBeforeUnmount(() => {
     transition: all 0.2s;
     width: 100%;
     aspect-ratio: 1 / 1;
-    
+
     &:hover {
       border-color: rgba(144, 89, 255, 0.5);
       box-shadow: 0 2px 8px rgba(144, 89, 255, 0.2);
       transform: scale(1.02);
-      
+
       .delete-btn {
         opacity: 1;
       }
     }
-    
+
     &.is-active {
       border-color: #9059ff;
       background: rgba(144, 89, 255, 0.02);
-      
+
       .draft-number {
         background: #9059ff;
         color: white;
       }
     }
   }
-  
+
   .draft-number {
     position: absolute;
     top: 6px;
@@ -411,7 +457,7 @@ onBeforeUnmount(() => {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     z-index: 1;
   }
-  
+
   .draft-thumbnail {
     width: 100%;
     height: 100%;
@@ -421,15 +467,15 @@ onBeforeUnmount(() => {
     border-radius: 8px;
     overflow: hidden;
     background: #ffffff;
-    
+
     .thumbnail-image {
       width: 100%;
       height: auto;
       aspect-ratio: 1 / 1;
-      object-fit: cover;
+      object-fit: contain;
       object-position: center;
     }
-    
+
     .thumbnail-placeholder {
       width: 100%;
       height: 100%;
@@ -439,7 +485,7 @@ onBeforeUnmount(() => {
       background: #ffffff;
     }
   }
-  
+
   .delete-btn {
     position: absolute;
     top: 6px;
@@ -448,23 +494,23 @@ onBeforeUnmount(() => {
     height: 24px;
     opacity: 1;
     z-index: 10;
-    
+
     :deep(.q-icon) {
       font-size: 16px;
     }
-    
+
     &:hover {
       background: #ff4444;
       color: white;
       box-shadow: 0 3px 8px rgba(255, 68, 68, 0.4);
       transform: scale(1.1);
     }
-    
+
     &:active {
       transform: scale(0.95);
     }
   }
-  
+
   // 新增草稿按钮（底部）
   .add-draft-btn {
     display: flex;
@@ -480,7 +526,7 @@ onBeforeUnmount(() => {
     margin-top: 4px;
     width: 100%;
     aspect-ratio: 1 / 1;
-    
+
     &:hover {
       border-color: rgba(144, 89, 255, 0.6);
       background: rgba(144, 89, 255, 0.05);
@@ -511,10 +557,24 @@ onBeforeUnmount(() => {
 .toggle-panel-btn {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  
+
   &:hover {
     background: rgba(255, 255, 255, 1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
+
+// 清除所有会话确认弹窗内容样式
+.delete-confirm-content {
+  height: 100%;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  border: none;
+}
+
 </style>

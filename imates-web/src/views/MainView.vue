@@ -257,7 +257,7 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'myHomework','homeworkExercise']
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'myHomework','homeworkExercise', 'drawingBoard']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏

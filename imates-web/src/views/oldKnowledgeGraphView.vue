@@ -2985,7 +2985,7 @@ const getGraphPosition = (index: number, total: number) => {
 }
 
 // 计算知识图谱的旋转角度（椭圆轨迹指示器坐标系 - 保持水平，不旋转内容）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 const getGraphRotation = (_index: number) => {
   // 在椭圆轨迹指示器坐标系中，知识图谱内容保持水平，不进行旋转
   // 只有位置会随容器旋转而改变，内容本身保持水平状态
