@@ -1,19 +1,29 @@
 <template>
   <div class="sketchpad-wrapper">
     <div class="toolbar">
-      <UnifiedToolbar
-        :tools="toolbarTools"
-        :selected-tool="toolbarSelectedTool"
-        :tool-config="toolbarToolConfig"
-        :tool-states="{ undo: canUndo, redo: canRedo }"
-        variant="floating"
-        orientation="horizontal"
-        @tool-change="handleToolbarToolChange"
-        @config-change="handleToolbarConfigChange"
-        @undo="undo"
-        @redo="redo"
-        @clear="clearCanvas"
-      ></UnifiedToolbar>
+      <div class="toolbar-slot toolbar-slot--left">
+        <slot name="toolbar-left" />
+      </div>
+
+      <div class="toolbar-center">
+        <UnifiedToolbar
+          :tools="toolbarTools"
+          :selected-tool="toolbarSelectedTool"
+          :tool-config="toolbarToolConfig"
+          :tool-states="{ undo: canUndo, redo: canRedo }"
+          variant="floating"
+          orientation="horizontal"
+          @tool-change="handleToolbarToolChange"
+          @config-change="handleToolbarConfigChange"
+          @undo="undo"
+          @redo="redo"
+          @clear="clearCanvas"
+        ></UnifiedToolbar>
+      </div>
+
+      <div class="toolbar-slot toolbar-slot--right">
+        <slot name="toolbar-right" />
+      </div>
     </div>
 
     <div ref="containerRef" class="canvas-container" style="touch-action: none">
@@ -71,9 +81,16 @@
         </svg>
       </button>
       
-      <div class="zoom-display" @click="fitToScreen">
-        {{ Math.round(camera.zoom * 100) }}%
-      </div>
+      <CommonSelect
+        class="zoom-select"
+        :options="zoomPresetOptions"
+        :model-value="zoomPresetModelValue"
+        @change="handleZoomPresetChange"
+      >
+        <template #label>
+          {{ Math.round(camera.zoom * 100) }}%
+        </template>
+      </CommonSelect>
       
       <button class="zoom-btn zoom-in" @click="zoomIn" :disabled="camera.zoom >= MAX_ZOOM">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -84,11 +101,30 @@
       
       <button class="zoom-btn zoom-fit" @click="fitToContent" title="适应内容">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-          <polyline points="10,17 15,12 10,7"></polyline>
-          <line x1="15" y1="12" x2="3" y2="12"></line>
+          <polyline points="8 3 3 3 3 8"></polyline>
+          <polyline points="16 3 21 3 21 8"></polyline>
+          <polyline points="8 21 3 21 3 16"></polyline>
+          <polyline points="16 21 21 21 21 16"></polyline>
         </svg>
       </button>
+    </div>
+
+    <!-- 调试面板 -->
+    <div v-if="isDev" class="debug-panel">
+      <label>
+        <input type="checkbox" v-model="showDebugPanel" /> 调试面板
+      </label>
+      <div v-if="showDebugPanel">
+        <div>
+          <label>X: <input type="number" v-model.number="backgroundOrigin.x" @input="renderAll" /></label>
+        </div>
+        <div>
+          <label>Y: <input type="number" v-model.number="backgroundOrigin.y" @input="renderAll" /></label>
+        </div>
+        <div>
+          <button @click="updateBackgroundOrigin">重置为居中靠上</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -96,6 +132,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
+import CommonSelect from './CommonSelect.vue'
 
 const emit = defineEmits<{
   clear: [],
@@ -105,12 +142,17 @@ const emit = defineEmits<{
 const props = defineProps({
   backgroundImage: { type: String, default: '' },
   fitBackground: { type: Boolean, default: false },
+
+  showGrid: { type: Boolean, default: false },
+
+  initialZoom: { type: Number, default: 1 },
 })
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // --- 引用与状态 ---
-const canvasRef = ref(null)
-const containerRef = ref(null)
-const textInputRef = ref(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const containerRef = ref<HTMLDivElement | null>(null)
+const textInputRef = ref<HTMLTextAreaElement | null>(null)
 
 const currentMode = ref('draw')
 const currentColor = ref('#212529')
@@ -118,11 +160,23 @@ const currentSize = ref(3)
 const currentOpacity = ref(1)
 const selectMode = ref('rectangle') // 选择模式：rectangle 或 freeform
 
-const hoverPos = ref(null) // 用于渲染实时光标（如橡皮擦圆圈）
+const hoverPos = ref<{ x: number; y: number } | null>(null) // 用于渲染实时光标（如橡皮擦圆圈）
 const showToast = ref(false)
 
-const backgroundImg = ref(null)
+const showDebugPanel = ref(false)
+
+const backgroundImg = ref<HTMLImageElement | null>(null)
 const backgroundLoaded = ref(false)
+
+const backgroundOrigin = reactive({ x: 100, y: 120 })
+
+function updateBackgroundOrigin() {
+  if (!canvasRef.value || !backgroundImg.value || !backgroundLoaded.value) return
+  const dpr = window.devicePixelRatio || 1
+  const canvasLogicalWidth = canvasRef.value.width / dpr
+  backgroundOrigin.x = 100
+  backgroundOrigin.y = 120
+}
 
 // 橡皮擦光标状态
 const eraserCursor = reactive({
@@ -232,6 +286,10 @@ function handleToolbarConfigChange(cfg) {
   }
 }
 
+function clearCanvas() {
+  emit('clear')
+}
+
 const inputState = reactive({
   visible: false,
   x: 0,
@@ -245,7 +303,7 @@ const inputState = reactive({
 })
 
 // 核心数据
-let ctx = null
+let ctx: CanvasRenderingContext2D | null = null
 let strokes = []
 let history = []
 const activePointers = new Map()
@@ -256,6 +314,83 @@ const MAX_HISTORY = 40
 const camera = reactive({ x: 0, y: 0, zoom: 1 })
 const MIN_ZOOM = 0.01
 const MAX_ZOOM = 10.0
+
+function normalizeZoom(z: number) {
+  // 兼容两种写法：0.7（缩放倍数） 或 70（百分比）
+  let zoom = z
+  if (typeof zoom !== 'number' || Number.isNaN(zoom) || zoom <= 0) zoom = 1
+  if (zoom > 10) zoom = zoom / 100
+  zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
+  return zoom
+}
+
+function ensureBoundsForStroke(obj: any) {
+  if (!obj) return
+  if (obj.bounds) return
+
+  // stroke/path
+  if ((!obj.type || obj.type === 'stroke') && Array.isArray(obj.points) && obj.points.length) {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
+    obj.points.forEach((p: any) => {
+      if (!p) return
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+      maxX = Math.max(maxX, p.x)
+      maxY = Math.max(maxY, p.y)
+    })
+    if (minX !== Infinity) {
+      obj.bounds = { minX, minY, maxX, maxY }
+    }
+    return
+  }
+
+  // shapes
+  if (typeof obj.x === 'number' && typeof obj.y === 'number' && typeof obj.width === 'number' && typeof obj.height === 'number') {
+    const minX = Math.min(obj.x, obj.x + obj.width)
+    const maxX = Math.max(obj.x, obj.x + obj.width)
+    const minY = Math.min(obj.y, obj.y + obj.height)
+    const maxY = Math.max(obj.y, obj.y + obj.height)
+    obj.bounds = { minX, minY, maxX, maxY }
+    return
+  }
+
+  // text fallback
+  if (obj.type === 'text' && typeof obj.x === 'number' && typeof obj.y === 'number') {
+    const fontSize = typeof obj.fontSize === 'number' ? obj.fontSize : 16
+    const text = (obj.text || '').toString()
+    const approxWidth = Math.max(1, text.length) * fontSize * 0.6
+    obj.bounds = { minX: obj.x, minY: obj.y - fontSize, maxX: obj.x + approxWidth, maxY: obj.y }
+  }
+}
+
+const zoomPresetOptions = [
+  { label: '50%', value: 0.5 },
+  { label: '100%', value: 1 },
+  { label: '150%', value: 1.5 },
+  { label: '200%', value: 2 },
+]
+
+const zoomPresetModelValue = computed(() => {
+  const candidates = zoomPresetOptions.filter((o) => typeof o.value === 'number') as Array<{
+    label: string
+    value: number
+  }>
+  const eps = 0.001
+  const matched = candidates.find((o) => Math.abs(o.value - camera.zoom) < eps)
+  return matched ? matched.value : null
+})
+
+function handleZoomPresetChange(v: string | number | null) {
+  if (typeof v !== 'number') return
+  const rect = canvasRef.value?.getBoundingClientRect()
+  if (!rect) return
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  zoomToPoint(centerX, centerY, v)
+}
 
 const isSpacePressed = ref(false)
 let resizeTimer = null
@@ -272,6 +407,7 @@ function loadBackgroundImage(url) {
   img.onload = () => {
     backgroundImg.value = img
     backgroundLoaded.value = true
+    updateBackgroundOrigin()
     if (props.fitBackground) {
       // 如果需要适应背景，可以调整相机位置或缩放
       // 这里简单处理：重置相机
@@ -293,7 +429,7 @@ watch(
 )
 
 // 多选状态
-const selectedIndices = reactive(new Set())
+const selectedIndices = reactive(new Set<number>())
 let groupBounds = null // 选中物体的整体包围盒
 let selectionRect = null // 框选时的临时矩形
 let activeHandle = null // 当前拖拽的控制点
@@ -377,6 +513,7 @@ function resizeCanvas() {
     canvasRef.value.height = canvasHeight * dpr
     canvasRef.value.style.width = `${canvasWidth}px`
     canvasRef.value.style.height = `${canvasHeight}px`
+    updateBackgroundOrigin()
     renderAll()
   }
 }
@@ -520,7 +657,9 @@ function renderAll() {
   ctx.fillStyle = '#f9fafb'
   ctx.fillRect(0, 0, width, height)
 
-  drawGrid(ctx, width, height)
+  if (props.showGrid) {
+    drawGrid(ctx, width, height)
+  }
 
   ctx.setTransform(dpr * camera.zoom, 0, 0, dpr * camera.zoom, camera.x * dpr, camera.y * dpr)
   ctx.lineCap = 'round'
@@ -528,7 +667,7 @@ function renderAll() {
 
   // 绘制背景图
   if (backgroundImg.value && backgroundLoaded.value) {
-    ctx.drawImage(backgroundImg.value, 0, 0)
+    ctx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
   }
 
   strokes.forEach((obj, index) => {
@@ -1493,7 +1632,8 @@ function zoomIn() {
   
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
-  zoomToPoint(centerX, centerY, camera.zoom * 1.2)
+  const newZoom = Math.min(MAX_ZOOM, Number((camera.zoom + 0.1).toFixed(4)))
+  zoomToPoint(centerX, centerY, newZoom)
 }
 
 function zoomOut() {
@@ -1503,7 +1643,8 @@ function zoomOut() {
   
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
-  zoomToPoint(centerX, centerY, camera.zoom / 1.2)
+  const newZoom = Math.max(MIN_ZOOM, Number((camera.zoom - 0.1).toFixed(4)))
+  zoomToPoint(centerX, centerY, newZoom)
 }
 
 function fitToScreen() {
@@ -1634,6 +1775,7 @@ function saveImage() {
 onMounted(() => {
   ctx = canvasRef.value.getContext('2d', { alpha: false })
   resizeCanvas()
+  camera.zoom = normalizeZoom(props.initialZoom)
   saveState()
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer)
@@ -1672,6 +1814,9 @@ const loadData = (data) => {
   strokes = data.objects
   history = data.history
   historyStep.value = data.historyIndex
+  if (Array.isArray(strokes)) {
+    strokes.forEach((s) => ensureBoundsForStroke(s))
+  }
   renderAll()
 }
 
@@ -1719,10 +1864,100 @@ const getThumbnail = (width, height) => {
   return thumbCanvas.toDataURL('image/png')
 }
 
+// 清空画布
+const clearAll = () => {
+  strokes = []
+  history = []
+  historyStep.value = -1
+  selectedIndices.clear()
+  groupBounds = null
+  renderAll()
+}
+
+// 导出为 JPG
+const exportToJpg = (quality = 0.9): string => {
+  // 对齐 saveImage 的导出策略：按内容边界导出，避免视口尺寸/缩放导致挤压
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+
+  // 1) 背景图边界（背景图以世界坐标 0,0 绘制）
+  if (backgroundImg.value && backgroundLoaded.value) {
+    const bgX = backgroundOrigin.x
+    const bgY = backgroundOrigin.y
+    minX = Math.min(minX, bgX)
+    minY = Math.min(minY, bgY)
+    maxX = Math.max(maxX, bgX + backgroundImg.value.width)
+    maxY = Math.max(maxY, bgY + backgroundImg.value.height)
+  }
+
+  // 2) 笔迹边界
+  strokes.forEach((s) => {
+    if (s.mode === 'eraser') return
+    ensureBoundsForStroke(s)
+    if (!s.bounds) return
+    minX = Math.min(minX, s.bounds.minX)
+    minY = Math.min(minY, s.bounds.minY)
+    maxX = Math.max(maxX, s.bounds.maxX)
+    maxY = Math.max(maxY, s.bounds.maxY)
+  })
+
+  // 3) 如果没有任何内容，返回空
+  if (minX === Infinity) {
+    if (!canvasRef.value) return ''
+    const rect = canvasRef.value.getBoundingClientRect()
+    const width = Math.max(1, Math.round(rect.width))
+    const height = Math.max(1, Math.round(rect.height))
+    const tempCanvas = document.createElement('canvas')
+    tempCanvas.width = width
+    tempCanvas.height = height
+    const tempCtx = tempCanvas.getContext('2d')
+    if (!tempCtx) return ''
+    tempCtx.fillStyle = '#ffffff'
+    tempCtx.fillRect(0, 0, width, height)
+    return tempCanvas.toDataURL('image/jpeg', quality)
+  }
+
+  const padding = 40
+  const width = maxX - minX + padding * 2
+  const height = maxY - minY + padding * 2
+
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = width
+  tempCanvas.height = height
+
+  const tempCtx = tempCanvas.getContext('2d')
+  if (!tempCtx) return ''
+
+  // 白底
+  tempCtx.fillStyle = '#ffffff'
+  tempCtx.fillRect(0, 0, width, height)
+
+  // 平移到内容左上角
+  tempCtx.save()
+  tempCtx.translate(-minX + padding, -minY + padding)
+  tempCtx.lineCap = 'round'
+  tempCtx.lineJoin = 'round'
+
+  // 背景图（原尺寸绘制）
+  if (backgroundImg.value && backgroundLoaded.value) {
+    tempCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
+  }
+
+  // 笔迹
+  strokes.forEach((s) => drawStrokeToContext(tempCtx, s))
+  tempCtx.restore()
+
+  return tempCanvas.toDataURL('image/jpeg', quality)
+}
+
 defineExpose({
   saveData,
   loadData,
   getThumbnail,
+  clearAll,
+  exportToJpg,
 })
 </script>
 <style scoped>
@@ -1786,11 +2021,25 @@ defineExpose({
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
   width: 98%;
   max-width: 768px;
   z-index: 10;
+}
+
+.toolbar-slot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toolbar-slot--left {
+  justify-content: flex-start;
+}
+
+.toolbar-slot--right {
+  justify-content: flex-end;
 }
 
 .toolbar-section {
@@ -2010,8 +2259,68 @@ input[type='range'] {
   color: #000000;
 }
 
+.zoom-select :deep(.select-trigger) {
+  width: auto;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(0, 0, 0, 0.02);
+  font-size: 13px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.zoom-select :deep(.select-trigger:hover) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.zoom-select :deep(.select-dropdown) {
+  left: auto;
+  right: 0;
+  min-width: 120px;
+  z-index: 60;
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
 .zoom-fit {
   margin-left: 2px;
+}
+
+.debug-panel {
+  position: absolute;
+  top: 120px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-size: 12px;
+  z-index: 50;
+}
+
+.debug-panel div {
+  margin-bottom: 5px;
+}
+
+.debug-panel input[type="number"] {
+  width: 60px;
+  margin-left: 5px;
+}
+
+.debug-panel button {
+  font-size: 11px;
+  padding: 4px 8px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.debug-panel button:hover {
+  background: #e0e0e0;
 }
 
 .toolbar::-webkit-scrollbar {

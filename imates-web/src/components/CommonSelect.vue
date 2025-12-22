@@ -10,7 +10,7 @@
           {{ currentLabel }}
         </slot>
       </span>
-      <span class="select-icon-wrapper" :class="{ 'select-icon--open': isOpen }">
+      <span v-if="showArrow" class="select-icon-wrapper" :class="{ 'select-icon--open': isOpen }">
         <img :src="arrowIcon" alt="arrow" class="select-icon" />
       </span>
     </button>
@@ -33,8 +33,8 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+<script lang="ts">
+import { computed, defineComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 import arrowIcon from '/icons/arrow.svg'
 
 interface Option {
@@ -42,50 +42,72 @@ interface Option {
   value: string | number
 }
 
-const props = defineProps<{
-  options: Option[]
-  modelValue: string | number | null
-  placeholder?: string
-}>()
+export default defineComponent({
+  name: 'CommonSelect',
+  props: {
+    options: {
+      type: Array as unknown as () => Option[],
+      required: true,
+    },
+    modelValue: {
+      type: [String, Number, null] as unknown as () => string | number | null,
+      default: null,
+    },
+    showArrow: {
+      type: Boolean,
+      default: true,
+    },
+    placeholder: {
+      type: String,
+      default: undefined,
+    },
+  },
+  emits: ['update:modelValue', 'change'],
+  setup(props, { emit }) {
+    const isOpen = ref(false)
+    const rootRef = ref<HTMLElement | null>(null)
 
-const emit = defineEmits<{
-  'update:modelValue': [value: string | number | null]
-  change: [value: string | number | null]
-}>()
+    const currentLabel = computed(() => {
+      const found = props.options.find((o) => o.value === props.modelValue)
+      if (found) return found.label
+      return props.placeholder ?? '请选择'
+    })
 
-const isOpen = ref(false)
-const rootRef = ref<HTMLElement | null>(null)
+    const toggleDropdown = () => {
+      isOpen.value = !isOpen.value
+    }
 
-const currentLabel = computed(() => {
-  const found = props.options.find((o) => o.value === props.modelValue)
-  if (found) return found.label
-  return props.placeholder ?? '请选择'
-})
+    const handleSelect = (value: string | number) => {
+      emit('update:modelValue', value)
+      emit('change', value)
+      isOpen.value = false
+    }
 
-const toggleDropdown = () => {
-  isOpen.value = !isOpen.value
-}
+    const handleClickOutside = (event: MouseEvent) => {
+      const root = rootRef.value
+      if (!root) return
+      if (!root.contains(event.target as Node)) {
+        isOpen.value = false
+      }
+    }
 
-const handleSelect = (value: string | number) => {
-  emit('update:modelValue', value)
-  emit('change', value)
-  isOpen.value = false
-}
+    onMounted(() => {
+      document.addEventListener('click', handleClickOutside)
+    })
 
-const handleClickOutside = (event: MouseEvent) => {
-  const root = rootRef.value
-  if (!root) return
-  if (!root.contains(event.target as Node)) {
-    isOpen.value = false
-  }
-}
+    onBeforeUnmount(() => {
+      document.removeEventListener('click', handleClickOutside)
+    })
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
+    return {
+      arrowIcon,
+      isOpen,
+      rootRef,
+      currentLabel,
+      toggleDropdown,
+      handleSelect,
+    }
+  },
 })
 </script>
 

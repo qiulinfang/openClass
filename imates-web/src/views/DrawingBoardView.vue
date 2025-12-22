@@ -105,7 +105,7 @@ defineOptions({
 
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { showMessage } from '@/utils'
-import DrawingBoardNew from '@/components/drawingBoardNew.vue'
+import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
 import DraggableDialog from '@/components/DraggableDialog.vue'
 const drawingBoardTools = [
   'undo',

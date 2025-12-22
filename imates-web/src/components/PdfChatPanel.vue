@@ -35,7 +35,7 @@
           ref="chatViewRef"
           type="ai-textbook"
           :compressed-height="360"
-          @send-with-screenshot="(text, shots) => emit('send-with-screenshot', text, shots)"
+          @send-with-screenshot="(text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)"
           @remove-screenshot="(id) => emit('remove-screenshot', id)"
         >
           <!-- 通过 ChatView 的 header-prefix 插槽引入“选中并问”按钮 -->
@@ -93,7 +93,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'select-and-ask-click': []
   close: []
-  'send-with-screenshot': [string, AttachedScreenshot[]]
+  'send-with-screenshot': [string, AttachedScreenshot[], string]
   'remove-screenshot': [string]
 }>()
 
@@ -107,7 +107,7 @@ const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 const tabOptions = [
   { label: '会话记录', value: 'question-record', icon: 'quiz' },
   { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
-]
+] as const
 
 // 会话数据
 const sessions = ref<AiTextbookSession[]>([])

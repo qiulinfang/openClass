@@ -545,7 +545,7 @@ const handleScreenshotCancel = () => {
 }
 
 // 从 ChatInput 发送携带截图的消息：复用原 handleScreenshotConfirm 的逻辑
-const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreenshot[]) => {
+const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreenshot[], selectedModel?: string) => {
   if (!shots || !shots.length) {
     return
   }
@@ -603,7 +603,7 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
     // 通过 aiTextbookStore 发送消息：图片都挂在 imageList 上（最多3张），首图仍作为 imageData 走截图接口
     await aiTextbookStore.sendMessage(
       text,
-      'mate',
+      selectedModel || 'mate',
       imageData,
       false,
       false,

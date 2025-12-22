@@ -128,9 +128,9 @@ const handleClick = (evt: MouseEvent) => {
 }
 
 .common-action-btn--ghost {
-  background-color: transparent;
+  background-color: #f9fafb;
   color: #333333;
-  border: 1.5px solid #d0d0d0;
+  border: 1.5px solid #b0b0b0;
 }
 
 .common-action-btn--ghost:hover:not(:disabled) {

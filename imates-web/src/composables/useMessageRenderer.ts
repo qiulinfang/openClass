@@ -70,8 +70,12 @@ export function useMessageRenderer() {
     processedContent = processedContent.replace(inlineRegex, '$$$1$')
 
     // 5. 处理块级公式 \[...\] 格式
+    //    注意：块级公式应当独立成段（前后留空行），否则在 markdown-it-mathjax3 下可能被拆段/断行。
     const displayRegex = /\\\[(.*?)\\\]/gs
-    processedContent = processedContent.replace(displayRegex, '$$$$$1$$$$')
+    processedContent = processedContent.replace(displayRegex, (_match, content) => {
+      const trimmed = String(content ?? '').trim()
+      return `\n\n$$${trimmed}$$\n\n`
+    })
 
     // 6. 处理MathLive的AsciiMath格式（如果存在）
     const asciiMathRegex = /\`(.*?)\`/gs

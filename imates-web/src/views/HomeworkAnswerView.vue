@@ -23,62 +23,63 @@
         />
       </div>
       <div class="right-panel">
-        <DrawingBoard
-          ref="drawingBoardRef"
-          :current-question="currentAnswerQuestion"
-          :background-image="currentPageIndex === 0 ? questionBgImage : ''"
-          layout-mode="doubleHeight"
-          :initialZoom="0.5"
-        >
-          <!-- 左侧插槽：去学伴（QuestionList 选中题目即可） -->
-          <template #toolbar-left>
-            <CommonActionButton
-              label="学伴辅导"
-              variant="ghost"
-              size="sm"
-              :disabled="!hasSelectedQuestion"
-              @click="handleGoToXueban"
+        <div class="drawing-board-wrapper">
+          <DrawingBoardNew
+            v-for="page in boardPageSlots"
+            :key="page"
+            :ref="(el) => setDrawingBoardRef(el, page)"
+            v-show="currentPageIndex === page"
+            :background-image="page === 0 ? questionBgImage : ''"
+            :initial-zoom="70"
+          >
+            <template #toolbar-left>
+              <CommonActionButton
+                label="学伴辅导"
+                variant="ghost"
+                size="sm"
+                :disabled="!hasSelectedQuestion"
+                @click="handleGoToXueban"
+              />
+            </template>
+
+            <template #toolbar-right>
+              <CommonActionButton
+                label="上传作业"
+                variant="primary"
+                size="sm"
+                :disabled="!currentAnswerQuestion"
+                @click="handleUploadHomework"
+              />
+            </template>
+          </DrawingBoardNew>
+          
+          <!-- 底部白板页控制按钮 -->
+          <div class="page-controls-bottom">
+            <img
+              :src="pagePrevIcon"
+              alt="上一页"
+              class="page-btn-icon nav-icon-left"
+              :class="{ 'is-disabled': totalPages <= 1 || currentPageIndex === 0 }"
+              @click="(totalPages > 1 && currentPageIndex > 0) && handlePrevPage()"
             />
-          </template>
-          <!-- 右侧插槽：上传作业（相册/拍照选择图片） -->
-          <template #toolbar-right>
-            <CommonActionButton
-              label="上传作业"
-              variant="primary"
-              size="sm"
-              :disabled="!currentAnswerQuestion"
-              @click="handleUploadHomework"
+            <img
+              :src="pageAddIcon"
+              alt="新增白板"
+              class="page-btn-icon add-icon nav-icon-center"
+              @click="handleAddPage"
             />
-          </template>
-          <!-- 底部插槽：白板页控制按钮 -->
-          <template #toolbar-bottom>
-            <div class="page-controls-bottom">
-              <img
-                :src="pagePrevIcon"
-                alt="上一页"
-                class="page-btn-icon nav-icon-left"
-                :class="{ 'is-disabled': totalPages <= 1 || currentPageIndex === 0 }"
-                @click="(totalPages > 1 && currentPageIndex > 0) && handlePrevPage()"
-              />
-              <img
-                :src="pageAddIcon"
-                alt="新增白板"
-                class="page-btn-icon add-icon nav-icon-center"
-                @click="handleAddPage"
-              />
-              <img
-                :src="pageNextIcon"
-                alt="下一页"
-                class="page-btn-icon nav-icon-right"
-                :class="{ 'is-disabled': totalPages <= 1 || currentPageIndex >= totalPages - 1 }"
-                @click="(totalPages > 1 && currentPageIndex < totalPages - 1) && handleNextPage()"
-              />
-              <span class="page-info-bottom" v-if="totalPages > 0">
-                {{ currentPageIndex + 1 }}/{{ totalPages }}
-              </span>
-            </div>
-          </template>
-        </DrawingBoard>
+            <img
+              :src="pageNextIcon"
+              alt="下一页"
+              class="page-btn-icon nav-icon-right"
+              :class="{ 'is-disabled': totalPages <= 1 || currentPageIndex >= totalPages - 1 }"
+              @click="(totalPages > 1 && currentPageIndex < totalPages - 1) && handleNextPage()"
+            />
+            <span class="page-info-bottom" v-if="totalPages > 0">
+              {{ currentPageIndex + 1 }}/{{ totalPages }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -103,7 +104,7 @@ import { computed, ref, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import QuestionList from '@/components/QuestionList.vue'
-import DrawingBoard from '@/components/DrawingBoard.vue'
+import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
 import CommonActionButton from '@/components/CommonActionButton.vue'
 import CameraUploadDialog from '@/components/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
@@ -144,7 +145,17 @@ const currentAnswerQuestion = ref<ExerciseItem | null>(null)
 const previousQuestionKey = ref<string>('')
 
 // DrawingBoard 组件引用
-const drawingBoardRef = ref<InstanceType<typeof DrawingBoard> | null>(null)
+const MAX_BOARD_PAGES = 3
+const drawingBoardRefs = ref<Array<InstanceType<typeof DrawingBoardNew> | null>>([])
+
+const setDrawingBoardRef = (el: any, pageIndex: number) => {
+  drawingBoardRefs.value[pageIndex] = el as InstanceType<typeof DrawingBoardNew> | null
+}
+
+const boardPageSlots = computed(() => {
+  const count = Math.min(Math.max(totalPages.value, 1), MAX_BOARD_PAGES)
+  return Array.from({ length: count }, (_, i) => i)
+})
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
@@ -265,16 +276,18 @@ watch(
 
 // 保存当前题目当前页的作答数据到全局缓存
 const saveCurrentPage = () => {
-  if (!currentAnswerQuestion.value || !drawingBoardRef.value) return
+  if (!currentAnswerQuestion.value) return
+  const board = drawingBoardRefs.value[currentPageIndex.value]
+  if (!board) return
 
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
   if (!questionKey) return
 
-  const data = drawingBoardRef.value.saveData()
+  const data = board.saveData()
   if (!data) return
 
   const cache = getBoardCache(questionKey)
-  const pageIndex = cache.currentPageIndex ?? 0
+  const pageIndex = typeof currentPageIndex.value === 'number' ? currentPageIndex.value : (cache.currentPageIndex ?? 0)
   if (!cache.pages || !Array.isArray(cache.pages)) {
     cache.pages = []
   }
@@ -288,24 +301,28 @@ const saveCurrentPage = () => {
 // 根据缓存恢复当前题目的当前页到画布
 const restoreCurrentPage = (question: ExerciseItem | null) => {
   const questionKey = getQuestionKey(question)
-  if (!questionKey || !drawingBoardRef.value) {
+  if (!questionKey) {
     currentPageIndex.value = 0
     totalPages.value = 1
-    drawingBoardRef.value?.clearAll()
+    drawingBoardRefs.value.forEach((b) => b?.clearAll())
     return
   }
 
   const cache = getBoardCache(questionKey)
-  totalPages.value = cache.pages.length > 0 ? cache.pages.length : 1
-  currentPageIndex.value = cache.currentPageIndex ?? 0
+  totalPages.value = Math.min(cache.pages.length > 0 ? cache.pages.length : 1, MAX_BOARD_PAGES)
+  currentPageIndex.value = Math.min(cache.currentPageIndex ?? 0, totalPages.value - 1)
 
-  if (cache.pages.length > 0 && cache.pages[currentPageIndex.value]) {
-    drawingBoardRef.value.loadData(cache.pages[currentPageIndex.value] as any)
-    console.log('[HomeworkAnswerView] 从全局缓存恢复题目当前页作答数据:', questionKey, 'page', currentPageIndex.value)
-  } else {
-    drawingBoardRef.value.clearAll()
-    console.log('[HomeworkAnswerView] 无缓存页数据，清空画布:', questionKey)
-  }
+  nextTick(() => {
+    for (let i = 0; i < totalPages.value; i++) {
+      const board = drawingBoardRefs.value[i]
+      if (!board) continue
+      if (cache.pages.length > 0 && cache.pages[i]) {
+        board.loadData(cache.pages[i] as any)
+      } else {
+        board.clearAll()
+      }
+    }
+  })
 }
 
 // QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
@@ -498,7 +515,7 @@ const handleUploadHomework = async () => {
 
 // 白板上传按钮点击 - 导出画布图片并打开对话框
 const handleBoardUpload = async () => {
-  if (!drawingBoardRef.value || !currentAnswerQuestion.value) return
+  if (!currentAnswerQuestion.value) return
 
   console.log('[HomeworkAnswerView][handleBoardUpload] start', {
     questionKey: getQuestionKey(currentAnswerQuestion.value),
@@ -528,55 +545,30 @@ const handleBoardUpload = async () => {
   const photos: string[] = []
   const pageIndexMap: number[] = []
 
-  // 3. 依次加载每一页到画布并导出为 JPG（供用户在对话框中多选/删除）
-  for (let i = 0; i < cache.pages.length; i++) {
-    console.log('[HomeworkAnswerView][handleBoardUpload] export page begin', {
-      pageIndex: i,
-      hasPageData: !!cache.pages[i],
-    })
-    const pageData = cache.pages[i]
+  // 3. 直接从每一页独立画板导出（最多3页）
+  const pageCount = Math.min(cache.pages.length, MAX_BOARD_PAGES)
+  for (let i = 0; i < pageCount; i++) {
+    const board = drawingBoardRefs.value[i]
+    if (!board) continue
 
-    // 根据页码设置背景：第 1 页有题目背景，其他页无背景
-    if (i === 0 && questionBgImage.value) {
-      await drawingBoardRef.value.setBackgroundImage(questionBgImage.value)
-    } else {
-      await drawingBoardRef.value.setBackgroundImage('')
+    // 先保存一次，保证缓存与页面内容一致
+    const latest = board.saveData?.()
+    if (latest && cache.pages) {
+      cache.pages[i] = latest
     }
 
-    // 如果该页有数据则加载，否则清空画布（空白页）
-    if (pageData) {
-      drawingBoardRef.value.loadData(pageData as any)
-    } else {
-      drawingBoardRef.value.clearAll()
-    }
-    await nextTick()
-
-    const imageData = drawingBoardRef.value.exportToJpg(0.9)
+    const imageData = board.exportToJpg?.(0.9)
     if (imageData) {
       photos.push(imageData)
       pageIndexMap.push(i)
-      console.log('[HomeworkAnswerView][handleBoardUpload] export page success', {
-        pageIndex: i,
-        imageLength: imageData.length,
-      })
     }
   }
 
-  // 4. 恢复当前页索引（让模板的 :background-image 响应式绑定自动处理背景）
-  cache.currentPageIndex = originalPageIndex
+  // 4. 还原索引与缓存（不会影响画板实例状态）
+  cache.currentPageIndex = Math.min(originalPageIndex, pageCount - 1)
   ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
-  currentPageIndex.value = originalPageIndex
-  totalPages.value = cache.pages.length
-
-  // 等待 Vue 响应式更新 background-image prop
-  await nextTick()
-
-  // 恢复当前页的绘图数据
-  if (cache.pages[originalPageIndex]) {
-    drawingBoardRef.value.loadData(cache.pages[originalPageIndex] as any)
-  } else {
-    drawingBoardRef.value.clearAll()
-  }
+  currentPageIndex.value = cache.currentPageIndex
+  totalPages.value = pageCount
 
   console.log('[HomeworkAnswerView][handleBoardUpload] restore current page done', {
     questionKey,
@@ -612,10 +604,6 @@ const handlePrevPage = () => {
 
   totalPages.value = cache.pages.length
   currentPageIndex.value = cache.currentPageIndex
-
-  if (cache.pages[currentPageIndex.value] && drawingBoardRef.value) {
-    drawingBoardRef.value.loadData(cache.pages[currentPageIndex.value] as any)
-  }
 }
 
 // 白板页控制：下一页
@@ -634,15 +622,16 @@ const handleNextPage = () => {
 
   totalPages.value = cache.pages.length
   currentPageIndex.value = cache.currentPageIndex
-
-  if (cache.pages[currentPageIndex.value] && drawingBoardRef.value) {
-    drawingBoardRef.value.loadData(cache.pages[currentPageIndex.value] as any)
-  }
 }
 
 // 白板页控制：新增白板页
 const handleAddPage = () => {
-  if (!currentAnswerQuestion.value || !drawingBoardRef.value) return
+  if (!currentAnswerQuestion.value) return
+
+  if (totalPages.value >= MAX_BOARD_PAGES) {
+    showMessage(`最多只能添加 ${MAX_BOARD_PAGES} 页白板`, 'warning')
+    return
+  }
 
   saveCurrentPage()
 
@@ -658,10 +647,12 @@ const handleAddPage = () => {
 
   ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
 
-  totalPages.value = cache.pages.length
+  totalPages.value = Math.min(cache.pages.length, MAX_BOARD_PAGES)
   currentPageIndex.value = cache.currentPageIndex
 
-  drawingBoardRef.value.clearAll()
+  nextTick(() => {
+    drawingBoardRefs.value[currentPageIndex.value]?.clearAll()
+  })
 }
 
 // 上传确认回调
@@ -732,9 +723,7 @@ const handleUploadConfirm = async (photos: string[]) => {
             ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
             currentPageIndex.value = 0
             totalPages.value = 1
-            if (drawingBoardRef.value) {
-              drawingBoardRef.value.clearAll()
-            }
+            drawingBoardRefs.value.forEach((b) => b?.clearAll())
             console.log('[HomeworkAnswerView][handleUploadConfirm] 所有白板页被删除，清空缓存', {
               questionKey,
             })
@@ -766,13 +755,17 @@ const handleUploadConfirm = async (photos: string[]) => {
             currentPageIndex.value = newCurrent
             totalPages.value = newPages.length > 0 ? newPages.length : 1
 
-            if (drawingBoardRef.value) {
-              if (newPages.length > 0 && newPages[newCurrent]) {
-                drawingBoardRef.value.loadData(newPages[newCurrent] as any)
-              } else {
-                drawingBoardRef.value.clearAll()
+            nextTick(() => {
+              for (let i = 0; i < Math.min(totalPages.value, MAX_BOARD_PAGES); i++) {
+                const board = drawingBoardRefs.value[i]
+                if (!board) continue
+                if (newPages.length > 0 && newPages[i]) {
+                  board.loadData(newPages[i] as any)
+                } else {
+                  board.clearAll()
+                }
               }
-            }
+            })
 
             console.log('[HomeworkAnswerView][handleUploadConfirm] 更新白板页缓存', {
               questionKey,
@@ -873,6 +866,13 @@ const handleUploadConfirm = async (photos: string[]) => {
   background: #ffffff;
   overflow: hidden;
   max-width: 100%;
+  position: relative;
+}
+
+.drawing-board-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
 .question-render-hidden {
@@ -913,6 +913,11 @@ const handleUploadConfirm = async (photos: string[]) => {
 
 /* 底部白板页控制按钮样式 */
 .page-controls-bottom {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 6px;

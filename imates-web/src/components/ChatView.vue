@@ -438,7 +438,7 @@ const emit = defineEmits<{
   'scroll-to-message': [messageId: string] // 滚动到指定消息事件
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
   'remove-screenshot': [string]
-  'send-with-screenshot': [string, import('../types').AttachedScreenshot[]]
+  'send-with-screenshot': [string, import('../types').AttachedScreenshot[], string]
   'focus-input': [] // 聚焦输入框事件
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
 }>()
@@ -722,7 +722,7 @@ const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
     // 对于 ai-general：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
     void sendMessage()
   } else {
-    emit('send-with-screenshot', inputMessage.value, shots)
+    emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
   }
 }
 
