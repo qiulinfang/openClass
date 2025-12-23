@@ -150,6 +150,10 @@ interface Props {
   sectionName?: string // 当前章节名称
   level?: number // 当前学习级别
   textbookId?: string // 当前教材ID
+  chapterGrade?: string
+  chapterSubject?: string
+  chapterTextbook?: string
+  chapterTitle?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -158,6 +162,10 @@ const props = withDefaults(defineProps<Props>(), {
   sectionName: '学习内容',
   level: 1,
   textbookId: '',
+  chapterGrade: '',
+  chapterSubject: '',
+  chapterTextbook: '',
+  chapterTitle: '',
 })
 
 // Emits 定义
@@ -403,6 +411,10 @@ const startLearning = async (resource: ResourceFile) => {
           fileName: resource.fileName,
           packageId: selectedScheme.id,
           packageName: selectedScheme.packageName,
+          chapterGrade: props.chapterGrade || '',
+          chapterSubject: props.chapterSubject || '',
+          chapterTextbook: props.chapterTextbook || '',
+          chapterTitle: props.chapterTitle || '',
           // 传递学习对话框所需的信息，用于返回时重新打开对话框
           fromLearning: 'true',
           learningNodeId: sectionId.value,

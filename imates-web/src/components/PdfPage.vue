@@ -38,9 +38,9 @@
       </div>
 
       <!-- 加载状态提示 -->
-      <div v-if="isRendering" class="loading-overlay">
+      <div v-if="loading || isRendering" class="loading-overlay">
         <div class="spinner"></div>
-        <span>正在渲染页面...</span>
+        <span>正在加载...</span>
       </div>
       <div v-else-if="!isVisible && pageCount > 0" class="waiting-overlay">
         <span>等待视图容器就绪...</span>
@@ -64,8 +64,7 @@
 
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, toRaw, nextTick, watch, onUnmounted } from 'vue';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorkerSrc from 'pdfjs-dist/build/pdf.worker?url';
+import * as mupdf from 'mupdf';
 import { IndexedDBService } from '@/services/storage/indexeddb-service';
 import { usePdfViewerStore } from '@/stores/pdfViewerStore';
 
@@ -113,10 +112,12 @@ const emit = defineEmits<{
 }>();
 
 // === 配置常量 ===
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerSrc;
 const RENDER_QUALITY = 3.0; 
 const PAGE_GAP = 20;
 const FRICTION = 0.96;
+
+// MuPDF 渲染像素比（Canvas 实际像素 / CSS 像素），用于保证笔迹绘制与 PDF 底图对齐
+const renderDprRef = ref(1);
 
 // === 持久化服务 ===
 const dbService = IndexedDBService.getInstance({
@@ -126,7 +127,7 @@ const dbService = IndexedDBService.getInstance({
 });
 
 // === 状态管理 ===
-const pdfDoc = shallowRef<pdfjsLib.PDFDocumentProxy | null>(null);
+const pdfDoc = shallowRef<mupdf.Document | null>(null);
 const fileName = ref('');
 const pageCount = ref(0);
 const pageList = ref<Array<{ viewWidth: number; viewHeight: number; x: number; y: number }>>([]);
@@ -181,6 +182,8 @@ const redoStack = ref<HistoryAction[]>([]);
 const dragStartPage = ref<number>(-1);
 const currentDragPath = ref<Point[]>([]);
 const currentDragRect = ref<{ x: number, y: number, w: number, h: number } | null>(null);
+const isDrawingStarted = ref(false);
+const DRAW_THRESHOLD = 3;
 
 const eraserCursor = ref<{ visible: boolean; x: number; y: number; size: number }>({
   visible: false,
@@ -342,9 +345,12 @@ const loadFile = async (file: File) => {
     await loadDataFromDb(file);
 
     const arrayBuffer = await file.arrayBuffer();
-    const doc = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // 使用 MuPDF 打开 PDF 文档（比 pdfjs 更适合 Android WebView / file:// 环境）
+    const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf');
     pdfDoc.value = doc;
-    pageCount.value = doc.numPages;
+    pageCount.value = doc.countPages();
     
     // 2. 预取尺寸
     await prefetchDimensionsAndLayout(doc);
@@ -360,37 +366,37 @@ const loadFile = async (file: File) => {
     }
     
   } catch (err) {
-    console.error('PDF Load Error:', err);
+    console.error('[PdfPage] PDF Load Error:', err);
   } finally {
     loading.value = false;
   }
 };
 
-const prefetchDimensionsAndLayout = async (doc: pdfjsLib.PDFDocumentProxy) => {
-  const promises = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    promises.push(doc.getPage(i).then(page => {
-      const vp = page.getViewport({ scale: 1.0 });
-      return { width: vp.width, height: vp.height, pageIndex: i };
-    }));
-  }
-
-  const sizes = await Promise.all(promises);
-  sizes.sort((a, b) => a.pageIndex - b.pageIndex);
+const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
+  const numPages = doc.countPages();
 
   let currentY = PAGE_GAP;
   let maxW = 0;
-  const list = [];
+  const list: Array<{ viewWidth: number; viewHeight: number; x: number; y: number }> = [];
 
-  for (const size of sizes) {
-    if (size.width > maxW) maxW = size.width;
-    list.push({
-      viewWidth: size.width,
-      viewHeight: size.height,
-      x: 0, 
-      y: currentY
-    });
-    currentY += size.height + PAGE_GAP;
+  // MuPDF 获取页面尺寸是同步的，这里仍用 async 包一层保持接口一致
+  for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
+    const page = doc.loadPage(pageIndex);
+    try {
+      const bounds = page.getBounds();
+      const width = bounds[2] - bounds[0];
+      const height = bounds[3] - bounds[1];
+      if (width > maxW) maxW = width;
+      list.push({
+        viewWidth: width,
+        viewHeight: height,
+        x: 0,
+        y: currentY,
+      });
+      currentY += height + PAGE_GAP;
+    } finally {
+      page.destroy?.();
+    }
   }
 
   list.forEach(p => p.x = (maxW - p.viewWidth) / 2);
@@ -432,17 +438,25 @@ const renderPdfPages = async () => {
   isRendering.value = true;
   
   try {
-    const renderPromises = pageList.value.map(async (pageLayout, i) => {
-      const page = await rawDoc.getPage(i + 1);
-      const viewport = page.getViewport({ scale: 1.0 });
-      const canvas = pdfRefs.value[i];
-      const inkCanvas = inkRefs.value[i];
+    const baseDpr = window.devicePixelRatio || 1;
+    // 提高清晰度：提高渲染像素密度（同时会增加内存/耗时）
+    const renderDpr = Math.min(baseDpr * 2, 3);
+    renderDprRef.value = renderDpr;
 
-      if (canvas && inkCanvas) {
-        canvas.width = viewport.width * RENDER_QUALITY;
-        canvas.height = viewport.height * RENDER_QUALITY;
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
+    const renderPromises = pageList.value.map(async (pageLayout, i) => {
+      try {
+        const canvas = pdfRefs.value[i];
+        const inkCanvas = inkRefs.value[i];
+        if (!canvas || !inkCanvas) return;
+
+        // 页面尺寸来自预取布局（单位：CSS px）
+        const cssW = pageLayout.viewWidth;
+        const cssH = pageLayout.viewHeight;
+
+        canvas.width = cssW * renderDpr;
+        canvas.height = cssH * renderDpr;
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
 
         inkCanvas.width = canvas.width;
         inkCanvas.height = canvas.height;
@@ -450,17 +464,38 @@ const renderPdfPages = async () => {
         inkCanvas.style.height = canvas.style.height;
 
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-          await page.render({
-            canvas,
-            canvasContext: ctx,
-            viewport,
-            transform: [RENDER_QUALITY, 0, 0, RENDER_QUALITY, 0, 0]
-          }).promise;
-          
-          // 渲染 Ink 层（包含刚加载的笔迹）
-          renderInkLayer(i);
+        if (!ctx) return;
+
+        const page = rawDoc.loadPage(i);
+        try {
+          const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0];
+          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true);
+          try {
+            const pixels = pixmap.getPixels();
+            const width = pixmap.getWidth();
+            const height = pixmap.getHeight();
+            const rgbData = new Uint8Array(pixels);
+            const rgbaData = new Uint8ClampedArray(width * height * 4);
+
+            for (let j = 0; j < width * height; j++) {
+              rgbaData[j * 4] = rgbData[j * 3];
+              rgbaData[j * 4 + 1] = rgbData[j * 3 + 1];
+              rgbaData[j * 4 + 2] = rgbData[j * 3 + 2];
+              rgbaData[j * 4 + 3] = 255;
+            }
+
+            ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0);
+          } finally {
+            pixmap.destroy();
+          }
+        } finally {
+          page.destroy?.();
         }
+
+        // 渲染 Ink 层（包含刚加载的笔迹）
+        renderInkLayer(i);
+      } catch (e) {
+        console.error('[PdfPage] render page failed:', { pageIndex: i, error: e });
       }
     });
 
@@ -471,6 +506,12 @@ const renderPdfPages = async () => {
 };
 
 const resetState = () => {
+  if (pdfDoc.value) {
+    try {
+      pdfDoc.value.destroy();
+    } catch {
+    }
+  }
   pdfDoc.value = null;
   pageList.value = [];
   allStrokes.value = [];
@@ -603,6 +644,8 @@ const drawIncrementalSegmentAt = (pageIndex: number, points: Point[], mode: Tool
   const ctx = getInkContext(pageIndex);
   if (!ctx) return;
 
+  const q = renderDprRef.value || 1;
+
   const cfg = getToolConfigForMode(mode);
   const p1 = points[i];
   const p2 = points[i + 1];
@@ -611,27 +654,27 @@ const drawIncrementalSegmentAt = (pageIndex: number, points: Point[], mode: Tool
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = cfg.color;
-  ctx.lineWidth = cfg.width * RENDER_QUALITY;
+  ctx.lineWidth = cfg.width * q;
   ctx.globalAlpha = cfg.opacity ?? 1.0;
   if (mode === 'highlighter') {
     ctx.globalCompositeOperation = 'multiply';
   }
 
-  // 这里直接用 *RENDER_QUALITY 的像素坐标绘制，避免 ctx.scale() 带来的额外开销
+  // 这里直接用 *q 的像素坐标绘制，避免 ctx.scale() 带来的额外开销
   if (i === 0) {
     ctx.beginPath();
-    ctx.moveTo(points[0].x * RENDER_QUALITY, points[0].y * RENDER_QUALITY);
-    ctx.lineTo(p2.x * RENDER_QUALITY, p2.y * RENDER_QUALITY);
+    ctx.moveTo(points[0].x * q, points[0].y * q);
+    ctx.lineTo(p2.x * q, p2.y * q);
     ctx.stroke();
   } else {
     const p0 = points[i - 1];
     ctx.beginPath();
-    const startX = ((p0.x + p1.x) / 2) * RENDER_QUALITY;
-    const startY = ((p0.y + p1.y) / 2) * RENDER_QUALITY;
-    const endX = ((p1.x + p2.x) / 2) * RENDER_QUALITY;
-    const endY = ((p1.y + p2.y) / 2) * RENDER_QUALITY;
-    const cpX = p1.x * RENDER_QUALITY;
-    const cpY = p1.y * RENDER_QUALITY;
+    const startX = ((p0.x + p1.x) / 2) * q;
+    const startY = ((p0.y + p1.y) / 2) * q;
+    const endX = ((p1.x + p2.x) / 2) * q;
+    const endY = ((p1.y + p2.y) / 2) * q;
+    const cpX = p1.x * q;
+    const cpY = p1.y * q;
     ctx.moveTo(startX, startY);
     ctx.quadraticCurveTo(cpX, cpY, endX, endY);
     ctx.stroke();
@@ -674,6 +717,7 @@ const drawStartDot = (pageIndex: number, p: Point, mode: ToolMode) => {
   if (mode !== 'pen' && mode !== 'highlighter') return;
   const ctx = getInkContext(pageIndex);
   if (!ctx) return;
+  const q = renderDprRef.value || 1;
   const cfg = getToolConfigForMode(mode);
   ctx.save();
   ctx.globalAlpha = cfg.opacity ?? 1.0;
@@ -682,14 +726,14 @@ const drawStartDot = (pageIndex: number, p: Point, mode: ToolMode) => {
   }
   ctx.fillStyle = cfg.color;
   ctx.beginPath();
-  ctx.arc(p.x * RENDER_QUALITY, p.y * RENDER_QUALITY, (cfg.width * RENDER_QUALITY) / 2, 0, Math.PI * 2);
+  ctx.arc(p.x * q, p.y * q, (cfg.width * q) / 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 };
 
 const drawStroke = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
   ctx.save();
-  ctx.scale(RENDER_QUALITY, RENDER_QUALITY);
+  ctx.scale(renderDprRef.value || 1, renderDprRef.value || 1);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.globalAlpha = stroke.opacity;
@@ -793,19 +837,13 @@ const onPointerDown = (e: PointerEvent) => {
       isPanningInDrawMode = false;
       dragStartPage.value = loc.pageIndex;
       currentDragPath.value = [{ x: loc.x, y: loc.y }];
+      isDrawingStarted.value = false;
       
       if (currentMode.value === 'screenshot') {
         currentDragRect.value = { x: loc.x, y: loc.y, w: 0, h: 0 };
+        isDrawingStarted.value = true;
       }
-      if (currentMode.value === 'pen') {
-        // 画笔使用增量绘制，避免每次 move 全量重绘
-        backupInkCanvas(loc.pageIndex);
-        drawStartDot(loc.pageIndex, { x: loc.x, y: loc.y }, currentMode.value);
-      } else if (currentMode.value === 'highlighter') {
-        // 荧光笔：备份底图，移动时只重绘当前笔迹（rAF 合帧），避免整页重绘卡顿
-        backupInkCanvas(loc.pageIndex);
-        drawStartDot(loc.pageIndex, { x: loc.x, y: loc.y }, currentMode.value);
-      } else {
+      if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
         renderInkLayer(loc.pageIndex);
       }
     } else {
@@ -857,9 +895,25 @@ const onPointerMove = (e: PointerEvent) => {
           performEraserCheck(dragStartPage.value, loc.x, loc.y);
           renderInkLayer(dragStartPage.value);
         } else if (currentMode.value === 'pen') {
+          const start = currentDragPath.value[0];
+          const dist = Math.hypot(loc.x - start.x, loc.y - start.y);
+          if (!isDrawingStarted.value && dist <= DRAW_THRESHOLD) return;
+          if (!isDrawingStarted.value) {
+            isDrawingStarted.value = true;
+            backupInkCanvas(dragStartPage.value);
+            drawStartDot(dragStartPage.value, start, currentMode.value);
+          }
           currentDragPath.value.push({ x: loc.x, y: loc.y });
           scheduleInkIncrementalDraw(dragStartPage.value, currentDragPath.value, currentMode.value);
         } else if (currentMode.value === 'highlighter') {
+          const start = currentDragPath.value[0];
+          const dist = Math.hypot(loc.x - start.x, loc.y - start.y);
+          if (!isDrawingStarted.value && dist <= DRAW_THRESHOLD) return;
+          if (!isDrawingStarted.value) {
+            isDrawingStarted.value = true;
+            backupInkCanvas(dragStartPage.value);
+            drawStartDot(dragStartPage.value, start, currentMode.value);
+          }
           currentDragPath.value.push({ x: loc.x, y: loc.y });
           scheduleHighlighterPreviewDraw(dragStartPage.value, currentDragPath.value);
         } else {
@@ -898,39 +952,50 @@ const finishDrawing = (save: boolean) => {
 
   const pageIdx = dragStartPage.value;
   const path = currentDragPath.value;
+  const started = isDrawingStarted.value;
   let hasChanges = false;
 
   if (save && currentMode.value === 'screenshot' && currentDragRect.value) {
     takeScreenshot(pageIdx, currentDragRect.value);
-  } else if (save && path.length > 1) {
-    if (currentMode.value !== 'eraser') {
-      let newStroke: Stroke;
-      if (currentMode.value === 'rectangle') {
-        const start = path[0];
-        const end = path[path.length - 1];
-        newStroke = createStrokeObject(pageIdx, [start, end], 'rectangle');
-      } else {
-        newStroke = createStrokeObject(pageIdx, path, currentMode.value);
+  } else if (save) {
+    if (isDrawingStarted.value && path.length > 1) {
+      if (currentMode.value !== 'eraser') {
+        let newStroke: Stroke;
+        if (currentMode.value === 'rectangle') {
+          const start = path[0];
+          const end = path[path.length - 1];
+          newStroke = createStrokeObject(pageIdx, [start, end], 'rectangle');
+        } else {
+          newStroke = createStrokeObject(pageIdx, path, currentMode.value);
+        }
+        allStrokes.value = [...allStrokes.value, newStroke];
+        addToSpatialIndex(newStroke);
+        pushHistory('add', [newStroke]);
+        hasChanges = true;
       }
-      allStrokes.value = [...allStrokes.value, newStroke];
-      addToSpatialIndex(newStroke);
-      pushHistory('add', [newStroke]);
+    } else if (!isDrawingStarted.value && path.length > 0 && currentMode.value !== 'eraser' && currentMode.value !== 'rectangle' && currentMode.value !== 'screenshot') {
+      const dotStroke = createStrokeObject(pageIdx, [path[0]], currentMode.value);
+      backupInkCanvas(pageIdx);
+      drawStartDot(pageIdx, path[0], currentMode.value);
+      allStrokes.value = [...allStrokes.value, dotStroke];
+      addToSpatialIndex(dotStroke);
+      pushHistory('add', [dotStroke]);
       hasChanges = true;
+    }
+  }
+
+  if (pageIdx !== -1) {
+    if (!save && started && (currentMode.value === 'pen' || currentMode.value === 'highlighter')) {
+      restoreInkCanvasBackup(pageIdx);
+    } else if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
+      renderInkLayer(pageIdx);
     }
   }
 
   dragStartPage.value = -1;
   currentDragPath.value = [];
   currentDragRect.value = null;
-  
-  if (pageIdx !== -1) {
-    if (!save && (currentMode.value === 'pen' || currentMode.value === 'highlighter')) {
-      // 取消写字（比如双指缩放打断）需要回滚已增量绘制的内容
-      restoreInkCanvasBackup(pageIdx);
-    } else if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
-      renderInkLayer(pageIdx);
-    }
-  }
+  isDrawingStarted.value = false;
   
   // 保存到 DB
   if (hasChanges) scheduleSaveToDb(600);

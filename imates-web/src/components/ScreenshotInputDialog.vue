@@ -484,6 +484,12 @@ const handleCancel = () => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+
+  :deep(.screenshot-thumb) {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+  }
 }
 
 .side-panel-body {

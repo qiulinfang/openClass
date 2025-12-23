@@ -61,6 +61,12 @@ interface BuildTextbookMessageParams {
   sessionId: string
   resourceId?: string | null
   sectionName?: string | null
+  chapterInfo?: {
+    grade: string
+    subject: string
+    textbook: string
+    chapter_title: string
+  } | null
   imageData?: TextbookChatImageData
   useScreenshotApi?: boolean
   isNewSession?: boolean
@@ -74,6 +80,7 @@ const buildAiTextbookMessage = ({
   subject,
   chatRole = 'mate',
   sectionName,
+  chapterInfo,
   imageData,
   useScreenshotApi = false,
   isNewSession = true,
@@ -102,6 +109,7 @@ const buildAiTextbookMessage = ({
       role: chatRole,
       subject,
       sectionName: sectionName || undefined,
+      chapter_info: chapterInfo || undefined,
       dstUrl: '/permission/previewPictureQA',
       explanation: '', // 教材场景占位
       // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
@@ -129,6 +137,7 @@ const buildAiTextbookMessage = ({
     role: chatRole,
     subject,
     sectionName: sectionName || undefined,
+    chapter_info: chapterInfo || undefined,
     dstUrl,
     explanation: '', // 教材场景占位
     imageList,
@@ -150,6 +159,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const enableWebSearch = ref(false) // 是否启用网络搜索功能（当前未使用，保留用于未来扩展）
   const resourceId = ref<string | null>(null) // 资源ID，用于加载消息历史
   const sectionName = ref<string | null>(null) // 章节名称：用于聊天接口透传上下文（PDF/学习场景）
+  const chapterInfo = ref<{
+    grade: string
+    subject: string
+    textbook: string
+    chapter_title: string
+  } | null>(null)
   const useScreenshotApi = ref(false)  // 是否使用截图接口（用于截图会话的后续消息）
   const currentSessionId = ref<string | null>(null) // 当前会话ID，用于加载消息历史
   const isNewSession = ref(true) // 是否是新会话
@@ -157,6 +172,15 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   // 当前挂在 AI 教材聊天输入框上的截图列表（PDF 场景）
   const attachedScreenshots = ref<AttachedScreenshot[]>([])
+
+  const setChapterInfo = (info: {
+    grade: string
+    subject: string
+    textbook: string
+    chapter_title: string
+  } | null): void => {
+    chapterInfo.value = info
+  }
 
   const chatPersistence = useChatPersistence<TextbookChatHistoryData>(
     {
@@ -538,6 +562,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         sessionId: sessionIdForBackend,
         resourceId: resourceId.value,
         sectionName: sectionName.value,
+        chapterInfo: chapterInfo.value,
         imageData: builderImageData,
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
@@ -827,16 +852,15 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     isChatLoading,
     chatResponseTimes,
     enableWebSearch,
-    VIEW_ANSWER_CHAT_TIMES,
-    canViewAnswer,
-    attachedScreenshots,
-    screenshotDrawingStates,
     resourceId,
     sectionName,
-    useScreenshotApi,
+    chapterInfo,
     currentSessionId,
     isNewSession,
     backendSessionId,
+    useScreenshotApi,
+    attachedScreenshots,
+    screenshotDrawingStates,
     
     // 方法
     addMessage,
@@ -858,6 +882,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     toggleWebSearch,
     setResourceId,
     setSectionName,
+    setChapterInfo,
   }
 })
-

@@ -37,6 +37,17 @@
               >
                 <img :src="goBackIcon" alt="返回" class="goback-icon" />
               </q-btn>
+
+              <q-btn
+                flat
+                round
+                dense
+                @click="handleOpenMiniClass"
+                class="q-ml-sm"
+              >
+                <q-icon name="ondemand_video" color="white" size="20px" />
+                <q-tooltip>微课</q-tooltip>
+              </q-btn>
             </template>
             <template #right-actions>
               <!-- 调试面板按钮 -->
@@ -71,6 +82,8 @@
             @remove-screenshot="handlePdfRemoveScreenshot"
             @cancel="handleScreenshotCancel"
           />
+
+          <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
         </div>
       </template>
 
@@ -111,7 +124,9 @@ import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
+import MiniClass from '@/components/MiniClass.vue'
 import goBackIcon from '/icons/goback.svg'
+import { useUIStore } from '@/stores/uiStore'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleDebugPanel: () => void
@@ -146,6 +161,18 @@ const pdfToolbarTools = {
 const aiTextbookStore = useAiTextbookChatStore()
 // 使用通用 AI 会话（用于截图输入走通用会话）
 const aiGeneralStore = useAiGeneralChatStore()
+
+const uiStore = useUIStore()
+const showMiniClassDialog = computed({
+  get: () => uiStore.showMiniClassDialog,
+  set: (value) => {
+    if (!value) {
+      uiStore.closeMiniClassDialog()
+    }
+  },
+})
+const miniClassUrl = computed(() => uiStore.miniClassUrl)
+const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
 // 组件状态（renderProgress 已移除，不再使用）
 
@@ -357,6 +384,15 @@ const handleRedo = () => {
   pdfPageRef.value?.redoLastStroke()
 }
 
+const handleOpenMiniClass = () => {
+  try {
+    uiStore.openMiniClassDialog('https://www.imates.com.cn:9099/demo/demo1.html', '微课')
+  } catch (error) {
+    console.error('[PdfViewerView] 打开微课失败', error)
+    showMessage('打开微课失败', 'error')
+  }
+}
+
 // 从路由参数加载文件
 const loadFileFromRoute = async () => {
   try {
@@ -433,6 +469,18 @@ const loadPdfWithService = async (file: File) => {
 
     const currentSectionName = (route.query.sectionName as string) || (route.query.textbookName as string) || null
     aiTextbookStore.setSectionName(currentSectionName)
+
+    const chapterInfo = {
+      grade: (route.query.chapterGrade as string) || '',
+      subject: (route.query.chapterSubject as string) || '',
+      textbook: (route.query.chapterTextbook as string) || '',
+      chapter_title: (route.query.chapterTitle as string) || '',
+    }
+    aiTextbookStore.setChapterInfo(
+      chapterInfo.grade || chapterInfo.subject || chapterInfo.textbook || chapterInfo.chapter_title
+        ? chapterInfo
+        : null,
+    )
 
     // 2. 设置当前文件，PdfPage 组件会自动加载
     currentFile.value = file

@@ -21,6 +21,12 @@ export interface AiChatMessageRequest {
   role: string,
   subject: string,
   sectionName?: string,
+  chapter_info?: {
+    grade: string
+    subject: string
+    textbook: string
+    chapter_title: string
+  },
   explanation: string
   /** 截图会话使用的图片列表（单图或多图），目前用于教材/截图场景 */
   imageList?: Array<{

@@ -156,6 +156,10 @@
       :section-name="learningDialogData.sectionName"
       :level="learningDialogData.level"
       :textbook-id="learningDialogData.textbookId"
+      :chapter-grade="learningDialogData.chapterGrade"
+      :chapter-subject="learningDialogData.chapterSubject"
+      :chapter-textbook="learningDialogData.chapterTextbook"
+      :chapter-title="learningDialogData.chapterTitle"
       @update:model-value="handleLearningDialogClose"
     />
 
@@ -476,6 +480,10 @@ const learningDialogData = ref<{
   sectionName: string
   level: number
   textbookId: string
+  chapterGrade?: string
+  chapterSubject?: string
+  chapterTextbook?: string
+  chapterTitle?: string
 } | null>(null)
 
 // newGrap 组件引用，用于从外部调用其暴露的方法（如 focusOnNodeId）
@@ -556,9 +564,8 @@ const showErrorAlert = (sectionName: string) => {
 
 // 处理 newGrap 的“去学习”逻辑（复用 KnowledgeGraph 的业务）
 const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; level?: number | null }) => {
+  const textbookRecordId = getCurrentTextbookId() || ''
   try {
-    // 获取当前教材ID
-    const textbookRecordId = getCurrentTextbookId() || ''
     if (!textbookRecordId) {
       console.warn('教材ID为空，无法检查学习方案')
       showNoLearningPackagesAlert(node.name)
@@ -586,11 +593,21 @@ const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; l
     // 打开学习对话框
     if (selectedTextbook.value) {
       console.log('textbookIdForDialog', textbookRecordId)
+
+      const currentOption = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
+      const chapterGrade = currentOption?.grade || ''
+      const chapterSubject = currentOption?.subject || ''
+      const chapterTextbook = currentOption ? currentOption.label.split(' ').slice(3).join(' ') : ''
+
       learningDialogData.value = {
         nodeId: node.id,
         sectionName: node.name,
         level: node.level ?? 0,
-        textbookId: textbookRecordId
+        textbookId: textbookRecordId,
+        chapterGrade,
+        chapterSubject,
+        chapterTextbook,
+        chapterTitle: node.name,
       }
       learningDialogVisible.value = true
     }
@@ -598,11 +615,20 @@ const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; l
     console.error('检查学习方案失败:', error)
     // 检查失败时仍然允许打开空数据学习对话框
     if (selectedTextbook.value) {
+      const currentOption = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
+      const chapterGrade = currentOption?.grade || ''
+      const chapterSubject = currentOption?.subject || ''
+      const chapterTextbook = currentOption ? currentOption.label.split(' ').slice(3).join(' ') : ''
+
       learningDialogData.value = {
         nodeId: node.id,
         sectionName: node.name,
         level: node.level ?? 0,
-        textbookId: textbookRecordId
+        textbookId: textbookRecordId,
+        chapterGrade,
+        chapterSubject,
+        chapterTextbook,
+        chapterTitle: node.name,
       }
       learningDialogVisible.value = true
     }
