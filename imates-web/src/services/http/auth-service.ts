@@ -134,10 +134,34 @@ export class AuthService {
   public async handle401(url: string): Promise<boolean> {
     try {
       await this.clearTokenByPath(url)
-      const loginSuccess = await this.tryAutoRelogin(url)
-      return loginSuccess
     } catch {
-      return false
+    }
+
+    this.forceLogoutToLogin()
+    return false
+  }
+
+  private forceLogoutToLogin(): void {
+    try {
+      // 清理登录态信息，强制回到登录页
+      localStorage.removeItem('XUEBAN_TOKEN')
+      localStorage.removeItem('YANBAN_TOKEN')
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem('studentUserId')
+      localStorage.removeItem(CURRENT_USER_ID_KEY)
+      localStorage.removeItem(CURRENT_USER_TYPE_KEY)
+      localStorage.removeItem('userId')
+      localStorage.removeItem('userPassword')
+      localStorage.removeItem('lastLoginTime')
+    } catch {
+    }
+
+    try {
+      const isOnLoginPage = typeof window !== 'undefined' && window.location?.hash?.includes('/login')
+      if (!isOnLoginPage) {
+        window.location.hash = '#/login'
+      }
+    } catch {
     }
   }
 

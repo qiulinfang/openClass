@@ -168,10 +168,13 @@ const handleLoadMore = async () => {
 const homeworkList = computed(() => {
   return topicList.value.map((pkg, index) => {
     const firstTopic = pkg.topicList && pkg.topicList.length > 0 ? pkg.topicList[0] : null
-    // 题干内容：去掉可能存在的 main: 前缀（支持前置空白和重复 main:）
-    const rawQuestionContent = firstTopic?.questionData || ''
-    const cleanedQuestionContent = rawQuestionContent.replace(/^(\s*main:\s*)+/i, '')
-    console.log("2222",cleanedQuestionContent)
+    // 0. 去掉行首 key（main / c1 / gc1_of_c3 等）
+    let cleanedQuestionContent = (firstTopic?.questionData || '')
+        // 去掉每一行开头的 key:
+        .replace(/^[a-zA-Z0-9_]+:\s*/gm, '')
+        // 去掉只剩 null 的整行（可选，但强烈建议）
+        .replace(/^null\s*$/gm, '')
+        .trim()
     return {
       id: pkg.id || String(index + 1),
       bmNo: pkg.bmNo || String(index + 1),

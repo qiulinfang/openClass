@@ -139,7 +139,7 @@ const router = useRouter()
 // right: 撤销、重做按钮
 const pdfToolbarTools = {
   left: ['undo', 'redo'],
-  middle: ['hand', 'highlighter', 'draw', 'eraser-draw', 'screenshot'],
+  middle: ['hand', 'draw', 'highlighter', 'eraser-draw', 'screenshot'],
 }
 
 // 使用 exerciseStore 来发送AI消息
@@ -170,6 +170,9 @@ const handleConfigChange = (config: {
       if (config.size !== undefined) {
         pdfViewerStore.updateDrawingConfig({ penWidth: config.size as number })
       }
+      if (config.opacity !== undefined) {
+        pdfViewerStore.updateDrawingConfig({ penOpacity: config.opacity as number })
+      }
       break
     case 'highlighter':
       if (config.color) {
@@ -177,6 +180,9 @@ const handleConfigChange = (config: {
       }
       if (config.size !== undefined) {
         pdfViewerStore.updateDrawingConfig({ highlighterWidth: config.size as number })
+      }
+      if (config.opacity !== undefined) {
+        pdfViewerStore.updateDrawingConfig({ highlighterOpacity: config.opacity as number })
       }
       break
     case 'eraser-draw':
@@ -273,7 +279,7 @@ const toolbarToolConfig = computed(() => {
         ? pdfViewerStore.drawingConfig.penColor
         : pdfViewerStore.selectedTool === 'highlighter'
         ? pdfViewerStore.drawingConfig.highlighterColor
-        : undefined,
+        : pdfViewerStore.drawingConfig.penColor, // 默认显示笔颜色，未选中时也能高亮默认色
     size:
       pdfViewerStore.selectedTool === 'draw'
         ? pdfViewerStore.drawingConfig.penWidth
@@ -281,6 +287,12 @@ const toolbarToolConfig = computed(() => {
         ? pdfViewerStore.drawingConfig.highlighterWidth
         : pdfViewerStore.selectedTool === 'eraser-draw'
         ? pdfViewerStore.drawingConfig.eraserSize
+        : undefined,
+    opacity:
+      pdfViewerStore.selectedTool === 'draw'
+        ? pdfViewerStore.drawingConfig.penOpacity
+        : pdfViewerStore.selectedTool === 'highlighter'
+        ? pdfViewerStore.drawingConfig.highlighterOpacity
         : undefined,
   }
 })
@@ -693,11 +705,28 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   width: 100%;
+  height: 100vh;
+  min-height: 0;
 }
 
 .full-height {
   height: 100%;
   width: 100%;
+}
+
+:deep(.q-splitter),
+:deep(.q-splitter__container),
+:deep(.q-splitter__panel) {
+  height: 100%;
+  min-height: 0;
+}
+
+:deep(.q-splitter__before),
+:deep(.q-splitter__after) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 右侧对话面板容器（after 面板）：左侧圆角 + 柔和紫色阴影 */
@@ -815,6 +844,8 @@ onBeforeUnmount(() => {
   background-color: #0A0020;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* PDF页面容器 - 支持横向和纵向滚动 */

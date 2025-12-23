@@ -194,35 +194,13 @@ export class HttpClient {
       cleanup()
 
       if (response.status === 401 && !skipAuth401Retry) {
-        const loginSuccess = await authService.handle401(url)
-
-        if (loginSuccess) {
-          return await this.request<T>(url, {
-            ...config,
-            skipAuth401Retry: true,
-          })
+        await authService.handle401(url)
+        return {
+          success: false,
+          data: undefined,
+          message: '认证失败(401): 登录已失效',
+          code: 401,
         }
-
-        try {
-          localStorage.removeItem('XUEBAN_TOKEN')
-          localStorage.removeItem('YANBAN_TOKEN')
-          localStorage.removeItem('userInfo')
-          localStorage.removeItem('studentUserId')
-          localStorage.removeItem('CURRENT_USER_ID')
-          localStorage.removeItem('CURRENT_USER_TYPE')
-        } catch {
-        }
-
-        showMessage('您的账号已在其他设备登录', 'warning')
-        try {
-          const isOnLoginPage = typeof window !== 'undefined' && window.location?.hash?.includes('/login')
-          if (!isOnLoginPage) {
-            window.location.hash = '#/login'
-          }
-        } catch {
-        }
-
-        throw new Error('认证失败(401): 您的账号已在其他设备登录')
       }
 
       let data: any = null

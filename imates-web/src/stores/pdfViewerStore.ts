@@ -25,13 +25,15 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   // 绘图配置（与 UnifiedToolbar 工具配置联动）
   const drawingConfig = ref({
     // 签字笔
-    penColor: '#ff0000',
+    penColor: '#212529',
     penWidth: 2.5,
+    penOpacity: 1,
     // 荧光笔
     highlighterColor: '#FFFF00',
     highlighterWidth: 8,
+    highlighterOpacity: 0.4,
     // 橡皮擦
-    eraserSize: 10,
+    eraserSize: 6,
     // 截图形状（矩形 / 多边形）
     screenshotShape: 'rectangle',
   })

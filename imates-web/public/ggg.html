@@ -199,7 +199,6 @@ createApp({
         // 状态管理
         const activePointers = new Map();
         let isPanningInDrawMode = false;
-        let isZooming = false; // 双指缩放状态标记
         
         // 惯性滚动
         let lastTouchTime = 0;
@@ -284,6 +283,7 @@ createApp({
                 iCanvas.style.width = pCanvas.style.width;
                 iCanvas.style.height = pCanvas.style.height;
             }
+            // 初始化时绘制所有笔迹
             redrawAllPagesInk();
         };
 
@@ -325,10 +325,12 @@ createApp({
             offset.value = { x, y };
         };
 
+        // --- 全量重绘（只在初始化、缩放、清除时调用） ---
         const redrawAllPagesInk = () => {
             inkRefs.value.forEach((_, idx) => redrawPageInk(idx));
         };
 
+        // --- 单页重绘（优化：只处理单页） ---
         const redrawPageInk = (pageIndex) => {
             const canvas = inkRefs.value[pageIndex];
             if (!canvas) return;
@@ -339,14 +341,17 @@ createApp({
             ctx.strokeStyle = 'red';
             ctx.lineWidth = 2 * RENDER_QUALITY;
 
+            // 绘制该页所有历史笔迹
             const pagePaths = paths.value.filter(p => p.pageIndex === pageIndex);
             pagePaths.forEach(p => drawSinglePath(ctx, p.points));
 
+            // 绘制当前正在画的笔迹
             if (currentPath.value && currentPageIndex.value === pageIndex) {
                 drawSinglePath(ctx, currentPath.value);
             }
         };
 
+        // 绘制一条完整路径的通用函数
         const drawSinglePath = (ctx, points) => {
             if (points.length < 1) return;
             ctx.beginPath();
@@ -373,6 +378,8 @@ createApp({
             }
         };
 
+        // --- 增量绘制（核心优化） ---
+        // 在不清除画布的情况下，追加绘制最新的一段
         const drawIncremental = (pageIndex, points) => {
             const canvas = inkRefs.value[pageIndex];
             if (!canvas || points.length < 2) return;
@@ -383,22 +390,32 @@ createApp({
             ctx.lineJoin = 'round';
             ctx.strokeStyle = 'red';
 
+            // 仅绘制路径的最后一段
+            // 注意：为了贝塞尔曲线平滑，我们需要最后3个点
             const i = points.length - 2;
-            const p1 = points[i]; 
-            const p2 = points[i + 1]; 
+            const p1 = points[i]; // 倒数第二个点
+            const p2 = points[i + 1]; // 最后一个点
 
             if (i === 0) {
+                // 只有两个点，画直线
                 ctx.beginPath();
                 ctx.moveTo(points[0].x * RENDER_QUALITY, points[0].y * RENDER_QUALITY);
                 ctx.lineTo(p2.x * RENDER_QUALITY, p2.y * RENDER_QUALITY);
                 ctx.stroke();
             } else {
+                // 有至少3个点，画贝塞尔
                 const p0 = points[i - 1];
                 ctx.beginPath();
+                
+                // 起点是上一段的中点
                 const startX = (p0.x + p1.x) / 2 * RENDER_QUALITY;
                 const startY = (p0.y + p1.y) / 2 * RENDER_QUALITY;
+                
+                // 终点是当前段的中点
                 const endX = (p1.x + p2.x) / 2 * RENDER_QUALITY;
                 const endY = (p1.y + p2.y) / 2 * RENDER_QUALITY;
+                
+                // 控制点是 p1
                 const cpX = p1.x * RENDER_QUALITY;
                 const cpY = p1.y * RENDER_QUALITY;
 
@@ -423,6 +440,9 @@ createApp({
             offset.value.y = mouseY - (mouseY - offset.value.y) * ratio;
             scale.value = newScale;
             clampOffset();
+            // 缩放后必须全量重绘以适应新分辨率
+            // 简单防抖或直接重绘
+            redrawAllPagesInk(); 
         };
 
         const handleWheel = (e) => zoomAt(-e.deltaY, e.clientX, e.clientY);
@@ -500,6 +520,8 @@ createApp({
                     pageIndex: currentPageIndex.value,
                     points: [...currentPath.value]
                 });
+                // 结束时，由于增量绘制可能最后一段没闭合（中点问题），
+                // 简单起见，可以在这里做一次当前页的完整重绘来修正微小的贝塞尔末端差异
                 redrawPageInk(currentPageIndex.value);
                 
                 currentPath.value = null;
@@ -517,28 +539,17 @@ createApp({
                 lastPointerPos = { x: e.clientX, y: e.clientY };
                 lastTouchTime = Date.now();
                 
-                // 只有在非缩放状态下才允许开始绘制
-                if (isDrawing.value && !isZooming) {
+                if (isDrawing.value) {
                     startDrawing(e.clientX, e.clientY);
                 }
             } else if (activePointers.size === 2) {
-                // 修复：当第二根手指按下时，立即取消当前的绘制路径（如果有）
-                // 这能消除“先单指后双指”操作时产生的意外圆点
-                if (currentPath.value) {
-                    const pageIdx = currentPageIndex.value;
-                    currentPath.value = null; // 丢弃路径
-                    currentPageIndex.value = -1;
-                    if (pageIdx !== -1) redrawPageInk(pageIdx); // 重绘以擦除临时点
-                }
-                
-                isZooming = true; // 标记进入缩放模式
+                endDrawing();
                 const pts = Array.from(activePointers.values());
                 lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 lastPinchCenter = {
                     x: (pts[0].x + pts[1].x) / 2,
                     y: (pts[0].y + pts[1].y) / 2
                 };
-                lastTouchTime = Date.now();
             }
         };
 
@@ -547,7 +558,8 @@ createApp({
             activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
             if (activePointers.size === 1) {
-                if (isDrawing.value && !isPanningInDrawMode && !isZooming) {
+                if (isDrawing.value && !isPanningInDrawMode) {
+                    // --- 增量绘制逻辑 ---
                     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
                     
                     events.forEach(ev => {
@@ -555,6 +567,7 @@ createApp({
                         const loc = getPdfLocation(ev.clientX, ev.clientY);
                         if (loc && loc.pageIndex === currentPageIndex.value) {
                             currentPath.value.push({ x: loc.x, y: loc.y });
+                            // 立即增量绘制，不清除画布
                             drawIncremental(loc.pageIndex, currentPath.value);
                         }
                     });
@@ -576,7 +589,6 @@ createApp({
                     lastTouchTime = now;
                 }
             } else if (activePointers.size === 2) {
-                isZooming = true;
                 const pts = Array.from(activePointers.values());
                 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 const centerX = (pts[0].x + pts[1].x) / 2;
@@ -587,26 +599,16 @@ createApp({
                     const newScale = Math.min(Math.max(scale.value * ratio, 0.1), 10.0);
                     const actualRatio = newScale / scale.value;
 
-                    // 计算平移量
-                    const dx = centerX - lastPinchCenter.x;
-                    const dy = centerY - lastPinchCenter.y;
-
-                    offset.value.x += dx;
-                    offset.value.y += dy;
+                    offset.value.x += (centerX - lastPinchCenter.x);
+                    offset.value.y += (centerY - lastPinchCenter.y);
                     offset.value.x = centerX - (centerX - offset.value.x) * actualRatio;
                     offset.value.y = centerY - (centerY - offset.value.y) * actualRatio;
                     
                     scale.value = newScale;
                     clampOffset();
-
-                    // --- 新增：双指操作下的惯性速度计算 ---
-                    const now = Date.now();
-                    const dt = now - lastTouchTime;
-                    if (dt > 0) {
-                        velocity.x = dx; 
-                        velocity.y = dy;
-                    }
-                    lastTouchTime = now;
+                    // 缩放过程中为了性能可以暂时不重绘，或者防抖
+                    // 这里为了简单直接重绘，因为缩放频率低于move
+                    redrawAllPagesInk(); 
                 }
 
                 lastPinchDist = dist;
@@ -619,19 +621,12 @@ createApp({
             
             if (activePointers.size === 0) {
                 endDrawing();
-                // 绘制模式下：只要当前没有笔迹在进行（endDrawing 已清空），即可触发惯性
-                const allowInertia = isPanningInDrawMode || isZooming || !currentPath.value;
-                if (allowInertia) {
-                    if (Math.abs(velocity.x) > 1 || Math.abs(velocity.y) > 1) {
-                        if (rafId) cancelAnimationFrame(rafId);
-                        rafId = requestAnimationFrame(applyInertia);
-                    }
+                if (!isDrawing.value || isPanningInDrawMode) {
+                    startInertiaAnimation();
                 }
-                isZooming = false; 
             } else if (activePointers.size === 1) {
                 const pt = activePointers.values().next().value;
                 lastPointerPos = { x: pt.x, y: pt.y };
-                lastTouchTime = Date.now();
             }
         };
 

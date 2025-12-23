@@ -500,9 +500,9 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showSizePicker: true,
       sizes: [
-        { value: 1, label: '小', icon: eraserSmallIcon },
-        { value: 3, label: '中', icon: eraserMediumIcon },
-        { value: 5, label: '大', icon: eraserLargeIcon },
+        { value: 2, label: '小', icon: eraserSmallIcon },
+        { value: 6, label: '中', icon: eraserMediumIcon },
+        { value: 10, label: '大', icon: eraserLargeIcon },
       ],
       sizeLabel: '大小',
     },
@@ -514,9 +514,9 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showSizePicker: true,
       sizes: [
-        { value: 10, label: '小', icon: eraserSmallIcon },
-        { value: 20, label: '中', icon: eraserMediumIcon },
-        { value: 35, label: '大', icon: eraserLargeIcon },
+        { value: 40, label: '小', icon: eraserSmallIcon },
+        { value: 60, label: '中', icon: eraserMediumIcon },
+        { value: 80, label: '大', icon: eraserLargeIcon },
       ],
       sizeLabel: '擦除范围',
     },
@@ -880,7 +880,7 @@ const hasConfigurableTools = computed(() => {
 })
 
 // 当前工具的配置选项
-const currentToolConfig = computed((): ToolOption => {
+const currentToolConfig = computed<ToolOption>(() => {
   // 1. 优先从当前工具栏工具中找
   let tool = toolOptions.value.find((t) => t.value === props.selectedTool)
 

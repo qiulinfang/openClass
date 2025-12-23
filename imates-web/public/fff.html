@@ -69,7 +69,7 @@
             flex: 1;
             position: relative;
             overflow: hidden;
-            touch-action: none; 
+            touch-action: none; /* 关键：禁用浏览器默认手势，交给 Pointer Events 处理 */
         }
 
         .canvas-container {
@@ -130,7 +130,7 @@
 <div id="app">
     <div class="toolbar">
         <div class="tool-group">
-            <strong>高性能阅读器</strong>
+            <strong>高精度阅读器</strong>
             <span>总页数: {{ pageCount }}</span>
         </div>
         <div class="tool-group">
@@ -173,9 +173,9 @@
 <script>
 const { createApp, ref, shallowRef, computed, onMounted, toRaw, nextTick } = Vue;
 
-const RENDER_QUALITY = 3.0; 
+const RENDER_QUALITY = 2.0; 
 const PAGE_GAP = 20; 
-const DEFAULT_URL = '111.pdf';
+const DEFAULT_URL = 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf';
 
 createApp({
     setup() {
@@ -192,23 +192,23 @@ createApp({
         const pdfRefs = ref([]);
         const inkRefs = ref([]);
         
+        // 笔迹数据结构: { pageIndex: number, points: {x,y}[] }
         const paths = ref([]); 
         const currentPath = ref(null);
         const currentPageIndex = ref(-1);
 
-        // 状态管理
-        const activePointers = new Map();
-        let isPanningInDrawMode = false;
-        let isZooming = false; // 双指缩放状态标记
-        
-        // 惯性滚动
+        // Pointer Events 状态管理
+        const activePointers = new Map(); // 存储所有活跃触点
+        let isPanningInDrawMode = false; // 是否在画笔模式下进行平移
+
+        // 惯性滚动变量
         let lastTouchTime = 0;
-        let lastPointerPos = { x: 0, y: 0 };
+        let lastPointerPos = { x: 0, y: 0 }; // 记录上一次单指位置
         let velocity = { x: 0, y: 0 };
         let rafId = null;
         const FRICTION = 0.95;
 
-        // 双指缩放
+        // 双指缩放状态
         let lastPinchDist = 0;
         let lastPinchCenter = { x: 0, y: 0 };
 
@@ -222,10 +222,12 @@ createApp({
                 pdfDoc.value = doc;
                 pageCount.value = doc.numPages;
                 
+                // 预计算所有页面尺寸和位置，避免在 pointermove 中读取 DOM
                 const list = [];
                 let currentY = PAGE_GAP;
                 let maxW = 0;
 
+                // 第一遍：获取尺寸
                 const tempSizes = [];
                 for (let i = 1; i <= doc.numPages; i++) {
                     const page = await doc.getPage(i);
@@ -234,13 +236,15 @@ createApp({
                     if (vp.width > maxW) maxW = vp.width;
                 }
 
+                // 第二遍：计算布局坐标 (模拟 Flex column align-items: center)
                 for (let i = 0; i < tempSizes.length; i++) {
                     const size = tempSizes[i];
                     list.push({
                         viewWidth: size.w,
                         viewHeight: size.h,
+                        // 计算相对于 Container 容器的坐标
                         y: currentY, 
-                        x: (maxW - size.w) / 2
+                        x: (maxW - size.w) / 2 // 水平居中
                     });
                     currentY += size.h + PAGE_GAP;
                 }
@@ -248,7 +252,7 @@ createApp({
                 pageList.value = list;
 
                 await nextTick();
-                await renderAllPdfPages();
+                await renderAllPages();
                 centerContent();
             } catch (err) {
                 console.error('加载失败:', err);
@@ -257,7 +261,7 @@ createApp({
             }
         };
 
-        const renderAllPdfPages = async () => {
+        const renderAllPages = async () => {
             const rawDoc = toRaw(pdfDoc.value);
             for (let i = 0; i < pageList.value.length; i++) {
                 const page = await rawDoc.getPage(i + 1);
@@ -284,12 +288,13 @@ createApp({
                 iCanvas.style.width = pCanvas.style.width;
                 iCanvas.style.height = pCanvas.style.height;
             }
-            redrawAllPagesInk();
+            drawAllPaths();
         };
 
         const centerContent = () => {
             if (!viewportRef.value || pageList.value.length === 0) return;
             const rect = viewportRef.value.getBoundingClientRect();
+            // 以最大页宽为基准
             const maxW = Math.max(...pageList.value.map(p => p.viewWidth));
             const contentWidth = maxW * scale.value;
             offset.value = {
@@ -325,87 +330,65 @@ createApp({
             offset.value = { x, y };
         };
 
-        const redrawAllPagesInk = () => {
-            inkRefs.value.forEach((_, idx) => redrawPageInk(idx));
-        };
+        // --- 核心优化 1: 二次贝塞尔曲线平滑绘制 ---
+        const drawAllPaths = () => {
+            inkRefs.value.forEach((canvas, idx) => {
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2 * RENDER_QUALITY;
 
-        const redrawPageInk = (pageIndex) => {
-            const canvas = inkRefs.value[pageIndex];
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 2 * RENDER_QUALITY;
+                const renderPath = (p) => {
+                    const points = p.points;
+                    if (points.length < 1) return;
 
-            const pagePaths = paths.value.filter(p => p.pageIndex === pageIndex);
-            pagePaths.forEach(p => drawSinglePath(ctx, p.points));
+                    ctx.beginPath();
+                    
+                    if (points.length === 1) {
+                        // 单点绘制（圆点）
+                        const p0 = points[0];
+                        const x = p0.x * RENDER_QUALITY;
+                        const y = p0.y * RENDER_QUALITY;
+                        ctx.fillStyle = ctx.strokeStyle; 
+                        ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        return;
+                    }
 
-            if (currentPath.value && currentPageIndex.value === pageIndex) {
-                drawSinglePath(ctx, currentPath.value);
-            }
-        };
+                    // 贝塞尔曲线平滑处理
+                    const p0 = points[0];
+                    ctx.moveTo(p0.x * RENDER_QUALITY, p0.y * RENDER_QUALITY);
 
-        const drawSinglePath = (ctx, points) => {
-            if (points.length < 1) return;
-            ctx.beginPath();
-            if (points.length === 1) {
-                const p0 = points[0];
-                ctx.fillStyle = ctx.strokeStyle;
-                ctx.arc(p0.x * RENDER_QUALITY, p0.y * RENDER_QUALITY, ctx.lineWidth / 2, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                const p0 = points[0];
-                ctx.moveTo(p0.x * RENDER_QUALITY, p0.y * RENDER_QUALITY);
-                for (let i = 1; i < points.length - 1; i++) {
-                    const p1 = points[i];
-                    const p2 = points[i + 1];
-                    const midX = (p1.x + p2.x) / 2 * RENDER_QUALITY;
-                    const midY = (p1.y + p2.y) / 2 * RENDER_QUALITY;
-                    const cpx = p1.x * RENDER_QUALITY;
-                    const cpy = p1.y * RENDER_QUALITY;
-                    ctx.quadraticCurveTo(cpx, cpy, midX, midY);
+                    for (let i = 1; i < points.length - 1; i++) {
+                        const p1 = points[i];
+                        const p2 = points[i + 1];
+                        
+                        const p1x = p1.x * RENDER_QUALITY;
+                        const p1y = p1.y * RENDER_QUALITY;
+                        const p2x = p2.x * RENDER_QUALITY;
+                        const p2y = p2.y * RENDER_QUALITY;
+
+                        // 取中点作为终点
+                        const midX = (p1x + p2x) / 2;
+                        const midY = (p1y + p2y) / 2;
+
+                        ctx.quadraticCurveTo(p1x, p1y, midX, midY);
+                    }
+
+                    // 连接最后一个点
+                    const last = points[points.length - 1];
+                    ctx.lineTo(last.x * RENDER_QUALITY, last.y * RENDER_QUALITY);
+                    ctx.stroke();
+                };
+
+                paths.value.filter(p => p.pageIndex === idx).forEach(renderPath);
+                if (currentPath.value && currentPageIndex.value === idx) {
+                    renderPath({ points: currentPath.value });
                 }
-                const last = points[points.length - 1];
-                ctx.lineTo(last.x * RENDER_QUALITY, last.y * RENDER_QUALITY);
-                ctx.stroke();
-            }
-        };
-
-        const drawIncremental = (pageIndex, points) => {
-            const canvas = inkRefs.value[pageIndex];
-            if (!canvas || points.length < 2) return;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.lineWidth = 2 * RENDER_QUALITY;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = 'red';
-
-            const i = points.length - 2;
-            const p1 = points[i]; 
-            const p2 = points[i + 1]; 
-
-            if (i === 0) {
-                ctx.beginPath();
-                ctx.moveTo(points[0].x * RENDER_QUALITY, points[0].y * RENDER_QUALITY);
-                ctx.lineTo(p2.x * RENDER_QUALITY, p2.y * RENDER_QUALITY);
-                ctx.stroke();
-            } else {
-                const p0 = points[i - 1];
-                ctx.beginPath();
-                const startX = (p0.x + p1.x) / 2 * RENDER_QUALITY;
-                const startY = (p0.y + p1.y) / 2 * RENDER_QUALITY;
-                const endX = (p1.x + p2.x) / 2 * RENDER_QUALITY;
-                const endY = (p1.y + p2.y) / 2 * RENDER_QUALITY;
-                const cpX = p1.x * RENDER_QUALITY;
-                const cpY = p1.y * RENDER_QUALITY;
-
-                ctx.moveTo(startX, startY);
-                ctx.quadraticCurveTo(cpX, cpY, endX, endY);
-                ctx.stroke();
-            }
+            });
         };
 
         const zoomAt = (delta, clientX, clientY) => {
@@ -427,21 +410,32 @@ createApp({
 
         const handleWheel = (e) => zoomAt(-e.deltaY, e.clientX, e.clientY);
 
+        // --- 性能优化：纯数学计算定位，避免 DOM 回流 ---
         const getPdfLocation = (clientX, clientY) => {
             if (!containerRef.value || pageList.value.length === 0) return null;
+            
+            // 获取容器当前的变换基准（考虑 offset 和 scale）
+            // container 的 transform 是 translate(offset.x, offset.y) scale(scale)
+            // 视口坐标 -> 容器内部未缩放坐标
             const rect = viewportRef.value.getBoundingClientRect();
+            
+            // 鼠标在视口中的相对位置
             const mx = clientX - rect.left;
             const my = clientY - rect.top;
+            
+            // 转换为容器内部逻辑坐标 (反向 transform)
             const localX = (mx - offset.value.x) / scale.value;
             const localY = (my - offset.value.y) / scale.value;
 
+            // 在 pageList 数据中查找（无需读取 DOM）
+            // pageList 现在包含预计算的 x, y, viewWidth, viewHeight
             for (let i = 0; i < pageList.value.length; i++) {
                 const p = pageList.value[i];
                 if (localY >= p.y && localY <= p.y + p.viewHeight) {
                     if (localX >= p.x && localX <= p.x + p.viewWidth) {
                         return {
                             pageIndex: i,
-                            x: localX - p.x,
+                            x: localX - p.x, // 相对于页面左上角的坐标
                             y: localY - p.y
                         };
                     }
@@ -477,16 +471,6 @@ createApp({
                 currentPageIndex.value = loc.pageIndex;
                 currentPath.value = [{ x: loc.x, y: loc.y }];
                 isPanningInDrawMode = false;
-                
-                // 绘制起点（圆点）
-                const canvas = inkRefs.value[loc.pageIndex];
-                if (canvas) {
-                    const ctx = canvas.getContext('2d');
-                    ctx.beginPath();
-                    ctx.fillStyle = 'red';
-                    ctx.arc(loc.x * RENDER_QUALITY, loc.y * RENDER_QUALITY, RENDER_QUALITY, 0, Math.PI * 2);
-                    ctx.fill();
-                }
                 return true; 
             } else {
                 isPanningInDrawMode = true;
@@ -500,8 +484,6 @@ createApp({
                     pageIndex: currentPageIndex.value,
                     points: [...currentPath.value]
                 });
-                redrawPageInk(currentPageIndex.value);
-                
                 currentPath.value = null;
                 currentPageIndex.value = -1;
             }
@@ -517,47 +499,46 @@ createApp({
                 lastPointerPos = { x: e.clientX, y: e.clientY };
                 lastTouchTime = Date.now();
                 
-                // 只有在非缩放状态下才允许开始绘制
-                if (isDrawing.value && !isZooming) {
+                if (isDrawing.value) {
                     startDrawing(e.clientX, e.clientY);
                 }
             } else if (activePointers.size === 2) {
-                // 修复：当第二根手指按下时，立即取消当前的绘制路径（如果有）
-                // 这能消除“先单指后双指”操作时产生的意外圆点
-                if (currentPath.value) {
-                    const pageIdx = currentPageIndex.value;
-                    currentPath.value = null; // 丢弃路径
-                    currentPageIndex.value = -1;
-                    if (pageIdx !== -1) redrawPageInk(pageIdx); // 重绘以擦除临时点
-                }
-                
-                isZooming = true; // 标记进入缩放模式
+                endDrawing();
                 const pts = Array.from(activePointers.values());
                 lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 lastPinchCenter = {
                     x: (pts[0].x + pts[1].x) / 2,
                     y: (pts[0].y + pts[1].y) / 2
                 };
-                lastTouchTime = Date.now();
             }
         };
 
         const onPointerMove = (e) => {
+            // 修复：仅处理已按下（在 activePointers 中）的触点，防止鼠标悬停或幽灵触点触发缩放逻辑
             if (!activePointers.has(e.pointerId)) return;
+
             activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
             if (activePointers.size === 1) {
-                if (isDrawing.value && !isPanningInDrawMode && !isZooming) {
+                if (isDrawing.value && !isPanningInDrawMode) {
+                    // --- 核心优化 2: 高频事件合并 (Coalesced Events) ---
+                    // 即使屏幕只有60Hz，也能获取到在此期间产生的所有触控点（如120Hz/240Hz）
                     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-                    
+                    let pointsAdded = false;
+
                     events.forEach(ev => {
                         if (!currentPath.value) return;
+                        // 使用优化后的无 DOM 读取定位函数
                         const loc = getPdfLocation(ev.clientX, ev.clientY);
                         if (loc && loc.pageIndex === currentPageIndex.value) {
                             currentPath.value.push({ x: loc.x, y: loc.y });
-                            drawIncremental(loc.pageIndex, currentPath.value);
+                            pointsAdded = true;
                         }
                     });
+
+                    if (pointsAdded) {
+                        drawAllPaths();
+                    }
                 } else {
                     const now = Date.now();
                     const dx = e.clientX - lastPointerPos.x;
@@ -576,7 +557,6 @@ createApp({
                     lastTouchTime = now;
                 }
             } else if (activePointers.size === 2) {
-                isZooming = true;
                 const pts = Array.from(activePointers.values());
                 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 const centerX = (pts[0].x + pts[1].x) / 2;
@@ -587,26 +567,13 @@ createApp({
                     const newScale = Math.min(Math.max(scale.value * ratio, 0.1), 10.0);
                     const actualRatio = newScale / scale.value;
 
-                    // 计算平移量
-                    const dx = centerX - lastPinchCenter.x;
-                    const dy = centerY - lastPinchCenter.y;
-
-                    offset.value.x += dx;
-                    offset.value.y += dy;
+                    offset.value.x += (centerX - lastPinchCenter.x);
+                    offset.value.y += (centerY - lastPinchCenter.y);
                     offset.value.x = centerX - (centerX - offset.value.x) * actualRatio;
                     offset.value.y = centerY - (centerY - offset.value.y) * actualRatio;
                     
                     scale.value = newScale;
                     clampOffset();
-
-                    // --- 新增：双指操作下的惯性速度计算 ---
-                    const now = Date.now();
-                    const dt = now - lastTouchTime;
-                    if (dt > 0) {
-                        velocity.x = dx; 
-                        velocity.y = dy;
-                    }
-                    lastTouchTime = now;
                 }
 
                 lastPinchDist = dist;
@@ -619,19 +586,12 @@ createApp({
             
             if (activePointers.size === 0) {
                 endDrawing();
-                // 绘制模式下：只要当前没有笔迹在进行（endDrawing 已清空），即可触发惯性
-                const allowInertia = isPanningInDrawMode || isZooming || !currentPath.value;
-                if (allowInertia) {
-                    if (Math.abs(velocity.x) > 1 || Math.abs(velocity.y) > 1) {
-                        if (rafId) cancelAnimationFrame(rafId);
-                        rafId = requestAnimationFrame(applyInertia);
-                    }
+                if (!isDrawing.value || isPanningInDrawMode) {
+                    startInertiaAnimation();
                 }
-                isZooming = false; 
             } else if (activePointers.size === 1) {
                 const pt = activePointers.values().next().value;
                 lastPointerPos = { x: pt.x, y: pt.y };
-                lastTouchTime = Date.now();
             }
         };
 
@@ -649,15 +609,11 @@ createApp({
             isDrawing.value = !isDrawing.value;
             isPanningInDrawMode = false;
         };
-        const clearInk = () => { 
-            paths.value = []; 
-            redrawAllPagesInk();
-        };
+        const clearInk = () => { paths.value = []; drawAllPaths(); };
         const resetView = () => { 
             stopInertia();
             scale.value = 0.8; 
             centerContent(); 
-            redrawAllPagesInk();
         };
 
         onMounted(initPDF);
