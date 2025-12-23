@@ -114,6 +114,20 @@ export class AiChatApi {
     const trimmedChunk = String(rawMessage).trim()
     const raw = String(rawMessage)
 
+    // 兼容：部分后端在轮询模式下会先返回一个无意义的 "成功" 占位帧。
+    // 该帧不属于 SSE 的 data: payload，如果当作正文追加，会导致后续 drawing 控制帧无法触发骨架屏（因为 content 不再为空）。
+    if (trimmedChunk === '成功' && !raw.includes('data:')) {
+      return this.handleEmptyContent(
+        message,
+        url,
+        onComplete,
+        onStream,
+        accumulatedContent,
+        messageId,
+        onHistoryUpdate,
+      )
+    }
+
     if (message.dstUrl === '/permission/previewPictureQA' && !raw.includes('data:') && accumulatedContent.length > 0) {
       return this.handlePollingEnd(
         messageId,

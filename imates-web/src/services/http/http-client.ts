@@ -105,7 +105,7 @@ export class HttpClient {
       return value
     }
 
-    if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
+    if (url.startsWith('/permission') || url.startsWith('/ai') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
       selectedToken = sanitize(localStorage.getItem('XUEBAN_TOKEN'))
     } else if (url.startsWith('/blw-edu-yb')) {
@@ -203,8 +203,26 @@ export class HttpClient {
           })
         }
 
-        showMessage('登录已过期，请重新登录', 'warning')
-        throw new Error(`认证失败(401): 请重新登录`)
+        try {
+          localStorage.removeItem('XUEBAN_TOKEN')
+          localStorage.removeItem('YANBAN_TOKEN')
+          localStorage.removeItem('userInfo')
+          localStorage.removeItem('studentUserId')
+          localStorage.removeItem('CURRENT_USER_ID')
+          localStorage.removeItem('CURRENT_USER_TYPE')
+        } catch {
+        }
+
+        showMessage('您的账号已在其他设备登录', 'warning')
+        try {
+          const isOnLoginPage = typeof window !== 'undefined' && window.location?.hash?.includes('/login')
+          if (!isOnLoginPage) {
+            window.location.hash = '#/login'
+          }
+        } catch {
+        }
+
+        throw new Error('认证失败(401): 您的账号已在其他设备登录')
       }
 
       let data: any = null

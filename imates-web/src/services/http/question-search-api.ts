@@ -1,5 +1,6 @@
 import { httpClient } from '../http/http-client'
 import type { FindSimilarQuestionByBmNoRequest } from '@/types'
+import { validateKnowledgeTopicAndAck2Request } from '@/stores/utils/requestValidator'
 
 export class QuestionSearchApi {
   public async getExerciseList(subject: string): Promise<any[]> {
@@ -238,15 +239,40 @@ export class QuestionSearchApi {
     currentPage: number
     pageSize: number
   }> {
-    const mappedRequest: any = {
+    const url = '/biologyTopicKnowledge/knowledgeTopicAndAck2'
+
+    // 后端入参 TopicVO：目前核心只需要 bmNoList（必填）+ exercisesId（字段存在但实现里可能未使用）
+    const requestBody: any = {
       bmNoList: request.bmNoList,
       exercisesId: request.exercisesId,
-      type: request.type,
-      size: request.size,
-      current: request.current,
-      totalCount: request.totalCount,
     }
 
-    return this.findSimilarQuestionsByKnowledge(mappedRequest)
+    validateKnowledgeTopicAndAck2Request(requestBody)
+
+    const response = await httpClient.post<{
+      success: boolean
+      data: {
+        questions: any[]
+      }
+      message?: string
+    }>(url, requestBody)
+
+    const questions = (response.data as any)?.data?.questions || []
+
+    if (response.success && Array.isArray(questions)) {
+      return {
+        questions,
+        totalCount: questions.length,
+        currentPage: request.current,
+        pageSize: request.size,
+      }
+    }
+
+    return {
+      questions: [],
+      totalCount: 0,
+      currentPage: request.current,
+      pageSize: request.size,
+    }
   }
 }

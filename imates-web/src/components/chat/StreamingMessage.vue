@@ -289,7 +289,7 @@ const setTypewriterContentRef = (el: any) => {
 .message-content {
   flex: 1;
   word-wrap: break-word;
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 /* 绘图中骨架屏样式：深色渐变 + 圆角 + 轻微晃动高光 */

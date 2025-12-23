@@ -87,7 +87,7 @@ const buildAiExerciseMessage = (
     isWebSearch: enableWebSearch ? '1' : '0',
     role: selectedModel,
     subject: subject,
-    dstUrl: subject === 'MATH' ? '/permission/chatMath' : '/permission/chat',
+    dstUrl: subject === 'MATH' ? '/ai/2.0/chatMath' : '/ai/2.0/chat',
     explanation: currentQuestion.explanation || '', // 添加 explanation 字段
   }
   

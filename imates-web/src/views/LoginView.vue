@@ -62,6 +62,14 @@
       {{ displayVersion }}
     </div>
 
+    <button class="debug-api-button" type="button" @click="goToApiDebug">
+      接口调试
+    </button>
+
+    <button class="lsdjf-button" type="button" @click="goToLsdjf">
+      跳转 lsdjf
+    </button>
+
     <!-- 环境切换对话框 -->
     <Dialog
       ref="envSwitchDialog"
@@ -367,6 +375,14 @@ const handleLogin = async () => {
     isLoading.value = false
   }
 }
+
+const goToApiDebug = () => {
+  router.push('/debug-api')
+}
+
+const goToLsdjf = () => {
+  window.location.href = 'lsdjf.html'
+}
 </script>
 
 <style scoped>
@@ -550,14 +566,40 @@ const handleLogin = async () => {
 
 .version-text {
   position: absolute;
-  bottom: 16px;
-  right: 16px;
-  color: #ffffff;
+  bottom: 25px;
+  left: 30px;
   font-size: 14px;
-  text-align: center;
+  color: #ffffff;
+  opacity: 0.8;
   cursor: pointer;
-  white-space: pre-line;
   user-select: none;
+  white-space: pre-line;
+}
+
+.debug-api-button {
+  position: absolute;
+  bottom: 25px;
+  right: 30px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.lsdjf-button {
+  position: absolute;
+  bottom: 25px;
+  right: 120px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  cursor: pointer;
 }
 
 .version-text:hover {

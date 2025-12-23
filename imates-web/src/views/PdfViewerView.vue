@@ -139,7 +139,7 @@ const router = useRouter()
 // right: 撤销、重做按钮
 const pdfToolbarTools = {
   left: ['undo', 'redo'],
-  middle: ['hand', 'highlighter', 'pen', 'eraser-draw', 'screenshot'],
+  middle: ['hand', 'highlighter', 'draw', 'eraser-draw', 'screenshot'],
 }
 
 // 使用 exerciseStore 来发送AI消息
@@ -163,7 +163,7 @@ const handleConfigChange = (config: {
   [key: string]: string | number | boolean | undefined
 }) => {
   switch (pdfViewerStore.selectedTool) {
-    case 'pen':
+    case 'draw':
       if (config.color) {
         pdfViewerStore.updateDrawingConfig({ penColor: config.color as string })
       }
@@ -199,7 +199,7 @@ const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
 const currentFile = ref<File | null>(null)
 
 // 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
-type PdfToolId = 'hand' | 'highlighter' | 'pen' | 'eraser-draw' | 'note' | 'screenshot'
+type PdfToolId = 'hand' | 'highlighter' | 'draw' | 'eraser-draw' | 'note' | 'screenshot'
 const currentTool = ref<PdfToolId>('hand')
 
 // 处理工具切换：直接使用 UnifiedToolbar 的工具 ID 作为全局枚举
@@ -208,12 +208,14 @@ const handleToolChange = (tool: string) => {
   if (!pdfPageRef.value) return
   console.log(111)
   // 仅处理我们支持的绘图相关工具
-  if (!['hand', 'highlighter', 'pen', 'eraser-draw', 'note', 'screenshot'].includes(tool)) {
+  // 兼容历史工具 ID：UnifiedToolbar 仍可能发出 draw，等价于 draw
+  const normalizedTool = tool === 'draw' ? 'draw' : tool
+  if (!['hand', 'highlighter', 'draw', 'eraser-draw', 'note', 'screenshot'].includes(normalizedTool)) {
     return
   }
   console.log(222)
 
-  const clickedTool = tool as PdfToolId
+  const clickedTool = normalizedTool as PdfToolId
 
   // 如果点击的工具已经是当前选中工具，则视为“取消选中”，切回 hand 模式
   if (pdfViewerStore.selectedTool === clickedTool && clickedTool !== 'hand') {
@@ -233,7 +235,7 @@ const handleToolChange = (tool: string) => {
     pdfPageRef.value.toggleGestureMode?.()
   } else if (t === 'highlighter') {
     pdfPageRef.value.toggleHighlightMode?.()
-  } else if (t === 'pen') {
+  } else if (t === 'draw') {
     pdfPageRef.value.togglePenMode?.()
   } else if (t === 'eraser-draw') {
     pdfPageRef.value.toggleEraserMode?.()
@@ -255,7 +257,7 @@ const toolStates = computed(() => {
   return {
     hand: true,
     highlighter: true,
-    pen: true,
+    draw: true,
     'eraser-draw': true,
     note: true,
     undo: true,
@@ -267,13 +269,13 @@ const toolStates = computed(() => {
 const toolbarToolConfig = computed(() => {
   return {
     color:
-      pdfViewerStore.selectedTool === 'pen'
+      pdfViewerStore.selectedTool === 'draw'
         ? pdfViewerStore.drawingConfig.penColor
         : pdfViewerStore.selectedTool === 'highlighter'
         ? pdfViewerStore.drawingConfig.highlighterColor
         : undefined,
     size:
-      pdfViewerStore.selectedTool === 'pen'
+      pdfViewerStore.selectedTool === 'draw'
         ? pdfViewerStore.drawingConfig.penWidth
         : pdfViewerStore.selectedTool === 'highlighter'
         ? pdfViewerStore.drawingConfig.highlighterWidth

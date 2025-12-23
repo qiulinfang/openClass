@@ -72,6 +72,7 @@
         :drawing-board-tools="drawingBoardTools"
         @content-change="updateCurrentDraftThumbnail"
         @clear="handleClearRequest"
+        :showGrid="true"
       />
     </div>
 

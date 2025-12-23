@@ -39,7 +39,7 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     displayName: '',
   },
   [AppEnvType.INTERNAL_TEST]: {
-    baseUrl: 'http://www.imates.com.cn:9222/blw-edu-service-alc',
+    baseUrl: 'http://www.imates.com.cn:58443/blw-edu-service-alc',
     // 测试环境资源服务器同样通过 9099 提供 /resource 路径
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴测试环境：使用 HTTPS 访问 50013 端口

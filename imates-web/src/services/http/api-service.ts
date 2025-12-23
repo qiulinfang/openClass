@@ -176,7 +176,7 @@ export class ApiService {
 
   /**
    * 根据 bmNoList 查找相似题目
-   * 目前复用按知识点查题接口：把 bmNoList 当作 knowledgeNo 传入
+   * 走独立接口：/biologyTopicKnowledge/knowledgeTopicAndAck2
    */
   public async findSimilarQuestionsByBmNoList(request: FindSimilarQuestionByBmNoRequest): Promise<{
     questions: any[]

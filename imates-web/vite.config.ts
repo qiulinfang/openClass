@@ -16,13 +16,13 @@ export default defineConfig(({ mode }) => {
   // 学伴服务（业务后端）
   // mode=test 时，对齐 Android 测试环境：使用 9222 端口的 imates 测试服
   const EDU_SERVICE_BASE = isTest
-    ? 'http://www.imates.com.cn:9222/blw-edu-service-alc'
+    ? 'http://www.imates.com.cn:58443/blw-edu-service-alc'
     : 'http://www.imates.com.cn:9222/blw-edu-service-alc'
 
   // 资源服务器（文件/图片等）
   // 测试环境同样使用 imates 资源服务器
   const RESOURCE_FILE_BASE = isTest
-    ? 'https://43.138.16.5:50013'
+    ? 'https://www.imates.com.cn:9099'
     : 'https://www.imates.com.cn:9099'
 
   // APP 更新接口所用域名

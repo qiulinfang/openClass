@@ -16,6 +16,8 @@ import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
+import ApiDebugView from '@/views/ApiDebugView.vue'
+import RenderTestView from '@/views/RenderTestView.vue'
 import { getXuebanToken } from '@/services'
 
 const router = createRouter({
@@ -131,6 +133,16 @@ const router = createRouter({
       name: 'chatSessionTest',
       component: ChatSessionTestView
     },
+    {
+      path: '/debug-api',
+      name: 'debugApi',
+      component: ApiDebugView
+    },
+    {
+      path: '/render-test',
+      name: 'renderTest',
+      component: RenderTestView
+    },
     // 重定向旧路由到新路由
     {
       path: '/exercise-solve',
@@ -161,7 +173,16 @@ router.beforeEach(async (to, from, next) => {
   const isLoggedIn = !!token
   
   // 如果访问登录页面或测试页面，直接放行
-  if (to.name === 'login' || to.path === '/login' || to.name === 'chatSessionTest' || to.path === '/chat-session-test') {
+  if (
+    to.name === 'login' ||
+    to.path === '/login' ||
+    to.name === 'chatSessionTest' ||
+    to.path === '/chat-session-test' ||
+    to.name === 'debugApi' ||
+    to.path === '/debug-api' ||
+    to.name === 'renderTest' ||
+    to.path === '/render-test'
+  ) {
     next()
     return
   }

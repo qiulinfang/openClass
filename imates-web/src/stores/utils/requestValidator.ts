@@ -100,6 +100,29 @@ export function validateExerciseChatRequest(
   }
 }
 
+export function validateKnowledgeTopicAndAck2Request(body: unknown): void {
+  const req = body as any
+  const bmNoList = req?.bmNoList
+
+  if (bmNoList === undefined || bmNoList === null || typeof bmNoList !== 'string' || !bmNoList.trim()) {
+    throw new Error('[knowledgeTopicAndAck2] bmNoList 不能为空')
+  }
+
+  const items = bmNoList
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter((s: string) => s.length > 0)
+
+  if (items.length === 0) {
+    throw new Error('[knowledgeTopicAndAck2] bmNoList 不能为空')
+  }
+
+  const invalid = items.find((s: string) => !/^\d+$/.test(s))
+  if (invalid) {
+    throw new Error(`[knowledgeTopicAndAck2] bmNoList 包含非法题号: ${invalid}`)
+  }
+}
+
 
 /**
  * 校验 AI 教材对话请求
