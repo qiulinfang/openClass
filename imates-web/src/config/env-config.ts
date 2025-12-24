@@ -11,12 +11,19 @@ export enum AppEnvType {
   INTERNAL_TEST = 'INTERNAL_TEST',
 }
 
+export interface ApiPaths {
+  previewPictureQA: string
+  chat: string
+  chatMath: string
+}
+
 // 环境配置接口
 interface EnvConfig {
   baseUrl: string
   resourceBaseUrl: string
   yanbanBaseUrl: string
   historyManageBaseUrl: string
+  apiPaths: ApiPaths
   mqHost: string
   mqPort: number
   appUpdateUrl: string
@@ -32,6 +39,11 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
+    apiPaths: {
+      previewPictureQA: '/permission/previewPictureQA',
+      chat: '/permission/chat',
+      chatMath: '/permission/chatMath',
+    },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,
     // 这里只存一个默认路径，实际返回由 getAppUpdateUrl 结合 SCHOOL_UPDATE_CONFIGS 计算
@@ -43,8 +55,14 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 测试环境资源服务器同样通过 9099 提供 /resource 路径
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴测试环境：使用 HTTPS 访问 50013 端口
-    yanbanBaseUrl: 'https://43.138.16.5:50013',
+    yanbanBaseUrl: 'https://www.imates.com.cn:9099',
+    // yanbanBaseUrl: 'https://43.138.16.5:50013',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
+    apiPaths: {
+      previewPictureQA: '/permission/previewPictureQA',
+      chat: '/ai/2.0/chat',
+      chatMath: '/ai/2.0/chatMath',
+    },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,
     appUpdateUrl: '/appupdate_test.json',

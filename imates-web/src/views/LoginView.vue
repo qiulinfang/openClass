@@ -367,7 +367,6 @@ const handleLogin = async () => {
     isLoading.value = false
   }
 }
-
 </script>
 
 <style scoped>
@@ -551,14 +550,14 @@ const handleLogin = async () => {
 
 .version-text {
   position: absolute;
-  bottom: 25px;
-  left: 30px;
-  font-size: 14px;
+  bottom: 16px;
+  right: 16px;
   color: #ffffff;
-  opacity: 0.8;
+  font-size: 14px;
+  text-align: center;
   cursor: pointer;
-  user-select: none;
   white-space: pre-line;
+  user-select: none;
 }
 
 .version-text:hover {

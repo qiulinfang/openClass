@@ -1091,7 +1091,6 @@ const handleRefresh = async () => {
           true, // skipUserMessage: true，跳过创建用户消息
           undefined,
           undefined,
-          shouldUseScreenshotOnRefresh ? textbookImageList : undefined,
         )
         break
       case 'teacher-general':
@@ -1402,11 +1401,6 @@ onUnmounted(() => {
 <style scoped lang="scss">
 /* 现代化聊天消息布局 - 参照主流大模型体验 */
 
-/* 全局 deep 样式 */
-:deep(p) {
-  margin: 0;
-}
-
 /* 禁用MathJax右键菜单和MathLive功能列表的样式 */
 :deep(.mjx-chtml),
 :deep(.mjx-math),
@@ -1614,14 +1608,12 @@ onUnmounted(() => {
               line-height: 1.5;
               font-weight: 600;
               margin: 8px 0;
-              margin: 0;
             }
 
             :deep(li) {
               font-size: 16px;
               line-height: 1.5;
               font-weight: 400;
-              margin: 0;
             }
 
             :deep(img.markdown-image) {
