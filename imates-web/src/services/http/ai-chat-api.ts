@@ -196,7 +196,8 @@ export class AiChatApi {
       !raw.includes('data:') &&
       trimmedChunk
     ) {
-      const chunk = this.stripTrailingEnd(trimmedChunk)
+      const normalizedChunk = this.extractMessageFromConcatenatedJson(trimmedChunk) ?? trimmedChunk
+      const chunk = this.stripTrailingEnd(normalizedChunk)
       const newAccumulated = accumulatedContent + chunk
       return this.handlePollingEnd(messageId, newAccumulated, response.data.sessionId, message.sessionId, onComplete, onStream)
     }
@@ -272,10 +273,26 @@ export class AiChatApi {
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void
   }): any {
     const { rawMessage, message, url, accumulatedContent, messageId, onComplete, onStream, onHistoryUpdate } = params
-    const effectiveChunk = String(rawMessage)
+    const rawChunk = String(rawMessage)
+    const effectiveChunk = this.extractMessageFromConcatenatedJson(rawChunk) ?? rawChunk
 
     if (/^[\r\n]+$/.test(effectiveChunk)) {
       return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
+    }
+
+    // 兼容：部分后端会在同一帧文本末尾直接拼接 end（非 SSE）
+    // 这种情况下应直接结束轮询，而不是继续发送 continue。
+    if (!effectiveChunk.includes('data:') && /\s*end\s*$/i.test(effectiveChunk)) {
+      const chunk = this.stripTrailingEnd(effectiveChunk)
+      const newAccumulated = accumulatedContent + (chunk ? chunk : '')
+      return this.handlePollingEnd(
+        messageId,
+        newAccumulated,
+        '',
+        message.sessionId,
+        onComplete,
+        onStream,
+      )
     }
 
     if (effectiveChunk.trim() !== '') {
@@ -405,6 +422,80 @@ export class AiChatApi {
     if (/^end$/i.test(normalized)) return ''
     // 匹配末尾的 end（前面允许中文/英文内容），仅截掉末尾标记
     return normalized.replace(/\s*end$/i, '').trim()
+  }
+
+  /**
+   * 兼容：部分后端会把多个 JSON 对象直接拼接返回（例如：{...}{...}）
+   * 这种情况下我们需要按大括号配对切分并提取每个对象的 message 字段。
+   *
+   * 返回 null 表示“不像拼接 JSON”或无法解析，让上层走原逻辑。
+   */
+  private extractMessageFromConcatenatedJson(text: string): string | null {
+    const input = String(text || '').trim()
+    if (!input) return null
+    if (!input.startsWith('{')) return null
+    if (!input.includes('"message"')) return null
+
+    const objects: any[] = []
+    let depth = 0
+    let start = -1
+    let inString = false
+    let escaping = false
+
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i]
+
+      if (inString) {
+        if (escaping) {
+          escaping = false
+          continue
+        }
+        if (ch === '\\') {
+          escaping = true
+          continue
+        }
+        if (ch === '"') {
+          inString = false
+        }
+        continue
+      }
+
+      if (ch === '"') {
+        inString = true
+        continue
+      }
+
+      if (ch === '{') {
+        if (depth === 0) start = i
+        depth++
+        continue
+      }
+
+      if (ch === '}') {
+        if (depth > 0) depth--
+        if (depth === 0 && start >= 0) {
+          const part = input.slice(start, i + 1)
+          try {
+            objects.push(JSON.parse(part))
+          } catch {
+            return null
+          }
+          start = -1
+        }
+      }
+    }
+
+    if (objects.length <= 1) {
+      return null
+    }
+
+    const messages = objects
+      .map((o) => (o && typeof o.message === 'string' ? o.message : ''))
+      .map((m) => String(m).trim())
+      .filter((m) => m.length > 0)
+
+    if (messages.length === 0) return null
+    return messages.join('')
   }
 
   private handlePollingEnd(

@@ -258,6 +258,20 @@ const normalizeUrl = (url: string): string | null => {
   }
   
   const trimmedUrl = url.trim()
+
+  // 兼容：本地 html 文件（例如 steiner-lab-tablet.html）
+  // 这类路径包含 '.'，但不应该被当成域名自动补 https://
+  // 在 file:// (android_asset) 或 dev server 下都应该按相对路径解析。
+  if (
+    !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmedUrl) &&
+    /\.html?(\?.*)?(#.*)?$/i.test(trimmedUrl)
+  ) {
+    try {
+      return new URL(trimmedUrl, window.location.href).href
+    } catch (e) {
+      console.warn('[MiniClass] local html URL 解析失败:', trimmedUrl, e)
+    }
+  }
   
   try {
     // 尝试解析为完整 URL
@@ -335,10 +349,9 @@ const normalizeUrl = (url: string): string | null => {
     
     // 可能是相对路径，尝试基于当前页面构建完整 URL
     try {
-      const currentUrl = new URL(window.location.href)
-      const baseUrl = `${currentUrl.protocol}//${currentUrl.host}`
-      const resolvedUrl = new URL(trimmedUrl, baseUrl)
-      return resolvedUrl.href
+      // 注意：file:// 环境下 currentUrl.host 为空，拼 protocol//host 会导致 file//... 这种非法地址
+      // 统一使用 window.location.href 作为 base 解析相对路径
+      return new URL(trimmedUrl, window.location.href).href
     } catch (e2) {
       // 如果仍然失败，返回原 URL
       console.warn('[MiniClass] URL 规范化失败:', trimmedUrl, e2)

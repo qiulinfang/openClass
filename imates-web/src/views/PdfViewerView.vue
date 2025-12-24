@@ -37,17 +37,6 @@
               >
                 <img :src="goBackIcon" alt="返回" class="goback-icon" />
               </q-btn>
-
-              <q-btn
-                flat
-                round
-                dense
-                @click="handleOpenMiniClass"
-                class="q-ml-sm"
-              >
-                <q-icon name="ondemand_video" color="white" size="20px" />
-                <q-tooltip>微课</q-tooltip>
-              </q-btn>
             </template>
             <template #right-actions>
               <!-- 调试面板按钮 -->
@@ -84,6 +73,19 @@
           />
 
           <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
+
+          <q-btn
+            v-if="shouldShowMiniClassFab"
+            class="mini-class-fab"
+            round
+            unelevated
+            color="primary"
+            @pointerdown="onMiniClassFabPointerDown"
+            @click="onMiniClassFabClick"
+          >
+            <q-icon name="ondemand_video" color="white" size="22px" />
+            <q-tooltip>微课</q-tooltip>
+          </q-btn>
         </div>
       </template>
 
@@ -175,6 +177,128 @@ const showMiniClassDialog = computed({
 })
 const miniClassUrl = computed(() => uiStore.miniClassUrl)
 const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
+
+const REQUIRED_CHAPTER_INFO = {
+  grade: '初一',
+  subject: '数学',
+  textbook: '探究型公开课',
+  chapter_title: '最短路径的基本原理',
+} as const
+
+const shouldShowMiniClassFab = computed(() => {
+  const info = aiTextbookStore.chapterInfo
+  if (!info) return false
+  return (
+    info.grade === REQUIRED_CHAPTER_INFO.grade &&
+    info.subject === REQUIRED_CHAPTER_INFO.subject &&
+    info.textbook === REQUIRED_CHAPTER_INFO.textbook &&
+    info.chapter_title === REQUIRED_CHAPTER_INFO.chapter_title
+  )
+})
+
+const miniClassFabPos = ref({ x: 0, y: 0 })
+const isDraggingMiniClassFab = ref(false)
+const miniClassFabPointerId = ref<number | null>(null)
+const miniClassFabStart = ref({
+  pointerX: 0,
+  pointerY: 0,
+  startX: 0,
+  startY: 0,
+})
+const miniClassFabMoved = ref(false)
+const lastMiniClassFabDragEndAt = ref(0)
+const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+
+const onMiniClassFabPointerMove = (e: PointerEvent) => {
+  if (miniClassFabPointerId.value === null || e.pointerId !== miniClassFabPointerId.value) return
+
+  const dx = e.clientX - miniClassFabStart.value.pointerX
+  const dy = e.clientY - miniClassFabStart.value.pointerY
+
+  if (!miniClassFabMoved.value && Math.hypot(dx, dy) > 4) {
+    miniClassFabMoved.value = true
+  }
+
+  isDraggingMiniClassFab.value = true
+
+  const container = document.querySelector('.pdf-viewer-container') as HTMLElement | null
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const btnSize = 56
+
+  const nextX = miniClassFabStart.value.startX + dx
+  const nextY = miniClassFabStart.value.startY + dy
+
+  miniClassFabPos.value = {
+    x: clamp(nextX, 8, rect.width - btnSize - 8),
+    y: clamp(nextY, 8, rect.height - btnSize - 8),
+  }
+}
+
+const onMiniClassFabPointerUp = (e: PointerEvent) => {
+  if (miniClassFabPointerId.value === null || e.pointerId !== miniClassFabPointerId.value) return
+
+  try {
+    window.removeEventListener('pointermove', onMiniClassFabPointerMove)
+    window.removeEventListener('pointerup', onMiniClassFabPointerUp)
+    window.removeEventListener('pointercancel', onMiniClassFabPointerUp)
+  } catch {
+  }
+
+  miniClassFabPointerId.value = null
+  isDraggingMiniClassFab.value = false
+  if (miniClassFabMoved.value) {
+    lastMiniClassFabDragEndAt.value = Date.now()
+  }
+}
+
+const onMiniClassFabPointerDown = (e: PointerEvent) => {
+  if (miniClassFabPointerId.value !== null) return
+  miniClassFabPointerId.value = e.pointerId
+  miniClassFabMoved.value = false
+
+  const container = document.querySelector('.pdf-viewer-container') as HTMLElement | null
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const btnSize = 56
+
+  const current = miniClassFabPos.value
+  const isDefault = current.x === 0 && current.y === 0
+  const defaultX = rect.width - btnSize - 16
+  const defaultY = rect.height - btnSize - 16
+
+  miniClassFabStart.value = {
+    pointerX: e.clientX,
+    pointerY: e.clientY,
+    startX: isDefault ? defaultX : current.x,
+    startY: isDefault ? defaultY : current.y,
+  }
+
+  if (isDefault) {
+    miniClassFabPos.value = {
+      x: clamp(defaultX, 8, rect.width - btnSize - 8),
+      y: clamp(defaultY, 8, rect.height - btnSize - 8),
+    }
+  }
+
+  try {
+    window.addEventListener('pointermove', onMiniClassFabPointerMove)
+    window.addEventListener('pointerup', onMiniClassFabPointerUp)
+    window.addEventListener('pointercancel', onMiniClassFabPointerUp)
+  } catch {
+  }
+}
+
+const onMiniClassFabClick = () => {
+  if (Date.now() - lastMiniClassFabDragEndAt.value < 200) {
+    return
+  }
+  try {
+    uiStore.openMiniClassDialog('https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html', '微课')
+  } catch {
+    uiStore.openMiniClassDialog('https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html', '微课')
+  }
+}
 
 // 组件状态（renderProgress 已移除，不再使用）
 
@@ -772,6 +896,17 @@ onBeforeUnmount(() => {
   height: 100%;
   width: 100%;
 }
+
+.mini-class-fab {
+  position: absolute;
+  left: 16px;
+  bottom: 50%;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  touch-action: none;
+  user-select: none;
+}
+
 
 :deep(.q-splitter),
 :deep(.q-splitter__container),
