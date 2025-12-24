@@ -56,7 +56,7 @@ export interface ScreenshotDrawingState {
 interface BuildTextbookMessageParams {
   content: string
   userInfo: UserInfo | null
-  subject: 'MATH' | 'BIOLOGY'
+  subject: string
   chatRole: string
   sessionId: string
   resourceId?: string | null
@@ -71,6 +71,28 @@ interface BuildTextbookMessageParams {
   useScreenshotApi?: boolean
   isNewSession?: boolean
   imageList?: TextbookChatImageData[] // 多图数据列表（用于截图多图场景）
+}
+
+const REQUIRED_CHAPTER_INFO = {
+  grade: '初一',
+  subject: '数学',
+  textbook: '探究型公开课',
+  chapter_title: '最短路径的基本原理',
+} as const
+
+const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']): boolean => {
+  if (!info) return false
+  const keys = Object.keys(info)
+  if (keys.length !== 4) return false
+  if (!keys.every((k) => k === 'grade' || k === 'subject' || k === 'textbook' || k === 'chapter_title')) {
+    return false
+  }
+  return (
+    info.grade === REQUIRED_CHAPTER_INFO.grade &&
+    info.subject === REQUIRED_CHAPTER_INFO.subject &&
+    info.textbook === REQUIRED_CHAPTER_INFO.textbook &&
+    info.chapter_title === REQUIRED_CHAPTER_INFO.chapter_title
+  )
 }
 
 const buildAiTextbookMessage = ({
@@ -109,7 +131,7 @@ const buildAiTextbookMessage = ({
       role: chatRole,
       subject,
       sectionName: sectionName || undefined,
-      chapter_info: chapterInfo || undefined,
+      chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
       dstUrl: '/permission/previewPictureQA',
       explanation: '', // 教材场景占位
       // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
@@ -137,7 +159,7 @@ const buildAiTextbookMessage = ({
     role: chatRole,
     subject,
     sectionName: sectionName || undefined,
-    chapter_info: chapterInfo || undefined,
+    chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
     dstUrl,
     explanation: '', // 教材场景占位
     imageList,

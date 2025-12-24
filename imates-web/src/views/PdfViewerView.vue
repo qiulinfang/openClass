@@ -138,6 +138,8 @@ type PdfPagePublicInstance = ComponentPublicInstance<{
   redoLastStroke: () => void
   toggleGestureMode: () => void
   toggleScreenshotMode: () => void
+  toggleSelectMode: () => void
+  setSelectionMode: (mode: 'rectangle' | 'freeform') => void
 }>
 
 // 调试面板状态
@@ -154,7 +156,7 @@ const router = useRouter()
 // right: 撤销、重做按钮
 const pdfToolbarTools = {
   left: ['undo', 'redo'],
-  middle: ['hand', 'draw', 'highlighter', 'eraser-draw', 'screenshot'],
+  middle: ['hand', 'select', 'draw', 'highlighter', 'eraser-draw', 'screenshot'],
 }
 
 // 使用 exerciseStore 来发送AI消息
@@ -190,6 +192,12 @@ const handleConfigChange = (config: {
   [key: string]: string | number | boolean | undefined
 }) => {
   switch (pdfViewerStore.selectedTool) {
+    case 'select':
+      if (config.selectMode) {
+        const mode = config.selectMode as 'rectangle' | 'freeform'
+        pdfPageRef.value?.setSelectionMode?.(mode)
+      }
+      break
     case 'draw':
       if (config.color) {
         pdfViewerStore.updateDrawingConfig({ penColor: config.color as string })
@@ -232,7 +240,7 @@ const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
 const currentFile = ref<File | null>(null)
 
 // 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
-type PdfToolId = 'hand' | 'highlighter' | 'draw' | 'eraser-draw' | 'note' | 'screenshot'
+type PdfToolId = 'hand' | 'select' | 'highlighter' | 'draw' | 'eraser-draw' | 'note' | 'screenshot'
 const currentTool = ref<PdfToolId>('hand')
 
 // 处理工具切换：直接使用 UnifiedToolbar 的工具 ID 作为全局枚举
@@ -243,7 +251,7 @@ const handleToolChange = (tool: string) => {
   // 仅处理我们支持的绘图相关工具
   // 兼容历史工具 ID：UnifiedToolbar 仍可能发出 draw，等价于 draw
   const normalizedTool = tool === 'draw' ? 'draw' : tool
-  if (!['hand', 'highlighter', 'draw', 'eraser-draw', 'note', 'screenshot'].includes(normalizedTool)) {
+  if (!['hand', 'select', 'highlighter', 'draw', 'eraser-draw', 'note', 'screenshot'].includes(normalizedTool)) {
     return
   }
   console.log(222)
@@ -266,6 +274,8 @@ const handleToolChange = (tool: string) => {
   pdfViewerStore.selectedTool = t
   if (t === 'hand') {
     pdfPageRef.value.toggleGestureMode?.()
+  } else if (t === 'select') {
+    pdfPageRef.value.toggleSelectMode?.()
   } else if (t === 'highlighter') {
     pdfPageRef.value.toggleHighlightMode?.()
   } else if (t === 'draw') {
@@ -289,6 +299,7 @@ const handleSelectAndAskFromChat = () => {
 const toolStates = computed(() => {
   return {
     hand: true,
+    select: true,
     highlighter: true,
     draw: true,
     'eraser-draw': true,

@@ -2,6 +2,7 @@ import CryptoJS from 'crypto-js'
 import { httpClient } from './http-client'
 import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
 import { AndroidBridge } from '../business/android-bridge'
+import { showMessage } from '@/utils'
 import type {
   UserInfo,
   XuebanLoginResponse,
@@ -137,6 +138,11 @@ export class AuthService {
     } catch {
     }
 
+    try {
+      showMessage('账号已在其他设备登录', 'warning', 2500)
+    } catch {
+    }
+
     this.forceLogoutToLogin()
     return false
   }
@@ -150,8 +156,6 @@ export class AuthService {
       localStorage.removeItem('studentUserId')
       localStorage.removeItem(CURRENT_USER_ID_KEY)
       localStorage.removeItem(CURRENT_USER_TYPE_KEY)
-      localStorage.removeItem('userId')
-      localStorage.removeItem('userPassword')
       localStorage.removeItem('lastLoginTime')
     } catch {
     }
