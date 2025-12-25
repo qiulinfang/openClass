@@ -23,6 +23,7 @@ import { useChatEngine } from '@/composables/useChatEngine'
 // 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
 import { getUserId, getCurrentUserIdOrDefault } from '../services'
 import { validateExerciseChatRequest } from './utils/requestValidator'
+import { getCurrentEnvConfig } from '@/config/env-config'
 
 /**
  * 构建AI题目聊天消息请求
@@ -64,7 +65,7 @@ const buildAiExerciseMessage = (
       isWebSearch: enableWebSearch ? '1' : '0',
       role: selectedModel,
       subject: subject,
-      dstUrl: '/permission/previewPictureQA',
+      dstUrl: getCurrentEnvConfig().apiPaths.previewPictureQA,
       explanation: currentQuestion.explanation || '',
     }
     
@@ -87,7 +88,7 @@ const buildAiExerciseMessage = (
     isWebSearch: enableWebSearch ? '1' : '0',
     role: selectedModel,
     subject: subject,
-    dstUrl: subject === 'MATH' ? '/ai/2.0/chatMath' : '/ai/2.0/chat',
+    dstUrl: subject === 'MATH' ? getCurrentEnvConfig().apiPaths.chatMath : getCurrentEnvConfig().apiPaths.chat,
     explanation: currentQuestion.explanation || '', // 添加 explanation 字段
   }
   

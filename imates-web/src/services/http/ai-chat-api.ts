@@ -547,7 +547,7 @@ export class AiChatApi {
 
     const continueMessage = { ...message, reason: 'continue' }
 
-    if (message.dstUrl === '/permission/previewPictureQA') {
+    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 
@@ -573,7 +573,7 @@ export class AiChatApi {
   ) {
     const continueMessage = { ...message, reason: 'continue' }
 
-    if (message.dstUrl === '/permission/previewPictureQA') {
+    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 

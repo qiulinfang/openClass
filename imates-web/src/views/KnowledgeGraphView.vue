@@ -2057,11 +2057,7 @@ onUnmounted(() => {
         word-break: break-word; /* 允许单词内换行，避免长单词溢出 */
       }
     }
-    
-    &:hover:not(.active) {
-      background: #f3f4f6;
-    }
-    
+
     // 第13步：触摸状态
     &:active {
       transform: scale(0.98);
