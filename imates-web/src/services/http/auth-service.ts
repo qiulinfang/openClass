@@ -1,6 +1,6 @@
 import CryptoJS from 'crypto-js'
 import { httpClient } from './http-client'
-import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
+import { getCurrentEnvType, AppEnvType, getYanbanNativeEnabled } from '@/config/env-config'
 import { AndroidBridge } from '../business/android-bridge'
 import { showMessage } from '@/utils'
 import type {
@@ -133,11 +133,6 @@ export class AuthService {
    * @returns 是否自动登录成功
    */
   public async handle401(url: string): Promise<boolean> {
-    try {
-      await this.clearTokenByPath(url)
-    } catch {
-    }
-
     try {
       showMessage('账号已在其他设备登录', 'warning', 2500)
     } catch {
@@ -305,14 +300,20 @@ export class AuthService {
   }
 
   /**
-   * 研伴接口统一调用封装
+   * 研伴接口统一封装
+   * - 解决测试环境 HTTPS 证书问题：测试环境可通过 AndroidBridge 走原生网络
    * - 保持与 Android 原生一致的分流策略：内部测试环境 + 有 AndroidBridge 时走原生网络
    * - 其他环境直接通过 httpClient 调用 Web 接口
    */
   private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
     const envType = getCurrentEnvType()
 
-    if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
+    const nativeEnabled = getYanbanNativeEnabled()
+    const bridgeAvailable = this.androidBridge.isAndroidBridgeAvailable()
+    const useNative = nativeEnabled && envType === AppEnvType.INTERNAL_TEST
+
+
+    if (useNative && bridgeAvailable) {
       const apiPath = url.replace('/blw-edu-yb', '')
       const yanbanToken = getYanbanToken() || ''
       const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
@@ -325,7 +326,7 @@ export class AuthService {
       }
     }
 
-    return await httpClient.post<T>(url, body)
+    return httpClient.post<T>(url, body)
   }
 
   /**

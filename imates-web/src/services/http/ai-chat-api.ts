@@ -11,6 +11,7 @@ import { getCurrentEnvConfig } from '@/config/env-config'
 
 export class AiChatApi {
   private readonly androidBridge: AndroidBridge
+  private readonly pollIntervalMs = 500
 
   constructor() {
     this.androidBridge = AndroidBridge.getInstance()
@@ -37,8 +38,16 @@ export class AiChatApi {
   ): Promise<any> {
     try {
       const url = message.dstUrl!
-
-      return await this.pollChatMessage(message, url, onComplete, onStream, '', generateUniqueId('ai'), onHistoryUpdate)
+      const result = await this.pollChatMessage(
+        message,
+        url,
+        onComplete,
+        onStream,
+        '',
+        generateUniqueId('ai'),
+        onHistoryUpdate,
+      )
+      return result
     } catch (error) {
       const errorResult = {
         success: false,
@@ -65,6 +74,9 @@ export class AiChatApi {
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
     try {
+      if (message.reason === 'continue') {
+        await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs))
+      }
       const response = await this.sendChatRequest(url, message)
 
       return await this.handleChatResponse(
@@ -110,10 +122,10 @@ export class AiChatApi {
       return this.createErrorResult(messageId, accumulatedContent || '请求失败，请重试。', onComplete, onStream)
     }
 
-    const rawMessage =
-      response.data && response.data.message != null ? response.data.message : response.message ?? ''
-    const trimmedChunk = String(rawMessage).trim()
+    const rawMessage = response.data && response.data.message != null ? response.data.message : response.message ?? ''
     const raw = String(rawMessage)
+    // trimmedChunk 仅用于控制判断（如 end/成功），正文应尽量保留原始换行/空格
+    const trimmedChunk = raw.trim()
 
     const nonSseResult = this.handleNonSseResponse({
       raw,
@@ -186,20 +198,27 @@ export class AiChatApi {
     }
 
     // 非流式（单帧）结束：教材截图接口
-    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA && !raw.includes('data:') && accumulatedContent.length > 0) {
-      return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
-    }
-
-    // 非流式（单帧）结束：普通 chat / chatMath 接口返回完整文本但未包含 SSE 标记
-    if (
-      (message.dstUrl === getCurrentEnvConfig().apiPaths.chat || message.dstUrl === getCurrentEnvConfig().apiPaths.chatMath) &&
-      !raw.includes('data:') &&
-      trimmedChunk
-    ) {
-      const normalizedChunk = this.extractMessageFromConcatenatedJson(trimmedChunk) ?? trimmedChunk
+    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA && !raw.includes('data:')) {
+      // 尝试提取拼接的 JSON 消息（例如：{...}{...}）
+      const normalizedChunk = this.extractMessageFromConcatenatedJson(raw) ?? raw
       const chunk = this.stripTrailingEnd(normalizedChunk)
-      const newAccumulated = accumulatedContent + chunk
-      return this.handlePollingEnd(messageId, newAccumulated, response.data.sessionId, message.sessionId, onComplete, onStream)
+      
+      // 如果有新内容,累积并继续轮询
+      if (chunk && chunk.trim()) {
+        return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate, true)
+      }
+
+      // 兼容：previewPictureQA 可能会返回空帧（message 为空）。
+      // 空帧不代表结束，应继续轮询等待后续内容或 end。
+      return this.handleEmptyContent(
+        message,
+        url,
+        onComplete,
+        onStream,
+        accumulatedContent,
+        messageId,
+        onHistoryUpdate,
+      )
     }
 
     if (trimmedChunk === 'end') {
@@ -249,11 +268,10 @@ export class AiChatApi {
       return this.handlePollingEnd(messageId, newAccumulated, response.data.sessionId, message.sessionId, onComplete, onStream)
     }
 
-    if (parsed.textChunk && parsed.textChunk.trim() !== '') {
-      const chunkRaw = parsed.textChunk.trim()
-      const chunk = this.stripTrailingEnd(chunkRaw)
+    if (parsed.textChunk && parsed.textChunk !== '') {
+      const chunk = this.stripTrailingEnd(parsed.textChunk)
       // 过滤单独的 "end" 文本，避免渲染到气泡
-      if (chunk.toLowerCase() === 'end') {
+      if (chunk.trim().toLowerCase() === 'end') {
         return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
       }
       return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
@@ -300,7 +318,7 @@ export class AiChatApi {
       if (!chunk) {
         return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
       }
-      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
+      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate, true)
     }
 
     return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
@@ -418,10 +436,12 @@ export class AiChatApi {
    * 去掉尾部的 end 标记（后端可能在文本末尾附带 end）
    */
   private stripTrailingEnd(text: string): string {
-    const normalized = text.trim()
-    if (/^end$/i.test(normalized)) return ''
-    // 匹配末尾的 end（前面允许中文/英文内容），仅截掉末尾标记
-    return normalized.replace(/\s*end$/i, '').trim()
+    const input = String(text ?? '')
+    const trimmed = input.trim()
+    // 整帧只有 end（可能前后带空白）
+    if (/^end$/i.test(trimmed)) return ''
+    // 仅移除“末尾的 end 标记 + 其后的空白”，其它内容（含换行）保留
+    return input.replace(/end\s*$/i, '')
   }
 
   /**
@@ -491,11 +511,11 @@ export class AiChatApi {
 
     const messages = objects
       .map((o) => (o && typeof o.message === 'string' ? o.message : ''))
-      .map((m) => String(m).trim())
+      .map((m) => String(m))
       .filter((m) => m.length > 0)
 
     if (messages.length === 0) return null
-    return messages.join('')
+    return messages.join('\n')
   }
 
   private handlePollingEnd(
@@ -534,22 +554,20 @@ export class AiChatApi {
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
+    forceAppendNewline: boolean = false,
   ) {
-    const newAccumulatedContent = accumulatedContent + chunk
+    const outgoingChunk = forceAppendNewline && chunk && !chunk.endsWith('\n') ? `${chunk}\n` : chunk
+    const newAccumulatedContent = accumulatedContent + outgoingChunk
     if (onStream) {
       try {
-        onStream(chunk, false)
-        console.log('[AiChatApi] onStream', { messageId, chunk })
+        onStream(outgoingChunk, false)
+        console.log('[AiChatApi] onStream', { messageId, chunk: outgoingChunk })
       } catch (e) {
         console.error('[AiChatApi] onStream error', { messageId, error: e })
       }
     }
 
     const continueMessage = { ...message, reason: 'continue' }
-
-    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
 
     return await this.pollChatMessage(
       continueMessage,
@@ -571,14 +589,8 @@ export class AiChatApi {
     messageId: string = generateUniqueId('ai'),
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ) {
-    const continueMessage = { ...message, reason: 'continue' }
-
-    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
-
-    return await this.pollChatMessage(
-      continueMessage,
+    return this.pollChatMessage(
+      { ...message, reason: 'continue' },
       url,
       onComplete,
       onStream,

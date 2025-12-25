@@ -32,6 +32,7 @@ import {
 } from './utils/chatStoreUtils'
 import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
 import { validateGeneralChatRequest } from './utils/requestValidator'
+import { getCurrentEnvConfig } from '@/config/env-config'
 
 const buildTeacherMessage = (
   content: string,
@@ -57,7 +58,7 @@ const buildTeacherMessage = (
     isWebSearch: enableWebSearch ? '1' : '0',
     role: chatRole,
     subject: '',
-    dstUrl: '/permission/chats',
+    dstUrl: getCurrentEnvConfig().apiPaths.chats,
     explanation: '',
   }
   

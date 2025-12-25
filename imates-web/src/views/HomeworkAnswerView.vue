@@ -31,6 +31,7 @@
             v-show="currentPageIndex === page"
             :background-image="page === 0 ? questionBgImage : ''"
             :initial-zoom="70"
+            @clear="handleClearRequest"
           >
             <template #toolbar-left>
               <CommonActionButton
@@ -96,6 +97,25 @@
       :initial-photos="initialUploadPhotos"
       @confirm="handleUploadConfirm"
     />
+
+    <DraggableDialog
+      v-model="showClearDialog"
+      title="确认清空画布"
+      :show-footer="true"
+      confirm-text="清空"
+      cancel-text="取消"
+      confirm-variant="danger"
+      :initial-width="360"
+      :initial-height="190"
+      :min-width="300"
+      :min-height="160"
+      @confirm="confirmClearCanvas"
+      @cancel="cancelClearCanvas"
+    >
+      <div class="delete-confirm-content">
+        {{ '确定要清空画布吗？此操作不可撤销。' }}
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
@@ -116,6 +136,7 @@ import { showMessage } from '@/utils'
 import * as htmlToImage from 'html-to-image'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
+import DraggableDialog from '@/components/DraggableDialog.vue'
 import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
 import pageAddIcon from '/icons/addPaper.svg'
@@ -296,6 +317,46 @@ const saveCurrentPage = () => {
 
   ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   console.log('[HomeworkAnswerView] 保存当前页作答数据到全局缓存:', questionKey, 'page', pageIndex)
+}
+
+const handleClearRequest = () => {
+  showClearDialog.value = true
+}
+
+const confirmClearCanvas = () => {
+  const board = drawingBoardRefs.value[currentPageIndex.value]
+  if (!board) {
+    showClearDialog.value = false
+    return
+  }
+
+  board.loadData({
+    objects: [],
+    history: [[]],
+    historyIndex: 0,
+  })
+
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  if (questionKey) {
+    const cache = getBoardCache(questionKey)
+    const pageIndex = typeof currentPageIndex.value === 'number' ? currentPageIndex.value : (cache.currentPageIndex ?? 0)
+
+    if (!cache.pages || !Array.isArray(cache.pages)) {
+      cache.pages = []
+    }
+
+    const clearedData = board.saveData()
+    cache.pages[pageIndex] = clearedData || { objects: [], history: [[]], historyIndex: 0 }
+    cache.currentPageIndex = pageIndex
+
+    ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+  }
+
+  showClearDialog.value = false
+}
+
+const cancelClearCanvas = () => {
+  showClearDialog.value = false
 }
 
 // 根据缓存恢复当前题目的当前页到画布
@@ -506,6 +567,8 @@ const handleGoToXueban = () => {
 const showCameraDialog = ref(false)
 // 初始照片列表（白板上传时使用）
 const initialUploadPhotos = ref<string[]>([])
+
+const showClearDialog = ref(false)
 
 // 上传作业按钮点击：先执行白板导出逻辑（handleBoardUpload）
 // handleBoardUpload 内部会根据现有白板页导出图片并打开上传对话框
@@ -901,14 +964,26 @@ const handleUploadConfirm = async (photos: string[]) => {
   line-height: 1.4;
   padding: 6px 6px;
   cursor: pointer;
+}
 
-  &:hover {
-    background-color: rgba(15, 23, 42, 0.03);
-  }
+.delete-confirm-content {
+  height: 100%;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  border: none;
+}
 
-  > .q-icon {
-    flex-shrink: 0;
-  }
+.more-menu-item-row:hover {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+.more-menu-item-row > .q-icon {
+  flex-shrink: 0;
 }
 
 /* 底部白板页控制按钮样式 */

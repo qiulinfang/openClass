@@ -10,8 +10,9 @@
     <!-- 功能菜单：在部分路由（如作业答题、作业作答）隐藏 -->
     <div class="function-menu" v-if="!hideFunctionMenu">
       <!-- 用户头像 -->
-      <div class="user-avatar">
+      <div class="user-avatar" :class="{ 'in-class': isInClass }">
         <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px" />
+        <div class="user-name">{{ displayUserName }}</div>
       </div>
 
       <!-- 导航菜单（根据学校配置渲染） -->
@@ -136,6 +137,7 @@ import MyProfileView from '@/views/MyProfileView.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { authService } from '@/services'
+import { getUserId } from '@/services/http/auth-service'
 import { androidBridge } from '@/services/business/android-bridge'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
@@ -186,6 +188,7 @@ const teacherStore = useTeacherGeneralChatStore()
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
+const isInClass = ref(false)
 
 // 当前学校应用配置（通过 VITE_SCHOOL_ID 区分不同学校版本）
 const currentSchoolAppConfig = getCurrentSchoolAppConfig()
@@ -194,6 +197,20 @@ const currentSchoolAppConfig = getCurrentSchoolAppConfig()
 const navMainItems = computed(() => currentSchoolAppConfig.nav.main)
 const navBottomItems = computed(() => currentSchoolAppConfig.nav.bottom)
 
+// 用户名显示：优先 localStorage.userInfo.name，其次 userId（尾段）
+const displayUserName = computed(() => {
+  try {
+    const rawUserInfo = localStorage.getItem('userInfo')
+    if (rawUserInfo) {
+      const parsed = JSON.parse(rawUserInfo)
+      const name = (parsed?.name).toString().trim()
+      if (name) return name
+    }
+  } catch (error) {
+    console.warn('[MainView] parse userInfo from localStorage failed', error)
+  }
+})
+
 // keep-alive 缓存的组件列表
 // 注意：这里的名称必须与组件的 name 选项匹配（defineOptions 或组件 export default 中的 name）
 const cachedComponents = ref<string[]>([
@@ -201,7 +218,7 @@ const cachedComponents = ref<string[]>([
   // 'pdfViewer',          // PDF 查看器
   // 'htmlViewer',         // HTML 查看器
   // 'videoViewer',        // 视频查看器
-  // 'ExerciseSolveView',  // 我的习题页面
+  'ExerciseSolveView',  // 我的习题页面
   'MyResourcesView', // 资源下载页面（资源页需要每次进入都强制刷新，这里不再缓存）
   // 'DrawingBoardView',   // 画板页面
   // 'FindExerciseView',   // 查找习题页面
@@ -558,6 +575,20 @@ onMounted(async () => {
   // 第1步：初始化按钮位置
   fabPosition.value = { x: 18, y: 18 }
 
+  // 监听课堂状态，高亮头像
+  const updateClassStatus = () => {
+    const status = androidBridge.getClassroomStatus()
+    isInClass.value = !!status?.isInClass
+  }
+  updateClassStatus()
+  androidBridge.onClassroomJoined(updateClassStatus)
+  androidBridge.onClassroomExited(() => {
+    isInClass.value = false
+  })
+  androidBridge.onClassroomStatusChanged((status) => {
+    isInClass.value = !!status?.isInClass
+  })
+
   // 第2步：等待 Vue 渲染完成
   await nextTick()
 
@@ -903,6 +934,7 @@ const handleLogoutClick = async () => {
 
   .user-avatar {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 12px 0;
@@ -913,6 +945,32 @@ const handleLogoutClick = async () => {
       border-radius: 50%;
       background: #e3f2fd;
       padding: 4px;
+    }
+
+    .user-name {
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f002e;
+      text-align: center;
+      word-break: break-all;
+      line-height: 1.2;
+    }
+
+    &.in-class {
+      background: linear-gradient(180deg, #e0f7ef 0%, #f6fffb 100%);
+      border-radius: 16px;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+      padding: 12px 10px;
+
+      img {
+        background: #d1fae5;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+      }
+
+      .user-name {
+        color: #059669;
+      }
     }
   }
 

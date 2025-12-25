@@ -24,6 +24,7 @@ import { useChatSessions } from '@/composables/useChatSessions'
 import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
 import { validateGeneralChatRequest } from './utils/requestValidator'
+import { getCurrentEnvConfig } from '@/config/env-config'
 
 /**
  * 构建 AI 通用聊天消息请求
@@ -52,7 +53,8 @@ const buildAiGeneralMessage = (
     }
   }
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
-  const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chats'
+  const apiPaths = getCurrentEnvConfig().apiPaths
+  const dstUrl = useScreenshotApi ? apiPaths.previewPictureQA : apiPaths.chats
   
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,

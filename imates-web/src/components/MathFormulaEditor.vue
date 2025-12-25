@@ -13,7 +13,12 @@
             {{ '输入你的问题' }}
           </div>
           <!-- Quill编辑器 -->
-          <div ref="editorRef" :id="editorId"></div>
+          <div
+            ref="editorRef"
+            :id="editorId"
+            class="quill-editor"
+            :style="{ maxHeight: props.maxHeight }"
+          ></div>
         </div>
       </div>
     </div>
@@ -792,6 +797,7 @@ defineExpose({
   border-radius: 0;
   background: transparent;
   margin-bottom: 0;
+  overflow-y: auto;
 }
 
 .quill-editor .ql-editor {
@@ -803,6 +809,8 @@ defineExpose({
   color: #3c4043;
   background: transparent;
   min-height: auto;
+  max-height: inherit;
+  overflow-y: auto;
 }
 
 .quill-editor .ql-editor:focus {

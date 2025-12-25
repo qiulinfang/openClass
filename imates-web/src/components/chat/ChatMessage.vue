@@ -286,11 +286,12 @@ import { useRoute } from 'vue-router'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
-import { useAiExerciseChatStore } from '../../stores/aiExerciseChatStore'
-import { useAiGeneralChatStore } from '../../stores/aiGeneralChatStore'
-import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
-import { useTeacherGeneralChatStore } from '../../stores/teacherGeneralChatStore'
-import { useTeacherExerciseChatStore } from '../../stores/teacherExerciseChatStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
+import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { useTeacherExerciseChatStore } from '@/stores/teacherExerciseChatStore'
+import { getCurrentEnvConfig } from '@/config/env-config'
 import { useQuestionStore } from '../../stores/questionStore'
 import { useHomeworkStore } from '../../stores/homeworkStore'
 import { getUserInfo, getSubject } from '../../services'
@@ -999,7 +1000,8 @@ const handleRefresh = async () => {
   // ai-textbook / ai-general 场景：根据 originalDstUrl 判断是否使用截图接口
   if (props.type === 'ai-textbook' || props.type === 'ai-general') {
     const originalDstUrl = props.message.originalDstUrl
-    shouldUseScreenshotOnRefresh = originalDstUrl === '/permission/previewPictureQA'
+    const screenshotUrl = getCurrentEnvConfig().apiPaths.previewPictureQA
+    shouldUseScreenshotOnRefresh = originalDstUrl === screenshotUrl || originalDstUrl === '/permission/previewPictureQA'
 
     if (props.type === 'ai-textbook' && shouldUseScreenshotOnRefresh) {
       // 对于 ai-textbook 场景，可能存在「一条纯图片 + 一条纯文字」的组合：

@@ -15,6 +15,8 @@ export interface ApiPaths {
   previewPictureQA: string
   chat: string
   chatMath: string
+  chats: string
+  reviewExplainChatSX: string
 }
 
 // 环境配置接口
@@ -43,6 +45,8 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
       previewPictureQA: '/permission/previewPictureQA',
       chat: '/permission/chat',
       chatMath: '/permission/chatMath',
+      chats: '/permission/chats',
+      reviewExplainChatSX: '/permission/reviewExplainChatSX',
     },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,
@@ -59,9 +63,11 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // yanbanBaseUrl: 'https://43.138.16.5:50013',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
-      previewPictureQA: '/permission/previewPictureQA',
+      previewPictureQA: '/ai/2.0/previewPictureQA',
       chat: '/ai/2.0/chat',
       chatMath: '/ai/2.0/chatMath',
+      chats: '/ai/2.0/chats',
+      reviewExplainChatSX: '/ai/2.0/reviewExplainChatSX',
     },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,
@@ -72,6 +78,18 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
 
 // localStorage 键名
 const STORAGE_KEY = 'app_env_type'
+
+// 研伴原生登录开关 特殊情况下（经开中学公开课配置）
+let yanbanNativeEnabledOverride: boolean | null = false
+
+export function getYanbanNativeEnabled(): boolean {
+  if (yanbanNativeEnabledOverride !== null) return yanbanNativeEnabledOverride
+  return getCurrentEnvType() === AppEnvType.INTERNAL_TEST
+}
+
+export function setYanbanNativeEnabled(enabled: boolean): void {
+  yanbanNativeEnabledOverride = enabled
+}
 
 // 测试环境切换密码（与 Android 保持一致）
 const TEST_ENV_PASSWORD = '985211'

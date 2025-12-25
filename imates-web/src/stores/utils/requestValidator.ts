@@ -4,6 +4,7 @@
  */
 
 import type { AiChatMessageRequest } from '@/types'
+import { getCurrentEnvConfig } from '@/config/env-config'
 
 /**
  * 通用字段校验（所有场景都需要的基础字段）
@@ -52,7 +53,8 @@ export function validateExerciseChatRequest(
   validateCommonFields(message, context)
   
   // 2. 判断是否是截图场景
-  const isScreenshotApi = message.dstUrl === '/permission/previewPictureQA'
+  const screenshotUrl = getCurrentEnvConfig().apiPaths.previewPictureQA
+  const isScreenshotApi = message.dstUrl === screenshotUrl || message.dstUrl === '/permission/previewPictureQA'
   
   // 3. 校验题目场景特有的必填字段
   const exerciseFields: (keyof AiChatMessageRequest)[] = [
@@ -137,7 +139,8 @@ export function validateTextbookChatRequest(
   validateCommonFields(message, context)
   
   // 2. 判断是否是截图场景
-  const isScreenshotApi = message.dstUrl === '/permission/previewPictureQA'
+  const screenshotUrl = getCurrentEnvConfig().apiPaths.previewPictureQA
+  const isScreenshotApi = message.dstUrl === screenshotUrl || message.dstUrl === '/permission/previewPictureQA'
   
   // 3. 教材场景特有字段（相对宽松）
   // bmNo 在教材场景下通常是 sessionId，不需要是纯数字
@@ -175,7 +178,8 @@ export function validateGeneralChatRequest(
   validateCommonFields(message, context)
   
   // 2. 判断是否是截图场景
-  const isScreenshotApi = message.dstUrl === '/permission/previewPictureQA'
+  const screenshotUrl = getCurrentEnvConfig().apiPaths.previewPictureQA
+  const isScreenshotApi = message.dstUrl === screenshotUrl || message.dstUrl === '/permission/previewPictureQA'
   
   // 3. 通用对话场景特有字段
   // bmNo 通常是 sessionId

@@ -34,6 +34,7 @@ import {
 import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
 import { validateTextbookChatRequest } from './utils/requestValidator'
+import { getCurrentEnvConfig } from '@/config/env-config'
 
 interface TextbookChatHistoryData {
   questionId: string
@@ -132,7 +133,7 @@ const buildAiTextbookMessage = ({
       subject,
       sectionName: sectionName || undefined,
       chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
-      dstUrl: '/permission/previewPictureQA',
+      dstUrl: getCurrentEnvConfig().apiPaths.previewPictureQA,
       explanation: '', // 教材场景占位
       // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
       imageList,
@@ -144,7 +145,8 @@ const buildAiTextbookMessage = ({
     return request
   }
 
-  const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chats'
+  const apiPaths = getCurrentEnvConfig().apiPaths
+  const dstUrl = useScreenshotApi ? apiPaths.previewPictureQA : apiPaths.chats
 
   const request: AiChatMessageRequest = {
     sessionId,
@@ -191,6 +193,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const currentSessionId = ref<string | null>(null) // 当前会话ID，用于加载消息历史
   const isNewSession = ref(true) // 是否是新会话
   const backendSessionId = ref<string | null>(null) // 后端会话ID，用于发送消息时的sessionId字段
+  const backendSessionOwnerUserId = ref<string | null>(null) // backendSessionId 归属的 userId，用于避免切换账号后串会话
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   // 当前挂在 AI 教材聊天输入框上的截图列表（PDF 场景）
   const attachedScreenshots = ref<AttachedScreenshot[]>([])
@@ -316,6 +319,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     console.log('[AI_TEXTBOOK] 清空消息，重置 currentSessionId 和 backendSessionId')
     currentSessionId.value = null
     backendSessionId.value = null  // 同时重置后端会话ID
+    backendSessionOwnerUserId.value = null
     isNewSession.value = true
   }
 
@@ -431,26 +435,52 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    * 3. 创建新的会话ID并保存到 backendSessionId
    */
   const ensureTopGeneralSession = async () => {
+    const currentUserId = localStorage.getItem('userId') || ''
+
+    // 切换账号后，必须丢弃旧的 backendSessionId（以及不要复用旧的 ai-general session）
+    if (backendSessionId.value && backendSessionOwnerUserId.value !== null && backendSessionOwnerUserId.value !== currentUserId) {
+      console.warn('[AI_TEXTBOOK] userId 变化，丢弃旧 backendSessionId，避免串会话', {
+        oldUserId: backendSessionOwnerUserId.value,
+        newUserId: currentUserId,
+        oldBackendSessionId: backendSessionId.value,
+      })
+      backendSessionId.value = null
+      backendSessionOwnerUserId.value = null
+    }
+
     // 1. 优先使用 ai-general 顶部会话ID
     if (aiGeneralStore.sessions.length > 0) {
       const topSession = aiGeneralStore.sessions[0]
-      console.log('[AI_TEXTBOOK] 使用 ai-general 顶部会话ID:', topSession.sessionId)
-      // 同步更新 backendSessionId
-      backendSessionId.value = topSession.sessionId
-      return topSession.sessionId
+      // 如果已经绑定过 userId，且当前 userId 与绑定不一致，则不能复用 ai-general 的旧会话（避免跨账号串线）
+      if (backendSessionOwnerUserId.value !== null && backendSessionOwnerUserId.value !== currentUserId) {
+        console.warn('[AI_TEXTBOOK] userId 与已绑定 backendSessionOwnerUserId 不一致，忽略 ai-general 顶部会话，重新生成', {
+          boundUserId: backendSessionOwnerUserId.value,
+          currentUserId,
+          topGeneralSessionId: topSession.sessionId,
+        })
+      } else {
+        console.log('[AI_TEXTBOOK] 使用 ai-general 顶部会话ID:', topSession.sessionId)
+        // 同步更新 backendSessionId
+        backendSessionId.value = topSession.sessionId
+        backendSessionOwnerUserId.value = currentUserId
+        return topSession.sessionId
+      }
     }
 
     // 2. 如果没有 sessions，但有 backendSessionId，使用它
     if (backendSessionId.value) {
       console.log('[AI_TEXTBOOK] 使用已维护的 backendSessionId:', backendSessionId.value)
+      if (backendSessionOwnerUserId.value === null) {
+        backendSessionOwnerUserId.value = currentUserId
+      }
       return backendSessionId.value
     }
 
     // 3. 都没有，创建新的会话ID并保存
-    const userId = localStorage.getItem('userId') || ''
-    const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
+    const newSessionId = `${currentUserId ? currentUserId + '-' : ''}textbook-session-${Date.now()}`
     console.log('[AI_TEXTBOOK] 创建新 backendSessionId:', newSessionId)
     backendSessionId.value = newSessionId
+    backendSessionOwnerUserId.value = currentUserId
     return newSessionId
   }
   /**
@@ -771,6 +801,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       console.log('[AI_TEXTBOOK] resourceId 变化，重置 currentSessionId 和 backendSessionId', { oldResourceId, newResourceId: id })
       currentSessionId.value = null
       backendSessionId.value = null  // 同时重置后端会话ID
+      backendSessionOwnerUserId.value = null
       isNewSession.value = true
     }
   }
