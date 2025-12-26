@@ -218,7 +218,7 @@ const cachedComponents = ref<string[]>([
   // 'pdfViewer',          // PDF 查看器
   // 'htmlViewer',         // HTML 查看器
   // 'videoViewer',        // 视频查看器
-  'ExerciseSolveView',  // 我的习题页面
+  // 'ExerciseSolveView',  // 我的习题页面
   'MyResourcesView', // 资源下载页面（资源页需要每次进入都强制刷新，这里不再缓存）
   // 'DrawingBoardView',   // 画板页面
   // 'FindExerciseView',   // 查找习题页面
