@@ -419,9 +419,9 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showSizePicker: true,
       sizes: [
-        { value: 8, label: '小', icon: eraserSmallIcon },
-        { value: 15, label: '中', icon: eraserMediumIcon },
-        { value: 25, label: '大', icon: eraserLargeIcon },
+        { value: 5, label: '小', icon: eraserSmallIcon },
+        { value: 10, label: '中', icon: eraserMediumIcon },
+        { value: 15, label: '大', icon: eraserLargeIcon },
       ],
       sizeLabel: '大小',
     },
@@ -500,9 +500,9 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showSizePicker: true,
       sizes: [
-        { value: 2, label: '小', icon: eraserSmallIcon },
-        { value: 6, label: '中', icon: eraserMediumIcon },
-        { value: 10, label: '大', icon: eraserLargeIcon },
+        { value: 1, label: '小', icon: eraserSmallIcon },
+        { value: 3, label: '中', icon: eraserMediumIcon },
+        { value: 5, label: '大', icon: eraserLargeIcon },
       ],
       sizeLabel: '大小',
     },
@@ -965,11 +965,7 @@ const handleToolClick = (toolName: string) => {
 
 // 处理操作工具点击
 const handleActionClick = (action: string) => {
-  // 点击操作按钮时，自动选择形状
-  const shapeToSelect = lastSelectedShape.value || 'rectangle' // 默认选择第一个形状
-  emit('tool-change', shapeToSelect)
-
-  // 1. 根据操作类型触发对应的事件
+  // 1. 根据操作类型触发对应的事件，并决定是否切换工具
   switch (action) {
     case 'back':
       emit('back')
@@ -982,9 +978,13 @@ const handleActionClick = (action: string) => {
       break
     case 'redo':
       emit('redo')
+      // 重做后切回绘画工具，便于继续写
+      emit('tool-change', 'draw')
       break
     case 'clear':
       emit('clear')
+      // 清空后切回绘画工具，便于继续写
+      emit('tool-change', 'draw')
       break
     case 'search':
       emit('search')
@@ -998,6 +998,11 @@ const handleActionClick = (action: string) => {
     case 'hand':
       // hand 是绘图工具，需要触发 tool-change
       emit('tool-change', action)
+      break
+    default:
+      // 其他操作：点击操作按钮时，自动选择形状
+      const shapeToSelect = lastSelectedShape.value || 'rectangle' // 默认选择第一个形状
+      emit('tool-change', shapeToSelect)
       break
   }
 }

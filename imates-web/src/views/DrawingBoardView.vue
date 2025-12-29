@@ -1,8 +1,8 @@
 <template>
   <div class="drawing-board-view">
     <!-- 左侧：草稿列表面板 -->
-    <div v-if="showDraftPanel" class="draft-panel-container">
-      <div class="draft-panel">
+    <div class="draft-panel-container" :class="{ collapsed: !showDraftPanel }">
+      <div v-if="showDraftPanel" class="draft-panel">
         <!-- 草稿列表 -->
         <div class="draft-list">
           <!-- 草稿卡片 -->
@@ -387,6 +387,12 @@ onBeforeUnmount(() => {
   height: 100%;
   border-right: 1px solid #e0e0e0;
   flex-shrink: 0;
+  transition: width 0.3s ease-in-out;
+
+  &.collapsed {
+    width: 0;
+    border-right: none;
+  }
 }
 
 // 草稿面板样式

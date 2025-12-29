@@ -26,18 +26,20 @@
       </div>
     </div>
 
+    <!-- 画布容器 -->
     <div ref="containerRef" class="canvas-container" style="touch-action: none">
+      <!-- 历史层：绘制背景、网格、已完成的笔画 (交互事件透传) -->
+      <canvas ref="historyCanvasRef" class="canvas-layer canvas-history"></canvas>
+
+      <!-- 实时层：绘制正在画的线、选框、控制手柄 (接收交互事件) -->
       <canvas
-        ref="canvasRef"
-        class="canvas-element"
+        ref="liveCanvasRef"
+        class="canvas-layer canvas-live"
         :class="cursorClass"
         @pointerdown="handlePointerDown"
         @wheel="handleWheel"
-        @pointerleave="
-          hoverPos = null;
-          renderAll()
-        "
-        @pointerenter="renderAll()"
+        @pointerleave="handlePointerLeave"
+        @pointerenter="renderLive()"
       ></canvas>
 
       <textarea
@@ -61,7 +63,7 @@
 
     <div class="toast" :class="{ show: showToast }">已导出</div>
 
-    <!-- 橡皮擦光标 -->
+    <!-- 橡皮擦光标 (DOM层) -->
     <div
       v-if="currentMode === 'eraser-stroke' && eraserCursor.visible"
       class="eraser-cursor"
@@ -69,38 +71,57 @@
         left: eraserCursor.x + 'px',
         top: eraserCursor.y + 'px',
         width: eraserCursor.size + 'px',
-        height: eraserCursor.size + 'px'
+        height: eraserCursor.size + 'px',
       }"
     ></div>
 
     <!-- 缩放控制浮动框 -->
     <div class="zoom-control-panel">
       <button class="zoom-btn zoom-out" @click="zoomOut" :disabled="camera.zoom <= MIN_ZOOM">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
       </button>
-      
+
       <CommonSelect
         class="zoom-select"
         :options="zoomPresetOptions"
         :model-value="zoomPresetModelValue"
         @change="handleZoomPresetChange"
       >
-        <template #label>
-          {{ Math.round(camera.zoom * 100) }}%
-        </template>
+        <template #label> {{ Math.round(camera.zoom * 100) }}% </template>
       </CommonSelect>
-      
+
       <button class="zoom-btn zoom-in" @click="zoomIn" :disabled="camera.zoom >= MAX_ZOOM">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
       </button>
-      
+
       <button class="zoom-btn zoom-fit" @click="fitToContent" title="适应内容">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <polyline points="8 3 3 3 3 8"></polyline>
           <polyline points="16 3 21 3 21 8"></polyline>
           <polyline points="8 21 3 21 3 16"></polyline>
@@ -111,15 +132,17 @@
 
     <!-- 调试面板 -->
     <div v-if="isDev" class="debug-panel">
-      <label>
-        <input type="checkbox" v-model="showDebugPanel" /> 调试面板
-      </label>
+      <label> <input type="checkbox" v-model="showDebugPanel" /> 调试面板 </label>
       <div v-if="showDebugPanel">
         <div>
-          <label>X: <input type="number" v-model.number="backgroundOrigin.x" @input="renderAll" /></label>
+          <label
+            >X: <input type="number" v-model.number="backgroundOrigin.x" @input="requestRenderAll"
+          /></label>
         </div>
         <div>
-          <label>Y: <input type="number" v-model.number="backgroundOrigin.y" @input="renderAll" /></label>
+          <label
+            >Y: <input type="number" v-model.number="backgroundOrigin.y" @input="requestRenderAll"
+          /></label>
         </div>
         <div>
           <button @click="updateBackgroundOrigin">重置为居中靠上</button>
@@ -135,22 +158,23 @@ import UnifiedToolbar from './UnifiedToolbar.vue'
 import CommonSelect from './CommonSelect.vue'
 
 const emit = defineEmits<{
-  clear: [],
+  clear: []
   contentChange: []
 }>()
 
 const props = defineProps({
   backgroundImage: { type: String, default: '' },
   fitBackground: { type: Boolean, default: false },
-
   showGrid: { type: Boolean, default: false },
-
   initialZoom: { type: Number, default: 1 },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // --- 引用与状态 ---
-const canvasRef = ref<HTMLCanvasElement | null>(null)
+// 双 Canvas 引用
+const historyCanvasRef = ref<HTMLCanvasElement | null>(null)
+const liveCanvasRef = ref<HTMLCanvasElement | null>(null)
+
 const containerRef = ref<HTMLDivElement | null>(null)
 const textInputRef = ref<HTMLTextAreaElement | null>(null)
 
@@ -158,35 +182,31 @@ const currentMode = ref('draw')
 const currentColor = ref('#212529')
 const currentSize = ref(3)
 const currentOpacity = ref(1)
-const selectMode = ref('rectangle') // 选择模式：rectangle 或 freeform
+const selectMode = ref('rectangle')
 
-const hoverPos = ref<{ x: number; y: number } | null>(null) // 用于渲染实时光标（如橡皮擦圆圈）
+const hoverPos = ref<{ x: number; y: number } | null>(null)
 const showToast = ref(false)
-
 const showDebugPanel = ref(false)
 
 const backgroundImg = ref<HTMLImageElement | null>(null)
 const backgroundLoaded = ref(false)
-
 const backgroundOrigin = reactive({ x: 100, y: 120 })
 
 function updateBackgroundOrigin() {
-  if (!canvasRef.value || !backgroundImg.value || !backgroundLoaded.value) return
-  const dpr = window.devicePixelRatio || 1
-  const canvasLogicalWidth = canvasRef.value.width / dpr
+  if (!liveCanvasRef.value || !backgroundImg.value || !backgroundLoaded.value) return
   backgroundOrigin.x = 100
   backgroundOrigin.y = 120
 }
 
-// 橡皮擦光标状态
+// 橡皮擦光标
 const eraserCursor = reactive({
   visible: false,
   x: 0,
   y: 0,
-  size: 0
+  size: 0,
 })
 
-// 记录不同工具的配置状态，防止切换时混淆
+// 工具状态配置
 const toolStates = reactive({
   draw: { color: '#212529', size: 3, opacity: 1 },
   highlighter: { color: '#ffc107', size: 12, opacity: 0.4 },
@@ -212,9 +232,7 @@ const toolbarTools = {
   ],
 }
 
-const toolbarSelectedTool = computed(() => {
-  return currentMode.value
-})
+const toolbarSelectedTool = computed(() => currentMode.value)
 
 const toolbarToolConfig = ref({
   color: currentColor.value,
@@ -223,24 +241,12 @@ const toolbarToolConfig = ref({
   selectMode: selectMode.value,
 })
 
-watch(currentColor, (v) => {
-  toolbarToolConfig.value = { ...toolbarToolConfig.value, color: v }
-})
-
-watch(currentSize, (v) => {
-  toolbarToolConfig.value = { ...toolbarToolConfig.value, size: v }
-})
-
-watch(currentOpacity, (v) => {
-  toolbarToolConfig.value = { ...toolbarToolConfig.value, opacity: v }
-})
-
-watch(selectMode, (v) => {
-  toolbarToolConfig.value = { ...toolbarToolConfig.value, selectMode: v }
-})
+watch(currentColor, (v) => (toolbarToolConfig.value.color = v))
+watch(currentSize, (v) => (toolbarToolConfig.value.size = v))
+watch(currentOpacity, (v) => (toolbarToolConfig.value.opacity = v))
+watch(selectMode, (v) => (toolbarToolConfig.value.selectMode = v))
 
 function handleToolbarToolChange(tool) {
-  // 1. 保存当前模式的配置到对应状态中
   if (toolStates[currentMode.value]) {
     toolStates[currentMode.value] = {
       color: currentColor.value,
@@ -248,14 +254,11 @@ function handleToolbarToolChange(tool) {
       opacity: currentOpacity.value,
     }
   }
-
-  // 2. 恢复目标模式之前的配置
   if (toolStates[tool]) {
     currentColor.value = toolStates[tool].color
     currentSize.value = toolStates[tool].size
     currentOpacity.value = toolStates[tool].opacity
   }
-
   return setMode(tool)
 }
 
@@ -266,17 +269,10 @@ function handleToolbarConfigChange(cfg) {
       if (['eraser-stroke', 'select', 'hand'].includes(currentMode.value)) setMode('draw')
     }
   }
-  if (typeof cfg?.size === 'number') {
-    currentSize.value = cfg.size
-  }
-  if (typeof cfg?.opacity === 'number') {
-    currentOpacity.value = cfg.opacity
-  }
-  if (cfg?.selectMode) {
-    selectMode.value = cfg.selectMode
-  }
+  if (typeof cfg?.size === 'number') currentSize.value = cfg.size
+  if (typeof cfg?.opacity === 'number') currentOpacity.value = cfg.opacity
+  if (cfg?.selectMode) selectMode.value = cfg.selectMode
 
-  // 同步更新到 toolStates 中，确保切换回来时是最后一次设置的值
   if (toolStates[currentMode.value]) {
     toolStates[currentMode.value] = {
       color: currentColor.value,
@@ -290,6 +286,7 @@ function clearCanvas() {
   emit('clear')
 }
 
+// 文本输入状态
 const inputState = reactive({
   visible: false,
   x: 0,
@@ -302,8 +299,11 @@ const inputState = reactive({
   height: 'auto',
 })
 
-// 核心数据
-let ctx: CanvasRenderingContext2D | null = null
+// --- 核心数据 ---
+// 双 Context
+let historyCtx: CanvasRenderingContext2D | null = null
+let liveCtx: CanvasRenderingContext2D | null = null
+
 let strokes = []
 let history = []
 const activePointers = new Map()
@@ -316,39 +316,36 @@ const MIN_ZOOM = 0.01
 const MAX_ZOOM = 10.0
 
 function normalizeZoom(z: number) {
-  // 兼容两种写法：0.7（缩放倍数） 或 70（百分比）
   let zoom = z
   if (typeof zoom !== 'number' || Number.isNaN(zoom) || zoom <= 0) zoom = 1
   if (zoom > 10) zoom = zoom / 100
-  zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
-  return zoom
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
 }
 
 function ensureBoundsForStroke(obj: any) {
   if (!obj) return
   if (obj.bounds) return
 
-  // stroke/path
   if ((!obj.type || obj.type === 'stroke') && Array.isArray(obj.points) && obj.points.length) {
     let minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
       maxY = -Infinity
     obj.points.forEach((p: any) => {
-      if (!p) return
       minX = Math.min(minX, p.x)
       minY = Math.min(minY, p.y)
       maxX = Math.max(maxX, p.x)
       maxY = Math.max(maxY, p.y)
     })
-    if (minX !== Infinity) {
-      obj.bounds = { minX, minY, maxX, maxY }
-    }
+    if (minX !== Infinity) obj.bounds = { minX, minY, maxX, maxY }
     return
   }
-
-  // shapes
-  if (typeof obj.x === 'number' && typeof obj.y === 'number' && typeof obj.width === 'number' && typeof obj.height === 'number') {
+  if (
+    typeof obj.x === 'number' &&
+    typeof obj.y === 'number' &&
+    typeof obj.width === 'number' &&
+    typeof obj.height === 'number'
+  ) {
     const minX = Math.min(obj.x, obj.x + obj.width)
     const maxX = Math.max(obj.x, obj.x + obj.width)
     const minY = Math.min(obj.y, obj.y + obj.height)
@@ -356,8 +353,6 @@ function ensureBoundsForStroke(obj: any) {
     obj.bounds = { minX, minY, maxX, maxY }
     return
   }
-
-  // text fallback
   if (obj.type === 'text' && typeof obj.x === 'number' && typeof obj.y === 'number') {
     const fontSize = typeof obj.fontSize === 'number' ? obj.fontSize : 16
     const text = (obj.text || '').toString()
@@ -374,10 +369,7 @@ const zoomPresetOptions = [
 ]
 
 const zoomPresetModelValue = computed(() => {
-  const candidates = zoomPresetOptions.filter((o) => typeof o.value === 'number') as Array<{
-    label: string
-    value: number
-  }>
+  const candidates = zoomPresetOptions
   const eps = 0.001
   const matched = candidates.find((o) => Math.abs(o.value - camera.zoom) < eps)
   return matched ? matched.value : null
@@ -385,7 +377,7 @@ const zoomPresetModelValue = computed(() => {
 
 function handleZoomPresetChange(v: string | number | null) {
   if (typeof v !== 'number') return
-  const rect = canvasRef.value?.getBoundingClientRect()
+  const rect = liveCanvasRef.value?.getBoundingClientRect()
   if (!rect) return
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
@@ -395,12 +387,11 @@ function handleZoomPresetChange(v: string | number | null) {
 const isSpacePressed = ref(false)
 let resizeTimer = null
 
-// 加载背景图片
 function loadBackgroundImage(url) {
   if (!url) {
     backgroundImg.value = null
     backgroundLoaded.value = false
-    renderAll()
+    renderHistory()
     return
   }
   const img = new Image()
@@ -409,32 +400,23 @@ function loadBackgroundImage(url) {
     backgroundLoaded.value = true
     updateBackgroundOrigin()
     if (props.fitBackground) {
-      // 如果需要适应背景，可以调整相机位置或缩放
-      // 这里简单处理：重置相机
       camera.x = 0
       camera.y = 0
       camera.zoom = 1
     }
-    renderAll()
+    renderHistory()
   }
   img.src = url
 }
 
-watch(
-  () => props.backgroundImage,
-  (newUrl) => {
-    loadBackgroundImage(newUrl)
-  },
-  { immediate: true },
-)
+watch(() => props.backgroundImage, loadBackgroundImage, { immediate: true })
 
 // 多选状态
 const selectedIndices = reactive(new Set<number>())
-let groupBounds = null // 选中物体的整体包围盒
-let selectionRect = null // 框选时的临时矩形
-let activeHandle = null // 当前拖拽的控制点
+let groupBounds = null
+let selectionRect = null
+let activeHandle = null
 
-// 计算属性
 const canUndo = computed(() => historyStep.value >= 0)
 const canRedo = computed(() => historyStep.value < history.length - 1)
 
@@ -442,7 +424,7 @@ const cursorClass = computed(() => {
   if (isSpacePressed.value || (activeAction && activeAction.type === 'pan'))
     return 'cursor-grabbing'
   if (isSpacePressed.value || currentMode.value === 'hand') return 'cursor-grab'
-  if (currentMode.value === 'eraser-stroke') return 'cursor-none' // 隐藏默认光标，使用自定义指示器
+  if (currentMode.value === 'eraser-stroke') return 'cursor-none'
   if (activeHandle) {
     if (activeHandle === 'nw' || activeHandle === 'se') return 'nwse-resize'
     if (activeHandle === 'ne' || activeHandle === 'sw') return 'nesw-resize'
@@ -454,17 +436,17 @@ const cursorClass = computed(() => {
   return 'cursor-crosshair'
 })
 
-// --- 坐标与辅助函数 ---
+// --- 坐标系统 ---
 function screenToWorld(sx, sy) {
-  if (!canvasRef.value) return { x: 0, y: 0 }
-  const rect = canvasRef.value.getBoundingClientRect()
+  if (!liveCanvasRef.value) return { x: 0, y: 0 }
+  const rect = liveCanvasRef.value.getBoundingClientRect()
   const x = (sx - rect.left - camera.x) / camera.zoom
   const y = (sy - rect.top - camera.y) / camera.zoom
   return { x, y }
 }
 
 function worldToScreen(wx, wy) {
-  if (!canvasRef.value) return { x: 0, y: 0 }
+  if (!liveCanvasRef.value) return { x: 0, y: 0 }
   const sx = wx * camera.zoom + camera.x
   const sy = wy * camera.zoom + camera.y
   return { x: sx, y: sy }
@@ -497,25 +479,26 @@ function getGroupBounds(indices) {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
 }
 
-// --- 渲染引擎 ---
+// --- 渲染引擎 (核心分离) ---
 function resizeCanvas() {
-  if (!containerRef.value || !canvasRef.value) return
+  if (!containerRef.value || !liveCanvasRef.value || !historyCanvasRef.value) return
   const dpr = window.devicePixelRatio || 1
   const rect = containerRef.value.getBoundingClientRect()
-  const canvasWidth = rect.width
-  const canvasHeight = rect.height
+  const width = rect.width
+  const height = rect.height
 
-  if (
-    canvasRef.value.width !== canvasWidth * dpr ||
-    canvasRef.value.height !== canvasHeight * dpr
-  ) {
-    canvasRef.value.width = canvasWidth * dpr
-    canvasRef.value.height = canvasHeight * dpr
-    canvasRef.value.style.width = `${canvasWidth}px`
-    canvasRef.value.style.height = `${canvasHeight}px`
-    updateBackgroundOrigin()
-    renderAll()
-  }
+  // 调整两个 Canvas 的大小
+  ;[liveCanvasRef.value, historyCanvasRef.value].forEach((cvs) => {
+    if (cvs.width !== width * dpr || cvs.height !== height * dpr) {
+      cvs.width = width * dpr
+      cvs.height = height * dpr
+      cvs.style.width = `${width}px`
+      cvs.style.height = `${height}px`
+    }
+  })
+
+  updateBackgroundOrigin()
+  requestRenderAll()
 }
 
 function drawGrid(ctx, width, height) {
@@ -542,25 +525,12 @@ function drawGrid(ctx, width, height) {
     ctx.lineTo(width, y)
   }
   ctx.stroke()
-
-  // 原点
-  const originX = camera.x
-  const originY = camera.y
-  if (originX > -50 && originX < width + 50 && originY > -50 && originY < height + 50) {
-    ctx.beginPath()
-    ctx.strokeStyle = '#d1d5db'
-    ctx.lineWidth = 2
-    ctx.moveTo(originX - 10, originY)
-    ctx.lineTo(originX + 10, originY)
-    ctx.moveTo(originX, originY - 10)
-    ctx.lineTo(originX, originY + 10)
-    ctx.stroke()
-  }
 }
 
 function drawStrokeToContext(targetCtx, obj) {
+  if (!obj) return
   if (!obj.type || obj.type === 'stroke') {
-    if (obj.points.length === 0) return
+    if (!obj.points || obj.points.length === 0) return
     targetCtx.beginPath()
     targetCtx.lineWidth = obj.size
     targetCtx.lineCap = 'round'
@@ -594,14 +564,6 @@ function drawStrokeToContext(targetCtx, obj) {
     lines.forEach((line, i) => {
       targetCtx.fillText(line, obj.x, obj.y + i * lineHeight)
     })
-    // 更新文本Bounds
-    const maxWidth = Math.max(...lines.map((l) => targetCtx.measureText(l).width))
-    obj.bounds = {
-      minX: obj.x,
-      maxX: obj.x + maxWidth,
-      minY: obj.y,
-      maxY: obj.y + lines.length * lineHeight,
-    }
   } else if (obj.type === 'rectangle') {
     targetCtx.strokeStyle = obj.color
     targetCtx.lineWidth = obj.size
@@ -618,7 +580,7 @@ function drawStrokeToContext(targetCtx, obj) {
       obj.y + obj.height / 2,
       Math.abs(obj.width / 2),
       0,
-      Math.PI * 2,
+      Math.PI * 2
     )
     targetCtx.stroke()
     targetCtx.globalAlpha = 1
@@ -646,87 +608,157 @@ function drawStrokeToContext(targetCtx, obj) {
   }
 }
 
-function renderAll() {
-  if (!ctx || !canvasRef.value) return
+// 渲染历史层（重绘成本高，只在必要时调用）
+function renderHistory() {
+  if (!historyCtx || !historyCanvasRef.value) return
   const dpr = window.devicePixelRatio || 1
-  const width = canvasRef.value.width
-  const height = canvasRef.value.height
+  const width = historyCanvasRef.value.width
+  const height = historyCanvasRef.value.height
 
-  // 清空
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.fillStyle = '#f9fafb'
-  ctx.fillRect(0, 0, width, height)
+  // 1. 清空 & 基础变换
+  historyCtx.setTransform(1, 0, 0, 1, 0, 0)
+  historyCtx.fillStyle = '#f9fafb'
+  historyCtx.fillRect(0, 0, width, height)
 
+  // 2. 绘制网格
   if (props.showGrid) {
-    drawGrid(ctx, width, height)
+    drawGrid(historyCtx, width, height)
   }
 
-  ctx.setTransform(dpr * camera.zoom, 0, 0, dpr * camera.zoom, camera.x * dpr, camera.y * dpr)
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
+  // 3. 应用相机变换
+  historyCtx.setTransform(
+    dpr * camera.zoom,
+    0,
+    0,
+    dpr * camera.zoom,
+    camera.x * dpr,
+    camera.y * dpr
+  )
+  historyCtx.lineCap = 'round'
+  historyCtx.lineJoin = 'round'
 
-  // 绘制背景图
+  // 4. 背景图
   if (backgroundImg.value && backgroundLoaded.value) {
-    ctx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
+    historyCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
   }
 
-  strokes.forEach((obj, index) => {
-    drawStrokeToContext(ctx, obj)
+  // 5. 所有已完成对象
+  strokes.forEach((obj) => {
+    drawStrokeToContext(historyCtx, obj)
   })
+}
 
-  // 绘制框选矩形
-  if (selectionRect) {
-    drawSelectionRect(selectionRect)
+// 渲染实时层（轻量级，帧率高）
+function renderLive() {
+  if (!liveCtx || !liveCanvasRef.value) return
+  const dpr = window.devicePixelRatio || 1
+  const width = liveCanvasRef.value.width
+  const height = liveCanvasRef.value.height
+
+  // 1. 清空 Live 层
+  liveCtx.setTransform(1, 0, 0, 1, 0, 0)
+  liveCtx.clearRect(0, 0, width, height)
+
+  // 2. 应用相机变换
+  liveCtx.setTransform(dpr * camera.zoom, 0, 0, dpr * camera.zoom, camera.x * dpr, camera.y * dpr)
+  liveCtx.lineCap = 'round'
+  liveCtx.lineJoin = 'round'
+
+  // 3. 绘制当前正在进行的动作 (笔画/形状)
+  if (activeAction) {
+    if (activeAction.type === 'draw' && activeAction.stroke) {
+      drawStrokeToContext(liveCtx, activeAction.stroke)
+    } else if (activeAction.type === 'shape') {
+      // 形状预览
+      const sx = activeAction.startPos.x
+      const sy = activeAction.startPos.y
+      // 注意：这里的 wp 需要在调用 renderLive 前更新到 activeAction 或作为参数
+      // 这里简化处理：activeAction 中存储 currentPos
+      const curr = activeAction.currentPos || activeAction.startPos
+
+      let x, y, w, h
+      if (activeAction.shapeType === 'line') {
+        // 线条特殊处理
+        drawStrokeToContext(liveCtx, {
+          type: 'line',
+          x: sx,
+          y: sy,
+          width: curr.x - sx,
+          height: curr.y - sy,
+          color: currentColor.value,
+          size: currentSize.value,
+          opacity: currentOpacity.value,
+        })
+      } else {
+        x = Math.min(sx, curr.x)
+        y = Math.min(sy, curr.y)
+        w = Math.abs(curr.x - sx)
+        h = Math.abs(curr.y - sy)
+        drawStrokeToContext(liveCtx, {
+          type: activeAction.shapeType,
+          x,
+          y,
+          width: w,
+          height: h,
+          color: currentColor.value,
+          size: currentSize.value,
+          opacity: currentOpacity.value,
+        })
+      }
+    } else if (activeAction.type === 'box_select') {
+      if (selectionRect) drawSelectionRect(liveCtx, selectionRect)
+    } else if (activeAction.type === 'freeform_select') {
+      if (activeAction.path) drawFreeformPath(liveCtx, activeAction.path)
+    }
   }
 
-  // 绘制自由框选路径
-  if (activeAction && activeAction.type === 'freeform_select' && activeAction.path) {
-    drawFreeformPath(activeAction.path)
-  }
-
-  // 绘制变换控制框
+  // 4. 绘制选中框和控制点 (UI)
   if (selectedIndices.size > 0 && currentMode.value === 'select') {
-    groupBounds = getGroupBounds(selectedIndices)
+    if (!groupBounds && selectedIndices.size > 0) {
+      // 重新计算一次，防止为空
+      groupBounds = getGroupBounds(selectedIndices)
+    }
     if (groupBounds) {
-      drawTransformControls(groupBounds)
+      drawTransformControls(liveCtx, groupBounds)
     }
   }
 }
 
-function drawSelectionRect(rect) {
+// 统一请求更新
+function requestRenderAll() {
+  renderHistory()
+  renderLive()
+}
+
+// --- 辅助绘制 ---
+function drawSelectionRect(ctx, rect) {
   ctx.save()
   ctx.strokeStyle = '#3b82f6'
   ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
   ctx.lineWidth = 1 / camera.zoom
-  // 框选通常不需要虚线，实线更清晰
   ctx.strokeRect(rect.x, rect.y, rect.w, rect.h)
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
   ctx.restore()
 }
 
-function drawFreeformPath(path) {
+function drawFreeformPath(ctx, path) {
   if (!path || path.length < 2) return
-  
   ctx.save()
   ctx.strokeStyle = '#3b82f6'
   ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
   ctx.lineWidth = 2 / camera.zoom
-  
-  // 绘制路径
   ctx.beginPath()
   ctx.moveTo(path[0].x, path[0].y)
   for (let i = 1; i < path.length; i++) {
     ctx.lineTo(path[i].x, path[i].y)
   }
   ctx.closePath()
-  
-  // 填充和描边
   ctx.fill()
   ctx.stroke()
   ctx.restore()
 }
 
-function drawTransformControls(b) {
+function drawTransformControls(ctx, b) {
   const zoom = camera.zoom
   const padding = 5 / zoom
   const handleSize = 8 / zoom
@@ -746,16 +778,15 @@ function drawTransformControls(b) {
   ctx.strokeRect(minX, minY, width, height)
   ctx.restore()
 
-  // 绘制8个控制点
   const handles = [
-    { x: minX, y: minY, type: 'nw' },
-    { x: midX, y: minY, type: 'n' },
-    { x: maxX, y: minY, type: 'ne' },
-    { x: maxX, y: midY, type: 'e' },
-    { x: maxX, y: maxY, type: 'se' },
-    { x: midX, y: maxY, type: 's' },
-    { x: minX, y: maxY, type: 'sw' },
-    { x: minX, y: midY, type: 'w' },
+    { x: minX, y: minY },
+    { x: midX, y: minY },
+    { x: maxX, y: minY },
+    { x: maxX, y: midY },
+    { x: maxX, y: maxY },
+    { x: midX, y: maxY },
+    { x: minX, y: maxY },
+    { x: minX, y: midY },
   ]
 
   ctx.fillStyle = '#ffffff'
@@ -768,13 +799,13 @@ function drawTransformControls(b) {
   })
 }
 
-// --- 碰撞检测升级 ---
+// --- 碰撞检测 ---
 function getHandleAtPosition(wx, wy) {
   if (!groupBounds || selectedIndices.size === 0) return null
   const zoom = camera.zoom
   const padding = 5 / zoom
   const handleSize = 8 / zoom
-  const hitRadius = Math.max(10 / zoom, handleSize) // 扩大点击区域
+  const hitRadius = Math.max(10 / zoom, handleSize)
 
   const minX = groupBounds.minX - padding
   const minY = groupBounds.minY - padding
@@ -797,22 +828,18 @@ function getHandleAtPosition(wx, wy) {
   ]
 
   for (const h of handles) {
-    if (Math.abs(wx - h.x) <= hitRadius && Math.abs(wy - h.y) <= hitRadius) {
-      return h.type
-    }
+    if (Math.abs(wx - h.x) <= hitRadius && Math.abs(wy - h.y) <= hitRadius) return h.type
   }
   return null
 }
 
 function hitTest(wx, wy, extraRadius = 0) {
-  // 倒序检测，优先选中最上层的
   for (let i = strokes.length - 1; i >= 0; i--) {
     const s = strokes[i]
     const padding =
-      (s.type === 'text' ? 10 : Math.max(s.size, 5)) / camera.zoom + 5 + extraRadius / camera.zoom
+      (s.type === 'text' ? 10 : Math.max(s.size, 5)) / camera.zoom + 5 + extraRadius
     const expand = s.type === 'text' ? 0 : s.size / 2
 
-    // 粗略检测包围盒
     if (
       wx < s.bounds.minX - padding - expand ||
       wx > s.bounds.maxX + padding + expand ||
@@ -825,64 +852,58 @@ function hitTest(wx, wy, extraRadius = 0) {
     if (s.type === 'text') {
       return i
     } else if (['rectangle', 'circle', 'triangle', 'line'].includes(s.type)) {
-      // 形状碰撞检测
-      const threshold = s.size / 2 + 10 / camera.zoom + extraRadius / camera.zoom
+      const threshold = s.size / 2 + 10 / camera.zoom + extraRadius
       if (s.type === 'rectangle') {
-        const dLeft = Math.abs(wx - s.x)
-        const dRight = Math.abs(wx - (s.x + s.width))
-        const dTop = Math.abs(wy - s.y)
-        const dBottom = Math.abs(wy - (s.y + s.height))
-
+        const dLeft = Math.abs(wx - s.x),
+          dRight = Math.abs(wx - (s.x + s.width))
+        const dTop = Math.abs(wy - s.y),
+          dBottom = Math.abs(wy - (s.y + s.height))
         const inX = wx >= s.x - threshold && wx <= s.x + s.width + threshold
         const inY = wy >= s.y - threshold && wy <= s.y + s.height + threshold
-
-        if (inX && inY) {
-          if (dLeft < threshold || dRight < threshold || dTop < threshold || dBottom < threshold)
-            return i
-        }
+        if (
+          inX &&
+          inY &&
+          (dLeft < threshold || dRight < threshold || dTop < threshold || dBottom < threshold)
+        )
+          return i
       } else if (s.type === 'circle') {
-        const centerX = s.x + s.width / 2
-        const centerY = s.y + s.height / 2
-        const radius = Math.abs(s.width / 2)
-        const dist = Math.sqrt((wx - centerX) ** 2 + (wy - centerY) ** 2)
-        if (Math.abs(dist - radius) < threshold) return i
+        const cx = s.x + s.width / 2,
+          cy = s.y + s.height / 2,
+          r = Math.abs(s.width / 2)
+        const dist = Math.sqrt((wx - cx) ** 2 + (wy - cy) ** 2)
+        if (Math.abs(dist - r) < threshold) return i
       } else if (s.type === 'triangle') {
-        const p1 = { x: s.x + s.width / 2, y: s.y }
-        const p2 = { x: s.x + s.width, y: s.y + s.height }
-        const p3 = { x: s.x, y: s.y + s.height }
-
-        if (distToSegment(wx, wy, p1, p2) < threshold) return i
-        if (distToSegment(wx, wy, p2, p3) < threshold) return i
-        if (distToSegment(wx, wy, p3, p1) < threshold) return i
+        const p1 = { x: s.x + s.width / 2, y: s.y },
+          p2 = { x: s.x + s.width, y: s.y + s.height },
+          p3 = { x: s.x, y: s.y + s.height }
+        if (
+          distToSegment(wx, wy, p1, p2) < threshold ||
+          distToSegment(wx, wy, p2, p3) < threshold ||
+          distToSegment(wx, wy, p3, p1) < threshold
+        )
+          return i
       } else if (s.type === 'line') {
-        const p1 = { x: s.x, y: s.y }
-        const p2 = { x: s.x + s.width, y: s.y + s.height }
+        const p1 = { x: s.x, y: s.y },
+          p2 = { x: s.x + s.width, y: s.y + s.height }
         if (distToSegment(wx, wy, p1, p2) < threshold) return i
       }
     } else {
-      const threshold = s.size / 2 + 10 / camera.zoom + extraRadius / camera.zoom
+      const threshold = s.size / 2 + 10 / camera.zoom + extraRadius
       const thresholdSq = threshold * threshold
-
       if (s.points.length === 1) {
-        const p = s.points[0]
-        const distSq = (wx - p.x) ** 2 + (wy - p.y) ** 2
-        if (distSq < thresholdSq) return i
+        if ((wx - s.points[0].x) ** 2 + (wy - s.points[0].y) ** 2 < thresholdSq) return i
       } else {
         for (let j = 0; j < s.points.length - 1; j++) {
-          const p1 = s.points[j]
-          const p2 = s.points[j + 1]
-
-          // 点到线段距离平方
+          const p1 = s.points[j],
+            p2 = s.points[j + 1]
           const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
           let distSq = 0
-          if (l2 === 0) {
-            distSq = (wx - p1.x) ** 2 + (wy - p1.y) ** 2
-          } else {
+          if (l2 === 0) distSq = (wx - p1.x) ** 2 + (wy - p1.y) ** 2
+          else {
             let t = ((wx - p1.x) * (p2.x - p1.x) + (wy - p1.y) * (p2.y - p1.y)) / l2
             t = Math.max(0, Math.min(1, t))
             distSq = (wx - (p1.x + t * (p2.x - p1.x))) ** 2 + (wy - (p1.y + t * (p2.y - p1.y))) ** 2
           }
-
           if (distSq < thresholdSq) return i
         }
       }
@@ -891,7 +912,6 @@ function hitTest(wx, wy, extraRadius = 0) {
   return -1
 }
 
-// 辅助函数：点到线段距离
 function distToSegment(wx, wy, p1, p2) {
   const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
   if (l2 === 0) return Math.sqrt((wx - p1.x) ** 2 + (wy - p1.y) ** 2)
@@ -900,16 +920,13 @@ function distToSegment(wx, wy, p1, p2) {
   return Math.sqrt((wx - (p1.x + t * (p2.x - p1.x))) ** 2 + (wy - (p1.y + t * (p2.y - p1.y))) ** 2)
 }
 
-// 检测矩形框选中的物体
 function hitTestRect(rect) {
   const indices = []
-  const minX = Math.min(rect.x, rect.x + rect.w)
-  const maxX = Math.max(rect.x, rect.x + rect.w)
-  const minY = Math.min(rect.y, rect.y + rect.h)
-  const maxY = Math.max(rect.y, rect.y + rect.h)
-
+  const minX = Math.min(rect.x, rect.x + rect.w),
+    maxX = Math.max(rect.x, rect.x + rect.w)
+  const minY = Math.min(rect.y, rect.y + rect.h),
+    maxY = Math.max(rect.y, rect.y + rect.h)
   strokes.forEach((s, i) => {
-    // 简单的包围盒包含检测
     if (
       s.bounds.minX >= minX &&
       s.bounds.maxX <= maxX &&
@@ -918,62 +935,65 @@ function hitTestRect(rect) {
     ) {
       indices.push(i)
     }
-    // 或者相交检测 (可选，这里用包含逻辑更符合习惯)
   })
   return indices
 }
 
-// 检测自由框选路径内的物体
 function hitTestFreeform(path) {
   if (!path || path.length < 3) return []
-  
+
   const indices = []
-  
   strokes.forEach((s, i) => {
-    // 检测物体的包围盒4个角点是否有任何一个在路径内
-    const corners = [
-      { x: s.bounds.minX, y: s.bounds.minY }, // 左上
-      { x: s.bounds.maxX, y: s.bounds.minY }, // 右上
-      { x: s.bounds.maxX, y: s.bounds.maxY }, // 右下
-      { x: s.bounds.minX, y: s.bounds.maxY }, // 左下
+    // 获取对象的边界信息
+    const { minX, minY, maxX, maxY } = s.bounds
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    // 检测点：4个角点 + 中心点 + 4个边界中点
+    const testPoints = [
+      // 4个角点
+      { x: minX, y: minY },
+      { x: maxX, y: minY },
+      { x: maxX, y: maxY },
+      { x: minX, y: maxY },
+      // 中心点
+      { x: centerX, y: centerY },
+      // 4个边界中点
+      { x: centerX, y: minY }, // 上边中点
+      { x: maxX, y: centerY }, // 右边中点
+      { x: centerX, y: maxY }, // 下边中点
+      { x: minX, y: centerY }, // 左边中点
     ]
-    
-    // 只要有一个角点在路径内就选中
-    const isInside = corners.some(corner => isPointInPolygon(corner.x, corner.y, path))
-    
-    if (isInside) {
+
+    // 如果任意检测点在自由绘制路径内，则选中该对象
+    if (testPoints.some((point) => isPointInPolygon(point.x, point.y, path))) {
       indices.push(i)
     }
   })
-  
+
   return indices
 }
 
- // 判断点是否在选择框范围内（用于整体拖动）
- function isPointInSelectionBounds(x, y) {
-   if (!groupBounds || selectedIndices.size === 0) return false
- 
-   const zoom = camera.zoom
-   const padding = 5 / zoom
-   const minX = groupBounds.minX - padding
-   const minY = groupBounds.minY - padding
-   const width = groupBounds.width + padding * 2
-   const height = groupBounds.height + padding * 2
-   const maxX = minX + width
-   const maxY = minY + height
- 
-   return x >= minX && x <= maxX && y >= minY && y <= maxY
- }
+function isPointInSelectionBounds(x, y) {
+  if (!groupBounds || selectedIndices.size === 0) return false
+  const zoom = camera.zoom
+  const padding = 5 / zoom
+  return (
+    x >= groupBounds.minX - padding &&
+    x <= groupBounds.maxX + padding &&
+    y >= groupBounds.minY - padding &&
+    y <= groupBounds.maxY + padding
+  )
+}
 
-// 判断点是否在多边形内（射线法）
 function isPointInPolygon(x, y, polygon) {
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y
-    const xj = polygon[j].x, yj = polygon[j].y
-    
-    const intersect = ((yi > y) !== (yj > y)) &&
-      (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+    const xi = polygon[i].x,
+      yi = polygon[i].y,
+      xj = polygon[j].x,
+      yj = polygon[j].y
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
     if (intersect) inside = !inside
   }
   return inside
@@ -1012,7 +1032,7 @@ function loadState(jsonStr) {
     strokes = JSON.parse(jsonStr)
     selectedIndices.clear()
     groupBounds = null
-    renderAll()
+    requestRenderAll()
   } catch (e) {
     console.error(e)
   }
@@ -1021,12 +1041,13 @@ function loadState(jsonStr) {
 // --- 交互逻辑 ---
 function handlePointerDown(e) {
   if (inputState.visible) return
-  canvasRef.value.setPointerCapture(e.pointerId)
+  liveCanvasRef.value.setPointerCapture(e.pointerId)
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
-  // 双指手势
   if (activePointers.size === 2) {
-    if (activeAction && activeAction.type === 'draw') strokes.pop()
+    // 放弃当前的绘制
+    if (activeAction && activeAction.type === 'draw') activeAction = null
+
     const pts = Array.from(activePointers.values())
     activeAction = {
       type: 'gesture',
@@ -1041,32 +1062,18 @@ function handlePointerDown(e) {
 
   const worldPos = screenToWorld(e.clientX, e.clientY)
 
-  // 空格或手势工具平移
   if (isSpacePressed.value || currentMode.value === 'hand') {
     activeAction = { type: 'pan', lastPos: { x: e.clientX, y: e.clientY } }
     return
   }
 
-  // 插入文本
   if (currentMode.value === 'text') {
     startTextInput(worldPos.x, worldPos.y)
     return
   }
 
-  // 选择模式
   if (currentMode.value === 'select') {
-    // 0. 已有选区时，优先允许在蓝框内整体拖动（但控制点缩放优先级更高）
-    if (selectedIndices.size > 0 && groupBounds && isPointInSelectionBounds(worldPos.x, worldPos.y)) {
-      // 注意：如果点在控制点上，后面会被 resize 覆盖
-      activeAction = {
-        type: 'move',
-        lastPos: worldPos,
-      }
-      renderAll()
-      // 不 return，让控制点检测有机会覆盖
-    }
-
-    // 1. 优先检测控制点 (缩放)
+    // 优先检查控制点（缩放），再检查选择框内部（移动）
     const handle = getHandleAtPosition(worldPos.x, worldPos.y)
     if (handle) {
       activeHandle = handle
@@ -1075,75 +1082,63 @@ function handlePointerDown(e) {
         handle: handle,
         startPos: worldPos,
         startBounds: { ...groupBounds },
-        // 深拷贝选中物体，用于基准计算
         snapshotStrokes: Array.from(selectedIndices).map((i) =>
-          JSON.parse(JSON.stringify(strokes[i])),
+          JSON.parse(JSON.stringify(strokes[i]))
         ),
       }
       return
     }
 
-    // 如果前面已进入 move（蓝框内拖动），这里直接结束
-    if (activeAction && activeAction.type === 'move') {
+    if (
+      selectedIndices.size > 0 &&
+      groupBounds &&
+      isPointInSelectionBounds(worldPos.x, worldPos.y)
+    ) {
+      activeAction = { type: 'move', lastPos: worldPos }
+      // 此处不需要立即 render，move 过程中会 render
       return
     }
 
-    // 2. 检测点击物体
-    const hitIndex = hitTest(worldPos.x, worldPos.y)
+    if (activeAction && activeAction.type === 'move') return
 
+    const hitIndex = hitTest(worldPos.x, worldPos.y)
     if (hitIndex !== -1) {
-      // 点击了物体
       if (!selectedIndices.has(hitIndex)) {
-        // 如果点击了未选中的，且没有按Shift(暂不支持Shift连选)，则清空重选
         selectedIndices.clear()
         selectedIndices.add(hitIndex)
       }
-      // 如果点击了已选中的，准备移动
-      activeAction = {
-        type: 'move',
-        lastPos: worldPos,
-      }
-      renderAll()
+      activeAction = { type: 'move', lastPos: worldPos }
+      requestRenderAll() // 选中状态改变，需要更新 UI
     } else {
-      // 3. 点击了空地 -> 框选
-      selectedIndices.clear() // 清除现有选择
+      selectedIndices.clear()
       if (selectMode.value === 'freeform') {
-        // 自由框选
-        activeAction = {
-          type: 'freeform_select',
-          path: [worldPos],
-        }
+        activeAction = { type: 'freeform_select', path: [worldPos] }
       } else {
-        // 矩形框选
-        activeAction = {
-          type: 'box_select',
-          startPos: worldPos,
-        }
+        activeAction = { type: 'box_select', startPos: worldPos }
         selectionRect = { x: worldPos.x, y: worldPos.y, w: 0, h: 0 }
       }
-      renderAll()
+      renderLive()
     }
   } else if (currentMode.value === 'eraser-stroke') {
-    // 橡皮擦模式：点击即删除
     const hitIndex = hitTest(worldPos.x, worldPos.y, currentSize.value / 2)
     if (hitIndex !== -1) {
       strokes.splice(hitIndex, 1)
       saveState()
-      renderAll()
+      renderHistory() // 历史改变
     }
-    // 同时也支持拖拽擦除，所以设置 activeAction
     activeAction = { type: 'erase' }
   } else if (['rectangle', 'circle', 'triangle', 'line'].includes(currentMode.value)) {
-    // 形状模式
     selectedIndices.clear()
     groupBounds = null
     activeAction = {
       type: 'shape',
       shapeType: currentMode.value,
       startPos: worldPos,
+      currentPos: worldPos, // 初始化 currentPos
     }
+    renderLive()
   } else {
-    // 绘图模式
+    // 绘图模式：优化点 -> 不直接 push 到 strokes，只存在 activeAction 中
     selectedIndices.clear()
     groupBounds = null
     const newStroke = {
@@ -1155,9 +1150,8 @@ function handlePointerDown(e) {
       mode: currentMode.value,
       bounds: { minX: worldPos.x, maxX: worldPos.x, minY: worldPos.y, maxY: worldPos.y },
     }
-    strokes.push(newStroke)
     activeAction = { type: 'draw', stroke: newStroke }
-    renderAll()
+    renderLive()
   }
 }
 
@@ -1165,55 +1159,43 @@ function handlePointerMove(e) {
   const wp = screenToWorld(e.clientX, e.clientY)
   hoverPos.value = wp
 
-  // 更新橡皮擦光标位置
   if (currentMode.value === 'eraser-stroke') {
     const screenPos = worldToScreen(wp.x, wp.y)
-    eraserCursor.x = screenPos.x - currentSize.value * camera.zoom / 2
-    eraserCursor.y = screenPos.y - currentSize.value * camera.zoom / 2
+    eraserCursor.x = screenPos.x - (currentSize.value * camera.zoom) / 2
+    eraserCursor.y = screenPos.y - (currentSize.value * camera.zoom) / 2
     eraserCursor.size = currentSize.value * camera.zoom
     eraserCursor.visible = true
   } else {
     eraserCursor.visible = false
   }
 
-  if (!activePointers.has(e.pointerId)) return
-  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-
-  if (!activeAction) {
-    // 更新鼠标悬停样式
-    if (currentMode.value === 'select') {
-      const wp = screenToWorld(e.clientX, e.clientY)
+  if (!activePointers.has(e.pointerId)) {
+    // Hover 状态下处理光标
+    if (!activeAction && currentMode.value === 'select') {
       activeHandle = getHandleAtPosition(wp.x, wp.y)
-
       if (activeHandle) {
-        if (activeHandle.includes('nw') || activeHandle.includes('se')) {
-          canvasRef.value.style.cursor = 'nwse-resize'
-        } else if (activeHandle.includes('ne') || activeHandle.includes('sw')) {
-          canvasRef.value.style.cursor = 'nesw-resize'
-        } else if (activeHandle.includes('n') || activeHandle.includes('s')) {
-          canvasRef.value.style.cursor = 'ns-resize'
-        } else if (activeHandle.includes('e') || activeHandle.includes('w')) {
-          canvasRef.value.style.cursor = 'ew-resize'
-        }
+        // 设置光标样式...
       } else if (selectedIndices.size > 0 && groupBounds && isPointInSelectionBounds(wp.x, wp.y)) {
-        canvasRef.value.style.cursor = 'move'
+        liveCanvasRef.value.style.cursor = 'move'
       } else {
-        canvasRef.value.style.cursor = 'default'
+        liveCanvasRef.value.style.cursor = 'default'
       }
     }
     return
   }
 
-  // use wp declared at top
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
-  if (activeAction.type === 'gesture' && activePointers.size === 2) {
-    // ... 缩放逻辑 (保持不变) ...
+  if (!activeAction) return
+
+  if (activeAction.type === 'gesture') {
+    // 缩放手势：必须重绘所有层
     const pts = Array.from(activePointers.values())
     const dist = getDistance(pts[0], pts[1])
     const center = getCenter(pts[0], pts[1])
     const scaleFactor = dist / activeAction.startDist
     const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, activeAction.startZoom * scaleFactor))
-    const rect = canvasRef.value.getBoundingClientRect()
+    const rect = liveCanvasRef.value.getBoundingClientRect()
     const startCenterRel = {
       x: activeAction.startCenter.x - rect.left,
       y: activeAction.startCenter.y - rect.top,
@@ -1224,15 +1206,17 @@ function handlePointerMove(e) {
     camera.zoom = newZoom
     camera.x = newCenterRel.x - wx * newZoom
     camera.y = newCenterRel.y - wy * newZoom
-    renderAll()
+    requestRenderAll()
   } else if (activeAction.type === 'pan') {
+    // 平移：必须重绘所有层
     const dx = e.clientX - activeAction.lastPos.x
     const dy = e.clientY - activeAction.lastPos.y
     camera.x += dx
     camera.y += dy
     activeAction.lastPos = { x: e.clientX, y: e.clientY }
-    renderAll()
+    requestRenderAll()
   } else if (activeAction.type === 'draw') {
+    // 绘制：只更新 Live 层！性能提升点
     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]
     const stroke = activeAction.stroke
     events.forEach((ev) => {
@@ -1243,11 +1227,12 @@ function handlePointerMove(e) {
       stroke.bounds.minY = Math.min(stroke.bounds.minY, p.y)
       stroke.bounds.maxY = Math.max(stroke.bounds.maxY, p.y)
     })
-    renderAll()
+    renderLive()
   } else if (activeAction.type === 'move') {
+    // 移动对象：因为直接修改了 strokes 数据，这里还是全量重绘保证正确性
+    // (进一步优化可以把移动的对象暂时移出 strokes 放入 live，但这需要更复杂的状态管理)
     const dx = wp.x - activeAction.lastPos.x
     const dy = wp.y - activeAction.lastPos.y
-
     selectedIndices.forEach((idx) => {
       const obj = strokes[idx]
       if (obj.type === 'text') {
@@ -1275,10 +1260,12 @@ function handlePointerMove(e) {
         obj.bounds.maxY += dy
       }
     })
-
+    // 重新计算选中对象的整体边界框
+    groupBounds = getGroupBounds(selectedIndices)
     activeAction.lastPos = wp
-    renderAll()
+    requestRenderAll()
   } else if (activeAction.type === 'box_select') {
+    // 选框：只更新 Live 层
     const sx = activeAction.startPos.x
     const sy = activeAction.startPos.y
     selectionRect = {
@@ -1287,55 +1274,24 @@ function handlePointerMove(e) {
       w: Math.abs(wp.x - sx),
       h: Math.abs(wp.y - sy),
     }
-    renderAll()
+    renderLive()
   } else if (activeAction.type === 'freeform_select') {
-    // 自由框选：添加路径点
+    // 自由选框：只更新 Live 层
     activeAction.path.push(wp)
-    renderAll()
+    renderLive()
   } else if (activeAction.type === 'erase') {
-    // 拖拽擦除
+    // 擦除：涉及 strokes 修改，需重绘历史
     const hitIndex = hitTest(wp.x, wp.y, currentSize.value / 2)
     if (hitIndex !== -1) {
       strokes.splice(hitIndex, 1)
-      renderAll()
+      renderHistory()
     }
   } else if (activeAction.type === 'shape') {
-    // 形状绘制预览
-    renderAll()
-    // 绘制预览形状
-    const x = Math.min(activeAction.startPos.x, wp.x)
-    const y = Math.min(activeAction.startPos.y, wp.y)
-    const width = Math.abs(wp.x - activeAction.startPos.x)
-    const height = Math.abs(wp.y - activeAction.startPos.y)
-
-    ctx.save()
-    ctx.strokeStyle = currentColor.value
-    ctx.lineWidth = currentSize.value
-    ctx.globalAlpha = currentOpacity.value
-
-    if (activeAction.shapeType === 'rectangle') {
-      ctx.strokeRect(x, y, width, height)
-    } else if (activeAction.shapeType === 'circle') {
-      ctx.beginPath()
-      ctx.arc(x + width / 2, y + height / 2, Math.abs(width / 2), 0, Math.PI * 2)
-      ctx.stroke()
-    } else if (activeAction.shapeType === 'triangle') {
-      ctx.beginPath()
-      ctx.moveTo(x + width / 2, y)
-      ctx.lineTo(x + width, y + height)
-      ctx.lineTo(x, y + height)
-      ctx.closePath()
-      ctx.stroke()
-    } else if (activeAction.shapeType === 'line') {
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(activeAction.startPos.x, activeAction.startPos.y)
-      ctx.lineTo(wp.x, wp.y)
-      ctx.stroke()
-    }
-
-    ctx.restore()
+    // 形状预览：只更新 Live 层
+    activeAction.currentPos = wp
+    renderLive()
   } else if (activeAction.type === 'resize') {
+    // 变形：全量重绘
     handleResize(wp)
   }
 }
@@ -1343,13 +1299,10 @@ function handlePointerMove(e) {
 function handleResize(currPos) {
   const { startBounds, handle, snapshotStrokes } = activeAction
   const indices = Array.from(selectedIndices)
-
-  // 计算新包围盒
   const newBounds = { ...startBounds }
   const dx = currPos.x - activeAction.startPos.x
   const dy = currPos.y - activeAction.startPos.y
 
-  // 根据拖拽的手柄调整边界
   if (handle.includes('e')) newBounds.width += dx
   if (handle.includes('s')) newBounds.height += dy
   if (handle.includes('w')) {
@@ -1361,7 +1314,6 @@ function handleResize(currPos) {
     newBounds.height -= dy
   }
 
-  // 重新计算maxX/Y，防止翻转导致的负尺寸 (简化处理：限制最小尺寸)
   if (newBounds.width < 10) {
     newBounds.width = 10
     if (handle.includes('w')) newBounds.minX = startBounds.maxX - 10
@@ -1373,11 +1325,9 @@ function handleResize(currPos) {
   newBounds.maxX = newBounds.minX + newBounds.width
   newBounds.maxY = newBounds.minY + newBounds.height
 
-  // 计算缩放比例
   const scaleX = newBounds.width / startBounds.width
   const scaleY = newBounds.height / startBounds.height
 
-  // 应用变换到所有选中物体
   indices.forEach((idx, i) => {
     const original = snapshotStrokes[i]
     const target = strokes[idx]
@@ -1387,9 +1337,7 @@ function handleResize(currPos) {
       const relY = (original.y - startBounds.minY) / startBounds.height
       target.x = newBounds.minX + relX * newBounds.width
       target.y = newBounds.minY + relY * newBounds.height
-      target.size = original.size * Math.min(Math.abs(scaleX), Math.abs(scaleY)) // 字体大小按比例
-      // 更新Bounds
-      // 这里的Bounds更新不精确，渲染时会重新计算准确的Text Bounds
+      target.size = original.size * Math.min(Math.abs(scaleX), Math.abs(scaleY))
       target.bounds.minX = target.x
       target.bounds.minY = target.y
     } else if (['rectangle', 'circle', 'triangle', 'line'].includes(target.type)) {
@@ -1399,9 +1347,7 @@ function handleResize(currPos) {
       target.y = newBounds.minY + relY * newBounds.height
       target.width = original.width * scaleX
       target.height = original.height * scaleY
-      // 更新线宽
       target.size = original.size * Math.min(Math.abs(scaleX), Math.abs(scaleY))
-      // 更新Bounds
       target.bounds = {
         minX: Math.min(target.x, target.x + target.width),
         maxX: Math.max(target.x, target.x + target.width),
@@ -1417,10 +1363,7 @@ function handleResize(currPos) {
           y: newBounds.minY + relY * newBounds.height,
         }
       })
-      // 线宽跟随整体缩放
       target.size = (original.size * (Math.abs(scaleX) + Math.abs(scaleY))) / 2
-
-      // 更新Bounds
       let bMinX = Infinity,
         bMinY = Infinity,
         bMaxX = -Infinity,
@@ -1434,7 +1377,14 @@ function handleResize(currPos) {
       target.bounds = { minX: bMinX, maxX: bMaxX, minY: bMinY, maxY: bMaxY }
     }
   })
-  renderAll()
+  // 重新计算选中对象的整体边界框
+  groupBounds = getGroupBounds(selectedIndices)
+  requestRenderAll()
+}
+
+function handlePointerLeave(e) {
+  hoverPos.value = null
+  renderLive()
 }
 
 function endAction(e) {
@@ -1442,27 +1392,34 @@ function endAction(e) {
   if (activePointers.size === 0) {
     if (activeAction) {
       if (activeAction.type === 'box_select') {
-        // 完成矩形框选
         const indices = hitTestRect(selectionRect)
         selectedIndices.clear()
         indices.forEach((i) => selectedIndices.add(i))
         selectionRect = null
-        renderAll()
+        // 清除矩形框选动作
+        activeAction = null
+        renderLive()
       } else if (activeAction.type === 'freeform_select') {
-        // 完成自由框选
         const indices = hitTestFreeform(activeAction.path)
         selectedIndices.clear()
         indices.forEach((i) => selectedIndices.add(i))
-        renderAll()
-      } else if (['draw', 'move', 'resize', 'erase'].includes(activeAction.type)) {
+        // 清除自由框选动作，避免临时路径残留
+        activeAction = null
+        renderLive()
+      } else if (['move', 'resize', 'erase'].includes(activeAction.type)) {
         saveState()
+        // 动作结束，UI层可能还有残影，清除UI层，确保历史层是最新的
+        renderLive()
+      } else if (activeAction.type === 'draw') {
+        // 绘制结束：将 Live 层的临时笔画推入 strokes，重绘 History
+        strokes.push(activeAction.stroke)
+        saveState()
+        renderHistory()
+        renderLive() // 清除 Live 层的内容
       } else if (activeAction.type === 'shape') {
-        // 完成形状绘制
-        const wp = screenToWorld(e.clientX, e.clientY)
+        const wp = activeAction.currentPos || activeAction.startPos
         let x, y, width, height
-
         if (activeAction.shapeType === 'line') {
-          // 直线需要保留方向
           x = activeAction.startPos.x
           y = activeAction.startPos.y
           width = wp.x - x
@@ -1473,8 +1430,6 @@ function endAction(e) {
           width = Math.abs(wp.x - activeAction.startPos.x)
           height = Math.abs(wp.y - activeAction.startPos.y)
         }
-
-        // 只有当形状有一定大小时才添加
         if (Math.abs(width) > 2 || Math.abs(height) > 2) {
           const shape = {
             type: activeAction.shapeType,
@@ -1495,7 +1450,8 @@ function endAction(e) {
           strokes.push(shape)
           saveState()
         }
-        renderAll()
+        renderHistory()
+        renderLive()
       }
     }
     activeAction = null
@@ -1503,7 +1459,7 @@ function endAction(e) {
   }
 }
 
-// --- 文本输入 (保持原有逻辑) ---
+// --- 文本输入 ---
 function startTextInput(worldX, worldY) {
   inputState.worldX = worldX
   inputState.worldY = worldY
@@ -1538,7 +1494,7 @@ function finishInput() {
       },
     })
     saveState()
-    renderAll()
+    renderHistory()
   }
   inputState.visible = false
   inputState.text = ''
@@ -1548,7 +1504,6 @@ function finishInput() {
 function handleInputKeydown(e) {
   if (e.key === 'Escape') finishInput()
 }
-
 function autoResizeInput(e) {
   e.target.style.height = 'auto'
   inputState.height = e.target.scrollHeight + 'px'
@@ -1562,7 +1517,7 @@ function handleWheel(e) {
   const scale = Math.exp(delta * zoomIntensity)
   const oldZoom = camera.zoom
   const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, oldZoom * scale))
-  const rect = canvasRef.value.getBoundingClientRect()
+  const rect = liveCanvasRef.value.getBoundingClientRect()
   const mouseX = e.clientX - rect.left
   const mouseY = e.clientY - rect.top
   const wx = (mouseX - camera.x) / oldZoom
@@ -1570,7 +1525,7 @@ function handleWheel(e) {
   camera.x = mouseX - wx * newZoom
   camera.y = mouseY - wy * newZoom
   camera.zoom = newZoom
-  renderAll()
+  requestRenderAll()
 }
 
 function handleKeydown(e) {
@@ -1591,16 +1546,13 @@ function handleKeydown(e) {
   if (e.key === 'h' || e.key === 'H') handleToolbarToolChange('highlighter')
   if (e.key === 'e' || e.key === 'E') setMode('eraser-stroke')
   if (e.key === 't' || e.key === 'T') setMode('text')
-
-  // 删除功能
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndices.size > 0) {
-    // 降序删除
     const indices = Array.from(selectedIndices).sort((a: number, b: number) => b - a)
     indices.forEach((i) => strokes.splice(i, 1))
     selectedIndices.clear()
     groupBounds = null
     saveState()
-    renderAll()
+    requestRenderAll()
   }
 }
 
@@ -1616,20 +1568,14 @@ function setMode(mode) {
   if (mode !== 'select') {
     selectedIndices.clear()
     groupBounds = null
-    renderAll()
+    requestRenderAll()
   }
-}
-
-function onColorChange(e) {
-  currentColor.value = e.target.value
-  if (['eraser', 'select', 'hand'].includes(currentMode.value)) setMode('draw')
 }
 
 function zoomIn() {
   if (camera.zoom >= MAX_ZOOM) return
-  const rect = canvasRef.value?.getBoundingClientRect()
+  const rect = liveCanvasRef.value?.getBoundingClientRect()
   if (!rect) return
-  
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
   const newZoom = Math.min(MAX_ZOOM, Number((camera.zoom + 0.1).toFixed(4)))
@@ -1638,9 +1584,8 @@ function zoomIn() {
 
 function zoomOut() {
   if (camera.zoom <= MIN_ZOOM) return
-  const rect = canvasRef.value?.getBoundingClientRect()
+  const rect = liveCanvasRef.value?.getBoundingClientRect()
   if (!rect) return
-  
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
   const newZoom = Math.max(MIN_ZOOM, Number((camera.zoom - 0.1).toFixed(4)))
@@ -1649,20 +1594,16 @@ function zoomOut() {
 
 function fitToScreen() {
   if (!containerRef.value) return
-  
   const rect = containerRef.value.getBoundingClientRect()
   const targetWidth = rect.width
   const targetHeight = rect.height
-  
-  // 计算适合屏幕的缩放比例
   const scaleX = targetWidth / (targetWidth / camera.zoom)
   const scaleY = targetHeight / (targetHeight / camera.zoom)
   const newZoom = Math.min(scaleX, scaleY, MAX_ZOOM)
-  
   camera.zoom = Math.max(newZoom, MIN_ZOOM)
   camera.x = 0
   camera.y = 0
-  renderAll()
+  requestRenderAll()
 }
 
 function fitToContent() {
@@ -1670,11 +1611,11 @@ function fitToContent() {
     fitToScreen()
     return
   }
-  
-  // 计算所有笔迹的边界
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  
-  strokes.forEach(stroke => {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  strokes.forEach((stroke) => {
     if (stroke.bounds) {
       minX = Math.min(minX, stroke.bounds.minX)
       minY = Math.min(minY, stroke.bounds.minY)
@@ -1682,98 +1623,40 @@ function fitToContent() {
       maxY = Math.max(maxY, stroke.bounds.maxY)
     }
   })
-  
   if (minX === Infinity) {
     fitToScreen()
     return
   }
-  
-  // 添加边距
   const padding = 50
   const contentWidth = maxX - minX + padding * 2
   const contentHeight = maxY - minY + padding * 2
-  
   if (!containerRef.value) return
   const containerRect = containerRef.value.getBoundingClientRect()
-  
-  // 计算适合内容的缩放比例
   const scaleX = containerRect.width / contentWidth
   const scaleY = containerRect.height / contentHeight
   const newZoom = Math.min(scaleX, scaleY, MAX_ZOOM)
-  
   camera.zoom = Math.max(newZoom, MIN_ZOOM)
-  // 居中内容
-  camera.x = containerRect.width / 2 - (minX + maxX) / 2 * camera.zoom
-  camera.y = containerRect.height / 2 - (minY + maxY) / 2 * camera.zoom
-  
-  renderAll()
+  camera.x = containerRect.width / 2 - ((minX + maxX) / 2) * camera.zoom
+  camera.y = containerRect.height / 2 - ((minY + maxY) / 2) * camera.zoom
+  requestRenderAll()
 }
 
 function zoomToPoint(clientX, clientY, newZoom) {
   const oldZoom = camera.zoom
-  const rect = canvasRef.value?.getBoundingClientRect()
+  const rect = liveCanvasRef.value?.getBoundingClientRect()
   if (!rect) return
-  
   const wx = (clientX - rect.left - camera.x) / oldZoom
   const wy = (clientY - rect.top - camera.y) / oldZoom
-  
   camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom))
   camera.x = clientX - rect.left - wx * camera.zoom
   camera.y = clientY - rect.top - wy * camera.zoom
-  
-  renderAll()
-}
-
-function saveImage() {
-  if (strokes.length === 0) {
-    alert('画布为空')
-    return
-  }
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity
-  strokes.forEach((s) => {
-    if (s.mode === 'eraser') return
-    if (s.bounds) {
-      minX = Math.min(minX, s.bounds.minX)
-      minY = Math.min(minY, s.bounds.minY)
-      maxX = Math.max(maxX, s.bounds.maxX)
-      maxY = Math.max(maxY, s.bounds.maxY)
-    }
-  })
-  if (minX === Infinity) {
-    minX = 0
-    minY = 0
-    maxX = 100
-    maxY = 100
-  }
-  const padding = 40
-  const width = maxX - minX + padding * 2
-  const height = maxY - minY + padding * 2
-  const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = width
-  tempCanvas.height = height
-  const tCtx = tempCanvas.getContext('2d')
-  tCtx.fillStyle = '#ffffff'
-  tCtx.fillRect(0, 0, width, height)
-  tCtx.translate(-minX + padding, -minY + padding)
-  tCtx.lineCap = 'round'
-  tCtx.lineJoin = 'round'
-  strokes.forEach((s) => drawStrokeToContext(tCtx, s))
-  const link = document.createElement('a')
-  link.download = `sketch_export_${Date.now()}.png`
-  link.href = tempCanvas.toDataURL('image/png')
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  showToast.value = true
-  setTimeout(() => (showToast.value = false), 2000)
+  requestRenderAll()
 }
 
 // --- 生命周期 ---
 onMounted(() => {
-  ctx = canvasRef.value.getContext('2d', { alpha: false })
+  historyCtx = historyCanvasRef.value.getContext('2d', { alpha: false })
+  liveCtx = liveCanvasRef.value.getContext('2d') // Live 必须支持 alpha
   resizeCanvas()
   camera.zoom = normalizeZoom(props.initialZoom)
   saveState()
@@ -1802,26 +1685,25 @@ onUnmounted(() => {
 })
 
 // --- 暴露给父组件的方法 ---
-const saveData = () => {
-  return {
-    objects: strokes,
-    history,
-    historyIndex: historyStep.value,
-  }
-}
-
+const saveData = () => ({ objects: strokes, history, historyIndex: historyStep.value })
 const loadData = (data) => {
   strokes = data.objects
   history = data.history
   historyStep.value = data.historyIndex
-  if (Array.isArray(strokes)) {
-    strokes.forEach((s) => ensureBoundsForStroke(s))
-  }
-  renderAll()
+  if (Array.isArray(strokes)) strokes.forEach((s) => ensureBoundsForStroke(s))
+  requestRenderAll()
+}
+const clearAll = () => {
+  strokes = []
+  history = []
+  historyStep.value = -1
+  selectedIndices.clear()
+  groupBounds = null
+  requestRenderAll()
 }
 
+// 导出与缩略图逻辑复用 (略微修改以适配 strokes 遍历)
 const getThumbnail = (width, height) => {
-  // 计算绘图内容的边界
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -1836,7 +1718,6 @@ const getThumbnail = (width, height) => {
     }
   })
   if (minX === Infinity) {
-    // 空画布，返回空白缩略图
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
@@ -1864,35 +1745,18 @@ const getThumbnail = (width, height) => {
   return thumbCanvas.toDataURL('image/png')
 }
 
-// 清空画布
-const clearAll = () => {
-  strokes = []
-  history = []
-  historyStep.value = -1
-  selectedIndices.clear()
-  groupBounds = null
-  renderAll()
-}
-
-// 导出为 JPG
-const exportToJpg = (quality = 0.9): string => {
-  // 对齐 saveImage 的导出策略：按内容边界导出，避免视口尺寸/缩放导致挤压
+const exportToJpg = (quality = 0.9) => {
+  // 合并背景和 strokes 到一个临时 canvas
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
     maxY = -Infinity
-
-  // 1) 背景图边界（背景图以世界坐标 0,0 绘制）
   if (backgroundImg.value && backgroundLoaded.value) {
-    const bgX = backgroundOrigin.x
-    const bgY = backgroundOrigin.y
-    minX = Math.min(minX, bgX)
-    minY = Math.min(minY, bgY)
-    maxX = Math.max(maxX, bgX + backgroundImg.value.width)
-    maxY = Math.max(maxY, bgY + backgroundImg.value.height)
+    minX = Math.min(minX, backgroundOrigin.x)
+    minY = Math.min(minY, backgroundOrigin.y)
+    maxX = Math.max(maxX, backgroundOrigin.x + backgroundImg.value.width)
+    maxY = Math.max(maxY, backgroundOrigin.y + backgroundImg.value.height)
   }
-
-  // 2) 笔迹边界
   strokes.forEach((s) => {
     if (s.mode === 'eraser') return
     ensureBoundsForStroke(s)
@@ -1902,53 +1766,39 @@ const exportToJpg = (quality = 0.9): string => {
     maxX = Math.max(maxX, s.bounds.maxX)
     maxY = Math.max(maxY, s.bounds.maxY)
   })
-
-  // 3) 如果没有任何内容，返回空
   if (minX === Infinity) {
-    if (!canvasRef.value) return ''
-    const rect = canvasRef.value.getBoundingClientRect()
-    const width = Math.max(1, Math.round(rect.width))
-    const height = Math.max(1, Math.round(rect.height))
-    const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = width
-    tempCanvas.height = height
-    const tempCtx = tempCanvas.getContext('2d')
-    if (!tempCtx) return ''
-    tempCtx.fillStyle = '#ffffff'
-    tempCtx.fillRect(0, 0, width, height)
-    return tempCanvas.toDataURL('image/jpeg', quality)
+    if (!liveCanvasRef.value) return ''
+    const rect = liveCanvasRef.value.getBoundingClientRect()
+    const width = Math.max(1, Math.round(rect.width)),
+      height = Math.max(1, Math.round(rect.height))
+    const c = document.createElement('canvas')
+    c.width = width
+    c.height = height
+    const cx = c.getContext('2d')
+    if (!cx) return ''
+    cx.fillStyle = '#ffffff'
+    cx.fillRect(0, 0, width, height)
+    return c.toDataURL('image/jpeg', quality)
   }
-
   const padding = 40
   const width = maxX - minX + padding * 2
   const height = maxY - minY + padding * 2
-
   const tempCanvas = document.createElement('canvas')
   tempCanvas.width = width
   tempCanvas.height = height
-
   const tempCtx = tempCanvas.getContext('2d')
   if (!tempCtx) return ''
-
-  // 白底
   tempCtx.fillStyle = '#ffffff'
   tempCtx.fillRect(0, 0, width, height)
-
-  // 平移到内容左上角
   tempCtx.save()
   tempCtx.translate(-minX + padding, -minY + padding)
   tempCtx.lineCap = 'round'
   tempCtx.lineJoin = 'round'
-
-  // 背景图（原尺寸绘制）
   if (backgroundImg.value && backgroundLoaded.value) {
     tempCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
   }
-
-  // 笔迹
   strokes.forEach((s) => drawStrokeToContext(tempCtx, s))
   tempCtx.restore()
-
   return tempCanvas.toDataURL('image/jpeg', quality)
 }
 
@@ -1960,8 +1810,8 @@ defineExpose({
   exportToJpg,
 })
 </script>
+
 <style scoped>
-/* 样式复用之前的，新增光标样式 */
 .sketchpad-wrapper {
   position: relative;
   width: 100%;
@@ -1988,16 +1838,32 @@ defineExpose({
   -webkit-user-select: none;
 }
 
-.canvas-element {
-  display: block;
-  background-color: #ffffff;
+/* 关键样式：所有层绝对定位重叠 */
+.canvas-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  box-shadow:
-    0 1px 3px 0 rgba(0, 0, 0, 0.1),
-    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  display: block;
 }
 
+/* 历史层在下，且不响应鼠标事件（透传给上层） */
+.canvas-history {
+  z-index: 10;
+  background-color: #ffffff;
+  pointer-events: none;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 实时层在上，透明背景，响应鼠标事件 */
+.canvas-live {
+  z-index: 20;
+  background-color: transparent;
+  pointer-events: auto; /* 关键：接收交互 */
+}
+
+/* 其他 UI 样式保持不变 */
 .text-input {
   position: absolute;
   background-color: transparent;
@@ -2007,7 +1873,7 @@ defineExpose({
   margin: 0;
   resize: none;
   overflow: hidden;
-  z-index: 20;
+  z-index: 30;
   font-family: sans-serif;
   line-height: 1.2;
   color: black;
@@ -2025,7 +1891,7 @@ defineExpose({
   gap: 12px;
   width: 98%;
   max-width: 768px;
-  z-index: 10;
+  z-index: 50; /* Toolbar 在最上层 */
 }
 
 .toolbar-slot {
@@ -2033,19 +1899,11 @@ defineExpose({
   align-items: center;
   flex-shrink: 0;
 }
-
 .toolbar-slot--left {
   justify-content: flex-start;
 }
-
 .toolbar-slot--right {
   justify-content: flex-end;
-}
-
-.toolbar-section {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
 }
 .toolbar-center {
   display: flex;
@@ -2055,85 +1913,7 @@ defineExpose({
   justify-content: center;
   min-width: 100px;
 }
-.size-control {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 100px;
-}
-.size-slider {
-  width: 100%;
-  height: 4px;
-  background-color: #e5e7eb;
-  border-radius: 8px;
-  appearance: none;
-  cursor: pointer;
-}
-.toolbar-separator {
-  width: 1px;
-  height: 32px;
-  background-color: #e5e7eb;
-  flex-shrink: 0;
-}
-.toolbar-separator-small {
-  width: 1px;
-  height: 32px;
-  background-color: #e5e7eb;
-  margin: 0 4px;
-}
-.tool-btn {
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background-color: transparent;
-  transition: all 0.2s;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.tool-btn:hover {
-  background-color: #f3f4f6;
-}
-.tool-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  transform: none;
-}
-.tool-btn.active {
-  background-color: #e5e7eb;
-  color: #000000;
-  transform: translateY(-2px);
-  border-color: #3b82f6;
-}
-.clear-btn {
-  color: #ef4444;
-}
-.save-btn {
-  color: #2563eb;
-}
-.color-wrapper {
-  position: relative;
-  overflow: hidden;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid #e5e7eb;
-  cursor: pointer;
-}
-input[type='color'] {
-  position: absolute;
-  left: -50%;
-  top: -50%;
-  width: 200%;
-  height: 200%;
-  cursor: pointer;
-  padding: 0;
-  border: none;
-}
-input[type='range'] {
-  accent-color: #374151;
-}
+
 .toast {
   position: absolute;
   top: 16px;
@@ -2146,7 +1926,7 @@ input[type='range'] {
   font-size: 12px;
   transition: opacity 0.3s;
   pointer-events: none;
-  z-index: 50;
+  z-index: 60;
   opacity: 0;
 }
 .toast.show {
@@ -2180,19 +1960,20 @@ input[type='range'] {
 .ew-resize {
   cursor: ew-resize;
 }
+.cursor-none {
+  cursor: none;
+}
 
-/* 橡皮擦光标样式 */
 .eraser-cursor {
   position: absolute;
   border: 1px solid rgba(0, 0, 0, 0.4);
   border-radius: 50%;
   pointer-events: none;
-  z-index: 30;
+  z-index: 40;
   box-sizing: border-box;
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* 缩放控制面板样式 */
 .zoom-control-panel {
   position: absolute;
   bottom: 20px;
@@ -2206,7 +1987,7 @@ input[type='range'] {
   border-radius: 8px;
   padding: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 40;
+  z-index: 50;
 }
 
 .zoom-btn {
@@ -2223,40 +2004,16 @@ input[type='range'] {
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
-
 .zoom-btn:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.05);
   color: #333333;
 }
-
 .zoom-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
-
 .zoom-btn:active:not(:disabled) {
   transform: scale(0.95);
-}
-
-.zoom-display {
-  min-width: 48px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 500;
-  color: #333333;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.zoom-display:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #000000;
 }
 
 .zoom-select :deep(.select-trigger) {
@@ -2270,11 +2027,9 @@ input[type='range'] {
   font-weight: 500;
   color: #333333;
 }
-
 .zoom-select :deep(.select-trigger:hover) {
   background: rgba(0, 0, 0, 0.05);
 }
-
 .zoom-select :deep(.select-dropdown) {
   left: auto;
   right: 0;
@@ -2283,7 +2038,6 @@ input[type='range'] {
   top: auto;
   bottom: calc(100% + 8px);
 }
-
 .zoom-fit {
   margin-left: 2px;
 }
@@ -2298,18 +2052,15 @@ input[type='range'] {
   padding: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   font-size: 12px;
-  z-index: 50;
+  z-index: 60;
 }
-
 .debug-panel div {
   margin-bottom: 5px;
 }
-
-.debug-panel input[type="number"] {
+.debug-panel input[type='number'] {
   width: 60px;
   margin-left: 5px;
 }
-
 .debug-panel button {
   font-size: 11px;
   padding: 4px 8px;
@@ -2318,16 +2069,7 @@ input[type='range'] {
   border-radius: 4px;
   cursor: pointer;
 }
-
 .debug-panel button:hover {
   background: #e0e0e0;
-}
-
-.toolbar::-webkit-scrollbar {
-  display: none;
-}
-.toolbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }
 </style>

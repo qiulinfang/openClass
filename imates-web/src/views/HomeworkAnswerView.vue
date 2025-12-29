@@ -330,11 +330,15 @@ const confirmClearCanvas = () => {
     return
   }
 
+  // 先清空画布数据
   board.loadData({
     objects: [],
     history: [[]],
     historyIndex: 0,
   })
+
+  // 再调用clearAll来重置工具状态
+  board.clearAll()
 
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
   if (questionKey) {
