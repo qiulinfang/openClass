@@ -169,12 +169,11 @@ const homeworkList = computed(() => {
   return topicList.value.map((pkg, index) => {
     const firstTopic = pkg.topicList && pkg.topicList.length > 0 ? pkg.topicList[0] : null
     // 0. 去掉行首 key（main / c1 / gc1_of_c3 等）
-    let cleanedQuestionContent = (firstTopic?.questionData || '')
-        // 去掉每一行开头的 key:
-        .replace(/^[a-zA-Z0-9_]+:\s*/gm, '')
+    const cleanedQuestionContent = (firstTopic?.questionData || '')
+        // 去掉每一行开头的 key:（支持 main: c1: c2: gc1_of_c3: 等格式）
+        .replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '')
         // 去掉只剩 null 的整行（可选，但强烈建议）
         .replace(/^null\s*$/gm, '')
-        .trim()
     return {
       id: pkg.id || String(index + 1),
       bmNo: pkg.bmNo || String(index + 1),
@@ -223,13 +222,13 @@ const goAnswer = (item: any) => {
   const exerciseItems: ExerciseItem[] = payload.map((topic: any, index: number) => {
     const bmNo = topic.bmNo || item.bmNo || String(index + 1)
     const rawQuestion = topic.questionData || item.questionData || ''
-    const question = rawQuestion.replace(/^(\s*main:\s*)+/i, '')
+    const question = rawQuestion.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
     // 优先使用 topic 自身的解析和答案，其次才退回到套餐级字段
     const answer = topic.answer || item.answer || ''
     const explanation =
       topic.explanation || topic.analysisData || item.explanation || ''
     const rawQuestionData = topic.questionData || item.questionData || ''
-    const questionData = rawQuestionData.replace(/^(\s*main:\s*)+/i, '')
+    const questionData = rawQuestionData.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
 
     // 先展开 item，把作业级字段全部带过去，再覆盖题目级别字段
     const merged = {

@@ -47,7 +47,7 @@
                     <slot name="header-left"></slot>
                   </div>
                   <!-- 标题 -->
-                  <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
+                  <div class="text-h6" :class="titleAlignClass">{{ finalConfig.title }}</div>
                   <!-- 右侧插槽 -->
                   <div
                     v-if="$slots['header-right']"
@@ -81,24 +81,33 @@
                   class="dialog-content-section"
                   :class="{ 'dialog-content-rounded': fullscreen }"
                 >
-                  <slot></slot>
+                  <!-- 删除类型：优先使用插槽内容，否则使用默认内容 -->
+                  <template v-if="props.type === 'delete'">
+                    <slot>
+                      <div class="delete-confirm-content">
+                        {{ props.deleteContent }}
+                      </div>
+                    </slot>
+                  </template>
+                  <!-- 其他类型使用插槽内容 -->
+                  <slot v-else></slot>
                 </div>
 
                 <!-- 底部操作按钮区域 -->
-                <div v-if="showFooter" class="dialog-footer-section">
+                <div v-if="finalConfig.showFooter" class="dialog-footer-section">
                   <!-- 取消按钮 -->
                   <CommonActionButton
-                    :label="cancelText"
+                    :label="finalConfig.cancelText"
                     size="mdCompact"
                     variant="ghost"
                     @click="emit('cancel')"
                   />
                   <!-- 确定按钮 -->
                   <CommonActionButton
-                    :label="confirmText"
+                    :label="displayedConfirmLabel"
                     size="mdCompact"
-                    :variant="confirmVariant"
-                    :disabled="confirmDisabled"
+                    :variant="finalConfig.confirmVariant"
+                    :disabled="confirmDisabled || props.processing"
                     @click="emit('confirm')"
                   />
                 </div>
@@ -114,7 +123,7 @@
             </template>
           </q-splitter>
 
-          <!-- 无左侧面板时的主内容 -->
+            <!-- 无左侧面板时的主内容 -->
           <div v-else class="draggable-dialog-card">
             <!-- 非全屏：显示标题栏 -->
             <div
@@ -133,8 +142,8 @@
               >
                 <slot name="header-left"></slot>
               </div>
-              <!-- 标题 -->
-              <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
+              <!-- 标题（使用 finalConfig 以兼容预设类型） -->
+              <div class="text-h6" :class="titleAlignClass">{{ finalConfig.title }}</div>
               <!-- 标题右侧插槽 -->
               <div
                 v-if="$slots['header-right']"
@@ -177,26 +186,33 @@
               <img src="icons/close.svg" alt="close" class="close-btn" @click.stop="handleClose" />
             </div>
 
-            <!-- 内容区域 -->
+            <!-- 内容区域：删除类型优先使用插槽内容或默认提示 -->
             <div class="dialog-content-section" :class="{ 'dialog-content-rounded': fullscreen }">
-              <slot></slot>
+              <template v-if="props.type === 'delete'">
+                <slot>
+                  <div class="delete-confirm-content">
+                    {{ props.deleteContent }}
+                  </div>
+                </slot>
+              </template>
+              <slot v-else></slot>
             </div>
 
-            <!-- 底部操作按钮区域 -->
-            <div v-if="showFooter" class="dialog-footer-section">
+            <!-- 底部操作按钮区域（使用 finalConfig 以兼容预设类型） -->
+            <div v-if="finalConfig.showFooter" class="dialog-footer-section">
               <!-- 取消按钮 -->
               <CommonActionButton
-                :label="cancelText"
+                :label="finalConfig.cancelText"
                 size="mdCompact"
                 variant="ghost"
                 @click="emit('cancel')"
               />
               <!-- 确定按钮 -->
               <CommonActionButton
-                :label="confirmText"
+                :label="displayedConfirmLabel"
                 size="mdCompact"
-                :variant="confirmVariant"
-                :disabled="confirmDisabled"
+                :variant="finalConfig.confirmVariant"
+                :disabled="confirmDisabled || props.processing"
                 @click="emit('confirm')"
               />
             </div>
@@ -220,7 +236,11 @@ import CommonActionButton from './CommonActionButton.vue'
 
 interface Props {
   modelValue: boolean
-  title: string
+  title?: string
+  type?: 'delete' // 预设类型，目前支持删除确认
+  deleteContent?: string // 删除确认的自定义内容
+  processing?: boolean // 父组件传入：是否处于处理（删除）中
+  processingText?: string // 处理中文本，如 "删除中..."
   initialWidth?: number
   initialHeight?: number
   minWidth?: number
@@ -240,6 +260,11 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  title: '',
+  type: undefined,
+  deleteContent: '确定要删除这条消息吗？删除后无法恢复。',
+  processing: false,
+  processingText: '删除中...',
   initialWidth: 800,
   initialHeight: 600,
   minWidth: 400,
@@ -282,6 +307,57 @@ const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
 // 标题对齐样式类
 const titleAlignClass = computed(() => {
   return props.titleAlign === 'left' ? 'title-align-left' : 'title-align-center'
+})
+
+// 根据 type 自动配置对话框参数
+const presetConfig = computed(() => {
+  switch (props.type) {
+    case 'delete':
+      return {
+        title: '删除确认',
+        showFooter: true,
+        confirmVariant: 'danger' as const,
+        confirmText: '删除',
+        cancelText: '取消',
+        initialWidth: 360,
+        initialHeight: 190,
+        minWidth: 300,
+        minHeight: 160,
+        content: '确定要删除这条消息吗？删除后无法恢复。',
+      }
+    default:
+      return null
+  }
+})
+
+// 最终使用的配置（预设配置优先级低于手动设置）
+const finalConfig = computed(() => {
+  const preset = presetConfig.value
+  if (!preset) {
+    return {
+      title: props.title || '',
+      showFooter: props.showFooter,
+      confirmVariant: props.confirmVariant,
+      confirmText: props.confirmText,
+      cancelText: props.cancelText,
+      initialWidth: props.initialWidth,
+      initialHeight: props.initialHeight,
+      minWidth: props.minWidth,
+      minHeight: props.minHeight,
+    } as const
+  }
+
+  return {
+    title: props.title || preset.title,
+    showFooter: preset.showFooter,
+    confirmVariant: preset.confirmVariant,
+    confirmText: preset.confirmText,
+    cancelText: preset.cancelText,
+    initialWidth: preset.initialWidth,
+    initialHeight: preset.initialHeight,
+    minWidth: preset.minWidth,
+    minHeight: preset.minHeight,
+  } as const
 })
 
 // 流程：分屏比例（左侧面板占比）
@@ -392,9 +468,15 @@ const handleOverlayClick = () => {
   handleClose()
 }
 
+// 确认按钮显示文本（支持 processing 状态）
+const displayedConfirmLabel = computed(() => {
+  if (props.processing) return props.processingText || '删除中...'
+  return finalConfig.value.confirmText
+})
+
 watch(isOpen, (newValue) => {
   if (newValue) {
-    dialogSize.value = { width: props.initialWidth, height: props.initialHeight }
+    dialogSize.value = { width: finalConfig.value.initialWidth, height: finalConfig.value.initialHeight }
     dialogPosition.value = { x: 0, y: 0 }
     // 锁定 body 滚动
     document.body.style.overflow = 'hidden'
@@ -699,6 +781,16 @@ watch(isOpen, (newValue) => {
 
 .dialog-content-section::-webkit-scrollbar-thumb {
   background: transparent;
+}
+
+/* 删除确认内容样式 */
+.delete-confirm-content {
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 /* 底部操作按钮区域样式（复用 ScreenshotInputDialog 样式） */

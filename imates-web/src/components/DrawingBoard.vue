@@ -107,21 +107,11 @@
     <!-- 清空画布确认对话框 -->
     <DraggableDialog
       v-model="showClearConfirmDialog"
-      title="提示"
-      :initial-width="420"
-      :initial-height="220"
-      :min-width="360"
-      :min-height="180"
-      title-align="left"
-      header-background-color="#ffffff"
-      :show-footer="true"
+      type="delete"
+      :delete-content="'确定要清空当前草稿内容？'"
       @confirm="handleConfirmClear"
       @cancel="handleCancelClear"
-    >
-      <div class="clear-confirm-dialog">
-        确定要清空当前草稿内容？
-      </div>
-    </DraggableDialog>
+    />
 
     <PerfectFreehandConfigDialog
       v-model="pfConfigDialogVisible"

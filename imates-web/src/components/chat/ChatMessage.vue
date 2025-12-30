@@ -252,22 +252,10 @@
 
     <DraggableDialog
       v-model="showDeleteConfirmDialog"
-      title="删除确认"
-      :show-footer="true"
-      confirm-variant="danger"
-      confirm-text="删除"
-      cancel-text="取消"
-      :initial-width="360"
-      :initial-height="190"
-      :min-width="300"
-      :min-height="160"
+      type="delete"
       @cancel="handleCancelDelete"
       @confirm="confirmDelete"
-    >
-      <div>
-        确定要删除这条消息吗？删除后无法恢复。
-      </div>
-    </DraggableDialog>
+    />
   </div>
 </template>
 
@@ -1872,6 +1860,7 @@ onUnmounted(() => {
 .message-action-menu {
   z-index: 1000;
 }
+
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {

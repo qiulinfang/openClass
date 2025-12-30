@@ -79,22 +79,11 @@
     <!-- 清空画布确认对话框 -->
     <DraggableDialog
       v-model="showClearDialog"
-      title="确认清空画布"
-      :show-footer="true"
-      confirm-text="清空"
-      cancel-text="取消"
-      confirm-variant="danger"
-      :initial-width="360"
-      :initial-height="190"
-      :min-width="300"
-      :min-height="160"
+      type="delete"
+      :delete-content="'确定要清空画布吗？此操作不可撤销。'"
       @confirm="confirmClearCanvas"
       @cancel="cancelClearCanvas"
-    >
-      <div class="delete-confirm-content">
-        {{ '确定要清空画布吗？此操作不可撤销。' }}
-      </div>
-    </DraggableDialog>
+    />
   </div>
 </template>
 

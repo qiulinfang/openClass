@@ -330,20 +330,11 @@
     <!-- 删除会话确认对话框 -->
     <DraggableDialog
       v-model="showDeleteConfirmDialog"
-      title="确认删除"
-      :show-footer="true"
-      confirm-variant="danger"
-      :initial-width="320"
-      :initial-height="180"
-      :min-width="280"
-      :min-height="150"
+      type="delete"
+      :delete-content="`确认删除「${pendingDeleteSessionTitle}」？`"
       @cancel="cancelDeleteSession"
       @confirm="confirmDeleteSession"
-    >
-      <div class="delete-confirm-content">
-        {{ `确认删除「${pendingDeleteSessionTitle}」？` }}
-      </div>
-    </DraggableDialog>
+    />
 
     <!-- 图片批注对话框：复用 PdfViewerView 的截图批注能力（DrawingBoard） -->
     <ScreenshotInputDialog

@@ -292,37 +292,18 @@
         />
 
         <!-- 删除教材确认对话框 -->
-        <q-dialog v-model="showDeleteDialog" persistent>
-          <q-card style="min-width: 350px">
-            <q-card-section>
-              <div class="text-h6">删除教材</div>
-            </q-card-section>
-
-            <q-card-section class="q-pt-none">
-              <div class="text-body1">确定要删除《{{ deleteTextbookName }}》吗？</div>
-              <div class="text-body2 text-grey-7 q-mt-sm">
-                删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。
-              </div>
-            </q-card-section>
-
-            <q-card-actions align="right">
-              <button
-                class="dialog-btn dialog-btn-cancel"
-                @click="showDeleteDialog = false"
-              >
-                取消
-              </button>
-              <button
-                class="dialog-btn dialog-btn-confirm"
-                @click="confirmDeleteTextbook"
-                :disabled="deleting"
-              >
-                <span v-if="deleting">删除中...</span>
-                <span v-else>确定</span>
-              </button>
-            </q-card-actions>
-          </q-card>
-        </q-dialog>
+        <DraggableDialog
+          v-model="showDeleteDialog"
+          type="delete"
+          :delete-content="'确定要删除《' + deleteTextbookName + '》吗？删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。'"
+          :show-footer="true"
+          confirm-variant="danger"
+          :processing="deleting"
+          processing-text="删除中..."
+          cancel-text="取消"
+          @cancel="showDeleteDialog = false"
+          @confirm="confirmDeleteTextbook"
+        />
       </q-page>
     </q-page-container>
   </q-layout>
@@ -2220,6 +2201,24 @@ onUnmounted(async () => {
         }
       }
     }
+  }
+}
+
+/* 删除教材确认对话框样式 */
+.delete-textbook-content {
+  padding: 16px 20px;
+
+  .text-body1 {
+    font-size: 16px;
+    color: #374151;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+
+  .text-body2 {
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.4;
   }
 }
 </style>

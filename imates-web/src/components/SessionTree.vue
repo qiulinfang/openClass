@@ -171,6 +171,17 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- 删除确认对话框 -->
+    <DraggableDialog
+      v-model="showDeleteConfirmDialog"
+      type="delete"
+      :delete-content="deleteConfirmContent"
+      :processing="deleting"
+      processing-text="删除中..."
+      @cancel="cancelDelete"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -188,6 +199,7 @@ import { getCurrentUserIdOrDefault } from '@/services'
 import SearchInput from './SearchInput.vue'
 import RubberBandList from './RubberBandList.vue'
 import BubblePopup from './BubblePopup.vue'
+import DraggableDialog from './DraggableDialog.vue'
 import search1Icon from '../../public/icons/search1.svg'
 
 // 定义 emits
@@ -294,6 +306,18 @@ const favoriteUpdateTrigger = ref(0)
 
 // 会话更多菜单显示状态（key 为 sessionId）
 const showMoreMenu = ref<Record<string, boolean>>({})
+
+// 删除确认对话框
+const showDeleteConfirmDialog = ref(false)
+const pendingDeleteNode = ref<TreeNode | null>(null)
+
+// 删除处理中状态
+const deleting = ref(false)
+
+// 删除确认内容
+const deleteConfirmContent = computed(() => {
+  return `确定要删除会话 "${pendingDeleteNode.value?.label || ''}" 吗？删除后无法恢复。`
+})
 
 // ==================== 计算属性 ====================
 
@@ -633,26 +657,21 @@ const confirmRename = async () => {
     return
   }
 
+  let sessionId: string | undefined
   try {
-    const sessionId = currentSessionNode.value.sessionId
+    sessionId = currentSessionNode.value.sessionId
     const newName = newSessionName.value.trim()
-    
+
     // 直接调用 store 方法完成重命名
     await aiGeneralStore.renameSession(sessionId, newName)
-    
-    // 更新本地会话列表中的名称
-    const index = aiGeneralStore.sessions.findIndex(
-      (s) => s.sessionId === sessionId,
-    )
+
+    // 更新本地会话列表中的名称（防护：再次查找）
+    const index = aiGeneralStore.sessions.findIndex((s) => s.sessionId === sessionId)
     if (index >= 0) {
       aiGeneralStore.sessions[index].sessionName = newName
       await aiGeneralStore.saveSessions()
     }
-    
-    // 关闭对话框
-    showRenameDialog.value = false
-    currentSessionNode.value = null
-    
+
     // 显示成功消息
     $q.notify({
       type: 'positive',
@@ -668,6 +687,11 @@ const confirmRename = async () => {
       position: 'top',
       timeout: 2000,
     })
+  } finally {
+    // 关闭对话框（保证无论成功或失败都会关闭），并清理状态
+    showRenameDialog.value = false
+    currentSessionNode.value = null
+    newSessionName.value = ''
   }
 }
 
@@ -740,10 +764,20 @@ const handleFavorite = (node: TreeNode) => {
   }
 }
 
-// 处理删除
-const handleDelete = async (node: TreeNode) => {
+// 处理删除 - 显示确认对话框
+const handleDelete = (node: TreeNode) => {
   if (node.level !== 2 || !node.sessionId) return
 
+  // 显示删除确认对话框
+  pendingDeleteNode.value = node
+  showDeleteConfirmDialog.value = true
+}
+
+// 确认删除
+const confirmDelete = async () => {
+  const node = pendingDeleteNode.value
+  if (!node) return
+  deleting.value = true
   try {
   if (node.category === 'ai') {
       // 检查是否是当前会话
@@ -828,7 +862,18 @@ const handleDelete = async (node: TreeNode) => {
       position: 'top',
       timeout: 2000,
     })
+  } finally {
+    // 清理状态
+    deleting.value = false
+    showDeleteConfirmDialog.value = false
+    pendingDeleteNode.value = null
   }
+}
+
+// 取消删除
+const cancelDelete = () => {
+  showDeleteConfirmDialog.value = false
+  pendingDeleteNode.value = null
 }
 
 // 格式化时间（相对时间）

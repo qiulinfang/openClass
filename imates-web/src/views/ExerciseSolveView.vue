@@ -216,20 +216,11 @@
     <!-- 清除所有会话确认对话框 -->
     <DraggableDialog
       v-model="showClearAllConfirmDialog"
-      title="确认清除会话"
-      :show-footer="true"
-      confirm-variant="danger"
-      :initial-width="360"
-      :initial-height="190"
-      :min-width="300"
-      :min-height="160"
+      type="delete"
+      :delete-content="'确定要清除当前题目的所有会话吗？此操作不可撤销。'"
       @cancel="showClearAllConfirmDialog = false"
       @confirm="confirmClearAllSessions"
-    >
-      <div class="delete-confirm-content">
-        {{ '确定要清除当前题目的所有会话吗？此操作不可撤销。' }}
-      </div>
-    </DraggableDialog>
+    />
   </div>
 </template>
 

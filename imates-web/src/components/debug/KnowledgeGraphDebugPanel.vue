@@ -2407,23 +2407,24 @@
     </q-card>
   </q-dialog>
 
-  <!-- 删除确认对话框 -->
-  <q-dialog v-model="showDeleteCenterNodeDialog">
-    <q-card style="min-width: 300px">
-      <q-card-section>
-        <div class="text-h6">确认删除</div>
-      </q-card-section>
-      <q-card-section>
-        <div class="text-body1">
-          确定要删除中心节点 "{{ centerNode?.name }}" 吗？此操作不可撤销。
-        </div>
-      </q-card-section>
-      <q-card-actions align="right">
-        <q-btn flat label="取消" color="primary" v-close-popup />
-        <q-btn flat label="删除" color="negative" @click="handleDeleteCenterNode" v-close-popup />
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
+    <!-- 删除确认对话框 -->
+    <q-dialog v-model="showDeleteCenterNodeDialog">
+      <q-card style="min-width: 300px">
+        <q-card-section>
+          <div class="text-h6">确认删除</div>
+        </q-card-section>
+        <q-card-section>
+          <div class="text-body1">
+            确定要删除中心节点 "{{ centerNode?.name }}" 吗？此操作不可撤销。
+          </div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="取消" color="primary" v-close-popup />
+          <q-btn flat label="删除" color="negative" @click="handleDeleteCenterNode" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">

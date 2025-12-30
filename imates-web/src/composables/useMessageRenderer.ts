@@ -6,6 +6,7 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: false, // 完全禁用typographer功能，防止 (C) -> 等字符转换
+  breaks: true, // 将换行符转换为 <br> 标签
 }).use(mathjax3)
 
 export function useMessageRenderer() {
