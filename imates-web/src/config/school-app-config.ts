@@ -102,7 +102,6 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           position: 'bottom',
           routeName: 'myResources',
         },
-        { key: 'logout', label: '退出登录', iconType: 'logout', position: 'bottom' },
       ],
     },
     // 目前沿用与默认学校相同的更新配置路径
@@ -151,7 +150,6 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           position: 'bottom',
           routeName: 'myResources',
         },
-        { key: 'logout', label: '退出登录', iconType: 'logout', position: 'bottom' },
       ],
     },
     // 经开二中：与 default 一致

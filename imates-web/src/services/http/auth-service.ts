@@ -382,6 +382,20 @@ export class AuthService {
     }
 
     const userInfo = (response.data as any).data
+
+    // 保留本地存储的自定义头像
+    try {
+      const existingUserInfo = localStorage.getItem('userInfo')
+      if (existingUserInfo) {
+        const parsed = JSON.parse(existingUserInfo)
+        if (parsed.avatarNew) {
+          userInfo.avatarNew = parsed.avatarNew
+        }
+      }
+    } catch (error) {
+      console.warn('[AuthService] 读取现有用户信息失败:', error)
+    }
+
     try {
       localStorage.setItem('userInfo', JSON.stringify(userInfo))
     } catch {

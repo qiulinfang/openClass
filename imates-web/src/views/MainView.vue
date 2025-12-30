@@ -10,8 +10,8 @@
     <!-- 功能菜单：在部分路由（如作业答题、作业作答）隐藏 -->
     <div class="function-menu" v-if="!hideFunctionMenu">
       <!-- 用户头像 -->
-      <div class="user-avatar" :class="{ 'in-class': isInClass }">
-        <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px" />
+      <div class="user-avatar" :class="{ 'in-class': isInClass }" @click="handleAvatarClick">
+        <img :src="userAvatar" alt="avatar" style="width: 40px; height: 40px" />
         <div class="user-name">{{ displayUserName }}</div>
       </div>
 
@@ -114,6 +114,13 @@
     <!-- 反馈与建议对话框 -->
     <FeedbackDialog v-model="showFeedbackDialog" />
 
+    <!-- 个人信息对话框 -->
+    <ProfileDialog
+      v-model="showProfileDialog"
+      :userInfo="currentUserInfo"
+      @avatar-changed="handleAvatarChanged"
+    />
+
     <!-- 主页右侧统一聊天面板 -->
     <MainChatPanel
       v-if="showMainChatPanel"
@@ -132,12 +139,12 @@ import { useResourceStore } from '@/stores/resourceStore'
 import DraftDialog from '@/components/DraftDialog.vue'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
+import ProfileDialog from '@/components/ProfileDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { authService } from '@/services'
-import { getUserId } from '@/services/http/auth-service'
 import { androidBridge } from '@/services/business/android-bridge'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
@@ -151,7 +158,6 @@ import downloadResourcesIcon from '/icons/downloadResources.svg'
 import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import drawingBoardIcon from '/icons/draw.svg'
-import logoutIcon from '/icons/logout.svg'
 import homeworkIcon from '/icons/homework.png'
 
 // 第2步：导入选中状态图标
@@ -190,6 +196,8 @@ const teacherStore = useTeacherGeneralChatStore()
 const activeNavItem = ref(props.activeNavItem)
 const isInClass = ref(false)
 
+
+
 // 当前学校应用配置（通过 VITE_SCHOOL_ID 区分不同学校版本）
 const currentSchoolAppConfig = getCurrentSchoolAppConfig()
 
@@ -197,18 +205,79 @@ const currentSchoolAppConfig = getCurrentSchoolAppConfig()
 const navMainItems = computed(() => currentSchoolAppConfig.nav.main)
 const navBottomItems = computed(() => currentSchoolAppConfig.nav.bottom)
 
-// 用户名显示：优先 localStorage.userInfo.name，其次 userId（尾段）
-const displayUserName = computed(() => {
+// 用户头像显示：从用户信息中获取
+const userAvatar = computed(() => {
+  return currentUserInfo.value.avatarNew || avatarIcon
+})
+
+// 当前用户信息（用于传递给子组件）
+const currentUserInfo = ref<{
+  id: string
+  name: string
+  avatar: string
+  avatarNew: string
+  roles: string[]
+}>({
+  id: '',
+  name: '',
+  avatar: '',
+  avatarNew: '',
+  roles: []
+})
+
+// 更新当前用户信息
+const updateCurrentUserInfo = () => {
   try {
     const rawUserInfo = localStorage.getItem('userInfo')
     if (rawUserInfo) {
       const parsed = JSON.parse(rawUserInfo)
-      const name = (parsed?.name).toString().trim()
-      if (name) return name
+      if (parsed && typeof parsed === 'object') {
+        currentUserInfo.value = {
+          id: parsed.id || '',
+          name: parsed.name || '',
+          avatar: parsed.avatar || '',
+          avatarNew: parsed.avatarNew || '',
+          roles: parsed.roles || []
+        }
+        return
+      }
     }
   } catch (error) {
     console.warn('[MainView] parse userInfo from localStorage failed', error)
   }
+  // 重置为空数据
+  currentUserInfo.value = {
+    id: '',
+    name: '',
+    avatar: '',
+    avatarNew: '',
+    roles: []
+  }
+}
+
+// 设置用户信息到localStorage并更新响应式状态
+const setUserInfoToStorage = (userInfo: {
+  id: string
+  name: string
+  avatar: string
+  avatarNew: string
+  roles: string[]
+}) => {
+  try {
+    // 更新localStorage
+    localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    // 更新响应式状态
+    currentUserInfo.value = { ...userInfo }
+    console.log('[MainView] 用户信息已更新:', userInfo)
+  } catch (error) {
+    console.error('[MainView] 保存用户信息失败:', error)
+  }
+}
+
+// 用户名显示：从当前用户信息中获取
+const displayUserName = computed(() => {
+  const name = currentUserInfo.value.name?.toString().trim()
+  return name || '用户'
 })
 
 // keep-alive 缓存的组件列表
@@ -232,6 +301,7 @@ const cachedComponents = ref<string[]>([
 const showDraftDialog = ref(false)
 const showTeacherChatDialog = ref(false)
 const showFeedbackDialog = ref(false)
+const showProfileDialog = ref(false)
 const teacherChatSubject = ref<'biology' | 'math'>('math')
 const teacherChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 
@@ -384,11 +454,6 @@ const currentDownloadResourcesIcon = computed(() => {
   return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
 })
 
-const currentLogoutIcon = computed(() => {
-  // 退出登录没有选中状态，始终使用普通图标
-  return logoutIcon
-})
-
 // 根据导航项配置获取当前应显示的图标（普通/选中）
 const getNavIcon = (item: NavItemConfig) => {
   switch (item.iconType) {
@@ -404,10 +469,8 @@ const getNavIcon = (item: NavItemConfig) => {
       return currentDrawingBoardIcon.value
     case 'resources':
       return currentDownloadResourcesIcon.value
-    case 'logout':
-      return currentLogoutIcon.value
     default:
-      return currentLogoutIcon.value
+      return currentDownloadResourcesIcon.value
   }
 }
 
@@ -572,7 +635,10 @@ watch(
 
 // 初始化按钮位置
 onMounted(async () => {
-  // 第1步：初始化按钮位置
+  // 第1步：加载用户信息
+  updateCurrentUserInfo()
+
+  // 第2步：初始化按钮位置
   fabPosition.value = { x: 18, y: 18 }
 
   // 监听课堂状态，高亮头像
@@ -636,10 +702,6 @@ onMounted(async () => {
   })
 })
 
-// 切换“去资源下载”气泡显示状态
-const toggleGoResourcesBubble = () => {
-  showGoResourcesBubble.value = !showGoResourcesBubble.value
-}
 
 // 跳转到资源下载页
 const goToResources = () => {
@@ -659,6 +721,20 @@ const handleToggleUnifiedChatMode = () => {
   uiStore.showAIChatDialog = false
   // 打开主页右侧聊天面板
   showMainChatPanel.value = true
+}
+
+// 处理头像更改事件
+const handleAvatarChanged = (newAvatarUrl: string) => {
+  // 更新用户信息并持久化到localStorage
+  setUserInfoToStorage({
+    ...currentUserInfo.value,
+    avatarNew: newAvatarUrl
+  })
+}
+
+// 处理头像点击
+const handleAvatarClick = () => {
+  showProfileDialog.value = true
 }
 
 // 处理草稿本点击
@@ -816,9 +892,6 @@ const handleNavItemClick = (item: NavItemConfig) => {
     case 'resources':
       handleMyResourcesClick()
       break
-    case 'logout':
-      handleLogoutClick()
-      break
     default:
       // 兜底：如果配置了 routeName，则直接按路由跳转
       if (item.routeName) {
@@ -880,29 +953,6 @@ const handleKnowledgeGraphClick = () => {
   router.push({ name: 'knowledgeGraph' })
 }
 
-// 处理退出登录点击
-const handleLogoutClick = async () => {
-  try {
-    // 如果工具箱区域是打开的，则关闭它
-    if (showToolbox.value) {
-      showToolbox.value = false
-    }
-    if (androidBridge.isAndroidBridgeAvailable()) {
-      try {
-        androidBridge.stopScreenProjection()
-      } catch {
-      }
-      try {
-        androidBridge.exitClassroom()
-      } catch {
-      }
-    }
-    // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
-    router.push('/login')
-  } catch (error) {
-    console.error('退出登录失败:', error)
-  }
-}
 </script>
 
 <style lang="scss" scoped>
@@ -971,6 +1021,21 @@ const handleLogoutClick = async () => {
       .user-name {
         color: #059669;
       }
+    }
+
+    // 点击效果
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 12px;
+
+    &:hover {
+      background: rgba(138, 99, 255, 0.05);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+      background: rgba(138, 99, 255, 0.08);
     }
   }
 
