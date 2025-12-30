@@ -1011,7 +1011,7 @@ const handleKnowledgeGraphClick = () => {
       background: linear-gradient(180deg, #e0f7ef 0%, #f6fffb 100%);
       border-radius: 16px;
       box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
-      padding: 12px 10px;
+      animation: breathing 2s ease-in-out infinite;
 
       img {
         background: #d1fae5;
@@ -1376,6 +1376,16 @@ const handleKnowledgeGraphClick = () => {
     width: 100%;
     flex: 1;
     min-height: 0;
+  }
+}
+
+// 呼吸灯动画效果
+@keyframes breathing {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.25);
   }
 }
 </style>

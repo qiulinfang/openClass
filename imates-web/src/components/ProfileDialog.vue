@@ -1,58 +1,72 @@
 <template>
-  <DraggableDialog
-    v-model="localVisible"
-    title="个人信息"
-    :auto-size="true"
-    title-align="left"
-    header-background-color="#ffffff"
-    class="profile-dialog"
-  >
-    <div class="profile-dialog-content">
-      <!-- 用户信息列表 -->
-      <div class="profile-list">
-        <!-- 头像项 -->
-        <div class="list-item avatar-item" @click="handleAvatarClick">
-          <div class="item-label">头像</div>
-          <div class="item-content">
-            <div class="user-avatar-list">
-              <img :src="currentAvatar" alt="avatar" class="avatar-image-list" />
-              <div class="avatar-overlay-list">
-                <span class="change-avatar-text">更换</span>
+  <div>
+    <DraggableDialog
+      v-model="localVisible"
+      title="个人信息"
+      :auto-size="true"
+      title-align="left"
+      header-background-color="#ffffff"
+      class="profile-dialog"
+    >
+      <div class="profile-dialog-content">
+        <!-- 用户信息列表 -->
+        <div class="profile-list">
+          <!-- 头像项 -->
+          <div class="list-item avatar-item" @click="handleAvatarClick">
+            <div class="item-label">头像</div>
+            <div class="item-content">
+              <div class="user-avatar-list">
+                <img :src="currentAvatar" alt="avatar" class="avatar-image-list" />
+                <div class="avatar-overlay-list">
+                  <span class="change-avatar-text">更换</span>
+                </div>
               </div>
             </div>
+            <div class="item-arrow">›</div>
           </div>
-          <div class="item-arrow">›</div>
-        </div>
 
-        <!-- 用户名项 -->
-        <div class="list-item">
-          <div class="item-label">用户名</div>
-          <div class="item-content">
-            <span class="item-value">{{ displayUserName }}</span>
+          <!-- 用户名项 -->
+          <div class="list-item">
+            <div class="item-label">用户名</div>
+            <div class="item-content">
+              <span class="item-value">{{ displayUserName }}</span>
+            </div>
           </div>
-        </div>
 
-        <!-- 用户ID项 -->
-        <div class="list-item">
-          <div class="item-label">用户ID</div>
-          <div class="item-content">
-            <span class="item-value">{{ userId }}</span>
+          <!-- 用户ID项 -->
+          <div class="list-item">
+            <div class="item-label">用户ID</div>
+            <div class="item-content">
+              <span class="item-value">{{ userId }}</span>
+            </div>
           </div>
-        </div>
 
-        <!-- 退出登录项 -->
-        <div class="list-item logout-item">
-          <CommonActionButton
-            label="退出登录"
-            variant="danger"
-            size="lg"
-            :loading="isLoggingOut"
-            @click="handleLogout"
-          />
+          <!-- 退出登录项 -->
+          <div class="list-item logout-item">
+            <CommonActionButton
+              label="退出登录"
+              variant="danger"
+              size="lg"
+              :loading="isLoggingOut"
+              @click="handleLogout"
+            />
+          </div>
         </div>
       </div>
-    </div>
-  </DraggableDialog>
+    </DraggableDialog>
+
+    <!-- 退出登录确认对话框 -->
+    <DraggableDialog
+      v-model="showLogoutConfirm"
+      type="delete"
+      title="退出确认"
+      :delete-content="'确定要退出登录吗？退出后将清除所有本地数据。'"
+      :processing="isLoggingOut"
+      processing-text="退出中..."
+      @confirm="confirmLogout"
+      @cancel="cancelLogout"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -94,6 +108,7 @@ const localVisible = computed({
 
 // 响应式数据
 const isLoggingOut = ref(false)
+const showLogoutConfirm = ref(false)
 const { pickImage } = useImagePicker()
 
 // 图片选择器
@@ -144,9 +159,15 @@ const handleAvatarClick = async () => {
 }
 
 // 处理退出登录
-const handleLogout = async () => {
+const handleLogout = () => {
+  showLogoutConfirm.value = true
+}
+
+// 确认退出登录
+const confirmLogout = async () => {
   try {
     isLoggingOut.value = true
+    showLogoutConfirm.value = false
 
     // 如果在课堂中，先退出课堂
     if (androidBridge.isAndroidBridgeAvailable()) {
@@ -175,6 +196,11 @@ const handleLogout = async () => {
   } finally {
     isLoggingOut.value = false
   }
+}
+
+// 取消退出登录
+const cancelLogout = () => {
+  showLogoutConfirm.value = false
 }
 </script>
 
