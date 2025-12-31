@@ -31,7 +31,12 @@
           enableExplorer: false, // 禁用探索器
           enableAssistiveMml: false, // 禁用辅助MathML
           enableCollapsible: false, // 禁用折叠功能
-          enableEnrichment: false // 禁用富化功能
+          enableEnrichment: false, // 禁用富化功能
+          // 确保在所有环境下都禁用辅助MathML
+          assistiveMml: false,
+          renderActions: {
+            assistiveMml: []
+          }
         },
         startup: {
           ready: function () {
@@ -93,12 +98,12 @@
     <script type="text/javascript" id="MathJax-script" async
       src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
     </script>
-    <script type="module" crossorigin src="./assets/index.DgdpASt9.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/vendor.BLcj25tW.js">
+    <script type="module" crossorigin src="./assets/index.Q0NeUptb.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/vendor.BDfCpEEC.js">
     <link rel="modulepreload" crossorigin href="./assets/_commonjsHelpers.DsqdWQfm.js">
     <link rel="modulepreload" crossorigin href="./assets/__vite-browser-external.D7Ct-6yo.js">
     <link rel="modulepreload" crossorigin href="./assets/chunk-DfAF0w94.qwHW_6P2.js">
-    <link rel="stylesheet" crossorigin href="./assets/index.B-HfiX6a.css">
+    <link rel="stylesheet" crossorigin href="./assets/index.Ddfbqwbn.css">
   </head>
   <body>
     <div id="app"></div>

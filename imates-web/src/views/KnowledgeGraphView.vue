@@ -1657,13 +1657,13 @@ const selectChapter = async (index: number) => {
 // 检查并打开学习对话框（从路由参数）
 const checkAndOpenLearningDialog = () => {
   const openLearning = route.query.openLearning === 'true'
-  
+
   if (openLearning) {
     const learningNodeId = route.query.learningNodeId as string
     const learningSectionName = route.query.learningSectionName as string
     const learningLevel = route.query.learningLevel as string
     const textbookId = route.query.textbookId as string
-    
+
     // 验证必要参数是否存在
     if (learningNodeId && learningSectionName && textbookId) {
       // 设置对话框数据
@@ -1671,7 +1671,12 @@ const checkAndOpenLearningDialog = () => {
         nodeId: learningNodeId,
         sectionName: learningSectionName,
         level: parseInt(learningLevel) || 1,
-        textbookId: textbookId
+        textbookId: textbookId,
+        // 从路由参数中获取章节信息，确保微课按钮状态正确
+        chapterGrade: route.query.learningChapterGrade as string,
+        chapterSubject: route.query.learningChapterSubject as string,
+        chapterTextbook: route.query.learningChapterTextbook as string,
+        chapterTitle: route.query.learningChapterTitle as string,
       }
       
       // 显示对话框

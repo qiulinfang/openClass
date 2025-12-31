@@ -91,7 +91,10 @@ export class MathJaxUtils {
   // 添加元素到渲染队列
   private static addToRenderQueue(element: HTMLElement, priority: number = 0): void {
     // 避免重复渲染
-    if (this.renderedElements.has(element)) return;
+    if (this.renderedElements.has(element)) {
+      console.log('[MathJax] 重复渲染跳过:', element.tagName)
+      return;
+    }
 
     const task: RenderTask = {
       element,
@@ -102,7 +105,7 @@ export class MathJaxUtils {
     // 按优先级和时间戳排序
     const insertIndex = this.renderQueue.findIndex(
       (t) => t.priority < priority || (t.priority === priority && t.timestamp > task.timestamp)
-      
+
     );
 
     if (insertIndex === -1) {
@@ -151,12 +154,13 @@ export class MathJaxUtils {
     if (typeof window !== 'undefined' && window.MathJax && window.MathJax.typesetPromise) {
       try {
         await window.MathJax.typesetPromise(elements);
+
         // 延迟禁用右键菜单，确保MathJax渲染完成
         setTimeout(() => {
           elements.forEach(element => this.disableMathJaxContextMenu(element));
         }, 100);
       } catch (error) {
-        console.warn('MathJax 批量渲染错误:', error);
+        console.error('[MathJax] 批量渲染错误:', error)
       }
     }
   }

@@ -44,7 +44,7 @@ export class ResourceManager {
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
       // 升级版本号，新增 knowledge_graph_chapter_structure 表用于缓存知识图谱章节结构
-      version: 11,
+      version: 12,
       stores: [
         {
           name: 'textbooks',

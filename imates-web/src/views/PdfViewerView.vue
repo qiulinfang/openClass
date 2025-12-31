@@ -476,6 +476,11 @@ const handleGoBack = () => {
         learningSectionName: (route.query.sectionName as string) || (route.query.textbookName as string),
         learningLevel: route.query.learningLevel as string,
         textbookId: route.query.id as string,
+        // ✅ 修复：添加章节信息传递，确保返回后微课按钮能正常显示
+        learningChapterGrade: route.query.chapterGrade as string,
+        learningChapterSubject: route.query.chapterSubject as string,
+        learningChapterTextbook: route.query.chapterTextbook as string,
+        learningChapterTitle: route.query.chapterTitle as string,
       },
     })
   } else {

@@ -31,7 +31,12 @@
           enableExplorer: false, // 禁用探索器
           enableAssistiveMml: false, // 禁用辅助MathML
           enableCollapsible: false, // 禁用折叠功能
-          enableEnrichment: false // 禁用富化功能
+          enableEnrichment: false, // 禁用富化功能
+          // 确保在所有环境下都禁用辅助MathML
+          assistiveMml: false,
+          renderActions: {
+            assistiveMml: []
+          }
         },
         startup: {
           ready: function () {

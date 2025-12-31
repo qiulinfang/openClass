@@ -234,7 +234,7 @@
     <Transition name="drawer-slide">
       <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
         <button type="button" class="drawer-back-btn" @click="handleCloseDrawer">
-          <img src="/icons/goback.svg" alt="返回" class="drawer-back-icon" />
+          <img :src="goBackIcon" alt="返回" class="drawer-back-icon" />
         </button>
         <div class="drawer-content" @click.stop>
           <!-- 识别图片区域 -->
@@ -269,23 +269,21 @@
 
           <!-- 关键词搜题内容 -->
           <div v-if="activeTab === 'keyword'" class="keyword-search-container">
-            <textarea
+            <AutoHeightTextarea
               ref="keywordInputRef"
               v-model="keywordText"
-              class="keyword-input"
-              placeholder="可输入关键字进行精确搜题:&#10;输入题目的关键词,空格或逗号分隔多个关键词"
-              rows="4"
+              placeholder="可输入关键字进行精确搜题，输入题目的关键词，空格或逗号分隔多个关键词"
+              :min-height="44"
+              :max-height="120"
+              :show-action-button="true"
+              action-button-class="keyword-search-btn"
+              action-button-color="primary"
+              action-button-icon="search"
+              :action-button-loading="isKeywordSearching"
+              :action-button-disabled="!keywordText.trim()"
               @keydown.ctrl.enter="handleKeywordSearch"
               @keydown.meta.enter="handleKeywordSearch"
-            ></textarea>
-            <q-btn
-              round
-              class="keyword-search-btn"
-              color="primary"
-              icon="search"
-              @click="handleKeywordSearch"
-              :loading="isKeywordSearching"
-              :disable="!keywordText.trim()"
+              @action-click="handleKeywordSearch"
             />
           </div>
           <!-- 关键词搜索结果展示 -->
@@ -388,6 +386,7 @@ import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
 import { useQuestionStore } from '@/stores/questionStore'
 import ChatView from '@/components/ChatView.vue'
+import AutoHeightTextarea from '@/components/AutoHeightTextarea.vue'
 
 import goBackIcon from '/icons/goback.svg'
 import searchMathIcon from '/icons/searchMath.svg'
@@ -440,7 +439,7 @@ const keywordText = ref<string>('') // 关键词输入
 const isKeywordSearching = ref(false) // 关键词搜索状态
 
 // 关键词输入框和结果区域引用
-const keywordInputRef = ref<HTMLTextAreaElement | null>(null)
+const keywordInputRef = ref<InstanceType<typeof AutoHeightTextarea> | null>(null)
 const keywordResultRef = ref<HTMLDivElement | null>(null)
 
 // 拍照搜题内容引用
@@ -2582,7 +2581,8 @@ onUnmounted(() => {
   position: relative;
   box-sizing: border-box;
   margin-top: 10px;
-  height: 180px;
+  max-height: 300px;
+  overflow-x: auto;
   overflow-y: auto;
 }
 
@@ -2603,8 +2603,7 @@ onUnmounted(() => {
   border: 1px solid #e0e0e0;
   padding: 8px;
   margin-top: 0;
-  padding-top: 0;
-  height: 100%;
+  overflow-x: auto;
   overflow-y: auto;
   box-sizing: border-box;
 }
@@ -2614,8 +2613,30 @@ onUnmounted(() => {
   line-height: 1.6;
   color: #333;
   margin-bottom: 12px;
-  white-space: pre-wrap;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   word-break: break-word;
+
+  // 内容滚动条样式
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.4);
+  }
 
   // Markdown 内容样式
   :deep(p) {
@@ -2702,13 +2723,13 @@ onUnmounted(() => {
   padding: 0;
   background: white;
   margin: 10px 0;
-  height: 120px;
+  // 移除固定高度，让容器根据内容自动调整
 }
 
 .keyword-result-wrapper {
   position: relative;
   box-sizing: border-box;
-  height: 180px;
+  max-height: 250px;
   overflow-y: auto;
 }
 
@@ -2718,79 +2739,21 @@ onUnmounted(() => {
   border: 1px solid #e0e0e0;
   padding: 8px 110px 8px 8px;
   margin-top: 0;
-  padding-top: 0;
-  height: 100%;
+  min-height: 60px;
+  max-height: 500px;
   overflow-y: auto;
   box-sizing: border-box;
 }
 
-.keyword-input {
-  width: 100%;
-  border: 1px solid #7a7cff;
-  border-radius: 16px;
-  background: white;
-  height: 100%;
-  padding: 12px 60px 12px 12px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #333;
-  resize: none;
-  transition: all 0.2s ease;
-  box-sizing: border-box;
-  outline: none;
-
-  &::placeholder {
-    color: #999;
-    font-size: 14px;
-    line-height: 1.6;
-    white-space: pre-line;
-  }
-
-  &:hover {
-    border-color: #6a6ce8;
-    box-shadow: 0 4px 16px rgba(122, 124, 255, 0.2), 0 2px 4px rgba(122, 124, 255, 0.15);
-  }
-
-  &:focus {
-    border-color: #5a5cd8;
-    box-shadow: 0 4px 16px rgba(122, 124, 255, 0.25), 0 2px 4px rgba(122, 124, 255, 0.15);
-  }
-}
-
-.keyword-search-btn {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  width: 40px;
-  height: 40px;
-  background: #9c27b0;
-  box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
-  z-index: 10;
-
-  &:hover {
-    background: rgba(156, 39, 176, 0.9);
-  }
-
-  :deep(.q-icon) {
-    color: white;
-    font-size: 20px;
-  }
-
-  &--disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
 
 // ChatView 区域（使用 ChatView + simple 模式）
 .drawer-chat-section {
-  flex-shrink: 0;
+  flex: 1;
   background: transparent;
-  margin-top: auto;
   position: relative;
   display: flex;
   flex-direction: column;
-  max-height: 60vh; // 限制最大高度，避免占满整个屏幕
+  min-height: 0; // 允许内容区域缩小
 
   :deep(.chat-messages-container) {
     background-color: #ffffff;

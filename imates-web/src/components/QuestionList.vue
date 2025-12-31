@@ -495,30 +495,37 @@ let setQuestionCardRefImpl: (
   index: number
 ) => void = () => {}
 
-// 处理内容引用（用于模板中的 ref）
-const handleContentRef = (el: unknown, questionId: string) => {
-  const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
-  if (element instanceof HTMLElement) {
-    setContentRef(element, questionId)
+  // 处理内容引用（用于模板中的 ref）
+  const handleContentRef = (el: unknown, questionId: string) => {
+    const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
+    if (element instanceof HTMLElement) {
+      setContentRef(element, questionId)
+    }
   }
-}
 
-// 设置内容引用，渲染MathJax并标记为已渲染完成
-const setContentRef = async (el: HTMLElement | null, questionId: string) => {
-  if (el) {
-    contentRefs.value.set(questionId, el)
+  // 设置内容引用，渲染MathJax并标记为已渲染完成
+  const setContentRef = async (el: HTMLElement | null, questionId: string) => {
+    if (el) {
+      contentRefs.value.set(questionId, el)
 
-    // 渲染MathJax
-    await MathJaxUtils.renderMath(el, false)
+      // 核心日志：记录MathJax渲染调用
+      console.log('[QuestionList] MathJax渲染题目:', {
+        questionId,
+        题目序号: getQuestionDisplayIndex(questionId),
+        是否包含公式: el.innerHTML.includes('$') || el.innerHTML.includes('\\(')
+      })
 
-    // 给图片添加点击事件监听器
-    await nextTick()
-    attachImageClickListeners(el)
+      // 渲染MathJax
+      await MathJaxUtils.renderMath(el, false)
 
-    // 标记该题目已完成渲染（包括公式和图片处理）
-    questionRenderedMap.value.set(questionId, true)
+      // 给图片添加点击事件监听器
+      await nextTick()
+      attachImageClickListeners(el)
+
+      // 标记该题目已完成渲染（包括公式和图片处理）
+      questionRenderedMap.value.set(questionId, true)
+    }
   }
-}
 
 // 给元素内的所有图片添加点击事件监听器
 const attachImageClickListeners = (container: HTMLElement) => {

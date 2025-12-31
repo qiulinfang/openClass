@@ -60,7 +60,7 @@
       v-model="showLogoutConfirm"
       type="delete"
       title="退出确认"
-      :delete-content="'确定要退出登录吗？退出后将清除所有本地数据。'"
+      :delete-content="'确定要退出登录吗？'"
       :processing="isLoggingOut"
       processing-text="退出中..."
       @confirm="confirmLogout"

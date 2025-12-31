@@ -132,19 +132,19 @@ public class MainWebViewActivity extends AppCompatActivity
     private volatile boolean mForceUpdateRequired = false;
 
     /**
-     * 更新检查的 Runnable，每 60 秒执行一次检查
+     * 更新检查的 Runnable，每 10 秒执行一次检查
      * 每次检查都会发送HTTP请求，如果服务器返回的版本号比当前版本新，则执行更新
      */
     private final Runnable mCheckUpdateRunnable = new Runnable() {
         @Override
         public void run() {
             String updateUrl = getUpdateUrl();
-            
+
             // 每次检查都发送HTTP请求，判断是否需要更新
             checkUpdateWithHttpRequest(updateUrl);
-            
-            // 每一小时执行一次检查
-            mCheckUpdateHandler.postDelayed(this, 60 * 60 * 1000);
+
+            // 每10秒执行一次检查
+            mCheckUpdateHandler.postDelayed(this, 10 * 1000);
         }
     };
 

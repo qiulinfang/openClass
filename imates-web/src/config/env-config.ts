@@ -35,18 +35,18 @@ interface EnvConfig {
 // 环境配置映射
 const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
   [AppEnvType.RELEASE]: {
-    baseUrl: 'http://www.imates.com.cn:9222/blw-edu-service-alc',
+    baseUrl: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
     // 资源服务器：与 VITE_RESOURCE_FILE_BASE 保持一致，使用 9099 端口
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
-      previewPictureQA: '/permission/previewPictureQA',
-      chat: '/permission/chat',
-      chatMath: '/permission/chatMath',
-      chats: '/permission/chats',
-      reviewExplainChatSX: '/permission/reviewExplainChatSX',
+      previewPictureQA: '/ai/2.0/previewPictureQA',
+      chat: '/ai/2.0/chat',
+      chatMath: '/ai/2.0/chatMath',
+      chats: '/ai/2.0/chats',
+      reviewExplainChatSX: '/ai/2.0/reviewExplainChatSX',
     },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,

@@ -112,7 +112,7 @@ export function useMessageRenderer() {
    * 渲染消息内容
    * 处理输入内容，进行LaTeX预处理、Markdown渲染和缓存管理
    */
-  const renderMessageContent = (content: any): string => {
+  const renderMessageContent = (content: unknown): string => {
     try {
       // 1. 标准化输入内容
       const contentStr = typeof content === 'string' ? content : String(content || '')
@@ -139,15 +139,25 @@ export function useMessageRenderer() {
 
       // 6. 预处理LaTeX公式格式
       const processedContent = preprocessLatexFormats(preprocessedMarkdown)
-      // 6. 执行Markdown渲染
+
+      // 7. 执行Markdown渲染
       const rendered = md.render(processedContent)
-      // 7. 后处理渲染结果（清理多余的换行符）
+
+      // 8. 后处理渲染结果（清理多余的换行符）
       const trimmedRendered = rendered.replace(/\n+$/, '')
-      // 8. 管理缓存
+
+      // 核心日志：记录原始内容和渲染结果
+      console.log('[useMessageRenderer] 题目渲染:', {
+        原始内容: contentStr,
+        渲染结果: trimmedRendered,
+        包含公式: trimmedRendered.includes('mjx-container') || trimmedRendered.includes('mjx-chtml')
+      })
+
+      // 9. 管理缓存
       manageCache(contentStr, trimmedRendered)
 
       return trimmedRendered
-    } catch (error) {
+    } catch {
       // 错误处理：返回原始内容的字符串形式
       return typeof content === 'string' ? content : String(content || '')
     }

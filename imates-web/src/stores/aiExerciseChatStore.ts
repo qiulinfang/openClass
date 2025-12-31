@@ -212,14 +212,15 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   /**
    * 发送聊天消息（AI题目场景）
-   * 
+   *
    * 第1步：验证题目
-   * 第2步：创建用户消息
-   * 第3步：创建临时AI回复
-   * 第4步：构建AI请求
-   * 第5步：发送请求
-   * 第6步：更新消息
-   * 第7步：保存历史
+   * 第2步：新建会话ID（如需要）
+   * 第3步：构建并验证AI请求参数
+   * 第4步：创建用户消息
+   * 第5步：创建临时AI回复
+   * 第6步：发送请求
+   * 第7步：更新消息
+   * 第8步：保存历史
    */
   const sendMessage = async (
     content: string,
@@ -238,7 +239,27 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       throw new Error('请先选择一道题目')
     }
     
-    // 第2步：创建用户消息（可选）
+    // 第2步：如果没有 sessionId，则新建（基于题目bmNo）
+    if (!currentSessionId.value) {
+      const questionBmNo = currentQuestion.bmNo || ''
+      const userId = localStorage.getItem('userId') || ''
+      const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
+      currentSessionId.value = newSessionId
+    }
+
+    // 第3步：构建AI请求并验证参数完整性（在插入占位消息前进行校验）
+    const aiRequest = buildAiExerciseMessage(
+      content,
+      currentQuestion,
+      userInfo,
+      subject,
+      enableWebSearch.value,
+      selectedModel,
+      imageData,
+      currentSessionId.value,
+    )
+
+    // 第4步：创建用户消息（可选）
     // 自动检测并去除"我们开始吧"前缀（如果未显式设置 shouldHidePrefix）
     const shouldHidePrefixFlag = hidePrefix || content.includes('我们开始吧')
     if (!skipUserMessage) {
@@ -251,8 +272,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       )
       messages.value.push(userMessage)
     }
-    
-    // 第3步：创建临时AI回复（使用工具函数）
+
+    // 第5步：创建临时AI回复（使用工具函数）
     const tempReplyId = generateUniqueId('temp_ai')
     const tempReply: ChatBubble = {
       id: tempReplyId,
@@ -266,30 +287,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     messages.value.push(tempReply)
     
-    // 第4步：如果没有 sessionId，则新建（基于题目bmNo）
-    if (!currentSessionId.value) {
-      const questionBmNo = currentQuestion.bmNo || ''
-      const userId = localStorage.getItem('userId') || ''
-      const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
-      currentSessionId.value = newSessionId
-    }
-    if (hidePrefix) {
-      content = '我们开始吧'
-    }
-    // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
-    const aiRequest = buildAiExerciseMessage(
-      content,
-      currentQuestion,
-      userInfo,
-      subject,
-      enableWebSearch.value,
-      selectedModel,
-      imageData,
-      currentSessionId.value,
-    )
-    
     try {
-      // 第5步：发送请求（带流式回调）
+      // 第6步：发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
 
       const wrappedOnStream = (chunk: string, isComplete: boolean) => {
@@ -314,15 +313,15 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       }
 
       const response = await apiService.sendChatMessage(aiRequest, onComplete, wrappedOnStream, onHistoryUpdate)
-      
+
       // 第7步：更新回复次数
       chatResponseTimes.value++
-      
+
       // 检查是否可以查看答案
       if (chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) {
         canViewAnswer.value = true
       }
-      
+
       // 第8步：保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {

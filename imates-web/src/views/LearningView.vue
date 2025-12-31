@@ -477,11 +477,30 @@ const loadLearningPackages = async () => {
   try {
     // 直接从IndexedDB获取教材信息，包含学习包数据
     const textbook = await resourceManager.getTextbookInfoById(id.value)
-    if (textbook && textbook.learningPackages) {
+    if (textbook) {
       // 保存教材的textbookId（用于更新缩略图）
       currentTextbookId.value = textbook.textbookId
+
+      // 检查是否有学习包数据，如果没有则按需从服务器获取
+      let packagesToUse = textbook.learningPackages
+      if (!packagesToUse || packagesToUse.length === 0) {
+        // 按需从服务器获取学习资源包
+        try {
+          packagesToUse = await apiService.getLearningResources(textbook.id, true)
+          // 更新IndexedDB中的教材信息
+          if (packagesToUse && packagesToUse.length > 0) {
+            textbook.learningPackages = packagesToUse
+            await resourceManager.updateTextbookInfo(textbook)
+          }
+        } catch (error) {
+          console.warn('按需加载学习资源包失败:', error)
+          packagesToUse = []
+        }
+      }
+
       // 将学习包数据赋值给 learningPackages
-      learningPackages.value = textbook.learningPackages
+      learningPackages.value = packagesToUse || []
+
       // 只处理当前章节的包
       if (sectionId.value) {
         const lowerSectionId = sectionId.value.toLowerCase()
@@ -509,10 +528,10 @@ const loadLearningPackages = async () => {
       }
 
       // 自动选择第一个方案
-      if (textbook.learningPackages.length > 0) {
+      if (learningPackages.value.length > 0) {
         selectedSchemeIndex.value = 0
       }
-      
+
       // 数据加载完成后，延迟检查缩略图（等待UI渲染完成）
       await checkAndGenerateThumbnails()
     } else {
