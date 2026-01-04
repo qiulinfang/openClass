@@ -201,8 +201,14 @@ export class AiChatApi {
     if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA && !raw.includes('data:')) {
       // 尝试提取拼接的 JSON 消息（例如：{...}{...}）
       const normalizedChunk = this.extractMessageFromConcatenatedJson(raw) ?? raw
+
+      // 特殊处理：如果原始消息就是 "end"，直接结束轮询
+      if (normalizedChunk.trim() === 'end') {
+        return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
+      }
+
       const chunk = this.stripTrailingEnd(normalizedChunk)
-      
+
       // 如果有新内容,累积并继续轮询
       if (chunk && chunk.trim()) {
         return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate, true)
