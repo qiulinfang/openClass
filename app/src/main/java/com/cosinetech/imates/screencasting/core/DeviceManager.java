@@ -39,6 +39,8 @@ public class DeviceManager {
 
     private DeviceManagerCallback callback;
 
+    private String deviceIp = "1.2.3.4";
+
     /**
      * 设备管理器回调接口
      */
@@ -102,7 +104,8 @@ public class DeviceManager {
     /**
      * 注册设备（异步）
      */
-    public void registerDevice() {
+    public void registerDevice(String deviceIp) {
+        this.deviceIp = deviceIp;
         new Thread(() -> {
             registerDeviceSync();
         }).start();
@@ -111,15 +114,16 @@ public class DeviceManager {
     /**
      * 同步注册设备
      */
-    public ApiResponse registerDeviceSync() {
+    private ApiResponse registerDeviceSync() {
         String classroom = deviceLocationInfo.getClassroom() != null ? deviceLocationInfo.getClassroom() : "";
         
         ApiResponse response = apiClient.register(
-                deviceLocationInfo.getDeviceId(),
+                deviceIp,
                 deviceLocationInfo.getType().getValue(),
                 deviceLocationInfo.getCity() != null ? deviceLocationInfo.getCity() : "",
                 deviceLocationInfo.getSchool() != null ? deviceLocationInfo.getSchool() : "",
-                classroom
+                classroom,
+                deviceLocationInfo.getName() != null ? deviceLocationInfo.getName() : ""
         );
 
         if (response.isSuccess()) {
@@ -192,9 +196,14 @@ public class DeviceManager {
      * 同步发送心跳
      */
     public ApiResponse sendHeartbeatSync() {
+        String classroom = deviceLocationInfo.getClassroom() != null ? deviceLocationInfo.getClassroom() : "";
         ApiResponse response = apiClient.heartbeat(
-                deviceLocationInfo.getDeviceId(),
-                deviceLocationInfo.getType().getValue()
+                deviceIp,
+                deviceLocationInfo.getType().getValue(),
+                deviceLocationInfo.getCity() != null ? deviceLocationInfo.getCity() : "",
+                deviceLocationInfo.getSchool() != null ? deviceLocationInfo.getSchool() : "",
+                classroom,
+                deviceLocationInfo.getName() != null ? deviceLocationInfo.getName() : ""
         );
 
         if (response.isSuccess()) {

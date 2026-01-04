@@ -248,9 +248,11 @@ public class ClassroomSelectionDialog {
      * 更新学校Spinner
      */
     private void updateSchoolSpinner() {
+        schoolSpinner.setAdapter(null);
         List<String> schools = classroomManager.getSchools();
         schoolAdapter.clear();
         schoolAdapter.addAll(schools);
+        schoolSpinner.setAdapter(schoolAdapter);
         schoolAdapter.notifyDataSetChanged();
     }
 
@@ -258,6 +260,7 @@ public class ClassroomSelectionDialog {
      * 更新教室Spinner
      */
     private void updateClassroomSpinner() {
+        classroomSpinner.setAdapter(null);
         List<ClassroomInfo> classrooms = classroomManager.getClassrooms();
         List<String> classroomNames = new ArrayList<>();
         for (ClassroomInfo classroom : classrooms) {
@@ -265,6 +268,7 @@ public class ClassroomSelectionDialog {
         }
         classroomAdapter.clear();
         classroomAdapter.addAll(classroomNames);
+        classroomSpinner.setAdapter(classroomAdapter);
         classroomAdapter.notifyDataSetChanged();
     }
 

@@ -176,7 +176,7 @@ public class ScreenCastingCommunicator {
             // 2. 获取所有教室并显示选择Dialog
             deviceClientWrapper.showClassroomSelectionDialog(new DeviceClientWrapper.OnClassroomSelectedListener() {
                 public void onSelected(String city, String school, ClassroomInfo classroom) {
-                    deviceClientWrapper.register();
+                    deviceClientWrapper.register(getLocalIpAddress());
                     deviceClientWrapper.startHeartbeat();
                 }
 
@@ -196,11 +196,13 @@ public class ScreenCastingCommunicator {
                 if(!newInfo.getScreens().isEmpty()) {
                     this.pcDeviceIp = newInfo.getScreens().get(0).getIp();
                     Log.e(TAG, "Screen Device: " + pcDeviceIp);
+                    mainHandler.post(() -> commandHandler.onReceivePcIpAddress(pcDeviceIp));
                 }
 
                 if(!newInfo.getTeachers().isEmpty()) {
                     this.teacherPadDeviceIp = newInfo.getTeachers().get(0).getIp();
                     Log.e(TAG, "TeacherPad Device: " + pcDeviceIp);
+                    mainHandler.post(() -> commandHandler.onReceiveTeacherPadIpAddress(teacherPadDeviceIp));
                 }
             });
 
@@ -325,7 +327,7 @@ public class ScreenCastingCommunicator {
 
                 } catch (Exception e) {
                     Log.e(TAG, "接收消息时出错", e);
-                    notifyNetworkError("接收消息时出错: " + e.getMessage());
+                    //notifyNetworkError("接收消息时出错: " + e.getMessage());
                 }
             }
         });
@@ -353,7 +355,7 @@ public class ScreenCastingCommunicator {
 
                 } catch (Exception e) {
                     Log.e(TAG, "接收消息时出错", e);
-                    notifyNetworkError("接收消息时出错: " + e.getMessage());
+                    //notifyNetworkError("接收消息时出错: " + e.getMessage());
                 }
             }
         });

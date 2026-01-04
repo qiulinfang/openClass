@@ -11,6 +11,8 @@ import com.cosinetech.imates.data.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.network.UnsafeOkHttpClient;
 import com.cosinetech.imates.utils.AppUtils;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import okhttp3.MediaType;
@@ -31,6 +33,22 @@ public class ApiGateWayService {
     private static final int HTTP_STATE_UNAUTHORIZED = 401;
     private static final int HTTP_STATE_FORBIDDEN = 403;
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    public static class ImageInfo {
+
+        private String base64DataUrl;
+
+        public ImageInfo(String base64DataUrl) {
+            this.base64DataUrl = base64DataUrl;
+        }
+
+        public JSONObject toJson() throws JSONException {
+            JSONObject obj = new JSONObject();
+            obj.put("base64DataUrl", base64DataUrl);
+            return obj;
+        }
+    }
+
 
     private static class AiResponse {
         public boolean success = false;
@@ -103,6 +121,18 @@ public class ApiGateWayService {
                 json.put("isWebSearch", aiChatMessageRequest.getIsWebSearch());
                 json.put("role", aiChatMessageRequest.getChatRole());
                 json.put("subject", aiChatMessageRequest.getSubject());
+                JSONArray imageArray = new JSONArray();
+                if(aiChatMessageRequest.getBase64Images() != null) {
+                    for (String base64 : aiChatMessageRequest.getBase64Images()) {
+                        if (base64 == null || base64.isEmpty()) {
+                            continue;
+                        }
+
+                        ImageInfo info = new ImageInfo(base64);
+                        imageArray.put(info.toJson());
+                    }
+                }
+                json.put("imageList", imageArray);
 
                 RequestBody body = RequestBody.create(
                         MediaType.parse("application/json; charset=utf-8"),
@@ -200,7 +230,6 @@ public class ApiGateWayService {
                 }
 
                 OkHttpClient client = createClient();
-
 
                 // 构建请求体
                 RequestBody requestBody = new MultipartBody.Builder()
