@@ -385,3 +385,4 @@ setTimeout(() => {
   console.log('🔍 自动执行基础完整性检查...')
   window.chapterInfoTest.checkIntegrity()
 }, 1000)
+

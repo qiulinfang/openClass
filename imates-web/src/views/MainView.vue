@@ -86,7 +86,7 @@
       @touchstart="startDrag"
     >
       <!-- 悬浮功能按钮 -->
-      <button type="button" class="floating-fab-btn" @click.stop="handleFloatingFabClick"></button>
+      <button type="button" class="floating-fab-btn" :style="{ backgroundImage: `url(${ipGif})` }" @click.stop="handleFloatingFabClick"></button>
 
       <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
       <div v-if="shouldShowGoResourcesHint && showGoResourcesBubble" class="go-resources-bubble">
@@ -159,6 +159,7 @@ import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import drawingBoardIcon from '/icons/draw.svg'
 import homeworkIcon from '/icons/homework.png'
+import ipGif from '/icons/ip.gif'
 
 // 第2步：导入选中状态图标
 import toolBoxSelectIcon from '/icons/toolBox_select.svg'
@@ -492,8 +493,8 @@ const startDrag = (event: MouseEvent | TouchEvent) => {
   const currentBottom = fabPosition.value.y
 
   // 计算按钮左上角的位置
-  const buttonLeft = window.innerWidth - currentRight - 56 // 56是按钮宽度
-  const buttonTop = window.innerHeight - currentBottom - 56 // 56是按钮高度
+  const buttonLeft = window.innerWidth - currentRight - 60 // 60是按钮宽度
+  const buttonTop = window.innerHeight - currentBottom - 60 // 60是按钮高度
 
   // 保存鼠标相对按钮左上角的偏移
   dragOffset.value = {
@@ -524,7 +525,7 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
     const newTop = clientY - dragOffset.value.y
 
     // 限制在视口范围内
-    const buttonSize = 56
+    const buttonSize = 60
     const constrainedLeft = Math.max(0, Math.min(window.innerWidth - buttonSize, newLeft))
     const constrainedTop = Math.max(0, Math.min(window.innerHeight - buttonSize, newTop))
 
@@ -1259,12 +1260,12 @@ const handleKnowledgeGraphClick = () => {
   user-select: none;
 
   .floating-fab-btn {
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     border: none;
     outline: none;
-    /* 使用 beaver.svg 作为按钮背景图 */
-    background: url('/icons/beaver.svg') center center / cover no-repeat;
+    /* 背景图片通过内联样式动态设置 */
+    background: center center / cover no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;

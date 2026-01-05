@@ -2664,11 +2664,11 @@ public class WebAppInterface {
                     try {
                         sendLogToWeb("INFO", TAG, "步骤3.4: 开始初始化ScreenShareKit");
                         Log.i(TAG, "[Classroom][Native][Join] uiThread init ScreenShareKit traceId=" + traceId);
-                        sendLogToWeb("DEBUG", TAG, "步骤3.4.1: 配置参数: 1920x1080, 帧率="
-                                + H264MpegTSStreamerManager.ENCODE_FRAME_RATE + ", 码率=8000000");
+                        sendLogToWeb("DEBUG", TAG, "步骤3.4.1: 配置参数: 1280x720, 帧率="
+                                + H264MpegTSStreamerManager.ENCODE_FRAME_RATE + ", 码率=4000000");
                         // 初始化ScreenShareKit
                         ScreenShareKit.INSTANCE.init(activity)
-                                .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000,
+                                .config(1280, 720, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 4000000,
                                         EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 0, 0)
                                 .onH264((buffer, isKeyFrame, width, height, ts) -> {
                                     try {
