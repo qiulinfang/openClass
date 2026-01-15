@@ -19,6 +19,7 @@ import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
 import { getXuebanToken } from '@/services'
+import { useUserClientStore } from '@/stores/userClientStore'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -171,7 +172,7 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const token = getXuebanToken()
   const isLoggedIn = !!token
-  
+
   // 如果访问登录页面或测试页面，直接放行
   if (
     to.name === 'login' ||
@@ -183,18 +184,52 @@ router.beforeEach(async (to, from, next) => {
     to.name === 'renderTest' ||
     to.path === '/render-test'
   ) {
+    console.log("from.path111", from.path)
+    // 如果是从已登录页面跳转到登录页面（比如登录过期），断开 WebSocket 连接
+    console.log("isLoggedIn111", isLoggedIn)
+    if (from.path.startsWith('/app')) {
+      try {
+        const userClientStore = useUserClientStore()
+        console.log("userClientStore.isConnected111", userClientStore.isConnected)
+        if (userClientStore.isConnected) {
+          console.log('[路由守卫] 检测到登录过期或退出登录，断开 WebSocket 连接111')
+          userClientStore.disconnect()
+        }
+      } catch (error) {
+        console.error('[路由守卫] 断开 WebSocket 连接时出错:', error)
+      }
+    }
+
     next()
     return
   }
-  
+
   // 如果访问 /app 下的任何路由，需要登录
   if (to.path.startsWith('/app')) {
     if (!isLoggedIn) {
       next({ name: 'login' })
       return
     }
+    console.log("to.path111", to.path)
+
+    // 已登录用户进入 /app 路由，自动建立 WebSocket 连接
+    try {
+      const userClientStore = useUserClientStore()
+      console.log("userClientStore.isConnected111", userClientStore.isConnected)
+      // 只有在未连接状态时才建立连接
+      if (!userClientStore.isConnected) {
+        console.log('[路由守卫] 检测到用户进入 /app 路由，开始建立 WebSocket 连接111')
+        // 注意：这里不等待连接结果，避免阻塞路由跳转
+        userClientStore.connect().catch(error => {
+          console.error('[路由守卫] WebSocket 连接失败:', error)
+          // 连接失败不阻止路由跳转，用户可以在界面上重试
+        })
+      }
+    } catch (error) {
+      console.error('[路由守卫] 初始化 WebSocket 连接时出错:', error)
+    }
   }
-  
+
   // 如果访问 /photo-search，需要登录
   if (to.path === '/photo-search' || to.path.startsWith('/photo-search')) {
     if (!isLoggedIn) {
@@ -202,7 +237,7 @@ router.beforeEach(async (to, from, next) => {
       return
     }
   }
-  
+
   // 已登录，正常访问
   next()
 })

@@ -60,15 +60,21 @@ const props = defineProps({
   enableRefresh: { type: Boolean, default: false },
   refreshThreshold: { type: Number, default: 100 },
 
-  // 自动加载更多
+  // 自动加载更多（底部）
   enableLoadMore: { type: Boolean, default: false },
   loadMoreThreshold: { type: Number, default: 50 },
+
+  // 自动加载更多（顶部）
+  enableLoadTop: { type: Boolean, default: false },
+  loadTopThreshold: { type: Number, default: 50 },
+
   loading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits<{
   (e: 'refresh'): void
   (e: 'loadMore'): void
+  (e: 'loadTop'): void
 }>()
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
@@ -88,12 +94,22 @@ const refreshText = computed(() => {
 })
 
 const handleScroll = (e: Event) => {
-  if (!props.enableLoadMore || isRefreshing.value || props.loading) return
+  if (isRefreshing.value || props.loading) return
+
   const target = e.target as HTMLElement
   const { scrollTop, clientHeight, scrollHeight } = target
-  const distanceToBottom = scrollHeight - scrollTop - clientHeight
-  if (distanceToBottom <= props.loadMoreThreshold + 1) {
-    emit('loadMore')
+
+  // 检查顶部加载
+  if (props.enableLoadTop && scrollTop <= props.loadTopThreshold) {
+    emit('loadTop')
+  }
+
+  // 检查底部加载
+  if (props.enableLoadMore) {
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight
+    if (distanceToBottom <= props.loadMoreThreshold + 1) {
+      emit('loadMore')
+    }
   }
 }
 
@@ -127,7 +143,7 @@ const moveDrag = (y: number, e: TouchEvent | MouseEvent) => {
     scrollTop + clientHeight >= scrollHeight - 1 && deltaY < 0 && !props.loading
 
   if (isPullingDown || isPullingUp) {
-    if ((e as any).cancelable) e.preventDefault()
+    if ('cancelable' in e && e.cancelable) e.preventDefault()
     currentTranslateY = calculateDamping(deltaY)
     wrapperRef.value.style.transform = `translate3d(0, ${currentTranslateY}px, 0)`
 

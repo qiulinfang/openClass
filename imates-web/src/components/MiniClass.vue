@@ -196,7 +196,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
-import DraggableDialog from './DraggableDialog.vue'
+import DraggableDialog from './dialog/DraggableDialog.vue'
 
 // ==================== Props & Emits ====================
 interface Props {

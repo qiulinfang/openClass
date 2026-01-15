@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
@@ -877,9 +876,6 @@ public class MainWebViewActivity extends AppCompatActivity
         // 启动系统级悬浮FAB按钮服务（在Web应用就绪后启动，确保功能完全准备好）
         startFloatingFabServiceWhenReady();
 
-        // 启动浮动机器人服务（在Web应用就绪后启动，确保功能完全准备好）
-        startFloatingRobotServiceWhenReady();
-
         // 如果有悬浮FAB按钮的action参数，触发CustomEvent
         if (floatingFabAction != null && !floatingFabAction.isEmpty()) {
             // 延迟触发，确保Vue完全初始化
@@ -904,33 +900,6 @@ public class MainWebViewActivity extends AppCompatActivity
         Log.d(TAG, "已尝试启动悬浮FAB按钮服务（Web应用就绪后）");
     }
 
-    /**
-     * 在 Web 应用就绪后启动浮动机器人服务
-     * <p>
-     * 确保 Web 应用和 Vue 完全初始化后再启动服务，
-     * 避免用户点击浮动机器人时功能未准备好。
-     * </p>
-     * <p>
-     * 根据 Android 版本使用不同的启动方式：
-     * <ul>
-     *   <li>Android 8.0+：使用 startForegroundService()</li>
-     *   <li>Android 8.0 以下：使用 startService()</li>
-     * </ul>
-     * </p>
-     */
-    private void startFloatingRobotServiceWhenReady() {
-        try {
-            Intent intent = new Intent(this, FloatingRobotService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent);
-            } else {
-                startService(intent);
-            }
-            Log.d(TAG, "已尝试启动浮动机器人服务（Web应用就绪后）");
-        } catch (Exception e) {
-            Log.e(TAG, "启动浮动机器人服务失败", e);
-        }
-    }
 
     /**
      * 触发悬浮 FAB 按钮 action 事件到 WebView

@@ -93,13 +93,13 @@
                     }"
                   >
                     <!-- 删除按钮（右上角） -->
-                    <!-- <button
+                    <button
                       @click.stop="handleDeleteTextbook(textbook)"
                       class="textbook-delete-btn"
                       title="删除教材"
                     >
                       <i class="material-icons">close</i>
-                    </button> -->
+                    </button>
 
                     <!-- 左侧：封面图片 -->
                     <div class="textbook-cover">
@@ -320,14 +320,14 @@ import { useRouter } from 'vue-router'
  import { resourceManager } from '../services/storage/resource-storage'
  import { apiService } from '../services/http/api-service'
  import { httpClient } from '../services/http/http-client'
- import { authService } from '../services'
  import { showMessage } from '../utils'
- import CommonSelect from '@/components/CommonSelect.vue'
+ import CommonSelect from '@/components/base/Select.vue'
  import type { UserTextbookInfo, TextbookVersion } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import RubberBandList from '../components/RubberBandList.vue'
+import RubberBandList from '../components/base/VirtualList.vue'
+import DraggableDialog from '../components/base/Modal.vue'
 
 // 第2步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -663,31 +663,6 @@ const loadLocalData = async (): Promise<UserTextbookInfo[]> => {
   }
 }
 
-// 为所有教材检查学习资源包（并行处理）
-const checkLearningPackagesForAllTextbooks = async (textbooks: UserTextbookInfo[]) => {
-  // 并行处理所有教材的学习资源包检查
-  const checkPromises = textbooks.map(async (textbook) => {
-    try {
-      // 调用 getLearningResources 检查学习资源包
-      const packages = await apiService.getLearningResources(textbook.id, false)
-
-      if (packages && packages.length > 0) {
-        // 有学习资源包，更新教材信息
-        textbook.learningPackages = packages
-      } else {
-        // 没有学习资源包
-        textbook.learningPackages = []
-      }
-    } catch {
-      // 检查失败，标记为无学习资源
-      textbook.learningPackages = []
-    }
-  })
-
-  // 等待所有检查完成
-  await Promise.all(checkPromises)
-}
-
 // 检测和修复不一致的下载状态 - 优化版本，批量处理
 const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
   const updatesToSave: Array<{
@@ -765,68 +740,78 @@ const loadResources = async (isPullDownRefresh = false) => {
   // 分支A：有本地数据且当前不是下拉刷新 → 直接使用本地数据渲染列表，提升首屏速度
   // 分支B：无本地数据 或 下拉刷新 → 强制走服务器全量拉取
   if (localTextbooks.length > 0 && !isPullDownRefresh) {
-    // A-1：立即用本地数据渲染页面
+    // 立即用本地数据渲染页面
     textbooks.value = localTextbooks
     updateSubjectChips()
     initialLoadCompleted.value = true
 
-    // A-2：DOM 更新后，针对“下载中但实际已断开”的情况做一次本地修复
+    // DOM 更新后，针对下载中但实际已断开的情况做一次本地修复
     // 下拉刷新场景的状态修复由后面的三级对比逻辑负责，这里只处理普通进入场景
     await nextTick()
     fixInconsistentDownloadStatus(localTextbooks)
   } else {
-    // B-1：无本地数据或下拉刷新场景，进入“服务器拉取 + 本地合并”流程
-    //      这里会显示加载状态，直到服务器数据合并完成
+    // 无本地数据或下拉刷新场景，进入服务器拉取流程
+    // 这里会显示加载状态，直到服务器数据合并完成
     loading.value = true
 
     try {
-      // B-2：保证登录状态可用（必要时触发一次自动登录）
+      // 保证登录状态可用
       const isLoggedIn = resourceManager.isLoggedIn()
 
       if (!isLoggedIn) {
-        // 自动登录失败则直接清空列表并结束本次加载
-        const autoLoginSuccess = await authService.autoLogin(true)
-
-        if (!autoLoginSuccess) {
-          textbooks.value = []
-          initialLoadCompleted.value = true
+        // 登录状态无效，跳转到登录页
+        console.warn('❌ [MyResourcesView] 登录状态无效，跳转到登录页')
+        await router.push({ name: 'login' })
           return
-        }
       }
 
-      // B-3：从服务器获取当前账号下的所有在线教材列表
+      // 从服务器获取当前账号下的所有在线教材列表
       const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
 
-      // B-4：将服务器数据与本地数据按 textbookId 维度进行合并
-      //      既保留本地下载状态等信息，又更新服务器最新元数据
+      // 将服务器数据与本地数据按 textbookId 维度进行合并
+      // 既保留本地下载状态等信息，又更新服务器最新元数据
       const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
 
-      // B-5：为每本教材并行检查“学习资源包”，补齐 learningPackages 信息
-      await checkLearningPackagesForAllTextbooks(mergedTextbooks)
-
-      // B-6：将合并后的教材信息写回 IndexedDB，作为后续本地优先显示的数据源
+      // 将合并后的教材信息写回 IndexedDB，作为后续本地优先显示的数据源
       for (const textbook of mergedTextbooks) {
         await resourceManager.updateTextbookInfo(textbook)
       }
 
-      // B-7：用合并后的数据刷新页面列表
+      // 用合并后的数据刷新页面列表
       textbooks.value = mergedTextbooks
       await nextTick()
 
-      // B-8：下拉刷新场景下，额外触发一次“三级对比”检查，异步标记有更新教材
-      //      （不阻塞 UI，不弹提示，仅更新 hasUpdatesAvailable 等状态）
-      apiService
-        .checkForUpdates()
-        .then((updatedTextbooks) => {
-          // 使用公共函数标记更新状态（不显示通知，避免干扰用户）
-          markUpdatesFromCheckResult(updatedTextbooks, false).catch((error) => {
-            console.warn('下拉刷新时标记更新状态失败:', error)
+      // 下拉刷新场景下，延迟3秒后异步触发三级对比检查，避免阻塞页面加载
+      // （不阻塞 UI，不弹提示，仅更新 hasUpdatesAvailable 等状态）
+      setTimeout(async () => {
+        try {
+          // 智能筛选：只检查最近30天内下载过的教材，减少API调用量
+          const thirtyDaysAgo = new Date()
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+          // 筛选出最近下载过的教材进行更新检查
+          const recentTextbooks = mergedTextbooks.filter(textbook => {
+            if (!textbook.lastDownloadTime) return false
+            const lastDownload = new Date(textbook.lastDownloadTime)
+            return lastDownload > thirtyDaysAgo
           })
-        })
-        .catch((error) => {
+
+          if (recentTextbooks.length > 0) {
+            // 只对最近下载的教材进行更新检查
+            const updatedTextbooks = await apiService.checkForUpdates()
+            if (updatedTextbooks.length > 0) {
+              // 使用公共函数标记更新状态（不显示通知，避免干扰用户）
+              await markUpdatesFromCheckResult(updatedTextbooks, false)
+            }
+          } else {
+            // 如果没有最近下载的教材，执行轻量级检查（只获取版本信息）
+            console.log('跳过更新检查：最近30天内无下载记录')
+          }
+        } catch (error) {
           // 三级对比失败不影响下拉刷新的成功，只记录错误
-          console.warn('下拉刷新时执行三级对比失败:', error)
-        })
+          console.warn('延迟更新检查失败:', error)
+        }
+      }, 3000)
       updateSubjectChips()
       await nextTick()
     } catch {
@@ -963,6 +948,26 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
   // 🔒 防重复下载：检查是否已下载完成且无更新（有更新时允许重新下载）
   if (textbook.downloadStatus === 2 && textbook.isDownloaded && !textbook.hasUpdatesAvailable) {
     return
+  }
+
+  // ✅ 检查学习资源包，如果没有则按需获取
+  if (!textbook.learningPackages || textbook.learningPackages.length === 0) {
+    try {
+      const packages = await apiService.getLearningResources(textbook.id, false)
+      if (packages && packages.length > 0) {
+        textbook.learningPackages = packages
+        // 保存到IndexedDB，避免下次重复获取
+        await resourceManager.updateTextbookInfo(textbook, {
+          learningPackages: packages
+        })
+      } else {
+        showMessage(`《${textbook.textbookName}》暂无可用的学习资源`, 'warning')
+        return
+      }
+    } catch (error) {
+      showMessage(`获取《${textbook.textbookName}》学习资源失败，请重试`, 'error')
+      return
+    }
   }
 
   // 设置下载状态
@@ -1248,9 +1253,27 @@ onMounted(async () => {
   // 定期检查更新（每60分钟）- 延迟启动
   // 注意：App.vue中已有全局资源自动更新检查，这里的定时器作为页面级别的额外检查
   resourceUpdateCheckTimer = setInterval(
-    () => {
+    async () => {
       if (!loading.value && !checkingUpdates.value) {
-        checkForUpdates()
+        try {
+          // 智能筛选：只检查最近30天内下载过的教材
+          const thirtyDaysAgo = new Date()
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+          const recentTextbooks = textbooks.value.filter(textbook => {
+            if (!textbook.lastDownloadTime) return false
+            const lastDownload = new Date(textbook.lastDownloadTime)
+            return lastDownload > thirtyDaysAgo
+          })
+
+          if (recentTextbooks.length > 0) {
+            await checkForUpdates()
+          } else {
+            console.log('定时器跳过更新检查：最近30天内无下载记录')
+          }
+        } catch (error) {
+          console.warn('定时器更新检查失败:', error)
+        }
       }
     },
     60 * 60 * 1000,

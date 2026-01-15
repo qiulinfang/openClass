@@ -153,13 +153,6 @@
       :question-title="miniClassQuestionTitle"
     />
 
-    <!-- 统一聊天对话框 -->
-    <UnifiedChatDialog
-      ref="unifiedChatDialogRef"
-      v-model="showUnifiedChatDialog"
-      :initial-teacher-subject="selectedSubjectForTeacher"
-      @session-created="handleSessionCreated"
-    />
 
     <!-- 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
@@ -191,24 +184,19 @@ import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { useHomeworkStore } from '../stores/homeworkStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useUIStore } from '../stores/uiStore'
-import type { ExerciseItem, ChatBubble } from '../types'
+import type { ExerciseItem } from '../types'
 import { apiService } from '../services/http/api-service'
-import { getUserInfo, loadFromStorage } from '../services'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 
 import MiniClass from './MiniClass.vue'
-import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import ImageViewer from './ImageViewer.vue'
-import RubberBandList from './RubberBandList.vue'
-import Dialog from './Dialog.vue'
-import BubblePopup from './BubblePopup.vue'
+import RubberBandList from './base/VirtualList.vue'
+import Dialog from './base/Dialog.vue'
+import BubblePopup from './base/Popover.vue'
 import ActionList from './ActionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
-import { useImagePicker } from '../composables/useImagePicker'
-import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 
 // 策略模式支持
 import type { QuestionListType } from './question/strategies'
@@ -392,20 +380,6 @@ const showMiniClassDialog = computed({
 const miniClassUrl = computed(() => uiStore.miniClassUrl)
 const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
-// 拍作业相关依赖
-const { pickImage } = useImagePicker()
-const teacherStore = useTeacherGeneralChatStore()
-const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
-const showUnifiedChatDialog = ref(false)
-const selectedSubjectForTeacher = ref<'biology' | 'math'>('math')
-// 保存待发送的图片信息（在会话创建后直接创建消息并保存）
-const pendingImageInfo = ref<{
-  filePath: string
-  width: number
-  height: number
-  fileSize: number
-  base64DataUrl?: string
-} | null>(null)
 
 // 计算属性
 const filteredQuestions = computed(() => {
@@ -667,7 +641,7 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
   return [
     {
       key: 'send-ai',
-      label: '发送给AI',
+      label: '问问学伴',
       icon: 'icons/Deskmate.svg',
       visible: currentStrategy.canSendToAi() && props.showSendToAi !== false,
       onClick: wrap(() => throttledSendToAi(question)),
@@ -689,16 +663,9 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
     {
       key: 'favorite',
       label: isExerciseFavorite(bmNo) ? '取消收藏' : '收藏题目',
-      icon: 'icons/my_favorites.svg',
+      icon: 'icons/shoucang.svg',
       visible: currentStrategy.canFavorite(),
       onClick: wrap(() => throttledToggleFavorite(question)),
-    },
-    {
-      key: 'take-picture',
-      label: '拍作业',
-      icon: 'icons/scan_homework.svg',
-      visible: currentStrategy.canTakePicture(),
-      onClick: wrap(() => throttledTakePictureToTeacher(question)),
     },
     {
       key: 'delete',
@@ -721,148 +688,12 @@ const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' =>
   return 'MATH'
 }
 
-// 拍作业功能
-const takePictureToTeacher = async (question: ExerciseItem) => {
-  try {
-    // 第1步：选择图片
-    const imageInfo = await pickImage()
-    if (!imageInfo) {
-      return
-    }
-
-    // 第2步：验证图片数据完整性
-    if (!imageInfo.filePath) {
-      showMessage('图片路径不存在，请重试', 'error')
-      return
-    }
-    if (!imageInfo.base64DataUrl) {
-      showMessage('图片数据不完整，请重试', 'error')
-      return
-    }
-
-    // 第3步：保存图片信息，等待会话创建后发送
-    pendingImageInfo.value = imageInfo
-
-    // 第4步：根据题目学科确定教师科目
-    let subject: 'biology' | 'math' = 'math'
-    if (question.subject) {
-      const subjectMap: Record<string, 'biology' | 'math'> = {
-        SUBJECT_BIOLOGY: 'biology',
-        SUBJECT_MATH: 'math',
-      }
-      const subjectUpper = question.subject.toUpperCase()
-      if (subjectMap[subjectUpper]) {
-        subject = subjectMap[subjectUpper]
-      }
-    }
-    selectedSubjectForTeacher.value = subject
-
-    // 第5步：创建教师会话并打开对话框（会话创建后会触发handleSessionCreated，在那里发送图片）
-    await selectSubjectForTeacher(subject)
-  } catch (error) {
-    console.error('[QuestionList] ❌ 处理图片失败:', error)
-    showMessage('处理图片失败，请重试', 'error')
-    pendingImageInfo.value = null
-  }
-}
-
-// 初始化教师对话（供拍作业使用）
-const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
-  try {
-    // 第1步：确保用户信息已加载
-    const userInfo = getUserInfo() || {
-      id: '',
-      name: '',
-      avatar: '',
-      roles: [] as string[],
-    }
-
-    if (!userInfo?.id) {
-      // 尝试从localStorage加载
-      const hasCache = loadFromStorage()
-      if (!hasCache) {
-        showMessage('无法获取用户信息，请重新登录', 'error')
-        return
-      }
-    }
-
-    // 第2步：设置科目并打开对话框
-    selectedSubjectForTeacher.value = subject
-    showUnifiedChatDialog.value = true
-
-    // 第3步：等待组件加载完成
-    await nextTick()
-
-    // 第4步：通过组件创建新会话
-    if (unifiedChatDialogRef.value) {
-      await unifiedChatDialogRef.value.createTeacherSession(subject)
-    }
-  } catch (error) {
-    console.error('[QuestionList] ❌ 准备教师对话失败:', error)
-    showMessage('准备教师对话失败，请重试', 'error')
-  }
-}
 
 // 处理会话创建事件
-const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'teacher-general') => {
-  // 如果是教师会话，设置会话到 Store（使用统一存储格式）
-  if (type === 'teacher-general') {
-    const session = teacherStore.getSession(sessionId)
-    if (session) {
-      teacherStore.setSession(session)
-
-      // 如果有待发送的图片，直接创建消息并保存到持久化存储
-      if (pendingImageInfo.value) {
-        const imageInfo = pendingImageInfo.value
-        pendingImageInfo.value = null
-
-        // 等待会话加载完成
-        await nextTick()
-
-        // 创建图片消息
-        const imageMessage: ChatBubble = {
-          id: Date.now().toString(),
-          content: '',
-          type: 'user',
-          timestamp: new Date().toISOString(),
-          sender: 'user',
-          messageType: 'image',
-          imageData: {
-            filePath: imageInfo.filePath,
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl,
-          },
-        }
-
-        // 添加到 store
-        teacherStore.addMessage(imageMessage)
-
-        // 保存到持久化存储
-        await teacherStore.saveChatHistory()
-
-        // 发送图片消息到后端
-        try {
-          await teacherStore.sendMessage('', {
-            filePath: imageInfo.filePath,
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl,
-          })
-        } catch (error) {
-          console.error('[QuestionList] ❌ 发送图片消息失败:', error)
-          showMessage('发送图片消息失败，请重试', 'error')
-        }
-      }
-    }
-  }
+const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'teacher') => {
+  // 会话创建处理（拍作业功能已删除）
 }
 
-const throttledTakePictureToTeacher = ThrottleUtils.fast((question: ExerciseItem) => {
-  takePictureToTeacher(question)
-})
 
 const openDeleteDialog = (question: ExerciseItem) => {
   deleteTargetQuestion.value = question

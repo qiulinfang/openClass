@@ -277,8 +277,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
-import BubblePopup from '@/components/BubblePopup.vue'
-import PurpleSlider from '@/components/PurpleSlider.vue'
+import BubblePopup from '@/components/base/Popover.vue'
+import PurpleSlider from '@/components/base/Slider.vue'
 
 // 流程：导入图标资源
 import eraserSettingsIcon from '/icons/erasersettingsIcon.svg' // 橡皮设置

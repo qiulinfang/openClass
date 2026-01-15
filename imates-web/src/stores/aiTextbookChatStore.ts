@@ -316,7 +316,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     messages.value = []
     chatResponseTimes.value = 0
     useScreenshotApi.value = false  // 重置截图接口标记
-    console.log('[AI_TEXTBOOK] 清空消息，重置 currentSessionId 和 backendSessionId')
     currentSessionId.value = null
     backendSessionId.value = null  // 同时重置后端会话ID
     backendSessionOwnerUserId.value = null
@@ -435,7 +434,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    * 3. 创建新的会话ID并保存到 backendSessionId
    */
   const ensureTopGeneralSession = async () => {
-    const currentUserId = localStorage.getItem('userId') || ''
+    const currentUserId = getUserId() || ''
 
     // 切换账号后，必须丢弃旧的 backendSessionId（以及不要复用旧的 ai-general session）
     if (backendSessionId.value && backendSessionOwnerUserId.value !== null && backendSessionOwnerUserId.value !== currentUserId) {
@@ -459,7 +458,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           topGeneralSessionId: topSession.sessionId,
         })
       } else {
-        console.log('[AI_TEXTBOOK] 使用 ai-general 顶部会话ID:', topSession.sessionId)
         // 同步更新 backendSessionId
         backendSessionId.value = topSession.sessionId
         backendSessionOwnerUserId.value = currentUserId
@@ -469,7 +467,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
     // 2. 如果没有 sessions，但有 backendSessionId，使用它
     if (backendSessionId.value) {
-      console.log('[AI_TEXTBOOK] 使用已维护的 backendSessionId:', backendSessionId.value)
       if (backendSessionOwnerUserId.value === null) {
         backendSessionOwnerUserId.value = currentUserId
       }
@@ -478,7 +475,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
     // 3. 都没有，创建新的会话ID并保存
     const newSessionId = `${currentUserId ? currentUserId + '-' : ''}textbook-session-${Date.now()}`
-    console.log('[AI_TEXTBOOK] 创建新 backendSessionId:', newSessionId)
     backendSessionId.value = newSessionId
     backendSessionOwnerUserId.value = currentUserId
     return newSessionId
@@ -574,7 +570,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       
       // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
       const sessionIdForBackend = await ensureTopGeneralSession()
-      console.log('[AI_TEXTBOOK] 使用后端会话ID:', sessionIdForBackend)
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
@@ -591,15 +586,13 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
       // 注意：如果 currentSessionId 已经存在（比如从外部设置），则不覆盖它
       if (builderImageData && !currentSessionId.value) {
-        const userId = localStorage.getItem('userId') || ''
+        const userId = getUserId() || ''
         const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
-        console.log('[AI_TEXTBOOK] 创建新会话（有图片数据）', { sessionId: newSessionId })
         currentSessionId.value = newSessionId
         isNewSession.value = true
       } else if (!currentSessionId.value) {
-        const userId = localStorage.getItem('userId') || ''
+        const userId = getUserId() || ''
         const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
-        console.log('[AI_TEXTBOOK] 创建新会话（无图片数据）', { sessionId: newSessionId })
         currentSessionId.value = newSessionId
         isNewSession.value = true
       }
@@ -622,11 +615,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       })
 
       // 调试日志：验证本次请求将走哪个接口，以及是否携带图片/多图
-      console.log('[AI_TEXTBOOK] sendMessage 构建请求', {
-        dstUrl: aiMessage.dstUrl,
-        hasBuilderImageData: !!builderImageData,
-        imageListCount: builderImageList?.length || 0,
-      })
 
       // 记录本次 AI 回复对应的后端接口地址，供后续刷新(handleRefresh) 严格跟随原接口
       updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
@@ -798,7 +786,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     resourceId.value = id
     // 只有在 resourceId 真正变化时才重置 currentSessionId 和 backendSessionId
     if (resourceIdChanged) {
-      console.log('[AI_TEXTBOOK] resourceId 变化，重置 currentSessionId 和 backendSessionId', { oldResourceId, newResourceId: id })
       currentSessionId.value = null
       backendSessionId.value = null  // 同时重置后端会话ID
       backendSessionOwnerUserId.value = null

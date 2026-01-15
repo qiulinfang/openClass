@@ -3,7 +3,13 @@
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
     <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
-      <RubberBandList ref="rubberBandListRef" class="chat-rubber-list">
+      <RubberBandList
+        ref="rubberBandListRef"
+        class="chat-rubber-list"
+        :enable-load-top="chatStrategy?.supportsPaginatedHistory?.() ?? false"
+        :load-top-threshold="100"
+        @load-top="handleLoadTop"
+      >
         <!-- 空状态：推荐问题列表（仅 AI 题目场景显示；历史加载完成后才显示，避免切题闪烁） -->
         <div
           v-if="
@@ -89,9 +95,12 @@
             :is-selection-mode="isSelectionMode"
             :message-index="index"
             :is-last-message="isLastMessage(index)"
+            :show-action-buttons="showActionButtons"
+            :enable-long-press="enableLongPress"
+            :show-read-status="showReadStatus"
+            :show-time="showTime"
             @toggle-selection="toggleMessageSelection"
             @message-click="handleMessageClick"
-            @forward-message="handleForwardMessage"
             @enter-multi-select="handleEnterMultiSelect"
             @edit-message="handleEditMessage"
             @image-loaded="handleImageLoaded"
@@ -202,8 +211,8 @@
             isAllSelected
               ? 'check_box'
               : selectedMessages.size > 0
-              ? 'indeterminate_check_box'
-              : 'check_box_outline_blank'
+                ? 'indeterminate_check_box'
+                : 'check_box_outline_blank'
           "
           :class="['select-all-icon', { 'icon-selected': isAllSelected }]"
         />
@@ -226,7 +235,7 @@
           size="md"
           unelevated
         >
-          发送
+          {{ selectionMode === 'ask-teacher' ? '发送' : '发送' }}
         </q-btn>
       </div>
     </div>
@@ -253,7 +262,12 @@
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
           :quoted-message="quotedMessage"
-          :attached-screenshots="props.type === 'ai-textbook' ? aiTextbookStore.attachedScreenshots : localAttachedScreenshots"
+          :attached-screenshots="
+            props.type === 'ai-textbook'
+              ? aiTextbookStore.attachedScreenshots
+              : localAttachedScreenshots
+          "
+          :show-toolbar="showToolbar"
           @send-message="sendMessage"
           @send-with-screenshot="handleSendWithScreenshot"
           @remove-screenshot="handleRemoveScreenshot"
@@ -322,7 +336,9 @@
       </slot>
 
       <!-- 底部提示文案：移动到输入区域内部底部 -->
-      <div class="chat-footer-text">与学伴共学，敢质疑、会判断，思维不设限!</div>
+      <div v-if="showFooterText" class="chat-footer-text">
+        与学伴共学，敢质疑、会判断，思维不设限!
+      </div>
     </div>
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
@@ -349,20 +365,23 @@
       @remove-screenshot="handleAnnotateRemoveScreenshot"
     />
   </div>
+
+  <!-- 老师选择对话框 -->
+  <TeacherSelectionDialog
+    v-model="showTeacherSelectionDialog"
+    @confirm="handleTeacherSelected"
+  />
 </template>
 
 <script setup lang="ts">
 // ==================== 导入依赖 ====================
 // Vue 核心功能
-import { ref, nextTick, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 
 // 状态管理和工具函数
-import { useQuestionStore } from '../stores/questionStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
-import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
-import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
+import { useTeacherChatStore } from '../stores/teacherChatStore'
 import { useImagePicker } from '../composables/useImagePicker'
 import { androidBridge } from '../services/business/android-bridge'
 import { showMessage } from '../utils'
@@ -371,13 +390,13 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
-import ScreenshotInputDialog from './ScreenshotInputDialog.vue'
+import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
-import CardStack from './CardStack.vue'
-import DraggableDialog from './DraggableDialog.vue'
-import CommonActionButton from './CommonActionButton.vue'
-import RubberBandList from './RubberBandList.vue'
+import CardStack from './base/CardStack.vue'
+import DraggableDialog from './base/Modal.vue'
+import RubberBandList from './base/VirtualList.vue'
+import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
 
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
@@ -398,17 +417,34 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(
   defineProps<{
-    type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+    type:
+      | 'ai-general'
+      | 'ai-exercise'
+      | 'ai-textbook'
+      | 'teacher'
+      | 'user-client'
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
     // 当前题目对象，由外层页面维护，ChatView 不直接依赖全局 questionStore
     question?: unknown
     attachedScreenshots?: AttachedScreenshot[]
+    showFooterText?: boolean // 是否显示底部提示文案
+    showToolbar?: boolean // 是否显示输入区域顶部工具栏
+    showActionButtons?: boolean // 是否显示消息气泡的功能按钮
+    enableLongPress?: boolean // 是否启用消息长按功能
+    showReadStatus?: boolean // 是否显示消息已读状态
+    showTime?: boolean // 是否显示消息时间
   }>(),
   {
     inputMode: 'full',
-  }
+    showFooterText: true, // 默认显示底部文案
+    showToolbar: true, // 默认显示顶部工具栏
+    showActionButtons: true, // 默认显示消息功能按钮
+    enableLongPress: true, // 默认启用长按功能
+    showReadStatus: false, // 默认不显示已读状态
+    showTime: false, // 默认不显示消息时间
+  },
 )
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -422,7 +458,7 @@ const emit = defineEmits<{
       forwardMode?: string
       successCount?: number
       sessionId?: string
-    }
+    },
   ] // 切换到老师对话事件
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
@@ -436,32 +472,11 @@ const emit = defineEmits<{
 
 // ==================== 状态管理 ====================
 // 全局状态管理
-const questionStore = useQuestionStore()
 
 // 场景Store
 const aiExerciseStore = useAiExerciseChatStore()
-const aiGeneralStore = useAiGeneralChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
-const teacherStore = useTeacherGeneralChatStore()
-const teacherExerciseStore = useTeacherExerciseChatStore()
-
-// 辅助函数：获取当前场景的Store
-const getScenarioStore = () => {
-  switch (props.type) {
-    case 'ai-exercise':
-      return aiExerciseStore
-    case 'ai-general':
-      return aiGeneralStore
-    case 'ai-textbook':
-      return aiTextbookStore
-    case 'teacher-general':
-      return teacherStore
-    case 'teacher-exercise':
-      return teacherExerciseStore
-    default:
-      return aiGeneralStore
-  }
-}
+const teacherStore = useTeacherChatStore()
 
 // Markdown + 公式渲染工具（用于会话卡片快照）
 const { renderMessageContent } = useMessageRenderer()
@@ -483,8 +498,8 @@ const chatStrategy = ref<ChatStrategy>()
  */
 const createStrategy = () => {
   // 创建策略实例
-  // 如果是teacher-general类型但store中没有session，延迟创建策略（等待session初始化完成）
-  if (props.type === 'teacher-general' && !teacherStore.currentSession) {
+  // 如果是teacher类型但store中没有session，延迟创建策略（等待session初始化完成）
+  if (props.type === 'teacher' && !teacherStore.currentSession) {
     // 延迟创建策略，等待session初始化完成
     // 策略将在store.currentSession的watch中创建
     return
@@ -502,9 +517,11 @@ const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) 
 
 // 本地截图列表（用于非 ai-textbook 场景在输入框上方展示缩略图）
 // 注意：必须深拷贝 props.attachedScreenshots，避免引用共享导致删除时影响父组件
-const localAttachedScreenshots = ref<AttachedScreenshot[]>(props.attachedScreenshots ? [...props.attachedScreenshots] : [])
+const localAttachedScreenshots = ref<AttachedScreenshot[]>(
+  props.attachedScreenshots ? [...props.attachedScreenshots] : [],
+)
 
-// ========== 图片批注（DrawingBoard） ========== 
+// ========== 图片批注（DrawingBoard） ==========
 
 // 选图后先弹出批注对话框：确认后再走原有发送/挂载逻辑
 const annotateDialogVisible = ref(false)
@@ -522,8 +539,10 @@ const annotatePendingImageInfo = ref<{
 const annotateDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
 
 const shouldAnnotatePickedImage = () => {
-  // ai-textbook 场景有自己独立的“截图挂载+批注”流程（ScreenshotInputDialog 已在 PdfViewerView 中使用）
+  // ai-textbook 场景有自己独立的"截图挂载+批注"流程（ScreenshotInputDialog 已在 PdfViewerView 中使用）
   if (props.type === 'ai-textbook') return false
+  // user-client 和 ai-general 场景都不需要批注功能，但需要挂载缩略图让用户确认
+  if (props.type === 'user-client' || props.type === 'ai-general') return false
   // 当前需求：MainChatPanel / UnifiedChatDialog 的输入区（ai-general）需要支持
   // 同时为保持一致，这里也允许其它非教材场景复用批注能力
   return true
@@ -557,10 +576,7 @@ const openAnnotateDialog = (imageInfo: {
   annotateDialogVisible.value = true
 }
 
-const handleAnnotateConfirm = async (
-  shots: AttachedScreenshot[],
-  _states: Record<string, ScreenshotDrawingState>,
-) => {
+const handleAnnotateConfirm = async (shots: AttachedScreenshot[]) => {
   const pending = annotatePendingImageInfo.value
   if (!pending) {
     annotateDialogVisible.value = false
@@ -706,11 +722,11 @@ const handleAnnotateRemoveScreenshot = (id: string) => {
 }
 
 // 处理 ChatInput 发出的 send-with-screenshot 事件
-// - ai-general 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
+// - ai-general 和 user-client 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
 // - 其它场景（如 ai-textbook）：保持向上传递，由上层（如 PdfViewerView）处理多图截图发送
 const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
-  if (props.type === 'ai-general') {
-    // 对于 ai-general：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
+  if (props.type === 'ai-general' || props.type === 'user-client') {
+    // 对于 ai-general 和 user-client：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
     void sendMessage()
   } else {
     emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
@@ -721,9 +737,12 @@ const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
 const handleRemoveScreenshot = (id: string) => {
   console.log('[ChatView] 删除截图前:', {
     id,
-    currentScreenshots: localAttachedScreenshots.value.map(s => ({ id: s.id, dataUrl: s.dataUrl?.substring(0, 50) + '...' }))
+    currentScreenshots: localAttachedScreenshots.value.map((s) => ({
+      id: s.id,
+      dataUrl: s.dataUrl?.substring(0, 50) + '...',
+    })),
   })
-  
+
   // AI 教材场景仍然交给上层（PdfViewerView / aiTextbookStore）处理
   if (props.type === 'ai-textbook') {
     emit('remove-screenshot', id)
@@ -734,12 +753,15 @@ const handleRemoveScreenshot = (id: string) => {
   const beforeLength = localAttachedScreenshots.value.length
   localAttachedScreenshots.value = localAttachedScreenshots.value.filter((shot) => shot.id !== id)
   const afterLength = localAttachedScreenshots.value.length
-  
+
   console.log('[ChatView] 删除截图后:', {
     id,
     beforeLength,
     afterLength,
-    remainingScreenshots: localAttachedScreenshots.value.map(s => ({ id: s.id, dataUrl: s.dataUrl?.substring(0, 50) + '...' }))
+    remainingScreenshots: localAttachedScreenshots.value.map((s) => ({
+      id: s.id,
+      dataUrl: s.dataUrl?.substring(0, 50) + '...',
+    })),
   })
 }
 
@@ -783,6 +805,10 @@ const showDeleteConfirmDialog = ref(false)
 const pendingDeleteSessionId = ref<string | null>(null)
 const pendingDeleteSessionTitle = ref('')
 
+// 老师选择对话框状态
+const showTeacherSelectionDialog = ref(false)
+let teacherSelectionResolve: ((subject: 'biology' | 'math') => void) | null = null
+
 // 请求删除会话（显示确认对话框）
 const handleDeleteSessionRequest = (sessionId: string) => {
   // 只有支持会话管理的策略才能删除会话
@@ -794,6 +820,22 @@ const handleDeleteSessionRequest = (sessionId: string) => {
     pendingDeleteSessionTitle.value = session?.title || '该会话'
     showDeleteConfirmDialog.value = true
   }
+}
+
+// 处理老师选择
+const handleTeacherSelected = (subject: 'biology' | 'math') => {
+  if (teacherSelectionResolve) {
+    teacherSelectionResolve(subject)
+    teacherSelectionResolve = null
+  }
+}
+
+// 显示老师选择对话框
+const showTeacherSelection = (): Promise<'biology' | 'math'> => {
+  return new Promise((resolve) => {
+    teacherSelectionResolve = resolve
+    showTeacherSelectionDialog.value = true
+  })
 }
 
 // 确认删除会话 - 通过策略接口
@@ -842,7 +884,6 @@ const quotedMessage = ref<ChatBubble | null>(null) // 引用的消息
 // 会话列表面板显示状态（用于在 ChatView 内部管理多个会话的列表展示）
 const showSessionListPanel = ref(false)
 // 当前高亮的 sessionId（用于整段会话高亮）
-const highlightedSessionId = ref<string | null>(null)
 // 对话相关状态（需要在策略初始化之前声明）
 const aiSessionId = ref<string>('') // AI会话ID
 const currentSubject = ref<string>('math') // 当前科目，默认为数学
@@ -906,6 +947,7 @@ const selectedModel = ref('mate') // 选中的AI模型
 // 选择模式相关状态
 const isSelectionMode = ref(false) // 是否处于消息选择模式
 const selectedMessages = ref<Set<string>>(new Set()) // 已选择的消息ID集合
+const selectionMode = ref<'normal' | 'ask-teacher'>('normal') // 选择模式类型
 
 // 消息显示相关状态
 // 使用 computed 自动同步策略中的消息列表，无需手动 watch
@@ -918,7 +960,9 @@ const displayedMessages = computed<ChatBubble[]>(() => {
   const messages = chatStrategy.value.getMessages()
   const result: ChatBubble[] = []
 
-  for (const message of messages) {
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i]
+
     // 如果消息是图片类型，且同时包含图片和文字内容
     if (
       message.messageType === 'image' &&
@@ -943,14 +987,17 @@ const displayedMessages = computed<ChatBubble[]>(() => {
         id: message.id + '_text', // 添加后缀以区分
       }
       result.push(textMessage)
+
+      // 注意：时间分隔符的处理移到循环外部，由正常的消息处理逻辑来处理
     } else {
-      // 其他消息直接添加
+      // 直接添加消息（包括时间分隔符消息）
       result.push(message)
     }
   }
 
   return result
 })
+
 
 // 判断是否全选
 const isAllSelected = computed(() => {
@@ -959,6 +1006,10 @@ const isAllSelected = computed(() => {
     selectedMessages.value.size === displayedMessages.value.length
   )
 })
+
+// 时间分隔条相关函数
+
+
 
 /**
  * 判断消息是否是最后一条
@@ -1223,7 +1274,7 @@ const handleKeyboardHidden = () => {
   // 如果当前不是激活实例，不做动画，但需要硬重置键盘状态，防止旧状态影响下次显示
   if (!isActiveInstance.value) {
     console.log(
-      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only'
+      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only',
     )
     hardResetKeyboardState()
     return
@@ -1473,7 +1524,8 @@ const sendSimpleMessage = async (message: string) => {
 const sendMessage = async (attachedFile?: File) => {
   const hasText = !!inputMessage.value.trim()
   const hasFile = !!attachedFile
-  const hasImageForAiGeneral = props.type === 'ai-general' && localAttachedScreenshots.value.length > 0
+  const hasImageForAiGeneral =
+    props.type === 'ai-general' && localAttachedScreenshots.value.length > 0
 
   if ((!hasText && !hasFile && !hasImageForAiGeneral) || isLoading.value) {
     console.error('[ChatView] ❌ 发送消息失败:', {
@@ -1550,15 +1602,16 @@ const sendMessage = async (attachedFile?: File) => {
     let imageListForApi: ChatImageData[] | undefined
     const finalMessageContent = messageContent
 
-    // ai-general 场景：如果有挂在输入框上的截图
+    // ai-general 和 user-client 场景：如果有挂在输入框上的截图
     // - 1张：走 imageData
-    // - 2~3张：走 imageList
+    // - 多张：走 imageList
     let imageDataForApi: ChatImageData | undefined
-    if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
+    const maxImages = props.type === 'user-client' ? 5 : 3
+    if ((props.type === 'ai-general' || props.type === 'user-client') && localAttachedScreenshots.value.length > 0) {
       if (localAttachedScreenshots.value.length > 1) {
         imageListForApi = localAttachedScreenshots.value
           .filter((s) => !!s.dataUrl)
-          .slice(0, 3)
+          .slice(0, maxImages)
           .map((s) => ({
             filePath: '',
             width: s.width || 0,
@@ -1578,8 +1631,8 @@ const sendMessage = async (attachedFile?: File) => {
       }
     }
 
-    // ai-general：点击发送后立刻清空输入区缩略图（不等待 AI 回复完成）
-    if (props.type === 'ai-general' && localAttachedScreenshots.value.length > 0) {
+    // ai-general 和 user-client：点击发送后立刻清空输入区缩略图（不等待回复完成）
+    if ((props.type === 'ai-general' || props.type === 'user-client') && localAttachedScreenshots.value.length > 0) {
       localAttachedScreenshots.value = []
     }
 
@@ -1614,9 +1667,18 @@ const sendMessage = async (attachedFile?: File) => {
             isLargeImage: img.isLargeImage || false,
           }))
       } else {
-        if ((quotedMessage.value.messageType === 'image' || quotedMessage.value.messageType === 'multi_image') && !isUser) {
+        if (
+          (quotedMessage.value.messageType === 'image' ||
+            quotedMessage.value.messageType === 'multi_image') &&
+          !isUser
+        ) {
           showMessage('仅支持引用“用户上传/截图”的图片，AI 图片暂不支持引用', 'warning')
-        } else if ((quotedMessage.value.messageType === 'image' || quotedMessage.value.messageType === 'multi_image') && isUser && !hasBase64) {
+        } else if (
+          (quotedMessage.value.messageType === 'image' ||
+            quotedMessage.value.messageType === 'multi_image') &&
+          isUser &&
+          !hasBase64
+        ) {
           showMessage('该图片缺少 base64 数据，无法引用，请重新上传/截图', 'warning')
         }
 
@@ -1653,6 +1715,36 @@ const sendMessage = async (attachedFile?: File) => {
     isLoading.value = false
   }
 }
+
+  // 作用：处理顶部加载更多历史消息的事件
+  const handleLoadTop = async () => {
+    console.log('[历史记录] UI: 接收到顶部加载事件')
+
+    // 只在支持分页历史的用户客户端类型中启用
+    if (props.type !== 'user-client' || !chatStrategy.value?.supportsPaginatedHistory?.()) {
+      console.log('[历史记录] UI: 不支持分页历史，跳过加载')
+      return
+    }
+
+    // 检查是否正在加载或没有更多历史
+    if (chatStrategy.value.isLoadingHistory?.()) {
+      console.log('[历史记录] UI: 正在加载中，跳过重复请求')
+      return
+    }
+
+    if (!chatStrategy.value.hasMoreHistory?.()) {
+      console.log('[历史记录] UI: 没有更多历史记录')
+      return
+    }
+
+    console.log('[历史记录] UI: 开始加载更多历史消息')
+    try {
+      await chatStrategy.value.loadMoreHistory?.()
+      console.log('[历史记录] UI: 加载更多历史消息成功')
+    } catch (error) {
+      console.error('[历史记录] UI: 加载更多历史消息失败', error)
+    }
+  }
 
 // 作用：滚动聊天区域到底部，确保最新消息可见
 const scrollToBottom = async () => {
@@ -2020,9 +2112,10 @@ const showImagePickerDialog = async () => {
     return
   }
 
-  // ai-general：最多挂载 3 张图片，达到上限后禁止继续添加
-  if (props.type === 'ai-general' && localAttachedScreenshots.value.length >= 3) {
-    showMessage('最多只能添加 3 张图片', 'info')
+  // 检查图片数量限制
+  const maxImages = props.type === 'user-client' ? 5 : 3
+  if (localAttachedScreenshots.value.length >= maxImages) {
+    showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
     return
   }
 
@@ -2052,11 +2145,12 @@ const onImageSelected = async (imageInfo: {
   base64DataUrl?: string
 }): Promise<void> => {
   if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
-    // ai-general 场景：只挂缩略图，不立即发送，等待用户输入文字后点击发送按钮
-    if (props.type === 'ai-general') {
-      // 限制最多只能挂载 3 张图片
-      if (localAttachedScreenshots.value.length >= 3) {
-        showMessage('最多只能添加 3 张图片', 'info')
+    // ai-general 和 user-client 场景：只挂缩略图，不立即发送，等待用户输入文字后点击发送按钮
+    if (props.type === 'ai-general' || props.type === 'user-client') {
+      // 限制最多只能挂载图片数量
+      const maxImages = props.type === 'user-client' ? 5 : 3
+      if (localAttachedScreenshots.value.length >= maxImages) {
+        showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
         return
       }
 
@@ -2124,6 +2218,7 @@ const handleMessageClick = (message: ChatBubble) => {
   }
 }
 
+
 // 处理删除消息：完全通过策略接口
 const handleDeleteMessage = async (messageId: string) => {
   try {
@@ -2162,6 +2257,7 @@ const handleForwardMessage = async (message: ChatBubble) => {
       showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
       // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
       currentQuestion: currentQuestion.value || undefined,
+      onTeacherSelect: showTeacherSelection, // 传入老师选择回调
       onSuccess: async (result) => {
         // 转发成功后的回调
         if (result.sessionId) {
@@ -2176,7 +2272,7 @@ const handleForwardMessage = async (message: ChatBubble) => {
         console.error('[ChatView] ❌ 转发失败:', error)
         showMessage('转发失败: ' + error, 'error')
       },
-    } as any)
+    })
 
     if (!result.success) {
       console.error('[ChatView] ❌ 转发失败:', result.error)
@@ -2190,7 +2286,8 @@ const handleForwardMessage = async (message: ChatBubble) => {
 
 // 处理进入多选模式
 // 作用：进入消息多选模式，允许用户选择多条消息进行批量操作
-const handleEnterMultiSelect = () => {
+const handleEnterMultiSelect = (params?: { mode?: 'ask-teacher' }) => {
+  selectionMode.value = params?.mode || 'normal'
   enterSelectionMode()
 }
 
@@ -2403,12 +2500,14 @@ const toggleMessageSelection = (messageId: string) => {
 const enterSelectionMode = () => {
   isSelectionMode.value = true
   selectedMessages.value.clear()
+  // 注意：selectionMode.value 应该在调用前设置
 }
 
 // 作用：退出消息选择模式，清空已选择的消息
 const exitSelectionMode = () => {
   isSelectionMode.value = false
   selectedMessages.value.clear()
+  selectionMode.value = 'normal' // 重置为普通模式
 }
 
 // 作用：全选或取消全选所有消息
@@ -2454,6 +2553,7 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
         showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
         // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
         currentQuestion: currentQuestion.value || undefined,
+        onTeacherSelect: showTeacherSelection, // 传入老师选择回调
         onSuccess: async (result) => {
           // 转发成功后的回调
           if (result.sessionId) {
@@ -2472,7 +2572,7 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
           console.error('[ChatView] ❌ 批量转发失败:', error)
           showMessage('转发失败: ' + error, 'error')
         },
-      } as any)
+      })
 
       if (!result.success) {
         console.error('[ChatView] ❌ 批量转发失败:', result.error)
@@ -2665,20 +2765,27 @@ watch(
       }
     }
   },
-  { deep: true, immediate: false }
+  { deep: true, immediate: false },
 )
 
 // 教师会话创建监听器
 watch(
   () => teacherStore.currentSession,
-  (session) => {
-    // 只有在teacher-general类型且session存在时才创建或更新策略
-    if (props.type === 'teacher-general' && session) {
+  (session, oldSession) => {
+    console.log('[ChatView] teacherStore.currentSession 变化:', {
+      oldSessionId: oldSession?.sessionId,
+      newSessionId: session?.sessionId,
+      propsType: props.type
+    })
+
+    // 只有在teacher类型且session存在时才创建或更新策略
+    if (props.type === 'teacher' && session) {
+      console.log('[ChatView] 重新创建TeacherStrategy')
       // 创建或更新策略
       // 策略会直接从 store 读取 session 信息，不需要传递参数
       chatStrategy.value = ChatStrategyFactory.create(props.type)
     }
-  }
+  },
 )
 
 // 题目切换处理函数
@@ -2717,7 +2824,7 @@ watch(
       // 如果没有编辑状态，直接执行切换
       executeQuestionSwitch()
     }
-  }
+  },
 )
 
 // 题目切换处理函数
@@ -3041,7 +3148,9 @@ defineExpose({
 /* 加载指示器过渡动画 - 淡入淡出效果 */
 .loading-fade-enter-active,
 .loading-fade-leave-active {
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition:
+    opacity 0.2s ease-in-out,
+    transform 0.2s ease-in-out;
 }
 
 .loading-fade-enter-from {
@@ -3228,4 +3337,6 @@ defineExpose({
     background-color: transparent;
   }
 }
+
+
 </style>

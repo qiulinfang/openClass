@@ -2429,7 +2429,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { getCurrentUserIdOrDefault } from '../../services'
+import { getUserId } from '../../services'
 
 // 定义参数接口
 /**
@@ -3494,7 +3494,7 @@ const resetAllParams = () => {
 
 // 获取带用户ID前缀的存储key
 const getDebugParamsKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_knowledgeGraphDebugParams`
 }
 

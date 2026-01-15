@@ -386,7 +386,7 @@ import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
 import { useQuestionStore } from '@/stores/questionStore'
 import ChatView from '@/components/ChatView.vue'
-import AutoHeightTextarea from '@/components/AutoHeightTextarea.vue'
+import AutoHeightTextarea from '@/components/base/Textarea.vue'
 
 import goBackIcon from '/icons/goback.svg'
 import searchMathIcon from '/icons/searchMath.svg'

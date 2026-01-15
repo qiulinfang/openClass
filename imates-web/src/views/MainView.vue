@@ -24,7 +24,16 @@
           :class="{ active: isNavItemActive(item.key) }"
           @click="handleNavItemClick(item)"
         >
-          <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
+          <div class="nav-icon-wrapper" v-if="item.key === 'toolbox'">
+            <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
+            <span class="notification-badge" v-if="userClientUnreadCount > 0">{{ userClientUnreadCount }}</span>
+          </div>
+          <img
+            v-else
+            :src="getNavIcon(item)"
+            :alt="item.label"
+            class="nav-icon"
+          />
           <span class="nav-text">{{ item.label }}</span>
         </div>
       </div>
@@ -94,17 +103,15 @@
         <button class="go-resources-btn" @click="goToResources">去资源下载</button>
       </div>
     </div>
-    <!-- 草稿本对话框 -->
-    <DraftDialog v-model="showDraftDialog" />
 
     <!-- AI统一聊天对话框 -->
-    <UnifiedChatDialog
+    <GlobalChatDialog
       v-model="uiStore.showAIChatDialog"
       @toggle-mode="handleToggleUnifiedChatMode"
     />
 
     <!-- 教师统一聊天对话框 -->
-    <UnifiedChatDialog
+    <GlobalChatDialog
       ref="teacherChatDialogRef"
       v-model="showTeacherChatDialog"
       :initial-teacher-subject="teacherChatSubject"
@@ -127,6 +134,17 @@
       @close="showMainChatPanel = false"
       @toggle-mode="handleToggleMainChatMode"
     />
+    <!-- 草稿本对话框 -->
+    <DraggableDialog
+      v-model="showDraftNotebook"
+      title="草稿本"
+      :close-on-overlay-click="false"
+      :show-overlay="false"
+      :initial-width="1200"
+      :initial-height="800"
+    >
+      <DrawingBoardView />
+    </DraggableDialog>
   </div>
 </template>
 
@@ -136,17 +154,18 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useResourceStore } from '@/stores/resourceStore'
-import DraftDialog from '@/components/DraftDialog.vue'
-import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
-import FeedbackDialog from '@/components/FeedbackDialog.vue'
-import ProfileDialog from '@/components/ProfileDialog.vue'
+import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
+import FeedbackDialog from '@/components/dialog/FeedbackDialog.vue'
+import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
+import DrawingBoardView from '@/views/DrawingBoardView.vue'
+import DraggableDialog from '@/components/base/Modal.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
-import { authService } from '@/services'
 import { androidBridge } from '@/services/business/android-bridge'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { useUserClientStore } from '@/stores/userClientStore'
 import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
 import type { UserTextbookInfo } from '@/types'
 
@@ -191,7 +210,8 @@ const route = useRoute()
 const uiStore = useUIStore()
 const pdfViewerStore = usePdfViewerStore()
 const resourceStore = useResourceStore()
-const teacherStore = useTeacherGeneralChatStore()
+const teacherStore = useTeacherChatStore()
+const userClientStore = useUserClientStore()
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
@@ -299,7 +319,6 @@ const cachedComponents = ref<string[]>([
 ])
 
 // 对话框显示状态
-const showDraftDialog = ref(false)
 const showTeacherChatDialog = ref(false)
 const showFeedbackDialog = ref(false)
 const showProfileDialog = ref(false)
@@ -312,8 +331,14 @@ const showMainChatPanel = ref(false)
 // 工具箱显示状态
 const showToolbox = ref(false)
 
+// 工具箱对话框显示状态
+const showDraftNotebook = ref(false)
+
 // 资源通知状态
 const hasResourceNotification = ref(false)
+
+// 用户端未读消息数
+const userClientUnreadCount = computed(() => userClientStore.unreadCount)
 
 // 知识图谱未下载资源引导：气泡显示状态
 const showGoResourcesBubble = ref(true)
@@ -345,7 +370,7 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'myHomework','homeworkExercise', 'drawingBoard']
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
@@ -562,12 +587,10 @@ const checkResourceUpdates = async () => {
       try {
         // 检查登录状态
         if (!resourceManager.isLoggedIn()) {
-          // 尝试自动登录（直接通过 authService）
-          const autoLoginSuccess = await authService.autoLogin(true)
-          if (!autoLoginSuccess) {
-            hasResourceNotification.value = false
+          // 会话无效，跳转到登录页
+          console.warn('❌ [MainView] 登录状态无效，跳转到登录页')
+          await router.push({ name: 'login' })
             return
-          }
         }
 
         // 从服务器获取教材数据
@@ -695,9 +718,7 @@ onMounted(async () => {
   window.addEventListener('floating-fab-action', (event: Event) => {
     const customEvent = event as CustomEvent<{ action: string }>
     const action = customEvent.detail?.action
-    if (action === 'openDraft') {
-      handleDraftClick()
-    } else if (action === 'openAIChat') {
+    if (action === 'openAIChat') {
       handleAIChatClick()
     }
   })
@@ -724,6 +745,14 @@ const handleToggleUnifiedChatMode = () => {
   showMainChatPanel.value = true
 }
 
+// 处理打开工具箱事件
+const handleOpenToolbox = () => {
+  console.log('handleOpenToolbox')
+  console.log('showDraftNotebook', showDraftNotebook.value)
+  showDraftNotebook.value = true
+  console.log('showDraftNotebook', showDraftNotebook.value)
+}
+
 // 处理头像更改事件
 const handleAvatarChanged = (newAvatarUrl: string) => {
   // 更新用户信息并持久化到localStorage
@@ -738,10 +767,6 @@ const handleAvatarClick = () => {
   showProfileDialog.value = true
 }
 
-// 处理草稿本点击
-const handleDraftClick = () => {
-  showDraftDialog.value = true
-}
 
 // 处理AI聊天点击
 const handleAIChatClick = async () => {
@@ -796,9 +821,9 @@ const closeToolbox = () => {
 }
 
 // 处理教师会话创建事件
-const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'teacher-general') => {
+const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'teacher') => {
   // 如果是教师会话，设置会话到 Store（使用统一存储格式）
-  if (type === 'teacher-general') {
+  if (type === 'teacher') {
     const session = teacherStore.getSession(sessionId)
     if (session) {
       teacherStore.setSession(session)
@@ -843,6 +868,7 @@ provide('openTeacherChatDialog', openTeacherChatDialog)
 provide('openMainChatPanel', openMainChatPanel)
 provide('openFeedbackDialog', openFeedbackDialog)
 provide('getTeacherChatDialogRef', getTeacherChatDialogRef)
+provide('openToolbox', handleOpenToolbox)
 
 // 工具箱动画进入完成后的处理
 const handleToolboxEnter = () => {
@@ -1132,6 +1158,25 @@ const handleKnowledgeGraphClick = () => {
       border: 2px solid #ffffff;
     }
 
+    .notification-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 18px;
+      height: 18px;
+      background: #ef4444;
+      color: white;
+      border-radius: 9px;
+      border: 2px solid #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      box-sizing: border-box;
+    }
+
     .nav-text {
       margin-top: 8px;
       font-size: 14px;
@@ -1178,7 +1223,6 @@ const handleKnowledgeGraphClick = () => {
   width: 33%;
   height: 100vh;
   background: #3d3070;
-  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
   overflow-y: auto;
   z-index: 999; // 层级低于功能菜单，不可覆盖功能菜单
   // 启用 GPU 硬件加速，优化 webview 性能
@@ -1187,7 +1231,7 @@ const handleKnowledgeGraphClick = () => {
   backface-visibility: hidden;
   -webkit-overflow-scrolling: touch; // iOS 滚动优化
   // 注意：will-change 只在动画期间使用，避免内存泄漏
-
+  box-shadow: -260px 0 0 0 rgba(61, 48, 112);
   // 自定义滚动条样式
   &::-webkit-scrollbar {
     width: 6px;

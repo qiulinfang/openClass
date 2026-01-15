@@ -6,6 +6,7 @@
 import { AndroidBridge } from '../business/android-bridge'
 
 import { AiChatApi } from './ai-chat-api'
+import { TeacherChatApi } from './teacher-chat-api'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
@@ -42,12 +43,14 @@ import type {
 export class ApiService {
   private static instance: ApiService
   private aiChatApi: AiChatApi
+  private teacherChatApi: TeacherChatApi
   private questionSearchApi: QuestionSearchApi
   private textbookDownloadApi: TextbookDownloadApi
 
   private constructor() {
     const androidBridge = AndroidBridge.getInstance()
     this.aiChatApi = new AiChatApi()
+    this.teacherChatApi = new TeacherChatApi()
     this.questionSearchApi = new QuestionSearchApi()
     this.textbookDownloadApi = new TextbookDownloadApi(androidBridge)
   }
@@ -223,14 +226,23 @@ export class ApiService {
     selectedMessagesData: string,
     teacherSessionId: string,
   ): Promise<boolean> {
-    return this.aiChatApi.forwardAiChatToTeacher(selectedMessagesData, teacherSessionId)
+    // 构造转发消息的内容
+    const forwardContent = `[AI聊天转发]\n${selectedMessagesData}`
+    return this.teacherChatApi.sendMessage(teacherSessionId, '0', forwardContent)
   }
 
   /**
    * 获取老师会话的消息历史
    */
   public async getTeacherChatHistory(sessionId: string): Promise<any[]> {
-    return this.aiChatApi.getTeacherChatHistory(sessionId)
+    return this.teacherChatApi.getTeacherChatHistory(sessionId)
+  }
+
+  /**
+   * 接受教师消息（模拟实现）
+   */
+  public async receiveTeacherMessage(): Promise<any> {
+    return this.teacherChatApi.receiveMessage()
   }
 
   /**

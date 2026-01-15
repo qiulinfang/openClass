@@ -8,7 +8,7 @@ import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useAiTextbookChatStore } from '../../../stores/aiTextbookChatStore'
 import { useKnowledgeGraphStore } from '../../../stores/KnowledgeGraphStore'
-import { useTeacherGeneralChatStore } from '../../../stores/teacherGeneralChatStore'
+import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { apiService } from '../../../services/http/api-service'
 import { Dialog } from 'quasar'
 import { showMessage } from '../../../utils'
@@ -89,9 +89,10 @@ export class AiTextbookStrategy implements ChatStrategy {
     try {
       // 选择或创建老师会话
       const session = await this.selectOrCreateTeacherSession(
-        this.getCurrentSubjectForForward()
+        this.getCurrentSubjectForForward(),
+        options.onTeacherSelect
       )
-      
+
       if (!session) {
         return {
           success: false,
@@ -151,9 +152,10 @@ export class AiTextbookStrategy implements ChatStrategy {
     try {
       // 选择或创建老师会话
       const session = await this.selectOrCreateTeacherSession(
-        this.getCurrentSubjectForForward()
+        this.getCurrentSubjectForForward(),
+        options.onTeacherSelect
       )
-      
+
       if (!session) {
         return {
           success: false,
@@ -230,8 +232,8 @@ export class AiTextbookStrategy implements ChatStrategy {
       await this.addMessage(welcomeMessage)
     }
   }
-  
-  // 第14步：发送语音消息
+
+  // 第16步：检查是否应该乐观发送
   async sendVoiceMessage(voiceInfo: {
     filePath: string
     duration: number
@@ -398,82 +400,37 @@ export class AiTextbookStrategy implements ChatStrategy {
    */
   private async selectOrCreateTeacherSession(
     subject: 'biology' | 'math' | null,
-    onSubjectSelected?: (subject: 'biology' | 'math') => Promise<'biology' | 'math'>
+    onTeacherSelect?: () => Promise<'biology' | 'math'>
   ): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
-    const teacherStore = useTeacherGeneralChatStore()
-    
+    const teacherStore = useTeacherChatStore()
+
     // 如果科目为null，需要用户选择
     if (subject === null) {
-      console.log('选择的科目为null，需要用户选择')
-      if (!onSubjectSelected) {
-        // 如果没有提供选择回调，使用默认对话框
-        return new Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null>((resolve) => {
-          Dialog.create({
-            title: '选择老师',
-            message: '请选择要转发的老师类型：',
-            options: {
-              type: 'radio',
-              model: '',
-              items: [
-                {
-                  label: '生物老师',
-                  value: 'biology',
-                  color: 'green',
-                },
-                {
-                  label: '数学老师',
-                  value: 'math',
-                  color: 'blue',
-                },
-              ],
-            },
-            cancel: {
-              label: '取消',
-              color: 'grey',
-              flat: true,
-            },
-            ok: {
-              label: '确定',
-              color: 'primary',
-              unelevated: true,
-            },
-            persistent: false,
-          }).onOk(async (selectedSubject: string) => {
-            const result = await this.selectOrCreateTeacherSession(selectedSubject as 'biology' | 'math')
-            console.log('选择或创建的老师会话selectOrCreateTeacherSession', result)
-            resolve(result)
-          }).onCancel(() => {
-            resolve(null)
-          })
-        })
-      } else {
-        // 使用提供的选择回调（这种情况不应该发生，因为 subject 为 null）
-        // 但为了类型安全，我们仍然处理
-        if (subject === null) {
-          return null
-        }
-        const selectedSubject = await onSubjectSelected(subject)
-        console.log('选择后的科目', selectedSubject)
+      if (!onTeacherSelect) {
+        console.error('[AiTextbookStrategy] 未提供老师选择回调函数')
+        return null
+      }
+
+      try {
+        const selectedSubject = await onTeacherSelect()
         return this.selectOrCreateTeacherSession(selectedSubject)
+      } catch (error) {
+        console.error('[AiTextbookStrategy] 老师选择失败:', error)
+        return null
       }
     }
-    console.log('选择的科目不为null，不需要用户选择')
     
     // 初始化老师消息监听器
     await teacherStore.initMessageReceiver()
     
     // 加载老师会话列表
     const sessions = teacherStore.allSessions
-    console.log('老师会话列表', sessions)
     // 查找对应科目的会话
     const existingSession = sessions.find((s: { subject: string }) => s.subject === subject)
-    console.log('找到的会话', existingSession)
     if (existingSession) {
       // 如果已存在，复用已有会话
       teacherStore.setSession(existingSession)
-      console.log('加载聊天记录selectOrCreateTeacherSession')
       await teacherStore.loadChatHistory(existingSession.sessionId)
-      console.log('加载的会话历史记录', existingSession.sessionId)
       return {
         sessionId: existingSession.sessionId,
         sessionName: existingSession.sessionName,
@@ -492,7 +449,6 @@ export class AiTextbookStrategy implements ChatStrategy {
       )
       
       if (createdSession) {
-        console.log('创建的会话', createdSession)
         return {
           sessionId: createdSession.sessionId,
           sessionName: createdSession.sessionName,
@@ -500,7 +456,6 @@ export class AiTextbookStrategy implements ChatStrategy {
         }
       }
       
-      console.log('创建的会话失败', createdSession)
       return null
     }
   }
@@ -564,7 +519,7 @@ export class AiTextbookStrategy implements ChatStrategy {
         })
         
         // AI教材策略固定使用 general 类型的 store
-        const teacherStore = useTeacherGeneralChatStore()
+        const teacherStore = useTeacherChatStore()
         // 确保 currentSession 指向正确的会话，避免会话列表重复存储
         const targetSession = teacherStore.getSession(sessionId)
         if (targetSession) {
@@ -629,8 +584,8 @@ export class AiTextbookStrategy implements ChatStrategy {
       })
       
       // AI教材策略固定使用 general 类型的 store
-      console.log('[AiTextbookStrategy] 🔍 [存储流程] 保存聊天历史完成', convertedMessages)
-      const teacherStore = useTeacherGeneralChatStore()
+      console.log('保存聊天历史完成', convertedMessages.length)
+      const teacherStore = useTeacherChatStore()
       // 确保 currentSession 指向正确的会话，避免会话列表重复存储
       const targetSession = teacherStore.getSession(sessionId)
       if (targetSession) {

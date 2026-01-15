@@ -7,8 +7,8 @@ import type { ChatBubble } from '../../../types'
 import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useAiExerciseChatStore } from '../../../stores/aiExerciseChatStore'
+import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { getUserInfo, getSubject } from '../../../services'
-import { useTeacherExerciseChatStore } from '../../../stores/teacherExerciseChatStore'
 import { apiService } from '../../../services/http/api-service'
 import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
@@ -119,187 +119,101 @@ export class AiExerciseStrategy implements ChatStrategy {
   // 第11步：转发单条消息
   async forwardMessage(message: ChatBubble, options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
-      const question = (options.currentQuestion ?? null) as {
-        id?: string
-        bmNo?: string
-        title?: string
-        subject?: string
-      } | null
-
-      // 验证是否选择了题目
-      if (!question) {
+      // 获取题目信息
+      const question = options.currentQuestion as { id?: string; bmNo?: string; subject?: string; question?: string; title?: string } | undefined
+      if (!question?.id) {
         return {
           success: false,
           error: '请先选择题目',
         }
       }
-      
+
+      // 确定科目
       const subject = this.getSubjectFromQuestion(question)
-      
       if (!subject) {
         return {
           success: false,
           error: '无法确定题目科目',
         }
       }
-      
-      // 选择或创建老师题目会话
-      if (!question.bmNo) {
-        return {
-          success: false,
-          error: '题目ID缺失，无法转发',
-        }
-      }
 
-      const session = await this.selectOrCreateTeacherExerciseSession(
-        question.bmNo,
-        question.title || '题目',
-        subject
-      )
-
-      
+      // 选择或创建老师会话
+      const session = await this.selectOrCreateTeacherExerciseSession(question.id, question.question || question.title || '题目', subject)
       if (!session) {
         return {
           success: false,
-          error: '会话创建失败',
+          error: '创建教师会话失败',
         }
       }
-      
-      // 转发消息到题目会话
+
+      // 转发消息
       const success = await this.forwardMessageToTeacher([message], session.sessionId)
-      
-      if (success) {
-        const result: ForwardResult = {
-          success: true,
-          successCount: 1,
-          sessionId: session.sessionId,
-        }
-        
-        // AI题目对话页面不显示对话框，只显示简单提示
-        showMessage('转发成功', 'success')
-        if (options.onSuccess) {
-          await options.onSuccess(result)
-        }
-        
-        return result
-      } else {
-        const error = '转发失败'
-        if (options.onError) {
-          options.onError(error)
-        }
-        return {
-          success: false,
-          error,
-        }
+      return {
+        success,
+        error: success ? undefined : '转发失败',
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (options.onError) {
-        options.onError(errorMessage)
-      }
+      console.error('[AiExerciseStrategy] ❌ 转发消息失败:', error)
       return {
         success: false,
-        error: errorMessage,
+        error: '转发失败，请重试',
       }
     }
   }
-  
+
   // 第12步：转发多条消息
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
-      const question = (options.currentQuestion ?? null) as { id?: string; bmNo?: string; title?: string; subject?: string } | null
-
-      // 验证是否选择了题目
-      if (!question) {
+      // 获取题目信息
+      const question = options.currentQuestion as { id?: string; bmNo?: string; subject?: string; question?: string; title?: string } | undefined
+      if (!question?.id) {
         return {
           success: false,
           error: '请先选择题目',
         }
       }
-      
+
+      // 确定科目
       const subject = this.getSubjectFromQuestion(question)
-      
       if (!subject) {
         return {
           success: false,
           error: '无法确定题目科目',
         }
       }
-      
-      // 选择或创建老师题目会话
-      if (!question.bmNo) {
-        return {
-          success: false,
-          error: '题目ID缺失，无法转发',
-        }
-      }
 
-      const session = await this.selectOrCreateTeacherExerciseSession(
-        question.bmNo,
-        question.title || '题目',
-        subject
-      )
-      
+      // 选择或创建老师会话
+      const session = await this.selectOrCreateTeacherExerciseSession(question.id, question.question || question.title || '题目', subject)
       if (!session) {
         return {
           success: false,
-          error: '会话创建失败',
+          error: '创建教师会话失败',
         }
       }
-      
-      // 逐条转发消息到题目会话
-      const { successCount } = await this.forwardMessagesSeparately(
-        messages,
-        session.sessionId
-      )
-      
-      if (successCount > 0) {
-        const result: ForwardResult = {
-          success: true,
-          successCount,
-          sessionId: session.sessionId,
-        }
-        
-        // AI题目对话页面不显示对话框，只显示简单提示
-        showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
-        if (options.onSuccess) {
-          await options.onSuccess(result)
-        }
-        
-        return result
-      } else {
-        const error = '转发失败，请重试'
-        if (options.onError) {
-          options.onError(error)
-        }
-        return {
-          success: false,
-          error,
-        }
+
+      // 转发消息
+      const result = await this.forwardMessagesSeparately(messages, session.sessionId)
+      return {
+        success: result.successCount > 0,
+        error: result.successCount > 0 ? undefined : `转发失败 (${result.successCount}/${result.totalCount})`,
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (options.onError) {
-        options.onError(errorMessage)
-      }
+      console.error('[AiExerciseStrategy] ❌ 转发消息失败:', error)
       return {
         success: false,
-        error: errorMessage,
+        error: '转发失败，请重试',
       }
     }
   }
   
   // 第13步：初始化消息
   async initialize(options: InitializeOptions): Promise<void> {
-    console.log('初始化消息', options)
     
     // 如果有题目，加载该题目的聊天历史（此处 currentQuestionId 约定为 bmNo）
     if (options.hasSelectedQuestion && options.currentQuestionId) {
       const questionBmNo = options.currentQuestionId
       if (questionBmNo) {
-        console.log('[AiExerciseStrategy] 加载题目聊天历史 (bmNo):', questionBmNo)
         await this.aiExerciseStore.loadChatHistory(questionBmNo)
-        console.log('[AiExerciseStrategy] 聊天历史加载完成，消息数量:', this.aiExerciseStore.messages.length)
       }
     } else {
       // 如果没有题目且消息为空，添加欢迎消息
@@ -314,10 +228,9 @@ export class AiExerciseStrategy implements ChatStrategy {
         await this.addMessage(welcomeMessage)
       }
     }
-    console.log('初始化消息完成', this.aiExerciseStore.messages)
   }
-  
-  // 第14步：发送语音消息
+
+  // 第16步：检查是否应该乐观发送
   async sendVoiceMessage(voiceInfo: {
     filePath: string
     duration: number
@@ -485,18 +398,27 @@ export class AiExerciseStrategy implements ChatStrategy {
     questionTitle: string,
     subject: 'biology' | 'math'
   ): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
-    const teacherExerciseStore = useTeacherExerciseChatStore()
-    
-    // 创建或获取题目会话
-    const session = teacherExerciseStore.getOrCreateSession(questionId, questionTitle, subject)
-    console.log('加载聊天记录selectOrCreateTeacherExerciseSession')
-    // 加载聊天历史（使用 questionId 而不是 sessionId，确保与保存时的 storageKey 一致）
-    await teacherExerciseStore.loadChatHistory(session.questionId)
-    
-    return {
-      sessionId: session.sessionId,
-      sessionName: session.sessionName,
-      subject: session.subject,
+    const teacherStore = useTeacherChatStore()
+
+    try {
+      // 创建或获取会话
+      const session = teacherStore.createTeacherSession(`${questionId}_${Date.now()}`, questionTitle, subject)
+      if (!session) {
+        console.error('[AiExerciseStrategy] ❌ 创建教师会话失败')
+        return null
+      }
+
+      // 设置当前会话
+      teacherStore.setSession(session)
+
+      return {
+        sessionId: session.sessionId,
+        sessionName: session.sessionName,
+        subject: session.subject,
+      }
+    } catch (error) {
+      console.error('[AiExerciseStrategy] ❌ 创建教师会话异常:', error)
+      return null
     }
   }
 
@@ -525,7 +447,7 @@ export class AiExerciseStrategy implements ChatStrategy {
         selectedMessagesData,
         sessionId,
       )
-      console.log('[AiExerciseStrategy] 🔍 [转发流程] 调用API转发 success', success)
+      console.log('转发消息成功', success)
       if (success) {
         // 第4步：保存转发消息到本地存储
         const convertedMessages = messages.map((msg) => {
@@ -558,18 +480,18 @@ export class AiExerciseStrategy implements ChatStrategy {
           }
         })
         
-        // AI题目策略固定使用 exercise 类型的 store
-          const teacherExerciseStore = useTeacherExerciseChatStore()
-          // 确保 currentSession 指向正确的会话，避免会话列表重复存储
-          const targetSession = teacherExerciseStore.getSession(sessionId)
-          if (targetSession) {
-            teacherExerciseStore.setSession(targetSession)
-          }
-          // 直接添加到老师题目消息存储并持久化
-          teacherExerciseStore.messages.push(...convertedMessages)
-        console.log('[AiExerciseStrategy] 🔍 [存储流程] 保存聊天历史完成', teacherExerciseStore.messages)
-          // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
-        await teacherExerciseStore.saveChatHistory()
+        // 使用teacherStore存储转发消息
+        const teacherStore = useTeacherChatStore()
+        // 确保 currentSession 指向正确的会话
+        const targetSession = teacherStore.getSession(sessionId)
+        if (targetSession) {
+          teacherStore.setSession(targetSession)
+        }
+        // 直接添加到老师消息存储并持久化
+        teacherStore.addMessage(...convertedMessages)
+        console.log('保存聊天历史完成', teacherStore.messages.length)
+        // 立即保存，避免防抖问题导致消息丢失
+        await teacherStore.saveChatHistory()
       }
       
       return success
@@ -624,17 +546,16 @@ export class AiExerciseStrategy implements ChatStrategy {
         }
       })
       
-      // AI题目策略固定使用 exercise 类型的 store
-        const teacherExerciseStore = useTeacherExerciseChatStore()
-        // 确保 currentSession 指向正确的会话，避免会话列表重复存储
-        const targetSession = teacherExerciseStore.getSession(sessionId)
-        if (targetSession) {
-          teacherExerciseStore.setSession(targetSession)
-        }
-        // 直接添加到老师题目消息存储
-        teacherExerciseStore.messages.push(...convertedMessages)
-        // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
-      await teacherExerciseStore.saveChatHistory()
+      // 使用teacherStore存储转发消息
+      // 确保 currentSession 指向正确的会话
+      const targetSession = teacherStore.getSession(sessionId)
+      if (targetSession) {
+        teacherStore.setSession(targetSession)
+      }
+      // 直接添加到老师消息存储
+      teacherStore.addMessage(...convertedMessages)
+      // 立即保存，避免防抖问题导致消息丢失
+      await teacherStore.saveChatHistory()
     }
     
     return { successCount, totalCount: messages.length }

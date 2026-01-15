@@ -8,10 +8,10 @@ import type { TeacherSessionInfo } from './types'
 import { AiGeneralStrategy } from './AiGeneralStrategy'
 import { AiExerciseStrategy } from './AiExerciseStrategy'
 import { AiTextbookStrategy } from './AiTextbookStrategy'
-import { TeacherGeneralStrategy } from './TeacherGeneralStrategy'
-import { TeacherExerciseStrategy } from './TeacherExerciseStrategy'
+import { TeacherStrategy } from './TeacherStrategy'
+import { UserClientStrategy } from './UserClientStrategy'
 
-export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
 
 export interface ChatStrategyFactoryOptions {
   subject?: string
@@ -27,20 +27,20 @@ export class ChatStrategyFactory {
     switch (type) {
       case 'ai-general':
         return new AiGeneralStrategy()
-      
+
       case 'ai-exercise':
         return new AiExerciseStrategy()
-      
+
       case 'ai-textbook':
         return new AiTextbookStrategy()
-      
-      case 'teacher-general':
-        // TeacherGeneralStrategy 现在直接从 store 读取 session 信息，不需要构造函数参数
-        return new TeacherGeneralStrategy()
-      
-      case 'teacher-exercise':
-        return new TeacherExerciseStrategy()
-      
+
+      case 'teacher':
+        // TeacherStrategy 现在直接从 store 读取 session 信息，不需要构造函数参数
+        return new TeacherStrategy()
+
+      case 'user-client':
+        return new UserClientStrategy()
+
       default:
         // 默认返回AI通用策略
         return new AiGeneralStrategy()

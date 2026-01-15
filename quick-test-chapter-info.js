@@ -386,3 +386,9 @@ setTimeout(() => {
   window.chapterInfoTest.checkIntegrity()
 }, 1000)
 
+<<<<<<< HEAD
+=======
+
+
+
+>>>>>>> feekback

@@ -21,9 +21,10 @@ import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
 // 注意：此 store 不再直接依赖 questionStore/homeworkStore
 // 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
-import { getUserId, getCurrentUserIdOrDefault } from '../services'
+import { getUserId } from '../services'
 import { validateExerciseChatRequest } from './utils/requestValidator'
 import { getCurrentEnvConfig } from '@/config/env-config'
+import { showMessage } from '../utils'
 
 /**
  * 构建AI题目聊天消息请求
@@ -43,7 +44,7 @@ const buildAiExerciseMessage = (
   const questionId = currentQuestion.bmNo || ''
   
   // 优先使用传入的 sessionId，如果没有则新建（使用题目ID和时间戳）
-  const userId = localStorage.getItem('userId') || ''
+  const userId = getUserId() || ''
   const finalSessionId = sessionId || `${userId ? userId + '-' : ''}exercise-${questionId}-${Date.now()}`
   
   // 如果有图片数据，使用图片接口
@@ -233,7 +234,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     skipUserMessage?: boolean,
     quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
-    console.log('[AI_EXERCISE] 发送消息:', content)
     // 第1步：验证题目
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
@@ -242,22 +242,30 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     // 第2步：如果没有 sessionId，则新建（基于题目bmNo）
     if (!currentSessionId.value) {
       const questionBmNo = currentQuestion.bmNo || ''
-      const userId = localStorage.getItem('userId') || ''
+      const userId = getUserId() || ''
       const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
       currentSessionId.value = newSessionId
     }
 
     // 第3步：构建AI请求并验证参数完整性（在插入占位消息前进行校验）
-    const aiRequest = buildAiExerciseMessage(
-      content,
-      currentQuestion,
-      userInfo,
-      subject,
-      enableWebSearch.value,
-      selectedModel,
-      imageData,
-      currentSessionId.value,
-    )
+    let aiRequest: AiChatMessageRequest
+    try {
+      aiRequest = buildAiExerciseMessage(
+        content,
+        currentQuestion,
+        userInfo,
+        subject,
+        enableWebSearch.value,
+        selectedModel,
+        imageData,
+        currentSessionId.value,
+      )
+    } catch (error) {
+      // 验证失败时显示友好的错误提示
+      const errorMessage = error instanceof Error ? error.message : '参数验证失败'
+      showMessage(errorMessage, 'warning')
+      throw error // 重新抛出错误，让上层处理
+    }
 
     // 第4步：创建用户消息（可选）
     // 自动检测并去除"我们开始吧"前缀（如果未显式设置 shouldHidePrefix）
@@ -392,16 +400,24 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
-    const aiRequest = buildAiExerciseMessage(
-      originalContent,
-      currentQuestion,
-      userInfo,
-      subject,
-      enableWebSearch.value,
-      selectedModel,
-      imageData,
-      currentSessionId.value,
-    )
+    let aiRequest: AiChatMessageRequest
+    try {
+      aiRequest = buildAiExerciseMessage(
+        originalContent,
+        currentQuestion,
+        userInfo,
+        subject,
+        enableWebSearch.value,
+        selectedModel,
+        imageData,
+        currentSessionId.value,
+      )
+    } catch (error) {
+      // 验证失败时显示友好的错误提示
+      const errorMessage = error instanceof Error ? error.message : '参数验证失败'
+      showMessage(errorMessage, 'warning')
+      throw error // 重新抛出错误，让上层处理
+    }
     
     try {
       // 第6步：重新发送请求（带流式回调）
@@ -518,7 +534,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
           if (legacyData && Array.isArray(legacyData.messages) && legacyData.messages.length > 0) {
             
             // 创建一个默认会话 ID
-            const userId = localStorage.getItem('userId') || ''
+            const userId = getUserId() || ''
             const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
             currentSessionId.value = newSessionId
             messages.value = legacyData.messages || []
@@ -827,7 +843,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     // 创建新会话ID
-    const userId = localStorage.getItem('userId') || ''
+    const userId = getUserId() || ''
     const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
     currentSessionId.value = newSessionId
     messages.value = []

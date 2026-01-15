@@ -17,10 +17,7 @@ export enum UserType {
   YANBAN = 'YANBAN'
 }
 
-const STORAGE_KEY = 'userInfo'
 const SUBJECT_STORAGE_KEY = 'currentSubject'
-const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID'
-const CURRENT_USER_TYPE_KEY = 'CURRENT_USER_TYPE'
 
 const sanitize = (value: string | null | undefined): string | null => {
   if (!value || value === 'undefined' || value.trim() === '') {
@@ -28,36 +25,38 @@ const sanitize = (value: string | null | undefined): string | null => {
   }
   return value
 }
-
-export const getUserId = (): string | null => sanitize(localStorage.getItem('userId'))
+// 学班用户ID
+export const getUserId = (): string | null => sanitize(localStorage.getItem('xuebanuserid'))
+// 学班用户密码
 export const getPassword = (): string | null => sanitize(localStorage.getItem('userPassword'))
+// 研伴用户Token
 export const getYanbanToken = (): string | null => sanitize(localStorage.getItem('YANBAN_TOKEN'))
+// 学班用户Token
 export const getXuebanToken = (): string | null => sanitize(localStorage.getItem('XUEBAN_TOKEN'))
+// 设置研伴用户Token
 export const setYanbanToken = (token: string | null): void => {
   if (token === null) localStorage.removeItem('YANBAN_TOKEN')
   else localStorage.setItem('YANBAN_TOKEN', token)
 }
+// 设置学班用户Token
 export const setXuebanToken = (token: string | null): void => {
   if (token === null) localStorage.removeItem('XUEBAN_TOKEN')
   else localStorage.setItem('XUEBAN_TOKEN', token)
 }
-export const getCurrentUserId = (): string | null => sanitize(localStorage.getItem(CURRENT_USER_ID_KEY))
-export const getCurrentUserType = (): UserType | null => {
-  const v = sanitize(localStorage.getItem(CURRENT_USER_TYPE_KEY))
-  if (v === UserType.XUEBAN || v === UserType.YANBAN) return v as UserType
-  return null
-}
-
+// 获取当前研伴用户ID
 export const getCurrentYanbanUserId = (): string | null => {
-  return sanitize(getCurrentUserId() || localStorage.getItem('studentUserId'))
+  return sanitize(localStorage.getItem('yanbanuserid'))
 }
 
+// 是否研伴登录
 export const isYanbanLoggedIn = (): boolean => {
   const token = getYanbanToken()
   const userId = getCurrentYanbanUserId()
   return !!(token && userId)
 }
 
+
+// 获取当前研伴认证信息
 export const getCurrentYanbanAuth = (): { token: string; username: string } | null => {
   const token = getYanbanToken()
   const userId = getCurrentYanbanUserId()
@@ -67,42 +66,40 @@ export const getCurrentYanbanAuth = (): { token: string; username: string } | nu
   }
   return null
 }
-export const getCurrentUserIdOrDefault = (defaultValue: string = 'default'): string => {
-  return getCurrentUserId() || getUserId() || defaultValue
-}
+// 获取作用域存储键
 export const getScopedStorageKey = (suffix: string): string => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId() || 'default'
   return `${userId}_${suffix}`
 }
+// 获取作用域存储值
 export const getScopedStorageValue = (suffix: string): string | null => {
   return sanitize(localStorage.getItem(getScopedStorageKey(suffix)))
 }
-export const setCurrentUser = (userId: string, userType: UserType): void => {
-  if (!userId || userId === 'undefined' || userId.trim() === '') return
-  localStorage.setItem(CURRENT_USER_ID_KEY, userId)
-  localStorage.setItem(CURRENT_USER_TYPE_KEY, userType)
-}
+// 获取学科
 export const getSubject = (): 'MATH' | 'BIOLOGY' => {
   const stored = sanitize(localStorage.getItem(SUBJECT_STORAGE_KEY))
   if (stored === 'BIOLOGY' || stored === 'MATH') return stored
   return 'MATH'
 }
+// 获取用户信息
 export const getUserInfo = (): UserInfo | null => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem('userInfo')
     if (!stored) return null
     return JSON.parse(stored) as UserInfo
   } catch {
     return null
   }
 }
+// 从存储加载
 export const loadFromStorage = (): boolean => {
   return getUserInfo() !== null
 }
+// 设置用户信息
 export const setUserInfo = (userInfo: UserInfo | null): void => {
   try {
-    if (userInfo === null) localStorage.removeItem(STORAGE_KEY)
-    else localStorage.setItem(STORAGE_KEY, JSON.stringify(userInfo))
+    if (userInfo === null) localStorage.removeItem('userInfo')
+    else localStorage.setItem('userInfo', JSON.stringify(userInfo))
   } catch {
   }
 }
@@ -132,10 +129,23 @@ export class AuthService {
    * @param url 当前请求路径（相对路径，如 /permission/xxx 或 /blw-edu-yb/xxx）
    * @returns 是否自动登录成功
    */
-  public async handle401(url: string): Promise<boolean> {
+  public async handle401(): Promise<boolean> {
     try {
       showMessage('账号已在其他设备登录', 'warning', 2500)
     } catch {
+    }
+
+    // 登录过期时断开 WebSocket 连接
+    try {
+      // 动态导入避免循环依赖
+      const { useUserClientStore } = await import('../../stores/userClientStore')
+      const userClientStore = useUserClientStore()
+      if (userClientStore.isConnected) {
+        console.log('[AuthService] 登录过期，断开 WebSocket 连接')
+        userClientStore.disconnect()
+      }
+    } catch (error) {
+      console.error('[AuthService] 断开 WebSocket 连接失败:', error)
     }
 
     this.forceLogoutToLogin()
@@ -147,10 +157,8 @@ export class AuthService {
       // 清理登录态信息，强制回到登录页
       localStorage.removeItem('XUEBAN_TOKEN')
       localStorage.removeItem('YANBAN_TOKEN')
-      localStorage.removeItem(STORAGE_KEY)
-      localStorage.removeItem('studentUserId')
-      localStorage.removeItem(CURRENT_USER_ID_KEY)
-      localStorage.removeItem(CURRENT_USER_TYPE_KEY)
+      localStorage.removeItem('userInfo')
+      localStorage.removeItem('yanbanuserid')
       localStorage.removeItem('lastLoginTime')
     } catch {
     }
@@ -243,52 +251,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * 自动登录功能
-   * 从 localStorage 获取保存的用户凭据并尝试登录（目前针对研伴学生登录）
-   * @param enableLogging 是否启用详细日志输出，默认为 false
-   */
-  public async autoLogin(enableLogging: boolean = false): Promise<boolean> {
-    try {
-      const userId = localStorage.getItem('userId')
-      const password = localStorage.getItem('userPassword')
-
-      if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-        console.warn('[AuthService] autoLogin 略过：本地凭据无效', {
-          hasUserId: !!userId,
-          hasPassword: !!password,
-          userIdValue: userId,
-          passwordIsEmpty: !password || password.trim() === '',
-        })
-        return false
-      }
-
-      // 直接调用本类的 loginYanban 方法
-      const loginResult = await this.loginYanban(userId, password)
-      const token = getYanbanToken()
-
-      // 判定成功条件：
-      // 1）loginResult 不为 null，或
-      // 2）已经在统一存储中成功写入了 YANBAN_TOKEN
-      const success = !!loginResult || (token !== null && token !== 'undefined' && token.trim() !== '')
-
-      if (!success) {
-        console.warn('[AuthService] autoLogin 失败：既没有有效的 loginResult，也没有有效的 YANBAN_TOKEN', {
-          userId,
-          hasLoginResult: !!loginResult,
-          hasTokenInStorage: !!token,
-        })
-        return false
-      }
-
-      // 更新登录时间戳
-      localStorage.setItem('lastLoginTime', Date.now().toString())
-      return true
-    } catch (error) {
-      console.warn('[AuthService] autoLogin 失败', error)
-      return false 
-    }
-  }
 
   // ========== 认证相关方法（从 xueban-api / yanban-api 迁移） ==========
 
@@ -351,7 +313,7 @@ export class AuthService {
     }
 
     localStorage.setItem('XUEBAN_TOKEN', token)
-    localStorage.setItem('userId', account)
+    localStorage.setItem('xuebanuserid', account)
     localStorage.setItem('userPassword', password)
     localStorage.setItem('lastLoginTime', Date.now().toString())
 
@@ -403,7 +365,7 @@ export class AuthService {
 
     // 同步用户信息到Android原生ViewModel
     try {
-      const userId = localStorage.getItem('userId')
+      const userId = localStorage.getItem('xuebanuserid')
       const userPassword = localStorage.getItem('userPassword')
       
       if (userId && token) {
@@ -457,15 +419,8 @@ export class AuthService {
 
         try {
           localStorage.setItem('YANBAN_TOKEN', tokenData.token)
-          localStorage.setItem('studentUserId', tokenData.userId)
+          localStorage.setItem('yanbanuserid', tokenData.userId)
 
-          try {
-            const effectiveUserId = tokenData.userId || account
-            if (effectiveUserId) {
-              setCurrentUser(effectiveUserId, UserType.YANBAN)
-            }
-          } catch {
-          }
 
           localStorage.setItem('lastLoginTime', Date.now().toString())
         } catch {
@@ -480,42 +435,19 @@ export class AuthService {
     }
   }
 
-  /**
-   * 检查学生登录状态
-   */
-  public isStudentLoggedIn(): boolean {
-    const token = localStorage.getItem('YANBAN_TOKEN')
-    const studentUserId = localStorage.getItem('studentUserId')
-    return !!(
-      token &&
-      studentUserId &&
-      token !== 'undefined' &&
-      studentUserId !== 'undefined' &&
-      token.trim() !== '' &&
-      studentUserId.trim() !== ''
-    )
-  }
-
-  /**
-   * 学生登出
-   */
-  public logoutStudent(): void {
-    localStorage.removeItem('YANBAN_TOKEN')
-    localStorage.removeItem('studentUserId')
-  }
 
   public async cleanupOnAccountSwitch(oldUserId?: string): Promise<void> {
     try {
       try {
-        const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
-        const teacherStore = useTeacherGeneralChatStore()
+        const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
+        const teacherStore = useTeacherChatStore()
         await teacherStore.cleanupMessageReceiver()
       } catch {
       }
 
       try {
-        const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
-        const teacherStore = useTeacherGeneralChatStore()
+        const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
+        const teacherStore = useTeacherChatStore()
         teacherStore.clearSession()
         teacherStore.clearMessages()
       } catch {

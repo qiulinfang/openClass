@@ -28,7 +28,15 @@
         @refresh="handleRefresh"
         @load-more="handleLoadMore"
       >
-        <div class="homework-grid">
+        <!-- 空状态提示 -->
+        <div v-if="!loading && homeworkList.length === 0" class="empty-state">
+          <img :src="homeworkDeepIcon" class="empty-icon" alt="作业图标" />
+          <div class="empty-text">暂无作业</div>
+          <div class="empty-desc">当前日期和学科条件下没有找到作业</div>
+        </div>
+
+        <!-- 作业列表 -->
+        <div v-else class="homework-grid">
           <div v-for="item in homeworkList" :key="item.id" class="homework-card">
             <div class="card-left">
               <div class="card-title-row">
@@ -65,11 +73,12 @@ import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService, type TopicPackageItem } from '@/services/http/api-service'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import type { ExerciseItem } from '@/types'
-import CommonActionButton from '@/components/CommonActionButton.vue'
-import CommonDatePicker from '@/components/CommonDatePicker.vue'
-import CommonSelect from '@/components/CommonSelect.vue'
+import CommonActionButton from '@/components/base/Button.vue'
+import CommonDatePicker from '@/components/base/DatePicker.vue'
+import CommonSelect from '@/components/base/Select.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
-import RubberBandList from '@/components/RubberBandList.vue'
+import RubberBandList from '@/components/base/VirtualList.vue'
+import homeworkDeepIcon from '/icons/homework_deep.svg'
 
 defineOptions({
   name: 'MyHomeworkView',
@@ -343,6 +352,35 @@ const goAnswer = (item: any) => {
   color: #9ca3af;
   font-size: 12px;
   padding: 8px 0 4px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.empty-desc {
+  font-size: 14px;
+  color: #9ca3af;
 }
 
 .homework-card {

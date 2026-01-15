@@ -164,8 +164,7 @@
             <q-item-section>
               <q-item-label>
                 {{ session.sessionName }}
-                <q-badge v-if="session.sessionType === 'exercise'" color="orange" class="q-ml-xs" label="题目" />
-                <q-badge v-else color="blue" class="q-ml-xs" label="答疑" />
+                <q-badge color="blue" class="q-ml-xs" label="答疑" />
               </q-item-label>
               <q-item-label caption>
                 ID: {{ session.sessionId.substring(0, 20) }}...
@@ -174,9 +173,6 @@
                 科目: {{ session.subject === 'biology' ? '生物' : '数学' }} | 
                 创建: {{ formatDate(session.createTime) }} | 
                 消息: {{ session.msgCount || 0 }}
-                <span v-if="session.sessionType === 'exercise' && 'questionId' in session">
-                  | 题目ID: {{ session.questionId.substring(0, 10) }}...
-                </span>
               </q-item-label>
             </q-item-section>
 
@@ -208,7 +204,7 @@
             </q-item-section>
           </q-item>
 
-          <q-item v-if="teacherSessions.length === 0 && teacherExerciseSessions.length === 0">
+          <q-item v-if="teacherSessions.length === 0">
             <q-item-section class="text-center text-grey-6">
               <div class="q-py-md">
                 <q-icon name="inbox" size="48px" />
@@ -536,7 +532,7 @@
             <q-item-section>
               <q-item-label caption>会话类型</q-item-label>
               <q-item-label>
-                {{ selectedTeacherSession.sessionType === 'exercise' ? '题目会话' : '答疑会话' }}
+                答疑会话
               </q-item-label>
             </q-item-section>
           </q-item>
@@ -544,12 +540,6 @@
             <q-item-section>
               <q-item-label caption>科目</q-item-label>
               <q-item-label>{{ selectedTeacherSession.subject === 'biology' ? '生物' : '数学' }}</q-item-label>
-            </q-item-section>
-          </q-item>
-          <q-item v-if="selectedTeacherSession.sessionType === 'exercise' && 'questionId' in selectedTeacherSession">
-            <q-item-section>
-              <q-item-label caption>题目ID</q-item-label>
-              <q-item-label>{{ selectedTeacherSession.questionId }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
@@ -641,12 +631,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
-import { useTeacherExerciseChatStore, type TeacherExerciseSession } from '@/stores/teacherExerciseChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import type { AiGeneralSession, ChatBubble } from '@/types'
-import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
+import type { TeacherSession } from '@/stores/teacherChatStore'
 import localforage from 'localforage'
-import { getCurrentUserIdOrDefault } from '@/services'
+import { getUserId } from '@/services'
 import { chatStorage } from '@/services/storage/chat-storage'
 import { showMessage } from '@/utils'
 
@@ -664,8 +653,7 @@ const emit = defineEmits<{
 
 // Store
 const aiGeneralStore = useAiGeneralChatStore()
-const teacherStore = useTeacherGeneralChatStore()
-const teacherExerciseStore = useTeacherExerciseChatStore()
+const teacherStore = useTeacherChatStore()
 
 // 响应式数据
 const isVisible = computed({
@@ -682,8 +670,7 @@ const showAiDetailDialog = ref(false)
 
 // 老师对话相关
 const teacherSessions = ref<(TeacherSession & { msgCount: number; sessionType: 'general' })[]>([])
-const teacherExerciseSessions = ref<(TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })[]>([])
-const selectedTeacherSession = ref<((TeacherSession & { msgCount: number; sessionType: 'general' }) | (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })) | null>(null)
+const selectedTeacherSession = ref<(TeacherSession & { msgCount: number; sessionType: 'general' }) | null>(null)
 const showTeacherDetailDialog = ref(false)
 const showCreateTeacherDialog = ref(false)
 
@@ -703,14 +690,13 @@ const messageJsonText = ref('')
 
 // 计算属性
 const totalSessionsCount = computed(() => {
-  return aiSessions.value.length + teacherSessions.value.length + teacherExerciseSessions.value.length
+  return aiSessions.value.length + teacherSessions.value.length
 })
 
 const totalMessages = computed(() => {
   const aiMessages = aiSessions.value.reduce((sum, s) => sum + s.msgCount, 0)
   const teacherMessages = teacherSessions.value.reduce((sum, s) => sum + (s.msgCount || 0), 0)
-  const teacherExerciseMessages = teacherExerciseSessions.value.reduce((sum, s) => sum + (s.msgCount || 0), 0)
-  return aiMessages + teacherMessages + teacherExerciseMessages
+  return aiMessages + teacherMessages
 })
 
 const sortedAiSessions = computed(() => {
@@ -725,7 +711,6 @@ const sortedTeacherSessions = computed(() => {
   // 合并通用会话和题目会话，按创建时间排序
   const allSessions = [
     ...teacherSessions.value.map(s => ({ ...s, sessionType: 'general' as const })),
-    ...teacherExerciseSessions.value.map(s => ({ ...s, sessionType: 'exercise' as const }))
   ]
   return allSessions.sort((a, b) => {
     return b.createTime - a.createTime
@@ -750,7 +735,6 @@ const refreshData = async () => {
     
     // 刷新老师对话（通用和题目）
     await loadTeacherSessions()
-    await loadTeacherExerciseSessions()
     
     // 计算存储大小
     await calculateStorageSize()
@@ -791,47 +775,6 @@ const loadTeacherSessions = async () => {
   teacherSessions.value = sessions
 }
 
-// 第1.2步：加载教师题目会话列表
-const loadTeacherExerciseSessions = async () => {
-  // 使用统一存储格式加载所有会话
-  const allSessions = teacherExerciseStore.getAllSessions()
-  
-  const sessions: (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })[] = []
-  const sessionIds = new Set<string>()
-  
-  // 遍历所有会话，加载消息数量
-  for (const session of allSessions) {
-          if (!session || !session.sessionId || !session.sessionName) {
-            continue
-          }
-          
-          if (sessionIds.has(session.sessionId)) {
-            continue
-          }
-          
-          // 加载消息数量
-    const storageKey = `teacher-exercise-${session.questionId}`
-          let msgCount = 0
-          try {
-            const history = await chatStorage.loadTeacherChatHistory(storageKey)
-            if (history && history.messages) {
-              msgCount = history.messages.length
-            }
-          } catch (error) {
-            console.warn('加载教师题目会话消息数量失败:', error)
-          }
-          
-          sessions.push({
-            ...session,
-            msgCount,
-            sessionType: 'exercise'
-          })
-          sessionIds.add(session.sessionId)
-  }
-  
-  sessions.sort((a, b) => b.createTime - a.createTime)
-  teacherExerciseSessions.value = sessions
-}
 
 // 第2步：计算存储大小
 const calculateStorageSize = async () => {
@@ -868,22 +811,6 @@ const calculateStorageSize = async () => {
       }
     }
     
-    // 计算教师题目会话列表大小
-    const teacherExerciseSessionsData = JSON.stringify(teacherExerciseSessions.value)
-    totalSize += new Blob([teacherExerciseSessionsData]).size
-    
-    // 计算教师题目会话消息大小
-    for (const session of teacherExerciseSessions.value) {
-      const storageKey = `teacher-exercise-${session.questionId}`
-      try {
-        const history = await chatStorage.loadTeacherChatHistory(storageKey)
-        if (history) {
-          totalSize += new Blob([JSON.stringify(history)]).size
-        }
-      } catch (error) {
-        console.warn('加载教师题目会话历史失败（计算大小）:', error)
-      }
-    }
     
     // 格式化大小
     if (totalSize < 1024) {
@@ -923,12 +850,6 @@ const clearAllSessions = async () => {
       teacherStore.deleteSession(session.sessionId)
     }
     
-    // 删除所有教师题目会话（使用统一存储格式）
-    for (const session of teacherExerciseSessions.value) {
-      const storageKey = `teacher-exercise-${session.questionId}`
-      await chatStorage.removeTeacherChatHistory(storageKey)
-      teacherExerciseStore.deleteSession(session.sessionId)
-    }
     
     // 刷新数据
     await refreshData()
@@ -948,17 +869,10 @@ const deleteAiSession = async (session: AiGeneralSession) => {
 }
 
 // 第4.1步：删除教师会话
-const deleteTeacherSession = async (session: (TeacherSession & { msgCount: number; sessionType: 'general' }) | (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })) => {
+const deleteTeacherSession = async (session: TeacherSession & { msgCount: number; sessionType: 'general' }) => {
   try {
-    if (session.sessionType === 'exercise') {
-      // 删除教师题目会话（使用统一存储格式）
-      const storageKey = `teacher-exercise-${session.questionId}`
-      await chatStorage.removeTeacherChatHistory(storageKey)
-      teacherExerciseStore.deleteSession(session.sessionId)
-    } else {
-      // 删除教师通用会话（从统一存储中删除）
-      await teacherStore.clearChatHistory(session.sessionId)
-    }
+    // 删除教师通用会话（从统一存储中删除）
+    await teacherStore.clearChatHistory(session.sessionId)
     
     // 刷新数据
     await refreshData()
@@ -989,35 +903,21 @@ const viewAiSessionDetail = async (session: AiGeneralSession) => {
 }
 
 // 第5.1步：查看教师会话详情
-const viewTeacherSessionDetail = async (session: (TeacherSession & { msgCount: number; sessionType: 'general' }) | (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })) => {
+const viewTeacherSessionDetail = async (session: TeacherSession & { msgCount: number; sessionType: 'general' }) => {
   try {
     selectedTeacherSession.value = session
     
-    // 根据会话类型加载消息
-    if (session.sessionType === 'exercise') {
-      // 加载教师题目会话消息
-      const storageKey = `teacher-exercise-${session.questionId}`
-      const history = await chatStorage.loadTeacherChatHistory(storageKey)
+    // 加载教师通用会话消息（从独立存储中加载）
+    const storageKey = `teacher-general-${session.sessionId}`
+    const history = await chatStorage.loadChatHistory(storageKey)
       
       if (history && history.messages) {
         sessionMessages.value = history.messages
       } else {
         sessionMessages.value = []
       }
-    } else {
-      // 加载教师通用会话消息（从独立存储中加载）
-      const storageKey = `teacher-general-${session.sessionId}`
-      const history = await chatStorage.loadChatHistory(storageKey)
-      
-      if (history && history.messages) {
-        sessionMessages.value = history.messages
-      } else {
-        sessionMessages.value = []
-      }
-    }
-    
     showTeacherDetailDialog.value = true
-  } catch (error) {
+  } catch (error) {   
     console.error('加载教师会话详情失败:', error)
   }
 }
@@ -1028,16 +928,10 @@ const selectAiSession = (session: AiGeneralSession) => {
 }
 
 // 第6.1步：选择教师会话
-const selectTeacherSession = (session: (TeacherSession & { msgCount: number; sessionType: 'general' }) | (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })) => {
-  if (session.sessionType === 'exercise') {
-    // 选择教师题目会话
-    teacherExerciseStore.setSession(session)
-    teacherExerciseStore.loadChatHistory(session.questionId)
-  } else {
-    // 选择教师通用会话
-    teacherStore.setSession(session)
-    teacherStore.loadChatHistory(session.sessionId)
-  }
+const selectTeacherSession = (session: TeacherSession & { msgCount: number; sessionType: 'general' }) => {
+  // 选择教师通用会话
+  teacherStore.setSession(session)
+  teacherStore.loadChatHistory(session.sessionId)
 }
 
 // 第7步：导出数据
@@ -1048,10 +942,8 @@ const exportData = async () => {
       exportTime: number
       aiSessions: typeof aiSessions.value
       teacherSessions: typeof teacherSessions.value
-      teacherExerciseSessions?: typeof teacherExerciseSessions.value
       aiMessages: Record<string, unknown>
       teacherMessages: Record<string, unknown>
-      teacherExerciseMessages?: Record<string, unknown>
     } = {
       version: '1.0',
       exportTime: Date.now(),
@@ -1090,20 +982,6 @@ const exportData = async () => {
       }
     }
     
-    // 导出教师题目会话的消息
-    exportData.teacherExerciseSessions = teacherExerciseSessions.value
-    exportData.teacherExerciseMessages = {}
-    for (const session of teacherExerciseSessions.value) {
-      const storageKey = `teacher-exercise-${session.questionId}`
-      try {
-        const history = await chatStorage.loadTeacherChatHistory(storageKey)
-        if (history) {
-          exportData.teacherExerciseMessages[session.questionId] = history
-        }
-      } catch (error) {
-        console.warn('导出教师题目会话消息失败:', error)
-      }
-    }
     
     // 创建下载
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1171,17 +1049,6 @@ const handleFileImport = async (event: Event) => {
         }
       }
       
-      // 导入教师题目会话（使用统一存储格式）
-      if (importData.teacherExerciseSessions && importData.teacherExerciseMessages) {
-        for (const session of importData.teacherExerciseSessions) {
-          teacherExerciseStore.saveSession(session)
-        }
-        
-        for (const questionId in importData.teacherExerciseMessages) {
-          const storageKey = `teacher-exercise-${questionId}`
-          await chatStorage.saveTeacherChatHistory(storageKey, importData.teacherExerciseMessages[questionId])
-        }
-      }
       
       // 刷新数据
       await refreshData()
@@ -1216,17 +1083,17 @@ const memoryMessagesCount = computed(() => memoryMessages.value.length)
 const indexedDBMessagesCount = computed(() => indexedDBMessages.value.length)
 const indexedDBKey = computed(() => {
   if (!currentTeacherSession.value) return '无当前会话'
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   // 教师通用会话使用统一存储，所有会话的消息存储在同一个键下
   return `${userId}_chat_history_teacher-general`
 })
 const localStorageSessionKey = computed(() => {
   if (!currentTeacherSession.value) return '无当前会话'
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_teacher_chat_${currentTeacherSession.value.sessionId}_session`
 })
 const indexedDBDatabaseName = computed(() => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `ExerciseSolveApp_${userId}`
 })
 
@@ -1251,7 +1118,7 @@ const refreshStorageData = async () => {
     
     // 刷新localStorage会话信息
     if (currentTeacherSession.value) {
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
       const sessionKey = `${userId}_teacher_chat_${currentTeacherSession.value.sessionId}_session`
       const sessionData = localStorage.getItem(sessionKey)
       localStorageSessionData.value = sessionData ? JSON.stringify(JSON.parse(sessionData), null, 2) : '无数据'

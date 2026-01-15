@@ -4,7 +4,7 @@
  */
 
 import { IndexedDBService } from './indexeddb-service'
-import { getCurrentUserIdOrDefault } from '../http/auth-service'
+import { getUserId } from '../http/auth-service'
 import type { ExerciseItem } from '@/types'
 
 interface QuestionListData {
@@ -18,7 +18,7 @@ interface QuestionListData {
  * 使用用户ID作为数据库名前缀，实现账号隔离
  */
 function getQuestionStorage(): IndexedDBService {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   const dbName = `ExerciseQuestionsDB_${userId}`
   return IndexedDBService.getInstance({
     dbName: dbName,
@@ -42,7 +42,7 @@ function getQuestionStorage(): IndexedDBService {
  */
 const initPromises: Map<string, Promise<void>> = new Map()
 export async function initQuestionStorage(): Promise<void> {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   const questionStorage = getQuestionStorage()
   
   // 如果已经初始化，直接返回

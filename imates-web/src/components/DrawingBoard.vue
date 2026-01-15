@@ -125,7 +125,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
-import DraggableDialog from './DraggableDialog.vue'
+import DraggableDialog from './dialog/DraggableDialog.vue'
 import PerfectFreehandConfigDialog from './debug/PerfectFreehandConfigDialog.vue'
 import SignaturePad from 'signature_pad'
 import type { ExerciseItem } from '@/types'
