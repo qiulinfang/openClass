@@ -15,7 +15,7 @@ import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
-import { getUserId, getCurrentUserIdOrDefault } from '../services'
+import { getUserId } from '../services'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
@@ -45,7 +45,7 @@ const buildAiGeneralMessage = (
 ): AiChatMessageRequest => {
   // 优先使用传入的 sessionId，如果没有则新建
   const createSessionId = (maybeSessionId?: string) => {
-    const userId = localStorage.getItem('userId') || ''
+    const userId = getUserId() || ''
     const finalSessionId = maybeSessionId || `${userId ? userId + '-' : ''}general-session-${Date.now()}`
     return {
       sessionId: finalSessionId,
@@ -132,14 +132,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     onAfterHistorySync: () => saveChatHistory(),
   })
   
-  /** 待发送图片（用于拍作业场景） */
-  const pendingImage = ref<{
-    filePath: string
-    width: number
-    height: number
-    fileSize: number
-    base64DataUrl?: string
-  } | null>(null)
   
   // ==================== 私有方法 ====================
   // （使用本文件内的 buildAiGeneralMessage）
@@ -302,7 +294,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   ): Promise<void> => {
     // 第1步：如果没有当前会话，创建新会话
     if (!currentSession.value) {
-      console.log('没有当前会话，创建新会话')
       await createSession(content)
     }
     
@@ -524,7 +515,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第3步：生成会话信息
       const MAX_SESSION_NAME_LENGTH = 20 // 会话名称最大长度（约10个汉字）
-      const userId = localStorage.getItem('userId') || ''
+      const userId = getUserId() || ''
       const newSession: AiGeneralSession = {
         // 与 buildAiGeneralMessage 的默认 thread_id 生成规则保持一致，避免 thread_id 在同一对话中漂移
         sessionId: `${userId ? userId + '-' : ''}general-session-${Date.now()}`,
@@ -640,7 +631,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const loadSessions = async (): Promise<void> => {
     try {
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
       const legacyKey = `${userId}_ai-general-sessions`
       sessions.value = await sessionPersistence.loadWithLegacy({
         read: () => {
@@ -928,27 +919,6 @@ ${conversationSummary}
     enableWebSearch.value = !enableWebSearch.value
   }
   
-  /**
-   * 设置待发送图片（用于拍作业场景）
-   * 第1步：保存图片信息到状态
-   */
-  const setPendingImage = (imageData: {
-    filePath: string
-    width: number
-    height: number
-    fileSize: number
-    base64DataUrl?: string
-  }): void => {
-    pendingImage.value = imageData
-  }
-  
-  /**
-   * 清除待发送图片
-   * 第1步：清空待发送图片状态
-   */
-  const clearPendingImage = (): void => {
-    pendingImage.value = null
-  }
   
   return {
     // 状态
@@ -959,7 +929,6 @@ ${conversationSummary}
     enableWebSearch,
     isCreatingSession,
     canCreateSession,
-    pendingImage,
     
     // 方法
     sendMessage,
@@ -976,9 +945,7 @@ ${conversationSummary}
     saveSessions,
     loadSessions,
     resetState,
-    toggleWebSearch,
-    setPendingImage,
-    clearPendingImage
+    toggleWebSearch
   }
 })
 

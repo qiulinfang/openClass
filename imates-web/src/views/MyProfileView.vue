@@ -3,49 +3,54 @@
     <!-- 功能卡片区域 -->
     <RubberBandList>
       <div class="features-section">
-      <!-- 加入课堂卡片 -->
-      <div 
-        class="feature-card join-class-card"
-        :class="{ 'in-class': isInClass }"
-        @click="toggleJoinClass"
-      >
-        <div class="card-icon-wrapper" :class="{ 'in-class': isInClass }">
-          <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
-        </div>
-        <div class="card-text">{{ isInClass ? '离开课堂' : '加入课堂' }}</div>
-      </div>
+        <div class="content-wrapper">
+          <!-- 加入课堂卡片 -->
+          <div
+            class="feature-card join-class-card"
+            :class="{ 'in-class': isInClass }"
+            @click="toggleJoinClass"
+          >
+            <div class="card-icon-wrapper" :class="{ 'in-class': isInClass }">
+              <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
+            </div>
+            <div class="card-text">{{ isInClass ? '离开课堂' : '加入课堂' }}</div>
+          </div>
 
-      <!-- 教师通用对话卡片 -->
-      <div class="feature-card teacher-chat-card" @click="chatWithTeacher">
-        <div class="card-icon-wrapper">
-          <img :src="teacherQaIcon" alt="老师答疑" class="card-icon" />
-        </div>
-        <div class="card-text">老师答疑</div>
-      </div>
 
-      <!-- 拍作业卡片 -->
-      <div class="feature-card photo-teacher-card" @click="takePictureToTeacher">
-        <div class="card-icon-wrapper">
-          <img :src="scanHomeworkIcon" alt="拍作业" class="card-icon" />
-        </div>
-        <div class="card-text">拍作业</div>
-      </div>
 
-      <!-- 我的收藏卡片 -->
-      <div class="feature-card favorites-card" @click="showFavorites">
-        <div class="card-icon-wrapper">
-          <img :src="myFavoritesIcon" alt="我的收藏" class="card-icon" />
-        </div>
-        <div class="card-text">我的收藏</div>
-      </div>
+          <!-- 我的收藏卡片 -->
+          <div class="feature-card favorites-card" @click="showFavorites">
+            <div class="card-icon-wrapper">
+              <img :src="myFavoritesIcon" alt="我的收藏" class="card-icon" />
+            </div>
+            <div class="card-text">我的收藏</div>
+          </div>
 
-      <!-- 意见反馈卡片 -->
-      <div class="feature-card feedback-card" @click="showFeedback">
-        <div class="card-icon-wrapper">
-          <img :src="feedbackIcon" alt="意见反馈" class="card-icon" />
+          <!-- 意见反馈卡片 -->
+          <div class="feature-card feedback-card" @click="showFeedback">
+            <div class="card-icon-wrapper">
+              <img :src="feedbackIcon" alt="在线客服" class="card-icon" />
+              <span class="notification-badge" v-if="userClientUnreadCount > 0">{{
+                userClientUnreadCount
+              }}</span>
+            </div>
+            <div class="card-text">在线客服</div>
+          </div>
+
+          <!-- 草稿本卡片 -->
+          <div class="feature-card draft-notebook-card" @click="openDraftNotebook">
+            <div class="card-icon-wrapper">
+              <img src="/icons/draw.svg" alt="草稿本" class="card-icon" />
+            </div>
+            <div class="card-text">草稿本</div>
+          </div>
         </div>
-        <div class="card-text">意见反馈</div>
-      </div>
+        <!-- 退出登录按钮 -->
+        <div class="logout-section">
+          <div class="logout-button" @click="handleLogout">
+            <span class="logout-text">退出登录</span>
+          </div>
+        </div>
       </div>
     </RubberBandList>
 
@@ -75,14 +80,18 @@
       <div class="join-classroom-content" v-else>
         <div class="join-classroom-body">
           <div v-if="isLoadingClassrooms" class="status-text">正在加载教室列表...</div>
-          <div v-else-if="classroomLoadError" class="status-text error">{{ classroomLoadError }}</div>
-          <div v-else-if="!classroomTree || cityOptions.length === 0" class="status-text">暂无可用教室，请稍后重试</div>
+          <div v-else-if="classroomLoadError" class="status-text error">
+            {{ classroomLoadError }}
+          </div>
+          <div v-else-if="!classroomTree || cityOptions.length === 0" class="status-text">
+            暂无可用教室，请稍后重试
+          </div>
           <div v-else class="selector-grid">
             <div class="selector-column">
               <div class="label">城市</div>
               <CommonSelect
                 v-model="selectedCity"
-                :options="cityOptions.map(city => ({ label: city, value: city }))"
+                :options="cityOptions.map((city) => ({ label: city, value: city }))"
                 placeholder="请选择城市"
               />
             </div>
@@ -91,7 +100,7 @@
               <div class="label">学校</div>
               <CommonSelect
                 v-model="selectedSchool"
-                :options="schoolOptions.map(school => ({ label: school, value: school }))"
+                :options="schoolOptions.map((school) => ({ label: school, value: school }))"
                 :placeholder="selectedCity ? '请选择学校' : '请先选择城市'"
               />
             </div>
@@ -100,7 +109,9 @@
               <div class="label">教室</div>
               <CommonSelect
                 v-model="selectedClassroom"
-                :options="classroomOptions.map(room => ({ label: roomLabel(room), value: roomKey(room) }))"
+                :options="
+                  classroomOptions.map((room) => ({ label: roomLabel(room), value: roomKey(room) }))
+                "
                 :placeholder="selectedSchool ? '请选择教室' : '请先选择学校'"
               />
             </div>
@@ -109,46 +120,60 @@
       </div>
     </DraggableDialog>
 
+    <!-- 退出登录确认对话框 -->
+    <DraggableDialog
+      v-model="showLogoutConfirm"
+      type="delete"
+      title="退出确认"
+      :delete-content="'确定要退出登录吗？'"
+      :processing="isLoggingOut"
+      processing-text="退出中..."
+      :confirm-text="'退出'"
+      @confirm="confirmLogout"
+      @cancel="cancelLogout"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick, inject } from 'vue'
+import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
-import { Dialog } from 'quasar'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
-import { useImagePicker } from '@/composables/useImagePicker'
+import { useUserClientStore } from '@/stores/userClientStore'
 import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
-import { authService, getUserInfo, getCurrentUserIdOrDefault, getXuebanToken, setUserInfo } from '../services'
+import {
+  authService,
+  getUserInfo,
+  getUserId,
+  getXuebanToken,
+  setUserInfo,
+  getCurrentYanbanUserId,
+} from '../services'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
-import type { ChatBubble } from '@/types'
-import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
-import RubberBandList from '@/components/RubberBandList.vue'
-import DraggableDialog from '@/components/DraggableDialog.vue'
-import CommonSelect from '@/components/CommonSelect.vue'
+import RubberBandList from '@/components/base/VirtualList.vue'
+import DraggableDialog from '@/components/base/Modal.vue'
+import CommonSelect from '@/components/base/Select.vue'
 
 // 导入 SVG 图标
 import joinClassIcon from '/icons/join_class.svg'
-import teacherQaIcon from '/icons/teacher_qa.svg'
-import scanHomeworkIcon from '/icons/scan_homework.svg'
 import myFavoritesIcon from '/icons/my_favorites.svg'
 import feedbackIcon from '/icons/feedback.svg'
 
 const router = useRouter()
-const teacherStore = useTeacherGeneralChatStore()
+const userClientStore = useUserClientStore()
 
 // 注入父组件提供的方法（从 MainView 提供）
 const closeToolbox = inject<() => void>('closeToolbox')
-const openTeacherChatDialog = inject<(subject?: 'biology' | 'math') => void>('openTeacherChatDialog')
 const openMainChatPanel = inject<() => void>('openMainChatPanel')
 const openFeedbackDialog = inject<() => void>('openFeedbackDialog')
-const getTeacherChatDialogRef = inject<() => InstanceType<typeof UnifiedChatDialog> | null>('getTeacherChatDialogRef')
+const openToolboxFromParent = inject<() => void>('openToolbox')
 
 // 响应式数据
 const isInClass = ref(false)
 const isProjecting = ref(false)
 const showJoinClassDialog = ref(false)
+const isLoggingOut = ref(false)
+const showLogoutConfirm = ref(false)
 
 // 教室选择相关状态
 const classroomTree = ref<any | null>(null)
@@ -157,8 +182,6 @@ const classroomLoadError = ref<string | null>(null)
 const selectedCity = ref('')
 const selectedSchool = ref('')
 const selectedClassroom = ref('')
-// 全局图片选择器
-const { pickImage } = useImagePicker()
 
 // 教室选择下拉选项
 const cityOptions = computed<string[]>(() => {
@@ -211,7 +234,11 @@ const classroomOptions = computed<any[]>(() => {
   const tree: any = classroomTree.value
 
   // 常见结构1：classroomsMap[city][school] 为教室数组
-  if (tree.classroomsMap && tree.classroomsMap[selectedCity.value] && Array.isArray(tree.classroomsMap[selectedCity.value][selectedSchool.value])) {
+  if (
+    tree.classroomsMap &&
+    tree.classroomsMap[selectedCity.value] &&
+    Array.isArray(tree.classroomsMap[selectedCity.value][selectedSchool.value])
+  ) {
     return tree.classroomsMap[selectedCity.value][selectedSchool.value] as any[]
   }
 
@@ -236,17 +263,21 @@ const roomLabel = (room: any): string => {
   return room.name || room.displayName || roomKey(room)
 }
 
+// 用户端未读消息数
+const userClientUnreadCount = computed(() => userClientStore.unreadCount)
+
 // 使用 Store 管理用户信息 - 使用 computed 监听 localStorage 变化
 // 注意：这里直接导入 getUserInfo，因为 authStorage 不依赖 userStore，不会有循环依赖
 const userInfo = computed(() => {
-  return getUserInfo() || {
-  id: '',
-  name: '',
-  avatar: '',
-  roles: [] as string[]
-  }
+  return (
+    getUserInfo() || {
+      id: '',
+      name: '',
+      avatar: '',
+      roles: [] as string[],
+    }
+  )
 })
-
 
 // 检查课堂状态的函数
 const checkClassroomStatus = () => {
@@ -254,7 +285,7 @@ const checkClassroomStatus = () => {
   console.log('[Classroom][Status] start')
   const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
   console.log('[Classroom][Status] native =', status)
-  
+
   if (status && status.isInClass === true) {
     isInClass.value = true
     isProjecting.value = status.status === 'streaming'
@@ -328,14 +359,14 @@ const loadUserInfo = async () => {
 
     // 第3步：调用 /admin/info 接口获取用户信息
     const userData = await authService.getUserInfo(token)
-    
+
     // 第4步：更新用户信息并持久化
     if (userData) {
       setUserInfo({
         id: userData.id || '',
         name: userData.name || '用户',
         avatar: userData.avatar || '',
-        roles: userData.roles || []
+        roles: userData.roles || [],
       })
     }
   } catch (error) {
@@ -353,7 +384,7 @@ const loadClassroomTree = () => {
       cities: ['北京', '上海'],
       schoolsMap: {
         北京: ['第一中学', '第二中学'],
-        上海: ['实验中学']
+        上海: ['实验中学'],
       },
       classroomsMap: {
         北京: {
@@ -361,14 +392,10 @@ const loadClassroomTree = () => {
             { id: 'BJ-1-101', name: '高一(1)班' },
             { id: 'BJ-1-102', name: '高一(2)班' },
           ],
-          第二中学: [
-            { id: 'BJ-2-201', name: '初二(1)班' },
-          ],
+          第二中学: [{ id: 'BJ-2-201', name: '初二(1)班' }],
         },
         上海: {
-          实验中学: [
-            { id: 'SH-EX-301', name: '高二(3)班' },
-          ],
+          实验中学: [{ id: 'SH-EX-301', name: '高二(3)班' }],
         },
       },
     }
@@ -382,13 +409,14 @@ const loadClassroomTree = () => {
     const traceId = `CT_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
     console.log('[Classroom][Tree] start', { traceId })
     const data = androidBridge.fetchClassroomTree()
-    console.log('[Classroom][Tree] native =', { traceId, type: typeof data, isArray: Array.isArray(data) })
+    console.log('[Classroom][Tree] native =', {
+      traceId,
+      type: typeof data,
+      isArray: Array.isArray(data),
+    })
 
     const isEmptyObject =
-      data &&
-      typeof data === 'object' &&
-      !Array.isArray(data) &&
-      Object.keys(data).length === 0
+      data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 0
 
     if (!data || isEmptyObject) {
       classroomTree.value = null
@@ -462,11 +490,12 @@ const confirmJoinClass = () => {
   const storeUserId = userInfo.value.id || userInfo.value.userId || ''
   const nativeUser = androidBridge.getUserInfo() as Partial<BridgeUserInfo> | null
   const nativeUserId = nativeUser?.userId || nativeUser?.id || ''
-  
+
   // 优先使用 store 中的用户ID，如果没有再使用原生用户ID
   const studentId = storeUserId || nativeUserId
-  const studentName = (nativeUser?.nickName ?? nativeUser?.userName ?? userInfo.value.name) || '用户'
-  
+  const studentName =
+    (nativeUser?.nickName ?? nativeUser?.userName ?? userInfo.value.name) || '用户'
+
   // 只有当完全没有用户ID时才认为是游客模式
   const isGuest = !studentId
 
@@ -483,210 +512,8 @@ const confirmJoinClass = () => {
   }
 }
 
-// 与老师对话（从卡片进入）
-// 期望行为：优先打开主页右侧统一聊天面板（MainChatPanel），而不是直接弹出全屏对话框
-const chatWithTeacher = async () => {
-  // 第1步：关闭工具箱
-  if (closeToolbox) {
-    closeToolbox()
-  }
 
-  // 第2步：打开主页右侧统一聊天面板
-  if (openMainChatPanel) {
-    openMainChatPanel()
-    return
-  }
-}
 
-// 初始化教师对话（供外部调用）
-// 职责：封装完整的会话创建流程，包括验证用户信息、设置localStorage、创建会话、初始化消息接收器等
-const selectSubject = async (subject: 'biology' | 'math') => {
-  try {
-    // 第1步：确保用户信息已加载
-    if (!userInfo.value?.id) {
-      await loadUserInfo()
-    }
-    
-    // 第2步：再次检查用户信息
-    if (!userInfo.value?.id) {
-      showMessage('无法获取用户信息，请重新登录', 'error')
-      return
-    }
-
-    // 第3步：设置 localStorage 中的 currentTeacherSubject
-    const userId = getCurrentUserIdOrDefault()
-    const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-    
-    // 第4步：生成 sessionId 和 sessionName
-    const studentUserId = localStorage.getItem('studentUserId') || ''
-    const aiSessionId = `${studentUserId ? studentUserId + '_' : ''}teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const aiSessionName = subject === 'biology' ? '生物' : '数学'
-    
-    // 第5步：调用 createTeacherSession 创建或复用会话
-    const session = teacherStore.createTeacherSession(aiSessionId, aiSessionName, subject)
-    
-    if (!session) {
-      console.error('[MyProfileView] ❌ 创建教师会话失败')
-      showMessage('创建教师会话失败，请重试', 'error')
-      return
-    }
-    
-    // 第6步：初始化消息接收器
-    await teacherStore.initMessageReceiver()
-
-    // 第7步：打开教师聊天对话框
-    // 注意：store 的 currentSession 已经通过 createTeacherSession 设置
-    // UnifiedChatDialog 会通过 watch 自动同步 UI 状态，无需手动调用 setTeacherSession
-    if (openTeacherChatDialog) {
-      openTeacherChatDialog(subject)
-    }
-  } catch (error) {
-    console.error('[MyProfileView] ❌ 准备教师对话失败:', error)
-    showMessage('准备教师对话失败，请重试', 'error')
-  }
-}
-
-// 拍照给老师（选择照片后需要选择老师）
-const takePictureToTeacher = async () => {
-  try {
-    // 第1步：关闭工具箱
-    if (closeToolbox) {
-      closeToolbox()
-    }
-    // 第2步：选择图片
-    const imageInfo = await pickImage()
-    if (!imageInfo) {
-      return
-    }
-
-    // 第3步：验证图片数据完整性
-    if (!imageInfo.filePath) {
-      showMessage('图片路径不存在，请重试', 'error')
-      return
-    }
-    if (!imageInfo.base64DataUrl) {
-      showMessage('图片数据不完整，请重试', 'error')
-      return
-    }
-    
-    // 第4步：显示老师选择对话框
-    Dialog.create({
-      title: '选择老师',
-      message: '请选择要发送图片的老师：',
-      options: {
-        type: 'radio',
-        model: '',
-        items: [
-          {
-            label: '生物老师',
-            value: 'biology',
-            color: 'green',
-          },
-          {
-            label: '数学老师',
-            value: 'math',
-            color: 'blue',
-          },
-        ],
-      },
-      cancel: {
-        label: '取消',
-        color: 'grey',
-        flat: true,
-      },
-      ok: {
-        label: '确定',
-        color: 'primary',
-        unelevated: true,
-      },
-      persistent: false,
-    }).onOk(async (selectedSubject: 'biology' | 'math') => {
-      try {
-        // 第5步：创建或切换到对应的教师会话（selectSubject 会处理所有逻辑）
-        await selectSubject(selectedSubject)
-        await nextTick()
-
-        // 第6步：确保对话框已打开并设置会话
-        const dialogRef = getTeacherChatDialogRef?.()
-        if (!dialogRef) {
-          showMessage('无法打开聊天对话框，请重试', 'error')
-          return
-        }
-        
-        // 从 store 获取当前会话（createTeacherSession 已经设置了）
-        const currentSession = teacherStore.currentSession
-        if (currentSession && currentSession.subject === selectedSubject) {
-          // store 的 currentSession 已经设置，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
-        } else {
-          // 如果 store 中没有，从所有会话中查找
-          const allSessions = teacherStore.getAllSessions()
-          const targetSession = allSessions.find(s => s.subject === selectedSubject)
-          if (targetSession) {
-            // 设置 localStorage
-            const userId = getCurrentUserIdOrDefault()
-            const storeSubject = targetSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-            localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-            // 调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
-            teacherStore.setSession(targetSession)
-          } else {
-            showMessage('创建会话失败，请重试', 'error')
-            return
-          }
-        }
-        
-        // 第7步：直接创建消息并保存到持久化存储
-        await nextTick() // 确保会话已设置完成
-        
-        // 创建图片消息
-        const imageMessage: ChatBubble = {
-          id: Date.now().toString(),
-          content: '',
-          type: 'user',
-          timestamp: new Date().toISOString(),
-          sender: 'user',
-          messageType: 'image',
-          imageData: {
-            filePath: imageInfo.filePath,
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl,
-          },
-        }
-        
-        // 添加到 store
-        teacherStore.addMessage(imageMessage)
-        
-        // 保存到持久化存储
-        await teacherStore.saveChatHistory()
-        
-        // 发送图片消息到后端
-        try {
-          await teacherStore.sendMessage('', {
-            filePath: imageInfo.filePath,
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl,
-          })
-        } catch (error) {
-          console.error('[MyProfileView] ❌ 发送图片消息失败:', error)
-          showMessage('发送图片消息失败，请重试', 'error')
-        }
-      } catch (error) {
-        console.error('[MyProfileView] ❌ 发送图片失败:', error)
-        showMessage('发送图片失败，请重试', 'error')
-      }
-    }).onCancel(() => {
-      // 用户取消了选择，不做任何操作
-      console.log('[MyProfileView] 用户取消了老师选择')
-    })
-  } catch (error) {
-    console.error('[MyProfileView] ❌ 处理图片失败:', error)
-    showMessage('处理图片失败，请重试', 'error')
-  }
-}
 
 // 显示反馈对话框
 const showFeedback = () => {
@@ -709,6 +536,64 @@ const showFavorites = () => {
   // 第2步：导航到我的收藏页面
   router.push({ name: 'myFavorites' })
 }
+
+// 打开草稿本
+const openDraftNotebook = () => {
+  if (closeToolbox) {
+    closeToolbox()
+  }
+  // 调用父组件提供的打开草稿本方法
+  if (openToolboxFromParent) {
+    openToolboxFromParent() // 打开对话框而不是路由跳转
+  }
+}
+
+// 处理退出登录
+const handleLogout = () => {
+  showLogoutConfirm.value = true
+}
+
+// 确认退出登录
+const confirmLogout = async () => {
+  try {
+    isLoggingOut.value = true
+    showLogoutConfirm.value = false
+
+    // 如果在课堂中，先退出课堂
+    if (androidBridge.isAndroidBridgeAvailable()) {
+      try {
+        androidBridge.stopScreenProjection()
+      } catch {
+        // 忽略停止投屏的错误
+      }
+      try {
+        androidBridge.exitClassroom()
+      } catch {
+        // 忽略退出课堂的错误
+      }
+    }
+
+  // 关闭工具箱
+    if (closeToolbox) {
+      closeToolbox()
+    }
+
+    // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
+    await router.push('/login')
+
+    showMessage('已退出登录', 'success')
+  } catch (error) {
+    console.error('退出登录失败:', error)
+    showMessage('退出登录失败，请重试', 'error')
+  } finally {
+    isLoggingOut.value = false
+  }
+}
+
+// 取消退出登录
+const cancelLogout = () => {
+  showLogoutConfirm.value = false
+}
 </script>
 
 <style lang="scss" scoped>
@@ -722,7 +607,7 @@ $bg-gray: #f9fafb;
 // 主要样式
 .profile-container {
   padding: 20px 16px;
-  height: 100%;      // 或 min-height: 100%; 看外层情况
+  height: 100%; // 或 min-height: 100%; 看外层情况
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -730,14 +615,31 @@ $bg-gray: #f9fafb;
 
 // 功能卡片区域
 .features-section {
+  display: block;
+  min-height: 0;
+  height: 90vh;
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
   margin-bottom: 24px;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: center;
+
+  .logout-section {
+    display: flex;
+    justify-content: center;
+    padding: 0 20px;
+    margin-top: 24px;
+  }
 }
 
 .feature-card {
@@ -754,13 +656,13 @@ $bg-gray: #f9fafb;
   flex: 0 0 calc(33.333% - 14px); // 每行3个，考虑gap
   min-width: 70px;
   max-width: 100px;
-  
+
   // 响应式：小屏幕时每行2个
   @media (max-width: 480px) {
     flex: 0 0 calc(50% - 10px);
     max-width: none;
   }
-  
+
   // 响应式：超小屏幕时每行1个
   @media (max-width: 360px) {
     flex: 0 0 100%;
@@ -768,8 +670,21 @@ $bg-gray: #f9fafb;
   }
 
   &:active {
-    transform: scale(0.95);
-    opacity: 0.9;
+    transform: translateY(0) scale(0.98);
+    opacity: 0.95;
+  }
+
+  // hover / focus effects — 提升并加阴影，改善点击反馈
+  &:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.12);
+    z-index: 4;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
+    transform: translateY(-4px) scale(1.01);
   }
 
   .card-icon-wrapper {
@@ -782,13 +697,33 @@ $bg-gray: #f9fafb;
     position: relative;
     margin-bottom: 8px;
     flex-shrink: 0;
-    
+
     .card-icon {
-      width: 100%;
-      height: 100%;
+      width: 90%;
+      height: 90%;
       object-fit: contain;
       position: relative;
       z-index: 1;
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 18px;
+      height: 18px;
+      background: #ef4444;
+      color: white;
+      border-radius: 9px;
+      border: 2px solid #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      box-sizing: border-box;
+      z-index: 2;
     }
   }
 
@@ -805,66 +740,109 @@ $bg-gray: #f9fafb;
   // 加入课堂 - 绿色
   &.join-class-card {
     .card-icon-wrapper {
-      background: #34D399;
+      background: #34d399;
       transition: all 0.3s ease;
-      
+
       // 已加入课堂状态 - 更深的绿色
       &.in-class {
-        background: #10B981;
+        background: #10b981;
         box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
       }
     }
-    
+
     // 已加入课堂状态 - 卡片整体更醒目
     &.in-class {
       .card-icon-wrapper {
         animation: pulse-highlight 2s ease-in-out infinite;
       }
-      
+
       .card-text {
         font-weight: 600;
-        color: #10B981;
+        color: #10b981;
         text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
       }
     }
   }
-  
+
   // 加入课堂成功的高亮动画
   @keyframes pulse-highlight {
-    0%, 100% {
+    0%,
+    100% {
       box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
     }
     50% {
-      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.5), 0 0 12px rgba(16, 185, 129, 0.3);
+      box-shadow:
+        0 0 0 4px rgba(16, 185, 129, 0.5),
+        0 0 12px rgba(16, 185, 129, 0.3);
     }
   }
 
   // 老师通用对话 - 橙色
   &.teacher-chat-card {
     .card-icon-wrapper {
-      background: #F59E0B;
+      background: #f59e0b;
     }
   }
 
-  // 拍作业 - 粉色
-  &.photo-teacher-card {
-    .card-icon-wrapper {
-      background: #F87171;
-    }
-  }
 
   // 我的收藏 - 黄色
   &.favorites-card {
     .card-icon-wrapper {
-      background: #FBBF24;
+      background: #fbbf24;
     }
   }
 
-  // 意见反馈 - 蓝色
+  // 在线客服 - 蓝色
   &.feedback-card {
     .card-icon-wrapper {
-      background: #60A5FA;
+      background: #60a5fa;
     }
+  }
+
+  // 草稿本 - 紫色
+  &.draft-notebook-card {
+    .card-icon-wrapper {
+      background: #8b5cf6;
+    }
+  }
+}
+
+// 退出登录按钮区域
+.logout-section {
+  margin-top: 24px;
+  padding: 0 20px;
+
+  .logout-button {
+    width: 90%;
+    max-width: 680px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 14px; /* less rounded */
+    padding: 10px 20px; /* shorter height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.14s ease;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(6px);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  .logout-text {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 400; /* normal weight */
+    text-align: center;
   }
 }
 // 清除所有会话确认弹窗内容样式
@@ -983,16 +961,18 @@ $bg-gray: #f9fafb;
   .q-dialog__inner {
     padding: 16px;
   }
-  
+
   .q-card {
     border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.08);
     background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
     border: 1px solid rgba(0, 0, 0, 0.06);
     min-width: 300px;
     max-width: 400px;
     width: 90vw;
-    animation: dialog-enter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    animation: dialog-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
   }
 }
@@ -1000,7 +980,7 @@ $bg-gray: #f9fafb;
 .dialog-header {
   padding: 24px 24px 16px 24px;
   border-bottom: none;
-  
+
   .dialog-title {
     font-size: 20px;
     font-weight: 600;
@@ -1012,7 +992,7 @@ $bg-gray: #f9fafb;
 
 .dialog-content {
   padding: 8px 24px 20px 24px;
-  
+
   .dialog-message {
     font-size: 15px;
     font-weight: 400;
@@ -1040,17 +1020,17 @@ $bg-gray: #f9fafb;
   text-transform: none;
   color: #6b7280;
   background: transparent;
-  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-  
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
   &:hover {
     background: rgba(107, 114, 128, 0.08);
     color: #374151;
   }
-  
+
   &:active {
     background: rgba(107, 114, 128, 0.12);
   }
-  
+
   :deep(.q-btn__content) {
     color: inherit;
   }
@@ -1063,22 +1043,22 @@ $bg-gray: #f9fafb;
   font-size: 14px;
   font-weight: 500;
   text-transform: none;
-  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-  
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
   &:hover {
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
     transform: translateY(-1px);
   }
-  
+
   &:active {
     transform: translateY(0);
     box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
   }
-  
+
   :deep(.q-btn__content) {
     color: white;
   }
@@ -1104,29 +1084,29 @@ $bg-gray: #f9fafb;
       margin: 8px;
     }
   }
-  
+
   .dialog-header {
     padding: 20px 20px 12px 20px;
-    
+
     .dialog-title {
       font-size: 18px;
     }
   }
-  
+
   .dialog-content {
     padding: 8px 20px 16px 20px;
-    
+
     .dialog-message {
       font-size: 14px;
     }
   }
-  
+
   .dialog-actions {
     padding: 0 20px 20px 20px;
     flex-direction: row;
     gap: 8px;
   }
-  
+
   .dialog-btn-cancel,
   .dialog-btn-confirm {
     flex: 1;
@@ -1134,7 +1114,11 @@ $bg-gray: #f9fafb;
   }
 }
 
-  // 响应式设计
+:deep(.list-footer){
+  display: none;
+}
+
+// 响应式设计
 @media (max-width: 768px) {
   .profile-container {
     padding: 16px 12px;
@@ -1159,16 +1143,16 @@ $bg-gray: #f9fafb;
 
   .feature-card {
     padding: 10px 6px;
-    
+
     .card-icon-wrapper {
       width: 50px;
       height: 50px;
     }
-    
+
     .card-text {
       font-size: 11px;
     }
-    
+
     // 拍照搜题图标在小屏幕时也需要调整字体大小
     &.photo-search-card {
       .card-icon {
@@ -1177,5 +1161,4 @@ $bg-gray: #f9fafb;
     }
   }
 }
-
 </style>

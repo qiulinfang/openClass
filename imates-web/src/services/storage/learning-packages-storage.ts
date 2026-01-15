@@ -1,5 +1,5 @@
 import type { LearningPackage } from '@/types'
-import { getCurrentUserIdOrDefault } from '../http/auth-service'
+import { getUserId } from '../http/auth-service'
 import { resourceManager } from './resource-storage'
 
 // 与 TextbookStorage 共用同一个 IndexedDB，单独建一个 learning_packages 表
@@ -36,7 +36,7 @@ export async function saveLearningPackagesToDB(
   try {
     await ensureStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const record: LearningPackageCacheRecord = {
       id: buildRecordId(userId, id),
       userId,
@@ -63,7 +63,7 @@ export async function loadLearningPackagesFromDB(
   try {
     await ensureStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const record = await db.get<LearningPackageCacheRecord>(
       STORE_NAME,
       buildRecordId(userId, id),

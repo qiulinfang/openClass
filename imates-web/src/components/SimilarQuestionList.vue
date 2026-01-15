@@ -86,7 +86,7 @@ import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
-import RubberBandList from './RubberBandList.vue'
+import RubberBandList from './base/VirtualList.vue'
 import ImageViewer from './ImageViewer.vue'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)

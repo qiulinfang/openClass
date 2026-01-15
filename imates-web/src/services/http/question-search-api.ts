@@ -5,14 +5,37 @@ import { validateKnowledgeTopicAndAck2Request } from '@/stores/utils/requestVali
 export class QuestionSearchApi {
   public async getExerciseList(subject: string): Promise<any[]> {
     const subjectLower = subject.toLowerCase()
-    const url =
-      subjectLower === 'biology' || subjectLower === '生物'
-        ? '/permission/selectExercises/biology'
-        : subjectLower === 'math' || subjectLower === '数学'
-          ? '/permission/selectExercises/math'
-          : (() => {
-              throw new Error(`不支持的科目类型: ${subject}`)
-            })()
+    let url: string
+
+    // 科目映射到对应的API端点
+    switch (subjectLower) {
+      case 'biology':
+      case '生物':
+        url = '/permission/selectExercises/biology'
+        break
+      case 'math':
+      case '数学':
+        url = '/permission/selectExercises/math'
+        break
+      case 'chemistry':
+      case '化学':
+        url = '/permission/selectExercises/chemistry'
+        break
+      case 'physics':
+      case '物理':
+        url = '/permission/selectExercises/physics'
+        break
+      case 'chinese':
+      case '语文':
+        url = '/permission/selectExercises/chinese'
+        break
+      case 'english':
+      case '英语':
+        url = '/permission/selectExercises/english'
+        break
+      default:
+        throw new Error(`不支持的科目类型: ${subject}`)
+    }
 
     const response = await httpClient.get<{
       success: boolean

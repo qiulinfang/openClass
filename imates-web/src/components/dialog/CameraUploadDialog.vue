@@ -61,8 +61,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import DraggableDialog from '@/components/DraggableDialog.vue'
-import CommonActionButton from '@/components/CommonActionButton.vue'
+import DraggableDialog from '@/components/base/Modal.vue'
+import CommonActionButton from '@/components/base/Button.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import { useImagePicker } from '@/composables/useImagePicker'

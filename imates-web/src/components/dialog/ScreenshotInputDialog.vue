@@ -72,7 +72,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue'
-import DraggableDialog from '@/components/DraggableDialog.vue'
+import DraggableDialog from '@/components/base/Modal.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import { showMessage } from '@/utils'

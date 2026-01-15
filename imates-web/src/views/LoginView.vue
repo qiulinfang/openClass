@@ -90,7 +90,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService, getUserId, getPassword, httpClient } from '../services'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
-import Dialog from '../components/Dialog.vue'
+import Dialog from '../components/base/Dialog.vue'
 
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'

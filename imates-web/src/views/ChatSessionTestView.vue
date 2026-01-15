@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-import CardStack from '@/components/CardStack.vue'
+import CardStack from '@/components/base/CardStack.vue'
 
 defineOptions({
   name: 'ChatSessionTestView',

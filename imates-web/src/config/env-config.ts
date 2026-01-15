@@ -25,6 +25,7 @@ interface EnvConfig {
   resourceBaseUrl: string
   yanbanBaseUrl: string
   historyManageBaseUrl: string
+  imServiceBaseUrl: string
   apiPaths: ApiPaths
   mqHost: string
   mqPort: number
@@ -40,6 +41,8 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
+    // IM即时通讯服务
+    imServiceBaseUrl: 'https://www.imates.com.cn',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
       previewPictureQA: '/ai/2.0/previewPictureQA',
@@ -59,8 +62,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 测试环境资源服务器同样通过 9099 提供 /resource 路径
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴测试环境：使用 HTTPS 访问 50013 端口
-    yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    // yanbanBaseUrl: 'https://43.138.16.5:50013',
+    // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
+    yanbanBaseUrl: 'https://43.138.16.5:50013',
+    // IM即时通讯服务（测试环境使用相同地址）
+    imServiceBaseUrl: 'https://www.imates.com.cn',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
       previewPictureQA: '/ai/2.0/previewPictureQA',
@@ -196,6 +201,13 @@ export function getMqPort(): number {
 }
 
 /**
+ * 获取 IM 服务完整基础URL（包含协议和域名）
+ */
+export function getImBaseUrl(): string {
+  return getCurrentEnvConfig().imServiceBaseUrl || 'https://www.imates.com.cn'
+}
+
+/**
  * 获取应用更新接口 URL
  */
 export function getAppUpdateUrl(): string {
@@ -209,4 +221,40 @@ export function getAppUpdateUrl(): string {
 
   // 其它环境：根据当前学校配置获取 appupdate.json 路径（由 school-app-config 统一维护）
   return getCurrentSchoolAppUpdatePath() || envConfig.appUpdateUrl
+}
+
+/**
+ * 获取路由映射表（用于 file:// 环境下的路径映射）
+ * 动态获取，根据当前环境返回不同的 Base URL
+ */
+export function getRouteBaseMap(): Record<string, string> {
+  const apiBaseUrl = getApiBaseUrl()
+  const resourceBaseUrl = getResourceBaseUrl()
+  const yanbanBaseUrl = getYanbanBaseUrl()
+  const historyManageBaseUrl = getHistoryManageBaseUrl()
+
+  return {
+    // 应用更新配置（/bj101/appupdate.json）永远走学班服务
+    '/bj101': 'https://www.imates.com.cn',
+    // 学班服务（根据环境动态切换）
+    '/admin': apiBaseUrl,
+    '/permission': apiBaseUrl,
+    '/ai': apiBaseUrl,
+    '/history_manage': historyManageBaseUrl,
+    '/biologyTopicKnowledge': apiBaseUrl,
+    // 研伴API服务（根据环境动态切换）
+    '/api': yanbanBaseUrl,
+    // 研伴/教材等走资源服务器
+    '/blw-edu-yb': yanbanBaseUrl,
+    // Zammad 示例
+    '/api/v1': 'http://app.imates.com.cn:8080',
+    // 资源服务器（根据环境动态切换）
+    '/resource': resourceBaseUrl,
+    '/img': resourceBaseUrl,
+    // 知识点查询服务
+    '/knowledge': 'http://www.imates.com.cn:8090',
+    // 经开二中的应用更新配置（/jinkai/update.json）
+    '/jinkai': resourceBaseUrl,
+    '/appupdate_test.json': 'https://www.imates.com.cn',
+  }
 }

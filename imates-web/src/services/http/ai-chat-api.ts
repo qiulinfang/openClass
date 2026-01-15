@@ -643,81 +643,6 @@ export class AiChatApi {
     return errorResult
   }
 
-  public async sendVoiceMessageToTeacher(
-    voicePath: string,
-    duration: string,
-    sessionId: string,
-    subject: string,
-  ): Promise<boolean> {
-    const startTime = performance.now()
-
-    try {
-      if (typeof window === 'undefined') {
-        console.error('[AiChatApi] ❌ sendVoiceMessageToTeacher: window未定义')
-        return false
-      }
-
-      if (!window.AndroidBridge) {
-        console.error('[AiChatApi] ❌ sendVoiceMessageToTeacher: AndroidBridge未定义')
-        return false
-      }
-
-      if (!window.AndroidBridge.sendVoiceMessageToTeacher) {
-        console.error('[AiChatApi] ❌ sendVoiceMessageToTeacher: 方法不存在')
-        return false
-      }
-
-      const result = this.androidBridge.sendVoiceMessageToTeacher(voicePath, duration, sessionId, subject)
-
-      const elapsedTime = performance.now() - startTime
-
-      if (!result) {
-        console.error('[AiChatApi] ❌ sendVoiceMessageToTeacher: 发送失败')
-      }
-
-      return result
-    } catch (error) {
-      const elapsedTime = performance.now() - startTime
-      console.error('[AiChatApi] ❌ sendVoiceMessageToTeacher: 异常 -', error, ', 耗时=' + elapsedTime.toFixed(2) + 'ms')
-      return false
-    }
-  }
-
-  public async forwardAiChatToTeacher(selectedMessagesData: string, teacherSessionId: string): Promise<boolean> {
-    try {
-      if (typeof window !== 'undefined' && window.AndroidBridge?.forwardAiChatToTeacher) {
-        const result = this.androidBridge.forwardAiChatToTeacher(selectedMessagesData, teacherSessionId)
-        console.log('[AiChatApi] 🔍 forwardAiChatToTeacher 原生返回:', result)
-        return result
-      }
-
-      console.error('[AiChatApi] ❌ AndroidBridge 不可用或 forwardAiChatToTeacher 方法不存在')
-      console.error('[AiChatApi] ❌ window 类型:', typeof window)
-      console.error('[AiChatApi] ❌ window.AndroidBridge 存在:', typeof window !== 'undefined' && !!window.AndroidBridge)
-      console.error(
-        '[AiChatApi] ❌ forwardAiChatToTeacher 方法存在:',
-        typeof window !== 'undefined' && !!window.AndroidBridge?.forwardAiChatToTeacher,
-      )
-      return false
-    } catch (error) {
-      console.error('[AiChatApi] ❌ forwardAiChatToTeacher 异常:', error)
-      console.error('[AiChatApi] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
-      return false
-    }
-  }
-
-  public async getTeacherChatHistory(sessionId: string): Promise<any[]> {
-    try {
-      if (typeof window !== 'undefined' && window.AndroidBridge?.getTeacherChatHistory) {
-        const result = this.androidBridge.getTeacherChatHistory(sessionId)
-        return result
-      }
-
-      return []
-    } catch (error) {
-      return []
-    }
-  }
 
   public async manageConversationMemory(payload: ManageConversationMemoryRequest): Promise<any> {
     const response = await httpClient.post<any>('/history_manage', payload, {
@@ -728,4 +653,5 @@ export class AiChatApi {
     })
     return response
   }
+
 }

@@ -86,7 +86,6 @@ import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
 import { getScopedStorageValue } from '../services'
-import { on } from 'events'
 
 // 定义组件名称，便于 Vue DevTools 识别
 defineOptions({

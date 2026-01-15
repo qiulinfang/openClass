@@ -82,12 +82,7 @@ export class MyExerciseStrategy implements QuestionListStrategy {
   canFavorite(): boolean {
     return true
   }
-  
-  /** 习题支持拍作业 */
-  canTakePicture(): boolean {
-    return true
-  }
-  
+
   /** 习题支持删除 */
   canDelete(): boolean {
     return true

@@ -6,14 +6,14 @@
     android:layout_height="wrap_content"
     android:padding="8dp">
 
-    <!-- 主Lottie动画按钮 -->
-    <com.airbnb.lottie.LottieAnimationView
+    <!-- 主悬浮按钮 -->
+    <ImageView
         android:id="@+id/lottie_animation_view"
         android:layout_width="100dp"
         android:layout_height="100dp"
-        app:lottie_fileName="Animation1.json"
-        app:lottie_autoPlay="true"
-        app:lottie_loop="true"
+        android:src="@drawable/ic_fab_icon"
+        android:scaleType="centerInside"
+        android:background="@drawable/fab_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 

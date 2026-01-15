@@ -28,7 +28,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
-import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.webview.MainWebViewActivity;
@@ -48,7 +47,7 @@ public class FloatingFabService extends Service {
 
     private WindowManager windowManager;
     private View floatingFabView;
-    private LottieAnimationView lottieAnimationView;
+    private ImageView lottieAnimationView;
     private LinearLayout menuContainer;
     private View menuItemDraft;
     private View menuItemAIChat;
@@ -195,6 +194,8 @@ public class FloatingFabService extends Service {
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
+                        // 添加按下缩放效果
+                        v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(100).start();
                         // 记录按下时的坐标
                         initialX = layoutParams.x;
                         initialY = layoutParams.y;
@@ -232,6 +233,8 @@ public class FloatingFabService extends Service {
                         return true;
 
                     case MotionEvent.ACTION_UP:
+                        // 恢复原始大小
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start();
                         // 判断是否为点击事件
                         float deltaX = event.getRawX() - initialTouchX;
                         float deltaY = event.getRawY() - initialTouchY;
@@ -239,6 +242,11 @@ public class FloatingFabService extends Service {
                             // 如果移动距离小于阈值，认为是点击事件
                             toggleMenu();
                         }
+                        return true;
+
+                    case MotionEvent.ACTION_CANCEL:
+                        // 恢复原始大小
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start();
                         return true;
                 }
                 return false;

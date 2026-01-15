@@ -40,8 +40,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import DraggableDialog from './DraggableDialog.vue'
+import { useMessageRenderer } from '../../composables/useMessageRenderer'
+import DraggableDialog from '../DraggableDialog.vue'
 
 interface Props {
   modelValue: boolean

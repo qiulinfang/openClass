@@ -1,5 +1,5 @@
 import { h, render } from 'vue'
-import Dialog from '../components/Dialog.vue'
+import Dialog from '../components/base/Dialog.vue'
 
 export interface ConfirmDialogOptions {
   title?: string

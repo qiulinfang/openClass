@@ -57,10 +57,7 @@ export interface QuestionListStrategy {
   
   /** 是否支持收藏 */
   canFavorite(): boolean
-  
-  /** 是否支持拍作业 */
-  canTakePicture(): boolean
-  
+
   /** 是否支持删除 */
   canDelete(): boolean
   

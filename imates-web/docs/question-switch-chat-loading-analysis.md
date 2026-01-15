@@ -43,7 +43,7 @@ const handleQuestionSelected = async () => {
     
     // 第3步：根据当前功能类型加载对应题目的聊天记录
     if (currentFunction.value === 'chatAi') {
-      // AI引导答题：加载AI题目的聊天记录
+      // 学伴答疑：加载AI题目的聊天记录
       // 注意：ChatView的executeQuestionSwitch不会自动加载AI题目的聊天记录
       // 需要在这里手动加载
       await aiExerciseStore.loadChatHistory(questionId)

@@ -12,7 +12,6 @@ export type NavKey =
   | 'knowledge'
   | 'exercises'
   | 'homework'
-  | 'drawingBoard'
   | 'resources'
   | 'logout'
 
@@ -59,7 +58,7 @@ export interface SchoolAppConfig {
 
 // 按学校划分的配置表：后续可以在这里新增/覆盖不同学校的配置
 const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
-  // 景山远洋：不显示“我的作业”菜单
+  // 景山远洋：不显示"我的作业"菜单
   jinshanyuanyang: {
     schoolId: 'jinshanyuanyang',
     nav: {
@@ -85,13 +84,6 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           iconType: 'homework',
           position: 'main',
           routeName: 'myHomework',
-        },
-        {
-          key: 'drawingBoard',
-          label: '草稿本',
-          iconType: 'drawingBoard',
-          position: 'main',
-          routeName: 'drawingBoard',
         },
       ],
       bottom: [
@@ -133,13 +125,6 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           iconType: 'homework',
           position: 'main',
           routeName: 'myHomework',
-        },
-        {
-          key: 'drawingBoard',
-          label: '草稿本',
-          iconType: 'drawingBoard',
-          position: 'main',
-          routeName: 'drawingBoard',
         },
       ],
       bottom: [

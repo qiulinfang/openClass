@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -114,12 +115,19 @@ public class ApplicationModelShared extends Application implements ViewModelStor
      * 在Web应用就绪后启动，确保功能完全准备好
      */
     public void startFloatingFabService() {
+        // 检查悬浮窗权限（Android 6.0+ 需要用户手动授予）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Log.w("ApplicationModelShared", "悬浮窗权限未授予，无法启动FloatingFabService");
+            // 不启动服务，避免无意义的尝试
+            return;
+        }
+
         // 检查服务是否已启动
         if (floatingFabService != null) {
             Log.d("ApplicationModelShared", "FloatingFabService 已启动，跳过重复启动");
             return;
         }
-        
+
         Intent serviceIntent = new Intent(this, FloatingFabService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);

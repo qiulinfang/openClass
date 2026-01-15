@@ -1,6 +1,6 @@
-﻿<template>
-  <DraggableDialog 
-    v-model="localVisible" 
+<template>
+  <DraggableDialog
+    v-model="localVisible"
     title="聊天对话"
     :initial-width="1000"
     :initial-height="600"
@@ -9,7 +9,7 @@
     :fullscreen="true"
     @toggle-fullscreen="emit('toggle-mode')"
   >
-    <div class="unified-chat-content">
+    <div class="global-chat-content">
       <!-- 左侧聊天记录（树形结构） -->
       <div class="left-panel">
         <SessionTree
@@ -57,12 +57,12 @@
               </q-tooltip>
             </q-btn>
             <!-- 刷新列表按钮 -->
-            <q-btn 
-              flat 
-              dense 
-              round 
-              icon="refresh" 
-              size="sm" 
+            <q-btn
+              flat
+              dense
+              round
+              icon="refresh"
+              size="sm"
               @click="aiGeneralStore.loadSessions()"
             >
               <q-tooltip>刷新列表</q-tooltip>
@@ -74,7 +74,7 @@
       <!-- 右侧聊天界面 -->
       <div class="right-panel">
         <!-- AI聊天界面 -->
-        <ChatView 
+        <ChatView
           v-if="activeCategory === 'ai-general'"
           type="ai-general"
           :compressed-height="325"
@@ -91,7 +91,7 @@
         <!-- 教师聊天界面 -->
         <ChatView
           v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
-          type="teacher-general"
+          type="teacher"
           :compressed-height="325"
           :session-id="teacherChatStore.currentSession.sessionId"
           :key="teacherChatStore.currentSession.sessionId"
@@ -109,49 +109,56 @@
     <ChatSessionDebugPanel v-if="isDev" v-model="showDebugPanel" />
 
     <!-- 老师选择对话框 -->
-    <q-dialog v-model="showTeacherSelectDialog">
-      <q-card style="min-width: 300px">
-        <q-card-section>
-          <div class="text-h6">选择老师</div>
-        </q-card-section>
-
-        <q-card-section>
-          <q-list>
-            <q-item
-              v-for="teacher in availableTeachers"
-              :key="teacher.subject"
-              clickable
-              v-close-popup
-              @click="handleTeacherSelect(teacher.subject)"
-            >
-              <q-item-section avatar>
-                <q-icon name="person" color="primary" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ teacher.name }}</q-item-label>
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="取消" color="primary" v-close-popup />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+    <DraggableDialog
+      v-model="showTeacherSelectDialog"
+      title="选择老师"
+      :initial-width="300"
+      :initial-height="200"
+      :min-width="280"
+      :min-height="180"
+    >
+      <div class="teacher-selection-content">
+        <div class="teacher-list">
+          <div
+            v-for="teacher in availableTeachers"
+            :key="teacher.subject"
+            class="teacher-item"
+            @click="handleTeacherSelect(teacher.subject)"
+          >
+            <div class="teacher-avatar">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <div class="teacher-name">{{ teacher.name }}</div>
+          </div>
+        </div>
+      </div>
+    </DraggableDialog>
   </DraggableDialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
-import { showMessage } from '../utils'
-import { getUserInfo, getCurrentUserIdOrDefault } from '@/services'
-import DraggableDialog from './DraggableDialog.vue'
-import SessionTree from './SessionTree.vue'
-import ChatView from './ChatView.vue'
-import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { showMessage } from '../../utils'
+import { getUserInfo, getUserId } from '@/services'
+import DraggableDialog from '../base/Modal.vue'
+import SessionTree from '../SessionTree.vue'
+import ChatView from '../ChatView.vue'
+import ChatSessionDebugPanel from '../debug/ChatSessionDebugPanel.vue'
 import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
 
@@ -171,13 +178,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'session-created': [sessionId: string, type: 'ai-general' | 'teacher-general'] // 新会话创建事件
+  'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
   'toggle-mode': []
 }>()
 
 // ==================== Store ====================
 const aiGeneralStore = useAiGeneralChatStore()
-const teacherChatStore = useTeacherGeneralChatStore()
+const teacherChatStore = useTeacherChatStore()
 
 // SessionTree 组件引用
 const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
@@ -219,7 +226,7 @@ const canCreateNewChat = computed(() => {
 // ==================== AI聊天相关方法 ====================
 
 // 处理会话切换（接收 SessionTree 的最终结果）
-const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
+const handleSessionSwitched = (type: 'ai' | 'teacher', _sessionId: string) => {
   // 只更新分类，所有切换逻辑已在 SessionTree 内部完成
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
 }
@@ -228,20 +235,20 @@ const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
 const handleNewChatClick = async () => {
   // 根据当前选中的节点类型来决定创建哪种类型的对话
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
-  
+
   if (selectedCategory === 'biology' || selectedCategory === 'math') {
     // 如果选中的是教师分类，显示老师选择对话框
     availableTeachers.value = teacherChatStore.getAvailableTeachers()
-    
+
     if (availableTeachers.value.length === 0) {
       showMessage('所有老师都有对话记录', 'info')
       return
     }
-    
+
     showTeacherSelectDialog.value = true
     return
   }
-  
+
   // 默认创建AI对话
   if (!aiGeneralStore.canCreateSession) {
     if (!aiGeneralStore.isCreatingSession) {
@@ -265,12 +272,12 @@ const handleAiSessionDeleted = (sessionId: string, success: boolean, wasCurrentS
     // 失败情况已在 SessionTree 中显示错误消息
     return
   }
-  
+
     // 如果删除的是当前会话，切换到AI分类
   if (wasCurrentSession) {
       activeCategory.value = 'ai-general'
   }
-  
+
 }
 
 // ==================== 教师通用对话相关方法 ====================
@@ -281,7 +288,7 @@ const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCur
     // 失败情况已在 SessionTree 中显示错误消息
     return
   }
-  
+
   // 如果删除的是当前会话，切换到AI分类（store 的 currentSession 已由删除逻辑清空）
   if (wasCurrentSession) {
     activeCategory.value = 'ai-general'
@@ -299,41 +306,41 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
       avatar: '',
       roles: [] as string[]
     }
-    
+
     if (!userInfo.id) {
-      console.error('[UnifiedChatDialog] ❌ 无法获取用户信息，请重新登录')
+      console.error('[GlobalChatDialog] ❌ 无法获取用户信息，请重新登录')
       showMessage('无法获取用户信息，请重新登录', 'error')
       return
     }
 
     // 第2步：设置 localStorage 中的 currentTeacherSubject
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-    
+
     // 第3步：生成 sessionId 和 sessionName
     const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const aiSessionName = subject === 'biology' ? '生物' : '数学'
-    
+
     // 第4步：调用 createTeacherSession 创建或复用会话
     const createdSession = teacherChatStore.createTeacherSession(aiSessionId, aiSessionName, subject)
-    
+
     if (!createdSession) {
-      console.error('[UnifiedChatDialog] ❌ 创建教师会话失败')
+      console.error('[GlobalChatDialog] ❌ 创建教师会话失败')
       showMessage('创建教师会话失败，请重试', 'error')
       return
     }
-    
+
     // 第5步：初始化消息接收器
     await teacherChatStore.initMessageReceiver()
-    
+
     // 第6步：切换到教师分类（store 的 currentSession 已由 createTeacherSession 设置）
     activeCategory.value = 'teacher'
 
     // 第8步：触发会话创建事件
-    emit('session-created', createdSession.sessionId, 'teacher-general')
+    emit('session-created', createdSession.sessionId, 'teacher')
   } catch (error) {
-    console.error('[UnifiedChatDialog] ❌ 创建教师会话失败:', error)
+    console.error('[GlobalChatDialog] ❌ 创建教师会话失败:', error)
     showMessage('创建教师会话失败，请重试', 'error')
   }
 }
@@ -344,7 +351,7 @@ const setTeacherSession = (sessionId: string) => {
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     // UI 状态会通过 watch teacherChatStore.currentSession 自动同步
@@ -364,9 +371,9 @@ const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; messa
 }
 
 // 处理批量转发后跳转到老师对话的事件（对话框已打开，只需设置会话）
-const handleSwitchToTeacher = async (forwardData?: { 
-  messages?: ChatBubble[]; 
-  currentQuestion?: unknown; 
+const handleSwitchToTeacher = async (forwardData?: {
+  messages?: ChatBubble[];
+  currentQuestion?: unknown;
   additionalMessage?: string;
   forwardMode?: string;
   successCount?: number;
@@ -375,7 +382,7 @@ const handleSwitchToTeacher = async (forwardData?: {
   if (!forwardData?.sessionId) {
     return
   }
-  
+
   try {
     // 设置指定的会话（会自动切换到教师分类）
     // SessionTree 会直接从 store 获取最新数据，无需手动加载
@@ -419,11 +426,11 @@ onUnmounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-.unified-chat-content {
+.global-chat-content {
   display: flex;
   height: 100%;
   overflow: hidden;
-  
+
   .left-panel {
     width: 280px;
     border-right: 1px solid #e0e0e0;
@@ -432,7 +439,7 @@ onUnmounted(async () => {
     background: #f5f5f5;
     overflow: hidden;
   }
-  
+
   .right-panel {
     flex: 1;
     display: flex;
@@ -441,7 +448,7 @@ onUnmounted(async () => {
     background: #ffffff;
     border-radius: 8px;
     max-width: 100%;
-    
+
     .empty-chat {
       flex: 1;
       display: flex;
@@ -469,22 +476,68 @@ onUnmounted(async () => {
    display: block;
  }
 
+// 老师选择对话框样式
+.teacher-selection-content {
+  padding: 16px 0;
+
+  .teacher-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .teacher-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #f5f5f5;
+      }
+
+      .teacher-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #6e55ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        color: white;
+
+        svg {
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .teacher-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #1e1e1e;
+      }
+    }
+  }
+}
+
 // 响应式设计
 @media (max-width: 768px) {
-  .unified-chat-content {
+  .global-chat-content {
     flex-direction: column;
-    
+
     .left-panel {
       width: 100%;
       height: 40%;
       border-right: none;
       border-bottom: 1px solid #e0e0e0;
     }
-    
+
     .right-panel {
       height: 60%;
     }
   }
 }
 </style>
-

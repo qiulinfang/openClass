@@ -26,13 +26,11 @@ export {
   setYanbanToken,
   setXuebanToken,
   getSubject,
-  getCurrentUserId,
-  getCurrentUserType,
-  getCurrentUserIdOrDefault,
   getScopedStorageKey,
   getScopedStorageValue,
   loadFromStorage,
-  setCurrentUser,
+  getCurrentYanbanUserId,
+  isYanbanLoggedIn
 } from './http/auth-service'
 
 // 环境配置（统一出口）

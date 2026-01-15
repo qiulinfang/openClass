@@ -1,12 +1,20 @@
 <template>
-  <div class="multi-image-grid">
-    <div
-      v-for="(img, index) in images"
-      :key="index"
-      class="multi-image-item"
-      @click.stop="handleClick(img, index)"
-    >
-      <img :src="img.base64DataUrl" alt="图片" class="multi-image-img" />
+  <div>
+    <div class="multi-image-grid">
+      <div
+        v-for="(img, index) in images"
+        :key="index"
+        class="multi-image-item"
+        @click.stop="handleClick(img, index)"
+      >
+        <img :src="img.base64DataUrl || img.url" alt="图片" class="multi-image-img"
+             @load="() => console.log('图片加载成功:', index, img.base64DataUrl || img.url)"
+             @error="(e) => console.error('图片加载失败:', index, img.base64DataUrl || img.url, e)" />
+      </div>
+    </div>
+    <!-- 如果有文本内容，也显示文本 -->
+    <div v-if="textContent && textContent.trim()" class="multi-image-text">
+      {{ textContent }}
     </div>
   </div>
 </template>
@@ -16,10 +24,11 @@ import type { PropType } from 'vue'
 
 interface ImageItem {
   filePath?: string
-  width: number
-  height: number
-  fileSize: number
+  width?: number
+  height?: number
+  fileSize?: number
   base64DataUrl?: string
+  url?: string  // 支持后端发送的URL格式
 }
 
 const props = defineProps({
@@ -30,6 +39,10 @@ const props = defineProps({
   isUser: {
     type: Boolean,
     default: false,
+  },
+  textContent: {
+    type: String,
+    default: '',
   },
 })
 
@@ -63,5 +76,14 @@ const handleClick = (img: ImageItem, index: number) => {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.multi-image-text {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: inherit;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 </style>

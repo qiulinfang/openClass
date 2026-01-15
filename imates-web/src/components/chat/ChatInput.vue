@@ -1,7 +1,7 @@
 <template>
   <div class="modern-chat-container">
     <!-- 主容器上方扩展区域：顶部工具条 + 额外插槽内容 -->
-    <div class="chat-input-header-flex">
+    <div v-if="showToolbar" class="chat-input-header-flex">
       <!-- 顶层：允许整块头部完全自定义 -->
       <slot name="header-all">
         <!-- 默认实现：左 + 右 -->
@@ -24,7 +24,7 @@
               -->
               <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
               <button
-                v-if="props.type !== 'teacher-general' && props.type !== 'teacher-exercise'"
+                v-if="props.type !== 'teacher' && props.type !== 'teacher-exercise'"
                 type="button"
                 class="toolbar-btn"
                 @click="handleAskTeacherClick"
@@ -153,7 +153,7 @@
         <div class="right-controls">
           <!-- 语音按钮 - 仅老师对话显示，AI模式下隐藏 -->
           <button
-            v-if="props.type === 'teacher-general'"
+            v-if="props.type === 'teacher'"
             type="button"
             @mousedown="handleVoiceStart"
             @mouseup="handleVoiceEnd"
@@ -172,9 +172,9 @@
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
           </button>
 
-          <!-- 图片上传 - 仅在 ai-general 场景下显示 -->
+          <!-- 图片上传 - 在 ai-general 和 user-client 场景下显示 -->
           <button
-            v-if="props.type === 'ai-general'"
+            v-if="props.type === 'ai-general' || props.type === 'user-client'"
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"
@@ -186,7 +186,7 @@
 
           <!-- 麦克风图标 - 显示在AI模式下 -->
           <!-- <button
-            v-if="props.type !== 'teacher-general'"
+            v-if="props.type !== 'teacher'"
             type="button"
             @click="handleMicButtonClick"
             @mousedown="handleVoiceStart"
@@ -253,7 +253,7 @@ import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
 import ImageViewer from '../ImageViewer.vue'
 import ScreenshotThumb from '../ScreenshotThumb.vue'
-import BubblePopup from '../BubblePopup.vue'
+import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
@@ -304,8 +304,8 @@ const props = defineProps({
       | 'ai-general'
       | 'ai-exercise'
       | 'ai-textbook'
-      | 'teacher-general'
-      | 'teacher-exercise',
+      | 'teacher'
+      | 'user-client',
     required: true,
   },
   uploadedFiles: {
@@ -326,7 +326,7 @@ const props = defineProps({
     default: false,
   },
   editingMessageId: {
-    type: String,
+    type: String as () => string | null,
     default: null,
   },
   // 你原来额外加的两个
@@ -349,6 +349,10 @@ const props = defineProps({
     // 关键：这里显式声明 quotedMessage
     type: Object as () => import('../../types').ChatBubble | null | undefined,
     default: null,
+  },
+  showToolbar: {
+    type: Boolean,
+    default: true,
   },
 })
 
@@ -644,7 +648,7 @@ const handleFormulaTopClick = () => {
 
 const handleAskTeacherClick = () => {
   isAskTeacherSelected.value = !isAskTeacherSelected.value
-  emit('ask-teacher-click')
+  emit('ask-teacher-click', { mode: 'ask-teacher' }) // 传递问老师模式参数
 }
 
 // 显示图片选择器处理

@@ -40,43 +40,17 @@
               <span class="item-value">{{ userId }}</span>
             </div>
           </div>
-
-          <!-- 退出登录项 -->
-          <div class="list-item logout-item">
-            <CommonActionButton
-              label="退出登录"
-              variant="danger"
-              size="lg"
-              :loading="isLoggingOut"
-              @click="handleLogout"
-            />
-          </div>
         </div>
       </div>
     </DraggableDialog>
-
-    <!-- 退出登录确认对话框 -->
-    <DraggableDialog
-      v-model="showLogoutConfirm"
-      type="delete"
-      title="退出确认"
-      :delete-content="'确定要退出登录吗？'"
-      :processing="isLoggingOut"
-      processing-text="退出中..."
-      @confirm="confirmLogout"
-      @cancel="cancelLogout"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { showMessage } from '@/utils'
+import { computed, watch } from 'vue'
 import { useImagePicker } from '@/composables/useImagePicker'
-import DraggableDialog from '@/components/DraggableDialog.vue'
-import CommonActionButton from '@/components/CommonActionButton.vue'
-import { androidBridge } from '@/services/business/android-bridge'
+import { showMessage } from '@/utils'
+import DraggableDialog from '@/components/base/Modal.vue'
 import avatarIcon from '/icons/avatar.svg'
 
 interface Props {
@@ -98,8 +72,6 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const router = useRouter()
-
 // 使用 v-model 的本地状态
 const localVisible = computed({
   get: () => props.modelValue,
@@ -107,8 +79,6 @@ const localVisible = computed({
 })
 
 // 响应式数据
-const isLoggingOut = ref(false)
-const showLogoutConfirm = ref(false)
 const { pickImage } = useImagePicker()
 
 // 图片选择器
@@ -135,7 +105,7 @@ const displayUserName = computed(() => {
 // 监听对话框打开，重置状态并更新用户信息
 watch(() => props.modelValue, (newValue) => {
   if (newValue) {
-    isLoggingOut.value = false
+    // 重置状态的逻辑可以在这里添加
   }
 })
 
@@ -156,51 +126,6 @@ const handleAvatarClick = async () => {
     console.error('[ProfileDialog] 选择头像失败:', error)
     showMessage('头像更新失败，请重试', 'error')
   }
-}
-
-// 处理退出登录
-const handleLogout = () => {
-  showLogoutConfirm.value = true
-}
-
-// 确认退出登录
-const confirmLogout = async () => {
-  try {
-    isLoggingOut.value = true
-    showLogoutConfirm.value = false
-
-    // 如果在课堂中，先退出课堂
-    if (androidBridge.isAndroidBridgeAvailable()) {
-      try {
-        androidBridge.stopScreenProjection()
-      } catch {
-        // 忽略停止投屏的错误
-      }
-      try {
-        androidBridge.exitClassroom()
-      } catch {
-        // 忽略退出课堂的错误
-      }
-    }
-
-    // 关闭对话框
-    localVisible.value = false
-
-    // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
-    await router.push('/login')
-
-    showMessage('已退出登录', 'success')
-  } catch (error) {
-    console.error('退出登录失败:', error)
-    showMessage('退出登录失败，请重试', 'error')
-  } finally {
-    isLoggingOut.value = false
-  }
-}
-
-// 取消退出登录
-const cancelLogout = () => {
-  showLogoutConfirm.value = false
 }
 </script>
 
@@ -257,14 +182,6 @@ const cancelLogout = () => {
     padding: 20px;
   }
 
-  &.logout-item {
-    padding: 8px 20px;
-    border-bottom: none;
-
-    &:hover {
-      background-color: transparent;
-    }
-  }
 }
 
 .item-label {
@@ -354,21 +271,6 @@ const cancelLogout = () => {
   }
 }
 
-// 退出登录按钮样式
-.list-item.logout-item {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-
-  :deep(.action-btn) {
-    width: 100%;
-    max-width: 200px; // 限制最大宽度，保持居中效果
-    height: 44px;
-    border-radius: 8px;
-    font-weight: 600;
-  }
-}
 
 // 响应式设计
 @media (max-width: 480px) {

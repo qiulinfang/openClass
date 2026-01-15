@@ -155,7 +155,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
-import CommonSelect from './CommonSelect.vue'
+import CommonSelect from './base/Select.vue'
 
 const emit = defineEmits<{
   clear: []

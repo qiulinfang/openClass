@@ -56,7 +56,7 @@ import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/storage/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/http/api-service'
-import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../../services'
+import { getUserId, getScopedStorageValue } from '../../services'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
 
@@ -126,12 +126,12 @@ const activeNodeId = ref<string | null>(null)
 
 // 获取带用户ID前缀的存储key
 const getLastLearnedNodeKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_LEARNED_NODES`
 }
 

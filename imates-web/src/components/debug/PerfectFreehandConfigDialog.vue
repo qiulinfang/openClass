@@ -179,9 +179,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import DraggableDialog from '../DraggableDialog.vue'
-import CommonActionButton from '../CommonActionButton.vue'
-import CommonSelect from '../CommonSelect.vue'
+import DraggableDialog from '../dialog/DraggableDialog.vue'
+import CommonActionButton from '../base/Button.vue'
+import CommonSelect from '../base/Select.vue'
 
 type PfConfig = {
   size: number

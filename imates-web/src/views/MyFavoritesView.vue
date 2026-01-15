@@ -156,8 +156,8 @@
     </div>
     
     <!-- 统一聊天对话框 -->
-    <UnifiedChatDialog 
-      ref="unifiedChatDialogRef"
+    <GlobalChatDialog
+      ref="globalChatDialogRef"
       v-model="showUnifiedChatDialog"
       :initial-teacher-subject="initialTeacherSubject"
     />
@@ -176,12 +176,12 @@ import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { getFavoriteSessions, getFavoriteQas, getFavoriteExercises, removeSessionFavorite, removeQaFavorite, removeExerciseFavorite, type FavoriteQa, type FavoriteExercise } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
-import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
+import { useTeacherChatStore } from '../stores/teacherChatStore'
 import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
  import type { ExerciseItem } from '../types/exercise'
- import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
- import RubberBandList from '../components/RubberBandList.vue'
- import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../services'
+ import GlobalChatDialog from '../components/dialog/GlobalChatDialog.vue'
+ import RubberBandList from '../components/base/VirtualList.vue'
+ import { getUserId, getScopedStorageValue } from '../services'
  import ImageViewer from '../components/ImageViewer.vue'
  import { resourceManager } from '../services/storage/resource-storage'
  import type { UserTextbookInfo, LocalFileInfo } from '../types/textbook'
@@ -207,7 +207,7 @@ const isLoadingExercise = ref(false)
 
 // 统一聊天对话框状态
 const showUnifiedChatDialog = ref(false)
-const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
+const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
 const initialTeacherSubject = ref<'biology' | 'math'>('math')
 
 // 图片预览状态
@@ -220,15 +220,15 @@ const goBack = () => {
 }
 
 // 判断收藏的对话类型（AI聊天还是教师通用对话）
-const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher-general', subject?: 'biology' | 'math' } => {
+const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
   // 第1步：检查是否是教师通用对话会话（使用统一存储格式）
   try {
-    const teacherStore = useTeacherGeneralChatStore()
+    const teacherStore = useTeacherChatStore()
     const teacherSession = teacherStore.getSession(session.sessionId)
 
     if (teacherSession && teacherSession.subject) {
         return {
-          type: 'teacher-general',
+          type: 'teacher',
         subject: teacherSession.subject === 'biology' ? 'biology' : 'math'
       }
     }
@@ -245,17 +245,17 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
   // 判断对话类型
   const chatType = getChatType(session)
   
-  if (chatType.type === 'teacher-general' && chatType.subject) {
+  if (chatType.type === 'teacher' && chatType.subject) {
     initialTeacherSubject.value = chatType.subject
   }
   
   // 在打开对话框之前，先设置会话和加载历史（确保 SessionTree 初始化时能正确识别）
-  if (chatType.type === 'teacher-general') {
-    const teacherStore = useTeacherGeneralChatStore()
+  if (chatType.type === 'teacher') {
+    const teacherStore = useTeacherChatStore()
     const teacherSession = teacherStore.getSession(session.sessionId)
     if (teacherSession) {
       // 设置 localStorage
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
       const storeSubject = teacherSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       // 调用 store 的 setSession（设置当前会话）

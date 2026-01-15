@@ -29,6 +29,16 @@
         <button type="button" class="toggle-mode-button" @click="emit('toggle-mode')">
           <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
         </button>
+        <!-- WebSocket连接状态 -->
+        <div class="connection-status" @click="logWebSocketStatus">
+          <div
+            :class="['status-indicator', {
+              'status-connected': wsStatus.teacher?.isConnected,
+              'status-disconnected': !wsStatus.teacher?.isConnected
+            }]"
+            :title="wsStatus.teacher ? `WebSocket: ${wsStatus.teacher.readyStateText}` : 'WebSocket未初始化'"
+          ></div>
+        </div>
         <!-- 关闭按钮 -->
         <q-btn
           flat
@@ -68,9 +78,9 @@
                 v-else-if="
                   activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId
                 "
-                type="teacher-general"
+                type="teacher"
                 :compressed-height="339"
-                :session-id="teacherChatStore.currentSession.sessionId"
+                :sessionId="teacherChatStore.currentSession.sessionId"
                 :key="teacherChatStore.currentSession.sessionId"
               />
               <!-- 无会话 -->
@@ -102,15 +112,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../utils'
-import { getCurrentUserIdOrDefault } from '@/services'
+import { getUserId } from '@/services'
+import { useWebSocketStatusMonitor } from '@/services/websocket/webSocketService'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
 const aiGeneralStore = useAiGeneralChatStore()
-const teacherChatStore = useTeacherGeneralChatStore()
+const teacherChatStore = useTeacherChatStore()
 
 const emit = defineEmits<{
   close: []
@@ -136,19 +147,33 @@ const tabOptions = [
 // 当前激活的分类（AI 或 老师）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 
+// WebSocket连接状态监控
+const { status: wsStatus, startMonitoring } = useWebSocketStatusMonitor()
+
 // 同步逻辑：当需要切换到老师分类时，若还没有当前老师会话，则默认选中第一个老师会话
 const ensureTeacherSessionSelected = () => {
+  console.log('[MainChatPanel] ensureTeacherSessionSelected 被调用')
   // 已经有当前老师会话则不干预
-  if (teacherChatStore.currentSession?.sessionId) return
+  if (teacherChatStore.currentSession?.sessionId) {
+    console.log('[MainChatPanel] 已有当前教师会话，跳过选择:', teacherChatStore.currentSession.sessionId)
+    return
+  }
   const allSessions = teacherChatStore.getAllSessions()
-  if (!allSessions || allSessions.length === 0) return
+  console.log('[MainChatPanel] 获取所有教师会话:', allSessions?.length || 0, '个会话')
+  if (!allSessions || allSessions.length === 0) {
+    console.log('[MainChatPanel] 无可用教师会话')
+    return
+  }
   const firstSession = allSessions[0]
+  console.log('[MainChatPanel] 选择第一个教师会话:', firstSession.sessionId)
   teacherChatStore.setSession(firstSession)
 }
 
 // 处理会话切换（由 SessionTree 通知）
 const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
+  console.log('[MainChatPanel] handleSessionSwitched 被调用:', { type, sessionId, currentActiveCategory: activeCategory.value })
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
+  console.log('[MainChatPanel] activeCategory 设置为:', activeCategory.value)
   if (type === 'teacher') {
     ensureTeacherSessionSelected()
   }
@@ -209,11 +234,25 @@ const handleTeacherSessionDeleted = (
 
 // 切换分类事件
 const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
+  console.log('[MainChatPanel] handleCategoryShouldChange 被调用:', { category, currentActiveCategory: activeCategory.value })
+
   if (category === 'teacher') {
+    // 设置为教师分类（不管当前状态如何）
     activeCategory.value = 'teacher'
+    console.log('[MainChatPanel] 设置为教师分类，开始选择教师会话')
     ensureTeacherSessionSelected()
-  } else if (activeCategory.value === 'teacher') {
-    activeCategory.value = 'ai-general'
+
+    // 初始化教师消息轮询系统（每次切换到教师模式都要重新初始化）
+    console.log('[MainChatPanel] 初始化教师消息轮询系统')
+    teacherChatStore.initMessageReceiver().catch(error => {
+      console.error('[MainChatPanel] 初始化教师消息轮询失败:', error)
+    })
+  } else {
+    // 从教师模式切换到AI模式
+    if (activeCategory.value === 'teacher') {
+      activeCategory.value = 'ai-general'
+      console.log('[MainChatPanel] 设置为AI分类')
+    }
   }
 }
 
@@ -223,7 +262,7 @@ const setTeacherSession = (sessionId: string) => {
   const session = allSessions.find((s) => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   }
@@ -265,6 +304,16 @@ const handleSwitchToTeacher = async (forwardData?: {
     showMessage('设置老师会话失败', 'error')
   }
 }
+
+// WebSocket状态相关函数
+const logWebSocketStatus = () => {
+  console.log('=== WebSocket 连接状态检查 ===')
+  console.log('教师聊天WebSocket状态:', wsStatus.value.teacher)
+  console.log('客服聊天WebSocket状态:', wsStatus.value.client)
+}
+
+// 启动WebSocket状态监控
+startMonitoring()
 </script>
 
 <style scoped>
@@ -297,6 +346,34 @@ const handleSwitchToTeacher = async (forwardData?: {
   display: flex;
   justify-content: center;
   align-items: flex-end;
+  position: relative;
+}
+
+.connection-status {
+  position: absolute;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+}
+
+.status-connected {
+  background-color: #52c41a;
+  border-color: #52c41a;
+  box-shadow: 0 0 4px rgba(82, 196, 26, 0.4);
+}
+
+.status-disconnected {
+  background-color: #ff4d4f;
+  border-color: #ff4d4f;
+  box-shadow: 0 0 4px rgba(255, 77, 79, 0.4);
 }
 
 /* Tab 列表 */

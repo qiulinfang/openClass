@@ -339,6 +339,27 @@ export default defineConfig(({ mode }) => {
             })
           })
         }
+      },
+      // 🔥 新增：匹配以 "/api" 开头的请求，转发到资源服务器（解决CORS问题）
+      '/api': {
+        target: 'https://www.imates.com.cn:9099', // 资源服务器地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: true, // 使用HTTPS协议
+        // 添加CORS头信息
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/api')
+          proxy.on('proxyRes', (proxyRes, req) => {
+            // 添加CORS头信息
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*'
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, sa-token, token'
+            proxyRes.headers['Access-Control-Allow-Credentials'] = 'true'
+            console.log('代理API请求:', req.url)
+          })
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理API请求到服务器:', req.url)
+          })
+        }
       }
     },
   },

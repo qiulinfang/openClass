@@ -187,19 +187,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
+import type { TeacherSession } from '@/stores/teacherChatStore'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { chatStorage } from '../services/storage/chat-storage'
 import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
-import { getCurrentUserIdOrDefault } from '@/services'
+import { getUserId } from '@/services'
 import SearchInput from './SearchInput.vue'
-import RubberBandList from './RubberBandList.vue'
-import BubblePopup from './BubblePopup.vue'
-import DraggableDialog from './DraggableDialog.vue'
+import RubberBandList from './base/VirtualList.vue'
+import BubblePopup from './base/Popover.vue'
+import DraggableDialog from './base/Modal.vue'
 import search1Icon from '../../public/icons/search1.svg'
 
 // 定义 emits
@@ -295,7 +295,7 @@ const unreadStore = useUnreadMessageStore()
 
 // AI 和教师聊天 store
 const aiGeneralStore = useAiGeneralChatStore()
-const teacherChatStore = useTeacherGeneralChatStore()
+const teacherChatStore = useTeacherChatStore()
 
 // Quasar 实例（用于显示消息提示）
 const $q = useQuasar()
@@ -578,7 +578,17 @@ const hasUnreadMessage = (node: TreeNode): boolean => {
 
 // 处理会话点击（内部完成所有切换逻辑，只发送最终结果）
 const handleSessionClick = async (node: TreeNode) => {
-  if (node.level !== 2 || !node.sessionId) return
+  console.log('[SessionTree] handleSessionClick 被调用，节点信息:', {
+    id: node.id,
+    category: node.category,
+    sessionId: node.sessionId,
+    label: node.label,
+    level: node.level
+  })
+  if (node.level !== 2 || !node.sessionId) {
+    console.log('[SessionTree] 节点不符合会话点击条件，跳过处理')
+    return
+  }
 
   try {
     if (node.category === 'ai') {
@@ -587,42 +597,51 @@ const handleSessionClick = async (node: TreeNode) => {
       await aiGeneralStore.switchSession(node.sessionId)
       // 更新内部维护的选中会话ID和节点ID
       // 使用 computed setter，会自动处理分类切换通知
+      console.log('[SessionTree] 设置AI会话ID:', node.sessionId)
       selectedSessionId.value = node.sessionId
       selectedNodeId.value = node.id
-      
+
       // 数据更新后，手动处理 treeNodes 变化（替代 watch）
       await nextTick()
       const oldLength = previousTreeNodesLength
       const newLength = treeNodes.value.length
       if (oldLength !== newLength) {
+        console.log('[SessionTree] 树节点数量变化，触发handleTreeNodesChange')
         previousTreeNodesLength = newLength
         await handleTreeNodesChange(oldLength, newLength)
       }
-      
+
+      console.log('[SessionTree] 发出session-switched事件: ai,', node.sessionId)
       emit('session-switched', 'ai', node.sessionId)
     } else if (node.category === 'biology' || node.category === 'math') {
       // 教师会话切换逻辑
+      console.log('[SessionTree] 处理教师会话切换')
       unreadStore.clearUnread(`teacher_${node.sessionId}`)
-      
+
       // 查找会话数据（使用响应式的 allSessions ref，Pinia 会自动解包）
       const allTeacherSessions = teacherChatStore.allSessions
+      console.log('[SessionTree] 查找教师会话，当前会话数量:', allTeacherSessions.length)
       const session = allTeacherSessions.find(s => s.sessionId === node.sessionId)
       if (!session) {
-        console.error('未找到教师会话:', node.sessionId)
+        console.error('[SessionTree] 未找到教师会话:', node.sessionId)
         return
       }
-      
+
       // 设置 localStorage 中的 currentTeacherSubject
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
       const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-      
+      console.log('[SessionTree] 设置教师科目到localStorage:', storeSubject)
+
       // 设置会话并加载聊天历史
+      console.log('[SessionTree] 设置教师会话:', session.sessionId)
       teacherChatStore.setSession(session)
+      console.log('[SessionTree] 开始加载教师聊天历史')
       await teacherChatStore.loadChatHistory(session.sessionId)
-      
+
       // 更新内部维护的选中会话ID和节点ID
       // 使用 computed setter，会自动处理分类切换通知
+      console.log('[SessionTree] 设置选中会话ID:', node.sessionId)
       selectedSessionId.value = node.sessionId
       selectedNodeId.value = node.id
       
@@ -1093,7 +1112,7 @@ const setTeacherSubject = async (sessionId: string, subject: 'biology' | 'math')
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (!session) return
   
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
