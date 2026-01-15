@@ -129,7 +129,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { AiTextbookSession } from '@/types'
-import RubberBandList from './RubberBandList.vue'
+import RubberBandList from './base/VirtualList.vue'
 import SessionItem from './SessionItem.vue'
 import { isQaFavorite, isSessionFavorite } from '@/utils/storage/favorites'
 

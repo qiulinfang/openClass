@@ -124,11 +124,12 @@ import {
 } from '@/utils/storage/screenshotSessions'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
-import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
+import ScreenshotInputDialog from '@/components/dialog/ScreenshotInputDialog.vue'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import goBackIcon from '/icons/goback.svg'
 import { useUIStore } from '@/stores/uiStore'
+import { getUserId } from '@/services/http/auth-service'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleDebugPanel: () => void
@@ -772,7 +773,7 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
     }
     // 为本次截图会话生成会话ID（同时作为存储键使用）
     const now = Date.now()
-    const userId = localStorage.getItem('userId') || ''
+    const userId = getUserId() || ''
     const sessionId = currentResourceId
       ? `${userId ? userId + '-' : ''}ai-textbook-${currentResourceId}-${now}`
       : `${userId ? userId + '-' : ''}ai-textbook-${now}`

@@ -1,14 +1,21 @@
 ﻿<template>
-  <DraggableDialog 
-    v-model="localVisible" 
+  <!-- DraftDialog 调试信息: localVisible={{ localVisible }}, displayMode={{ displayMode }} -->
+  <DraggableDialog
+    v-model="localVisible"
     title="草稿本"
-    :initial-width="1200"
-    :initial-height="700"
+    :initial-width="getInitialWidth()"
+    :initial-height="getInitialHeight()"
+    :fullscreen="displayMode === 'fullscreen'"
+    :min-width="displayMode === 'floating' ? 400 : 800"
+    :min-height="displayMode === 'floating' ? 300 : 500"
     @splitter-change="handleSplitterChange"
+    @toggle-fullscreen="handleFullscreenToggle"
   >
-    <!-- Header左侧：汉堡菜单按钮 -->
+    <!-- Header左侧：控制按钮组 -->
     <template #header-left>
+      <!-- 草稿列表切换按钮（仅普通模式显示） -->
       <q-btn
+        v-if="displayMode === 'normal'"
         flat
         round
         dense
@@ -19,10 +26,23 @@
       >
         <q-tooltip>{{ showDraftPanel ? '隐藏草稿列表' : '显示草稿列表' }}</q-tooltip>
       </q-btn>
+
+      <!-- 显示模式切换按钮 -->
+      <q-btn
+        flat
+        round
+        dense
+        :icon="getModeIcon(displayMode)"
+        color="grey-7"
+        size="sm"
+        @click="cycleDisplayMode"
+      >
+        <q-tooltip>{{ getModeTooltip(displayMode) }}</q-tooltip>
+      </q-btn>
     </template>
     
-    <!-- 左侧：草稿列表 -->
-    <template v-if="showDraftPanel" #left-panel>
+    <!-- 左侧：草稿列表（仅普通模式显示） -->
+    <template v-if="displayMode === 'normal' && showDraftPanel" #left-panel>
       <div class="draft-panel">
         <!-- 草稿列表 -->
         <div class="draft-list">
@@ -93,10 +113,20 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+// ==================== 显示模式 ====================
+type DisplayMode = 'normal' | 'fullscreen' | 'floating'
+const displayMode = ref<DisplayMode>('normal')
+
 // ==================== 响应式数据 ====================
 const localVisible = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  get: () => {
+    console.log('DraftDialog localVisible get:', props.modelValue)
+    return props.modelValue
+  },
+  set: (value) => {
+    console.log('DraftDialog localVisible set:', value)
+    emit('update:modelValue', value)
+  }
 })
 
 const showDraftPanel = ref(true) // 控制草稿列表显示隐藏
@@ -256,7 +286,6 @@ const confirmDeleteDraft = (index: number) => {
     return
   }
   
-  const draftName = draftList.value[index].name
   // 第1步：如果删除的是当前草稿，保存数据
   const oldCurrentIndex = currentDraftIndex.value
   const isDeletingCurrent = index === currentDraftIndex.value
@@ -328,6 +357,72 @@ const updateCurrentDraftThumbnail = () => {
   // 第3步：写入当前草稿
   draftList.value[currentDraftIndex.value].thumbnail = thumbnail
   draftList.value[currentDraftIndex.value].updatedAt = Date.now()
+}
+
+// ==================== 显示模式相关函数 ====================
+
+// 获取当前模式的图标
+const getModeIcon = (mode: DisplayMode): string => {
+  switch (mode) {
+    case 'normal': return 'crop_free' // 全屏图标
+    case 'fullscreen': return 'close_fullscreen' // 退出全屏图标
+    case 'floating': return 'web_asset' // 浮窗图标
+    default: return 'crop_free'
+  }
+}
+
+// 获取当前模式的提示文本
+const getModeTooltip = (mode: DisplayMode): string => {
+  switch (mode) {
+    case 'normal': return '切换到全屏模式'
+    case 'fullscreen': return '切换到浮窗模式'
+    case 'floating': return '切换到普通模式'
+    default: return '切换显示模式'
+  }
+}
+
+// 循环切换显示模式
+const cycleDisplayMode = () => {
+  const modes: DisplayMode[] = ['normal', 'fullscreen', 'floating']
+  const currentIndex = modes.indexOf(displayMode.value)
+  const nextIndex = (currentIndex + 1) % modes.length
+  displayMode.value = modes[nextIndex]
+}
+
+// 处理全屏切换事件（从 DraggableDialog 触发）
+const handleFullscreenToggle = () => {
+  // 如果当前是全屏模式，切换到浮窗模式；否则切换到全屏模式
+  displayMode.value = displayMode.value === 'fullscreen' ? 'floating' : 'fullscreen'
+}
+
+// 获取初始宽度
+const getInitialWidth = (): number => {
+  try {
+    switch (displayMode.value) {
+      case 'normal': return 1200
+      case 'fullscreen': return typeof window !== 'undefined' ? window.innerWidth : 1200
+      case 'floating': return 800
+      default: return 1200
+    }
+  } catch (error) {
+    console.error('获取初始宽度失败:', error)
+    return 1200
+  }
+}
+
+// 获取初始高度
+const getInitialHeight = (): number => {
+  try {
+    switch (displayMode.value) {
+      case 'normal': return 700
+      case 'fullscreen': return typeof window !== 'undefined' ? window.innerHeight : 700
+      case 'floating': return 600
+      default: return 700
+    }
+  } catch (error) {
+    console.error('获取初始高度失败:', error)
+    return 700
+  }
 }
 </script>
 

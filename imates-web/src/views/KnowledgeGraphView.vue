@@ -185,13 +185,12 @@ import { apiService } from '../services/http/api-service'
 import { resourceManager, ResourceManager } from '../services/storage/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import NewGrap from '../components/knowledge-graph/newGrap.vue'
-import RubberBandList from '../components/RubberBandList.vue'
-import CommonSelect from '@/components/CommonSelect.vue'
+import RubberBandList from '../components/base/VirtualList.vue'
+import CommonSelect from '@/components/base/Select.vue'
 import LearningView from './LearningView.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import { authService } from '../services'
-import { getCurrentUserIdOrDefault, getScopedStorageValue, getYanbanToken, getCurrentUserId } from '../services'
+import { getUserId, getScopedStorageValue, isYanbanLoggedIn } from '../services'
 import { showMessage } from '../utils'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../utils/business/shijingshan-knowledge-utils'
 import {
@@ -212,12 +211,12 @@ const lastLearnedNodeId = ref<string | null>(null)
 const learnedNodeIds = ref<Set<string>>(new Set())
 
 const getLastLearnedNodeKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_LEARNED_NODES`
 }
 
@@ -1009,7 +1008,7 @@ const loadChapterStructureFromDB = async (textbookId: string): Promise<ChapterNo
   try {
     await ensureKGStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const record = await db.get<KnowledgeGraphChapterStructureRecord>(
       'knowledge_graph_chapter_structure',
       buildKGRecordId(userId, textbookId)
@@ -1038,7 +1037,7 @@ const saveChapterStructureToDB = async (
   try {
     await ensureKGStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const record: KnowledgeGraphChapterStructureRecord = {
       id: buildKGRecordId(userId, textbookId),
       userId,
@@ -1242,58 +1241,19 @@ const loadChapterStructure = async (textbookId: string) => {
   }
 }
 
-// 智能会话管理器
-const sessionManager = {
-  // 检查会话是否有效
-  async isSessionValid(): Promise<boolean> {
-    try {
-      // 检查统一存储的token和userId
-      const token = getYanbanToken()
-      const userId = getCurrentUserId() || localStorage.getItem('studentUserId')
-      
-      if (!token || !userId || token === 'undefined') {
-        return false
-      }
-      
-      // 检查token是否为空字符串
-      if (token.trim() === '') {
-        return false
-      }
-      
-      // 检查登录时间是否过期（24小时）
-      const lastLoginTime = localStorage.getItem('lastLoginTime')
-      if (lastLoginTime) {
-        const now = Date.now()
-        const loginTime = parseInt(lastLoginTime)
-        const SESSION_TIMEOUT = 24 * 60 * 60 * 1000 // 24小时
-        
-        if (now - loginTime > SESSION_TIMEOUT) {
-          return false
-        }
-      }
-      
-      return true
-    } catch {
-      return false
-    }
-  },
-  
-  // 智能重新认证
-  async ensureAuthentication(): Promise<boolean> {
-    const isValid = await this.isSessionValid()
-    if (isValid) {
-      return true
-    }
-    
-    const result = await authService.autoLogin(true)
-    return result
-  },
-  
-  // 更新登录时间戳
-  updateLoginTimestamp(): void {
-    localStorage.setItem('lastLoginTime', Date.now().toString())
+// 会话认证工具函数 - 使用auth-service.ts统一管理
+const ensureAuthentication = async (): Promise<boolean> => {
+  // 检查登录状态
+  if (isYanbanLoggedIn()) {
+    return true
   }
-}
+
+  // 会话无效，直接跳转到登录页
+  console.warn('❌ [KnowledgeGraphView] 会话无效，跳转到登录页')
+  await router.push({ name: 'login' })
+        return false
+      }
+      
 
 
 // 第32步：初始化图谱
@@ -1302,7 +1262,7 @@ const initGraph = async () => {
   
   try {
     // 使用智能认证，只在必要时重新登录
-    const authSuccess = await sessionManager.ensureAuthentication()
+    const authSuccess = await ensureAuthentication()
     
     if (!authSuccess) {
       console.error('❌ [KnowledgeGraphView] 认证失败，终止初始化')

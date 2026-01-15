@@ -11,11 +11,13 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/http/api-service'
+import { TeacherChatApi } from '../services/http/teacher-chat-api'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import { showMessage } from '../utils'
-import { getUserInfo, getUserId, getCurrentUserIdOrDefault } from '../services'
+import { getUserInfo, getUserId } from '../services'
 import { useUnreadMessageStore } from './unreadMessageStore'
+import { getWebSocketService, destroyWebSocketService } from '../services/websocket/webSocketService'
+import type { WebSocketMessage } from '../services/websocket/webSocketService'
 import {
   checkAccountStatus,
   checkNotificationPermission,
@@ -33,6 +35,7 @@ import {
 import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
 import { validateGeneralChatRequest } from './utils/requestValidator'
 import { getCurrentEnvConfig } from '@/config/env-config'
+import { apiService } from '@/services/http/api-service'
 
 const buildTeacherMessage = (
   content: string,
@@ -43,7 +46,7 @@ const buildTeacherMessage = (
 ): AiChatMessageRequest => {
   // 优先使用传入的 sessionId，如果没有则新建
   // 使用 teacher-session- 前缀，与 AI 通用聊天区分
-  const userId = localStorage.getItem('userId') || ''
+  const userId = getUserId() || ''
   const finalSessionId = sessionId || `${userId ? userId + '-' : ''}teacher-session-${Date.now()}`
 
   const request: AiChatMessageRequest = {
@@ -80,7 +83,11 @@ export interface TeacherSession {
   updateTime?: number // 更新时间
 }
 
-export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () => {
+export const useTeacherChatStore = defineStore('teacherChat', () => {
+  // ==================== 服务依赖 ====================
+
+  const teacherChatApi = new TeacherChatApi()
+
   // ==================== 状态管理 ====================
 
   const messages = ref<ChatBubble[]>([]) // 当前会话的消息列表，包含所有聊天消息（用户消息、教师回复等）
@@ -101,18 +108,15 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   const VIEW_ANSWER_CHAT_TIMES = 3 // 查看答案所需的聊天次数阈值（达到此次数后可以查看答案）
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) // 计算属性：是否可以查看答案（基于聊天响应次数）
 
-  /** 待发送图片（用于拍作业场景） */
-  const pendingImage = ref<{
-    // 待发送的图片信息（用于拍作业场景，在发送前临时保存图片数据）
-    filePath: string // 图片文件路径
-    width: number // 图片宽度（像素）
-    height: number // 图片高度（像素）
-    fileSize: number // 图片文件大小（字节）
-    base64DataUrl?: string // 图片的base64编码数据URL（可选，用于前端预览）
-  } | null>(null)
 
   /** 响应式的所有会话列表 */
   const allSessions = ref<TeacherSession[]>([])
+
+  // WebSocket连接管理
+  let webSocketInitialized = false
+  // 消息轮询管理
+  let messagePollingTimer: number | null = null
+  const POLLING_INTERVAL = 3000 // 每3秒轮询一次
 
   // ==================== 会话管理 ====================
 
@@ -121,16 +125,20 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    */
   const setSession = (session: TeacherSession): void => {
     currentSession.value = session
+
     // 清除该会话的未读标记
     const unreadStore = useUnreadMessageStore()
     const unreadKey = `teacher_${session.sessionId}`
     unreadStore.clearUnread(unreadKey)
+
+    // 注意：轮询由 initMessageReceiver 统一管理，这里不再单独启动
   }
 
   /**
    * 清除会话
-   * 第1步：清空当前会话信息
-   * 第2步：清空消息列表
+   * 第1步：停止消息轮询
+   * 第2步：清空当前会话信息
+   * 第3步：清空消息列表
    */
   const clearSession = (): void => {
     currentSession.value = null
@@ -563,6 +571,51 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   }
 
   /**
+   * 发送语音消息到教师
+   * 第1步：验证前置条件
+   * 第2步：调用API发送语音消息
+   * 第3步：处理发送结果
+   */
+  const sendVoiceMessage = async (voiceInfo: {
+    filePath: string
+    duration: number
+    fileSize: number
+  }): Promise<{ success: boolean; message?: string }> => {
+    try {
+      // 第1步：验证前置条件
+      if (!(await validateSendMessagePreconditions())) {
+        return { success: false, message: '发送失败：验证失败' }
+      }
+
+      const sessionId = currentSession.value!.sessionId
+      const subject = currentSession.value!.subject || 'math'
+
+      // 第2步：调用API发送语音消息
+      const success = await teacherChatApi.sendMessage(
+        sessionId,
+        '2', // 语音消息
+        voiceInfo.filePath
+      )
+
+      if (success) {
+        // 第3步：处理发送成功
+        chatResponseTimes.value++
+        await saveChatHistory()
+        return { success: true }
+      } else {
+        return { success: false, message: '发送失败' }
+      }
+    } catch (error) {
+      console.error('[TeacherStore] 发送语音消息失败:', error)
+      return { success: false, message: '发送失败' }
+    } finally {
+      // 重置加载状态
+      isChatLoading.value = false
+      isChatRendering.value = false
+    }
+  }
+
+  /**
    * 发送教师消息
    * 第1步：验证会话
    * 第2步：创建用户消息
@@ -570,7 +623,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    * 第4步：等待教师回复（通过RabbitMQ接收）
    */
   const sendMessage = async (content: string, imageData?: ChatImageData): Promise<void> => {
-    console.log('[TEACHER_GENERAL] 发送消息:', content)
     // 第1步：验证前置条件
     if (!(await validateSendMessagePreconditions())) {
       return
@@ -585,33 +637,21 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
 
     try {
       const sessionId = currentSession.value!.sessionId
-      const subject = currentSession.value!.subject || 'math'
 
-      // 第4步：发送消息到 Android Bridge
-      const result = await sendMessageToAndroidBridge(content, imageData, sessionId, subject)
+      // 第4步：发送消息到研伴后端（HTTP API）
+      // 注意：研伴后端不支持WebSocket发送消息，使用HTTP API
+      const msgType = imageData ? '1' : '0' // 0=文本消息, 1=图片消息
+      const msgContent = imageData ? imageData.base64DataUrl || imageData.filePath || content : content
 
-      // 第5步：解析响应
-      const data = parseBridgeResponse(result)
+      const success = await teacherChatApi.sendMessage(sessionId, msgType, msgContent)
 
-      if (data.success) {
-        // 第6步：处理发送成功
-        await handleSendSuccess(sessionId, subject)
+      if (success) {
+        // 第5步：处理发送成功
+        await handleSendSuccess(sessionId, currentSession.value!.subject || 'math')
       } else {
-        // 第7步：处理发送失败
-        console.error('[TeacherStore] ❌ 消息发送失败:', data.message)
-        console.error('[TeacherStore] ❌ 失败详情:', {
-          success: data.success,
-          message: data.message,
-          data: data.data,
-        })
-
-        // 检查是否为"正在初始化中"错误，如果是则自动重试
-        const errorMessage = data.message || '发送失败'
-        if (errorMessage.includes('正在初始化中')) {
-          throw new Error('INITIALIZING_RETRY:' + errorMessage)
-        }
-
-        throw new Error(errorMessage)
+        // 第6步：处理发送失败
+        console.error('[TeacherStore] ❌ 消息发送失败')
+        throw new Error('消息发送失败')
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -837,7 +877,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       }
 
       // 第4步：保存会话信息到localStorage
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
       const sessionKey = `${userId}_${storageKey}_session`
       localStorage.setItem(sessionKey, JSON.stringify(currentSession.value))
 
@@ -855,7 +895,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    * 保存聊天历史（立即执行，不使用防抖）
    */
   const saveChatHistory = async (): Promise<void> => {
-    console.log('去重前的当前的会话信息', currentSession.value?.sessionName)
     if (!currentSession.value) {
       return
     }
@@ -865,7 +904,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     try {
       // 第0步：先加载本地消息，避免覆盖已有消息
       const storageKey = `teacher-general-${sessionId}`
-      console.log('storageKey', storageKey)
 
       // 在加载历史消息之前，先备份当前应该保存的新消息（避免被其他会话的消息污染）
       const currentMessagesSnapshot = [...messages.value]
@@ -873,7 +911,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       const history = await chatStorage.loadChatHistory(storageKey)
       if (history && history.messages) {
         const loadedMessages = history.messages || []
-        console.log('loadedMessages', loadedMessages)
 
         // 合并当前消息和已加载的消息（去重）
         const existingIds = new Set(loadedMessages.map((m) => m.id || m.messageId))
@@ -885,13 +922,11 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
         // 合并：已加载的消息 + 新的消息
         messages.value = [...loadedMessages, ...newMessages]
         chatResponseTimes.value = history.chatResponseTimes || chatResponseTimes.value
-        console.log('messages.value', messages.value)
-        console.log(`[TeacherStore] 🔍 [存储流程] 合并消息: 已加载=${loadedMessages.length} 新增=${newMessages.length} 总计=${messages.value.length}`)
+        console.log(`消息合并: 已加载=${loadedMessages.length} 新增=${newMessages.length} 总计=${messages.value.length}`)
       } else {
         // 如果没有历史消息，使用当前消息快照（避免混入其他会话的消息）
         messages.value = currentMessagesSnapshot
       }
-      console.log('去重后的当前的会话信息', currentSession.value.sessionName)
 
       // 第1步：更新会话信息
       currentSession.value.msgCount = messages.value.length
@@ -908,7 +943,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           (msg.messageId || msg.id), // 确保有messageId或id（兼容两种字段名）
       )
       // 第3步：构建存储键（每个会话独立存储，已在第0步中定义，这里复用）
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
 
       // 第4步：保存消息到IndexedDB（每个会话独立存储）
       const historyData: ChatHistoryData = {
@@ -935,7 +970,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       const allSessions = loadAllSessions()
       allSessions[sessionId] = currentSession.value
       saveAllSessions(allSessions)
-      console.log('保存的会话列表', allSessions)
     } catch (error) {
       // 处理存储错误
 
@@ -984,12 +1018,83 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   }
 
   /**
+   * 从服务器加载教师聊天历史
+   * 第1步：调用API获取历史消息
+   * 第2步：转换数据格式
+   * 第3步：合并到当前消息列表
+   */
+  const loadTeacherChatHistoryFromServer = async (sessionId: string): Promise<void> => {
+    try {
+      // 第1步：调用API获取历史消息
+      const historyData = await teacherChatApi.getTeacherChatHistory(sessionId)
+
+      if (historyData && historyData.length > 0) {
+        // 获取当前已存在的消息ID集合，避免重复添加
+        const existingMessageIds = new Set(messages.value.map((msg: ChatBubble) => msg.id))
+
+        const historyMessages: ChatBubble[] = historyData
+          .filter((msg: any) => !existingMessageIds.has(msg.messageId)) // 过滤重复消息
+          .map((msg: any) => {
+            // 研伴-后端返回的数据格式转换
+            let messageType: 'text' | 'voice' | 'image' = 'text'
+            if (msg.type === 'IMAGE') {
+              messageType = 'image'
+            } else if (msg.type === 'VOICE') {
+              messageType = 'voice'
+            }
+
+            // 构建消息对象
+            const baseMessage: ChatBubble = {
+              id: msg.messageId,
+              messageId: msg.messageId,
+              content: msg.content || '',
+              type: msg.isSelf ? 'user' : 'teacher', // 根据isSelf判断消息类型
+              timestamp: new Date(msg.timestamp).toISOString(),
+              sender: msg.isSelf ? 'user' : 'teacher',
+              messageType: messageType,
+            }
+
+            // 处理多媒体消息
+            if (messageType === 'voice' && msg.content) {
+              // 语音消息：msgContent是文件路径
+              baseMessage.voiceData = {
+                filePath: msg.content,
+                duration: 0, // 后端可能没有时长信息
+                fileSize: 0,
+              }
+            } else if (messageType === 'image' && msg.content) {
+              // 图片消息：msgContent是图片URL或base64
+              baseMessage.imageData = {
+                filePath: msg.content,
+                width: 0,
+                height: 0,
+                fileSize: 0,
+                base64DataUrl: msg.content.startsWith('data:') ? msg.content : undefined,
+              }
+            }
+
+            return baseMessage
+          })
+
+        // 第2步：合并到当前消息列表（添加在前面，因为是历史消息）
+        if (historyMessages.length > 0) {
+          messages.value.unshift(...historyMessages)
+          console.log(`[TeacherStore] 从服务器加载了 ${historyMessages.length} 条历史消息`)
+        }
+      }
+    } catch (error) {
+      console.error('[TeacherStore] 从服务器加载教师聊天历史失败:', error)
+      throw error
+    }
+  }
+
+  /**
    * 加载聊天历史（从独立存储中加载指定会话的消息）
    */
   const loadChatHistory = async (sessionId: string): Promise<void> => {
     try {
       const storageKey = `teacher-general-${sessionId}`
-      const userId = getCurrentUserIdOrDefault()
+      const userId = getUserId()
       const history = await chatStorage.loadChatHistory(storageKey)
       if (history) {
         const loadedMessages = history.messages || []
@@ -1127,7 +1232,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    * 获取统一的会话存储键名
    */
   const getSessionsStorageKey = (): string => {
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     return `${userId}_teacher-general-sessions`
   }
 
@@ -1386,7 +1491,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
 
       // 第4步：如果已存在相同科目的会话，且是当前会话，则复用
       if (existingSession && currentSession.value?.sessionId === existingSession.sessionId) {
-        console.log('[TeacherStore] ✅ 会话已存在，直接恢复:', existingSession)
         return existingSession
       }
 
@@ -1406,7 +1510,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
 
       // 第8步：加载聊天历史（如果存在）
       try {
-        console.log('加载聊天历史createSession')
         await loadChatHistory(sessionId)
       } catch (error) {
         console.warn('[TeacherStore] ⚠️ 加载聊天历史失败（可能是新会话）:', error)
@@ -1481,56 +1584,26 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       // 第2步：构建对话摘要
       const conversationSummary = firstMessages.map((m) => `${m.role}: ${m.content}`).join('\n')
 
-      // 第3步：构建生成标题的提示词
-      const titlePrompt = `你是一个对话标题生成器。请为以下对话生成一个使用动宾结构或名词短语的标题（不超过15个字）。只返回标题文本，不要有引号或其他说明。
+      // 第3步：调用AI接口生成标题 - 已移除，简化API
+      // const generatedTitle = await teacherChatApi.generateTeacherSessionTitle(conversationSummary, userInfo)
+      const generatedTitle = '教师对话' // 使用默认标题
 
-对话内容：
-${conversationSummary}
+      // 如果标题为空或太短，使用默认标题
+      if (!generatedTitle || generatedTitle.length < 2) {
+        console.warn('[TeacherStore] ⚠️ 生成的标题无效，保持原标题')
+        return
+      }
 
+      // 第7步：更新localStorage中的会话标题（统一格式）
+      const session = getSession(sessionId)
+      if (session) {
+        session.sessionName = generatedTitle
+        saveSession(session)
 
-标题：`
-
-      // 第4步：构建AI请求（使用独立 session，避免提示词污染当前会话）
-      const titleSessionId = `${sessionId}-title-${Date.now()}`
-      const titleRequest = buildTeacherMessage(
-        titlePrompt,
-        userInfo,
-        false, // 不使用web搜索
-        'mate',
-        titleSessionId
-      )
-
-      // 第5步：调用AI接口
-      const response = await apiService.sendChatMessage(titleRequest)
-
-      if (response && response.reply) {
-        // 第6步：清理生成的标题（去除引号、换行等）
-        const generatedTitle = response.reply
-          .trim()
-          .replace(/^["']|["']$/g, '') // 去除开头和结尾的引号
-          .replace(/\n/g, '') // 去除换行
-          .replace(/^标题[：:]\s*/, '') // 去除"标题："前缀
-          .substring(0, 20) // 限制最大长度
-
-        // 如果标题为空或太短，使用默认标题
-        if (!generatedTitle || generatedTitle.length < 2) {
-          console.warn('[TeacherStore] ⚠️ 生成的标题无效，保持原标题')
-          return
+        // 第8步：同步更新当前会话
+        if (currentSession.value && currentSession.value.sessionId === sessionId) {
+          currentSession.value.sessionName = generatedTitle
         }
-
-        // 第7步：更新localStorage中的会话标题（统一格式）
-        const session = getSession(sessionId)
-        if (session) {
-          session.sessionName = generatedTitle
-          saveSession(session)
-
-          // 第8步：同步更新当前会话
-          if (currentSession.value && currentSession.value.sessionId === sessionId) {
-            currentSession.value.sessionName = generatedTitle
-          }
-        }
-      } else {
-        console.warn('[TeacherStore] ⚠️ AI未返回有效标题')
       }
     } catch (error) {
       console.error('[TeacherStore] ❌ 生成标题失败:', error)
@@ -1673,7 +1746,6 @@ ${conversationSummary}
   // ==================== 消息接收 ====================
 
   // 标记是否已经初始化了消息接收器（本地标记）
-  let isReceiverInitialized = false
 
   // 初始化 Promise 缓存，确保并发调用只执行一次初始化
   let initPromise: Promise<void> | null = null
@@ -1867,7 +1939,6 @@ ${conversationSummary}
     data: TeacherMessageData,
     isCurrentSession: boolean,
   ): Promise<boolean> => {
-    console.log('为消息确保会话存在ensureSessionForMessage')
     // 如果消息不属于当前会话，尝试恢复或创建会话
     if (isCurrentSession) {
       return true
@@ -1875,11 +1946,9 @@ ${conversationSummary}
 
     // 尝试从统一的 localStorage 记录恢复会话
     const restoredSession = getSession(data.sessionId)
-    console.log('恢复的会话信息', restoredSession)
     if (restoredSession) {
       // 会话数据存在，恢复会话
       currentSession.value = restoredSession
-      console.log('currentSession被修改了', currentSession.value)
       // 触发自定义事件，通知组件刷新会话列表
       try {
         window.dispatchEvent(
@@ -1898,7 +1967,7 @@ ${conversationSummary}
       // 第1步：从 localStorage 获取当前科目
       let subject: 'biology' | 'math' = 'math' // 默认使用数学
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = getUserId()
         const storedSubject = localStorage.getItem(`${userId}_currentTeacherSubject`)
         if (storedSubject === 'BIOLOGY') {
           subject = 'biology'
@@ -2037,7 +2106,6 @@ ${conversationSummary}
             const index = messages.value.findIndex((m) => m.id === data.messageId)
             if (index !== -1) {
               messages.value[index] = imageMessage
-              console.log(`[messages] ~ 更新图片消息(大图) id=${data.messageId} index=${index}`)
               saveChatHistory()
             }
             return
@@ -2065,7 +2133,6 @@ ${conversationSummary}
           const index = messages.value.findIndex((m) => m.id === data.messageId)
           if (index !== -1) {
             messages.value[index] = imageMessage
-            console.log(`[messages] ~ 更新图片消息 id=${data.messageId} index=${index}`)
             saveChatHistory()
           }
         } else {
@@ -2078,7 +2145,6 @@ ${conversationSummary}
               content: '[图片加载失败: ' + (base64Data.message || '未知错误') + ']',
               isError: true,
             }
-            console.log(`[messages] ~ 更新图片消息(错误) id=${data.messageId} index=${index}`)
             saveChatHistory()
           }
         }
@@ -2095,7 +2161,6 @@ ${conversationSummary}
             content: '[图片加载失败: 不支持的文件路径格式]',
             isError: true,
           }
-          console.log(`[messages] ~ 更新图片消息(不支持) id=${data.messageId} index=${index}`)
           saveChatHistory()
         }
       }
@@ -2109,7 +2174,6 @@ ${conversationSummary}
             '[图片加载失败: ' + (error instanceof Error ? error.message : '未知错误') + ']',
           isError: true,
         }
-        console.log(`[messages] ~ 更新图片消息(异常) id=${data.messageId} index=${index}`)
         saveChatHistory()
       }
     }
@@ -2220,205 +2284,115 @@ ${conversationSummary}
   }
 
   /**
-   * 创建消息接收回调函数
+   * 轮询教师消息
    */
-  const createMessageReceiverCallback = (): (messageData: unknown) => Promise<void> => {
-    return async (messageData: unknown) => {
+  const startMessagePolling = (): void => {
+    if (messagePollingTimer) {
+      clearInterval(messagePollingTimer)
+    }
+
+    messagePollingTimer = window.setInterval(async () => {
+      if (!currentSession.value) return
+
       try {
-        // 参数验证
-        const data = validateMessageData(messageData)
-        if (!data) {
-          return
-        }
-
-        const validation = validateMessageCore(data)
-        if (!validation.isValid) {
-          return
-        }
-
-        // 更新时间戳
-        const { isCurrentSession, validatedTimestamp } = validation
-        data.timestamp = validatedTimestamp
-
-        // 处理系统消息（不保存到历史）
-        if (handleSystemMessage(data, isCurrentSession)) {
-          return
-        }
-
-        // 显示全局通知
-        showMessageNotification(data, isCurrentSession)
-        await checkAndRequestNotificationPermission()
-
-        // 如果消息不属于当前会话，尝试恢复或创建会话
-        const canContinue = await ensureSessionForMessage(data, isCurrentSession)
-        if (!canContinue) {
-          return
-        }
-
-        // 处理不同类型的消息
-        if (data.messageType === 'IMAGE') {
-          processImageMessage(data)
-        } else if (data.messageType === 'VOICE') {
-          processVoiceMessage(data)
-        } else {
-          processTextMessage(data)
-        }
-      } catch {
-        // 不抛出错误，避免影响其他消息的处理
+        console.log('[TeacherStore] 开始轮询检查教师消息')
+        await loadTeacherChatHistoryFromServer(currentSession.value.sessionId)
+        console.log('[TeacherStore] 轮询完成')
+      } catch (error) {
+        console.error('[TeacherStore] 轮询消息失败:', error)
       }
+    }, POLLING_INTERVAL)
+
+    console.log('[TeacherStore] 启动教师消息轮询，间隔:', POLLING_INTERVAL, 'ms')
+  }
+
+  const stopMessagePolling = (): void => {
+    if (messagePollingTimer) {
+      clearInterval(messagePollingTimer)
+      messagePollingTimer = null
+      console.log('[TeacherStore] 停止教师消息轮询')
     }
   }
 
-  /**
-   * 清理旧的Android Bridge监听器
-   */
-  const cleanupAndroidBridgeListener = (): void => {
-    if (!window.AndroidBridge) {
-      return
-    }
-    try {
-      const cleanupResult = window.AndroidBridge.cleanupTeacherMessageListener?.()
-      if (cleanupResult) {
-        JSON.parse(cleanupResult)
-      }
-    } catch {
-      // 忽略清理错误
-    }
-  }
 
-  /**
-   * 等待MessagingManager初始化完成
-   */
-  const waitForMessagingManagerInitialization = async (): Promise<void> => {
-    if (!window.AndroidBridge) {
-      return
-    }
 
-    // 等待初始化完成（最多等待10秒，与Android端保持一致）
-    let waitCount = 0
-    const maxWait = 100 // 100次 * 100ms = 10秒
-    let lastWarningTime = 0
-    const warningInterval = 2000 // 每2秒最多输出一次警告
 
-    while (waitCount < maxWait) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      waitCount++
-
-      const initialized = window.AndroidBridge.isMessagingManagerInitialized?.() ?? false
-      const connecting = window.AndroidBridge.isMessagingManagerConnecting?.() ?? false
-
-      if (initialized) {
-        break
-      }
-
-      // 如果不再连接中且未初始化，且距离上次警告超过2秒，才输出警告
-      const now = Date.now()
-      if (!connecting && waitCount > 20 && now - lastWarningTime > warningInterval) {
-        console.warn(
-          `⚠️ MessagingManager初始化可能失败（已等待${waitCount * 100}ms），但继续等待...`,
-        )
-        lastWarningTime = now
-      }
-    }
-
-    // 最终检查初始化状态
-    const finalInitialized = window.AndroidBridge.isMessagingManagerInitialized?.() ?? false
-    const finalConnecting = window.AndroidBridge.isMessagingManagerConnecting?.() ?? false
-
-    if (!finalInitialized) {
-      if (finalConnecting) {
-        console.warn(
-          '⚠️ MessagingManager初始化超时（10秒），但仍在后台初始化中，后续操作会自动重试',
-        )
-      } else {
-        console.warn(
-          '⚠️ MessagingManager初始化超时（10秒），可能初始化失败，后续发送消息时会自动重试',
-        )
-      }
-      // 不抛出错误，因为可能仍在后台初始化，后续发送消息时会重试
-    }
-  }
-
-  /**
-   * 初始化Android Bridge监听器
-   */
-  const initializeAndroidBridgeListener = async (): Promise<void> => {
-    if (!window.AndroidBridge) {
-      const errorMsg = 'AndroidBridge未初始化，无法连接教师消息系统'
-      console.error(errorMsg)
-      throw new Error(errorMsg)
-    }
-
-    // 检查是否已经初始化
-    const isInitialized = window.AndroidBridge.isMessagingManagerInitialized?.() ?? false
-
-    // 如果已经初始化过，只更新回调函数，不重复初始化 Android 端
-    if (isReceiverInitialized && isInitialized) {
-      // 回调函数已经在第1步设置，这里直接返回即可
-      return
-    }
-
-    if (!isInitialized) {
-      // 在初始化之前，先清理旧的监听器（防止重复添加）
-      cleanupAndroidBridgeListener()
-
-      // 调用初始化接口（会同时初始化 MessagingManager 和添加监听器）
-      const result = window.AndroidBridge.initTeacherMessageListener()
-      const data = JSON.parse(result)
-      if (!data.success) {
-        const errorMsg = `初始化教师消息监听失败: ${data.message}`
-        console.error(errorMsg)
-        throw new Error(errorMsg)
-      }
-
-      // 等待初始化完成
-      await waitForMessagingManagerInitialization()
-    } else {
-      // MessagingManager 已初始化，但我们仍需要确保监听器已添加
-      // 注意：如果本地标记未设置，说明可能是页面刷新或首次调用，需要确保监听器已添加
-      // 调用 initTeacherMessageListener 会添加监听器（如果已存在会先清理再添加，确保不重复）
-      // 注意：这里会执行清理操作，但这是必要的，因为方法引用可能已变化
-      cleanupAndroidBridgeListener()
-
-      const result = window.AndroidBridge.initTeacherMessageListener()
-      const data = JSON.parse(result)
-      if (!data.success) {
-        console.warn('[TeacherStore] ⚠️ 添加监听器失败:', data.message)
-        // 不抛出错误，因为 MessagingManager 已经初始化，可能只是重复调用
-      }
-    }
-
-    isReceiverInitialized = true
-  }
 
   /**
    * 实际执行初始化的内部函数
    */
   const doInitMessageReceiver = async (): Promise<void> => {
-    // 第1步：设置全局回调（每次调用都重新设置，确保使用最新的回调）
-    window.onTeacherMessageReceived = createMessageReceiverCallback()
-
-    // 确认回调函数已设置（立即验证）
-    const callbackType = typeof window.onTeacherMessageReceived
-    const isFunction = callbackType === 'function'
-
-    // 如果回调函数设置失败，抛出错误
-    if (!isFunction) {
-      const errorMsg = `回调函数设置失败！期望类型: function，实际类型: ${callbackType}`
-      console.error('[TeacherStore] ❌', errorMsg)
-      throw new Error(errorMsg)
+    if (!currentSession.value) {
+      console.warn('[TeacherStore] 无当前会话，跳过WebSocket初始化')
+      return
     }
 
-    // 第2步：初始化原生监听器
-    try {
-      await initializeAndroidBridgeListener()
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : '初始化教师消息监听失败'
-      console.error('初始化教师消息监听失败:', error)
-      // 初始化失败时清除标志，允许重试
-      isReceiverInitialized = false
-      throw new Error(errorMsg)
+    if (webSocketInitialized) {
+      console.log('[TeacherStore] WebSocket已初始化，跳过重复初始化')
+      return
     }
+
+    // 获取WebSocket实例
+    const webSocket = getWebSocketService('teacher')
+
+    // 设置会话信息
+    const exerciseSession: TeacherSession = {
+      sessionId: 'teacher-exercise-2596-1764249826866-1ibcnyanm',
+      sessionName: '练习教师会话',
+      subject: 'biology', // 根据需要调整科目
+      createTime: Date.now()
+    }
+    setSession(exerciseSession)
+
+    // 设置WebSocket会话ID
+    webSocket.setSessionId(exerciseSession.sessionId)
+
+    // 连接到WebSocket服务器
+    webSocket.connect().then(success => {
+      if (success) {
+        console.log('[TeacherStore] WebSocket连接建立成功')
+      } else {
+        console.warn('[TeacherStore] WebSocket连接建立失败，将使用HTTP轮询')
+      }
+    }).catch(error => {
+      console.error('[TeacherStore] WebSocket连接异常:', error)
+    })
+
+    // 添加消息监听器（适配研伴后端功能）
+    // 研伴后端只支持新问题推送通知
+    webSocket.on('new_question', (message?: WebSocketMessage) => {
+      if (!message) return
+      console.log('[TeacherStore] 收到新问题通知:', message)
+
+      // 处理新问题通知 - 可以触发会话列表刷新等操作
+      // 这里可以添加刷新会话列表、显示通知等逻辑
+    })
+
+    // 教师回复推送功能（研伴后端暂不支持，预留接口）
+    webSocket.on('teacher_response', (message?: WebSocketMessage) => {
+      if (!message) return
+      console.log('[TeacherStore] 收到教师回复(预留功能):', message)
+      // 研伴后端暂不支持教师回复推送，实际回复通过HTTP轮询获取
+    })
+
+    webSocket.on('error', () => {
+      console.error('[TeacherStore] WebSocket错误')
+      // 不显示错误提示，因为连接失败不影响主要功能
+    })
+
+    webSocket.on('disconnected', () => {
+      console.log('[TeacherStore] WebSocket连接断开')
+      webSocketInitialized = false
+    })
+
+    webSocket.on('connected', () => {
+      console.log('[TeacherStore] WebSocket连接成功')
+      webSocketInitialized = true
+      // 启动消息轮询
+      startMessagePolling()
+    })
+
+    console.log('[TeacherStore] 初始化教师WebSocket系统完成')
   }
 
   /**
@@ -2428,26 +2402,14 @@ ${conversationSummary}
     // 清除初始化 Promise 缓存，允许重新初始化
     initPromise = null
 
-    // 第1步：清理全局回调
-    if (window.onTeacherMessageReceived) {
-      window.onTeacherMessageReceived = undefined
-    }
-    isReceiverInitialized = false
+    // 停止消息轮询
+    stopMessagePolling()
 
-    // 第2步：清理原生监听器
-    if (!window.AndroidBridge) {
-      return
-    }
+    // 清理WebSocket连接
+    destroyWebSocketService('teacher')
+    webSocketInitialized = false
 
-    try {
-      const result = await window.AndroidBridge.cleanupTeacherMessageListener()
-      const data = JSON.parse(result)
-      if (!data.success) {
-        console.error('清理教师消息监听失败:', data.message)
-      }
-    } catch (error) {
-      console.error('清理教师消息监听失败:', error)
-    }
+    console.log('[TeacherStore] 清理教师WebSocket接收器完成')
   }
 
   // ==================== 导出 ====================
@@ -2459,27 +2421,6 @@ ${conversationSummary}
     enableWebSearch.value = !enableWebSearch.value
   }
 
-  /**
-   * 设置待发送图片（用于拍作业场景）
-   * 第1步：保存图片信息到状态
-   */
-  const setPendingImage = (imageData: {
-    filePath: string
-    width: number
-    height: number
-    fileSize: number
-    base64DataUrl?: string
-  }): void => {
-    pendingImage.value = imageData
-  }
-
-  /**
-   * 清除待发送图片
-   * 第1步：清空待发送图片状态
-   */
-  const clearPendingImage = (): void => {
-    pendingImage.value = null
-  }
 
   // ==================== 老师选项管理 ====================
 
@@ -2544,7 +2485,6 @@ ${conversationSummary}
     enableWebSearch,
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
-    pendingImage,
 
     // 会话管理
     setSession,
@@ -2560,12 +2500,14 @@ ${conversationSummary}
     clearMessages,
     deleteMessage,
     sendMessage,
+    sendVoiceMessage,
     retryTeacherMessage,
     forwardMessagesToTeacher,
 
     // 历史记录
     saveChatHistory,
     loadChatHistory,
+    loadTeacherChatHistoryFromServer,
     clearChatHistory,
 
     // 消息接收
@@ -2574,8 +2516,6 @@ ${conversationSummary}
 
     // 其他
     toggleWebSearch,
-    setPendingImage,
-    clearPendingImage,
 
     // 老师选项管理
     getAllTeachers,

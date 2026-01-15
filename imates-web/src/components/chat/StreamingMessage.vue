@@ -5,6 +5,7 @@
       <div
         v-if="props.isStreaming && !props.content"
         class="skeleton-card"
+        :style="{ backgroundImage: `url(${generateImgGif})` }"
       ></div>
 
       <!-- 流式模式 & 非流式模式统一使用打字机效果，区别仅在于流式模式下内容会持续追加 -->
@@ -27,6 +28,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { streamingManager } from '../../config/streaming'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { MathJaxUtils } from '../../utils/math/mathjax'
+import generateImgGif from '/icons/generateImg.gif'
 
 // 导入类型定义
 import type { StreamingMessageProps } from '../../types'
@@ -292,40 +294,19 @@ const setTypewriterContentRef = (el: any) => {
   white-space: normal;
 }
 
-/* 绘图中骨架屏样式：深色渐变 + 圆角 + 轻微晃动高光 */
+/* 绘图中骨架屏样式：使用 GIF 图片 + 圆角 */
 .skeleton-card {
   /* 使用固定尺寸，避免受父级 shrink-to-fit 影响变成 0 宽 */
   width: 260px;
   min-height: 160px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #212226, #26272b, #1f2024);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
   position: relative;
   overflow: hidden;
 }
 
-.skeleton-card::after {
-  content: '';
-  position: absolute;
-  inset: 0; /* 覆盖整个骨架区域 */
-  background: linear-gradient(
-    120deg,
-    rgba(255, 255, 255, 0.02) 0%,
-    rgba(255, 255, 255, 0.10) 30%,
-    rgba(255, 255, 255, 0.02) 60%
-  );
-  background-size: 200% 100%;
-  background-position: 0% 0;
-  animation: skeleton-shimmer 1.5s infinite;
-}
-
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: 0% 0;
-  }
-}
 
 .typing-cursor {
   display: inline;

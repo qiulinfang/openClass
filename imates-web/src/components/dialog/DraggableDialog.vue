@@ -47,7 +47,16 @@
                     <slot name="header-left"></slot>
                   </div>
                   <!-- 标题 -->
-                  <div class="text-h6" :class="titleAlignClass">{{ finalConfig.title }}</div>
+                  <div class="text-h6" :class="[titleAlignClass, { 'has-slots': $slots['header-title-left'] || $slots['header-right'] }]">{{ finalConfig.title }}</div>
+                  <!-- 标题左侧插槽（紧贴标题） -->
+                  <div
+                    v-if="$slots['header-title-left']"
+                    class="header-title-left"
+                    @mousedown.stop
+                    @touchstart.stop
+                  >
+                    <slot name="header-title-left"></slot>
+                  </div>
                   <!-- 右侧插槽 -->
                   <div
                     v-if="$slots['header-right']"
@@ -114,7 +123,7 @@
 
                 <!-- 调整大小把手 -->
                 <div
-                  v-if="!props.autoSize"
+                  v-if="props.showResizeHandle && props.type !== 'delete'"
                   class="resize-handle"
                   @mousedown.prevent.stop="startResize"
                   @touchstart.prevent.stop="startResize"
@@ -143,7 +152,7 @@
                 <slot name="header-left"></slot>
               </div>
               <!-- 标题（使用 finalConfig 以兼容预设类型） -->
-              <div class="text-h6" :class="titleAlignClass">{{ finalConfig.title }}</div>
+              <div class="text-h6" :class="[titleAlignClass, { 'has-slots': $slots['header-title-left'] || $slots['header-right'] }]">{{ finalConfig.title }}</div>
               <!-- 标题右侧插槽 -->
               <div
                 v-if="$slots['header-right']"
@@ -218,7 +227,7 @@
             </div>
             <!-- 调整大小把手 -->
             <div
-              v-if="!props.autoSize"
+              v-if="props.showResizeHandle && props.type !== 'delete'"
               class="resize-handle"
               @mousedown.prevent.stop="startResize"
               @touchstart.prevent.stop="startResize"
@@ -232,7 +241,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import CommonActionButton from './CommonActionButton.vue'
+import CommonActionButton from '../base/Button.vue'
 
 interface Props {
   modelValue: boolean
@@ -256,6 +265,7 @@ interface Props {
   cancelText?: string // 取消按钮文本
   confirmDisabled?: boolean // 确定按钮是否禁用
   confirmVariant?: 'primary' | 'danger' // 确认按钮样式：普通 / 删除
+  showResizeHandle?: boolean // 是否显示调整大小把手
   zIndex?: number // 遮罩层 z-index，默认 9000
 }
 
@@ -280,6 +290,7 @@ const props = withDefaults(defineProps<Props>(), {
   cancelText: '取消',
   confirmDisabled: false,
   confirmVariant: 'primary',
+  showResizeHandle: true,
   zIndex: 9000,
 })
 
@@ -351,8 +362,8 @@ const finalConfig = computed(() => {
     title: props.title || preset.title,
     showFooter: preset.showFooter,
     confirmVariant: preset.confirmVariant,
-    confirmText: preset.confirmText,
-    cancelText: preset.cancelText,
+    confirmText: props.confirmText,
+    cancelText: props.cancelText,
     initialWidth: preset.initialWidth,
     initialHeight: preset.initialHeight,
     minWidth: preset.minWidth,
@@ -618,6 +629,12 @@ watch(isOpen, (newValue) => {
       gap: 8px;
     }
 
+    .header-title-left {
+      display: flex;
+      align-items: center;
+      margin-right: 8px;
+    }
+
     .text-h6 {
       font-size: 16px;
       font-weight: 600;
@@ -625,6 +642,11 @@ watch(isOpen, (newValue) => {
       letter-spacing: -0.01em;
       flex: 1;
       padding: 0 32px;
+
+      // 当有 header-title-left 或 header-right 插槽时，不占用所有空间
+      &.has-slots {
+        flex: none;
+      }
 
       &.title-align-center {
         text-align: center;

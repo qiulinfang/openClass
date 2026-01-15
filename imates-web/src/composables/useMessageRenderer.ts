@@ -146,13 +146,6 @@ export function useMessageRenderer() {
       // 8. 后处理渲染结果（清理多余的换行符）
       const trimmedRendered = rendered.replace(/\n+$/, '')
 
-      // 核心日志：记录原始内容和渲染结果
-      console.log('[useMessageRenderer] 题目渲染:', {
-        原始内容: contentStr,
-        渲染结果: trimmedRendered,
-        包含公式: trimmedRendered.includes('mjx-container') || trimmedRendered.includes('mjx-chtml')
-      })
-
       // 9. 管理缓存
       manageCache(contentStr, trimmedRendered)
 

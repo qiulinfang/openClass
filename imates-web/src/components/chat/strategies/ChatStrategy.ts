@@ -37,6 +37,10 @@ export interface ForwardOptions {
    * 可选：当前题目对象（题目场景转发需要）
    */
   currentQuestion?: unknown
+  /**
+   * 老师选择回调函数（当需要用户选择老师时调用）
+   */
+  onTeacherSelect?: () => Promise<'biology' | 'math'>
 }
 
 export interface ChatStrategy {
@@ -84,7 +88,7 @@ export interface ChatStrategy {
   
   // 第15步：初始化策略
   initialize(options: import('./types').InitializeOptions): Promise<void>
-  
+
   // 第16步：获取会话信息（可选，仅教师策略需要）
   getSessionInfo?(): import('../../../types').ChatMessageSession | null
   
@@ -146,5 +150,20 @@ export interface ChatStrategy {
 
   // 第31步：切换联网搜索状态（可选）
   toggleWebSearch?(): void
+
+  // 第32步：重试消息（可选）
+  retryMessage?(messageId: string, options?: { currentQuestion?: unknown }): Promise<void>
+
+  // 第33步：检查是否支持分页加载历史消息
+  supportsPaginatedHistory?(): boolean
+
+  // 第34步：加载更多历史消息
+  loadMoreHistory?(): Promise<void>
+
+  // 第35步：检查是否有更多历史消息
+  hasMoreHistory?(): boolean
+
+  // 第36步：检查是否正在加载历史消息
+  isLoadingHistory?(): boolean
 }
 

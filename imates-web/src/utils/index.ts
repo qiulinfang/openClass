@@ -71,10 +71,8 @@ export {
   getPassword,
   getYanbanToken,
   getXuebanToken,
-  getCurrentUserId,
-  getCurrentUserType,
-  getCurrentUserIdOrDefault,
   getScopedStorageValue,
+  isYanbanLoggedIn,
 } from '../services'
 
 // 收藏功能工具

@@ -209,7 +209,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { getCurrentUserIdOrDefault } from '../../services'
+import { getUserId } from '../../services'
 
 interface ChapterNode {
   id: string
@@ -249,12 +249,12 @@ const isVisible = computed({
 
 // 获取带用户ID前缀的存储key
 const getLastLearnedNodeKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_LEARNED_NODES`
 }
 

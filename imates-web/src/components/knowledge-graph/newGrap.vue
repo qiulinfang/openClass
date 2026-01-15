@@ -13,13 +13,13 @@
           class="bubble-menu-button bubble-menu-button--learn"
           @click="handleAction('learn')"
         >
-          去学习
+          探索模式
         </button>
         <button 
           class="bubble-menu-button bubble-menu-button--practice"
           @click="handleAction('practice')"
         >
-          去练习
+          练习模式
         </button>
       </div>
     </div>
@@ -81,7 +81,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import centerNodeIcon from '/icons/centerNode.svg';
 import learnedIcon from '/icons/learned.svg';
@@ -219,7 +219,7 @@ function getCachedImageCanvas(img) {
 
 // 物理状态
 const state = reactive({ // 物理状态
-  globalAngle: 0, // 全局角度   
+  globalAngle: 0, // 全局角度
   targetGlobalAngle: 0, // 目标全局角度
   isAutoRotating: false, // 是否自动旋转
   focusedIndex: 0, // 聚焦索引
@@ -230,7 +230,8 @@ const state = reactive({ // 物理状态
   lastX: 0, // 上一次 X
   interactionMode: null, // 交互模式
   activeObject: null, // 激活对象
-  forceRotation: false // 是否强制旋转（不走最短路径）
+  forceRotation: false, // 是否强制旋转（不走最短路径）
+  autoShowBubbleAfterRotation: false // 是否在旋转停止后自动显示气泡菜单
 });
 
 // --- 实体类 (Classes) ---
@@ -518,7 +519,7 @@ function init() {
   resize();
   state.moons = [];
   const root = { ...props.data, children: [] };                // level0
-  const sections = props.data.children.reverse() || [];   // level1
+  const sections = [...(props.data.children || [])].reverse();   // level1
 
   if (!root && !sections.length) return;
 
@@ -538,6 +539,7 @@ function init() {
   });
 
   focusOnIndex(initialFocusIndex, true);
+  showBubble('moon', initialFocusIndex);
 
   if (!animationFrameId) loop();
 }
@@ -572,10 +574,16 @@ function update() {
       while (diff > Math.PI) diff -= Math.PI * 2; // 角度差
     }
     
-    if (Math.abs(diff) < 0.005) { 
-      state.globalAngle = state.targetGlobalAngle;  // 角度差 
+    if (Math.abs(diff) < 0.005) {
+      state.globalAngle = state.targetGlobalAngle;  // 角度差
       state.isAutoRotating = false; // 自动旋转
       state.forceRotation = false;
+
+      // 旋转停止后自动显示气泡菜单
+      if (state.autoShowBubbleAfterRotation) {
+        state.autoShowBubbleAfterRotation = false; // 重置标记
+        showBubble('moon', state.focusedIndex); // 显示当前聚焦月球的气泡菜单
+      }
     } else {
       state.globalAngle += diff * config.rotationSpeed; // 角度差 
     }
@@ -619,7 +627,6 @@ function updateBubblePosition() {
 
 // 绘制
 function draw() {
-  const dpr = window.devicePixelRatio || 1; // 设备像素比 
   ctx.clearRect(0, 0, width, height); // 清除画布
 
   // 轨道 - 已隐藏
@@ -793,6 +800,7 @@ function focusOnIndex(index, instant = false) {
     state.moons.forEach(m => m.scale = m.targetScale); // 目标缩放
   } else {
     state.isAutoRotating = true; // 自动旋转
+    state.autoShowBubbleAfterRotation = true; // 标记需要在旋转停止后显示气泡
   }
 }
 
@@ -944,7 +952,6 @@ function drawMultilineTextWithEllipsis(ctx, text, x, y, maxWidth, lineHeight, ma
 
   if (lines.length > maxLines) {
     const lastLineIndex = maxLines - 1;
-    const remainingText = lines.slice(lastLineIndex).join(''); 
     // 合并剩余行重新计算，确保尽可能多的文字
     // 简单点：取出最后一行原本的内容加上后面的内容尝试截断
     // 这里直接用暴力尝试法

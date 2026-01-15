@@ -44,12 +44,12 @@ export interface ChatMessageSession {
 /** 聊天气泡接口（UI显示用，扩展了基础ConversationRecord，添加UI相关字段） */
 export interface ChatBubble {
   id: string
-  messageId?: string // 兼容旧版本
+  messageId?: string
   content: string
   sender: 'user' | 'ai' | 'teacher'
   type: 'user' | 'ai' | 'teacher'
   timestamp: string
-  messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'system' // 场景39：支持系统消息类型 + 多图消息
+  messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'system' | 'time_separator' // 场景39：支持系统消息类型 + 多图消息 + 时间分隔符
   isStreaming?: boolean
   isError?: boolean // 标记是否为错误消息
   canRetry?: boolean // 标记是否可以重发
@@ -57,6 +57,7 @@ export interface ChatBubble {
   originalMessage?: string // 原始消息内容（用于重发）
   isRecalled?: boolean // 场景38：标记消息是否已撤回
   isSystemMessage?: boolean // 场景39：标记是否为系统消息（不保存到历史）
+  isRead?: boolean // 消息已读状态
   sessionId?: string
   voiceData?: {
     filePath: string
@@ -115,7 +116,7 @@ export interface ChatInputProps {
   isRecording: boolean
   enableWebSearch: boolean
   selectedModel: string
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   uploadedFiles: UploadedFile[]
   activeMode: ActiveMode | null
   canSend: boolean
@@ -147,11 +148,13 @@ export interface ChatInputEmits {
 /** ChatMessage Props接口 */
 export interface ChatMessageProps {
   message: ChatBubble
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
   isLastMessage?: boolean // 是否是最后一条消息
+  showReadStatus?: boolean // 是否显示已读状态
+  showTime?: boolean // 是否显示消息时间
 }
 
 /** StreamingMessage Props接口 */
@@ -164,7 +167,7 @@ export interface StreamingMessageProps {
 
 /** ChatView Props接口 */
 export interface ChatViewProps {
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   currentQuestionId?: string
   sessionId?: string  // 教师对话会话ID
   overrideQuestion?: ExerciseItem | null  // 可选的题目覆盖（用于避免污染全局状态，如拍照搜题场景）

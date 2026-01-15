@@ -8,11 +8,12 @@ import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useAiGeneralChatStore } from '../../../stores/aiGeneralChatStore'
 import { getUserInfo, getSubject } from '../../../services'
-import { useTeacherGeneralChatStore } from '../../../stores/teacherGeneralChatStore'
+import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { apiService } from '../../../services/http/api-service'
 import { Dialog } from 'quasar'
 import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
+import TeacherSelectionDialog from '../../dialog/TeacherSelectionDialog.vue'
 
 export class AiGeneralStrategy implements ChatStrategy {
   private aiGeneralStore = useAiGeneralChatStore()
@@ -47,7 +48,7 @@ export class AiGeneralStrategy implements ChatStrategy {
   
   // 第4步：获取欢迎消息
   getWelcomeMessage(): string {
-    return '你好！我是你的AI助手。有什么问题我可以帮你解答吗？'
+    return '你好！我是你的学习伙伴。有什么问题我可以帮你解答吗？'
   }
   
   // 第5步：检查是否需要选择题目
@@ -85,8 +86,7 @@ export class AiGeneralStrategy implements ChatStrategy {
   async forwardMessage(message: ChatBubble, options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
       // 选择老师会话
-      const session = await this.selectTeacherSession()
-      console.log('选择或创建的老师会话forwardMessage', session)
+      const session = await this.selectTeacherSession(options.onTeacherSelect)
       if (!session) {
         return {
           success: false,
@@ -145,8 +145,8 @@ export class AiGeneralStrategy implements ChatStrategy {
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
       // 选择老师会话
-      const session = await this.selectTeacherSession()
-      
+      const session = await this.selectTeacherSession(options.onTeacherSelect)
+
       if (!session) {
         return {
           success: false,
@@ -218,9 +218,8 @@ export class AiGeneralStrategy implements ChatStrategy {
       await this.addMessage(welcomeMessage)
     }
   }
- 
 
-  // 第14步：发送语音消息
+  // 第16步：检查是否应该乐观发送
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async sendVoiceMessage(_voiceInfo: {
     filePath: string
@@ -387,7 +386,7 @@ export class AiGeneralStrategy implements ChatStrategy {
   private async createTeacherSession(
     subject: 'biology' | 'math'
   ): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
-    const teacherStore = useTeacherGeneralChatStore()
+    const teacherStore = useTeacherChatStore()
     
     // 初始化老师消息监听器
     await teacherStore.initMessageReceiver()
@@ -404,7 +403,6 @@ export class AiGeneralStrategy implements ChatStrategy {
     )
     
     if (createdSession) {
-      console.log('创建的会话', createdSession)
       return {
         sessionId: createdSession.sessionId,
         sessionName: createdSession.sessionName,
@@ -412,55 +410,26 @@ export class AiGeneralStrategy implements ChatStrategy {
       }
     }
     
-    console.log('创建的会话失败', createdSession)
     return null
   }
 
   /**
    * 选择老师会话（通用会话）
    */
-  private async selectTeacherSession(): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
-    // 显示对话框让用户选择老师类型
-    return new Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null>((resolve) => {
-      Dialog.create({
-        title: '选择老师',
-        message: '请选择要转发的老师类型：',
-        options: {
-          type: 'radio',
-          model: '',
-          items: [
-            {
-              label: '生物老师',
-              value: 'biology',
-              color: 'green',
-            },
-            {
-              label: '数学老师',
-              value: 'math',
-              color: 'blue',
-            },
-          ],
-        },
-        cancel: {
-          label: '取消',
-          color: 'grey',
-          flat: true,
-        },
-        ok: {
-          label: '确定',
-          color: 'primary',
-          unelevated: true,
-        },
-        persistent: false,
-      }).onOk(async (selectedSubject: string) => {
-        // 用户选择后，直接用选择的结果创建会话
-        const result = await this.createTeacherSession(selectedSubject as 'biology' | 'math')
-        console.log('选择的老师会话并创建', result)
-        resolve(result)
-      }).onCancel(() => {
-        resolve(null)
-      })
-    })
+  private async selectTeacherSession(onTeacherSelect?: () => Promise<'biology' | 'math'>): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
+    if (!onTeacherSelect) {
+      console.error('[AiGeneralStrategy] 未提供老师选择回调函数')
+      return null
+    }
+
+    try {
+      const selectedSubject = await onTeacherSelect()
+      const result = await this.createTeacherSession(selectedSubject)
+      return result
+    } catch (error) {
+      console.error('[AiGeneralStrategy] 老师选择失败:', error)
+      return null
+    }
   }
 
   /**
@@ -522,7 +491,7 @@ export class AiGeneralStrategy implements ChatStrategy {
         })
         
         // AI通用策略固定使用 general 类型的 store
-        const teacherStore = useTeacherGeneralChatStore()
+        const teacherStore = useTeacherChatStore()
         // 确保 currentSession 指向正确的会话，避免会话列表重复存储
         const targetSession = teacherStore.getSession(sessionId)
         if (targetSession) {
@@ -589,8 +558,8 @@ export class AiGeneralStrategy implements ChatStrategy {
       })
       
       // AI通用策略固定使用 general 类型的 store
-      console.log('[AiGeneralStrategy] 🔍 [存储流程] 保存聊天历史完成', convertedMessages)
-      const teacherStore = useTeacherGeneralChatStore()
+      console.log('保存聊天历史完成', convertedMessages.length)
+      const teacherStore = useTeacherChatStore()
       // 确保 currentSession 指向正确的会话，避免会话列表重复存储
       const targetSession = teacherStore.getSession(sessionId)
       if (targetSession) {

@@ -5,15 +5,13 @@
 
 import type { QuestionRecord, AiGeneralSession, AiTextbookSession } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
-import { getCurrentUserIdOrDefault } from '../../services'
+import { getUserId } from '../../services'
 
 // localStorage key 常量（带用户ID前缀）
 const getFavoritesStorageKey = (): string => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = getUserId()
   return `${userId}_favorites`
 }
-const QA_FAVORITES_PREFIX = 'favorite_qa_'  
-const EXERCISE_FAVORITES_PREFIX = 'favorite_exercise_'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getSessionId = (record: QuestionRecord | AiTextbookSession): string => {

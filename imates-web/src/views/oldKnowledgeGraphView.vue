@@ -296,7 +296,7 @@ import LearningStatusControlPanel from '../components/debug/LearningStatusContro
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import { authService } from '../services'
-import { getYanbanToken, getCurrentUserId } from '../services'
+import { getYanbanToken, getCurrentYanbanUserId } from '../services'
 import { useQuestionStore } from '../stores/questionStore'
 import { showMessage } from '../utils'
 import {
@@ -2034,7 +2034,7 @@ const sessionManager = {
     try {
       // 检查统一存储的token和userId
       const token = getYanbanToken()
-      const userId = getCurrentUserId() || localStorage.getItem('studentUserId')
+      const userId = getUserId() || getCurrentYanbanUserId()
       
       if (!token || !userId || token === 'undefined') {
         return false
@@ -2070,8 +2070,10 @@ const sessionManager = {
       return true
     }
     
-    const result = await authService.autoLogin(false)
-    return result
+    // 会话无效，直接跳转到登录页
+    console.warn('❌ [oldKnowledgeGraphView] 会话无效，跳转到登录页')
+    await router.push({ name: 'login' })
+    return false
   },
   
   // 更新登录时间戳

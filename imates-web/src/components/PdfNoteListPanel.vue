@@ -55,7 +55,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import RubberBandList from './RubberBandList.vue'
+import RubberBandList from './base/VirtualList.vue'
 
 interface PageNote {
   id: string

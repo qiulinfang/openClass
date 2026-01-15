@@ -5,8 +5,7 @@
 
 import type { ApiResponse, RequestConfig } from '@/types'
 import { createTimeoutController } from '@/utils/common/polyfills'
-import { showMessage } from '@/utils'
-import { getApiBaseUrl, getHistoryManageBaseUrl, getResourceBaseUrl, getYanbanBaseUrl } from '@/config/env-config'
+import { getRouteBaseMap } from '@/config/env-config'
 import { authService } from './auth-service'
 
 export class HttpClient {
@@ -14,37 +13,6 @@ export class HttpClient {
   private defaultHeaders: Record<string, string>
   private timeout: number
 
-  // 流程：file://环境下的路由映射表（统一管理，避免重复）
-  // 动态获取，根据当前环境返回不同的 Base URL
-  private getRouteBaseMap(): Record<string, string> {
-    const apiBaseUrl = getApiBaseUrl()
-    const resourceBaseUrl = getResourceBaseUrl()
-    const yanbanBaseUrl = getYanbanBaseUrl()
-    const historyManageBaseUrl = getHistoryManageBaseUrl()
-    
-    return {
-      // 应用更新配置（/bj101/appupdate.json）永远走学班服务
-      '/bj101': 'https://www.imates.com.cn',
-      // 学班服务（根据环境动态切换）
-      '/admin': apiBaseUrl,
-      '/permission': apiBaseUrl,
-      '/ai': apiBaseUrl,
-      '/history_manage': historyManageBaseUrl,
-      '/biologyTopicKnowledge': apiBaseUrl,
-      // 研伴/教材等走资源服务器
-      '/blw-edu-yb': yanbanBaseUrl,
-      // Zammad 示例
-      '/api/v1': 'http://app.imates.com.cn:8080',
-      // 资源服务器（根据环境动态切换）
-      '/resource': resourceBaseUrl,
-      '/img': resourceBaseUrl,
-      // 知识点查询服务
-      '/knowledge': 'http://www.imates.com.cn:8090',
-      // 经开二中的应用更新配置（/jinkai/update.json）
-      '/jinkai': resourceBaseUrl,
-      '/appupdate_test.json': 'https://www.imates.com.cn',
-    }
-  }
 
   constructor(baseURL: string = '', timeout: number = 5000) {
     this.baseURL = baseURL
@@ -71,7 +39,7 @@ export class HttpClient {
     
     if (isFileEnv) {
       // 流程：根据首段路径路由到后端网关
-      const routeBaseMap = this.getRouteBaseMap()
+      const routeBaseMap = getRouteBaseMap()
       const matchedBase = Object.keys(routeBaseMap).find(prefix => url.startsWith(prefix))
       if (matchedBase) {
         return `${routeBaseMap[matchedBase]}${url}`
@@ -194,7 +162,7 @@ export class HttpClient {
       cleanup()
 
       if (response.status === 401 && !skipAuth401Retry) {
-        await authService.handle401(url)
+        await authService.handle401()
         return {
           success: false,
           data: undefined,
@@ -203,7 +171,7 @@ export class HttpClient {
         }
       }
 
-      let data: any = null
+      let data: any = null // eslint-disable-line @typescript-eslint/no-explicit-any
       try {
         data = await response.json()
       } catch {

@@ -1,5 +1,5 @@
 import { createApp, h, ref, type VNode } from 'vue'
-import DraggableDialog from '@/components/DraggableDialog.vue'
+import DraggableDialog from '@/components/base/Modal.vue'
 
 export type DraggableDialogAction = 'confirm' | 'cancel' | 'dismiss'
 

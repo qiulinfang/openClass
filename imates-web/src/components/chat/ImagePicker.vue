@@ -35,7 +35,7 @@ import { showMessage } from '../../utils'
 import { useImagePicker } from '../../composables/useImagePicker'
 import { ImagePickerAdapterFactory } from '../../adapters/ImagePickerAdapterFactory'
 import type { IImagePickerAdapter } from '../../adapters/IImagePickerAdapter'
-import DraggableDialog from '@/components/DraggableDialog.vue'
+import DraggableDialog from '@/components/base/Modal.vue'
 
 // 使用全局图片选择器 composable
 const { isPickerVisible, handleImageSelected, handleCancel } = useImagePicker()

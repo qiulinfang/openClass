@@ -1,5 +1,12 @@
 <template>
+  <!-- 时间分隔符消息 -->
+  <div v-if="message.messageType === 'time_separator'" class="time-separator">
+    <span class="time-separator-text">{{ formatTimeSeparator(message.timestamp) }}</span>
+  </div>
+
+  <!-- 普通消息 -->
   <div
+    v-else
     class="message-item"
     :class="{
       'message-user': message.sender === 'user',
@@ -48,11 +55,13 @@
                 <!-- 多图消息（网格展示） -->
                 <MultiImageMessage
                   v-else-if="
-                    message.messageType === 'multi_image' &&
+                    (message.messageType === 'multi_image' ||
+                     (!message.messageType && message.imageList && message.imageList.length > 1)) &&
                     message.imageList &&
                     message.imageList.length
                   "
                   :images="message.imageList"
+                  :text-content="message.content"
                   :is-user="false"
                   @image-click="handleMultiImageClick"
                 />
@@ -151,78 +160,74 @@
     <!-- 用户消息 -->
     <div v-else class="user-message">
       <div class="user-content">
-        <BubblePopup v-model="showActionMenu" trigger="manual">
-          <template #trigger>
-            <div class="user-bubble" :ref="(el) => setBubbleRef(el, 'user')">
-              <!-- 引用消息区域 -->
-              <div
-                v-if="message.quotedMessage"
-                class="quoted-message-area clickable"
-                @click.stop="handleQuotedMessageClick"
-              >
-                <div class="quoted-content">
-                  <span class="quoted-text">{{
-                    truncateQuotedContent(message.quotedMessage.content)
-                  }}</span>
-                </div>
-              </div>
-              <!-- 语音消息 -->
-              <VoiceMessage
-                v-if="message.messageType === 'voice' && message.voiceData"
-                :file-path="message.voiceData.filePath"
-                :duration="message.voiceData.duration / 1000"
-                :is-user="true"
-              />
-              <!-- 多图消息（网格展示） -->
-              <MultiImageMessage
-                v-else-if="
-                  message.messageType === 'multi_image' &&
-                  message.imageList &&
-                  message.imageList.length
-                "
-                :images="message.imageList"
-                :is-user="true"
-                @image-click="handleMultiImageClick"
-              />
-              <!-- 单图消息（只显示图片，文字已拆分为独立消息） -->
-              <template
-                v-else-if="
-                  message.messageType === 'image' &&
-                  message.imageData &&
-                  message.imageData.base64DataUrl
-                "
-              >
-                <!-- 显示图片 -->
-                <ImageMessage
-                  :base64-data-url="message.imageData.base64DataUrl"
-                  :width="message.imageData.width"
-                  :height="message.imageData.height"
-                  :file-size="message.imageData.fileSize"
+        <div class="user-bubble-row">
+          <!-- 已读状态标签 -->
+          <div v-if="showReadStatus && message.sender === 'user'" class="read-status">
+            <span class="read-status-text">{{ message.isRead ? '已读' : '未读' }}</span>
+          </div>
+          <!-- 用户气泡 -->
+          <BubblePopup v-model="showActionMenu" trigger="manual">
+            <!-- 引用消息区域 -->
+            <template #trigger>
+              <div class="user-bubble" :ref="(el) => setBubbleRef(el, 'user')">
+                <!-- 语音消息 -->
+                <VoiceMessage
+                  v-if="message.messageType === 'voice' && message.voiceData"
+                  :file-path="message.voiceData.filePath"
+                  :duration="message.voiceData.duration / 1000"
                   :is-user="true"
-                  :show-info="true"
                 />
-              </template>
-              <!-- 聊天记录卡片 -->
-              <ChatRecordCard
-                v-else-if="message.messageType === 'chat_record' && message.chatRecordData"
-                :messages="message.chatRecordData.messages"
-                :additional-message="message.chatRecordData.additionalMessage"
-              />
-              <!-- 文本消息 -->
-              <div
-                v-else
-                class="message-text"
-                v-html="renderedContent"
-                :ref="
-              (el) => setMessageRef(el, messageElementRef as unknown as Ref<HTMLElement | null>)
-            "
-              ></div>
-            </div>
-          </template>
+                <!-- 多图消息（网格展示） -->
+                <MultiImageMessage
+                  v-else-if="
+                    (message.messageType === 'multi_image' ||
+                     (!message.messageType && message.imageList && message.imageList.length > 1)) &&
+                    message.imageList &&
+                    message.imageList.length
+                  "
+                  :images="message.imageList"
+                  :text-content="message.content"
+                  :is-user="true"
+                  @image-click="handleMultiImageClick"
+                />
+                <!-- 单图消息（只显示图片，文字已拆分为独立消息） -->
+                <template
+                  v-else-if="
+                    message.messageType === 'image' &&
+                    message.imageData &&
+                    message.imageData.base64DataUrl
+                  "
+                >
+                  <!-- 显示图片 -->
+                  <ImageMessage
+                    :base64-data-url="message.imageData.base64DataUrl"
+                    :width="message.imageData.width"
+                    :height="message.imageData.height"
+                    :file-size="message.imageData.fileSize"
+                    :is-user="true"
+                    :show-info="true"
+                  />
+                </template>
+                <!-- 聊天记录卡片 -->
+                <ChatRecordCard
+                  v-else-if="message.messageType === 'chat_record' && message.chatRecordData"
+                  :messages="message.chatRecordData.messages"
+                  :additional-message="message.chatRecordData.additionalMessage"
+                />
+                <!-- 文本消息 -->
+                <div
+                  v-else
+                  class="message-text"
+                  v-html="renderedContent"
+                  :ref="(el) => setMessageRef(el as HTMLElement, messageElementRef)"
+                ></div>
+              </div>
+            </template>
 
-          <!-- 长按气泡确认框（用户消息） -->
-          <ActionList :items="buildUserActions()" class="message-action-menu" />
-        </BubblePopup>
+            <!-- 长按气泡确认框（用户消息） -->
+            <ActionList :items="buildUserActions()" class="message-action-menu" />
+          </BubblePopup>
+        </div>
 
         <!-- 功能按钮区域 - 统一区域，使用 v-for 渲染 -->
         <div v-if="actionButtons.length > 0" class="message-actions">
@@ -268,6 +273,7 @@ import {
   type ComponentPublicInstance,
   type Ref,
   watch,
+  onMounted,
 } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
@@ -277,11 +283,11 @@ import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
-import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
-import { useTeacherExerciseChatStore } from '@/stores/teacherExerciseChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { getCurrentEnvConfig } from '@/config/env-config'
 import { useQuestionStore } from '../../stores/questionStore'
 import { useHomeworkStore } from '../../stores/homeworkStore'
+import { useUserClientStore } from '../../stores/userClientStore'
 import { getUserInfo, getSubject } from '../../services'
 import { showMessage } from '../../utils'
 import VoiceMessage from './VoiceMessage.vue'
@@ -289,14 +295,13 @@ import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
 import ImageViewer from '../ImageViewer.vue'
-import DraggableDialog from '../DraggableDialog.vue'
-import BubblePopup from '../BubblePopup.vue'
+import DraggableDialog from '../dialog/DraggableDialog.vue'
+import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import MultiImageMessage from './MultiImageMessage.vue'
 import type { ChatBubble } from '../../types'
 import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
-import shareIcon from '/icons/share.svg'
 import refreshIcon from '/icons/refresh.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
 import RepresentativeIcon from '/icons/Representative.svg'
@@ -305,13 +310,22 @@ import GuruIcon from '/icons/Guru.svg'
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {
   message: ChatBubble
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+  type:
+    | 'ai-general'
+    | 'ai-exercise'
+    | 'ai-textbook'
+    | 'teacher'
+    | 'user-client'
   // 当前题目（由父组件 ChatView 传入；用于刷新/重试等需要题目上下文的操作）
   currentQuestion?: unknown
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
   isLastMessage?: boolean
+  showActionButtons?: boolean // 是否显示消息功能按钮
+  enableLongPress?: boolean // 是否启用长按功能
+  showReadStatus?: boolean // 是否显示已读状态
+  showTime?: boolean // 是否显示消息时间
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -319,6 +333,10 @@ const props = withDefaults(defineProps<Props>(), {
   isSelectionMode: false,
   messageIndex: 0,
   isLastMessage: false,
+  showActionButtons: true, // 默认显示功能按钮
+  enableLongPress: true, // 默认启用长按功能
+  showReadStatus: false, // 默认不显示已读状态
+  showTime: false, // 默认不显示消息时间
 })
 
 const emit = defineEmits<{
@@ -359,10 +377,10 @@ const pendingDeleteMessageId = ref<string | null>(null)
 const aiExerciseStore = useAiExerciseChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
-const teacherGeneralStore = useTeacherGeneralChatStore()
-const teacherExerciseStore = useTeacherExerciseChatStore()
+const teacherStore = useTeacherChatStore()
 const questionStore = useQuestionStore()
 const homeworkStore = useHomeworkStore()
+const userClientStore = useUserClientStore()
 const route = useRoute()
 
 // 统一的 currentQuestion：根据场景选择来源（与 ExerciseSolveView 保持一致）
@@ -381,6 +399,8 @@ const currentQuestion = computed(() => {
   }
   return isFromHomework.value ? homeworkCurrentQuestion.value : exerciseCurrentQuestion.value
 })
+
+// 消息状态由收到消息时自动管理，不需要额外处理
 
 // 重发相关状态
 const isRetrying = ref(false)
@@ -438,7 +458,7 @@ const handleRetry = async () => {
           userInfo,
           subject,
           props.message.selectedModel || 'mate',
-          props.message.imageData
+          props.message.imageData,
         )
         break
       case 'ai-general':
@@ -446,21 +466,18 @@ const handleRetry = async () => {
           props.message.id,
           userInfo,
           subject,
-          props.message.selectedModel || 'mate'
+          props.message.selectedModel || 'mate',
         )
         break
       case 'ai-textbook':
         await aiTextbookStore.retryAiMessage(
           props.message.id,
           props.message.selectedModel || 'mate',
-          props.message.imageData
+          props.message.imageData,
         )
         break
-      case 'teacher-general':
-        await teacherGeneralStore.retryTeacherMessage(props.message.id, props.message.imageData)
-        break
-      case 'teacher-exercise':
-        await teacherGeneralStore.retryTeacherMessage(props.message.id, props.message.imageData)
+      case 'teacher':
+        await teacherStore.retryTeacherMessage(props.message.id, props.message.imageData)
         break
       default:
         throw new Error('未知的聊天类型')
@@ -475,21 +492,7 @@ const handleRetry = async () => {
   }
 }
 
-// 判断是否可以转发（仅在AI通用、AI题目和AI教材对话场景下可用）
-// 对于AI练习场景，还需要检查教师答疑是否可用（有选中题目且可以查看答案）
-const canForward = computed(() => {
-  if (props.type === 'ai-general' || props.type === 'ai-textbook') {
-    return true
-  }
-
-  if (props.type === 'ai-exercise') {
-    // AI练习场景：只有在教师答疑可用时才显示转发按钮
-    // 条件：有选中题目 && 可以查看答案（与 ExerciseSolveView 的 canUseAskTeacher 逻辑一致）
-    return currentQuestion.value !== null && aiExerciseStore.canViewAnswer
-  }
-
-  return false
-})
+// 判断是否可以转发 - 已移除，避免误发送单个消息给老师
 
 // 判断是否为第一个消息（题目消息）
 const isFirstMessage = computed(() => {
@@ -514,6 +517,11 @@ const actionButtons = computed(() => {
 
   // 记录判断过程
 
+  // 检查是否应该显示功能按钮
+  if (!props.showActionButtons) {
+    return buttons
+  }
+
   // 只有最后一条消息才显示功能按钮区域
   // 使用 ?? false 确保值是布尔类型，避免 undefined
   if (!(props.isLastMessage ?? false)) {
@@ -521,7 +529,7 @@ const actionButtons = computed(() => {
   }
 
   // 教师答疑场景下，学生和教师的消息都不显示功能按钮区域
-  if (props.type === 'teacher-general') {
+  if (props.type === 'teacher') {
     return buttons
   }
 
@@ -566,16 +574,7 @@ const actionButtons = computed(() => {
     })
   }
 
-  // 转发按钮 - 根据 canForward 判断
-  if (canForward.value) {
-    buttons.push({
-      icon: '',
-      iconPath: shareIcon,
-      title: '转发',
-      handler: handleForward,
-      show: true,
-    })
-  }
+  // 转发按钮已移除，避免误发送单个消息给老师
 
   // AI消息专属按钮
   if (!isUser) {
@@ -621,7 +620,7 @@ const handleContextMenu = (event: Event) => {
 
 // 触摸开始
 const handleTouchStart = (event: TouchEvent) => {
-  if (props.isSelectionMode) return
+  if (props.isSelectionMode || !props.enableLongPress) return
 
   // 检查是否点击在公式元素上
   const target = event.target as HTMLElement
@@ -679,7 +678,7 @@ const handleTouchMove = (event: TouchEvent) => {
   if (!touch) return
 
   const moveDistance = Math.sqrt(
-    Math.pow(touch.clientX - touchStartX.value, 2) + Math.pow(touch.clientY - touchStartY.value, 2)
+    Math.pow(touch.clientX - touchStartX.value, 2) + Math.pow(touch.clientY - touchStartY.value, 2),
   )
 
   // 第2步：如果移动距离超过阈值，取消长按定时器
@@ -743,16 +742,7 @@ const handleTouchCancel = () => {
 
 // 已不支持 PC 鼠标长按，相关逻辑已移除，保留触摸长按逻辑
 
-// 处理转发
-const handleForward = () => {
-  showActionMenu.value = false
-
-  try {
-    emit('forward-message', props.message)
-  } catch (error) {
-    showMessage('转发失败: ' + (error instanceof Error ? error.message : String(error)), 'error')
-  }
-}
+// 处理转发 - 已移除，避免误发送单个消息给老师
 
 // 截断引用内容用于展示，最多显示30个字符
 const truncateQuotedContent = (content: string): string => {
@@ -764,6 +754,23 @@ const truncateQuotedContent = (content: string): string => {
     .trim()
   if (plainText.length <= 30) return plainText
   return plainText.substring(0, 30) + '...'
+}
+
+// 格式化时间分隔符文本 - 直接显示具体时间
+const formatTimeSeparator = (timestamp: string): string => {
+  try {
+    const date = new Date(timestamp)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch {
+    return timestamp
+  }
 }
 
 // 处理引用消息
@@ -811,13 +818,6 @@ const buildAiActions = () => {
       onClick: () => handleQuote(),
     },
     {
-      key: 'forward',
-      label: '转发',
-      icon: shareIcon,
-      visible: canForward.value,
-      onClick: () => handleForward(),
-    },
-    {
       key: 'multi-select',
       label: '多选',
       iconSvgType: 'multi-select',
@@ -860,13 +860,6 @@ const buildUserActions = () => {
       icon: editIcon,
       visible: canEdit.value,
       onClick: () => handleEdit(),
-    },
-    {
-      key: 'forward',
-      label: '转发',
-      icon: shareIcon,
-      visible: canForward.value,
-      onClick: () => handleForward(),
     },
     {
       key: 'multi-select',
@@ -945,11 +938,8 @@ const handleRefresh = async () => {
       console.log('刷新AI教材消息', props.message)
       storeMessages = aiTextbookStore.messages
       break
-    case 'teacher-general':
-      storeMessages = teacherGeneralStore.messages
-      break
-    case 'teacher-exercise':
-      storeMessages = teacherExerciseStore.messages
+      case 'teacher':
+      storeMessages = teacherStore.messages
       break
     default:
       console.error('未知的聊天类型')
@@ -989,7 +979,8 @@ const handleRefresh = async () => {
   if (props.type === 'ai-textbook' || props.type === 'ai-general') {
     const originalDstUrl = props.message.originalDstUrl
     const screenshotUrl = getCurrentEnvConfig().apiPaths.previewPictureQA
-    shouldUseScreenshotOnRefresh = originalDstUrl === screenshotUrl || originalDstUrl === '/permission/previewPictureQA'
+    shouldUseScreenshotOnRefresh =
+      originalDstUrl === screenshotUrl || originalDstUrl === '/permission/previewPictureQA'
 
     if (props.type === 'ai-textbook' && shouldUseScreenshotOnRefresh) {
       // 对于 ai-textbook 场景，可能存在「一条纯图片 + 一条纯文字」的组合：
@@ -1047,7 +1038,7 @@ const handleRefresh = async () => {
           'mate',
           userMessage.imageData,
           false,
-          true // skipUserMessage: true，跳过创建用户消息
+          true, // skipUserMessage: true，跳过创建用户消息
         )
         break
       case 'ai-general':
@@ -1083,8 +1074,7 @@ const handleRefresh = async () => {
           undefined,
         )
         break
-      case 'teacher-general':
-      case 'teacher-exercise':
+      case 'teacher':
         // 教师场景需要通过 emit 事件触发，因为需要特殊处理
         showMessage('教师场景的刷新功能正在开发中', 'info')
         break
@@ -1256,7 +1246,7 @@ const calculateBubblePosition = (eventTarget?: HTMLElement) => {
 
 const setMessageRef = (
   el: Element | ComponentPublicInstance | null,
-  lazyRef?: Ref<HTMLElement | null>
+  lazyRef?: Ref<HTMLElement | null>,
 ) => {
   if (el && el instanceof HTMLElement) {
     // 设置懒加载引用
@@ -1420,15 +1410,32 @@ onUnmounted(() => {
   }
 }
 
+:deep(p) {
+  margin: 0;
+}
+/* 时间分隔条样式 */
+.time-separator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.time-separator-text {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* 根容器 */
 .message-item {
   padding-bottom: 20px;
   width: 100%;
   position: relative;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 
   /* 选择模式 */
   &.message-selectable {
@@ -1524,10 +1531,10 @@ onUnmounted(() => {
             word-wrap: break-word;
             word-break: break-word;
             white-space: normal;
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
             color: #2c3e50;
 
             :deep(mjx-container),
@@ -1704,6 +1711,12 @@ onUnmounted(() => {
       flex-direction: column;
       align-items: flex-end;
 
+      .user-bubble-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+      }
+
       .user-bubble {
         background: #7a7cff;
         color: white;
@@ -1760,10 +1773,10 @@ onUnmounted(() => {
           word-wrap: break-word;
           word-break: break-word;
           white-space: normal;
-          user-select: none;
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
+          user-select: text;
+          -webkit-user-select: text;
+          -moz-user-select: text;
+          -ms-user-select: text;
           color: white;
 
           :deep(h1),
@@ -1861,6 +1874,19 @@ onUnmounted(() => {
   z-index: 1000;
 }
 
+/* 已读状态标签样式 */
+.read-status {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #999;
+  opacity: 0.7;
+  align-self: flex-end;
+
+  .read-status-text {
+    font-weight: 400;
+  }
+}
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
@@ -1916,4 +1942,6 @@ onUnmounted(() => {
     }
   }
 }
+
+
 </style>

@@ -133,10 +133,10 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/storage/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
-import RubberBandList from '../components/RubberBandList.vue'
-import { getCurrentUserIdOrDefault } from '../services'
-import DraggableDialog from '../components/DraggableDialog.vue'
-import CommonActionButton from '../components/CommonActionButton.vue'
+import RubberBandList from '../components/base/VirtualList.vue'
+import { getUserId } from '../services'
+import DraggableDialog from '../components/base/Modal.vue'
+import CommonActionButton from '../components/base/Button.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 import { isImageFile } from '../utils/thumbnail/image-thumbnail'
@@ -440,7 +440,7 @@ const startLearning = async (resource: ResourceFile) => {
 // 标记节点为已学习
 const markNodeAsLearned = (nodeId: string) => {
   try {
-    const userId = getCurrentUserIdOrDefault()
+    const userId = getUserId()
     const LEARNED_NODES_KEY = `${userId}_LEARNED_NODES`
     // 从localStorage加载已学习的节点ID列表
     const saved = localStorage.getItem(LEARNED_NODES_KEY)
