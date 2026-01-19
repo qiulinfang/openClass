@@ -32,7 +32,7 @@ export class TeacherStrategy implements ChatStrategy {
     return {
       sessionId: session.sessionId,
       sessionName: session.sessionName,
-      subject: session.subject as 'biology' | 'math'
+      subject: session.subject as 'BIOLOGY' | 'MATH'
     }
   }
   
@@ -139,7 +139,7 @@ export class TeacherStrategy implements ChatStrategy {
       // 从localStorage读取当前教师科目
       const userId = getUserId()
       const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
-      const subject = (teacherSubject === 'BIOLOGY' ? 'biology' : 'math') as 'biology' | 'math'
+      const subject = (teacherSubject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH') as 'BIOLOGY' | 'MATH'
 
       // 生成会话ID
       const sessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -183,19 +183,9 @@ export class TeacherStrategy implements ChatStrategy {
     }
   }
   
-  // 第14步：发送语音消息
-  async sendVoiceMessage(voiceInfo: {
-    filePath: string
-    duration: number
-    fileSize: number
-  }): Promise<{ success: boolean; message?: string }> {
-    try {
-      // 调用store的方法来发送语音消息
-      return await this.teacherStore.sendVoiceMessage(voiceInfo)
-    } catch (error) {
-      console.error('[TeacherGeneralStrategy] 发送语音消息失败:', error)
-      return { success: false, message: '发送失败' }
-    }
+  // 第14步：发送语音消息（不支持）
+  async sendVoiceMessage(): Promise<{ success: boolean; message?: string }> {
+    return { success: false, message: '教师对话不支持发送语音消息' }
   }
   
   // 第15步：发送图片消息
@@ -285,10 +275,6 @@ export class TeacherStrategy implements ChatStrategy {
     return '向老师提问...'
   }
   
-  // 删除消息：直接委托给 Store
-  async deleteMessage(messageId: string): Promise<void> {
-    await this.teacherStore.deleteMessage(messageId)
-  }
 
   // 第18步：获取会话信息（教师策略需要）
   getSessionInfo(): ChatMessageSession | null {

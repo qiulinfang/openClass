@@ -192,7 +192,6 @@ import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { chatStorage } from '../services/storage/chat-storage'
-import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
 import { getUserId } from '@/services'
@@ -237,16 +236,16 @@ const findNodeBySessionId = (nodes: TreeNode[], targetSessionId: string): TreeNo
 // 根据 sessionId 获取会话类型（需要在 computed setter 之前定义）
 const getSessionCategory = (sessionId: string | undefined, nodes: TreeNode[]): 'ai-general' | 'teacher' | null => {
   if (!sessionId) return null
-  
+
   const node = findNodeBySessionId(nodes, sessionId)
   if (!node) return null
-  
+
   if (node.category === 'ai') {
     return 'ai-general'
-  } else if (node.category === 'biology' || node.category === 'math') {
+  } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
     return 'teacher'
   }
-  
+
   return null
 }
 
@@ -321,64 +320,12 @@ const deleteConfirmContent = computed(() => {
 
 // ==================== 计算属性 ====================
 
-// 获取分类图标
-const getCategoryIcon = (category: string): string => {
-  const icons: Record<string, string> = {
-    ai: 'smart_toy',
-    teacher: 'school',
-    biology: 'biotech',
-    math: 'calculate',
-  }
-  return icons[category] || 'folder'
-}
-
-// 按科目分组教师会话，每个老师只保留一个会话（最新的）
-// 使用 computed 从 store 的响应式数据中获取
-const teacherSessionsBySubject = computed(() => {
-  // 使用 store 的响应式 allSessions ref（在 computed 中会自动解包）
-  const allTeacherSessions = teacherChatStore.allSessions
-  const biology: TeacherSession[] = []
-  const math: TeacherSession[] = []
-
-  allTeacherSessions.forEach((session) => {
-    if (session.subject === 'biology') {
-      biology.push(session)
-    } else if (session.subject === 'math') {
-      math.push(session)
-    }
-  })
-
-  // 每个老师只保留一个会话（按创建时间倒序，取最新的）
-  const latestBiology = biology.sort((a, b) => b.createTime - a.createTime)[0] || null
-  const latestMath = math.sort((a, b) => b.createTime - a.createTime)[0] || null
-
-  return {
-    biology: latestBiology ? [latestBiology] : [],
-    math: latestMath ? [latestMath] : [],
-  }
-})
-
-// 过滤会话列表（根据搜索关键词）
-const filterSessions = <T extends { sessionName?: string }>(
-  sessions: T[],
-  keyword: string,
-): T[] => {
-  if (!keyword || !keyword.trim()) {
-    return sessions
-  }
-
-  const lowerKeyword = keyword.toLowerCase().trim()
-  return sessions.filter((session) => {
-    const name = session.sessionName?.toLowerCase() || ''
-    return name.includes(lowerKeyword)
-  })
-}
 
 // 树节点类型定义
 interface TreeNode {
   id: string
   label: string
-  category: 'ai' | 'teacher' | 'biology' | 'math'
+  category: 'ai' | 'teacher' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY'
   level: number
   children?: TreeNode[]
   sessionId?: string
@@ -436,44 +383,23 @@ const treeNodes = computed<TreeNode[]>(() => {
     })
   }
 
-  // 2. 老师对话分类（包含所有老师的会话）
+  // 2. 老师对话分类（包含所有写死的老师会话）
   const teacherChildren: TreeNode[] = []
 
-  // 2.1 生物老师会话（每个老师只显示一个会话）
-  const filteredBiologySessions = filterSessions(
-    teacherSessionsBySubject.value.biology,
-    searchKeyword.value,
-  )
-  if (filteredBiologySessions.length > 0) {
-    const biologySession = filteredBiologySessions[0] // 只取第一个（最新的）
-    teacherChildren.push({
-      id: `teacher_biology_${biologySession.sessionId}`,
-      label: biologySession.sessionName,
-      timestamp: biologySession.createTime,
-      subtitle: '生物老师',
-      sessionId: biologySession.sessionId,
-      category: 'biology' as const,
-      level: 2,
-    })
-  }
+  // 获取所有写死的老师会话
+    const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
 
-  // 2.2 数学老师会话（每个老师只显示一个会话）
-  const filteredMathSessions = filterSessions(
-    teacherSessionsBySubject.value.math,
-    searchKeyword.value,
-  )
-  if (filteredMathSessions.length > 0) {
-    const mathSession = filteredMathSessions[0] // 只取第一个（最新的）
+  // 为每个写死会话创建树节点
+  allTeacherSessions.forEach((session) => {
     teacherChildren.push({
-      id: `teacher_math_${mathSession.sessionId}`,
-      label: mathSession.sessionName,
-      timestamp: mathSession.createTime,
-      subtitle: '数学老师',
-      sessionId: mathSession.sessionId,
-      category: 'math' as const,
+      id: `teacher_${session.subject}_${session.sessionId}`,
+      label: session.sessionName,
+      timestamp: session.createTime,
+      sessionId: session.sessionId,
+      category: session.subject,
       level: 2,
     })
-  }
+  })
 
   // 如果有老师会话或没有搜索关键词，显示"老师对话"分类
   if (teacherChildren.length > 0 || !searchKeyword.value) {
@@ -489,26 +415,7 @@ const treeNodes = computed<TreeNode[]>(() => {
   return nodes
 })
 
-// 使用 Better Scroll 组合式函数（必须在 treeNodes 定义之后）
-const { init: initBScroll } = useBetterScroll(
-  scrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    probeType: 2,
-    bounce: {
-      top: true,
-      bottom: true,
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-  },
-  true, // 自动监听数据变化
-  [() => treeNodes.value.length],
-)
+// VirtualList 组件会自动处理滚动，无需额外初始化
 
 // 判断节点是否被选中
 // 使用内部的 selectedSessionId，直接比较 sessionId
@@ -538,29 +445,6 @@ const findNodeById = (nodes: TreeNode[], targetId: string): TreeNode | null => {
 
 // ==================== 方法 ====================
 
-// 处理节点选择
-const handleNodeSelect = (nodeId: string | null) => {
-  // 如果选中的是 null，直接清除选中状态
-  if (!nodeId) {
-    selectedNodeId.value = null
-    return
-  }
-
-  // 查找选中的节点
-  const selectedNode = findNodeById(treeNodes.value, nodeId)
-
-  // 如果选中的是一级节点（分类节点），不允许选中，保持之前的选中状态
-  if (selectedNode && selectedNode.level === 1) {
-    // 保持当前选中状态不变，不更新 selectedNodeId
-    return
-  }
-
-  // 如果选中的是二级节点，确保只选中这一个节点
-  // 由于 selectedNodeId 是单个值，已经保证了只有一个节点被选中
-  // 但为了确保一致性，我们更新选中状态
-  selectedNodeId.value = nodeId
-}
-
 // 检查会话是否有未读消息
 const hasUnreadMessage = (node: TreeNode): boolean => {
   if (!node.sessionId) return false
@@ -568,7 +452,7 @@ const hasUnreadMessage = (node: TreeNode): boolean => {
   if (node.category === 'ai') {
     // AI 会话未读 key 格式: ai_{sessionId}
     return unreadStore.hasUnread(`ai_${node.sessionId}`)
-  } else if (node.category === 'biology' || node.category === 'math') {
+  } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
     // 教师会话未读 key 格式: teacher_{sessionId}
     return unreadStore.hasUnread(`teacher_${node.sessionId}`)
   }
@@ -613,13 +497,13 @@ const handleSessionClick = async (node: TreeNode) => {
 
       console.log('[SessionTree] 发出session-switched事件: ai,', node.sessionId)
       emit('session-switched', 'ai', node.sessionId)
-    } else if (node.category === 'biology' || node.category === 'math') {
+    } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
       // 教师会话切换逻辑
       console.log('[SessionTree] 处理教师会话切换')
       unreadStore.clearUnread(`teacher_${node.sessionId}`)
 
       // 查找会话数据（使用响应式的 allSessions ref，Pinia 会自动解包）
-      const allTeacherSessions = teacherChatStore.allSessions
+      const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
       console.log('[SessionTree] 查找教师会话，当前会话数量:', allTeacherSessions.length)
       const session = allTeacherSessions.find(s => s.sessionId === node.sessionId)
       if (!session) {
@@ -629,7 +513,7 @@ const handleSessionClick = async (node: TreeNode) => {
 
       // 设置 localStorage 中的 currentTeacherSubject
       const userId = getUserId()
-      const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+      const storeSubject = session.subject || 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       console.log('[SessionTree] 设置教师科目到localStorage:', storeSubject)
 
@@ -638,6 +522,12 @@ const handleSessionClick = async (node: TreeNode) => {
       teacherChatStore.setSession(session)
       console.log('[SessionTree] 开始加载教师聊天历史')
       await teacherChatStore.loadChatHistory(session.sessionId)
+
+        // 初始化WebSocket连接（新增）
+      console.log('[SessionTree] 初始化教师WebSocket连接')
+      await teacherChatStore.initMessageReceiver().catch(error => {
+        console.error('[SessionTree] 初始化教师WebSocket失败:', error)
+      })
 
       // 更新内部维护的选中会话ID和节点ID
       // 使用 computed setter，会自动处理分类切换通知
@@ -824,7 +714,7 @@ const confirmDelete = async () => {
         position: 'top',
         timeout: 1500,
       })
-  } else if (node.category === 'biology' || node.category === 'math') {
+  } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
       // 检查是否是当前会话
       const wasCurrentSession = teacherChatStore.currentSession?.sessionId === node.sessionId
       console.log('wasCurrentSession', wasCurrentSession)
@@ -870,7 +760,7 @@ const confirmDelete = async () => {
     // 发送删除失败事件
     if (node.category === 'ai') {
       emit('ai-session-deleted', node.sessionId, false, false)
-    } else if (node.category === 'biology' || node.category === 'math') {
+    } else if (node.category === 'BIOLOGY' || node.category === 'MATH') {
       emit('teacher-session-deleted', node.sessionId, false, false)
     }
     
@@ -948,10 +838,10 @@ const formatTime = (timestamp: number): string => {
 }
 
 // 获取当前选中节点对应的分类
-// 返回：'ai' | 'biology' | 'math' | null
+// 返回：'ai' | 教师科目 | null
 // 如果选中的是一级分类节点，返回该分类
 // 如果选中的是二级会话节点，返回该会话的分类
-const getSelectedCategory = (): 'ai' | 'biology' | 'math' | null => {
+const getSelectedCategory = (): 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY' | null => {
   if (!selectedNodeId.value) {
     return null
   }
@@ -968,12 +858,12 @@ const getSelectedCategory = (): 'ai' | 'biology' | 'math' | null => {
     if (selectedNode.category === 'teacher') {
       return null
     }
-    return selectedNode.category as 'ai' | 'biology' | 'math'
+    return selectedNode.category as 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY'
   }
 
   // 如果是二级会话节点，返回会话的分类
   if (selectedNode.level === 2) {
-    return selectedNode.category as 'ai' | 'biology' | 'math'
+    return selectedNode.category as 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY'
   }
 
   return null
@@ -1022,14 +912,6 @@ const updateSelectedNode = (sessionId: string | undefined) => {
 // 处理 treeNodes 变化时的副作用（初始化 BetterScroll 和更新选中状态）
 // 替代 watch，在数据更新时手动调用
 const handleTreeNodesChange = async (oldLength: number, newLength: number) => {
-  // 当从无数据变为有数据时，重新初始化 BetterScroll
-  if (oldLength === 0 && newLength > 0) {
-    await nextTick()
-    await initBScroll()
-  }
-  
-  // 当树节点数据变化时，如果已有选中的 sessionId，重新查找并更新
-  // 使用 nextTick 确保 treeNodes 已经更新完成
   await nextTick()
   if (_selectedSessionId.value) {
     const node = findNodeBySessionId(treeNodes.value, _selectedSessionId.value)
@@ -1100,20 +982,17 @@ onMounted(async () => {
     previousTreeNodesLength = currentLength
   }
   
-  // 只有当有数据时才初始化
-  if (treeNodes.value.length > 0) {
-    await initBScroll()
-  }
+  // VirtualList 组件会自动处理滚动，无需手动初始化
 })
 
 // 切换教师会话（内部辅助方法，用于对话框打开时的会话恢复）
-const setTeacherSubject = async (sessionId: string, subject: 'biology' | 'math') => {
-  const allSessions = teacherChatStore.allSessions
+const setTeacherSubject = async (sessionId: string, subject: 'BIOLOGY' | 'MATH') => {
+  const allSessions = Object.values(teacherChatStore.loadAllSessions())
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (!session) return
   
   const userId = getUserId()
-  const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
+  const storeSubject = subject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
   teacherChatStore.setSession(session)
@@ -1141,9 +1020,9 @@ const initializeSessions = async () => {
   const teacherSession = teacherChatStore.currentSession
   if (teacherSession?.sessionId) {
     // 如果有当前教师会话，优先选中它
-    const allTeacherSessions = teacherChatStore.getAllSessions()
+    const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
     const session = allTeacherSessions.find(s => s.sessionId === teacherSession.sessionId)
-    if (session && (session.subject === 'biology' || session.subject === 'math')) {
+    if (session && (session.subject === 'BIOLOGY' || session.subject === 'MATH')) {
       await setTeacherSubject(session.sessionId, session.subject)
       return
     }
@@ -1164,11 +1043,11 @@ const initializeSessions = async () => {
     emit('should-switch-session', 'ai', firstSession.sessionId)
   } else {
     // 检查是否有教师会话
-    const allTeacherSessions = teacherChatStore.getAllSessions()
+    const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
     if (allTeacherSessions.length > 0) {
       // 如果有教师会话，选中第一个
       const firstTeacherSession = allTeacherSessions[0]
-      if (firstTeacherSession.subject === 'biology' || firstTeacherSession.subject === 'math') {
+      if (firstTeacherSession.subject === 'BIOLOGY' || firstTeacherSession.subject === 'MATH') {
         await setTeacherSubject(firstTeacherSession.sessionId, firstTeacherSession.subject)
       }
     } else {

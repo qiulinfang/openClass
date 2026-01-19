@@ -220,7 +220,7 @@ const goBack = () => {
 }
 
 // 判断收藏的对话类型（AI聊天还是教师通用对话）
-const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
+const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subject?: 'BIOLOGY' | 'MATH' } => {
   // 第1步：检查是否是教师通用对话会话（使用统一存储格式）
   try {
     const teacherStore = useTeacherChatStore()
@@ -229,7 +229,7 @@ const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subje
     if (teacherSession && teacherSession.subject) {
         return {
           type: 'teacher',
-        subject: teacherSession.subject === 'biology' ? 'biology' : 'math'
+        subject: teacherSession.subject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH'
       }
     }
   } catch (error) {

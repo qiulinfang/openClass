@@ -539,7 +539,14 @@ function init() {
   });
 
   focusOnIndex(initialFocusIndex, true);
-  showBubble('moon', initialFocusIndex);
+
+  // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
+  const focusedMoon = state.moons[initialFocusIndex];
+  if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
+    showBubble('satellite', initialFocusIndex, 0); // 弹出第一个卫星框
+  } else {
+    showBubble('moon', initialFocusIndex); // 弹出月球框
+  }
 
   if (!animationFrameId) loop();
 }
@@ -582,7 +589,13 @@ function update() {
       // 旋转停止后自动显示气泡菜单
       if (state.autoShowBubbleAfterRotation) {
         state.autoShowBubbleAfterRotation = false; // 重置标记
-        showBubble('moon', state.focusedIndex); // 显示当前聚焦月球的气泡菜单
+        // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
+        const focusedMoon = state.moons[state.focusedIndex];
+        if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
+          showBubble('satellite', state.focusedIndex, 0); // 弹出第一个卫星框
+        } else {
+          showBubble('moon', state.focusedIndex); // 弹出月球框
+        }
       }
     } else {
       state.globalAngle += diff * config.rotationSpeed; // 角度差 
@@ -895,7 +908,13 @@ function handleClick(x, y) {
   if (closestIndex !== -1) {
     console.log('closestIndex  state.focusedIndex', closestIndex, state.focusedIndex);
     if (closestIndex === state.focusedIndex) {
-      showBubble('moon', closestIndex); // 显示月球气泡
+      // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
+      const focusedMoon = state.moons[closestIndex];
+      if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
+        showBubble('satellite', closestIndex, 0); // 弹出第一个卫星框
+      } else {
+        showBubble('moon', closestIndex); // 弹出月球框
+      }
     } else {
       focusOnIndex(closestIndex); // 聚焦月球
     }

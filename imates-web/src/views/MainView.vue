@@ -1,63 +1,65 @@
 ﻿<template>
   <div
     class="main-view"
-    :style="mainViewStyle"
     @mousemove="handleDrag"
     @mouseup="stopDrag"
     @touchmove="handleDrag"
     @touchend="stopDrag"
   >
     <!-- 功能菜单：在部分路由（如作业答题、作业作答）隐藏 -->
-    <div class="function-menu" v-if="!hideFunctionMenu">
-      <!-- 用户头像 -->
-      <div class="user-avatar" :class="{ 'in-class': isInClass }" @click="handleAvatarClick">
-        <img :src="userAvatar" alt="avatar" style="width: 40px; height: 40px" />
-        <div class="user-name">{{ displayUserName }}</div>
-      </div>
-
-      <!-- 导航菜单（根据学校配置渲染） -->
+    <div class="function-menu" v-if="!hideFunctionMenu" :style="navBackgroundStyle">
+      <!-- 导航项容器层 -->
       <div class="nav-items-container">
-        <div
-          v-for="item in navMainItems"
-          :key="item.key"
-          class="nav-item"
-          :class="{ active: isNavItemActive(item.key) }"
-          @click="handleNavItemClick(item)"
-        >
-          <div class="nav-icon-wrapper" v-if="item.key === 'toolbox'">
-            <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-            <span class="notification-badge" v-if="userClientUnreadCount > 0">{{ userClientUnreadCount }}</span>
-          </div>
-          <img
-            v-else
-            :src="getNavIcon(item)"
-            :alt="item.label"
-            class="nav-icon"
-          />
-          <span class="nav-text">{{ item.label }}</span>
+        <!-- 用户头像 -->
+        <div class="user-avatar" :class="{ 'in-class': isInClass }" @click="handleAvatarClick">
+          <img :src="userAvatar" alt="avatar" style="width: 40px; height: 40px" />
+          <div class="user-name">{{ displayUserName }}</div>
         </div>
-      </div>
 
-      <!-- 底部菜单项 -->
-      <div class="nav-items-bottom">
-        <div
-          v-for="item in navBottomItems"
-          :key="item.key"
-          class="nav-item"
-          :class="{ active: isNavItemActive(item.key) }"
-          @click="handleNavItemClick(item)"
-        >
-          <div class="nav-icon-wrapper" v-if="item.key === 'resources'">
-            <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-            <span class="notification-dot" v-if="hasResourceNotification"></span>
+        <!-- 导航菜单（根据学校配置渲染） -->
+        <div class="nav-items-wrapper">
+          <div
+            v-for="item in navMainItems"
+            :key="item.key"
+            class="nav-item"
+            :class="{ active: isNavItemActive(item.key) }"
+            @click="handleNavItemClick(item)"
+          >
+            <div class="nav-icon-wrapper" v-if="item.key === 'toolbox'">
+              <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
+              <span class="notification-badge" v-if="userClientUnreadCount > 0">{{ userClientUnreadCount }}</span>
+            </div>
+            <img
+              v-else
+              :src="getNavIcon(item)"
+              :alt="item.label"
+              class="nav-icon"
+            />
+            <span class="nav-text">{{ item.label }}</span>
           </div>
-          <img
-            v-else
-            :src="getNavIcon(item)"
-            :alt="item.label"
-            class="nav-icon"
-          />
-          <span class="nav-text">{{ item.label }}</span>
+        </div>
+
+        <!-- 底部菜单项 -->
+        <div class="nav-items-bottom">
+          <div
+            v-for="item in navBottomItems"
+            :key="item.key"
+            class="nav-item"
+            :class="{ active: isNavItemActive(item.key) }"
+            @click="handleNavItemClick(item)"
+          >
+            <div class="nav-icon-wrapper" v-if="item.key === 'resources'">
+              <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
+              <span class="notification-dot" v-if="hasResourceNotification"></span>
+            </div>
+            <img
+              v-else
+              :src="getNavIcon(item)"
+              :alt="item.label"
+              class="nav-icon"
+            />
+            <span class="nav-text">{{ item.label }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -104,6 +106,21 @@
       </div>
     </div>
 
+    <!-- 路由历史调试按钮 -->
+    <q-btn
+      v-if="isDev"
+      fab
+      icon="route"
+      color="secondary"
+      class="route-history-debug-button"
+      @click="showRouteHistoryDebugPanel = !showRouteHistoryDebugPanel"
+      :title="showRouteHistoryDebugPanel ? '关闭路由历史调试面板' : '打开路由历史调试面板'"
+    >
+      <q-tooltip>
+        {{ showRouteHistoryDebugPanel ? '关闭路由历史调试面板' : '打开路由历史调试面板' }}
+      </q-tooltip>
+    </q-btn>
+
     <!-- AI统一聊天对话框 -->
     <GlobalChatDialog
       v-model="uiStore.showAIChatDialog"
@@ -126,6 +143,16 @@
       v-model="showProfileDialog"
       :userInfo="currentUserInfo"
       @avatar-changed="handleAvatarChanged"
+    />
+
+    <!-- 路由历史调试面板 -->
+    <RouteHistoryDebugPanel
+      v-if="isDev"
+      v-model="showRouteHistoryDebugPanel"
+      :active-nav-item="activeNavItem"
+      :navigation-history="navigationHistory"
+      :module-history="moduleHistory"
+      @clear-history="clearAllHistory"
     />
 
     <!-- 主页右侧统一聊天面板 -->
@@ -161,6 +188,7 @@ import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import DrawingBoardView from '@/views/DrawingBoardView.vue'
 import DraggableDialog from '@/components/base/Modal.vue'
+import RouteHistoryDebugPanel from '@/components/debug/RouteHistoryDebugPanel.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
@@ -176,7 +204,6 @@ import toolBoxIcon from '/icons/toolBox.svg'
 import downloadResourcesIcon from '/icons/downloadResources.svg'
 import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
-import drawingBoardIcon from '/icons/draw.svg'
 import homeworkIcon from '/icons/homework.png'
 import ipGif from '/icons/ip.gif'
 
@@ -185,7 +212,6 @@ import toolBoxSelectIcon from '/icons/toolBox_select.svg'
 import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
 import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
-import drawingBoardSelectIcon from '/icons/draw_select.png'
 import homeworkSelectIcon from '/icons/homework_select.png'
 
 // 定义 props
@@ -216,6 +242,17 @@ const userClientStore = useUserClientStore()
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
 const isInClass = ref(false)
+
+// 路由历史记录管理
+const navigationHistory = ref<string[]>([])
+const moduleHistory = ref<Record<string, string[]>>({
+  knowledge: [],    // 知识图谱模块的历史记录 (包含 pdfViewer, htmlViewer, videoViewer)
+  exercises: [],    // 习题模块的历史记录 (exerciseSolve, homeworkExercise, findExercise)
+  resources: [],    // 资源模块的历史记录 (myResources)
+  homework: [],     // 作业模块的历史记录 (myHomework, homeworkAnswer)
+  learning: [],     // 学习模块的历史记录 (learning, learningContent)
+  drawingBoard: []  // 画板模块的历史记录
+})
 
 
 
@@ -305,25 +342,99 @@ const displayUserName = computed(() => {
 // 注意：这里的名称必须与组件的 name 选项匹配（defineOptions 或组件 export default 中的 name）
 const cachedComponents = ref<string[]>([
   // 'knowledgeGraph',     // 知识图谱页面
-  // 'pdfViewer',          // PDF 查看器
-  // 'htmlViewer',         // HTML 查看器
-  // 'videoViewer',        // 视频查看器
+  'pdfViewer',          // PDF 查看器
+  'htmlViewer',         // HTML 查看器
+  'videoViewer',        // 视频查看器
   // 'ExerciseSolveView',  // 我的习题页面
   'MyResourcesView', // 资源下载页面（资源页需要每次进入都强制刷新，这里不再缓存）
-  // 'DrawingBoardView',   // 画板页面
-  // 'FindExerciseView',   // 查找习题页面
-  // 'MyFavoritesView',    // 我的收藏页面
+  'DrawingBoardView',   // 画板页面
+  'FindExerciseView',   // 查找习题页面
+  'MyFavoritesView',    // 我的收藏页面
   // 'learning',           // 去练习弹窗页（/app/learning）
-  // 'learningContent'     // 去练习内容查看页（/app/learning-content）
+  // 'learningContent',     // 去练习内容查看页（/app/learning-content）
   'MyHomeworkView', // 我的作业页面
+  'homeworkAnswer', // 作业答题页面
 ])
+
+// 路由历史记录管理辅助函数
+
+// 根据路由名称确定所属模块
+const getModuleByRoute = (routeName: string | symbol | undefined): string => {
+  const moduleMap: Record<string, string> = {
+    'knowledgeGraph': 'knowledge',
+    'pdfViewer': 'knowledge',      // PDF阅读属于知识图谱模块
+    'htmlViewer': 'knowledge',     // HTML查看属于知识图谱模块
+    'videoViewer': 'knowledge',    // 视频查看属于知识图谱模块
+    'exerciseSolve': 'exercises',
+    'homeworkExercise': 'homework',  // 作业答题跳转到学伴，属于homework模块
+    'findExercise': 'knowledge',
+    'myResources': 'resources',
+    'myHomework': 'homework',
+    'homeworkAnswer': 'homework',
+    'learning': 'learning',
+    'learningContent': 'learning',
+    'drawingBoard': 'drawingBoard'
+  }
+
+  const name = typeof routeName === 'string' ? routeName : String(routeName)
+  return name ? moduleMap[name] || 'knowledge' : 'knowledge'
+}
+
+// 记录路由到模块历史
+const recordRouteToModuleHistory = (fullPath: string, routeName?: string) => {
+  const module = getModuleByRoute(routeName)
+
+  if (!moduleHistory.value[module]) {
+    moduleHistory.value[module] = []
+  }
+
+  // 避免重复记录相同的路径
+  if (moduleHistory.value[module].includes(fullPath)) {
+    return
+  }
+
+  moduleHistory.value[module].push(fullPath)
+
+  // 限制每个模块的历史记录数量，避免内存泄漏
+  const maxHistoryLength = 5
+  if (moduleHistory.value[module].length > maxHistoryLength) {
+    moduleHistory.value[module] = moduleHistory.value[module].slice(-maxHistoryLength)
+  }
+
+  console.log(`[路由历史] 记录到模块 ${module}:`, fullPath)
+}
+
+// 获取模块的最后访问页面（排除当前页面）
+const getLastVisitedPageInModule = (module: string, currentPath: string): string | null => {
+  const history = moduleHistory.value[module] || []
+  if (history.length === 0) return null
+
+  // 从后往前查找，找到第一个不是当前页面的路径
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i] !== currentPath) {
+      return history[i]
+    }
+  }
+
+  return null
+}
+
+// 清空所有历史记录
+const clearAllHistory = () => {
+  navigationHistory.value = []
+  Object.keys(moduleHistory.value).forEach(module => {
+    moduleHistory.value[module] = []
+  })
+  console.log('[路由历史] 已清空所有历史记录')
+}
+
 
 // 对话框显示状态
 const showTeacherChatDialog = ref(false)
 const showFeedbackDialog = ref(false)
 const showProfileDialog = ref(false)
 const teacherChatSubject = ref<'biology' | 'math'>('math')
-const teacherChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
+const teacherChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
 
 // 主页右侧聊天面板显示状态
 const showMainChatPanel = ref(false)
@@ -342,6 +453,9 @@ const userClientUnreadCount = computed(() => userClientStore.unreadCount)
 
 // 知识图谱未下载资源引导：气泡显示状态
 const showGoResourcesBubble = ref(true)
+
+// 路由历史调试面板显示状态
+const showRouteHistoryDebugPanel = ref(false)
 
 // 是否已有任意已下载教材（本地）
 const hasAnyDownloadedTextbook = ref<boolean | null>(null)
@@ -367,6 +481,13 @@ const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer']
 const hideFunctionMenu = computed(() => {
   const name = route.name as string | undefined
   return !!name && routesHideFunctionMenu.includes(name)
+})
+
+// 是否为开发环境（显示调试功能）
+const isDev = computed(() => {
+  return import.meta.env.VITE_ENABLE_DEBUG === 'true' ||
+         import.meta.env.DEV ||
+         localStorage.getItem('debug') === 'true'
 })
 
 // 不显示悬浮按钮的路由
@@ -414,11 +535,6 @@ const mainViewStyle = computed(() => {
       return {
         background: 'linear-gradient(to bottom, #ffffff 50%, #f1f3ff 50%)',
       }
-    case 'homeworkAnswer':
-      // 作业答题页：与我的作业保持同一体系，上半白色，下半淡紫色
-      return {
-        background: 'linear-gradient(to bottom, #25164b 50%, #f7f6ff 50%)',
-      }
     case 'drawingBoard':
       // 画板页：纯白背景
       return {
@@ -434,6 +550,14 @@ const mainViewStyle = computed(() => {
       return {
         background: '#0a0020',
       }
+      case 'homeworkExercise':
+      return {
+        background: 'linear-gradient(to bottom, #0f002e 50%, #f7f6ff 50%)',
+      }
+      case 'homeworkAnswer':
+      return {
+        background: 'linear-gradient(to bottom, #0f002e 50%, #f7f6ff 50%)',
+      }
     default:
       // 默认背景色
       return {
@@ -441,6 +565,9 @@ const mainViewStyle = computed(() => {
       }
   }
 })
+
+// 导航菜单背景样式（完全使用 mainViewStyle 的样式）
+const navBackgroundStyle = computed(() => mainViewStyle.value)
 
 // 悬浮功能按钮点击逻辑：
 // - 如果当前在 PDF 查看页（pdfViewer），则打开/关闭 PDF 页右侧对话面板
@@ -472,9 +599,6 @@ const currentHomeworkIcon = computed(() => {
   return activeNavItem.value === 'homework' ? homeworkSelectIcon : homeworkIcon
 })
 
-const currentDrawingBoardIcon = computed(() => {
-  return activeNavItem.value === 'drawingBoard' ? drawingBoardSelectIcon : drawingBoardIcon
-})
 
 const currentDownloadResourcesIcon = computed(() => {
   return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
@@ -491,8 +615,6 @@ const getNavIcon = (item: NavItemConfig) => {
       return currentExerciseIcon.value
     case 'homework':
       return currentHomeworkIcon.value
-    case 'drawingBoard':
-      return currentDrawingBoardIcon.value
     case 'resources':
       return currentDownloadResourcesIcon.value
     default:
@@ -569,7 +691,7 @@ const stopDrag = () => {
 }
 
 // 判断某个导航 key 是否处于激活状态
-const isNavItemActive = (key: NavKey) => {
+const isNavItemActive = (key: NavKey | string) => {
   if (key === 'toolbox') {
     return showToolbox.value
   }
@@ -724,7 +846,6 @@ onMounted(async () => {
   })
 })
 
-
 // 跳转到资源下载页
 const goToResources = () => {
   // 关闭气泡，避免返回时重复干扰
@@ -782,10 +903,41 @@ const handleAIChatClick = async () => {
   uiStore.openAIChatDialog()
 }
 
-// 监听路由变化，更新激活状态
+// 需要排除在路由历史管理之外的路由
+const excludedRoutesFromHistory = [
+  'exerciseSolve',    // 我的习题
+  'homeworkExercise', // 作业答题跳转到学伴
+  'myHomework',       // 我的作业
+  'homeworkAnswer'    // 作业答题
+]
+
+// 监听路由变化，更新激活状态并记录历史
 watch(
-  () => route.name,
-  (newRouteName) => {
+  () => route.fullPath,
+  (newPath, oldPath) => {
+    const currentRouteName = String(route.name)
+
+    // 检查是否为需要排除的路由
+    const shouldExcludeFromHistory = excludedRoutesFromHistory.includes(currentRouteName)
+
+    // 记录全局导航历史（排除指定路由）
+    if (oldPath && !navigationHistory.value.includes(oldPath) && !shouldExcludeFromHistory) {
+      navigationHistory.value.push(oldPath)
+
+      // 限制全局历史记录长度，避免内存泄漏
+      const maxGlobalHistory = 20
+      if (navigationHistory.value.length > maxGlobalHistory) {
+        navigationHistory.value = navigationHistory.value.slice(-maxGlobalHistory)
+      }
+    }
+
+    // 记录到模块历史（排除指定路由）
+    if (!shouldExcludeFromHistory) {
+      recordRouteToModuleHistory(newPath, currentRouteName)
+    }
+
+    // 更新激活状态
+    const newRouteName = route.name
     switch (newRouteName) {
       case 'myResources':
         activeNavItem.value = 'resources'
@@ -832,7 +984,7 @@ const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'te
 }
 
 // 打开教师聊天对话框
-const openTeacherChatDialog = (subject: 'biology' | 'math' = 'math') => {
+const openTeacherChatDialog = (subject: 'BIOLOGY' | 'MATH' = 'MATH') => {
   teacherChatSubject.value = subject
   showTeacherChatDialog.value = true
 }
@@ -913,9 +1065,6 @@ const handleNavItemClick = (item: NavItemConfig) => {
     case 'homework':
       handleMyHomeworkClick()
       break
-    case 'drawingBoard':
-      handleDrawingBoardClick()
-      break
     case 'resources':
       handleMyResourcesClick()
       break
@@ -945,6 +1094,17 @@ const handleMyExercisesClick = () => {
   if (showToolbox.value) {
     showToolbox.value = false
   }
+
+  // 智能跳转逻辑：检查习题模块的历史记录
+  const lastVisitedPage = getLastVisitedPageInModule('exercises', route.fullPath)
+  if (lastVisitedPage) {
+    console.log('[智能导航] 习题模块回到上一页:', lastVisitedPage)
+    router.push(lastVisitedPage)
+    return
+  }
+
+  // 如果没有历史记录，跳转到默认的习题页面
+  console.log('[导航] 跳转到我的习题页')
   router.push({ name: 'exerciseSolve' })
 }
 
@@ -956,19 +1116,20 @@ const handleMyHomeworkClick = () => {
   if (showToolbox.value) {
     showToolbox.value = false
   }
-  // 示例路由：跳转到名为 myHomework 的页面（请在路由配置中定义实际页面）
+
+  // 智能跳转逻辑：检查作业模块的历史记录
+  const lastVisitedPage = getLastVisitedPageInModule('homework', route.fullPath)
+  if (lastVisitedPage) {
+    console.log('[智能导航] 作业模块回到上一页:', lastVisitedPage)
+    router.push(lastVisitedPage)
+    return
+  }
+
+  // 如果没有历史记录，跳转到默认的作业页面
+  console.log('[导航] 跳转到我的作业页')
   router.push({ name: 'myHomework' })
 }
 
-const handleDrawingBoardClick = () => {
-  activeNavItem.value = 'drawingBoard'
-  emit('nav-item-change', 'drawingBoard')
-  // 如果工具箱区域是打开的，则关闭它
-  if (showToolbox.value) {
-    showToolbox.value = false
-  }
-  router.push({ name: 'drawingBoard' })
-}
 
 const handleKnowledgeGraphClick = () => {
   activeNavItem.value = 'knowledge'
@@ -977,6 +1138,17 @@ const handleKnowledgeGraphClick = () => {
   if (showToolbox.value) {
     showToolbox.value = false
   }
+
+  // 智能跳转逻辑：检查知识图谱模块的历史记录
+  const lastVisitedPage = getLastVisitedPageInModule('knowledge', route.fullPath)
+  if (lastVisitedPage) {
+    console.log('[智能导航] 知识图谱模块回到上一页:', lastVisitedPage)
+    router.push(lastVisitedPage)
+    return
+  }
+
+  // 如果没有历史记录，跳转到默认的知识图谱页面
+  console.log('[导航] 跳转到知识图谱主页')
   router.push({ name: 'knowledgeGraph' })
 }
 
@@ -995,19 +1167,26 @@ const handleKnowledgeGraphClick = () => {
   align-items: stretch;
 }
 
-// 左侧导航菜单
+// 左侧导航菜单（背景层）
 .function-menu {
   width: 8%;
   flex-shrink: 0;
-  background: #ffffff;
-  border-radius: 0 24px 24px 0;
   display: flex;
-  flex-direction: column;
   position: relative;
-  align-items: stretch;
-  padding: 16px 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   z-index: 1001; // 确保功能菜单层级高于工具箱
+
+  // 导航项容器层（内容层）
+  .nav-items-container {
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    border-radius: 0 24px 24px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
 
   .user-avatar {
     display: flex;
@@ -1371,6 +1550,19 @@ const handleKnowledgeGraphClick = () => {
 
 .go-resources-btn:hover {
   background: rgba(110, 85, 255, 0.06);
+}
+
+// 路由历史调试按钮
+.route-history-debug-button {
+  position: fixed;
+  bottom: 160px; // 在存储调试按钮上方
+  right: 20px;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  &:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
 }
 
 // 响应式设计

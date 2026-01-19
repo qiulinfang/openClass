@@ -30,7 +30,7 @@
           <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
         </button>
         <!-- WebSocket连接状态 -->
-        <div class="connection-status" @click="logWebSocketStatus">
+        <div v-if="isDev" class="connection-status" @click="logWebSocketStatus">
           <div
             :class="['status-indicator', {
               'status-connected': wsStatus.teacher?.isConnected,
@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../utils'
@@ -147,6 +147,9 @@ const tabOptions = [
 // 当前激活的分类（AI 或 老师）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 
+// 是否为开发模式
+const isDev = computed(() => import.meta.env.DEV)
+
 // WebSocket连接状态监控
 const { status: wsStatus, startMonitoring } = useWebSocketStatusMonitor()
 
@@ -158,7 +161,7 @@ const ensureTeacherSessionSelected = () => {
     console.log('[MainChatPanel] 已有当前教师会话，跳过选择:', teacherChatStore.currentSession.sessionId)
     return
   }
-  const allSessions = teacherChatStore.getAllSessions()
+  const allSessions = Object.values(teacherChatStore.loadAllSessions())
   console.log('[MainChatPanel] 获取所有教师会话:', allSessions?.length || 0, '个会话')
   if (!allSessions || allSessions.length === 0) {
     console.log('[MainChatPanel] 无可用教师会话')
@@ -258,7 +261,7 @@ const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
 
 // 设置当前教师会话
 const setTeacherSession = (sessionId: string) => {
-  const allSessions = teacherChatStore.getAllSessions()
+  const allSessions = Object.values(teacherChatStore.loadAllSessions())
   const session = allSessions.find((s) => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
@@ -314,6 +317,12 @@ const logWebSocketStatus = () => {
 
 // 启动WebSocket状态监控
 startMonitoring()
+
+// 组件挂载时的初始化
+onMounted(async () => {
+  console.log('[MainChatPanel] onMounted: 初始化写死教师会话')
+  // 写死会话通过 loadAllSessions() 方法动态获取，无需预加载
+})
 </script>
 
 <style scoped>

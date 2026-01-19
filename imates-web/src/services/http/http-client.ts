@@ -76,20 +76,16 @@ export class HttpClient {
     if (url.startsWith('/permission') || url.startsWith('/ai') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
       selectedToken = sanitize(localStorage.getItem('XUEBAN_TOKEN'))
-    } else if (url.startsWith('/blw-edu-yb')) {
-      // /blw-edu-yb开头的请求使用YANBAN_TOKEN
+    } else if (url.startsWith('/blw-edu-yb') || url.startsWith('/api/question')) {
+      // /blw-edu-yb和/api/question开头的请求使用YANBAN_TOKEN（研伴教师聊天API）
       selectedToken = sanitize(localStorage.getItem('YANBAN_TOKEN'))
     }
     
     // 如果找到了token，将其赋值给所有认证字段
     if (selectedToken) {
-      // ⭐ 修复：使用Token header（首字母大写），与Android原生保持一致
       authConfig['Token'] = selectedToken
-      // 保留其他header作为备用（如果后端支持）
       authConfig['sa-token'] = selectedToken
       authConfig['authorization'] = selectedToken
-      // ⚠️ 注意：不设置小写的 'token'，避免与 'Token' 重复（HTTP header 名称大小写不敏感）
-      // 如果后端需要小写的 'token' header，可以通过其他方式单独设置
     }
     
     return authConfig

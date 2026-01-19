@@ -238,12 +238,6 @@ export class ApiService {
     return this.teacherChatApi.getTeacherChatHistory(sessionId)
   }
 
-  /**
-   * 接受教师消息（模拟实现）
-   */
-  public async receiveTeacherMessage(): Promise<any> {
-    return this.teacherChatApi.receiveMessage()
-  }
 
   /**
    * 获取教材结构 - 修正为与Android端一致的流程

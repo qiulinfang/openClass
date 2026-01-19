@@ -64,7 +64,7 @@ import { ref, computed, watch } from 'vue'
 import DraggableDialog from '../base/Modal.vue'
 
 interface Teacher {
-  subject: 'biology' | 'math'
+  subject: 'BIOLOGY' | 'MATH'
   name: string
 }
 
@@ -83,7 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'confirm': [subject: 'biology' | 'math']
+  'confirm': [subject: 'BIOLOGY' | 'MATH']
   'cancel': []
 }>()
 

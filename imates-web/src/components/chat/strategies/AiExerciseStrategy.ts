@@ -396,8 +396,8 @@ export class AiExerciseStrategy implements ChatStrategy {
   private async selectOrCreateTeacherExerciseSession(
     questionId: string,
     questionTitle: string,
-    subject: 'biology' | 'math'
-  ): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
+    subject: 'BIOLOGY' | 'MATH'
+  ): Promise<{ sessionId: string; sessionName: string; subject: 'BIOLOGY' | 'MATH' } | null> {
     const teacherStore = useTeacherChatStore()
 
     try {

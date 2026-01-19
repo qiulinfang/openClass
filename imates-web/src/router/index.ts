@@ -18,6 +18,7 @@ import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
+import LottieTest from '@/views/LottieTest.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 
@@ -143,6 +144,11 @@ const router = createRouter({
       path: '/render-test',
       name: 'renderTest',
       component: RenderTestView
+    },
+    {
+      path: '/lottie-test',
+      name: 'lottieTest',
+      component: LottieTest
     },
     // 重定向旧路由到新路由
     {

@@ -807,7 +807,7 @@ const pendingDeleteSessionTitle = ref('')
 
 // 老师选择对话框状态
 const showTeacherSelectionDialog = ref(false)
-let teacherSelectionResolve: ((subject: 'biology' | 'math') => void) | null = null
+let teacherSelectionResolve: ((subject: 'BIOLOGY' | 'MATH') => void) | null = null
 
 // 请求删除会话（显示确认对话框）
 const handleDeleteSessionRequest = (sessionId: string) => {
@@ -823,7 +823,7 @@ const handleDeleteSessionRequest = (sessionId: string) => {
 }
 
 // 处理老师选择
-const handleTeacherSelected = (subject: 'biology' | 'math') => {
+const handleTeacherSelected = (subject: 'BIOLOGY' | 'MATH') => {
   if (teacherSelectionResolve) {
     teacherSelectionResolve(subject)
     teacherSelectionResolve = null
@@ -2222,6 +2222,12 @@ const handleMessageClick = (message: ChatBubble) => {
 // 处理删除消息：完全通过策略接口
 const handleDeleteMessage = async (messageId: string) => {
   try {
+    // 教师对话不支持删除消息
+    if (props.type === 'teacher') {
+      showMessage('教师对话不支持删除消息', 'info')
+      return
+    }
+
     if (!chatStrategy.value?.deleteMessage) {
       throw new Error('当前聊天策略未实现 deleteMessage')
     }
