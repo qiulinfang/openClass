@@ -384,8 +384,8 @@ export class AiGeneralStrategy implements ChatStrategy {
    * 根据科目创建老师会话（通用会话）
    */
   private async createTeacherSession(
-    subject: 'biology' | 'math'
-  ): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
+    subject: 'BIOLOGY' | 'MATH'
+  ): Promise<{ sessionId: string; sessionName: string; subject: 'BIOLOGY' | 'MATH' } | null> {
     const teacherStore = useTeacherChatStore()
     
     // 初始化老师消息监听器
@@ -406,7 +406,7 @@ export class AiGeneralStrategy implements ChatStrategy {
       return {
         sessionId: createdSession.sessionId,
         sessionName: createdSession.sessionName,
-        subject: createdSession.subject as 'biology' | 'math',
+        subject: createdSession.subject as 'BIOLOGY' | 'MATH',
       }
     }
     
@@ -416,7 +416,7 @@ export class AiGeneralStrategy implements ChatStrategy {
   /**
    * 选择老师会话（通用会话）
    */
-  private async selectTeacherSession(onTeacherSelect?: () => Promise<'biology' | 'math'>): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
+  private async selectTeacherSession(onTeacherSelect?: () => Promise<'BIOLOGY' | 'MATH'>): Promise<{ sessionId: string; sessionName: string; subject: 'BIOLOGY' | 'MATH' } | null> {
     if (!onTeacherSelect) {
       console.error('[AiGeneralStrategy] 未提供老师选择回调函数')
       return null

@@ -3,12 +3,74 @@ import { getUserId } from './auth-service'
 import { getWebSocketService } from '../websocket/webSocketService'
 
 /**
+ * 解析后端返回的日期时间格式
+ * 格式: "MM-DD HH:mm" -> 转换为完整的时间戳
+ */
+const parseCreateTime = (createTime: string): number => {
+  try {
+    // 格式: "01-19 12:24"
+    const match = createTime.match(/^(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/)
+    if (!match) {
+      console.warn('[TeacherChatApi] ⚠️ 无法解析 createTime 格式:', createTime)
+      return Date.now()
+    }
+
+    const [, month, day, hour, minute] = match
+    const currentYear = new Date().getFullYear()
+
+    // 构造完整的日期时间字符串
+    const dateString = `${currentYear}-${month}-${day} ${hour}:${minute}:00`
+    const timestamp = new Date(dateString).getTime()
+
+    if (isNaN(timestamp)) {
+      console.warn('[TeacherChatApi] ⚠️ 构造的日期无效:', { createTime, dateString })
+      return Date.now()
+    }
+
+    return timestamp
+  } catch (error) {
+    console.warn('[TeacherChatApi] ⚠️ 解析 createTime 失败:', { createTime, error })
+    return Date.now()
+  }
+}
+
+/**
+ * 消息类型枚举
+ */
+type MessageType = 'text' | 'image' | 'voice'
+
+/**
+ * 转换后端消息类型为前端消息类型
+ * 后端: "0"=文本, "1"=图片, "2"=语音
+ * 前端: "text" | "image" | "voice"
+ */
+const convertMessageType = (msgType: string): MessageType => {
+  switch (msgType) {
+    case '1':
+      return 'image'
+    case '2':
+      return 'voice'
+    default:
+      return 'text'
+  }
+}
+
+/**
+ * 教师聊天历史请求体
+ */
+interface TeacherHistoryRequest {
+  sessionId: string
+  page?: number
+  pageSize?: number
+}
+
+/**
  * 教师聊天历史消息格式
  */
 interface TeacherHistoryMessage {
   messageId: string
   content: string
-  type: string
+  type: MessageType // 使用转换后的消息类型
   timestamp: number
   isSelf: boolean
 }
@@ -28,7 +90,7 @@ export class TeacherChatApi {
   ): Promise<boolean> {
     try {
       // 研伴后端不支持WebSocket发送消息，使用HTTP API
-      const response = await httpClient.post('/api/api/question/replyMessage', {
+      const response = await httpClient.post('/api/question/replyMessage', {
         sessionId: sessionId,
         msgType: msgType,
         msgContent: msgContent
@@ -43,20 +105,36 @@ export class TeacherChatApi {
   }
 
   /**
-   * 获取教师聊天历史
+   * 获取教师聊天历史（支持分页）
    */
-  public async getTeacherChatHistory(sessionId: string): Promise<TeacherHistoryMessage[]> {
+  public async getTeacherChatHistory(sessionId: string, page?: number, pageSize?: number): Promise<TeacherHistoryMessage[]> {
     console.log('[TeacherChatApi] getTeacherChatHistory 被调用，sessionId:', sessionId, '调用栈:', new Error().stack?.split('\n').slice(2, 5).join('\n'))
     try {
-      // 使用相对路径，通过getRouteBaseMap()配置的路由映射自动转发
-      // 注意：后端API路径为 /api/api/question/...，需要双重api前缀
-      console.log('[TeacherChatApi] 发送API请求到 /api/api/question/historyList')
-      const response = await httpClient.post('/api/api/question/historyList', {
+      // 使用研伴后端的API路径
+      console.log('[TeacherChatApi] 发送API请求到 /api/question/historyList')
+      const requestBody: TeacherHistoryRequest = {
         sessionId: sessionId
-      })
+      }
+
+      // 添加分页参数（如果提供）
+      if (page !== undefined && pageSize !== undefined) {
+        requestBody.page = page
+        requestBody.pageSize = pageSize
+      }
+
+      const response = await httpClient.post('/api/question/historyList', requestBody)
       console.log('[TeacherChatApi] API响应:', response)
 
-      if (response.success && response.data && Array.isArray(response.data)) {
+      // 处理可能的多种数据结构：直接数组、或者对象中的各种字段
+      let messageArray: Array<{ id: string; messageId: string; msgContent: string; msgType: string; createTime: string; msgSendId: string }> = []
+      if (response.success && response.data) {
+        const dataObj = response.data as { data?: unknown }
+        if (dataObj.data && Array.isArray(dataObj.data)) {
+          messageArray = dataObj.data as typeof messageArray
+        }
+      }
+
+      if (messageArray.length > 0) {
         // 获取当前用户ID，用于判断消息是否是自己发送的
         const currentUserId = getUserId()
 
@@ -65,12 +143,12 @@ export class TeacherChatApi {
         webSocket.setSessionId(sessionId)
 
         // 转换数据格式以匹配现有代码的期望
-        return response.data.map((msg: { id: string; msgContent: string; msgType: string; createTime: string; msgSendId: string }): TeacherHistoryMessage => ({
-          messageId: msg.id,
+        return messageArray.map((msg: { id: string; messageId: string; msgContent: string; msgType: string; createTime: string; msgSendId: string; msgSendName?: string }): TeacherHistoryMessage => ({
+          messageId: msg.messageId, // 使用前端生成的消息ID
           content: msg.msgContent,
-          type: msg.msgType,
-          timestamp: new Date(msg.createTime).getTime(),
-          isSelf: msg.msgSendId === currentUserId // 如果发送者ID等于当前用户ID，则是自己发送的消息
+          type: convertMessageType(msg.msgType), // 转换消息类型
+          timestamp: parseCreateTime(msg.createTime), // 解析后端日期格式
+          isSelf: msg.msgSendName === currentUserId // 如果发送者ID等于当前用户ID，则是自己发送的消息
         }))
       }
 
@@ -81,38 +159,4 @@ export class TeacherChatApi {
     }
   }
 
-  /**
-   * 接受消息（模拟实现）
-   * 模拟从教师端接收消息，用于测试和开发环境
-   */
-  public async receiveMessage(): Promise<TeacherHistoryMessage | null> {
-    try {
-      // 模拟实现：返回一个模拟的教师回复消息
-      const mockMessages = [
-        { content: '好的，我明白了。请问还有什么问题吗？', type: '0' },
-        { content: '这个概念需要多加练习，你可以尝试做几道相关题目。', type: '0' },
-        { content: '很好，你的思路是对的。继续保持这种学习方法。', type: '0' },
-        { content: '这个问题需要结合前面的知识点来理解。', type: '0' },
-        { content: '你可以参考课本上的例题，加深理解。', type: '0' }
-      ]
-
-      // 随机选择一条消息
-      const randomMessage = mockMessages[Math.floor(Math.random() * mockMessages.length)]
-
-      // 模拟教师消息
-      const teacherMessage: TeacherHistoryMessage = {
-        messageId: `teacher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        content: randomMessage.content,
-        type: randomMessage.type,
-        timestamp: Date.now(),
-        isSelf: false // 教师消息，isSelf为false
-      }
-
-      console.log('[TeacherChatApi] 模拟接收教师消息:', teacherMessage)
-      return teacherMessage
-    } catch (error) {
-      console.error('[TeacherChatApi] 模拟接收消息失败:', error)
-      return null
-    }
-  }
 }

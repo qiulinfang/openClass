@@ -33,6 +33,8 @@ export type WebSocketEventType =
   | 'user_leave'
   | 'agent_join'
   | 'read_status'
+  | 'message_ack'      // 消息发送确认
+  | 'message_error'    // 消息发送错误
 
 export interface WebSocketConfig {
   url: string
@@ -178,6 +180,34 @@ export class WebSocketService {
   setSessionId(sessionId: string): void {
     this.sessionId = sessionId
     console.log('[WebSocket] 设置会话ID:', sessionId)
+
+    // 如果是教师类型且已经连接，需要重新连接以更新URL参数
+    if (this.config.url?.includes('/ws?') && this.socket?.readyState === WebSocket.OPEN) {
+      console.log('[WebSocket] 检测到会话ID变更，需要重新连接以更新URL参数')
+      this.reconnectWithNewSessionId(sessionId)
+    }
+  }
+
+  /**
+   * 使用新的sessionId重新连接
+   */
+  private reconnectWithNewSessionId(sessionId: string): void {
+    if (!this.config.url) return
+
+    // 更新URL中的sessionId参数
+    const url = new URL(this.config.url.replace('wss://', 'https://'))
+    url.searchParams.set('sessionId', sessionId)
+    this.config.url = url.toString().replace('https://', 'wss://')
+
+    console.log('[WebSocket] 更新连接URL为:', this.config.url)
+
+    // 断开现有连接并重新连接
+    if (this.socket) {
+      this.socket.close(1000, 'Reconnecting with new sessionId')
+    }
+
+    // 重新连接
+    this.connect()
   }
 
   /**
@@ -253,6 +283,14 @@ export class WebSocketService {
         break
       case 'USER_LEAVE':
         this.emit('user_leave', message)
+        break
+      case 'ACK':
+        // 消息发送确认
+        this.emit('message_ack', message)
+        break
+      case 'ERROR':
+        // 消息发送错误
+        this.emit('message_error', message)
         break
       default:
         this.emit('message', message)
@@ -402,11 +440,13 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
 
   if (type === 'teacher') {
     // 教师聊天WebSocket配置（适配研伴后端）
-    // 研伴后端WebSocket端点为 /ws，不支持发送消息，只接收推送通知
-    // 需要在URL中包含userId参数以便后端识别用户
+    // 研伴后端WebSocket端点为 /ws，支持双向消息传输
+    // 初始连接时使用临时sessionId，实际使用时通过setSessionId()设置
     const yanbanBaseUrl = getYanbanBaseUrl()
     const userId = getUserId()
-    const wsUrl = yanbanBaseUrl.replace('https://', 'wss://') + `/ws?userId=${userId}`
+    // 动态生成临时sessionId，避免硬编码
+    const tempSessionId = `temp-teacher-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
+    const wsUrl = yanbanBaseUrl.replace('https://', 'wss://') + `/ws?userId=${userId}&sessionId=${tempSessionId}&clientType=web`
     config = {
       url: wsUrl,
       reconnectAttempts: 5,

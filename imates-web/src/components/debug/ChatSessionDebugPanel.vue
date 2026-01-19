@@ -746,7 +746,7 @@ const refreshData = async () => {
 // 第1.1步：加载教师通用会话列表
 const loadTeacherSessions = async () => {
   // 使用 store 的统一方法获取所有会话
-  const allSessions = teacherStore.getAllSessions()
+  const allSessions = Object.values(teacherStore.loadAllSessions())
   
   const sessions: (TeacherSession & { msgCount: number; sessionType: 'general' })[] = []
   
@@ -1191,7 +1191,7 @@ const copyToClipboard = async (text: string) => {
 }
 
 // 第10步：创建虚拟老师对话
-const createVirtualTeacherSession = async (subject: 'biology' | 'math') => {
+const createVirtualTeacherSession = async (subject: 'BIOLOGY' | 'MATH') => {
   try {
     // 第1步：生成会话ID和名称
     const subjectName = subject === 'biology' ? '生物' : '数学'

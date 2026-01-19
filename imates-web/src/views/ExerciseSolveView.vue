@@ -367,7 +367,14 @@ const hasSelectedQuestion = computed(() => {
 
 // 按钮可用性computed属性
 const canUseChatAi = computed(() => hasSelectedQuestion.value)
-const canUseTeacherChat = computed(() => hasSelectedQuestion.value)
+const canUseTeacherChat = computed(() => {
+  // 在作业场景下禁用老师答疑功能
+  if (isFromHomework.value) {
+    return false
+  }
+  // 在普通习题场景下，需要选中题目才能使用
+  return hasSelectedQuestion.value
+})
 const canUseViewAnswer = computed(() => {
   return hasSelectedQuestion.value && aiExerciseStore.canViewAnswer
 })
@@ -455,14 +462,49 @@ const handleFocusInput = () => {
 // 处理从ChatView转发后跳转到老师对话的事件
 const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message?: ChatBubble }) => {
   try {
+    // 根据当前题目的学科确定对应的教师会话
+    let targetSessionId = sessionId
+
+    // 如果没有传入 sessionId，则根据当前题目学科映射到写死会话
+    if (!targetSessionId && currentQuestion.value) {
+      const subject = currentQuestion.value.subject
+      const userId = getUserId() || 'default'
+      // 将题目的学科映射到写死会话的 sessionId（包含userId）
+      const subjectMapping: Record<string, string> = {
+        'SUBJECT_MATH': `teacher_${userId}_math`,
+        'SUBJECT_BIOLOGY': `teacher_${userId}_biology`,
+        'SUBJECT_CHINESE': `teacher_${userId}_chinese`,
+        'SUBJECT_ENGLISH': `teacher_${userId}_english`,
+        'SUBJECT_PHYSICS': `teacher_${userId}_physics`,
+        'SUBJECT_CHEMISTRY': `teacher_${userId}_chemistry`,
+        'SUBJECT_HISTORY': `teacher_${userId}_history`,
+        'SUBJECT_GEOGRAPHY': `teacher_${userId}_geography`,
+        'SUBJECT_POLITICS': `teacher_${userId}_politics`
+      }
+
+      const mappedSessionId = subjectMapping[subject] || `teacher_${userId}_math` // 默认使用数学老师
+      targetSessionId = mappedSessionId
+    }
+
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
+
     // 打开GlobalChatDialog（如果还没打开）
     if (!showUnifiedChatDialog.value) {
       showUnifiedChatDialog.value = true
       // 等待组件挂载
       await nextTick()
     }
+
+    // 设置对应的教师会话
+    if (targetSessionId) {
+      const allSessions = Object.values(teacherChatStore.loadAllSessions())
+      const session = allSessions.find(s => s.sessionId === targetSessionId)
+      if (session) {
+        teacherChatStore.setSession(session)
+      }
+    }
+
     // 切换到教师分类
     if (globalChatDialogRef.value) {
       globalChatDialogRef.value.switchCategory('teacher')
@@ -483,14 +525,48 @@ const handleSwitchToTeacher = async (forwardData?: {
   sessionId?: string;
 }) => {
   try {
+    // 如果没有传入 sessionId，则根据当前题目学科映射到写死会话
+    let targetSessionId = forwardData?.sessionId
+
+    if (!targetSessionId && currentQuestion.value) {
+      const subject = currentQuestion.value.subject
+      const userId = getUserId() || 'default'
+      // 将题目的学科映射到写死会话的 sessionId（包含userId）
+      const subjectMapping: Record<string, string> = {
+        'SUBJECT_MATH': `teacher_${userId}_math`,
+        'SUBJECT_BIOLOGY': `teacher_${userId}_biology`,
+        'SUBJECT_CHINESE': `teacher_${userId}_chinese`,
+        'SUBJECT_ENGLISH': `teacher_${userId}_english`,
+        'SUBJECT_PHYSICS': `teacher_${userId}_physics`,
+        'SUBJECT_CHEMISTRY': `teacher_${userId}_chemistry`,
+        'SUBJECT_HISTORY': `teacher_${userId}_history`,
+        'SUBJECT_GEOGRAPHY': `teacher_${userId}_geography`,
+        'SUBJECT_POLITICS': `teacher_${userId}_politics`
+      }
+
+      const mappedSessionId = subjectMapping[subject] || `teacher_${userId}_math` // 默认使用数学老师
+      targetSessionId = mappedSessionId
+    }
+
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
+
     // 打开GlobalChatDialog（如果还没打开）
     if (!showUnifiedChatDialog.value) {
       showUnifiedChatDialog.value = true
       // 等待组件挂载
       await nextTick()
     }
+
+    // 设置对应的教师会话
+    if (targetSessionId) {
+      const allSessions = Object.values(teacherChatStore.loadAllSessions())
+      const session = allSessions.find(s => s.sessionId === targetSessionId)
+      if (session) {
+        teacherChatStore.setSession(session)
+      }
+    }
+
     // 切换到教师分类
     if (globalChatDialogRef.value) {
       globalChatDialogRef.value.switchCategory('teacher')

@@ -477,7 +477,8 @@ const handleRetry = async () => {
         )
         break
       case 'teacher':
-        await teacherStore.retryTeacherMessage(props.message.id, props.message.imageData)
+        // 教师消息现在通过 WebSocket 发送，不支持重试
+        showMessage('教师消息不支持重试，请重新发送', 'warning')
         break
       default:
         throw new Error('未知的聊天类型')
@@ -829,7 +830,7 @@ const buildAiActions = () => {
       label: '删除',
       iconName: 'delete_outline',
       iconColor: 'negative',
-      visible: true,
+      visible: props.type !== 'teacher', // 教师对话不支持删除消息
       onClick: () => handleDelete(),
     },
   ]
@@ -873,7 +874,7 @@ const buildUserActions = () => {
       label: '删除',
       iconName: 'delete_outline',
       iconColor: 'negative',
-      visible: true,
+      visible: props.type !== 'teacher', // 教师对话不支持删除消息
       onClick: () => handleDelete(),
     },
   ]

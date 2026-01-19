@@ -150,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../../utils'
@@ -203,7 +203,7 @@ const showDebugPanel = ref(false)
 
 // 老师选择对话框
 const showTeacherSelectDialog = ref(false)
-const availableTeachers = ref<Array<{ subject: 'biology' | 'math', name: string }>>([])
+const availableTeachers = ref<Array<{ subject: 'BIOLOGY' | 'MATH', name: string }>>([])
 
 // 判断当前选中的分类是否为老师类型
 const isTeacherCategory = computed(() => {
@@ -261,9 +261,31 @@ const handleNewChatClick = async () => {
 }
 
 // 处理老师选择
-const handleTeacherSelect = async (subject: 'biology' | 'math') => {
+const handleTeacherSelect = async (subject: 'BIOLOGY' | 'MATH') => {
   showTeacherSelectDialog.value = false
-  await createTeacherSession(subject)
+
+  // 根据学科找到对应的写死会话
+  const userId = getUserId() || 'default'
+  const sessionId = `teacher_${userId}_${subject}`
+  const allSessions = Object.values(teacherChatStore.loadAllSessions())
+  const session = allSessions.find(s => s.sessionId === sessionId)
+
+  if (session) {
+    // 设置当前会话
+    teacherChatStore.setSession(session)
+
+    // 初始化消息接收器
+    await teacherChatStore.initMessageReceiver()
+
+    // 切换到教师分类
+    activeCategory.value = 'teacher'
+
+    // 触发会话创建事件
+    emit('session-created', session.sessionId, 'teacher')
+  } else {
+    console.error('[GlobalChatDialog] 未找到对应的教师会话:', sessionId)
+    showMessage('未找到对应的教师会话', 'error')
+  }
 }
 
 // 处理AI会话删除结果（由 SessionTree 直接调用 store 删除后通知）
@@ -295,59 +317,10 @@ const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCur
     }
 }
 
-// 创建教师会话（供外部调用）
-// 职责：封装完整的会话创建流程，包括验证用户信息、设置localStorage、创建会话、初始化消息接收器等
-const createTeacherSession = async (subject: 'biology' | 'math') => {
-  try {
-    // 第1步：验证用户信息
-    const userInfo = getUserInfo() || {
-      id: '',
-      name: '',
-      avatar: '',
-      roles: [] as string[]
-    }
-
-    if (!userInfo.id) {
-      console.error('[GlobalChatDialog] ❌ 无法获取用户信息，请重新登录')
-      showMessage('无法获取用户信息，请重新登录', 'error')
-      return
-    }
-
-    // 第2步：设置 localStorage 中的 currentTeacherSubject
-    const userId = getUserId()
-    const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-
-    // 第3步：生成 sessionId 和 sessionName
-    const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const aiSessionName = subject === 'biology' ? '生物' : '数学'
-
-    // 第4步：调用 createTeacherSession 创建或复用会话
-    const createdSession = teacherChatStore.createTeacherSession(aiSessionId, aiSessionName, subject)
-
-    if (!createdSession) {
-      console.error('[GlobalChatDialog] ❌ 创建教师会话失败')
-      showMessage('创建教师会话失败，请重试', 'error')
-      return
-    }
-
-    // 第5步：初始化消息接收器
-    await teacherChatStore.initMessageReceiver()
-
-    // 第6步：切换到教师分类（store 的 currentSession 已由 createTeacherSession 设置）
-    activeCategory.value = 'teacher'
-
-    // 第8步：触发会话创建事件
-    emit('session-created', createdSession.sessionId, 'teacher')
-  } catch (error) {
-    console.error('[GlobalChatDialog] ❌ 创建教师会话失败:', error)
-    showMessage('创建教师会话失败，请重试', 'error')
-  }
-}
 
 // 设置当前教师会话（内部方法，通过 watch store 自动同步 UI）
 const setTeacherSession = (sessionId: string) => {
-  const allSessions = teacherChatStore.getAllSessions()
+  const allSessions = Object.values(teacherChatStore.loadAllSessions())
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
@@ -400,7 +373,6 @@ const switchCategory = (category: 'ai-general' | 'teacher') => {
 
 // 暴露方法供外部调用
 defineExpose({
-  createTeacherSession,
   switchCategory
 })
 
@@ -416,6 +388,12 @@ const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
   }
 }
 
+
+// ==================== 组件生命周期 ====================
+onMounted(async () => {
+  console.log('[GlobalChatDialog] onMounted: 初始化写死教师会话')
+  // 写死会话通过 loadAllSessions() 方法动态获取，无需预加载
+})
 
 // ==================== 清理 ====================
 onUnmounted(async () => {

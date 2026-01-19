@@ -355,7 +355,7 @@ export class AiTextbookStrategy implements ChatStrategy {
   getCurrentSubject(): 'biology' | 'math' {
     // AI教材场景使用knowledgeGraphStore中的科目
     const subject = this.knowledgeGraphStore.getCurrentSubject()
-    return subject === 'BIOLOGY' ? 'biology' : 'math'
+    return subject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH'
   }
 
   // ========== 转发消息相关私有方法 ==========
@@ -399,9 +399,9 @@ export class AiTextbookStrategy implements ChatStrategy {
    * 选择或创建老师会话（通用会话）
    */
   private async selectOrCreateTeacherSession(
-    subject: 'biology' | 'math' | null,
-    onTeacherSelect?: () => Promise<'biology' | 'math'>
-  ): Promise<{ sessionId: string; sessionName: string; subject: 'biology' | 'math' } | null> {
+    subject: 'BIOLOGY' | 'MATH' | null,
+    onTeacherSelect?: () => Promise<'BIOLOGY' | 'MATH'>
+  ): Promise<{ sessionId: string; sessionName: string; subject: 'BIOLOGY' | 'MATH' } | null> {
     const teacherStore = useTeacherChatStore()
 
     // 如果科目为null，需要用户选择
@@ -434,7 +434,7 @@ export class AiTextbookStrategy implements ChatStrategy {
       return {
         sessionId: existingSession.sessionId,
         sessionName: existingSession.sessionName,
-        subject: existingSession.subject as 'biology' | 'math',
+        subject: existingSession.subject as 'BIOLOGY' | 'MATH',
       }
     } else {
       // 如果不存在，创建新会话
@@ -445,14 +445,14 @@ export class AiTextbookStrategy implements ChatStrategy {
       const createdSession = teacherStore.createTeacherSession(
         aiSessionId,
         aiSessionName,
-        subject as 'biology' | 'math'
+        subject as 'BIOLOGY' | 'MATH'
       )
       
       if (createdSession) {
         return {
           sessionId: createdSession.sessionId,
           sessionName: createdSession.sessionName,
-          subject: createdSession.subject as 'biology' | 'math',
+          subject: createdSession.subject as 'BIOLOGY' | 'MATH',
         }
       }
       

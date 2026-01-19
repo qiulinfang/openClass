@@ -1183,6 +1183,12 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
     const defaultOption = textbookOptions.value[0]
     if (defaultOption.textbookId) {
       await loadChapterStructure(defaultOption.textbookId)
+
+      // 设置默认选中的章节
+      if (chapterStructure.value.length > 0) {
+        setCurrentChapter(0)
+        selectedChapterDetails.value = chapterStructure.value[0]
+      }
     } else {
       chapterStructure.value = []
       chapters.value = []

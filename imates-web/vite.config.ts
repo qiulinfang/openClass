@@ -77,7 +77,7 @@ export default defineConfig(({ mode }) => {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-    optimizeDeps: {
+  optimizeDeps: {
     // 排除 mupdf 的预构建，因为它包含 WASM 文件
     exclude: ['mupdf'],
   },
@@ -342,7 +342,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：匹配以 "/api" 开头的请求，转发到资源服务器（解决CORS问题）
       '/api': {
-        target: 'https://www.imates.com.cn:9099', // 资源服务器地址
+        target: 'http://localhost:8080/blw-edu-yb', // 资源服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: true, // 使用HTTPS协议
         // 添加CORS头信息
@@ -360,7 +360,8 @@ export default defineConfig(({ mode }) => {
             console.log('代理API请求到服务器:', req.url)
           })
         }
-      }
+      },
+      
     },
   },
   // 为Android WebView优化构建配置
@@ -381,7 +382,13 @@ export default defineConfig(({ mode }) => {
         // 确保文件名不包含特殊字符
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]',
+        assetFileNames: (assetInfo) => {
+          // 为动画序列图片使用特殊的命名规则
+          if (assetInfo.name && assetInfo.name.includes('animations/') && /\.(jpg|jpeg|png)$/i.test(assetInfo.name)) {
+            return 'assets/animations/[name].[hash][extname]'
+          }
+          return 'assets/[name].[hash][extname]'
+        },
         // 手动分割代码块以减少单个文件大小
         manualChunks: {
           'vendor': ['vue', 'vue-router', 'pinia'],
