@@ -146,7 +146,7 @@ const handleAvatarClick = async () => {
 }
 
 .profile-dialog-content {
-  padding: 0;
+  padding-bottom: 10px;
   display: flex;
   flex-direction: column;
   flex: 1;

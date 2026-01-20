@@ -197,6 +197,7 @@ import Dialog from './base/Dialog.vue'
 import BubblePopup from './base/Popover.vue'
 import ActionList from './ActionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
+import { SUBJECT_FILTER_MAP } from '../constants/subjects'
 
 // 策略模式支持
 import type { QuestionListType } from './question/strategies'
@@ -276,29 +277,12 @@ const router = useRouter()
 const currentSubjectForPhotoSearch = computed(() => {
   const current = currentQuestion.value
   if (current?.subject) {
-    const subjectMap: Record<string, string> = {
-      SUBJECT_MATH: 'math',
-      SUBJECT_BIOLOGY: 'biology',
-      SUBJECT_CHEMISTRY: 'chemistry',
-      SUBJECT_PHYSICS: 'physics',
-      SUBJECT_CHINESE: 'chinese',
-      SUBJECT_ENGLISH: 'english',
-    }
-    return subjectMap[current.subject] || current.subject.toLowerCase() || 'math'
+    // 题目的subject是小写格式，直接使用
+    return current.subject
   }
-  // 如果没有当前题目，根据用户选择的科目判断
-  const subjectMap: Record<string, string> = {
-    SUBJECT_MATH: 'math',
-    SUBJECT_BIOLOGY: 'biology',
-    SUBJECT_CHEMISTRY: 'chemistry',
-    SUBJECT_PHYSICS: 'physics',
-    SUBJECT_CHINESE: 'chinese',
-    SUBJECT_ENGLISH: 'english',
-  }
-  // 从 selectedSubjectFilter 获取学科
+  // 如果没有当前题目，将selectedSubjectFilter转换为小写格式
   if (selectedSubjectFilter.value) {
-    const filterSubject = String(selectedSubjectFilter.value).toUpperCase()
-    return subjectMap[filterSubject] || 'math'
+    return selectedSubjectFilter.value.toLowerCase()
   }
   return 'math'
 })
@@ -387,20 +371,11 @@ const filteredQuestions = computed(() => {
 
   // 先应用学科过滤
   if (selectedSubjectFilter.value) {
-    const filterSubject = String(selectedSubjectFilter.value).toUpperCase()
-
-    // 学科映射表（支持多种格式）
-    const subjectMap: Record<string, string[]> = {
-      SUBJECT_MATH: ['SUBJECT_MATH', 'MATH', '数学'],
-      SUBJECT_BIOLOGY: ['SUBJECT_BIOLOGY', 'BIOLOGY', '生物'],
-      SUBJECT_CHEMISTRY: ['SUBJECT_CHEMISTRY', 'CHEMISTRY', '化学'],
-      SUBJECT_PHYSICS: ['SUBJECT_PHYSICS', 'PHYSICS', '物理'],
-      SUBJECT_CHINESE: ['SUBJECT_CHINESE', 'CHINESE', '语文'],
-      SUBJECT_ENGLISH: ['SUBJECT_ENGLISH', 'ENGLISH', '英语'],
-    }
+    // selectedSubjectFilter 现在是大写枚举格式
+    const filterSubject = selectedSubjectFilter.value
 
     // 获取过滤学科的所有可能值
-    const filterValues = subjectMap[filterSubject] || [filterSubject]
+    const filterValues = SUBJECT_FILTER_MAP[filterSubject as keyof typeof SUBJECT_FILTER_MAP] || [filterSubject]
 
     result = result.filter((question) => {
       if (!question.subject) return false
@@ -727,29 +702,11 @@ const deleteQuestion = async () => {
       // 确定要删除的题目的科目
       const questionSubject = question.subject || selectedSubject.value
 
-      // 将 Subject 枚举值转换为科目名称
-      const subjectMap: Record<string, string> = {
-        SUBJECT_MATH: 'math',
-        SUBJECT_BIOLOGY: 'biology',
-        SUBJECT_CHEMISTRY: 'chemistry',
-        SUBJECT_PHYSICS: 'physics',
-        SUBJECT_CHINESE: 'chinese',
-        SUBJECT_ENGLISH: 'english',
-      }
-
       // 确定科目名称
       let subjectToDelete = selectedSubject.value
       if (questionSubject) {
-        const subjectUpper = String(questionSubject).toUpperCase()
-        if (subjectMap[subjectUpper]) {
-          subjectToDelete = subjectMap[subjectUpper]
-        } else if (subjectUpper.includes('BIOLOGY')) {
-          subjectToDelete = 'biology'
-        } else if (subjectUpper.includes('MATH')) {
-          subjectToDelete = 'math'
-        } else {
-          subjectToDelete = subjectUpper.toLowerCase()
-        }
+        // 优先使用题目的subject（小写），否则转换当前选中的科目
+        subjectToDelete = questionSubject.toLowerCase()
       }
       console.log(`[QuestionList] ✅ 删除题目 ${question} 的科目是 ${subjectToDelete}`)
       // 使用API服务删除题目（使用 bmNo）
@@ -895,16 +852,8 @@ const loadQuestions = async () => {
         await currentStrategy.fetchAllSubjectsQuestions(true)
       } else {
         // 具体学科：加载指定学科的题目
-        const subjectMap: Record<string, string> = {
-          SUBJECT_MATH: 'math',
-          SUBJECT_BIOLOGY: 'biology',
-          SUBJECT_CHEMISTRY: 'chemistry',
-          SUBJECT_PHYSICS: 'physics',
-          SUBJECT_CHINESE: 'chinese',
-          SUBJECT_ENGLISH: 'english',
-        }
-        const filterValue = String(selectedSubjectFilter.value).toUpperCase()
-        const subjectToLoad = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
+        // selectedSubjectFilter 现在是大写枚举格式，需要转换为小写
+        const subjectToLoad = selectedSubjectFilter.value.toLowerCase()
         selectedSubject.value = subjectToLoad
 
         console.log('[QuestionList] 从服务器加载单一学科题目', { subjectToLoad })
@@ -1148,6 +1097,9 @@ const moveQuestionToTop = async (questionId: string) => {
 // 发送给AI
 const sendToAi = async (question: ExerciseItem) => {
   try {
+    
+    // 发出事件通知父组件切换到AI聊天界面
+    emit('startAiGuidance', question)
     const aiExerciseStore = useAiExerciseChatStore()
 
     // 根据题目 subject 计算要传给 AI 的学科
@@ -1237,8 +1189,6 @@ const sendToAi = async (question: ExerciseItem) => {
       )
     }
 
-    // 发出事件通知父组件切换到AI聊天界面
-    emit('startAiGuidance', question)
   } catch (error) {
     // 发生错误时重置AI指导状态（仅对习题场景有效）
     const questionStore = useQuestionStore()
@@ -1377,16 +1327,8 @@ watch(
       questions.value = [...currentStrategy.getQuestions()]
     } else {
       // 具体学科：加载指定学科的题目
-      const subjectMap: Record<string, string> = {
-        SUBJECT_MATH: 'math',
-        SUBJECT_BIOLOGY: 'biology',
-        SUBJECT_CHEMISTRY: 'chemistry',
-        SUBJECT_PHYSICS: 'physics',
-        SUBJECT_CHINESE: 'chinese',
-        SUBJECT_ENGLISH: 'english',
-      }
       const filterValue = String(newFilter).toUpperCase()
-      const targetSubject = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
+      const targetSubject = filterValue.toLowerCase()
 
       // 检查当前策略的 store 中的题目是否属于目标科目
       const currentQuestions = currentStrategy.getQuestions()

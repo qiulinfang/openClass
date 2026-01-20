@@ -126,10 +126,9 @@ const handleCancel = () => {
     .teacher-item {
       display: flex;
       align-items: center;
-      padding: 12px 20px;
+      padding: 8px 16px;
       cursor: pointer;
-      border-radius: 8px;
-      transition: all 0.2s ease;
+      border-radius: 6px;
       position: relative;
 
       &:hover {
@@ -142,24 +141,25 @@ const handleCancel = () => {
       }
 
       .teacher-avatar {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
         background-color: #6e55ff;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-right: 12px;
+        margin-right: 10px;
         color: white;
+        flex-shrink: 0;
 
         svg {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
         }
       }
 
       .teacher-name {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 500;
         color: #1e1e1e;
         flex: 1;

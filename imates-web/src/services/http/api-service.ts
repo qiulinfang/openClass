@@ -9,32 +9,19 @@ import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
+import type { TeacherHistoryMessage } from './teacher-chat-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 使用统一类型定义
 import type {
-  UserInfo,
   AiChatMessageRequest,
   TextbookVersion,
-  TextbookOption,
-  TextbookStructureRequest,
-  LearningResourcesRequest,
   ChapterNode,
   LearningPackage,
-  LoginResponse,
-  LoginRequest,
-  LoginData,
-  XuebanLoginResponse,
-  FeedbackTicketRequest,
-  FeedbackTicketResponse,
   UserTextbookInfo,
-  ResourceFile,
-  LocalFileInfo,
   BackendHistoryMessage,
-  SSEPayload,
   ManageConversationMemoryRequest,
   FindSimilarQuestionByBmNoRequest,
-  ApiResponse,
 } from '@/types'
 
 
@@ -207,35 +194,24 @@ export class ApiService {
   }
 
 
-  /**
-   * 发送语音消息给老师
-   */
-  public async sendVoiceMessageToTeacher(
-    voicePath: string,
-    duration: string,
-    sessionId: string,
-    subject: string,
-  ): Promise<boolean> {
-    return this.aiChatApi.sendVoiceMessageToTeacher(voicePath, duration, sessionId, subject)
-  }
+
 
   /**
-   * 转发AI对话记录给老师
+   * 发送消息到教师
    */
-  public async forwardAiChatToTeacher(
-    selectedMessagesData: string,
-    teacherSessionId: string,
+  public async sendTeacherMessage(
+    sessionId: string,
+    msgType: string,
+    msgContent: string
   ): Promise<boolean> {
-    // 构造转发消息的内容
-    const forwardContent = `[AI聊天转发]\n${selectedMessagesData}`
-    return this.teacherChatApi.sendMessage(teacherSessionId, '0', forwardContent)
+    return this.teacherChatApi.sendMessage(sessionId, msgType, msgContent)
   }
 
   /**
    * 获取老师会话的消息历史
    */
-  public async getTeacherChatHistory(sessionId: string): Promise<any[]> {
-    return this.teacherChatApi.getTeacherChatHistory(sessionId)
+  public async getTeacherChatHistory(sessionId: string, page?: number, pageSize?: number): Promise<TeacherHistoryMessage[]> {
+    return this.teacherChatApi.getTeacherChatHistory(sessionId, page, pageSize)
   }
 
 
@@ -300,6 +276,9 @@ export type TopicQuestionItem = import('./textbook-download-api').TopicQuestionI
 export type TopicPackageItem = import('./textbook-download-api').TopicPackageItem
 
 export type TopicPackagePageResponse = import('./textbook-download-api').TopicPackagePageResponse
+
+// 教师聊天相关类型
+export type TeacherHistoryMessage = import('./teacher-chat-api').TeacherHistoryMessage
 
 // 创建默认的 API 服务实例
 export const apiService = ApiService.getInstance()

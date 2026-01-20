@@ -17,7 +17,10 @@
             !aiExerciseStore.isChatLoading &&
             type === 'ai-exercise'
           "
-          class="empty-chat-state"
+          :class="[
+            'empty-chat-state',
+            props.size === 'small' ? 'empty-chat-state--small' : 'empty-chat-state--large',
+          ]"
         >
           <div class="suggestion-header">猜你想问：</div>
           <div class="suggestion-list">
@@ -324,6 +327,8 @@
           v-model="inputMessage"
           :placeholder="enhancedPlaceholderText"
           :is-loading="isLoading"
+          :selected-model="selectedModel"
+          @update:selected-model="selectedModel = $event"
           @send="sendSimpleMessage"
           @focus="
             () => {
@@ -332,7 +337,11 @@
             }
           "
           @blur="onInputBlur"
-        />
+        >
+        <template #header-prefix>
+            <slot name="header-prefix"></slot>
+          </template>
+        </SimpleChatInput>
       </slot>
 
       <!-- 底部提示文案：移动到输入区域内部底部 -->
@@ -364,13 +373,25 @@
       @cancel="handleAnnotateCancel"
       @remove-screenshot="handleAnnotateRemoveScreenshot"
     />
-  </div>
+    
+    <!-- 老师选择对话框 -->
+    <TeacherSelectionDialog
+      v-model="showTeacherSelectionDialog"
+      @confirm="handleTeacherSelected"
+    />
 
-  <!-- 老师选择对话框 -->
-  <TeacherSelectionDialog
-    v-model="showTeacherSelectionDialog"
-    @confirm="handleTeacherSelected"
-  />
+    <!-- 转发成功对话框 -->
+    <Dialog
+      ref="forwardSuccessDialogRef"
+      title="转发成功"
+      :confirm-button-text="'前往老师对话'"
+      :cancel-button-text="'留在当前会话'"
+      @confirm="handleForwardSuccessConfirm"
+      @cancel="handleForwardSuccessCancel"
+    >
+      {{ forwardSuccessMessage }}
+    </Dialog>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -397,6 +418,7 @@ import CardStack from './base/CardStack.vue'
 import DraggableDialog from './base/Modal.vue'
 import RubberBandList from './base/VirtualList.vue'
 import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
+import Dialog from './base/Dialog.vue'
 
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
@@ -426,6 +448,7 @@ const props = withDefaults(
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
+    size?: 'large' | 'small' // 可选：界面大小选择，large=默认大，small=紧凑
     // 当前题目对象，由外层页面维护，ChatView 不直接依赖全局 questionStore
     question?: unknown
     attachedScreenshots?: AttachedScreenshot[]
@@ -438,6 +461,7 @@ const props = withDefaults(
   }>(),
   {
     inputMode: 'full',
+    size: 'large',
     showFooterText: true, // 默认显示底部文案
     showToolbar: true, // 默认显示顶部工具栏
     showActionButtons: true, // 默认显示消息功能按钮
@@ -463,7 +487,7 @@ const emit = defineEmits<{
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'scroll-to-message': [messageId: string] // 滚动到指定消息事件
-  'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
+  'open-teacher-dialog': [{ sessionId: string; message?: import('../types').ChatBubble }] // 打开老师对话框事件
   'remove-screenshot': [string]
   'send-with-screenshot': [string, import('../types').AttachedScreenshot[], string]
   'focus-input': [] // 聚焦输入框事件
@@ -809,6 +833,11 @@ const pendingDeleteSessionTitle = ref('')
 const showTeacherSelectionDialog = ref(false)
 let teacherSelectionResolve: ((subject: 'BIOLOGY' | 'MATH') => void) | null = null
 
+// 转发成功对话框状态
+const forwardSuccessDialogRef = ref<InstanceType<typeof Dialog>>()
+const forwardSuccessMessage = ref('')
+let forwardSuccessResolve: ((result: { goToTeacher: boolean; sessionId?: string }) => void) | null = null
+
 // 请求删除会话（显示确认对话框）
 const handleDeleteSessionRequest = (sessionId: string) => {
   // 只有支持会话管理的策略才能删除会话
@@ -868,6 +897,32 @@ const cancelDeleteSession = () => {
   showDeleteConfirmDialog.value = false
   pendingDeleteSessionId.value = null
   pendingDeleteSessionTitle.value = ''
+}
+
+// 显示转发成功对话框
+const showForwardSuccessDialog = (message: string, sessionId?: string): Promise<{ goToTeacher: boolean; sessionId?: string }> => {
+  return new Promise((resolve) => {
+    forwardSuccessMessage.value = message
+    forwardSuccessResolve = (result: { goToTeacher: boolean }) => resolve({ ...result, sessionId })
+    forwardSuccessDialogRef.value?.openDialog()
+  })
+}
+
+// 处理转发成功对话框确认
+const handleForwardSuccessConfirm = () => {
+  if (forwardSuccessResolve) {
+    // 这里需要从消息中解析 sessionId，暂时传递空值，后续可以优化
+    forwardSuccessResolve({ goToTeacher: true })
+    forwardSuccessResolve = null
+  }
+}
+
+// 处理转发成功对话框取消
+const handleForwardSuccessCancel = () => {
+  if (forwardSuccessResolve) {
+    forwardSuccessResolve({ goToTeacher: false })
+    forwardSuccessResolve = null
+  }
 }
 
 // 新建会话卡片（兼容旧接口）
@@ -2264,14 +2319,12 @@ const handleForwardMessage = async (message: ChatBubble) => {
       // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
       currentQuestion: currentQuestion.value || undefined,
       onTeacherSelect: showTeacherSelection, // 传入老师选择回调
+      showForwardSuccessDialog: showForwardSuccessDialog, // 传入对话框显示回调
       onSuccess: async (result) => {
         // 转发成功后的回调
         if (result.sessionId) {
           // 触发跳转到老师对话的事件
-          emit('open-teacher-dialog', {
-            sessionId: result.sessionId,
-            message: message,
-          })
+          emit('open-teacher-dialog', { sessionId: result.sessionId })
         }
       },
       onError: (error) => {
@@ -2560,6 +2613,7 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
         // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
         currentQuestion: currentQuestion.value || undefined,
         onTeacherSelect: showTeacherSelection, // 传入老师选择回调
+        showForwardSuccessDialog: showForwardSuccessDialog, // 传入对话框显示回调
         onSuccess: async (result) => {
           // 转发成功后的回调
           if (result.sessionId) {
@@ -3046,101 +3100,6 @@ defineExpose({
   }
 }
 
-/* 选择模式工具栏特定样式 */
-.selection-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #f5f5f5;
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin: 8px 16px 12px;
-  flex-shrink: 0;
-  min-height: 56px;
-}
-
-/* 左侧全选区域 */
-.selection-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  flex: 1;
-}
-
-.select-all-icon {
-  font-size: 20px;
-  color: #5f6368;
-  flex-shrink: 0;
-  transition: color 0.2s;
-}
-
-.select-all-icon.icon-selected {
-  color: #7c3aed;
-}
-
-.selection-left:hover .select-all-icon {
-  color: #7c3aed;
-}
-
-.select-all-text {
-  font-size: 15px;
-  color: #3c4043;
-  font-weight: 400;
-  margin-right: 4px;
-}
-
-.selection-count {
-  font-size: 14px;
-  color: #5f6368;
-}
-
-/* 右侧操作按钮组 */
-.selection-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* 取消按钮 */
-.cancel-btn {
-  background: #ffffff !important;
-  color: #5f6368 !important;
-  border-radius: 8px;
-  padding: 8px 20px;
-  font-size: 15px;
-  font-weight: 500;
-  text-transform: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.cancel-btn:hover {
-  background: #f5f5f5 !important;
-}
-
-/* 发送按钮 */
-.send-btn {
-  background: #7c3aed !important;
-  color: #ffffff !important;
-  border-radius: 8px;
-  padding: 8px 20px;
-  font-size: 15px;
-  font-weight: 500;
-  text-transform: none;
-  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.3);
-}
-
-.send-btn:hover {
-  background: #6d28d9 !important;
-}
-
-.send-btn[disabled] {
-  background: #d1d5db !important;
-  color: #9ca3af !important;
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 .message-checkbox {
   position: absolute;
@@ -3233,6 +3192,41 @@ defineExpose({
   background-color: #f6f6f8;
   border-radius: 10px;
   margin-left: 10px;
+}
+
+/* 紧凑版：减小内边距、字体与间距 */
+.empty-chat-state--small {
+  padding: 8px 8px;
+  gap: 6px;
+  max-width: 60%;
+  border-radius: 8px;
+  margin-left: 6px;
+}
+
+.empty-chat-state--small .suggestion-header {
+  font-size: 12px;
+}
+
+.empty-chat-state--small .suggestion-list {
+  gap: 6px;
+}
+
+.empty-chat-state--small .suggestion-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.empty-chat-state--small .suggestion-text {
+  font-size: 12px;
+}
+
+.empty-chat-state--small .suggestion-edit-btn {
+  width: 20px;
+  height: 20px;
+}
+
+.empty-chat-state--large {
+  /* 保留现有默认样式，可在此覆盖以保证“大”模式与当前一致 */
 }
 
 .suggestion-header {

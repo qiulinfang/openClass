@@ -10,7 +10,6 @@ import { useAiGeneralChatStore } from '../../../stores/aiGeneralChatStore'
 import { getUserInfo, getSubject } from '../../../services'
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { apiService } from '../../../services/http/api-service'
-import { Dialog } from 'quasar'
 import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 import TeacherSelectionDialog from '../../dialog/TeacherSelectionDialog.vue'
@@ -380,52 +379,39 @@ export class AiGeneralStrategy implements ChatStrategy {
     return result
   }
 
-  /**
-   * 根据科目创建老师会话（通用会话）
-   */
-  private async createTeacherSession(
-    subject: 'BIOLOGY' | 'MATH'
-  ): Promise<{ sessionId: string; sessionName: string; subject: 'BIOLOGY' | 'MATH' } | null> {
-    const teacherStore = useTeacherChatStore()
-    
-    // 初始化老师消息监听器
-    await teacherStore.initMessageReceiver()
-    
-    // 直接创建新会话
-    const subjectName = subject === 'biology' ? '生物' : '数学'
-    const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const aiSessionName = `${subjectName}`
-    
-    const createdSession = teacherStore.createTeacherSession(
-      aiSessionId,
-      aiSessionName,
-      subject
-    )
-    
-    if (createdSession) {
-      return {
-        sessionId: createdSession.sessionId,
-        sessionName: createdSession.sessionName,
-        subject: createdSession.subject as 'BIOLOGY' | 'MATH',
-      }
-    }
-    
-    return null
-  }
 
   /**
-   * 选择老师会话（通用会话）
+   * 选择老师会话（从写死会话中选择）
    */
-  private async selectTeacherSession(onTeacherSelect?: () => Promise<'BIOLOGY' | 'MATH'>): Promise<{ sessionId: string; sessionName: string; subject: 'BIOLOGY' | 'MATH' } | null> {
+  private async selectTeacherSession(onTeacherSelect?: () => Promise<'biology' | 'math'>): Promise<{ sessionId: string; sessionName: string; subject: string } | null> {
     if (!onTeacherSelect) {
       console.error('[AiGeneralStrategy] 未提供老师选择回调函数')
       return null
     }
 
     try {
+      // 1. 用户手动选择科目
       const selectedSubject = await onTeacherSelect()
-      const result = await this.createTeacherSession(selectedSubject)
-      return result
+
+      // 2. 转换科目格式（小写 -> 大写）
+      const subjectUpper = selectedSubject === 'biology' ? 'BIOLOGY' : 'MATH'
+
+      // 3. 从写死会话中选择对应的会话
+      const teacherStore = useTeacherChatStore()
+      const allSessions = teacherStore.loadAllSessions()
+
+      // 找到对应的写死会话
+      const session = Object.values(allSessions).find(s => s.subject === subjectUpper)
+      if (!session) {
+        console.error('[AiGeneralStrategy] 未找到对应科目的写死会话:', selectedSubject)
+        return null
+      }
+
+      return {
+        sessionId: session.sessionId,
+        sessionName: session.sessionName,
+        subject: session.subject
+      }
     } catch (error) {
       console.error('[AiGeneralStrategy] 老师选择失败:', error)
       return null
@@ -451,63 +437,51 @@ export class AiGeneralStrategy implements ChatStrategy {
       return false
     }
     
-    // 第3步：调用API转发
+    // 第3步：直接通过WebSocket发送转发消息
     try {
-      const success = await apiService.forwardAiChatToTeacher(
-        selectedMessagesData,
-        sessionId,
-      )
-      
-      if (success) {
-        // 第4步：保存转发消息到本地存储
-        const convertedMessages = messages.map((msg) => {
-          // 确定消息类型
-          let messageType: 'text' | 'voice' | 'image' = (msg.messageType || 'text') as 'text' | 'voice' | 'image'
-          if (!messageType || (messageType !== 'text' && messageType !== 'voice' && messageType !== 'image')) {
-            // 如果没有 messageType 或类型不正确，根据数据判断
-            if (msg.imageData?.filePath || msg.imageData?.base64DataUrl) {
-              messageType = 'image'
-            } else if (msg.voiceData?.filePath) {
-              messageType = 'voice'
-            } else {
-              messageType = 'text'
-            }
-          }
-          
-          // 生成唯一的转发消息ID，允许同一条消息多次转发
-          // 提取原始ID（如果已经是转发消息，提取原始ID）
-          const originalId = msg.id.startsWith('forwarded_') 
-            ? msg.id.replace(/^forwarded_/, '').split('_')[0] // 提取第一个下划线前的原始ID
-            : msg.id
-          const uniqueId = generateUniqueId(`forwarded_${originalId}`)
-          
-          return {
-            ...msg,
-            id: uniqueId,
-            sender: 'user' as const,
-            type: 'user' as const,
-            messageType: messageType
-          }
-        })
-        
-        // AI通用策略固定使用 general 类型的 store
-        const teacherStore = useTeacherChatStore()
-        // 确保 currentSession 指向正确的会话，避免会话列表重复存储
-        const targetSession = teacherStore.getSession(sessionId)
-        if (targetSession) {
-          teacherStore.setSession(targetSession)
-          // 在添加消息之前，先加载该会话的历史消息，确保 messages 只包含当前会话的消息
-          await teacherStore.loadChatHistory(sessionId)
-        }
-        // 直接添加到老师通用消息存储并持久化
-        teacherStore.messages.push(...convertedMessages)
-        // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
-        await teacherStore.saveChatHistory()
+      const teacherStore = useTeacherChatStore()
+
+      // 确保当前会话设置正确
+      const allSessions = teacherStore.loadAllSessions()
+      const targetSession = allSessions[sessionId]
+      if (targetSession) {
+        teacherStore.setSession(targetSession)
       }
-      
-      return success
+
+      // 预先添加转发消息到store（模拟正常发送流程）
+      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const forwardContent = `[AI聊天转发]\n${selectedMessagesData}`
+
+      const forwardMessage: ChatBubble = {
+        id: messageId,
+        messageId: messageId,
+        content: forwardContent,
+        type: 'user',
+        timestamp: new Date().toISOString(),
+        sender: 'user',
+        messageType: 'text',
+      }
+
+      teacherStore.addMessage(forwardMessage)
+
+      // 检查WebSocket连接状态，如果未连接则主动建立连接
+      const { getWebSocketService } = await import('../../../services/websocket/webSocketService')
+      const webSocket = getWebSocketService('teacher')
+      if (!webSocket.isConnected()) {
+        console.log('[AiGeneralStrategy] WebSocket未连接，转发前先建立连接...')
+        const connected = await teacherStore.connectWebSocket()
+        if (!connected) {
+          throw new Error('WebSocket连接失败')
+        }
+      }
+
+      // 通过WebSocket发送转发消息
+      await teacherStore.sendMessage(forwardContent)
+
+      console.log('[AiGeneralStrategy] ✅ 转发消息通过WebSocket发送成功')
+      return true
     } catch (error) {
-      console.error('[AiGeneralStrategy] ❌ forwardMessageToTeacher 异常:', error)
+      console.error('[AiGeneralStrategy] ❌ 转发消息失败:', error)
       return false
     }
   }
@@ -519,105 +493,98 @@ export class AiGeneralStrategy implements ChatStrategy {
     messages: ChatBubble[],
     sessionId: string
   ): Promise<{ successCount: number; totalCount: number }> {
+    const teacherStore = useTeacherChatStore()
     let successCount = 0
-    
-    for (const message of messages) {
-      const selectedMessagesData = JSON.stringify([this.convertMessageForForwarding(message)])
-      
-      const success = await apiService.forwardAiChatToTeacher(
-        selectedMessagesData,
-        sessionId,
-      )
-      
-      if (success) {
-        successCount++
+
+    // 确保当前会话设置正确
+    const allSessions = teacherStore.loadAllSessions()
+    const targetSession = allSessions[sessionId]
+    if (targetSession) {
+      teacherStore.setSession(targetSession)
+    }
+
+    // 检查WebSocket连接状态，如果未连接则主动建立连接
+    const { getWebSocketService } = await import('../../../services/websocket/webSocketService')
+    const webSocket = getWebSocketService('teacher')
+    if (!webSocket.isConnected()) {
+      console.log('[AiGeneralStrategy] WebSocket未连接，批量转发前先建立连接...')
+      const connected = await teacherStore.connectWebSocket()
+      if (!connected) {
+        console.error('[AiGeneralStrategy] WebSocket连接失败，无法进行批量转发')
+        return { successCount: 0, totalCount: messages.length }
       }
-      
+    }
+
+    for (const message of messages) {
+      try {
+        const selectedMessagesData = JSON.stringify([this.convertMessageForForwarding(message)])
+
+        // 预先添加转发消息到store
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const forwardContent = `[AI聊天转发]\n${selectedMessagesData}`
+
+        const forwardMessage: ChatBubble = {
+          id: messageId,
+          messageId: messageId,
+          content: forwardContent,
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'text',
+        }
+
+        teacherStore.addMessage(forwardMessage)
+
+        // 通过WebSocket发送转发消息
+        await teacherStore.sendMessage(forwardContent)
+        successCount++
+
+        console.log(`[AiGeneralStrategy] ✅ 单条转发消息成功 (${successCount}/${messages.length})`)
+      } catch (error) {
+        console.error(`[AiGeneralStrategy] ❌ 单条转发消息失败:`, error)
+      }
+
       // 每条消息之间延迟50ms，避免发送过快
       if (messages.indexOf(message) < messages.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 50))
       }
     }
-    
-    // 如果至少有一条消息转发成功，保存所有消息到本地存储
-    if (successCount > 0) {
-      const convertedMessages = messages.map((msg) => {
-        // 生成唯一的转发消息ID，允许同一条消息多次转发
-        // 提取原始ID（如果已经是转发消息，提取原始ID）
-        const originalId = msg.id.startsWith('forwarded_') 
-          ? msg.id.replace(/^forwarded_/, '').split('_')[0] // 提取第一个下划线前的原始ID
-          : msg.id
-        const uniqueId = generateUniqueId(`forwarded_${originalId}`)
-        
-        return {
-          ...msg,
-          id: uniqueId,
-          sender: 'user' as const,
-          type: 'user' as const,
-        }
-      })
-      
-      // AI通用策略固定使用 general 类型的 store
-      console.log('保存聊天历史完成', convertedMessages.length)
-      const teacherStore = useTeacherChatStore()
-      // 确保 currentSession 指向正确的会话，避免会话列表重复存储
-      const targetSession = teacherStore.getSession(sessionId)
-      if (targetSession) {
-        teacherStore.setSession(targetSession)
-        // 在添加消息之前，先加载该会话的历史消息，确保 messages 只包含当前会话的消息
-        await teacherStore.loadChatHistory(sessionId)
-      }
-      // 直接添加到老师通用消息存储
-      teacherStore.messages.push(...convertedMessages)
-      // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
-      await teacherStore.saveChatHistory()
-    }
-    
+
+    console.log(`[AiGeneralStrategy] ✅ 批量转发完成: ${successCount}/${messages.length} 条消息`)
     return { successCount, totalCount: messages.length }
   }
 
   /**
    * 显示转发成功对话框
    */
-  private showForwardSuccessDialog(
+  private async showForwardSuccessDialog(
     result: ForwardResult,
     options: ForwardOptions,
     onNavigateToTeacher?: (sessionId: string) => void | Promise<void>
   ) {
-    if (!options.showDialog) {
+    if (!options.showDialog || !options.showForwardSuccessDialog) {
       return
     }
-    
+
     const message = result.successCount && result.successCount > 1
       ? `已成功转发 ${result.successCount} 条消息给老师，是否前往老师对话查看？`
       : '消息已成功转发给老师，是否前往老师对话查看？'
-    
-    Dialog.create({
-      title: '转发成功',
-      message: message,
-      cancel: {
-        label: '留在当前会话',
-        color: 'grey-7',
-        flat: true,
-      },
-      ok: {
-        label: '前往老师对话',
-        color: 'primary',
-        unelevated: true,
-      },
-      persistent: false,
-    }).onOk(() => {
-      if (result.sessionId && onNavigateToTeacher) {
+
+    try {
+      const dialogResult = await options.showForwardSuccessDialog(message, result.sessionId)
+      if (dialogResult.goToTeacher && result.sessionId && onNavigateToTeacher) {
         onNavigateToTeacher(result.sessionId)
       }
       if (options.onSuccess) {
         options.onSuccess(result)
       }
-    }).onCancel(() => {
+    } catch (error) {
+      console.error('[AiGeneralStrategy] 显示转发成功对话框失败:', error)
+      // 如果对话框显示失败，仍执行成功回调
       if (options.onSuccess) {
         options.onSuccess(result)
       }
-    })
+    }
   }
 
   // 获取联网搜索状态

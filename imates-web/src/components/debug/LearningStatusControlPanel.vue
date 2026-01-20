@@ -210,6 +210,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { getUserId } from '../../services'
+import { showMessage } from '../../utils'
 
 interface ChapterNode {
   id: string
@@ -324,11 +325,7 @@ const saveLastLearnedNodeId = (nodeId: string | null) => {
     emit('refresh')
   } catch (error) {
     console.error('保存最后学习的节点ID失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '保存失败',
-      position: 'top'
-    })
+    showMessage('保存失败', 'negative')
   }
 }
 
@@ -353,11 +350,7 @@ const saveLearnedNodeIds = () => {
     emit('refresh')
   } catch (error) {
     console.error('保存已学习的节点ID列表失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '保存失败',
-      position: 'top'
-    })
+    showMessage('保存失败', 'negative')
   }
 }
 
@@ -423,11 +416,7 @@ const clearLastLearned = () => {
     persistent: true
   }).onOk(() => {
     saveLastLearnedNodeId(null)
-    $q.notify({
-      type: 'positive',
-      message: '已清除上次学习节点',
-      position: 'top'
-    })
+    showMessage('已清除上次学习节点', 'positive')
   })
 }
 
@@ -441,11 +430,7 @@ const clearAllLearned = () => {
   }).onOk(() => {
     learnedNodeIds.value.clear()
     saveLearnedNodeIds()
-    $q.notify({
-      type: 'positive',
-      message: '已清除所有已学习节点',
-      position: 'top'
-    })
+    showMessage('已清除所有已学习节点', 'positive')
   })
 }
 
@@ -453,11 +438,7 @@ const clearAllLearned = () => {
 const removeLearnedNode = (nodeId: string) => {
   learnedNodeIds.value.delete(nodeId)
   saveLearnedNodeIds()
-  $q.notify({
-    type: 'positive',
-    message: '已移除已学习节点',
-    position: 'top'
-  })
+  showMessage('已移除已学习节点', 'positive')
 }
 
 // 添加已学习节点
@@ -469,11 +450,7 @@ const addLearnedNode = () => {
   learnedNodeIds.value.add(selectedNodeId.value)
   saveLearnedNodeIds()
   selectedNodeId.value = null
-  $q.notify({
-    type: 'positive',
-    message: '已添加到已学习节点',
-    position: 'top'
-  })
+  showMessage('已添加到已学习节点', 'positive')
 }
 
 // 设置上次学习节点
@@ -484,11 +461,7 @@ const setLastLearnedNode = () => {
   
   saveLastLearnedNodeId(selectedLastLearnedId.value)
   selectedLastLearnedId.value = null
-  $q.notify({
-    type: 'positive',
-    message: '已设置上次学习节点',
-    position: 'top'
-  })
+  showMessage('已设置上次学习节点', 'positive')
 }
 
 // 监听章节结构变化，刷新节点列表
