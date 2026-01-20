@@ -307,26 +307,27 @@
               :question="currentQuestionData"
               @response="handleChatResponse"
               @send-message="handleSendSuggestionInPhotoSearch"
+              :size='small'
             >
               <!-- 前置插槽：操作按钮组 -->
-              <template #input-prefix>
+              <template #header-prefix>
                 <div class="chat-action-group">
                   <div class="chat-action-item" @click="handleRetake">
-                    <q-icon name="photo_camera" size="20px" />
+                    <img :src="zaipaiyitiIcon" style="width: 20px; height: 20px;" />
                     <span class="chat-action-text">再拍一题</span>
                   </div>
                   <div class="chat-action-item" @click="handleFavoriteInChat">
-                    <q-icon
-                      :name="isFavoriteInChat ? 'star' : 'star_border'"
+                    <img
+                      :src="isFavoriteInChat ? xingxingLightIcon : xingxingIcon"
                       :class="{ favorited: isFavoriteInChat }"
-                      size="20px"
+                      style="width: 20px; height: 20px;"
                     />
                     <span class="chat-action-text">收藏</span>
                   </div>
                   <div class="chat-action-item" @click="handleAddToPracticeInChat">
-                    <q-icon
-                      name="description"
-                      size="20px"
+                    <img
+                      :src="isInPracticeList ? jiarulianxiLightIcon : jiarulianxiIcon"
+                      style="width: 20px; height: 20px;"
                       :class="{ 'in-practice': isInPracticeList }"
                     />
                     <span class="chat-action-text">加入练习</span>
@@ -395,6 +396,12 @@ import albumIcon from '/icons/Album.svg'
 import cameraIcon from '/icons/camera.svg'
 import retakeIcon from '/icons/researh.svg'
 import searchIcon from '/icons/search.svg'
+
+import zaipaiyitiIcon from '/icons/zaipaiyiti.svg'
+import xingxingIcon from '/icons/xingxing.svg'
+import xingxingLightIcon from '/icons/xingxing-light.svg'
+import jiarulianxiIcon from '/icons/jiarulianxi.svg'
+import jiarulianxiLightIcon from '/icons/jiarulianxi-light.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -2482,8 +2489,7 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-  padding: 12px;
-  margin: 12px;
+  padding: 12px 12px 0 12px;
 }
 
 .drawer-back-btn {
@@ -2545,8 +2551,8 @@ onUnmounted(() => {
 
 .image-tabs {
   display: flex;
-  padding: 8px;
-  background: #e0e0e0;
+  padding: 4px;
+  background: #f1f1f1;
   border-radius: 24px;
   position: relative;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -2569,7 +2575,6 @@ onUnmounted(() => {
     background: white;
     font-weight: 500;
     border-radius: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &:not(.active) {
@@ -2581,9 +2586,11 @@ onUnmounted(() => {
   position: relative;
   box-sizing: border-box;
   margin-top: 10px;
-  max-height: 300px;
+  max-height: 150px;
   overflow-x: auto;
   overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #7a7cff;
 }
 
 .result-actions {
@@ -2599,8 +2606,7 @@ onUnmounted(() => {
 
 .recognized-problem {
   position: relative;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
+
   padding: 8px;
   margin-top: 0;
   overflow-x: auto;
@@ -2729,20 +2735,20 @@ onUnmounted(() => {
 .keyword-result-wrapper {
   position: relative;
   box-sizing: border-box;
-  max-height: 250px;
+  max-height: 150px;
   overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  background-color: #f9f9f9;
+  border-radius: 8px;
 }
 
 .keyword-search-result {
   position: relative;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
   padding: 8px 110px 8px 8px;
   margin-top: 0;
   min-height: 60px;
   max-height: 500px;
   overflow-y: auto;
-  box-sizing: border-box;
 }
 
 

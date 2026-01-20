@@ -106,21 +106,6 @@
       </div>
     </div>
 
-    <!-- 路由历史调试按钮 -->
-    <q-btn
-      v-if="isDev"
-      fab
-      icon="route"
-      color="secondary"
-      class="route-history-debug-button"
-      @click="showRouteHistoryDebugPanel = !showRouteHistoryDebugPanel"
-      :title="showRouteHistoryDebugPanel ? '关闭路由历史调试面板' : '打开路由历史调试面板'"
-    >
-      <q-tooltip>
-        {{ showRouteHistoryDebugPanel ? '关闭路由历史调试面板' : '打开路由历史调试面板' }}
-      </q-tooltip>
-    </q-btn>
-
     <!-- AI统一聊天对话框 -->
     <GlobalChatDialog
       v-model="uiStore.showAIChatDialog"
@@ -143,16 +128,6 @@
       v-model="showProfileDialog"
       :userInfo="currentUserInfo"
       @avatar-changed="handleAvatarChanged"
-    />
-
-    <!-- 路由历史调试面板 -->
-    <RouteHistoryDebugPanel
-      v-if="isDev"
-      v-model="showRouteHistoryDebugPanel"
-      :active-nav-item="activeNavItem"
-      :navigation-history="navigationHistory"
-      :module-history="moduleHistory"
-      @clear-history="clearAllHistory"
     />
 
     <!-- 主页右侧统一聊天面板 -->
@@ -188,7 +163,6 @@ import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import DrawingBoardView from '@/views/DrawingBoardView.vue'
 import DraggableDialog from '@/components/base/Modal.vue'
-import RouteHistoryDebugPanel from '@/components/debug/RouteHistoryDebugPanel.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
@@ -243,16 +217,6 @@ const userClientStore = useUserClientStore()
 const activeNavItem = ref(props.activeNavItem)
 const isInClass = ref(false)
 
-// 路由历史记录管理
-const navigationHistory = ref<string[]>([])
-const moduleHistory = ref<Record<string, string[]>>({
-  knowledge: [],    // 知识图谱模块的历史记录 (包含 pdfViewer, htmlViewer, videoViewer)
-  exercises: [],    // 习题模块的历史记录 (exerciseSolve, homeworkExercise, findExercise)
-  resources: [],    // 资源模块的历史记录 (myResources)
-  homework: [],     // 作业模块的历史记录 (myHomework, homeworkAnswer)
-  learning: [],     // 学习模块的历史记录 (learning, learningContent)
-  drawingBoard: []  // 画板模块的历史记录
-})
 
 
 
@@ -356,77 +320,6 @@ const cachedComponents = ref<string[]>([
   'homeworkAnswer', // 作业答题页面
 ])
 
-// 路由历史记录管理辅助函数
-
-// 根据路由名称确定所属模块
-const getModuleByRoute = (routeName: string | symbol | undefined): string => {
-  const moduleMap: Record<string, string> = {
-    'knowledgeGraph': 'knowledge',
-    'pdfViewer': 'knowledge',      // PDF阅读属于知识图谱模块
-    'htmlViewer': 'knowledge',     // HTML查看属于知识图谱模块
-    'videoViewer': 'knowledge',    // 视频查看属于知识图谱模块
-    'exerciseSolve': 'exercises',
-    'homeworkExercise': 'homework',  // 作业答题跳转到学伴，属于homework模块
-    'findExercise': 'knowledge',
-    'myResources': 'resources',
-    'myHomework': 'homework',
-    'homeworkAnswer': 'homework',
-    'learning': 'learning',
-    'learningContent': 'learning',
-    'drawingBoard': 'drawingBoard'
-  }
-
-  const name = typeof routeName === 'string' ? routeName : String(routeName)
-  return name ? moduleMap[name] || 'knowledge' : 'knowledge'
-}
-
-// 记录路由到模块历史
-const recordRouteToModuleHistory = (fullPath: string, routeName?: string) => {
-  const module = getModuleByRoute(routeName)
-
-  if (!moduleHistory.value[module]) {
-    moduleHistory.value[module] = []
-  }
-
-  // 避免重复记录相同的路径
-  if (moduleHistory.value[module].includes(fullPath)) {
-    return
-  }
-
-  moduleHistory.value[module].push(fullPath)
-
-  // 限制每个模块的历史记录数量，避免内存泄漏
-  const maxHistoryLength = 5
-  if (moduleHistory.value[module].length > maxHistoryLength) {
-    moduleHistory.value[module] = moduleHistory.value[module].slice(-maxHistoryLength)
-  }
-
-  console.log(`[路由历史] 记录到模块 ${module}:`, fullPath)
-}
-
-// 获取模块的最后访问页面（排除当前页面）
-const getLastVisitedPageInModule = (module: string, currentPath: string): string | null => {
-  const history = moduleHistory.value[module] || []
-  if (history.length === 0) return null
-
-  // 从后往前查找，找到第一个不是当前页面的路径
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i] !== currentPath) {
-      return history[i]
-    }
-  }
-
-  return null
-}
-
-// 清空所有历史记录
-const clearAllHistory = () => {
-  navigationHistory.value = []
-  Object.keys(moduleHistory.value).forEach(module => {
-    moduleHistory.value[module] = []
-  })
-  console.log('[路由历史] 已清空所有历史记录')
-}
 
 
 // 对话框显示状态
@@ -453,9 +346,6 @@ const userClientUnreadCount = computed(() => userClientStore.unreadCount)
 
 // 知识图谱未下载资源引导：气泡显示状态
 const showGoResourcesBubble = ref(true)
-
-// 路由历史调试面板显示状态
-const showRouteHistoryDebugPanel = ref(false)
 
 // 是否已有任意已下载教材（本地）
 const hasAnyDownloadedTextbook = ref<boolean | null>(null)
@@ -903,39 +793,10 @@ const handleAIChatClick = async () => {
   uiStore.openAIChatDialog()
 }
 
-// 需要排除在路由历史管理之外的路由
-const excludedRoutesFromHistory = [
-  'exerciseSolve',    // 我的习题
-  'homeworkExercise', // 作业答题跳转到学伴
-  'myHomework',       // 我的作业
-  'homeworkAnswer'    // 作业答题
-]
-
-// 监听路由变化，更新激活状态并记录历史
+// 监听路由变化，更新激活状态
 watch(
   () => route.fullPath,
-  (newPath, oldPath) => {
-    const currentRouteName = String(route.name)
-
-    // 检查是否为需要排除的路由
-    const shouldExcludeFromHistory = excludedRoutesFromHistory.includes(currentRouteName)
-
-    // 记录全局导航历史（排除指定路由）
-    if (oldPath && !navigationHistory.value.includes(oldPath) && !shouldExcludeFromHistory) {
-      navigationHistory.value.push(oldPath)
-
-      // 限制全局历史记录长度，避免内存泄漏
-      const maxGlobalHistory = 20
-      if (navigationHistory.value.length > maxGlobalHistory) {
-        navigationHistory.value = navigationHistory.value.slice(-maxGlobalHistory)
-      }
-    }
-
-    // 记录到模块历史（排除指定路由）
-    if (!shouldExcludeFromHistory) {
-      recordRouteToModuleHistory(newPath, currentRouteName)
-    }
-
+  () => {
     // 更新激活状态
     const newRouteName = route.name
     switch (newRouteName) {
@@ -1095,15 +956,7 @@ const handleMyExercisesClick = () => {
     showToolbox.value = false
   }
 
-  // 智能跳转逻辑：检查习题模块的历史记录
-  const lastVisitedPage = getLastVisitedPageInModule('exercises', route.fullPath)
-  if (lastVisitedPage) {
-    console.log('[智能导航] 习题模块回到上一页:', lastVisitedPage)
-    router.push(lastVisitedPage)
-    return
-  }
-
-  // 如果没有历史记录，跳转到默认的习题页面
+  // 跳转到默认的习题页面
   console.log('[导航] 跳转到我的习题页')
   router.push({ name: 'exerciseSolve' })
 }
@@ -1117,15 +970,7 @@ const handleMyHomeworkClick = () => {
     showToolbox.value = false
   }
 
-  // 智能跳转逻辑：检查作业模块的历史记录
-  const lastVisitedPage = getLastVisitedPageInModule('homework', route.fullPath)
-  if (lastVisitedPage) {
-    console.log('[智能导航] 作业模块回到上一页:', lastVisitedPage)
-    router.push(lastVisitedPage)
-    return
-  }
-
-  // 如果没有历史记录，跳转到默认的作业页面
+  // 跳转到默认的作业页面
   console.log('[导航] 跳转到我的作业页')
   router.push({ name: 'myHomework' })
 }
@@ -1139,15 +984,7 @@ const handleKnowledgeGraphClick = () => {
     showToolbox.value = false
   }
 
-  // 智能跳转逻辑：检查知识图谱模块的历史记录
-  const lastVisitedPage = getLastVisitedPageInModule('knowledge', route.fullPath)
-  if (lastVisitedPage) {
-    console.log('[智能导航] 知识图谱模块回到上一页:', lastVisitedPage)
-    router.push(lastVisitedPage)
-    return
-  }
-
-  // 如果没有历史记录，跳转到默认的知识图谱页面
+  // 跳转到默认的知识图谱页面
   console.log('[导航] 跳转到知识图谱主页')
   router.push({ name: 'knowledgeGraph' })
 }
@@ -1214,18 +1051,26 @@ const handleKnowledgeGraphClick = () => {
     }
 
     &.in-class {
-      background: linear-gradient(180deg, #e0f7ef 0%, #f6fffb 100%);
-      border-radius: 16px;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
-      animation: breathing 2s ease-in-out infinite;
+      position: relative;
 
-      img {
-        background: #d1fae5;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #f3e8ff;
+        border-radius: 16px;
+        box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.25);
+        animation: breathing 2s ease-in-out infinite;
+        z-index: 0;
+        margin: 2px;
       }
 
-      .user-name {
-        color: #059669;
+      img, .user-name {
+        position: relative;
+        z-index: 1;
       }
     }
 
@@ -1552,19 +1397,6 @@ const handleKnowledgeGraphClick = () => {
   background: rgba(110, 85, 255, 0.06);
 }
 
-// 路由历史调试按钮
-.route-history-debug-button {
-  position: fixed;
-  bottom: 160px; // 在存储调试按钮上方
-  right: 20px;
-  z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-
-  &:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-  }
-}
-
 // 响应式设计
 @media (max-width: 768px) {
   .main-view {
@@ -1618,11 +1450,14 @@ const handleKnowledgeGraphClick = () => {
 
 // 呼吸灯动画效果
 @keyframes breathing {
-  0%, 100% {
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.6);
+  0% {
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.25);
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
   }
 }
 </style>

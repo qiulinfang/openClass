@@ -33,10 +33,10 @@
         <div v-if="isDev" class="connection-status" @click="logWebSocketStatus">
           <div
             :class="['status-indicator', {
-              'status-connected': wsStatus.teacher?.isConnected,
-              'status-disconnected': !wsStatus.teacher?.isConnected
+              'status-connected': teacherChatStore.webSocketInitialized,
+              'status-disconnected': !teacherChatStore.webSocketInitialized
             }]"
-            :title="wsStatus.teacher ? `WebSocket: ${wsStatus.teacher.readyStateText}` : 'WebSocket未初始化'"
+            :title="teacherChatStore.webSocketInitialized ? 'WebSocket已初始化' : 'WebSocket未初始化'"
           ></div>
         </div>
         <!-- 关闭按钮 -->
@@ -115,7 +115,6 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../utils'
 import { getUserId } from '@/services'
-import { useWebSocketStatusMonitor } from '@/services/websocket/webSocketService'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import addSessionIcon from '/icons/addsession.png'
@@ -150,9 +149,6 @@ const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 // 是否为开发模式
 const isDev = computed(() => import.meta.env.DEV)
 
-// WebSocket连接状态监控
-const { status: wsStatus, startMonitoring } = useWebSocketStatusMonitor()
-
 // 同步逻辑：当需要切换到老师分类时，若还没有当前老师会话，则默认选中第一个老师会话
 const ensureTeacherSessionSelected = () => {
   console.log('[MainChatPanel] ensureTeacherSessionSelected 被调用')
@@ -177,9 +173,7 @@ const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
   console.log('[MainChatPanel] handleSessionSwitched 被调用:', { type, sessionId, currentActiveCategory: activeCategory.value })
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
   console.log('[MainChatPanel] activeCategory 设置为:', activeCategory.value)
-  if (type === 'teacher') {
-    ensureTeacherSessionSelected()
-  }
+  // SessionTree已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
 }
 
 // AI 会话删除
@@ -199,7 +193,7 @@ const handleNewChatClick = async () => {
   // 根据当前选中的节点类型来决定创建哪种类型的对话
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
 
-  if (selectedCategory === 'biology' || selectedCategory === 'math') {
+  if (selectedCategory === 'BIOLOGY' || selectedCategory === 'MATH') {
     // 如果选中的是教师分类，显示老师选择对话框
     availableTeachers.value = teacherChatStore.getAvailableTeachers()
 
@@ -245,11 +239,8 @@ const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
     console.log('[MainChatPanel] 设置为教师分类，开始选择教师会话')
     ensureTeacherSessionSelected()
 
-    // 初始化教师消息轮询系统（每次切换到教师模式都要重新初始化）
-    console.log('[MainChatPanel] 初始化教师消息轮询系统')
-    teacherChatStore.initMessageReceiver().catch(error => {
-      console.error('[MainChatPanel] 初始化教师消息轮询失败:', error)
-    })
+    // WebSocket 初始化已在 SessionTree 中完成，这里不再重复初始化
+    console.log('[MainChatPanel] WebSocket 初始化已在 SessionTree 中完成')
   } else {
     // 从教师模式切换到AI模式
     if (activeCategory.value === 'teacher') {
@@ -281,7 +272,7 @@ const handleOpenTeacherDialog = async ({
   try {
     setTeacherSession(sessionId)
     activeCategory.value = 'teacher'
-    ensureTeacherSessionSelected()
+    // setTeacherSession已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -301,7 +292,7 @@ const handleSwitchToTeacher = async (forwardData?: {
   try {
     setTeacherSession(forwardData.sessionId)
     activeCategory.value = 'teacher'
-    ensureTeacherSessionSelected()
+    // setTeacherSession已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -311,12 +302,14 @@ const handleSwitchToTeacher = async (forwardData?: {
 // WebSocket状态相关函数
 const logWebSocketStatus = () => {
   console.log('=== WebSocket 连接状态检查 ===')
-  console.log('教师聊天WebSocket状态:', wsStatus.value.teacher)
-  console.log('客服聊天WebSocket状态:', wsStatus.value.client)
+  console.log('教师聊天WebSocket状态:', {
+    initialized: teacherChatStore.webSocketInitialized,
+    hasCurrentSession: !!teacherChatStore.currentSession
+  })
 }
 
 // 启动WebSocket状态监控
-startMonitoring()
+// startMonitoring() // 不再需要 useWebSocketStatusMonitor
 
 // 组件挂载时的初始化
 onMounted(async () => {
@@ -528,6 +521,7 @@ onMounted(async () => {
   justify-content: center;
   text-align: center;
   padding: 40px 16px;
+  background-color: #e8e9ff;
 }
 
 .empty-text {

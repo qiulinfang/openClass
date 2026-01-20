@@ -11,7 +11,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { TeacherChatApi } from '../services/http/teacher-chat-api'
+import { apiService } from '../services/http/api-service'
 import { showMessage } from '../utils'
 import { getUserInfo, getUserId } from '../services'
 import { useUnreadMessageStore } from './unreadMessageStore'
@@ -141,8 +141,6 @@ const getHardcodedTeacherSessions = (): TeacherSession[] => {
 
 export const useTeacherChatStore = defineStore('teacherChat', () => {
 
-  const teacherChatApi = new TeacherChatApi()
-
   const messages = ref<ChatBubble[]>([]) // 当前会话的消息列表，包含所有聊天消息（用户消息、教师回复等）
 
 
@@ -156,7 +154,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) // 计算属性：是否可以查看答案（基于聊天响应次数）
 
   // WebSocket连接管理
-  let webSocketInitialized = false
+  const webSocketInitialized = ref(false)
   
   // ==================== 会话管理 ====================
 
@@ -338,7 +336,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       chatResponseTimes.value = 0
 
       // 第2步：调用API获取历史消息
-      const historyData = await teacherChatApi.getTeacherChatHistory(sessionId, page, pageSize)
+      const historyData = await apiService.getTeacherChatHistory(sessionId, page, pageSize)
       console.log("historyData",historyData.length)
       if (historyData && historyData.length > 0) {
         const historyMessages: ChatBubble[] = historyData
@@ -417,6 +415,14 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     return sessions
   }
 
+  const getAvailableTeachers = (): Array<{ subject: 'BIOLOGY' | 'MATH'; name: string }> => {
+    // 只返回数学和生物两个科目，对应转发功能
+    return [
+      { subject: 'MATH', name: '数学老师' },
+      { subject: 'BIOLOGY', name: '生物老师' }
+    ]
+  }
+
 
 
 
@@ -479,7 +485,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       return
     }
 
-    if (webSocketInitialized) {
+    if (webSocketInitialized.value) {
       console.log('[TeacherStore] WebSocket已初始化，跳过重复初始化')
       return
     }
@@ -597,12 +603,12 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
     webSocket.on('disconnected', () => {
       console.log('[TeacherStore] WebSocket连接断开')
-      webSocketInitialized = false
+      webSocketInitialized.value = false
     })
 
     webSocket.on('connected', () => {
       console.log('[TeacherStore] WebSocket连接成功')
-      webSocketInitialized = true
+      webSocketInitialized.value = true
       // 连接成功后不启动持续轮询，只在发送消息后检查回复
     })
 
@@ -618,7 +624,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
     // 清理WebSocket连接
     destroyWebSocketService('teacher')
-    webSocketInitialized = false
+    webSocketInitialized.value = false
 
     console.log('[TeacherStore] 清理教师WebSocket接收器完成')
   }
@@ -632,7 +638,87 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     enableWebSearch.value = !enableWebSearch.value
   }
 
+  /**
+   * 根据会话ID直接建立WebSocket连接（外部传入会话）
+   * @param sessionId 要连接的教师会话ID
+   * @returns Promise<boolean> 连接是否成功
+   */
+  const connectToTeacherSession = async (sessionId: string): Promise<boolean> => {
+    try {
+      // 1. 查找会话
+      const allSessions = loadAllSessions()
+      const session = allSessions[sessionId]
 
+      if (!session) {
+        console.error('[TeacherStore] 未找到教师会话:', sessionId)
+        return false
+      }
+
+      // 2. 设置当前会话
+      setSession(session)
+
+      // 3. 建立连接
+      const connected = await connectWebSocket()
+      if (connected) {
+        console.log('[TeacherStore] 成功连接到教师会话:', sessionId)
+      }
+      return connected
+    } catch (error) {
+      console.error('[TeacherStore] 连接教师会话失败:', sessionId, error)
+      return false
+    }
+  }
+
+  /**
+   * 连接到WebSocket服务器（自动连接）
+   */
+  const connectWebSocket = async (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        // 获取WebSocket实例
+        const webSocket = getWebSocketService('teacher')
+
+        // 如果已经初始化且连接，直接返回成功
+        if (webSocketInitialized.value && webSocket.isConnected()) {
+          console.log('[TeacherStore] WebSocket已连接，无需重新连接')
+          resolve(true)
+          return
+        }
+
+        // 如果未初始化，先初始化
+        if (!webSocketInitialized.value) {
+          console.log('[TeacherStore] WebSocket未初始化，开始初始化并连接...')
+          initMessageReceiver().then(() => {
+            console.log('[TeacherStore] WebSocket初始化并连接成功')
+            resolve(true)
+          }).catch(error => {
+            console.error('[TeacherStore] WebSocket初始化失败:', error)
+            resolve(false)
+          })
+          return
+        }
+
+        // 如果已初始化但未连接，尝试重新连接
+        console.log('[TeacherStore] WebSocket已初始化但未连接，尝试连接...')
+        webSocket.connect().then(success => {
+          if (success) {
+            console.log('[TeacherStore] WebSocket重新连接成功')
+            resolve(true)
+          } else {
+            console.warn('[TeacherStore] WebSocket重新连接失败')
+            resolve(false)
+          }
+        }).catch(error => {
+          console.error('[TeacherStore] WebSocket重新连接异常:', error)
+          resolve(false)
+        })
+
+      } catch (error) {
+        console.error('[TeacherStore] WebSocket连接异常:', error)
+        resolve(false)
+      }
+    })
+  }
 
   return {
     // 状态
@@ -644,6 +730,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     enableWebSearch,
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
+    webSocketInitialized,
 
     // 会话管理
     setSession,
@@ -665,8 +752,12 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     // 其他
     toggleWebSearch,
 
+    // WebSocket管理
+    connectWebSocket,
+    connectToTeacherSession,
 
     // 会话存储管理（供外部组件使用）
     loadAllSessions,
+    getAvailableTeachers,
   }
 })

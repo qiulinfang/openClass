@@ -195,6 +195,7 @@ import { chatStorage } from '../services/storage/chat-storage'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
 import { getUserId } from '@/services'
+import { showMessage } from '../utils'
 import SearchInput from './SearchInput.vue'
 import RubberBandList from './base/VirtualList.vue'
 import BubblePopup from './base/Popover.vue'
@@ -384,25 +385,30 @@ const treeNodes = computed<TreeNode[]>(() => {
   }
 
   // 2. 老师对话分类（包含所有写死的老师会话）
-  const teacherChildren: TreeNode[] = []
+  const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
 
-  // 获取所有写死的老师会话
-    const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
+  // 过滤老师会话（支持搜索）
+  const filteredTeacherSessions = searchKeyword.value
+    ? allTeacherSessions.filter((session) => {
+        const name = session.sessionName?.toLowerCase() || ''
+        const subject = session.subject?.toLowerCase() || ''
+        const searchLower = searchKeyword.value.toLowerCase().trim()
+        return name.includes(searchLower) || subject.includes(searchLower)
+      })
+    : allTeacherSessions
 
-  // 为每个写死会话创建树节点
-  allTeacherSessions.forEach((session) => {
-    teacherChildren.push({
-      id: `teacher_${session.subject}_${session.sessionId}`,
-      label: session.sessionName,
-      timestamp: session.createTime,
-      sessionId: session.sessionId,
-      category: session.subject,
-      level: 2,
-    })
-  })
+  // 为每个过滤后的会话创建树节点
+  const teacherChildren: TreeNode[] = filteredTeacherSessions.map((session) => ({
+    id: `teacher_${session.subject}_${session.sessionId}`,
+    label: session.sessionName,
+    timestamp: session.createTime,
+    sessionId: session.sessionId,
+    category: session.subject as 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY',
+    level: 2,
+  }))
 
-  // 如果有老师会话或没有搜索关键词，显示"老师对话"分类
-  if (teacherChildren.length > 0 || !searchKeyword.value) {
+  // 如果有匹配的老师会话，显示"老师对话"分类
+  if (teacherChildren.length > 0) {
     nodes.push({
       id: 'category_teacher',
       label: '老师答疑',
@@ -582,20 +588,10 @@ const confirmRename = async () => {
     }
 
     // 显示成功消息
-    $q.notify({
-      type: 'positive',
-      message: '重命名成功',
-      position: 'top',
-      timeout: 1500,
-    })
+    showMessage('重命名成功', 'positive')
   } catch (error) {
     console.error('重命名失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '重命名失败，请重试',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('重命名失败，请重试', 'negative')
   } finally {
     // 关闭对话框（保证无论成功或失败都会关闭），并清理状态
     showRenameDialog.value = false
@@ -613,20 +609,10 @@ const handlePin = async (node: TreeNode) => {
     await aiGeneralStore.togglePin(node.sessionId)
     
     // 显示成功消息
-    $q.notify({
-      type: 'positive',
-      message: '操作成功',
-      position: 'top',
-      timeout: 1500,
-    })
+    showMessage('操作成功', 'positive')
   } catch (error) {
     console.error('置顶操作失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '操作失败，请重试',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('操作失败，请重试', 'negative')
   }
 }
 
@@ -644,11 +630,7 @@ const handleFavorite = (node: TreeNode) => {
   // 查找对应的会话数据
   const session = aiGeneralStore.sessions.find(s => s.sessionId === node.sessionId)
   if (!session) {
-    $q.notify({
-      type: 'negative',
-      message: '未找到会话数据',
-      position: 'top',
-    })
+    showMessage('未找到会话数据', 'negative')
     return
   }
   
@@ -658,18 +640,9 @@ const handleFavorite = (node: TreeNode) => {
     // 触发收藏状态重新计算
     favoriteUpdateTrigger.value++
     
-    $q.notify({
-      type: 'positive',
-      message: isSessionFavorite(session.sessionId) ? '已收藏' : '已取消收藏',
-      position: 'top',
-      timeout: 1500,
-    })
+    showMessage(isSessionFavorite(session.sessionId) ? '已收藏' : '已取消收藏', 'positive')
   } else {
-    $q.notify({
-      type: 'negative',
-      message: '操作失败，请重试',
-      position: 'top',
-    })
+    showMessage('操作失败，请重试', 'negative')
   }
 }
 
@@ -706,53 +679,13 @@ const confirmDelete = async () => {
       
       // 发送删除结果事件
       emit('ai-session-deleted', node.sessionId, true, wasCurrentSession)
-      
+
       // 显示成功消息
-      $q.notify({
-        type: 'positive',
-        message: '会话已删除',
-        position: 'top',
-        timeout: 1500,
-      })
+      showMessage('会话已删除', 'positive')
   } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
-      // 检查是否是当前会话
-      const wasCurrentSession = teacherChatStore.currentSession?.sessionId === node.sessionId
-      console.log('wasCurrentSession', wasCurrentSession)
-      // 第1步：删除聊天历史（直接使用存储服务，避免清空当前消息）
-      const storageKey = `teacher-general-${node.sessionId}`
-      await chatStorage.removeChatHistory(storageKey)
-      console.log('storageKey', storageKey)
-      // 第2步：删除 localStorage 中的会话信息（使用 store 的方法，从统一存储中删除）
-      // 新格式：所有会话统一存储在 {userId}_teacher-general-sessions 中
-      // 格式：Record<string, TeacherSession>，key 是 sessionId
-      console.log('node31235124365124', node)
-      teacherChatStore.deleteSession(node.sessionId)
-      
-      // 第3步：如果删除的是当前会话，清空当前会话和消息
-      if (wasCurrentSession) {
-        teacherChatStore.clearSession()
-        teacherChatStore.clearMessages()
-      }
-      
-      // 数据更新后，手动处理 treeNodes 变化（替代 watch）
-      await nextTick()
-      const oldLength = previousTreeNodesLength
-      const newLength = treeNodes.value.length
-      if (oldLength !== newLength) {
-        previousTreeNodesLength = newLength
-        await handleTreeNodesChange(oldLength, newLength)
-      }
-      
-      // 发送删除结果事件
-      emit('teacher-session-deleted', node.sessionId, true, wasCurrentSession)
-      
-      // 显示成功消息
-      $q.notify({
-        type: 'positive',
-        message: '会话已删除',
-        position: 'top',
-        timeout: 1500,
-      })
+      // 老师会话不支持删除
+      showMessage('老师会话不支持删除', 'warning')
+      return;
     }
   } catch (error) {
     console.error('删除会话失败:', error)
@@ -765,12 +698,7 @@ const confirmDelete = async () => {
     }
     
     // 显示失败消息
-    $q.notify({
-      type: 'negative',
-      message: '删除失败，请重试',
-      position: 'top',
-      timeout: 2000,
-    })
+    showMessage('删除失败，请重试', 'negative')
   } finally {
     // 清理状态
     deleting.value = false

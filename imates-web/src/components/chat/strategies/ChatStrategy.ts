@@ -41,6 +41,10 @@ export interface ForwardOptions {
    * 老师选择回调函数（当需要用户选择老师时调用）
    */
   onTeacherSelect?: () => Promise<'biology' | 'math'>
+  /**
+   * 显示转发成功对话框的回调函数
+   */
+  showForwardSuccessDialog?: (message: string, sessionId?: string) => Promise<{ goToTeacher: boolean; sessionId?: string }>
 }
 
 export interface ChatStrategy {

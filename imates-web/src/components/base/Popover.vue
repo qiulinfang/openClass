@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
 
 .bubble-popup {
   position: fixed;
-  z-index: 9999;
+  z-index: 100050;
   max-width: 280px;
   background-color: #ffffff;
   border-radius: 10px;

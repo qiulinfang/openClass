@@ -6,43 +6,31 @@
         <div class="content-wrapper">
           <!-- 加入课堂卡片 -->
           <div
-            class="feature-card join-class-card"
+            class="feature-card"
             :class="{ 'in-class': isInClass }"
             @click="toggleJoinClass"
           >
-            <div class="card-icon-wrapper" :class="{ 'in-class': isInClass }">
-              <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
-            </div>
-            <div class="card-text">{{ isInClass ? '离开课堂' : '加入课堂' }}</div>
+            <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
           </div>
 
 
 
           <!-- 我的收藏卡片 -->
-          <div class="feature-card favorites-card" @click="showFavorites">
-            <div class="card-icon-wrapper">
-              <img :src="myFavoritesIcon" alt="我的收藏" class="card-icon" />
-            </div>
-            <div class="card-text">我的收藏</div>
+          <div class="feature-card" @click="showFavorites">
+            <img :src="myFavoritesIcon" alt="我的收藏" class="card-icon" />
           </div>
 
           <!-- 意见反馈卡片 -->
-          <div class="feature-card feedback-card" @click="showFeedback">
-            <div class="card-icon-wrapper">
-              <img :src="feedbackIcon" alt="在线客服" class="card-icon" />
-              <span class="notification-badge" v-if="userClientUnreadCount > 0">{{
-                userClientUnreadCount
-              }}</span>
-            </div>
-            <div class="card-text">在线客服</div>
+          <div class="feature-card" @click="showFeedback">
+            <img :src="feedbackIcon" alt="在线客服" class="card-icon" />
+            <span class="notification-badge" v-if="userClientUnreadCount > 0">{{
+              userClientUnreadCount
+            }}</span>
           </div>
 
           <!-- 草稿本卡片 -->
-          <div class="feature-card draft-notebook-card" @click="openDraftNotebook">
-            <div class="card-icon-wrapper">
-              <img src="/icons/draw.svg" alt="草稿本" class="card-icon" />
-            </div>
-            <div class="card-text">草稿本</div>
+          <div class="feature-card" @click="openDraftNotebook">
+            <img src="/icons/draw.svg" alt="草稿本" class="card-icon" />
           </div>
         </div>
         <!-- 退出登录按钮 -->
@@ -611,6 +599,10 @@ $bg-gray: #f9fafb;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+
+  :deep(.rubber-band-scroll-view){
+    overflow: visible;
+  }
 }
 
 // 功能卡片区域
@@ -628,17 +620,27 @@ $bg-gray: #f9fafb;
 }
 
 .content-wrapper {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  justify-content: space-between;
-  align-items: center;
+  place-items: center;
+  padding-top:20px;
 
   .logout-section {
     display: flex;
     justify-content: center;
     padding: 0 20px;
     margin-top: 24px;
+  }
+
+  // 响应式：小屏幕时每行2个
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  // 响应式：超小屏幕时每行1个
+  @media (max-width: 360px) {
+    grid-template-columns: repeat(1, 1fr);
   }
 }
 
@@ -652,159 +654,83 @@ $bg-gray: #f9fafb;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px 8px;
-  flex: 0 0 calc(33.333% - 14px); // 每行3个，考虑gap
-  min-width: 70px;
-  max-width: 100px;
 
-  // 响应式：小屏幕时每行2个
-  @media (max-width: 480px) {
-    flex: 0 0 calc(50% - 10px);
-    max-width: none;
+
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+
+  .card-icon {
+    width: 150%;
+    height: 150%;
+    object-fit: contain;
+    position: relative;
+    z-index: 1;
   }
 
-  // 响应式：超小屏幕时每行1个
-  @media (max-width: 360px) {
-    flex: 0 0 100%;
-    max-width: none;
-  }
-
-  &:active {
-    transform: translateY(0) scale(0.98);
-    opacity: 0.95;
-  }
-
-  // hover / focus effects — 提升并加阴影，改善点击反馈
-  &:hover {
-    transform: translateY(-6px) scale(1.02);
-    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.12);
-    z-index: 4;
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
-    transform: translateY(-4px) scale(1.01);
-  }
-
-  .card-icon-wrapper {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
+  .notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    background: #ef4444;
+    color: white;
+    border-radius: 9px;
+    border: 2px solid #ffffff;
+    font-size: 11px;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 4px;
+    box-sizing: border-box;
+    z-index: 2;
+  }
+
+
+  // 已加入课堂状态 - 更深的绿色
+  &.in-class {
     position: relative;
-    margin-bottom: 8px;
-    flex-shrink: 0;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: -23px;
+        left: -23px;
+        right: -23px;
+        bottom: -23px;
+        background: radial-gradient(circle, rgba(147, 51, 234, 1.2) 0%, rgba(147, 51, 234, 0.9) 20%, rgba(147, 51, 234, 0.6) 40%, rgba(147, 51, 234, 0.3) 60%, rgba(147, 51, 234, 0.1) 80%, rgba(147, 51, 234, 0.02) 100%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: breathe 2s ease-in-out infinite;
+      }
 
     .card-icon {
-      width: 90%;
-      height: 90%;
-      object-fit: contain;
       position: relative;
       z-index: 1;
     }
-
-    .notification-badge {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      min-width: 18px;
-      height: 18px;
-      background: #ef4444;
-      color: white;
-      border-radius: 9px;
-      border: 2px solid #ffffff;
-      font-size: 11px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 4px;
-      box-sizing: border-box;
-      z-index: 2;
-    }
   }
 
-  .card-text {
-    font-size: 12px;
-    font-weight: 500;
-    color: white;
-    text-align: center;
-    white-space: nowrap;
-    margin-top: 4px;
-    line-height: 1.2;
-  }
-
-  // 加入课堂 - 绿色
-  &.join-class-card {
-    .card-icon-wrapper {
-      background: #34d399;
-      transition: all 0.3s ease;
-
-      // 已加入课堂状态 - 更深的绿色
-      &.in-class {
-        background: #10b981;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
-      }
-    }
-
-    // 已加入课堂状态 - 卡片整体更醒目
-    &.in-class {
-      .card-icon-wrapper {
-        animation: pulse-highlight 2s ease-in-out infinite;
-      }
-
-      .card-text {
-        font-weight: 600;
-        color: #10b981;
-        text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
-      }
-    }
-  }
-
-  // 加入课堂成功的高亮动画
-  @keyframes pulse-highlight {
-    0%,
-    100% {
-      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+  // 圆形呼吸灯效果动画
+  @keyframes breathe {
+    0% {
+      opacity: 1;
     }
     50% {
-      box-shadow:
-        0 0 0 4px rgba(16, 185, 129, 0.5),
-        0 0 12px rgba(16, 185, 129, 0.3);
+      opacity: 0.3;
+    }
+    100% {
+      opacity: 1;
     }
   }
 
-  // 老师通用对话 - 橙色
-  &.teacher-chat-card {
-    .card-icon-wrapper {
-      background: #f59e0b;
-    }
-  }
-
-
-  // 我的收藏 - 黄色
-  &.favorites-card {
-    .card-icon-wrapper {
-      background: #fbbf24;
-    }
-  }
-
-  // 在线客服 - 蓝色
-  &.feedback-card {
-    .card-icon-wrapper {
-      background: #60a5fa;
-    }
-  }
-
-  // 草稿本 - 紫色
-  &.draft-notebook-card {
-    .card-icon-wrapper {
-      background: #8b5cf6;
-    }
-  }
 }
 
 // 退出登录按钮区域
@@ -844,18 +770,6 @@ $bg-gray: #f9fafb;
     font-weight: 400; /* normal weight */
     text-align: center;
   }
-}
-// 清除所有会话确认弹窗内容样式
-.delete-confirm-content {
-  height: 100%;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 14px;
-  line-height: 1.5;
-  border: none;
 }
 
 .exit-classroom {
@@ -1124,16 +1038,6 @@ $bg-gray: #f9fafb;
     padding: 16px 12px;
   }
 
-  .feature-card {
-    .card-content {
-      padding: 8px 8px;
-    }
-
-    .card-icon {
-      width: 28px;
-      height: 28px;
-    }
-  }
 }
 
 @media (max-width: 480px) {
@@ -1143,22 +1047,8 @@ $bg-gray: #f9fafb;
 
   .feature-card {
     padding: 10px 6px;
-
-    .card-icon-wrapper {
-      width: 50px;
-      height: 50px;
-    }
-
-    .card-text {
-      font-size: 11px;
-    }
-
-    // 拍照搜题图标在小屏幕时也需要调整字体大小
-    &.photo-search-card {
-      .card-icon {
-        font-size: 50px;
-      }
-    }
+    width: 50px;
+    height: 50px;
   }
 }
 </style>

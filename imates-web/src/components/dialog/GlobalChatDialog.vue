@@ -109,48 +109,17 @@
     <ChatSessionDebugPanel v-if="isDev" v-model="showDebugPanel" />
 
     <!-- 老师选择对话框 -->
-    <DraggableDialog
+    <TeacherSelectionDialog
       v-model="showTeacherSelectDialog"
-      title="选择老师"
-      :initial-width="300"
-      :initial-height="200"
-      :min-width="280"
-      :min-height="180"
-    >
-      <div class="teacher-selection-content">
-        <div class="teacher-list">
-          <div
-            v-for="teacher in availableTeachers"
-            :key="teacher.subject"
-            class="teacher-item"
-            @click="handleTeacherSelect(teacher.subject)"
-          >
-            <div class="teacher-avatar">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </div>
-            <div class="teacher-name">{{ teacher.name }}</div>
-          </div>
-        </div>
-      </div>
-    </DraggableDialog>
+      :available-teachers="availableTeachers"
+      @confirm="handleTeacherSelect"
+      @cancel="showTeacherSelectDialog = false"
+    />
   </DraggableDialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../../utils'
@@ -159,6 +128,7 @@ import DraggableDialog from '../base/Modal.vue'
 import SessionTree from '../SessionTree.vue'
 import ChatView from '../ChatView.vue'
 import ChatSessionDebugPanel from '../debug/ChatSessionDebugPanel.vue'
+import TeacherSelectionDialog from './TeacherSelectionDialog.vue'
 import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
 
@@ -208,7 +178,7 @@ const availableTeachers = ref<Array<{ subject: 'BIOLOGY' | 'MATH', name: string 
 // 判断当前选中的分类是否为老师类型
 const isTeacherCategory = computed(() => {
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
-  return selectedCategory === 'biology' || selectedCategory === 'math'
+  return selectedCategory === 'BIOLOGY' || selectedCategory === 'MATH'
 })
 
 // 判断是否可以创建新对话
@@ -236,7 +206,7 @@ const handleNewChatClick = async () => {
   // 根据当前选中的节点类型来决定创建哪种类型的对话
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
 
-  if (selectedCategory === 'biology' || selectedCategory === 'math') {
+  if (selectedCategory === 'BIOLOGY' || selectedCategory === 'MATH') {
     // 如果选中的是教师分类，显示老师选择对话框
     availableTeachers.value = teacherChatStore.getAvailableTeachers()
 
@@ -371,9 +341,26 @@ const switchCategory = (category: 'ai-general' | 'teacher') => {
   activeCategory.value = category
 }
 
+// 设置教师会话并切换分类
+const switchToTeacherSession = async (sessionId: string) => {
+  // 设置教师会话
+  const allSessions = Object.values(teacherChatStore.loadAllSessions())
+  const session = allSessions.find(s => s.sessionId === sessionId)
+  if (session) {
+    teacherChatStore.setSession(session)
+
+    // 切换到教师分类
+    activeCategory.value = 'teacher'
+
+    // 等待组件更新，SessionTree 应该会自动检测到 store 变化并更新选中状态
+    await nextTick()
+  }
+}
+
 // 暴露方法供外部调用
 defineExpose({
-  switchCategory
+  switchCategory,
+  switchToTeacherSession
 })
 
 // ==================== 监听器 ====================
@@ -453,53 +440,6 @@ onUnmounted(async () => {
    height: 38px;
    display: block;
  }
-
-// 老师选择对话框样式
-.teacher-selection-content {
-  padding: 16px 0;
-
-  .teacher-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    .teacher-item {
-      display: flex;
-      align-items: center;
-      padding: 12px 20px;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: background-color 0.2s ease;
-
-      &:hover {
-        background-color: #f5f5f5;
-      }
-
-      .teacher-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: #6e55ff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 12px;
-        color: white;
-
-        svg {
-          width: 20px;
-          height: 20px;
-        }
-      }
-
-      .teacher-name {
-        font-size: 16px;
-        font-weight: 500;
-        color: #1e1e1e;
-      }
-    }
-  }
-}
 
 // 响应式设计
 @media (max-width: 768px) {

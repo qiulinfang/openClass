@@ -195,12 +195,14 @@ router.beforeEach(async (to, from, next) => {
     console.log("isLoggedIn111", isLoggedIn)
     if (from.path.startsWith('/app')) {
       try {
+        // 断开客服WebSocket连接
         const userClientStore = useUserClientStore()
         console.log("userClientStore.isConnected111", userClientStore.isConnected)
         if (userClientStore.isConnected) {
-          console.log('[路由守卫] 检测到登录过期或退出登录，断开 WebSocket 连接111')
+          console.log('[路由守卫] 检测到登录过期或退出登录，断开客服 WebSocket 连接')
           userClientStore.disconnect()
         }
+
       } catch (error) {
         console.error('[路由守卫] 断开 WebSocket 连接时出错:', error)
       }
@@ -220,6 +222,7 @@ router.beforeEach(async (to, from, next) => {
 
     // 已登录用户进入 /app 路由，自动建立 WebSocket 连接
     try {
+      // 客服WebSocket连接
       const userClientStore = useUserClientStore()
       console.log("userClientStore.isConnected111", userClientStore.isConnected)
       // 只有在未连接状态时才建立连接
@@ -231,6 +234,7 @@ router.beforeEach(async (to, from, next) => {
           // 连接失败不阻止路由跳转，用户可以在界面上重试
         })
       }
+
     } catch (error) {
       console.error('[路由守卫] 初始化 WebSocket 连接时出错:', error)
     }

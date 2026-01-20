@@ -357,6 +357,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import type { UserTextbookInfo } from '@/types'
 import { useQuasar } from 'quasar'
+import { showMessage } from '../../utils'
 
 // Props
 interface Props {
@@ -570,20 +571,12 @@ const deleteLocalFile = async (index: number) => {
           
           // 第7步：刷新主列表数据
           await refreshData()
-          
-          $q.notify({
-            type: 'positive',
-            message: '文件删除成功',
-            position: 'top'
-          })
+
+          showMessage('文件删除成功', 'positive')
         }
       } catch (error) {
         console.error('删除文件失败:', error)
-        $q.notify({
-          type: 'negative',
-          message: '删除文件失败: ' + (error as Error).message,
-          position: 'top'
-        })
+        showMessage('删除文件失败: ' + (error as Error).message, 'negative')
       }
     })
   } catch (error) {
@@ -620,20 +613,12 @@ const deleteLearningPackage = async (index: number) => {
           
           // 第4步：刷新主列表数据
           await refreshData()
-          
-          $q.notify({
-            type: 'positive',
-            message: '学习资源包删除成功',
-            position: 'top'
-          })
+
+          showMessage('学习资源包删除成功', 'positive')
         }
       } catch (error) {
         console.error('删除学习资源包失败:', error)
-        $q.notify({
-          type: 'negative',
-          message: '删除学习资源包失败: ' + (error as Error).message,
-          position: 'top'
-        })
+        showMessage('删除学习资源包失败: ' + (error as Error).message, 'negative')
       }
     })
   } catch (error) {
@@ -685,11 +670,7 @@ const formatDate = (dateStr: string): string => {
 // 滚动测试工具方法
 const handleDiagnose = () => {
   if (!scrollToolsAvailable.value) {
-    $q.notify({
-      type: 'negative',
-      message: '滚动工具不可用，请确保 MyResourcesView 页面已加载',
-      position: 'top'
-    })
+    showMessage('滚动工具不可用，请确保 MyResourcesView 页面已加载', 'negative')
     return
   }
 
@@ -697,29 +678,17 @@ const handleDiagnose = () => {
     const diagnoseFn = (window as any).diagnoseMyResourcesScroll
     const result = diagnoseFn()
     diagnosticResult.value = result
-    
-    $q.notify({
-      type: result.hasBScrollInstance ? 'positive' : 'negative',
-      message: result.hasBScrollInstance ? '诊断完成：滚动功能正常' : '诊断完成：滚动功能异常',
-      position: 'top'
-    })
+
+    showMessage(result.hasBScrollInstance ? '诊断完成：滚动功能正常' : '诊断完成：滚动功能异常', result.hasBScrollInstance ? 'positive' : 'negative')
   } catch (error) {
     console.error('诊断失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '诊断失败：' + (error as Error).message,
-      position: 'top'
-    })
+    showMessage('诊断失败：' + (error as Error).message, 'negative')
   }
 }
 
 const toggleMonitoring = () => {
   if (!scrollToolsAvailable.value) {
-    $q.notify({
-      type: 'negative',
-      message: '滚动工具不可用',
-      position: 'top'
-    })
+    showMessage('滚动工具不可用', 'negative')
     return
   }
 
@@ -728,29 +697,17 @@ const toggleMonitoring = () => {
   if (isMonitoring.value) {
     tools.stopMonitoring()
     isMonitoring.value = false
-    $q.notify({
-      type: 'info',
-      message: '已停止监控',
-      position: 'top'
-    })
+    showMessage('已停止监控', 'info')
   } else {
     tools.startMonitoring(1000) // 每秒监控一次
     isMonitoring.value = true
-    $q.notify({
-      type: 'positive',
-      message: '已开始监控滚动状态',
-      position: 'top'
-    })
+    showMessage('已开始监控滚动状态', 'positive')
   }
 }
 
 const handleTestPullDown = async () => {
   if (!scrollToolsAvailable.value) {
-    $q.notify({
-      type: 'negative',
-      message: '滚动工具不可用',
-      position: 'top'
-    })
+    showMessage('滚动工具不可用', 'negative')
     return
   }
 
@@ -758,19 +715,11 @@ const handleTestPullDown = async () => {
   try {
     const tools = (window as any).myResourcesScrollTools
     await tools.testPullDown()
-    
-    $q.notify({
-      type: 'positive',
-      message: '下拉刷新测试完成',
-      position: 'top'
-    })
+
+    showMessage('下拉刷新测试完成', 'positive')
   } catch (error) {
     console.error('测试失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '测试失败：' + (error as Error).message,
-      position: 'top'
-    })
+    showMessage('测试失败：' + (error as Error).message, 'negative')
   } finally {
     isTesting.value = false
   }
@@ -778,80 +727,46 @@ const handleTestPullDown = async () => {
 
 const handleResetState = () => {
   if (!scrollToolsAvailable.value) {
-    $q.notify({
-      type: 'negative',
-      message: '滚动工具不可用',
-      position: 'top'
-    })
+    showMessage('滚动工具不可用', 'negative')
     return
   }
 
   try {
     const tools = (window as any).myResourcesScrollTools
     tools.resetState()
-    
-    $q.notify({
-      type: 'positive',
-      message: '滚动状态已重置',
-      position: 'top'
-    })
+
+    showMessage('滚动状态已重置', 'positive')
   } catch (error) {
     console.error('重置失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '重置失败：' + (error as Error).message,
-      position: 'top'
-    })
+    showMessage('重置失败：' + (error as Error).message, 'negative')
   }
 }
 
 const handleRefreshSize = async () => {
   if (!scrollToolsAvailable.value) {
-    $q.notify({
-      type: 'negative',
-      message: '滚动工具不可用',
-      position: 'top'
-    })
+    showMessage('滚动工具不可用', 'negative')
     return
   }
 
   try {
-    $q.notify({
-      type: 'info',
-      message: '正在刷新 BScroll 尺寸，请查看控制台日志...',
-      position: 'top',
-      timeout: 1000
-    })
+    showMessage('正在刷新 BScroll 尺寸，请查看控制台日志...', 'info')
     
     const tools = (window as any).myResourcesScrollTools
     const success = await tools.refresh()
     
     if (success) {
-      $q.notify({
-        type: 'positive',
-        message: 'BScroll 尺寸刷新完成！',
-        position: 'top',
-        timeout: 2000
-      })
+      showMessage('BScroll 尺寸刷新完成！', 'positive')
       
       // 刷新后重新诊断
       setTimeout(() => {
         handleDiagnose()
       }, 300)
     } else {
-      $q.notify({
-        type: 'negative',
-        message: 'BScroll 实例不存在，无法刷新',
-        position: 'top'
-      })
+      showMessage('BScroll 实例不存在，无法刷新', 'negative')
     }
   } catch (error) {
     console.error('刷新失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '刷新失败：' + (error as Error).message,
-      position: 'top'
-    })
+    showMessage('刷新失败：' + (error as Error).message, 'negative')
   }
 }
 

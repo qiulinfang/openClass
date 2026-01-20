@@ -22,7 +22,7 @@
             <div
               class="nav-item"
               :class="{ active: currentFunction === 'teacherChat', disabled: !canUseTeacherChat }"
-              @click="canUseTeacherChat && (currentFunction = 'teacherChat')"
+              @click="canUseTeacherChat && handleSwitchToTeacherChat()"
             >
               老师答疑
             </div>
@@ -53,7 +53,7 @@
           <CommonSelect
             v-if="!isFromHomework"
             v-model="selectedSubjectFilter"
-            :options="subjectOptions"
+            :options="SUBJECT_OPTIONS"
             class="subject-filter-select"
             @change="onSubjectFilterChange"
           />
@@ -112,6 +112,8 @@
                   @scroll-to-bottom="scrollToBottom"
                   @send-message="handleSendSuggestion"
                   @focus-input="handleFocusInput"
+                  @open-teacher-dialog="handleOpenTeacherDialog"
+                  @switch-to-teacher="handleSwitchToTeacher"
                 >
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮（样式与问老师按钮一致） -->
                   <template #header-prefix v-if="isFromHomework">
@@ -240,12 +242,13 @@ defineOptions({
   name: 'ExerciseSolveView',
 })
 
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
  import { useRoute, useRouter } from 'vue-router'
  import { useQuestionStore } from '../stores/questionStore'
  import { useHomeworkStore } from '../stores/homeworkStore'
- import { getUserInfo, getSubject } from '../services'
+ import { getUserInfo, getUserId, getSubject } from '../services'
  import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
+import { useTeacherChatStore } from '../stores/teacherChatStore'
  import { storeToRefs } from 'pinia'
 import { showMessage } from '../utils'
 import QuestionList from '../components/QuestionList.vue'
@@ -260,6 +263,7 @@ import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
 import RubberBandList from '../components/base/VirtualList.vue'
 import CommonSelect from '../components/base/Select.vue'
+import { SUBJECT_OPTIONS, SUPPORTED_SUBJECTS } from '../constants/subjects'
 import addSessionIcon from '/icons/addsession.png'
 import newSessionIcon from '/icons/new.svg'
 import goBackIcon from '/icons/goback.svg'
@@ -277,6 +281,7 @@ const router = useRouter()
 const questionStore = useQuestionStore()
 const homeworkStore = useHomeworkStore()
 const aiExerciseStore = useAiExerciseChatStore()
+const teacherChatStore = useTeacherChatStore()
 const uiStore = useUIStore()
 
 // 从两个 store 解构出各自的 currentQuestion（重命名避免冲突）
@@ -346,19 +351,26 @@ const searchQuery = ref('')
 
 // 学科过滤相关
 const selectedSubjectFilter = ref<string>('') // 空字符串表示显示所有学科
-const subjectOptions = [
-  { label: '全部学科', value: '' },
-  { label: '数学', value: 'SUBJECT_MATH' },
-  { label: '生物', value: 'SUBJECT_BIOLOGY' },
-  { label: '化学', value: 'SUBJECT_CHEMISTRY' },
-  { label: '物理', value: 'SUBJECT_PHYSICS' },
-  { label: '语文', value: 'SUBJECT_CHINESE' },
-  { label: '英语', value: 'SUBJECT_ENGLISH' },
-]
 
 // 学科过滤变化处理
-const onSubjectFilterChange = () => {
+const onSubjectFilterChange = async () => {
   // 过滤逻辑在 QuestionList 组件内部处理
+
+  // 学科过滤条件改变时，清除当前功能选择
+  currentFunction.value = 'chatAi'
+
+
+  // 断开教师连接
+  if (!isFromHomework.value) {
+    console.log('[ExerciseSolveView] 学科过滤条件改变，断开教师连接')
+    try {
+      await teacherChatStore.cleanupMessageReceiver()
+      teacherChatStore.clearMessages()
+      console.log('[ExerciseSolveView] 教师WebSocket连接已断开并清除聊天记录')
+    } catch (error) {
+      console.error('[ExerciseSolveView] 断开教师WebSocket连接失败:', error)
+    }
+  }
 }
 
 const hasSelectedQuestion = computed(() => {
@@ -453,6 +465,38 @@ const handleSendSuggestion = (message: string) => {
   }
 }
 
+// 根据当前题目科目获取教师会话ID的工具函数
+const getTeacherSessionBySubject = (): string => {
+  const userId = getUserId() || 'default'
+  const allSessions = teacherChatStore.loadAllSessions()
+
+  // 获取当前题目的科目
+  const currentQuestion = questionStore.currentQuestion
+  if (!currentQuestion?.subject) {
+    // 默认使用数学老师
+    return `teacher_${userId}_math`
+  }
+
+  // subject 字段直接是小写的科目名称，如 "math", "biology"
+  const subject = currentQuestion.subject.toUpperCase()
+
+  // 根据科目从会话列表中找到对应的会话ID
+  for (const [sessionId, session] of Object.entries(allSessions)) {
+    if (session.subject === subject) {
+      return sessionId
+    }
+  }
+
+  // 如果找不到对应科目，默认使用数学老师
+  return `teacher_${userId}_math`
+}
+
+// 处理切换到教师聊天页面
+const handleSwitchToTeacherChat = async () => {
+  // 设置当前功能为教师聊天
+  currentFunction.value = 'teacherChat'
+}
+
 // 处理聚焦输入框
 const handleFocusInput = () => {
   // 触发输入框聚焦（ChatView 内部会处理）
@@ -460,32 +504,8 @@ const handleFocusInput = () => {
 }
 
 // 处理从ChatView转发后跳转到老师对话的事件
-const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message?: ChatBubble }) => {
+const handleOpenTeacherDialog = async () => {
   try {
-    // 根据当前题目的学科确定对应的教师会话
-    let targetSessionId = sessionId
-
-    // 如果没有传入 sessionId，则根据当前题目学科映射到写死会话
-    if (!targetSessionId && currentQuestion.value) {
-      const subject = currentQuestion.value.subject
-      const userId = getUserId() || 'default'
-      // 将题目的学科映射到写死会话的 sessionId（包含userId）
-      const subjectMapping: Record<string, string> = {
-        'SUBJECT_MATH': `teacher_${userId}_math`,
-        'SUBJECT_BIOLOGY': `teacher_${userId}_biology`,
-        'SUBJECT_CHINESE': `teacher_${userId}_chinese`,
-        'SUBJECT_ENGLISH': `teacher_${userId}_english`,
-        'SUBJECT_PHYSICS': `teacher_${userId}_physics`,
-        'SUBJECT_CHEMISTRY': `teacher_${userId}_chemistry`,
-        'SUBJECT_HISTORY': `teacher_${userId}_history`,
-        'SUBJECT_GEOGRAPHY': `teacher_${userId}_geography`,
-        'SUBJECT_POLITICS': `teacher_${userId}_politics`
-      }
-
-      const mappedSessionId = subjectMapping[subject] || `teacher_${userId}_math` // 默认使用数学老师
-      targetSessionId = mappedSessionId
-    }
-
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
 
@@ -496,18 +516,10 @@ const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; messa
       await nextTick()
     }
 
-    // 设置对应的教师会话
-    if (targetSessionId) {
-      const allSessions = Object.values(teacherChatStore.loadAllSessions())
-      const session = allSessions.find(s => s.sessionId === targetSessionId)
-      if (session) {
-        teacherChatStore.setSession(session)
-      }
-    }
-
-    // 切换到教师分类
-    if (globalChatDialogRef.value) {
-      globalChatDialogRef.value.switchCategory('teacher')
+    // 获取教师会话并设置
+    const targetSessionId = getTeacherSessionBySubject()
+    if (targetSessionId && globalChatDialogRef.value) {
+      await globalChatDialogRef.value.switchToTeacherSession(targetSessionId)
     }
   } catch (error) {
     console.error('打开老师对话失败:', error)
@@ -525,27 +537,11 @@ const handleSwitchToTeacher = async (forwardData?: {
   sessionId?: string;
 }) => {
   try {
-    // 如果没有传入 sessionId，则根据当前题目学科映射到写死会话
+    // 如果传入了 sessionId，使用传入的会话ID，否则使用当前题目的会话
     let targetSessionId = forwardData?.sessionId
 
-    if (!targetSessionId && currentQuestion.value) {
-      const subject = currentQuestion.value.subject
-      const userId = getUserId() || 'default'
-      // 将题目的学科映射到写死会话的 sessionId（包含userId）
-      const subjectMapping: Record<string, string> = {
-        'SUBJECT_MATH': `teacher_${userId}_math`,
-        'SUBJECT_BIOLOGY': `teacher_${userId}_biology`,
-        'SUBJECT_CHINESE': `teacher_${userId}_chinese`,
-        'SUBJECT_ENGLISH': `teacher_${userId}_english`,
-        'SUBJECT_PHYSICS': `teacher_${userId}_physics`,
-        'SUBJECT_CHEMISTRY': `teacher_${userId}_chemistry`,
-        'SUBJECT_HISTORY': `teacher_${userId}_history`,
-        'SUBJECT_GEOGRAPHY': `teacher_${userId}_geography`,
-        'SUBJECT_POLITICS': `teacher_${userId}_politics`
-      }
-
-      const mappedSessionId = subjectMapping[subject] || `teacher_${userId}_math` // 默认使用数学老师
-      targetSessionId = mappedSessionId
+    if (!targetSessionId) {
+      targetSessionId = getTeacherSessionBySubject()
     }
 
     // 切换到老师答疑功能
@@ -558,18 +554,9 @@ const handleSwitchToTeacher = async (forwardData?: {
       await nextTick()
     }
 
-    // 设置对应的教师会话
-    if (targetSessionId) {
-      const allSessions = Object.values(teacherChatStore.loadAllSessions())
-      const session = allSessions.find(s => s.sessionId === targetSessionId)
-      if (session) {
-        teacherChatStore.setSession(session)
-      }
-    }
-
-    // 切换到教师分类
-    if (globalChatDialogRef.value) {
-      globalChatDialogRef.value.switchCategory('teacher')
+    // 设置教师会话并切换分类
+    if (targetSessionId && globalChatDialogRef.value) {
+      await globalChatDialogRef.value.switchToTeacherSession(targetSessionId)
     }
   } catch (error) {
     console.error('打开老师对话失败:', error)
@@ -584,6 +571,7 @@ const handleStartAiGuidance = async () => {
 }
 
 const handleQuestionSelected = async () => {
+  console.log('[ExerciseSolveView] handleQuestionSelected')
   // 切换题目时，关闭 AI 会话管理面板
   if (aiChatViewRef.value && 'showSessionListPanel' in aiChatViewRef.value) {
     ;(aiChatViewRef.value as any).showSessionListPanel = false
@@ -615,7 +603,44 @@ const handleQuestionSelected = async () => {
         await aiExerciseStore.createNewSession(questionId)
       }
     }
-    // 老师答疑不需要预加载聊天记录，由ChatView组件处理
+
+    // 第4步：在习题场景下，建立教师WebSocket连接（根据题目科目）
+    if (!isFromHomework.value) {
+      const teacherSessionId = getTeacherSessionBySubject()
+
+      // 检查当前是否已经连接到相同的会话
+      const currentSessionId = teacherChatStore.currentSession?.sessionId
+      if (currentSessionId === teacherSessionId) {
+        console.log('[ExerciseSolveView] 当前已连接到相同教师会话，复用连接:', teacherSessionId)
+        return
+      }
+
+      // 如果连接到不同的会话，先断开旧连接
+      if (currentSessionId && currentSessionId !== teacherSessionId) {
+        console.log('[ExerciseSolveView] 切换教师会话，断开旧连接:', currentSessionId)
+        try {
+          await teacherChatStore.cleanupMessageReceiver()
+          teacherChatStore.clearMessages()
+          console.log('[ExerciseSolveView] 旧教师连接已断开并清除记录')
+        } catch (error) {
+          console.error('[ExerciseSolveView] 断开旧教师连接失败:', error)
+        }
+      }
+
+      // 建立新连接
+      const connected = await teacherChatStore.connectToTeacherSession(teacherSessionId)
+      if (connected) {
+        // 连接成功后加载聊天历史
+        try {
+          await teacherChatStore.loadChatHistory(teacherSessionId)
+          console.log('[ExerciseSolveView] 教师聊天历史加载完成')
+        } catch (error) {
+          console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)
+        }
+      } else {
+        console.error('[ExerciseSolveView] 建立教师WebSocket连接失败:', teacherSessionId)
+      }
+    }
   }
 }
 
@@ -623,19 +648,6 @@ const handleQuestionAdded = () => {
   // 只刷新题目列表数据，不重新加载整个列表
   if (questionListRef.value) {
     questionListRef.value.refreshQuestions()
-  }
-}
-
-// 处理下拉刷新（由 RubberBandList 触发）
-const handlePullDownRefresh = async () => {
-  try {
-    if (questionListRef.value && typeof questionListRef.value.refreshQuestions === 'function') {
-      await questionListRef.value.refreshQuestions()
-    }
-  } catch (error) {
-    showMessage('刷新失败，请稍后重试', 'error')
-  } finally {
-    rubberBandListRef.value?.finishRefresh()
   }
 }
 
@@ -648,15 +660,8 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       showMessage('题目编号缺失，无法打开微课', 'warning')
       return
     }
-    // 规范化学科前缀
-    const subjectRaw = (question.subject || getSubject() || 'SUBJECT_MATH').toString().toUpperCase()
-    let subjectPrefix = 'math'
-    if (subjectRaw.includes('BIOLOGY')) subjectPrefix = 'biology'
-    else if (subjectRaw.includes('MATH')) subjectPrefix = 'math'
-    else if (subjectRaw.includes('CHEMISTRY')) subjectPrefix = 'chemistry'
-    else if (subjectRaw.includes('PHYSICS')) subjectPrefix = 'physics'
-    else if (subjectRaw.includes('CHINESE')) subjectPrefix = 'chinese'
-    else if (subjectRaw.includes('ENGLISH')) subjectPrefix = 'english'
+    // 直接使用题目的小写subject作为前缀
+    const subjectPrefix = question.subject || 'math'
 
     const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
 
@@ -665,7 +670,7 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
     console.log('[微课链接详情]', {
       subjectPrefix,
       bmNo,
-      subjectRaw,
+      questionSubject: question.subject,
       questionBmNo: question.bmNo,
       fullUrl: classUrl,
     })
@@ -735,178 +740,164 @@ const scrollToBottom = () => {
   })
 }
 
+// 初始化路由参数
+const initializeRouteParams = () => {
+  // 从路由参数中获取 tab 参数，设置当前功能
+  const tabParam = route.query.tab as string | undefined
+  if (tabParam && ['chatAi', 'teacherChat', 'viewAnswer', 'similarQuestion'].includes(tabParam)) {
+    currentFunction.value = tabParam as typeof currentFunction.value
+    console.log('[ExerciseSolveView] 从路由参数设置 tab:', tabParam)
+  }
+}
+
+// 处理学科和过滤逻辑
+const initializeSubjectAndFilters = () => {
+  // 作业场景：不做学科推断，也不设置学科筛选
+  if (isFromHomework.value) {
+    selectedSubjectFilter.value = ''
+    return 'MATH' // 默认返回数学，但作业场景不使用
+  }
+
+  const routeSubject = route.query.subject as string | undefined
+  let subjectName = 'MATH'
+
+  if (routeSubject) {
+    // 路由参数转换为大写格式
+    subjectName = routeSubject.toUpperCase()
+    // 如果不是有效的学科名称，使用默认值
+    if (!SUPPORTED_SUBJECTS.includes(subjectName as any)) {
+      subjectName = 'MATH'
+    }
+  } else {
+    // 从用户store获取科目（已经是大写格式）
+    const userSubject = getSubject()
+    if (userSubject) {
+      subjectName = userSubject
+    }
+  }
+
+  // 设置大写格式的筛选值
+  selectedSubjectFilter.value = subjectName
+
+  return subjectName
+}
+
+// 加载题目数据
+const loadQuestionsData = async (subjectName: string, questionIdsParam?: string) => {
+  // 如果提供了 questionIds 参数，说明是刚添加的题目，需要从服务器刷新
+  const useLocalFirst = !questionIdsParam
+
+  // 习题场景：通过接口 / 本地缓存加载题目
+  if (!isFromHomework.value) {
+    if (!selectedSubjectFilter.value) {
+      // 全部学科：加载所有学科的题目
+      await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
+    } else {
+      // 具体学科：加载指定学科的题目
+      // 将大写格式转换为小写格式传递给store
+      const subjectForApi = subjectName.toLowerCase()
+      await questionStore.fetchQuestions(subjectForApi, useLocalFirst)
+    }
+  }
+  // 注意：作业场景下不再重新拉取题目，直接使用预先写入的 homeworkStore.questions
+}
+
+// 处理题目定位
+const handleQuestionPositioning = async (targetQuestionId?: string) => {
+  if (!targetQuestionId || !questionListRef.value) {
+    return
+  }
+
+  await nextTick()
+  // 等待题目列表渲染完成
+  await new Promise((resolve) => setTimeout(resolve, 300))
+
+  // 获取当前场景下的题目列表
+  const activeQuestions = (isFromHomework.value ? homeworkQuestions : questions).value
+
+  // 在题目列表中查找对应的题目索引
+  const targetIndex = activeQuestions.findIndex(
+    (q) => q.id === targetQuestionId || q.bmNo === targetQuestionId
+  )
+
+  if (targetIndex >= 0) {
+    // 等待组件完全渲染后再定位
+    await nextTick()
+    setTimeout(() => {
+      if (
+        questionListRef.value &&
+        typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
+      ) {
+        questionListRef.value.scrollToQuestionAndSelect(targetIndex)
+      }
+    }, 500)
+  } else {
+    console.warn('[ExerciseSolveView] ⚠️ 未找到目标题目，ID:', targetQuestionId)
+  }
+}
+
+// 获取目标题目ID
+const getTargetQuestionId = (questionIdsParam?: string, questionIdParam?: string) => {
+  // 获取当前场景下的题目列表
+  const activeQuestions = (isFromHomework.value ? homeworkQuestions : questions).value
+
+  // 优先使用 questionIds（多个题目，定位到第一个）
+  if (questionIdsParam) {
+    const questionIds = questionIdsParam.split(',').filter((id) => id.trim())
+    if (questionIds.length > 0) {
+      const targetId = questionIds[0]
+
+      // 验证这些题目是否在列表中
+      const foundIds = questionIds.filter((id) =>
+        activeQuestions.some((q) => q.bmNo === id || q.id === id)
+      )
+
+      if (foundIds.length < questionIds.length) {
+        console.warn('[ExerciseSolveView] ⚠️ 部分题目未在列表中，可能需要等待服务器同步')
+        // 如果部分题目未找到，尝试再次从服务器刷新（仅习题场景）
+        if (!isFromHomework.value) {
+          // 这里需要返回一个标志，表示需要重新加载
+          return { targetId, needsReload: true }
+        }
+      }
+
+      return { targetId, needsReload: false }
+    }
+  } else if (questionIdParam) {
+    // 使用单个 questionId
+    return { targetId: questionIdParam, needsReload: false }
+  }
+
+  return { targetId: undefined, needsReload: false }
+}
+
 onMounted(async () => {
   console.log('[ExerciseSolveView] onMounted')
-  // 静默初始化，不显示加载状态
-  try {
-    // 从路由参数中获取 tab 参数，设置当前功能
-    const tabParam = route.query.tab as string | undefined
-    if (tabParam && ['chatAi', 'teacherChat', 'viewAnswer', 'similarQuestion'].includes(tabParam)) {
-      currentFunction.value = tabParam as typeof currentFunction.value
-      console.log('[ExerciseSolveView] 从路由参数设置 tab:', tabParam)
-    }
 
-    // 从路由参数中获取题目ID（统一使用 query）
-    const routeSubject = route.query.subject as string | undefined
+  try {
+    // 步骤1：初始化路由参数
+    initializeRouteParams()
+
+    // 步骤2：处理学科和过滤逻辑
+    const subjectName = initializeSubjectAndFilters()
+
+    // 步骤3：从路由参数中获取题目ID
     const questionIdsParam = route.query.questionIds as string | undefined
     const questionIdParam = route.query.questionId as string | undefined
 
-    // 作业场景：不做学科推断，也不设置学科筛选（作业题目通常没有 subject 字段）
-    // 避免 QuestionList 按 subject 过滤把作业题目全部过滤掉
-    let subjectName = 'math'
-    let subjectFilterValue: string | null = null
+    // 步骤4：加载题目数据
+    await loadQuestionsData(subjectName, questionIdsParam)
 
-    if (!isFromHomework.value) {
-      // 将 Subject 枚举值转换为科目名称
-      const subjectMap: Record<string, string> = {
-        [Subject.SUBJECT_MATH]: 'math',
-        [Subject.SUBJECT_BIOLOGY]: 'biology',
-        [Subject.SUBJECT_CHEMISTRY]: 'chemistry',
-        [Subject.SUBJECT_PHYSICS]: 'physics',
-        [Subject.SUBJECT_CHINESE]: 'chinese',
-        [Subject.SUBJECT_ENGLISH]: 'english',
-      }
+    // 步骤5：获取目标题目ID并处理定位
+    const { targetId, needsReload } = getTargetQuestionId(questionIdsParam, questionIdParam)
 
-      // 科目名称到筛选面板值的反向映射
-      const reverseSubjectMap: Record<string, string> = {
-        math: 'SUBJECT_MATH',
-        biology: 'SUBJECT_BIOLOGY',
-        chemistry: 'SUBJECT_CHEMISTRY',
-        physics: 'SUBJECT_PHYSICS',
-        chinese: 'SUBJECT_CHINESE',
-        english: 'SUBJECT_ENGLISH',
-      }
-
-      // 确定要加载的科目
-      subjectName = 'math' // 默认使用数学
-      subjectFilterValue = null // 筛选面板的值
-
-      if (routeSubject) {
-        // 如果路由参数中提供了科目，使用路由参数中的科目
-        const routeSubjectUpper = String(routeSubject).toUpperCase()
-        subjectName =
-          subjectMap[routeSubjectUpper] ||
-          subjectMap[routeSubject] ||
-          routeSubject.toLowerCase() ||
-          'math'
-
-        // 将路由参数中的科目值（如 SUBJECT_BIOLOGY）设置为筛选面板的值
-        if (routeSubjectUpper.startsWith('SUBJECT_')) {
-          subjectFilterValue = routeSubjectUpper
-        } else {
-          // 如果不是标准格式，尝试从科目名称反向映射
-          subjectFilterValue = reverseSubjectMap[subjectName] || null
-        }
-      } else {
-        // 否则从用户store中获取科目
-        const userSubject = getSubject()
-        if (userSubject) {
-          const userSubjectUpper = String(userSubject).toUpperCase()
-          subjectName =
-            subjectMap[userSubjectUpper] ||
-            subjectMap[userSubject] ||
-            userSubject.toLowerCase() ||
-            'math'
-
-          // 将用户store中的科目转换为筛选面板的值
-          if (userSubjectUpper.startsWith('SUBJECT_')) {
-            subjectFilterValue = userSubjectUpper
-          } else {
-            subjectFilterValue = reverseSubjectMap[subjectName] || null
-          }
-        }
-      }
-
-      // 设置筛选面板的学科过滤下拉框（仅习题场景使用）
-      if (subjectFilterValue) {
-        selectedSubjectFilter.value = subjectFilterValue
-      } else {
-        selectedSubjectFilter.value = ''
-      }
-    } else {
-      // 作业场景：不做任何 subject 过滤
-      selectedSubjectFilter.value = ''
+    // 如果需要重新加载题目数据
+    if (needsReload && targetId && !isFromHomework.value) {
+      await questionStore.fetchQuestions(subjectName, false)
     }
 
-    // 如果提供了 questionIds 参数，说明是刚添加的题目，需要从服务器刷新
-    // 否则优先使用本地数据
-    const useLocalFirst = !questionIdsParam
-
-    // 处理题目定位
-    let targetQuestionId: string | undefined
-
-    // 获取当前场景下的题目列表（ref）
-    const activeQuestionsRef = isFromHomework.value ? homeworkQuestions : questions
-
-    // 习题场景：通过接口 / 本地缓存加载题目
-    if (!isFromHomework.value) {
-      // 根据筛选面板的学科过滤值决定加载方式
-      if (!selectedSubjectFilter.value) {
-        // 全部学科：加载所有学科的题目
-        await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
-      } else {
-        // 具体学科：加载指定学科的题目
-        await questionStore.fetchQuestions(subjectName, useLocalFirst)
-      }
-    }
-
-    // 注意：作业场景下不再重新拉取题目，直接使用 MyHomeworkView / HomeworkAnswerView 预先写入的 homeworkStore.questions
-
-    // 当前可用的题目数组
-    const activeQuestions = activeQuestionsRef.value
-
-    // 优先使用 questionIds（多个题目，定位到第一个）
-    if (questionIdsParam) {
-      const questionIds = questionIdsParam.split(',').filter((id) => id.trim())
-      if (questionIds.length > 0) {
-        targetQuestionId = questionIds[0]
-        // 验证这些题目是否在列表中
-        const foundIds = questionIds.filter((id) =>
-          activeQuestions.some((q) => q.bmNo === id || q.id === id)
-        )
-        if (foundIds.length < questionIds.length) {
-          console.warn('[ExerciseSolveView] ⚠️ 部分题目未在列表中，可能需要等待服务器同步')
-          // 如果部分题目未找到，尝试再次从服务器刷新（仅习题场景）
-          if (!isFromHomework.value) {
-            await questionStore.fetchQuestions(subjectName, false)
-            // 刷新后更新本地题目数组
-            const refreshedQuestions = questions.value
-            const foundIdsAfterRefresh = questionIds.filter((id) =>
-              refreshedQuestions.some((q) => q.bmNo === id || q.id === id)
-            )
-          }
-        }
-      }
-    } else if (questionIdParam) {
-      // 使用单个 questionId
-      targetQuestionId = questionIdParam
-    }
-
-    // 定位到目标题目
-    if (targetQuestionId && questionListRef.value) {
-      await nextTick()
-      // 等待题目列表渲染完成
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      // 在题目列表中查找对应的题目索引
-      const targetIndex = activeQuestions.findIndex(
-        (q) => q.id === targetQuestionId || q.bmNo === targetQuestionId
-      )
-      if (targetIndex >= 0) {
-        // 等待组件完全渲染后再定位
-        await nextTick()
-        setTimeout(() => {
-          if (
-            questionListRef.value &&
-            typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
-          ) {
-            questionListRef.value.scrollToQuestionAndSelect(targetIndex)
-          }
-        }, 500)
-      } else {
-        console.warn('[ExerciseSolveView] ⚠️ 未找到目标题目，ID:', targetQuestionId)
-      }
-    }
+    // 步骤6：定位到目标题目
+    await handleQuestionPositioning(targetId)
   } catch (error) {
     console.error(`[ExerciseSolveView] ❌ 初始化失败:`, error)
   }

@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="auto-height-textarea-container">
     <textarea
@@ -14,24 +15,22 @@
       @blur="$emit('blur', $event)"
     />
 
-    <q-btn
+    <button
       v-if="showActionButton"
-      :class="actionButtonClass"
-      :color="actionButtonColor"
-      :icon="actionButtonIcon"
-      :loading="actionButtonLoading"
-      :disable="actionButtonDisabled"
-      :round="actionButtonRound"
-      :size="actionButtonSize"
+      :class="['auto-action-btn', actionButtonClass]"
+      :disabled="actionButtonDisabled || actionButtonLoading"
+      type="button"
       @click="$emit('action-click', $event)"
     >
+      <img :src="searchIcon" alt="action" class="action-icon" />
       <slot name="action-button"></slot>
-    </q-btn>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, nextTick, watch, onMounted } from 'vue'
+import searchIcon from '/icons/search.svg'
 
 interface Props {
   modelValue: string
@@ -44,7 +43,6 @@ interface Props {
   showActionButton?: boolean
   actionButtonClass?: string
   actionButtonColor?: string
-  actionButtonIcon?: string
   actionButtonLoading?: boolean
   actionButtonDisabled?: boolean
   actionButtonRound?: boolean
@@ -69,7 +67,6 @@ const props = withDefaults(defineProps<Props>(), {
   showActionButton: false,
   actionButtonClass: '',
   actionButtonColor: 'primary',
-  actionButtonIcon: '',
   actionButtonLoading: false,
   actionButtonDisabled: false,
   actionButtonRound: true,
@@ -170,5 +167,34 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   z-index: 10;
+}
+
+/* Native action button styling (replaces q-btn) */
+.auto-height-textarea-container .auto-action-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.auto-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  width: 40px;
+  height: 40px;
+  display: block;
+  object-fit: contain;
 }
 </style>
