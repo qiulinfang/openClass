@@ -143,12 +143,12 @@ export class TeacherChatApi {
         webSocket.setSessionId(sessionId)
 
         // 转换数据格式以匹配现有代码的期望
-        return messageArray.map((msg: { id: string; messageId: string; msgContent: string; msgType: string; createTime: string; msgSendId: string; msgSendName?: string }): TeacherHistoryMessage => ({
+        return messageArray.map((msg: { id: string; messageId: string; msgContent: string; msgType: string; createTime: string; msgSendId: string; account?: string }): TeacherHistoryMessage => ({
           messageId: msg.messageId, // 使用前端生成的消息ID
           content: msg.msgContent,
           type: convertMessageType(msg.msgType), // 转换消息类型
           timestamp: parseCreateTime(msg.createTime), // 解析后端日期格式
-          isSelf: msg.msgSendName === currentUserId // 如果发送者ID等于当前用户ID，则是自己发送的消息
+          isSelf: msg.account === currentUserId // 如果发送者ID等于当前用户ID，则是自己发送的消息
         }))
       }
 

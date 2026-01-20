@@ -255,12 +255,15 @@
     <!-- Markdown 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl || ''" alt="图片预览" />
 
-    <DraggableDialog
-      v-model="showDeleteConfirmDialog"
-      type="delete"
-      @cancel="handleCancelDelete"
+    <Dialog
+      ref="deleteDialogRef"
+      title="删除确认"
+      :confirmButtonText="'删除'"
+      :cancelButtonText="'取消'"
       @confirm="confirmDelete"
-    />
+    >
+      确定要删除这条消息吗？
+    </Dialog>
   </div>
 </template>
 
@@ -295,7 +298,7 @@ import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
 import ImageViewer from '../ImageViewer.vue'
-import DraggableDialog from '../dialog/DraggableDialog.vue'
+import Dialog from '../base/Dialog.vue'
 import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import MultiImageMessage from './MultiImageMessage.vue'
@@ -370,7 +373,7 @@ const currentBubbleType = ref<'ai' | 'user' | null>(null)
 
 const { renderMessageContent } = useMessageRenderer()
 
-const showDeleteConfirmDialog = ref(false)
+const deleteDialogRef = ref<InstanceType<typeof Dialog>>()
 const pendingDeleteMessageId = ref<string | null>(null)
 
 // 场景Store
@@ -888,11 +891,11 @@ const handleDelete = async () => {
   showActionMenu.value = false
 
   pendingDeleteMessageId.value = props.message.id
-  showDeleteConfirmDialog.value = true
+  deleteDialogRef.value?.openDialog()
 }
 
 const handleCancelDelete = () => {
-  showDeleteConfirmDialog.value = false
+  deleteDialogRef.value?.closeDialog()
   pendingDeleteMessageId.value = null
 }
 
@@ -904,7 +907,7 @@ const confirmDelete = async () => {
     console.error('删除消息失败:', error)
     showMessage('删除失败，请稍后重试', 'error')
   } finally {
-    showDeleteConfirmDialog.value = false
+    deleteDialogRef.value?.closeDialog()
     pendingDeleteMessageId.value = null
   }
 }

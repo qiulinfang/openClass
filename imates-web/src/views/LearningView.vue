@@ -1,5 +1,5 @@
 ﻿<template>
-  <DraggableDialog
+  <Modal
     v-model="localVisible"
     :title="sectionName"
     :initial-width="700"
@@ -120,7 +120,7 @@
         </div>
       </div>
     </div>
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -135,7 +135,7 @@ import { resourceManager } from '../services/storage/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/base/VirtualList.vue'
 import { getUserId } from '../services'
-import DraggableDialog from '../components/base/Modal.vue'
+import Modal from '../components/base/Modal.vue'
 import CommonActionButton from '../components/base/Button.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
@@ -734,7 +734,7 @@ $spacing-xl: 32px;
   overflow: hidden;
 }
 
-// 覆盖 DraggableDialog 的 title 样式
+// 覆盖 Modal 的 title 样式
 :deep(.dialog-header-section) {
   .text-h6 {
     font-size: 20px !important;

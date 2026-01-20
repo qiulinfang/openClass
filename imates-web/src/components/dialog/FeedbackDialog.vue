@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog
+  <Modal
     v-model="localVisible"
     title="在线客服"
     :initial-width="900"
@@ -27,13 +27,13 @@
         />
       </div>
     </div>
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { showMessage } from '@/utils'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 import ChatView from '@/components/ChatView.vue'
 import { useUserClientStore } from '@/stores/userClientStore'
 

@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog
+  <Modal
     v-model="localVisible"
     title="你想问什么问题呢？"
     :initial-width="900"
@@ -67,12 +67,12 @@
           </div>
         </div>
       </div>
-  </DraggableDialog>
+    </Modal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import { showMessage } from '@/utils'

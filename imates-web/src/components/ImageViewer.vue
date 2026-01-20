@@ -48,7 +48,7 @@ const handleClose = () => {
 
 <style scoped lang="scss">
 .image-viewer-root {
-  // 确保图片预览层级高于其他自定义对话框（如 DraggableDialog，遮罩层 z-index=9000）
+  // 确保图片预览层级高于其他自定义对话框（如 Modal，遮罩层 z-index=9000）
   position: fixed;
   inset: 0;
   z-index: 10000;

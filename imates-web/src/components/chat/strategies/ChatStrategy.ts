@@ -93,10 +93,7 @@ export interface ChatStrategy {
   // 第15步：初始化策略
   initialize(options: import('./types').InitializeOptions): Promise<void>
 
-  // 第16步：获取会话信息（可选，仅教师策略需要）
-  getSessionInfo?(): import('../../../types').ChatMessageSession | null
-  
-  // 第17步：检查是否应该乐观发送
+  // 第16步：检查是否应该乐观发送
   shouldOptimisticSend(): boolean
   
   // 第18步：发送语音消息

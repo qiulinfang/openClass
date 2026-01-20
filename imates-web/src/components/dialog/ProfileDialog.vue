@@ -1,6 +1,6 @@
 <template>
   <div>
-    <DraggableDialog
+    <Modal
       v-model="localVisible"
       title="个人信息"
       :auto-size="true"
@@ -42,7 +42,7 @@
           </div>
         </div>
       </div>
-    </DraggableDialog>
+    </Modal>
   </div>
 </template>
 
@@ -50,7 +50,7 @@
 import { computed, watch } from 'vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 import avatarIcon from '/icons/avatar.svg'
 
 interface Props {

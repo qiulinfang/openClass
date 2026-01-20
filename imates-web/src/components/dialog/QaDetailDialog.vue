@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog 
+  <Modal 
     v-model="localVisible" 
     title="问答详情"
     :initial-width="700"
@@ -35,13 +35,13 @@
         <div class="empty-text">暂无答案内容</div>
       </div>
     </div>
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import DraggableDialog from '../DraggableDialog.vue'
+import Modal from '../base/Modal.vue'
 
 interface Props {
   modelValue: boolean

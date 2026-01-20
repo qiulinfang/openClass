@@ -205,6 +205,11 @@ import { createQuestionListStrategy } from './question/strategies'
 
 // 导入拍照搜题图标
 import searchQuestionIcon from '/icons/search_question.svg'
+// 导入功能图标
+import zhidingIcon from '/icons/zhiding.svg'
+import quxiaozhidingIcon from '/icons/quxiaozhiding.svg'
+import shoucangIcon from '/icons/shoucang1.svg'
+import xingxingLightIcon from '/icons/xingxing-light.svg'
 
 const props = withDefaults(defineProps<{
   searchQuery?: string
@@ -457,12 +462,6 @@ let setQuestionCardRefImpl: (
     if (el) {
       contentRefs.value.set(questionId, el)
 
-      // 核心日志：记录MathJax渲染调用
-      console.log('[QuestionList] MathJax渲染题目:', {
-        questionId,
-        题目序号: getQuestionDisplayIndex(questionId),
-        是否包含公式: el.innerHTML.includes('$') || el.innerHTML.includes('\\(')
-      })
 
       // 渲染MathJax
       await MathJaxUtils.renderMath(el, false)
@@ -624,21 +623,21 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
     {
       key: 'mini-class',
       label: '微课',
-      icon: 'icons/my_exercises.svg',
+      icon: 'icons/my_exercises1.svg',
       visible: currentStrategy.canOpenMiniClass(),
       onClick: wrap(() => throttledOpenMiniClass(question)),
     },
     {
       key: 'pin',
-      label: '置顶',
-      icon: 'icons/pin.svg',
-      visible: currentStrategy.canMoveToTop() && index > 0,
+      label: index === 0 ? '取消置顶' : '置顶',
+      icon: index === 0 ? quxiaozhidingIcon : zhidingIcon,
+      visible: currentStrategy.canMoveToTop(),
       onClick: wrap(() => throttledMoveToTop(bmNo)),
     },
     {
       key: 'favorite',
       label: isExerciseFavorite(bmNo) ? '取消收藏' : '收藏题目',
-      icon: 'icons/shoucang.svg',
+      icon: isExerciseFavorite(bmNo) ? xingxingLightIcon : shoucangIcon,
       visible: currentStrategy.canFavorite(),
       onClick: wrap(() => throttledToggleFavorite(question)),
     },
@@ -661,12 +660,6 @@ const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' =>
     return 'BIOLOGY'
   }
   return 'MATH'
-}
-
-
-// 处理会话创建事件
-const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'teacher') => {
-  // 会话创建处理（拍作业功能已删除）
 }
 
 
@@ -1063,32 +1056,47 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
   }
 }
 
-// 题目置顶处理
+// 题目置顶/取消置顶处理
 const moveQuestionToTop = async (questionId: string) => {
   try {
     const currentIndex = questions.value.findIndex((q) => q.bmNo === questionId)
-    if (currentIndex <= 0) return // 已经在顶部或找不到题目
+    if (currentIndex < 0) return // 找不到题目
 
-    // 直接在前端进行置顶操作
-    const question = questions.value.splice(currentIndex, 1)[0]
-    questions.value.unshift(question)
+    const currentStrategy = strategy.value
 
-    // 置顶后，直接将置顶的题目标记为选中（索引 0）
-    selectedQuestionIndex.value = 0
+    if (currentIndex === 0) {
+      // 已经在顶部，取消置顶 - 移到最后
+      const question = questions.value.splice(currentIndex, 1)[0]
+      questions.value.push(question)
+
+      // 取消置顶后，选择原来位置（现在是最后）
+      const newIndex = questions.value.length - 1
+      selectedQuestionIndex.value = newIndex
+      await currentStrategy.selectQuestion(newIndex)
+
+      showMessage('已取消置顶', 'positive')
+    } else {
+      // 不在顶部，置顶操作
+      const question = questions.value.splice(currentIndex, 1)[0]
+      questions.value.unshift(question)
+
+      // 置顶后，直接将置顶的题目标记为选中（索引 0）
+      selectedQuestionIndex.value = 0
+      await currentStrategy.selectQuestion(0)
+
+      // 题目置顶后滚动到最顶部
+      await nextTick()
+      const container = document.querySelector('.question-cards-container')
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }
 
     // 通过策略同步到 store
-    const currentStrategy = strategy.value
     await currentStrategy.setQuestions(questions.value, selectedSubject.value)
-    await currentStrategy.selectQuestion(0)
 
-    // 题目置顶后滚动到最顶部
-    await nextTick()
-    const container = document.querySelector('.question-cards-container')
-    if (container) {
-      container.scrollTo({ top: 0, behavior: 'smooth' })
-    }
   } catch {
-    showMessage('置顶失败', 'error')
+    showMessage('操作失败', 'error')
   }
 }
 

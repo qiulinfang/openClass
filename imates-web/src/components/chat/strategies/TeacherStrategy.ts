@@ -9,8 +9,6 @@ import type { SendMessageOptions, TeacherSessionInfo, InitializeOptions } from '
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { useQuestionStore } from '../../../stores/questionStore'
 import { getUserId } from '../../../services'
-import { SessionType } from '../../../types'
-import type { ChatMessageSession } from '../../../types'
 
 export class TeacherStrategy implements ChatStrategy {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -276,25 +274,7 @@ export class TeacherStrategy implements ChatStrategy {
   }
   
 
-  // 第18步：获取会话信息（教师策略需要）
-  getSessionInfo(): ChatMessageSession | null {
-    const session = this.teacherStore.currentSession
-    if (!session) {
-      return null
-    }
-    
-    return {
-      sessionId: session.sessionId,
-      sessionName: session.sessionName,
-      catalogId: 'CATEGORY_TEACHER_QA',
-      sessionType: session.subject === 'biology' 
-        ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-        : SessionType.USER_TALK_TEACHER_MATH,
-      createTime: Date.now(),
-      updateTime: Date.now(),
-      msgCount: 0,
-    }
-  }
+  // getSessionInfo 方法已删除，所有策略都不需要此方法
   
   // 第19步：是否显示转发按钮
   shouldShowForwardButton(): boolean {

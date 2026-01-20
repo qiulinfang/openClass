@@ -43,7 +43,7 @@
     </RubberBandList>
 
     <!-- 加入课堂确认对话框：使用可拖拽对话框组件 -->
-    <DraggableDialog
+    <Modal
       v-model="showJoinClassDialog"
       class="join-class-dialog"
       title="课堂提示"
@@ -106,20 +106,19 @@
           </div>
         </div>
       </div>
-    </DraggableDialog>
+    </Modal>
 
     <!-- 退出登录确认对话框 -->
-    <DraggableDialog
-      v-model="showLogoutConfirm"
-      type="delete"
+    <Dialog
+      ref="logoutDialogRef"
       title="退出确认"
-      :delete-content="'确定要退出登录吗？'"
-      :processing="isLoggingOut"
-      processing-text="退出中..."
-      :confirm-text="'退出'"
+      :confirmButtonText="'退出'"
+      :cancelButtonText="'取消'"
       @confirm="confirmLogout"
       @cancel="cancelLogout"
-    />
+    >
+      确定要退出登录吗？
+    </Dialog>
   </div>
 </template>
 
@@ -139,7 +138,7 @@ import {
 } from '../services'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import RubberBandList from '@/components/base/VirtualList.vue'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Dialog from '@/components/base/Dialog.vue'
 import CommonSelect from '@/components/base/Select.vue'
 
 // 导入 SVG 图标
@@ -161,7 +160,7 @@ const isInClass = ref(false)
 const isProjecting = ref(false)
 const showJoinClassDialog = ref(false)
 const isLoggingOut = ref(false)
-const showLogoutConfirm = ref(false)
+const logoutDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 教室选择相关状态
 const classroomTree = ref<any | null>(null)
@@ -538,14 +537,14 @@ const openDraftNotebook = () => {
 
 // 处理退出登录
 const handleLogout = () => {
-  showLogoutConfirm.value = true
+  logoutDialogRef.value?.openDialog()
 }
 
 // 确认退出登录
 const confirmLogout = async () => {
   try {
     isLoggingOut.value = true
-    showLogoutConfirm.value = false
+    logoutDialogRef.value?.closeDialog()
 
     // 如果在课堂中，先退出课堂
     if (androidBridge.isAndroidBridgeAvailable()) {

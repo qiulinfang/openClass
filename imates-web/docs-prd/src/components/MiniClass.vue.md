@@ -11,7 +11,7 @@
 ### 1. 核心功能
 
 #### 1.1 双重显示模式
-- **对话框模式**：使用 `DraggableDialog` 组件，可拖拽、可调整大小
+- **对话框模式**：使用 `Modal` 组件，可拖拽、可调整大小
 - **嵌入式模式**：直接嵌入到页面中，适合固定布局
 
 #### 1.2 多媒体播放支持
@@ -56,9 +56,9 @@
 ```vue
 <template>
   <!-- 对话框模式 -->
-  <DraggableDialog v-if="useDialog" ...>
+  <Modal v-if="useDialog" ...>
     <!-- 内容区域 -->
-  </DraggableDialog>
+  </Modal>
   
   <!-- 嵌入式模式 -->
   <div v-else class="mini-class-container embedded">
@@ -597,7 +597,7 @@ const classUrl = 'https://www.imates.com.cn:9099/demo/demo1.html'
 
 ## 📚 相关文件
 
-- `src/components/DraggableDialog.vue` - 可拖拽对话框组件
+- `src/components/base/Modal.vue` - 可拖拽对话框组件
 - `src/components/QuestionList.vue` - 题目列表组件（使用 MiniClass）
 - `src/views/ExerciseSolveView.vue` - 练习题解答视图（调用微课）
 - `src/stores/uiStore.ts` - UI 状态管理（微课对话框状态）

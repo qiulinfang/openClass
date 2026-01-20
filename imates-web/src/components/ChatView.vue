@@ -186,7 +186,7 @@
       </Transition>
     </div>
 
-    <DraggableDialog
+    <Modal
       v-model="showLinkDialog"
       title="链接预览"
       :initial-width="900"
@@ -203,43 +203,44 @@
           style="border: 0; width: 100%; height: 100%"
         ></iframe>
       </div>
-    </DraggableDialog>
+    </Modal>
     <!-- 选择模式工具栏 - 新设计 -->
     <!-- 功能：当用户进入多选模式时显示，提供批量操作功能，替换 ChatInput 的位置 -->
     <div v-if="isSelectionMode" class="selection-toolbar">
       <!-- 左侧：全选区域 -->
-      <div class="selection-left" @click="selectAllMessages">
-        <q-icon
-          :name="
-            isAllSelected
-              ? 'check_box'
-              : selectedMessages.size > 0
-                ? 'indeterminate_check_box'
-                : 'check_box_outline_blank'
-          "
-          :class="['select-all-icon', { 'icon-selected': isAllSelected }]"
-        />
+      <div
+        class="selection-left"
+        @click="selectAllMessages"
+        :title="isAllSelected ? '取消全选' : '全选'"
+      >
+        <span
+          :class="[
+            'checkbox-icon',
+            { checked: isAllSelected, indeterminate: selectedMessages.size > 0 && !isAllSelected },
+          ]"
+        ></span>
         <span class="select-all-text">全选</span>
-        <span class="selection-count"
-          >已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span
-        >
+        <span class="selection-count">已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span>
       </div>
 
-      <!-- 右侧：操作按钮组 -->
+      <!-- 右侧：操作按钮组（使用原生按钮，样式靠 CSS 控制） -->
       <div class="selection-actions">
-        <!-- 取消按钮 -->
-        <q-btn flat @click="exitSelectionMode" class="cancel-btn" size="md"> 取消 </q-btn>
-        <!-- 发送按钮 - 使用策略模式判断是否显示 -->
-        <q-btn
-          v-if="chatStrategy?.shouldShowForwardButton()"
-          @click="() => forwardToTeacher()"
-          :disable="selectedMessages.size === 0"
-          class="send-btn"
+        <Button
+          label="取消"
+          variant="outline"
           size="md"
-          unelevated
-        >
-          {{ selectionMode === 'ask-teacher' ? '发送' : '发送' }}
-        </q-btn>
+          class="cancel-btn"
+          @click="exitSelectionMode"
+        />
+
+        <Button
+          v-if="chatStrategy?.shouldShowForwardButton()"
+          :label="selectionMode === 'ask-teacher' ? '发送' : '发送'"
+          variant="primary"
+          size="md"
+          :disabled="selectedMessages.size === 0"
+          @click="() => forwardToTeacher()"
+        />
       </div>
     </div>
     <!-- 聊天输入组件插槽 - 支持自定义输入组件，默认使用 ChatInput -->
@@ -338,7 +339,7 @@
           "
           @blur="onInputBlur"
         >
-        <template #header-prefix>
+          <template #header-prefix>
             <slot name="header-prefix"></slot>
           </template>
         </SimpleChatInput>
@@ -353,13 +354,15 @@
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
     <!-- 删除会话确认对话框 -->
-    <DraggableDialog
-      v-model="showDeleteConfirmDialog"
-      type="delete"
-      :delete-content="`确认删除「${pendingDeleteSessionTitle}」？`"
-      @cancel="cancelDeleteSession"
+    <Dialog
+      ref="deleteSessionDialogRef"
+      title="删除确认"
+      :confirmButtonText="'删除'"
+      :cancelButtonText="'取消'"
       @confirm="confirmDeleteSession"
-    />
+    >
+      {{ `确认删除「${pendingDeleteSessionTitle}」？` }}
+    </Dialog>
 
     <!-- 图片批注对话框：复用 PdfViewerView 的截图批注能力（DrawingBoard） -->
     <ScreenshotInputDialog
@@ -373,12 +376,9 @@
       @cancel="handleAnnotateCancel"
       @remove-screenshot="handleAnnotateRemoveScreenshot"
     />
-    
+
     <!-- 老师选择对话框 -->
-    <TeacherSelectionDialog
-      v-model="showTeacherSelectionDialog"
-      @confirm="handleTeacherSelected"
-    />
+    <TeacherSelectionDialog v-model="showTeacherSelectionDialog" @confirm="handleTeacherSelected" />
 
     <!-- 转发成功对话框 -->
     <Dialog
@@ -391,7 +391,7 @@
     >
       {{ forwardSuccessMessage }}
     </Dialog>
-</div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -415,10 +415,10 @@ import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 import CardStack from './base/CardStack.vue'
-import DraggableDialog from './base/Modal.vue'
 import RubberBandList from './base/VirtualList.vue'
 import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
 import Dialog from './base/Dialog.vue'
+import Button from './base/Button.vue'
 
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
@@ -439,12 +439,7 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(
   defineProps<{
-    type:
-      | 'ai-general'
-      | 'ai-exercise'
-      | 'ai-textbook'
-      | 'teacher'
-      | 'user-client'
+    type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
@@ -468,7 +463,7 @@ const props = withDefaults(
     enableLongPress: true, // 默认启用长按功能
     showReadStatus: false, // 默认不显示已读状态
     showTime: false, // 默认不显示消息时间
-  },
+  }
 )
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -482,7 +477,7 @@ const emit = defineEmits<{
       forwardMode?: string
       successCount?: number
       sessionId?: string
-    },
+    }
   ] // 切换到老师对话事件
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
@@ -542,7 +537,7 @@ const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) 
 // 本地截图列表（用于非 ai-textbook 场景在输入框上方展示缩略图）
 // 注意：必须深拷贝 props.attachedScreenshots，避免引用共享导致删除时影响父组件
 const localAttachedScreenshots = ref<AttachedScreenshot[]>(
-  props.attachedScreenshots ? [...props.attachedScreenshots] : [],
+  props.attachedScreenshots ? [...props.attachedScreenshots] : []
 )
 
 // ========== 图片批注（DrawingBoard） ==========
@@ -674,7 +669,7 @@ const handleAnnotateConfirm = async (shots: AttachedScreenshot[]) => {
 
 const handleAnnotateAddMore = async (
   shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>,
+  states: Record<string, ScreenshotDrawingState>
 ) => {
   // 仅 ai-general 需要支持“继续添加”（最多3张）
   if (props.type !== 'ai-general') {
@@ -825,7 +820,7 @@ const handleSwitchSession = async (sessionId: string) => {
 }
 
 // 删除会话确认对话框状态
-const showDeleteConfirmDialog = ref(false)
+const deleteSessionDialogRef = ref<InstanceType<typeof Dialog>>()
 const pendingDeleteSessionId = ref<string | null>(null)
 const pendingDeleteSessionTitle = ref('')
 
@@ -836,7 +831,8 @@ let teacherSelectionResolve: ((subject: 'BIOLOGY' | 'MATH') => void) | null = nu
 // 转发成功对话框状态
 const forwardSuccessDialogRef = ref<InstanceType<typeof Dialog>>()
 const forwardSuccessMessage = ref('')
-let forwardSuccessResolve: ((result: { goToTeacher: boolean; sessionId?: string }) => void) | null = null
+let forwardSuccessResolve: ((result: { goToTeacher: boolean; sessionId?: string }) => void) | null =
+  null
 
 // 请求删除会话（显示确认对话框）
 const handleDeleteSessionRequest = (sessionId: string) => {
@@ -847,7 +843,7 @@ const handleDeleteSessionRequest = (sessionId: string) => {
     const session = cards.find((s) => s.id === sessionId)
     pendingDeleteSessionId.value = sessionId
     pendingDeleteSessionTitle.value = session?.title || '该会话'
-    showDeleteConfirmDialog.value = true
+    deleteSessionDialogRef.value?.openDialog()
   }
 }
 
@@ -886,7 +882,7 @@ const confirmDeleteSession = async () => {
     showMessage('删除会话失败', 'error')
   } finally {
     // 关闭对话框并清理状态
-    showDeleteConfirmDialog.value = false
+    deleteSessionDialogRef.value?.closeDialog()
     pendingDeleteSessionId.value = null
     pendingDeleteSessionTitle.value = ''
   }
@@ -894,13 +890,16 @@ const confirmDeleteSession = async () => {
 
 // 取消删除会话
 const cancelDeleteSession = () => {
-  showDeleteConfirmDialog.value = false
+  deleteSessionDialogRef.value?.closeDialog()
   pendingDeleteSessionId.value = null
   pendingDeleteSessionTitle.value = ''
 }
 
 // 显示转发成功对话框
-const showForwardSuccessDialog = (message: string, sessionId?: string): Promise<{ goToTeacher: boolean; sessionId?: string }> => {
+const showForwardSuccessDialog = (
+  message: string,
+  sessionId?: string
+): Promise<{ goToTeacher: boolean; sessionId?: string }> => {
   return new Promise((resolve) => {
     forwardSuccessMessage.value = message
     forwardSuccessResolve = (result: { goToTeacher: boolean }) => resolve({ ...result, sessionId })
@@ -940,7 +939,6 @@ const quotedMessage = ref<ChatBubble | null>(null) // 引用的消息
 const showSessionListPanel = ref(false)
 // 当前高亮的 sessionId（用于整段会话高亮）
 // 对话相关状态（需要在策略初始化之前声明）
-const aiSessionId = ref<string>('') // AI会话ID
 const currentSubject = ref<string>('math') // 当前科目，默认为数学
 
 // ==================== 键盘动画相关状态 ====================
@@ -1053,7 +1051,6 @@ const displayedMessages = computed<ChatBubble[]>(() => {
   return result
 })
 
-
 // 判断是否全选
 const isAllSelected = computed(() => {
   return (
@@ -1063,8 +1060,6 @@ const isAllSelected = computed(() => {
 })
 
 // 时间分隔条相关函数
-
-
 
 /**
  * 判断消息是否是最后一条
@@ -1329,7 +1324,7 @@ const handleKeyboardHidden = () => {
   // 如果当前不是激活实例，不做动画，但需要硬重置键盘状态，防止旧状态影响下次显示
   if (!isActiveInstance.value) {
     console.log(
-      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only',
+      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only'
     )
     hardResetKeyboardState()
     return
@@ -1662,7 +1657,10 @@ const sendMessage = async (attachedFile?: File) => {
     // - 多张：走 imageList
     let imageDataForApi: ChatImageData | undefined
     const maxImages = props.type === 'user-client' ? 5 : 3
-    if ((props.type === 'ai-general' || props.type === 'user-client') && localAttachedScreenshots.value.length > 0) {
+    if (
+      (props.type === 'ai-general' || props.type === 'user-client') &&
+      localAttachedScreenshots.value.length > 0
+    ) {
       if (localAttachedScreenshots.value.length > 1) {
         imageListForApi = localAttachedScreenshots.value
           .filter((s) => !!s.dataUrl)
@@ -1687,7 +1685,10 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     // ai-general 和 user-client：点击发送后立刻清空输入区缩略图（不等待回复完成）
-    if ((props.type === 'ai-general' || props.type === 'user-client') && localAttachedScreenshots.value.length > 0) {
+    if (
+      (props.type === 'ai-general' || props.type === 'user-client') &&
+      localAttachedScreenshots.value.length > 0
+    ) {
       localAttachedScreenshots.value = []
     }
 
@@ -1771,35 +1772,35 @@ const sendMessage = async (attachedFile?: File) => {
   }
 }
 
-  // 作用：处理顶部加载更多历史消息的事件
-  const handleLoadTop = async () => {
-    console.log('[历史记录] UI: 接收到顶部加载事件')
+// 作用：处理顶部加载更多历史消息的事件
+const handleLoadTop = async () => {
+  console.log('[历史记录] UI: 接收到顶部加载事件')
 
-    // 只在支持分页历史的用户客户端类型中启用
-    if (props.type !== 'user-client' || !chatStrategy.value?.supportsPaginatedHistory?.()) {
-      console.log('[历史记录] UI: 不支持分页历史，跳过加载')
-      return
-    }
-
-    // 检查是否正在加载或没有更多历史
-    if (chatStrategy.value.isLoadingHistory?.()) {
-      console.log('[历史记录] UI: 正在加载中，跳过重复请求')
-      return
-    }
-
-    if (!chatStrategy.value.hasMoreHistory?.()) {
-      console.log('[历史记录] UI: 没有更多历史记录')
-      return
-    }
-
-    console.log('[历史记录] UI: 开始加载更多历史消息')
-    try {
-      await chatStrategy.value.loadMoreHistory?.()
-      console.log('[历史记录] UI: 加载更多历史消息成功')
-    } catch (error) {
-      console.error('[历史记录] UI: 加载更多历史消息失败', error)
-    }
+  // 只在支持分页历史的用户客户端类型中启用
+  if (props.type !== 'user-client' || !chatStrategy.value?.supportsPaginatedHistory?.()) {
+    console.log('[历史记录] UI: 不支持分页历史，跳过加载')
+    return
   }
+
+  // 检查是否正在加载或没有更多历史
+  if (chatStrategy.value.isLoadingHistory?.()) {
+    console.log('[历史记录] UI: 正在加载中，跳过重复请求')
+    return
+  }
+
+  if (!chatStrategy.value.hasMoreHistory?.()) {
+    console.log('[历史记录] UI: 没有更多历史记录')
+    return
+  }
+
+  console.log('[历史记录] UI: 开始加载更多历史消息')
+  try {
+    await chatStrategy.value.loadMoreHistory?.()
+    console.log('[历史记录] UI: 加载更多历史消息成功')
+  } catch (error) {
+    console.error('[历史记录] UI: 加载更多历史消息失败', error)
+  }
+}
 
 // 作用：滚动聊天区域到底部，确保最新消息可见
 const scrollToBottom = async () => {
@@ -2272,7 +2273,6 @@ const handleMessageClick = (message: ChatBubble) => {
     toggleMessageSelection(message.id)
   }
 }
-
 
 // 处理删除消息：完全通过策略接口
 const handleDeleteMessage = async (messageId: string) => {
@@ -2825,7 +2825,7 @@ watch(
       }
     }
   },
-  { deep: true, immediate: false },
+  { deep: true, immediate: false }
 )
 
 // 教师会话创建监听器
@@ -2835,7 +2835,7 @@ watch(
     console.log('[ChatView] teacherStore.currentSession 变化:', {
       oldSessionId: oldSession?.sessionId,
       newSessionId: session?.sessionId,
-      propsType: props.type
+      propsType: props.type,
     })
 
     // 只有在teacher类型且session存在时才创建或更新策略
@@ -2845,7 +2845,7 @@ watch(
       // 策略会直接从 store 读取 session 信息，不需要传递参数
       chatStrategy.value = ChatStrategyFactory.create(props.type)
     }
-  },
+  }
 )
 
 // 题目切换处理函数
@@ -2884,7 +2884,7 @@ watch(
       // 如果没有编辑状态，直接执行切换
       executeQuestionSwitch()
     }
-  },
+  }
 )
 
 // 题目切换处理函数
@@ -2895,10 +2895,7 @@ const executeQuestionSwitch = () => {
   }
 
   // 重置会话状态（使用策略模式）
-  if (chatStrategy.value?.getSessionInfo) {
-    // 教师通用策略 - session 由 store 管理，不需要在这里重置
-    aiSessionId.value = ''
-  }
+  // 所有策略都不需要 getSessionInfo 方法，此检查已移除
 
   // 使用策略模式重置会话（如果策略支持）
   if (chatStrategy.value?.resetSession) {
@@ -3055,6 +3052,127 @@ defineExpose({
   pointer-events: none;
 }
 
+/* 选择模式工具栏样式（在 ChatView 中使用） */
+.selection-toolbar {
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
+  padding: 8px 12px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.selection-toolbar .selection-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.selection-toolbar .select-all-icon {
+  color: #1976d2;
+  font-size: 20px;
+}
+
+.selection-toolbar .select-all-text {
+  color: #374151;
+  font-size: 14px;
+  margin-left: 4px;
+}
+
+.selection-toolbar .selection-count {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.selection-toolbar .selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selection-toolbar .cancel-btn {
+  color: #6b7280;
+}
+
+.selection-toolbar .send-btn {
+  min-width: 80px;
+}
+
+/* 新的原生控件样式：复选框图标与按钮 */
+.checkbox-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: inline-block;
+  vertical-align: middle;
+  border: 2px solid #cbd5e1;
+  background: transparent;
+  position: relative;
+}
+.checkbox-icon.checked {
+  background: linear-gradient(90deg, #7a7cff, #7a5cff);
+  border-color: transparent;
+}
+.checkbox-icon.checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 12px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg);
+}
+.checkbox-icon.indeterminate {
+  background: transparent;
+  border-color: #7a7cff;
+}
+.checkbox-icon.indeterminate::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 9px;
+  width: 12px;
+  height: 2px;
+  background: #7a7cff;
+  border-radius: 2px;
+}
+
+/* 通用按钮样式（取消 / 发送） */
+.btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cancel-btn {
+  background: #ffffff;
+  border: 1px solid #e6e7ee;
+  color: #111827;
+  min-width: 96px;
+}
+.send-btn {
+  background: linear-gradient(90deg, #6f5bff, #8b57ff);
+  color: #ffffff;
+  box-shadow: 0 6px 14px rgba(133, 90, 255, 0.24);
+  min-width: 96px;
+}
+
 /* 空状态 */
 .snapshot-empty {
   flex: 1;
@@ -3100,7 +3218,6 @@ defineExpose({
   }
 }
 
-
 .message-checkbox {
   position: absolute;
   left: 20px;
@@ -3113,9 +3230,7 @@ defineExpose({
 /* 加载指示器过渡动画 - 淡入淡出效果 */
 .loading-fade-enter-active,
 .loading-fade-leave-active {
-  transition:
-    opacity 0.2s ease-in-out,
-    transform 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
 
 .loading-fade-enter-from {
@@ -3337,6 +3452,4 @@ defineExpose({
     background-color: transparent;
   }
 }
-
-
 </style>
