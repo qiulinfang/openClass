@@ -37,7 +37,7 @@
 
         <!-- 作业列表 -->
         <div v-else class="homework-grid">
-          <div v-for="item in homeworkList" :key="item.id" class="homework-card">
+          <div v-for="item in displayHomeworkList" :key="item.id" class="homework-card">
             <div class="card-left">
               <div class="card-title-row">
                 <div class="card-title">{{ item.name }}</div>
@@ -70,7 +70,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
-import { apiService, type TopicPackageItem } from '@/services/http/api-service'
+import { apiService, type HomeworkQueryResp } from '@/services/http/api-service'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import type { ExerciseItem } from '@/types'
 import CommonActionButton from '@/components/base/Button.vue'
@@ -106,42 +106,46 @@ const { renderMessageContent } = useMessageRenderer()
 const showImagePreview = ref(false)
 const previewImageUrl = ref('')
 
-// 习题列表数据
-const topicList = ref<TopicPackageItem[]>([])
+// 作业列表数据
+const homeworkList = ref<HomeworkQueryResp[]>([])
 const loading = ref(false)
-const pageNumber = ref(0)
+const pageNumber = ref(1)
 
 // RubberBandList 组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
 const pageSize = ref(20)
 const hasMore = ref(true)
 
-// 获取习题列表
-const fetchTopicPackages = async (reset = false) => {
+// 获取作业列表
+const fetchHomeworkList = async (reset = false) => {
   if (loading.value && !reset) return
   if (!reset && !hasMore.value) return
-  
+
   if (reset) {
     pageNumber.value = 1
-    topicList.value = []
+    homeworkList.value = []
     hasMore.value = true
   }
-  
+
   loading.value = true
   try {
-    const result = await apiService.getTopicPackagePage(
-      pageNumber.value,
-      pageSize.value,
-      selectedDate.value || undefined,
-      selectedSubject.value || undefined,
-    )
-    
+    const queryReq = {
+      pageNumber: pageNumber.value,
+      pageSize: pageSize.value,
+      subject: selectedSubject.value || undefined,
+      // 如果需要按日期筛选，可以添加时间范围
+      // createTimeStart: selectedDate.value,
+      // createTimeEnd: selectedDate.value,
+    }
+
+    const result = await apiService.homeworkPage(queryReq)
+
     if (result?.records) {
       const records = result.records
       if (reset) {
-        topicList.value = records
+        homeworkList.value = records
       } else {
-        topicList.value = [...topicList.value, ...records]
+        homeworkList.value = [...homeworkList.value, ...records]
       }
       // 判断是否还有更多数据
       hasMore.value = records.length >= pageSize.value
@@ -150,7 +154,7 @@ const fetchTopicPackages = async (reset = false) => {
       hasMore.value = false
     }
   } catch (error) {
-    console.error('[MyHomeworkView] 获取习题列表异常:', error)
+    console.error('[MyHomeworkView] 获取作业列表异常:', error)
     hasMore.value = false
   } finally {
     loading.value = false
@@ -160,7 +164,7 @@ const fetchTopicPackages = async (reset = false) => {
 // 下拉刷新（与 MyResourcesView 保持一致）
 const handleRefresh = async () => {
   try {
-    await fetchTopicPackages(true)
+    await fetchHomeworkList(true)
   } finally {
     // 通知 RubberBandList 刷新已完成，复位回弹效果
     rubberBandListRef.value?.finishRefresh()
@@ -170,34 +174,24 @@ const handleRefresh = async () => {
 // 上拉加载更多
 const handleLoadMore = async () => {
   if (!loading.value && hasMore.value) {
-    await fetchTopicPackages(false)
+    await fetchHomeworkList(false)
   }
 }
 
-const homeworkList = computed(() => {
-  return topicList.value.map((pkg, index) => {
-    const firstTopic = pkg.topicList && pkg.topicList.length > 0 ? pkg.topicList[0] : null
-    // 0. 去掉行首 key（main / c1 / gc1_of_c3 等）
-    const cleanedQuestionContent = (firstTopic?.questionData || '')
-        // 去掉每一行开头的 key:（支持 main: c1: c2: gc1_of_c3: 等格式）
-        .replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '')
-        // 去掉只剩 null 的整行（可选，但强烈建议）
-        .replace(/^null\s*$/gm, '')
+const displayHomeworkList = computed(() => {
+  return homeworkList.value.map((homework, index) => {
+    // 格式化为前端需要的显示格式
     return {
-      id: pkg.id || String(index + 1),
-      bmNo: pkg.bmNo || String(index + 1),
-      name: pkg.name || `作业${index + 1}`,
-      // 后端 tags 为字符串，这里拆分为数组，供界面展示使用
-      tags: pkg.tags ? pkg.tags.split(/\s+/).filter(Boolean) : [],
-      // 日期：优先使用后端返回的更新时间字段 updateTime，若不存在则退回到当天日期占位
-      date: pkg.updateTime || new Date().toISOString().slice(0, 10).replace(/-/g, '/'),
-      // 预览内容：使用套餐中第一题的题干
-      questionContent: cleanedQuestionContent,
-      // 保留原始题目列表，供跳转答题时使用
-      topics: pkg.topicList || [],
-      answer: pkg.answer || '',
-      explanation: pkg.explanation || '',
-      questionData: pkg.questionData || '',
+      id: homework.id,
+      name: homework.name,
+      // 暂时使用空标签，后续可以从作业详情中获取
+      tags: [],
+      // 使用创建时间作为日期显示
+      date: homework.createTime ? new Date(homework.createTime).toISOString().slice(0, 10).replace(/-/g, '/') : selectedDate.value,
+      // 预览内容暂时为空，后续可以通过作业详情API获取题目信息
+      questionContent: `${homework.subject}作业 - 共${homework.questionCount || 0}题`,
+      // 保留原始作业数据，供跳转答题时使用
+      homework: homework,
     }
   })
 })
@@ -208,14 +202,14 @@ const handleImagePreview = (url: string) => {
 }
 
 onMounted(async () => {
-  await fetchTopicPackages(true)
+  await fetchHomeworkList(true)
 })
 
 // 监听筛选条件变化，重新加载数据
 watch(
   [selectedDate, selectedSubject],
   async () => {
-    await fetchTopicPackages(true)
+    await fetchHomeworkList(true)
   },
   { immediate: false }
 )
@@ -223,50 +217,53 @@ watch(
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
-// 这里 item 来自 homeworkList 计算属性，结构较为宽松，使用 any 简化类型约束
-const goAnswer = (item: any) => {
-  const payload = item.topics || []
+// 这里 item 来自 displayHomeworkList 计算属性
+const goAnswer = async (item: any) => {
+  // 获取作业详情以获取题目列表
+  try {
+    const homeworkDetail = await apiService.homeworkInfo(item.id)
 
-  // 将题目列表存入 homeworkStore
-  const exerciseItems: ExerciseItem[] = payload.map((topic: any, index: number) => {
-    const bmNo = topic.bmNo || item.bmNo || String(index + 1)
-    const rawQuestion = topic.questionData || item.questionData || ''
-    const question = rawQuestion.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
-    // 优先使用 topic 自身的解析和答案，其次才退回到套餐级字段
-    const answer = topic.answer || item.answer || ''
-    const explanation =
-      topic.explanation || topic.analysisData || item.explanation || ''
-    const rawQuestionData = topic.questionData || item.questionData || ''
-    const questionData = rawQuestionData.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
+    if (homeworkDetail && homeworkDetail.questions) {
+      // 将题目列表存入 homeworkStore
+      const exerciseItems: ExerciseItem[] = homeworkDetail.questions.map((question: any, index: number) => {
+        const bmNo = question.bmNo || question.id || String(index + 1)
+        const rawQuestion = question.questionData || question.content || ''
+        const questionText = rawQuestion.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
 
-    // 先展开 item，把作业级字段全部带过去，再覆盖题目级别字段
-    const merged = {
-      ...item,
-      id: topic.id,
-      bmNo,
-      question,
-      answer,
-      explanation,
-      questionData,
+        const merged = {
+          id: question.id,
+          bmNo,
+          question: questionText,
+          answer: question.answer || '',
+          explanation: question.explanation || question.analysisData || '',
+          questionData: rawQuestion,
+          subject: homeworkDetail.subject,
+        }
+
+        return merged as unknown as ExerciseItem
+      })
+
+      homeworkStore.setQuestions(exerciseItems)
+      // 记录当前这份作业的名称，供 HomeworkAnswerView 使用
+      homeworkStore.setHomeworkName(homeworkDetail.name)
+
+      router.push({
+        name: 'homeworkAnswer',
+        params: {
+          homeworkId: item.id,
+        },
+        query: {
+          scene: 'homework',
+        },
+      })
+    } else {
+      console.error('[MyHomeworkView] 获取作业详情失败或无题目数据:', homeworkDetail)
+      // 可以显示错误提示给用户
     }
-
-    // 通过 unknown 再断言为 ExerciseItem，避免 TS 结构不完全重合的告警
-    return merged as unknown as ExerciseItem
-  })
-  homeworkStore.setQuestions(exerciseItems)
-  // 记录当前这份作业的名称，供 HomeworkAnswerView 使用
-  const name = item.name || ''
-  homeworkStore.setHomeworkName(name)
-
-  router.push({
-    name: 'homeworkAnswer',
-    params: {
-      homeworkId: item.id,
-    },
-    query: {
-      scene: 'homework',
-    },
-  })
+  } catch (error) {
+    console.error('[MyHomeworkView] 获取作业详情异常:', error)
+    // 可以显示错误提示给用户
+  }
 }
 </script>
 

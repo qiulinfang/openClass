@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog
+  <Modal
     v-model="visible"
     title="笔迹参数"
     :initial-width="460"
@@ -174,12 +174,12 @@
         <CommonActionButton label="重置默认" size="mdCompact" variant="outline" @click="$emit('reset')" />
       </div>
     </div>
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import DraggableDialog from '../dialog/DraggableDialog.vue'
+import Modal from '../base/Modal.vue'
 import CommonActionButton from '../base/Button.vue'
 import CommonSelect from '../base/Select.vue'
 

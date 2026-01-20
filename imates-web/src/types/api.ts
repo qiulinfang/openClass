@@ -142,3 +142,79 @@ export interface FeedbackTicketResponse {
     created_at: string
   }
 }
+
+// ========== 作业管理 API ==========
+
+/** 作业查询请求 */
+export interface HomeworkQueryReq {
+  pageNumber?: number
+  pageSize?: number
+  name?: string
+  subject?: string
+  status?: string
+  createTimeStart?: string
+  createTimeEnd?: string
+}
+
+/** 作业查询响应 */
+export interface HomeworkQueryResp {
+  id: string
+  name: string
+  subject: string
+  status: string
+  createTime: string
+  updateTime: string
+  releaseTime?: string
+  questionCount?: number
+}
+
+
+/** 作业详情响应 */
+export interface HomeworkInfoResp {
+  id: string
+  name: string
+  subject: string
+  description?: string
+  status: string
+  createTime: string
+  updateTime: string
+  releaseTime?: string
+  deadline?: string
+  questions?: any[]
+  classes?: any[]
+}
+
+/** 通用ID请求 */
+export interface IdReq {
+  id: string
+}
+
+/** 通用分页响应 */
+export interface PageResponse<T> {
+  /** 记录列表 */
+  records: T[]
+  /** 总记录数 */
+  total: number
+  /** 每页大小 */
+  pageSize: number
+  /** 当前页码 */
+  pageNumber: number
+  /** 总页数 */
+  pages: number
+}
+
+/** 作业提交保存请求 */
+export interface HomeworkSubmitSaveReq {
+  /** 作业ID */
+  homeworkId: string
+  /** 问题回答列表 */
+  questionAnswerList: HomeworkQuestionAnswer[]
+}
+
+/** 作业问题回答 */
+export interface HomeworkQuestionAnswer {
+  /** 问题ID */
+  questionId: string
+  /** 回答图片列表 */
+  answerList: string[]
+}

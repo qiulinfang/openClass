@@ -292,18 +292,15 @@
         />
 
         <!-- 删除教材确认对话框 -->
-        <DraggableDialog
-          v-model="showDeleteDialog"
-          type="delete"
-          :delete-content="'确定要删除《' + deleteTextbookName + '》吗？删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。'"
-          :show-footer="true"
-          confirm-variant="danger"
-          :processing="deleting"
-          processing-text="删除中..."
-          cancel-text="取消"
-          @cancel="showDeleteDialog = false"
+        <Dialog
+          ref="deleteDialogRef"
+          title="删除确认"
+          :confirmButtonText="'删除'"
+          :cancelButtonText="'取消'"
           @confirm="confirmDeleteTextbook"
-        />
+        >
+          确定要删除《{{ deleteTextbookName }}》吗？删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。
+        </Dialog>
       </q-page>
     </q-page-container>
   </q-layout>
@@ -327,7 +324,7 @@ import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import RubberBandList from '../components/base/VirtualList.vue'
-import DraggableDialog from '../components/base/Modal.vue'
+import Dialog from '../components/base/Dialog.vue'
 
 // 第2步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -404,7 +401,7 @@ const statusOptions = ref([
 ])
 
 // 删除教材相关状态
-const showDeleteDialog = ref(false)
+const deleteDialogRef = ref<InstanceType<typeof Dialog>>()
 const deleting = ref(false)
 const deleteTextbookId = ref<string | null>(null)
 const deleteTextbookName = ref('')
@@ -1185,7 +1182,7 @@ const handleDeleteTextbook = (textbook: UserTextbookInfo) => {
   // 显示删除确认对话框
   deleteTextbookId.value = textbook.id
   deleteTextbookName.value = textbook.textbookName
-  showDeleteDialog.value = true
+  deleteDialogRef.value?.openDialog()
 }
 
 // 确认删除教材
@@ -1226,7 +1223,7 @@ const confirmDeleteTextbook = async () => {
       }
 
       showMessage(`《${deleteTextbookName.value}》已删除`, 'success')
-      showDeleteDialog.value = false
+      deleteDialogRef.value?.closeDialog()
     } else {
       showMessage(`删除《${deleteTextbookName.value}》失败`, 'error')
     }

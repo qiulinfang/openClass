@@ -137,7 +137,7 @@
       @toggle-mode="handleToggleMainChatMode"
     />
     <!-- 草稿本对话框 -->
-    <DraggableDialog
+    <Modal
       v-model="showDraftNotebook"
       title="草稿本"
       :close-on-overlay-click="false"
@@ -146,7 +146,7 @@
       :initial-height="800"
     >
       <DrawingBoardView />
-    </DraggableDialog>
+  </Modal>
   </div>
 </template>
 
@@ -162,7 +162,7 @@ import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import DrawingBoardView from '@/views/DrawingBoardView.vue'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'

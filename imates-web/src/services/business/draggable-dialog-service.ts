@@ -1,9 +1,9 @@
 import { createApp, h, ref, type VNode } from 'vue'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 
-export type DraggableDialogAction = 'confirm' | 'cancel' | 'dismiss'
+export type ModalAction = 'confirm' | 'cancel' | 'dismiss'
 
-export interface DraggableDialogOptions {
+export interface ModalOptions {
   title: string
   /** 文本内容（简单场景用） */
   message?: string
@@ -15,18 +15,18 @@ export interface DraggableDialogOptions {
 }
 
 /**
- * 动态挂载一个 DraggableDialog，并在确认/取消/关闭时通过 Promise 返回结果。
+ * 动态挂载一个 Modal，并在确认/取消/关闭时通过 Promise 返回结果。
  */
-export function showDraggableDialog(
-  options: DraggableDialogOptions,
-): Promise<DraggableDialogAction> {
-  return new Promise<DraggableDialogAction>((resolve) => {
+export function showModal(
+  options: ModalOptions,
+): Promise<ModalAction> {
+  return new Promise<ModalAction>((resolve) => {
     const container = document.createElement('div')
     document.body.appendChild(container)
 
     const visible = ref(true)
 
-    const close = (action: DraggableDialogAction) => {
+    const close = (action: ModalAction) => {
       if (!visible.value) return
       visible.value = false
       resolve(action)
@@ -59,7 +59,7 @@ export function showDraggableDialog(
 
         return () =>
           h(
-            DraggableDialog,
+            Modal,
             {
               modelValue: visible.value,
               'onUpdate:modelValue': handleUpdateModelValue,

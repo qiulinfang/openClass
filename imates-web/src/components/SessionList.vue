@@ -477,6 +477,7 @@ defineExpose({
   align-items: center;
   justify-content: center;
   padding: 20px;
+  background-color: #f6f5ff;
 }
 
 .scroll-wrapper {

@@ -66,80 +66,47 @@
         class="status-icon star-icon"
       />
       <!-- 置顶图标 -->
-      <img
-        v-if="record.pinned"
-        :src="pinIcon"
-        alt="已置顶"
-        class="status-icon pin-icon"
-      />
+      <img v-if="record.pinned" :src="pinIcon" alt="已置顶" class="status-icon pin-icon" />
     </div>
     <!-- 操作按钮 -->
     <div class="session-actions">
       <!-- 更多按钮 -->
-      <q-btn
-        flat
-        round
-        dense
-        icon="more_horiz"
-        size="sm"
-        class="more-btn"
-        @click.stop
-      >
-        <q-menu
-          anchor="bottom right"
-          self="top right"
-          :offset="[8, 8]"
-          class="action-menu"
+      <BubblePopup v-model="showMoreMenu" placement="bottom" :offset="8" :show-arrow="false">
+        <template #trigger>
+          <q-btn flat round dense icon="more_horiz" size="sm" class="more-btn" />
+        </template>
+
+        <!-- 置顶 -->
+        <div class="more-menu-item-row" @click="closeMenuAndExecute(() => $emit('pin'))">
+          <img :src="record.pinned ? pinOutlinedIcon : pinIcon" alt="置顶" width="18" height="18" />
+          <div>{{ record.pinned ? '取消置顶' : '置顶' }}</div>
+        </div>
+
+        <!-- 收藏 -->
+        <div
+          v-if="showFavorite"
+          class="more-menu-item-row"
+          @click="closeMenuAndExecute(handleFavorite)"
         >
-          <q-list class="action-menu-list">
-            <!-- 置顶 -->
-            <q-item clickable v-close-popup @click="$emit('pin')">
-              <q-item-section avatar>
-                <q-icon name="push_pin" size="xs" />
-              </q-item-section>
-              <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
-            </q-item>
-            <!-- 收藏 -->
-            <q-item
-              v-if="showFavorite"
-              clickable
-              v-close-popup
-              @click="handleFavorite"
-            >
-              <q-item-section avatar>
-                <q-icon
-                  :name="isFavorite ? 'star' : 'star_border'"
-                  size="xs"
-                  :color="isFavorite ? 'warning' : undefined"
-                />
-              </q-item-section>
-              <q-item-section>{{ isFavorite ? '取消收藏' : '收藏' }}</q-item-section>
-            </q-item>
-            <!-- 分割线 -->
-            <q-separator spaced />
-            <!-- 删除 -->
-            <q-item
-              clickable
-              v-close-popup
-              @click="$emit('delete')"
-              class="text-negative"
-            >
-              <q-item-section avatar>
-                <img src="icons/delete.svg" alt="删除" width="16" height="16" />
-              </q-item-section>
-              <q-item-section>删除</q-item-section>
-            </q-item>
-          </q-list>
-        </q-menu>
-      </q-btn>
+          <img :src="isFavorite ? starIcon : starBorderIcon" alt="收藏" width="18" height="18" />
+          <div>{{ isFavorite ? '取消收藏' : '收藏' }}</div>
+        </div>
+
+        <!-- 分割线 -->
+        <div class="session-more-menu-divider"></div>
+
+        <!-- 删除 -->
+        <div class="session-more-menu-delete-wrapper">
+          <div class="more-menu-item-row" @click="closeMenuAndExecute(() => $emit('delete'))">
+            <img src="icons/delete.svg" alt="删除" width="18" height="18" />
+            <div class="text-delete">删除</div>
+          </div>
+        </div>
+      </BubblePopup>
     </div>
 
     <!-- 图片预览对话框 -->
-    <ImageViewer
-      v-model="imageViewerVisible"
-      :image-url="currentImageUrl"
-      alt="会话图片"
-    />
+    <ImageViewer v-model="imageViewerVisible" :image-url="currentImageUrl" alt="会话图片" />
   </div>
 </template>
 
@@ -147,10 +114,18 @@
 import { computed, ref, watch } from 'vue'
 import type { AiTextbookSession, AiGeneralSession } from '@/types'
 import ImageViewer from './ImageViewer.vue'
-import { isQaFavorite, toggleQaFavorite, isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
+import BubblePopup from './base/Popover.vue'
+import {
+  isQaFavorite,
+  toggleQaFavorite,
+  isSessionFavorite,
+  toggleSessionFavorite,
+} from '@/utils/storage/favorites'
 import { showMessage } from '@/utils'
-import starIcon from '/icons/star.svg'
-import pinIcon from '/icons/pin.svg'
+import starIcon from '/icons/xingxing-light.svg'
+import starBorderIcon from '/icons/shoucang1.svg'
+import pinIcon from '/icons/zhiding.svg'
+import pinOutlinedIcon from '/icons/quxiaozhiding.svg'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getRecordId = (record: AiTextbookSession): string => {
@@ -194,6 +169,15 @@ defineEmits<{
 const imageViewerVisible = ref(false)
 const currentImageUrl = ref<string>('')
 
+// 气泡弹框状态
+const showMoreMenu = ref(false)
+
+// 关闭气泡弹框并执行操作
+const closeMenuAndExecute = (action: () => void) => {
+  showMoreMenu.value = false
+  action()
+}
+
 // 处理缩略图点击
 const handleThumbnailClick = () => {
   if (props.record.thumbnailImage) {
@@ -233,11 +217,11 @@ const initFavoriteStatus = () => {
     favoriteType.value = null
     return
   }
-  
+
   const recordIdValue = recordId.value
   const isQa = isQaFavorite(recordIdValue)
   const isSession = isSessionFavorite(recordIdValue)
-  
+
   // 优先显示会话收藏状态（如果存在）
   if (isSession) {
     isFavorite.value = true
@@ -265,9 +249,9 @@ const handleFavorite = () => {
   if (!props.showFavorite) return
 
   const wasFavorite = isFavorite.value
-  
+
   let success = false
-  
+
   if (favoriteType.value === 'session') {
     // 如果是会话收藏，切换会话收藏状态
     // 需要将 AiTextbookSession 转换为 AiGeneralSession
@@ -277,7 +261,7 @@ const handleFavorite = () => {
       createTime: props.record.createTime,
       updateTime: props.record.updateTime,
       msgCount: props.record.msgCount,
-      pinned: props.record.pinned
+      pinned: props.record.pinned,
     }
     success = toggleSessionFavorite(session)
   } else if (favoriteType.value === 'qa') {
@@ -295,14 +279,14 @@ const handleFavorite = () => {
         createTime: props.record.createTime,
         updateTime: props.record.updateTime,
         msgCount: props.record.msgCount,
-        pinned: props.record.pinned
+        pinned: props.record.pinned,
       }
       success = toggleSessionFavorite(session)
       if (success) {
         favoriteType.value = 'session'
       }
     }
-    
+
     // 如果会话收藏失败，尝试问答收藏（向后兼容）
     if (!success) {
       success = toggleQaFavorite(props.record)
@@ -529,29 +513,44 @@ const handleFavorite = () => {
   }
 }
 
-.action-menu {
-  border-radius: 12px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid #f0f0f0 !important;
+// 复用 SessionTree 的更多菜单行样式
+.more-menu-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+
+  &:hover {
+    background-color: rgba(15, 23, 42, 0.03);
+  }
+
+  img {
+    flex-shrink: 0;
+  }
 }
 
-.action-menu-list {
-  padding: 6px;
-  min-width: 130px;
+.session-more-menu-divider {
+  height: 1px;
+  background-color: #f0f0f0;
+  margin: 8px 0;
+}
 
-  .q-item {
-    border-radius: 6px;
-    min-height: 40px;
-  }
+.session-more-menu-delete-wrapper {
+  .more-menu-item-row {
+    color: #f44336;
 
-  .q-item__section--avatar {
-    min-width: 36px;
-    padding-right: 4px;
+    &:hover {
+      background-color: rgba(244, 67, 54, 0.08);
+    }
   }
+}
 
-  .q-separator {
-    background-color: #f0f0f0;
-  }
+.text-delete {
+  color: #f44336;
 }
 </style>
-

@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog
+  <Modal
     v-model="localVisible"
     title="上传作业"
     :initial-width="600"
@@ -56,12 +56,12 @@
       v-model="previewVisible"
       :image-url="currentPreviewPhoto"
     />
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 import CommonActionButton from '@/components/base/Button.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import ImageViewer from '@/components/ImageViewer.vue'

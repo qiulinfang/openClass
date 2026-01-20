@@ -82,7 +82,14 @@
                 :compressed-height="339"
                 :sessionId="teacherChatStore.currentSession.sessionId"
                 :key="teacherChatStore.currentSession.sessionId"
-              />
+              >
+                <!-- 新增会话按钮 -->
+                <template #header-right>
+                  <div @click="handleNewChatClick" class="add-session-btn">
+                    <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                  </div>
+                </template>
+              </ChatView>
               <!-- 无会话 -->
               <div v-else class="empty-chat">
                 <q-icon name="chat" size="48px" color="grey-4" />

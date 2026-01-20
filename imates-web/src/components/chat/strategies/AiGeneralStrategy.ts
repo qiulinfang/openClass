@@ -316,8 +316,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     return '向AI助手提问...'
   }
   
-  // 第18步：获取会话信息（AI策略不需要）
-  // getSessionInfo 不实现，因为AI策略不需要
+  // getSessionInfo 方法已删除，所有策略都不需要此方法
   
   // 第19步：是否显示转发按钮
   shouldShowForwardButton(): boolean {

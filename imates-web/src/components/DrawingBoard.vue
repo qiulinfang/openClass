@@ -105,13 +105,15 @@
     </div>
 
     <!-- 清空画布确认对话框 -->
-    <DraggableDialog
-      v-model="showClearConfirmDialog"
-      type="delete"
-      :delete-content="'确定要清空当前草稿内容？'"
+    <Dialog
+      ref="clearDialogRef"
+      title="清空确认"
+      :confirmButtonText="'清空'"
+      :cancelButtonText="'取消'"
       @confirm="handleConfirmClear"
-      @cancel="handleCancelClear"
-    />
+    >
+      确定要清空当前草稿内容？
+    </Dialog>
 
     <PerfectFreehandConfigDialog
       v-model="pfConfigDialogVisible"
@@ -125,7 +127,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
-import DraggableDialog from './dialog/DraggableDialog.vue'
+import Dialog from './base/Dialog.vue'
 import PerfectFreehandConfigDialog from './debug/PerfectFreehandConfigDialog.vue'
 import SignaturePad from 'signature_pad'
 import type { ExerciseItem } from '@/types'
@@ -2139,7 +2141,7 @@ const redo = () => {
 }
 
 // 清空画布确认弹窗状态
-const showClearConfirmDialog = ref(false)
+const clearDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 实际执行清空逻辑
 const performClearCanvas = () => {
@@ -2160,18 +2162,18 @@ const performClearCanvas = () => {
 
 // 清空画布：先弹出确认对话框
 const clearCanvas = () => {
-  showClearConfirmDialog.value = true
+  clearDialogRef.value?.openDialog()
 }
 
 // 确认清空
 const handleConfirmClear = () => {
-  showClearConfirmDialog.value = false
+  clearDialogRef.value?.closeDialog()
   performClearCanvas()
 }
 
 // 取消清空
 const handleCancelClear = () => {
-  showClearConfirmDialog.value = false
+  clearDialogRef.value?.closeDialog()
 }
 
 // 工具切换

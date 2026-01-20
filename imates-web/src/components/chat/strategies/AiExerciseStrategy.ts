@@ -8,7 +8,8 @@ import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useAiExerciseChatStore } from '../../../stores/aiExerciseChatStore'
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
-import { getUserInfo, getSubject } from '../../../services'
+import { useQuestionStore } from '../../../stores/questionStore'
+import { getUserInfo, getUserId, getSubject } from '../../../services'
 import { apiService } from '../../../services/http/api-service'
 import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
@@ -244,12 +245,14 @@ export class AiExerciseStrategy implements ChatStrategy {
   
   // 第13步：初始化消息
   async initialize(options: InitializeOptions): Promise<void> {
-    
     // 如果有题目，加载该题目的聊天历史（此处 currentQuestionId 约定为 bmNo）
     if (options.hasSelectedQuestion && options.currentQuestionId) {
       const questionBmNo = options.currentQuestionId
       if (questionBmNo) {
+        // 初始化ai聊天历史
         await this.aiExerciseStore.loadChatHistory(questionBmNo)
+        // 初始化老师消息会话
+        await this.initializeTeacherSession(questionBmNo)
       }
     } else {
       // 如果没有题目且消息为空，添加欢迎消息
@@ -363,9 +366,102 @@ export class AiExerciseStrategy implements ChatStrategy {
     return '输入你的问题'
   }
   
-  // 第18步：获取会话信息（AI策略不需要）
-  // getSessionInfo 不实现，因为AI策略不需要
-  
+  // getSessionInfo 方法已删除，所有策略都不需要此方法
+
+  // 初始化老师消息会话（为转发功能做准备）
+  private async initializeTeacherSession(questionBmNo?: string): Promise<void> {
+    try {
+      const teacherStore = useTeacherChatStore()
+
+      // 根据题目确定教师会话ID
+      let sessionId: string = ''
+
+      if (questionBmNo) {
+        // 尝试从题目中获取科目信息，然后找到对应的教师会话
+        const questionStore = useQuestionStore()
+        const currentQuestion = questionStore.questions.find(q => q.bmNo === questionBmNo)
+        if (currentQuestion?.subject) {
+          // 使用 teacherChatStore 的写死会话列表来获取会话ID
+          const teacherStore = useTeacherChatStore()
+          const allSessions = teacherStore.loadAllSessions()
+
+          // subject 字段直接是小写的科目名称，如 "math", "biology"
+          const subject = currentQuestion.subject.toUpperCase()
+
+          // 根据科目从会话列表中找到对应的会话ID
+          for (const [sessionIdKey, session] of Object.entries(allSessions)) {
+            if (session.subject === subject) {
+              sessionId = sessionIdKey
+              break
+            }
+          }
+        }
+      }
+
+      // 如果没有找到对应的会话，使用默认的数学老师会话
+      if (!sessionId) {
+        const userId = getUserId() || 'default'
+        sessionId = `teacher_${userId}_math`
+      }
+
+      // 检查当前是否已经连接到相同的会话
+      const currentSessionId = teacherStore.currentSession?.sessionId
+      if (currentSessionId === sessionId) {
+        console.log('[AiExerciseStrategy] 当前已连接到相同教师会话，复用连接:', sessionId)
+        return
+      }
+
+      // 如果连接到不同的会话，先断开旧连接
+      if (currentSessionId && currentSessionId !== sessionId) {
+        console.log('[AiExerciseStrategy] 切换教师会话，断开旧连接:', currentSessionId)
+        try {
+          await teacherStore.cleanupMessageReceiver()
+          teacherStore.clearMessages()
+          console.log('[AiExerciseStrategy] 旧教师连接已断开并清除记录')
+        } catch (error) {
+          console.error('[AiExerciseStrategy] 断开旧教师连接失败:', error)
+        }
+      }
+
+      // 从写死会话列表中获取会话信息
+      const allSessions = teacherStore.loadAllSessions()
+      const sessionInfo = allSessions[sessionId]
+
+      if (!sessionInfo) {
+        console.error('[AiExerciseStrategy] 未找到教师会话信息:', sessionId)
+        return
+      }
+
+      console.log('[AiExerciseStrategy] 初始化教师会话:', { sessionId, subject: sessionInfo.subject, sessionName: sessionInfo.sessionName, questionBmNo })
+
+      // 设置会话信息到teacherStore
+      teacherStore.setSession({
+        sessionId: sessionId,
+        sessionName: sessionInfo.sessionName,
+        subject: sessionInfo.subject as 'BIOLOGY' | 'MATH',
+        createTime: Date.now()
+      })
+
+      // 建立WebSocket连接
+      const connected = await teacherStore.connectToTeacherSession(sessionId)
+      if (connected) {
+        // 连接成功后加载聊天历史
+        try {
+          await teacherStore.loadChatHistory(sessionId)
+          console.log('[AiExerciseStrategy] 教师聊天历史加载完成')
+        } catch (error) {
+          console.error('[AiExerciseStrategy] 加载教师聊天历史失败:', error)
+        }
+      } else {
+        console.error('[AiExerciseStrategy] 建立教师WebSocket连接失败:', sessionId)
+      }
+
+    } catch (error) {
+      console.error('[AiExerciseStrategy] 初始化教师会话失败:', error)
+      // 不抛出错误，避免影响AI消息的正常初始化
+    }
+  }
+
   // 第19步：是否显示转发按钮
   shouldShowForwardButton(): boolean {
     return true // AI题目对话支持转发

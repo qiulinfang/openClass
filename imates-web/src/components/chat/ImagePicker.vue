@@ -1,7 +1,7 @@
 <template>
   <div class="image-picker">
     <!-- 图片选择对话框：使用可拖拽对话框，尺寸与原来 q-dialog 模态宽度接近 -->
-    <DraggableDialog
+    <Modal
       v-model="isPickerVisible"
       title="选择图片"
       :initialWidth="400"
@@ -26,7 +26,7 @@
           <span class="option-label">相册</span>
         </div>
       </div>
-    </DraggableDialog>
+    </Modal>
   </div>
 </template>
 
@@ -35,7 +35,7 @@ import { showMessage } from '../../utils'
 import { useImagePicker } from '../../composables/useImagePicker'
 import { ImagePickerAdapterFactory } from '../../adapters/ImagePickerAdapterFactory'
 import type { IImagePickerAdapter } from '../../adapters/IImagePickerAdapter'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Modal from '@/components/base/Modal.vue'
 
 // 使用全局图片选择器 composable
 const { isPickerVisible, handleImageSelected, handleCancel } = useImagePicker()

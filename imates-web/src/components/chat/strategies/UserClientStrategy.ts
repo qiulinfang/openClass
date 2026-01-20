@@ -172,10 +172,7 @@ export class UserClientStrategy implements ChatStrategy {
 
   // ==================== 不支持的方法 ====================
 
-  // 第16步：获取会话信息（用户客户端不需要）
-  getSessionInfo?(): import('../../../types').ChatMessageSession | null {
-    return null
-  }
+  // getSessionInfo 方法已删除，所有策略都不需要此方法
 
 
   // 第24步：重置会话（不支持）

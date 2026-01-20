@@ -161,7 +161,7 @@
                       <button
                         class="session-manager-btn"
                         :disabled="!hasAiSessions"
-                        @click="hasAiSessions && (showClearAllConfirmDialog = true)"
+                        @click="hasAiSessions && clearAllDialogRef.value?.openDialog()"
                       >
                         <img :src="deleteSessionIcon" alt="清除会话" class="session-manager-icon" />
                         <span class="session-back-text">清除会话</span>
@@ -226,13 +226,15 @@
     <QuestionDebugPanel v-if="isDev" v-model="showQuestionDebugPanel" />
 
     <!-- 清除所有会话确认对话框 -->
-    <DraggableDialog
-      v-model="showClearAllConfirmDialog"
-      type="delete"
-      :delete-content="'确定要清除当前题目的所有会话吗？此操作不可撤销。'"
-      @cancel="showClearAllConfirmDialog = false"
+    <Dialog
+      ref="clearAllDialogRef"
+      title="清除确认"
+      :confirmButtonText="'清除'"
+      :cancelButtonText="'取消'"
       @confirm="confirmClearAllSessions"
-    />
+    >
+      确定要清除当前题目的所有会话吗？此操作不可撤销。
+    </Dialog>
   </div>
 </template>
 
@@ -257,7 +259,7 @@ import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 import GlobalChatDialog from '../components/dialog/GlobalChatDialog.vue'
 import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
-import DraggableDialog from '../components/base/Modal.vue'
+import Dialog from '../components/base/Dialog.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
@@ -331,7 +333,7 @@ const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(nu
 const showUnifiedChatDialog = ref(false)
 
 // 清除所有会话确认对话框
-const showClearAllConfirmDialog = ref(false)
+const clearAllDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 当前科目（用于 UnifiedChatDialog）- 使用 computed 监听 localStorage 变化
 const currentSubject = computed(() => {
@@ -416,7 +418,7 @@ const handleCloseSessionPanel = () => {
 // 确认清除所有会话（对话框确认按钮回调）
 const confirmClearAllSessions = async () => {
   await handleClearAllSessions()
-  showClearAllConfirmDialog.value = false
+  clearAllDialogRef.value?.closeDialog()
 }
 
 // 新建会话（底部会话管理按钮 / 右上角新增会话按钮复用同一逻辑）

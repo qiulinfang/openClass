@@ -84,15 +84,6 @@
                     </template>
 
                     <div class="session-more-menu-card">
-                      <!-- 重命名 -->
-                      <div
-                        v-if="session.category === 'ai'"
-                        class="more-menu-item-row"
-                        @click="closeMenuAndExecute(session.sessionId, () => handleRename(session))"
-                      >
-                        <img src="icons/edit.svg" alt="重命名" width="18" height="18" />
-                        <div>重命名</div>
-                      </div>
 
                       <!-- 置顶 -->
                       <div
@@ -100,7 +91,7 @@
                         class="more-menu-item-row"
                         @click="closeMenuAndExecute(session.sessionId, () => handlePin(session))"
                       >
-                        <img src="icons/pin.svg" alt="置顶" width="18" height="18" />
+                        <img :src="session.pinned ? 'icons/quxiaozhiding.svg' : 'icons/zhiding.svg'" alt="置顶" width="18" height="18" />
                         <div>{{ session.pinned ? '取消置顶' : '置顶' }}</div>
                       </div>
 
@@ -110,7 +101,12 @@
                         class="more-menu-item-row"
                         @click="closeMenuAndExecute(session.sessionId, () => handleFavorite(session))"
                       >
-                        <img src="icons/my_favorites.svg" alt="收藏" width="18" height="18" />
+                        <img
+                          :src="session.favorited ? xingxingLightIcon : shoucangIcon"
+                          alt="收藏"
+                          width="18"
+                          height="18"
+                        />
                         <div>{{ session.favorited ? '取消收藏' : '收藏' }}</div>
                       </div>
 
@@ -148,59 +144,35 @@
       </div>
     </div>
 
-    <!-- 重命名对话框 -->
-    <q-dialog v-model="showRenameDialog" persistent>
-      <q-card style="min-width: 350px">
-        <q-card-section>
-          <div class="text-h6">重命名会话</div>
-        </q-card-section>
-
-        <q-card-section class="q-pt-none">
-          <q-input
-            v-model="newSessionName"
-            autofocus
-            dense
-            label="会话名称"
-            @keyup.enter="confirmRename"
-          />
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="取消" color="grey" v-close-popup />
-          <q-btn flat label="确定" color="primary" @click="confirmRename" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
 
     <!-- 删除确认对话框 -->
-    <DraggableDialog
-      v-model="showDeleteConfirmDialog"
-      type="delete"
-      :delete-content="deleteConfirmContent"
-      :processing="deleting"
-      processing-text="删除中..."
-      @cancel="cancelDelete"
+    <Dialog
+      ref="deleteDialogRef"
+      title="删除确认"
+      :confirmButtonText="'删除'"
+      :cancelButtonText="'取消'"
       @confirm="confirmDelete"
-    />
+    >
+      {{ deleteConfirmContent }}
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import type { TeacherSession } from '@/stores/teacherChatStore'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
-import { chatStorage } from '../services/storage/chat-storage'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
-import { useQuasar } from 'quasar'
 import { getUserId } from '@/services'
 import { showMessage } from '../utils'
 import SearchInput from './SearchInput.vue'
 import RubberBandList from './base/VirtualList.vue'
 import BubblePopup from './base/Popover.vue'
-import DraggableDialog from './base/Modal.vue'
+import Dialog from './base/Dialog.vue'
 import search1Icon from '../../public/icons/search1.svg'
+import shoucangIcon from '/icons/shoucang1.svg'
+import xingxingLightIcon from '/icons/xingxing-light.svg'
 
 // 定义 emits
 const emit = defineEmits<{
@@ -282,10 +254,6 @@ const selectedSessionId = computed({
 // 选中的节点ID
 const selectedNodeId = ref<string | null>(null)
 
-// 重命名对话框
-const showRenameDialog = ref(false)
-const currentSessionNode = ref<{ sessionId: string; label: string } | null>(null)
-const newSessionName = ref('')
 
 // 滚动容器引用
 const scrollWrapper = ref<HTMLElement | null>(null)
@@ -297,9 +265,6 @@ const unreadStore = useUnreadMessageStore()
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()
 
-// Quasar 实例（用于显示消息提示）
-const $q = useQuasar()
-
 // 收藏状态更新触发器（用于触发 treeNodes 重新计算收藏状态）
 // 注意：收藏状态存储在 localStorage 中，不是响应式的，所以需要手动触发
 const favoriteUpdateTrigger = ref(0)
@@ -308,7 +273,7 @@ const favoriteUpdateTrigger = ref(0)
 const showMoreMenu = ref<Record<string, boolean>>({})
 
 // 删除确认对话框
-const showDeleteConfirmDialog = ref(false)
+const deleteDialogRef = ref<InstanceType<typeof Dialog>>()
 const pendingDeleteNode = ref<TreeNode | null>(null)
 
 // 删除处理中状态
@@ -557,48 +522,6 @@ const handleSessionClick = async (node: TreeNode) => {
   }
 }
 
-// 处理重命名
-const handleRename = (node: TreeNode) => {
-  if (node.level !== 2 || node.category !== 'ai' || !node.sessionId) return
-
-  currentSessionNode.value = { sessionId: node.sessionId, label: node.label }
-  newSessionName.value = node.label
-  showRenameDialog.value = true
-}
-
-// 确认重命名
-const confirmRename = async () => {
-  if (!currentSessionNode.value || !newSessionName.value.trim()) {
-    return
-  }
-
-  let sessionId: string | undefined
-  try {
-    sessionId = currentSessionNode.value.sessionId
-    const newName = newSessionName.value.trim()
-
-    // 直接调用 store 方法完成重命名
-    await aiGeneralStore.renameSession(sessionId, newName)
-
-    // 更新本地会话列表中的名称（防护：再次查找）
-    const index = aiGeneralStore.sessions.findIndex((s) => s.sessionId === sessionId)
-    if (index >= 0) {
-      aiGeneralStore.sessions[index].sessionName = newName
-      await aiGeneralStore.saveSessions()
-    }
-
-    // 显示成功消息
-    showMessage('重命名成功', 'positive')
-  } catch (error) {
-    console.error('重命名失败:', error)
-    showMessage('重命名失败，请重试', 'negative')
-  } finally {
-    // 关闭对话框（保证无论成功或失败都会关闭），并清理状态
-    showRenameDialog.value = false
-    currentSessionNode.value = null
-    newSessionName.value = ''
-  }
-}
 
 // 处理置顶
 const handlePin = async (node: TreeNode) => {
@@ -652,7 +575,7 @@ const handleDelete = (node: TreeNode) => {
 
   // 显示删除确认对话框
   pendingDeleteNode.value = node
-  showDeleteConfirmDialog.value = true
+  deleteDialogRef.value?.openDialog()
 }
 
 // 确认删除
@@ -702,14 +625,14 @@ const confirmDelete = async () => {
   } finally {
     // 清理状态
     deleting.value = false
-    showDeleteConfirmDialog.value = false
+    deleteDialogRef.value?.closeDialog()
     pendingDeleteNode.value = null
   }
 }
 
 // 取消删除
 const cancelDelete = () => {
-  showDeleteConfirmDialog.value = false
+  deleteDialogRef.value?.closeDialog()
   pendingDeleteNode.value = null
 }
 
@@ -1187,6 +1110,12 @@ const initializeSessions = async () => {
   }
 }
 
+// 气泡框菜单样式
+.session-more-menu-card {
+  max-width: 100px;
+  white-space: nowrap;
+}
+
 // 复用 QuestionList 的更多菜单行样式
 .more-menu-item-row {
   display: flex;
@@ -1198,6 +1127,7 @@ const initializeSessions = async () => {
   padding: 6px 8px;
   cursor: pointer;
   border-radius: 8px;
+  white-space: nowrap;
 
   &:hover {
     background-color: rgba(15, 23, 42, 0.03);

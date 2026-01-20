@@ -98,13 +98,15 @@
       @confirm="handleUploadConfirm"
     />
 
-    <DraggableDialog
-      v-model="showClearDialog"
-      type="delete"
-      :delete-content="'确定要清空画布吗？此操作不可撤销。'"
+    <Dialog
+      ref="clearDialogRef"
+      title="清空确认"
+      :confirmButtonText="'清空'"
+      :cancelButtonText="'取消'"
       @confirm="confirmClearCanvas"
-      @cancel="cancelClearCanvas"
-    />
+    >
+      确定要清空画布吗？此操作不可撤销。
+    </Dialog>
   </div>
 </template>
 
@@ -125,7 +127,7 @@ import { showMessage } from '@/utils'
 import * as htmlToImage from 'html-to-image'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Dialog from '@/components/base/Dialog.vue'
 import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
 import pageAddIcon from '/icons/addPaper.svg'
@@ -309,13 +311,13 @@ const saveCurrentPage = () => {
 }
 
 const handleClearRequest = () => {
-  showClearDialog.value = true
+  clearDialogRef.value?.openDialog()
 }
 
 const confirmClearCanvas = () => {
   const board = drawingBoardRefs.value[currentPageIndex.value]
   if (!board) {
-    showClearDialog.value = false
+    clearDialogRef.value?.closeDialog()
     return
   }
 
@@ -345,11 +347,11 @@ const confirmClearCanvas = () => {
     ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   }
 
-  showClearDialog.value = false
+    clearDialogRef.value?.closeDialog()
 }
 
 const cancelClearCanvas = () => {
-  showClearDialog.value = false
+    clearDialogRef.value?.closeDialog()
 }
 
 // 根据缓存恢复当前题目的当前页到画布
@@ -561,7 +563,7 @@ const showCameraDialog = ref(false)
 // 初始照片列表（白板上传时使用）
 const initialUploadPhotos = ref<string[]>([])
 
-const showClearDialog = ref(false)
+const clearDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 上传作业按钮点击：先执行白板导出逻辑（handleBoardUpload）
 // handleBoardUpload 内部会根据现有白板页导出图片并打开上传对话框
@@ -833,11 +835,27 @@ const handleUploadConfirm = async (photos: string[]) => {
       }
     }
 
-    // 使用所有选择的图片作为答案内容（base64 字符串数组）
-    const answerContent = photos
-    
-    const success = await apiService.submitTopicAnswer(questionId, answerContent)
-    
+    // 获取作业ID
+    const homeworkId = route.params.homeworkId as string
+    if (!homeworkId) {
+      showMessage('作业信息缺失', 'warning')
+      return
+    }
+
+    // 准备提交数据：收集当前题目的答案
+    const questionAnswerList = [{
+      questionId: questionId,
+      answerList: photos
+    }]
+
+    // 调用新的作业提交接口
+    const submitReq = {
+      homeworkId: homeworkId,
+      questionAnswerList: questionAnswerList
+    }
+
+    const success = await apiService.homeworkSubmitSave(submitReq)
+
     if (success) {
       showMessage('提交成功', 'success')
       showCameraDialog.value = false

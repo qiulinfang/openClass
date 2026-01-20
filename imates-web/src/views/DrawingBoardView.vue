@@ -11,13 +11,15 @@
     </div>
 
     <!-- 清空画布确认对话框 -->
-    <DraggableDialog
-      v-model="showClearDialog"
-      type="delete"
-      :delete-content="'确定要清空画布吗？此操作不可撤销。'"
+    <Dialog
+      ref="clearDialogRef"
+      title="清空确认"
+      :confirmButtonText="'清空'"
+      :cancelButtonText="'取消'"
       @confirm="confirmClearCanvas"
-      @cancel="cancelClearCanvas"
-    />
+    >
+      确定要清空画布吗？此操作不可撤销。
+    </Dialog>
   </div>
 </template>
 
@@ -30,7 +32,7 @@ defineOptions({
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { showMessage } from '@/utils'
 import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
-import DraggableDialog from '@/components/base/Modal.vue'
+import Dialog from '@/components/base/Dialog.vue'
 const drawingBoardTools = [
   'undo',
   'redo',
@@ -46,13 +48,13 @@ const drawingBoardTools = [
 const drawingBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
 
 // 清空画布确认对话框
-const showClearDialog = ref(false)
+const clearDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // ==================== 方法 ====================
 
 // 清空画布确认对话框处理
 const handleClearRequest = () => {
-  showClearDialog.value = true
+  clearDialogRef.value?.openDialog()
 }
 
 const confirmClearCanvas = () => {
@@ -64,11 +66,11 @@ const confirmClearCanvas = () => {
       historyIndex: 0,
     })
   }
-  showClearDialog.value = false
+  clearDialogRef.value?.closeDialog()
 }
 
 const cancelClearCanvas = () => {
-  showClearDialog.value = false
+  clearDialogRef.value?.closeDialog()
 }
 
 </script>

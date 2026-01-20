@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog
+  <Modal
     v-model="isVisible"
     title="选择老师"
     :initial-width="300"
@@ -56,12 +56,12 @@
         </div>
       </div>
     </div>
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import DraggableDialog from '../base/Modal.vue'
+import Modal from '../base/Modal.vue'
 
 interface Teacher {
   subject: 'BIOLOGY' | 'MATH'

@@ -245,6 +245,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/biologyTopicKnowledge': apiBaseUrl,
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
+    '/homework': yanbanBaseUrl,
     // 研伴/教材等走资源服务器
     '/blw-edu-yb': yanbanBaseUrl,
     // Zammad 示例

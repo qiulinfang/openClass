@@ -1,6 +1,6 @@
 ﻿<template>
   <!-- 对话框模式 -->
-  <DraggableDialog 
+  <Modal 
     v-if="useDialog"
     v-model="localVisible" 
     title="微课"
@@ -99,7 +99,7 @@
         <div class="text-h6 q-mt-md text-grey-7">暂无微课内容</div>
       </div>
     </div>
-  </DraggableDialog>
+  </Modal>
   
   <!-- 嵌入式模式 -->
   <div v-else class="mini-class-container embedded">
@@ -196,7 +196,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
-import DraggableDialog from './dialog/DraggableDialog.vue'
+import Modal from './base/Modal.vue'
 
 // ==================== Props & Emits ====================
 interface Props {

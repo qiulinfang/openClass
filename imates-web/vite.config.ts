@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
   // 资源服务器（文件/图片等）
   // 测试环境同样使用 imates 资源服务器
   const RESOURCE_FILE_BASE = isTest
-    ? 'https://www.imates.com.cn:9099'
+    ? 'https://43.138.16.5:50013'
     : 'https://www.imates.com.cn:9099'
 
   // APP 更新接口所用域名
@@ -117,6 +117,15 @@ export default defineConfig(({ mode }) => {
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         configure: (proxy) => {
           attachBasicProxyLog(proxy, '/blw-edu-yb/auth')
+        },
+      },
+      // 匹配以 "/homework" 开头的请求，转发到研伴后端（用于作业管理接口）
+      '/homework': {
+        target: RESOURCE_FILE_BASE, // 研伴后端基础地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/homework')
         },
       },
       // 匹配以 "/api/v1/tickets" 开头的请求，转发到Zammad工单系统

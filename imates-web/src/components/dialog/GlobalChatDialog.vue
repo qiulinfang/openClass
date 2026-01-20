@@ -1,5 +1,5 @@
 <template>
-  <DraggableDialog
+  <Modal
     v-model="localVisible"
     title="聊天对话"
     :initial-width="1000"
@@ -115,7 +115,7 @@
       @confirm="handleTeacherSelect"
       @cancel="showTeacherSelectDialog = false"
     />
-  </DraggableDialog>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -124,7 +124,7 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../../utils'
 import { getUserInfo, getUserId } from '@/services'
-import DraggableDialog from '../base/Modal.vue'
+import Modal from '../base/Modal.vue'
 import SessionTree from '../SessionTree.vue'
 import ChatView from '../ChatView.vue'
 import ChatSessionDebugPanel from '../debug/ChatSessionDebugPanel.vue'

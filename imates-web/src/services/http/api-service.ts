@@ -9,6 +9,7 @@ import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
+import { HomeworkApi } from './homework-api'
 import type { TeacherHistoryMessage } from './teacher-chat-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
@@ -22,6 +23,10 @@ import type {
   BackendHistoryMessage,
   ManageConversationMemoryRequest,
   FindSimilarQuestionByBmNoRequest,
+  HomeworkQueryReq,
+  HomeworkQueryResp,
+  HomeworkInfoResp,
+  HomeworkSubmitSaveReq,
 } from '@/types'
 
 
@@ -33,6 +38,7 @@ export class ApiService {
   private teacherChatApi: TeacherChatApi
   private questionSearchApi: QuestionSearchApi
   private textbookDownloadApi: TextbookDownloadApi
+  private homeworkApi: HomeworkApi
 
   private constructor() {
     const androidBridge = AndroidBridge.getInstance()
@@ -40,6 +46,7 @@ export class ApiService {
     this.teacherChatApi = new TeacherChatApi()
     this.questionSearchApi = new QuestionSearchApi()
     this.textbookDownloadApi = new TextbookDownloadApi(androidBridge)
+    this.homeworkApi = new HomeworkApi()
   }
 
   // ========== 对话记忆管理相关接口 ==========
@@ -267,6 +274,30 @@ export class ApiService {
     subject?: string,
   ): Promise<TopicPackagePageResponse | null> {
     return this.textbookDownloadApi.getTopicPackagePage(pageNumber, pageSize, updateTime, subject)
+  }
+
+  // ========== 作业管理相关接口 ==========
+
+  /**
+   * 分页查询作业列表
+   */
+  public async homeworkPage(queryReq: HomeworkQueryReq): Promise<PageResponse<HomeworkQueryResp> | null> {
+    return this.homeworkApi.homeworkPage(queryReq)
+  }
+
+
+  /**
+   * 获取作业详情
+   */
+  public async homeworkInfo(homeworkId: string): Promise<HomeworkInfoResp | null> {
+    return this.homeworkApi.homeworkInfo(homeworkId)
+  }
+
+  /**
+   * 提交作业答案
+   */
+  public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<boolean> {
+    return this.homeworkApi.homeworkSubmitSave(homeworkSubmitReq)
   }
 }
 

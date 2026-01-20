@@ -318,7 +318,7 @@
                   </div>
                   <div class="chat-action-item" @click="handleFavoriteInChat">
                     <img
-                      :src="isFavoriteInChat ? xingxingLightIcon : xingxingIcon"
+                      :src="isFavoriteInChat ? xingxingLightIcon : shoucangIcon"
                       :class="{ favorited: isFavoriteInChat }"
                       style="width: 20px; height: 20px;"
                     />
@@ -398,9 +398,9 @@ import retakeIcon from '/icons/researh.svg'
 import searchIcon from '/icons/search.svg'
 
 import zaipaiyitiIcon from '/icons/zaipaiyiti.svg'
-import xingxingIcon from '/icons/xingxing.svg'
-import xingxingLightIcon from '/icons/xingxing-light.svg'
 import jiarulianxiIcon from '/icons/jiarulianxi.svg'
+import shoucangIcon from '/icons/shoucang1.svg'
+import xingxingLightIcon from '/icons/xingxing-light.svg'
 import jiarulianxiLightIcon from '/icons/jiarulianxi-light.svg'
 
 const route = useRoute()
