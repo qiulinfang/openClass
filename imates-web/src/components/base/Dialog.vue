@@ -34,7 +34,7 @@
 
         <div class="dialog-actions">
             <button
-            @click="closeDialog"
+            @click="handleCancel"
             class="dialog-button-cancel"
             >
             {{ cancelButtonText }}
@@ -70,7 +70,7 @@ const props = defineProps({
 });
 
 // 定义组件事件
-const emit = defineEmits(['confirm']);
+const emit = defineEmits(['confirm', 'cancel']);
 
 // 引用 <dialog> 元素
 const myDialog = ref(null);
@@ -98,6 +98,14 @@ const closeDialog = () => {
  */
 const handleConfirm = () => {
   emit('confirm');
+  closeDialog();
+};
+
+/**
+ * 处理取消操作
+ */
+const handleCancel = () => {
+  emit('cancel');
   closeDialog();
 };
 

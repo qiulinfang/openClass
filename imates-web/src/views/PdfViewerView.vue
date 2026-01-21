@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <!-- 内容区域和对话面板 -->
   <div class="content-layout">
     <q-splitter 

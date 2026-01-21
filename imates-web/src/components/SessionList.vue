@@ -93,7 +93,6 @@
               :selected-record-id="selectedRecordId"
               :is-selection-mode="isSelectionMode"
               :selected-record-ids="selectedRecords"
-              :show-favorite="showFavorite"
               @click="handleItemClick(record)"
               @contextmenu="handleLongPress(record)"
               @checkbox-change="toggleRecordSelection(getRecordId(record))"
@@ -112,7 +111,6 @@
               :selected-record-id="selectedRecordId"
               :is-selection-mode="isSelectionMode"
               :selected-record-ids="selectedRecords"
-              :show-favorite="showFavorite"
               @click="handleItemClick(record)"
               @contextmenu="handleLongPress(record)"
               @checkbox-change="toggleRecordSelection(getRecordId(record))"
@@ -131,7 +129,6 @@ import { ref, computed, onMounted } from 'vue'
 import type { AiTextbookSession } from '@/types'
 import RubberBandList from './base/VirtualList.vue'
 import SessionItem from './SessionItem.vue'
-import { isQaFavorite, isSessionFavorite } from '@/utils/storage/favorites'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getRecordId = (record: AiTextbookSession): string => {
@@ -154,7 +151,6 @@ interface Props {
   selectedRecordId?: string // 当前选中的会话ID
   showHeader?: boolean // 是否显示头部
   title?: string // 标题文字
-  showFavorite?: boolean // 是否显示收藏功能
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -162,7 +158,6 @@ const props = withDefaults(defineProps<Props>(), {
   selectedRecordId: undefined,
   showHeader: true,
   title: '聊天记录',
-  showFavorite: true,
 })
 
 // 定义 emits
@@ -228,7 +223,7 @@ const groupedRecords = computed(() => {
 })
 
 // 第1步：根据搜索关键词过滤会话列表，并排序（pinned 在前）
-// 第2步：收藏或置顶的会话无论是否匹配搜索关键词都要显示
+// 第2步：置顶的会话无论是否匹配搜索关键词都要显示
 const filteredRecords = computed(() => {
   const sourceRecords = props.records || []
   let filtered: AiTextbookSession[] = []
@@ -240,17 +235,13 @@ const filteredRecords = computed(() => {
     const keyword = searchKeyword.value.toLowerCase().trim()
     console.log('111search keyword', keyword)
     filtered = sourceRecords.filter((record) => {
-      // 如果会话被收藏或置顶，无论是否匹配搜索关键词都要显示
-      const recordId = getRecordId(record)
-      const isQaFav = isQaFavorite(recordId)
-      const isSessionFav = isSessionFavorite(recordId)
-      const isFavorite = isQaFav || isSessionFav
+      // 如果会话被置顶，无论是否匹配搜索关键词都要显示
       const isPinned = record.pinned
-      
-      if (isFavorite || isPinned) {
+
+      if (isPinned) {
         return true
       }
-      
+
       // 其他会话需要匹配搜索关键词
       const question = getRecordName(record).toLowerCase()
       const answer = record.answer?.toLowerCase() || ''

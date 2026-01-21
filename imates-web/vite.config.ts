@@ -370,6 +370,19 @@ export default defineConfig(({ mode }) => {
           })
         }
       },
+      // 🔥 新增：匹配以 "/im/" 开头的请求，转发到IM即时通讯服务（解决CORS问题，避免影响其他路径）
+      '/im/': {
+        target: 'https://www.imates.com.cn', // IM服务地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: true, // 使用HTTPS协议
+        // 移除CORS头配置，因为服务器已经在发送（尽管有重复的*值）
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/im/')
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理IM请求到服务器:', req.url)
+          })
+        }
+      },
       
     },
   },

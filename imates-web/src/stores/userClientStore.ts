@@ -10,6 +10,7 @@ import { showMessage } from '../utils'
 import { getImBaseUrl } from '@/config/env-config'
 import { getUserId } from '../services'
 import { generateUniqueId } from './utils/chatStoreUtils'
+import { apiService } from '@/services/http/api-service'
 
 // WebSocket消息类型定义
 interface WebSocketMessage {
@@ -25,7 +26,7 @@ interface WebSocketMessage {
   status?: string
   msgType?: string
   attachments?: Array<{ filename: string; width?: number; height?: number; size?: number }>
-  imageList?: Array<{ url: string }>
+  imageList?: Array<{ url: string; width?: number; height?: number; size?: number }>
 }
 
 // 服务器消息格式定义
@@ -39,6 +40,7 @@ interface ServerChatMessage {
   read?: boolean
   msgType?: string
   attachments?: Array<{ filename: string; width?: number; height?: number; size?: number }>
+  imageList?: Array<{ url: string; width?: number; height?: number; size?: number }>
 }
 
 export const useUserClientStore = defineStore('userClient', () => {
@@ -116,25 +118,28 @@ export const useUserClientStore = defineStore('userClient', () => {
 
           // 将服务器消息转换为前端格式
           const convertedMessages = result.messages.map((serverMsg: ServerChatMessage) => {
-            // 转换服务器消息格式为前端ChatBubble格式
+            // 转换服务器消息格式为前端ChatBubble格式（客服对话简化版）
             const convertedMsg: ChatBubble = {
               id: serverMsg.messageId || `msg_${Date.now()}_${Math.random()}`,
               messageId: serverMsg.messageId,
-              content: serverMsg.msgType === 'IMAGE' ? '' : (serverMsg.content || ''), // 图片消息content为空
+              // 客服对话只处理 multi_image 和 text 消息
+              content: serverMsg.content || '', // multi_image消息保留文本内容用于显示
               timestamp: serverMsg.createdAt ? new Date(serverMsg.createdAt).toISOString() : new Date().toISOString(),
               sender: serverMsg.fromId === userId ? 'user' : 'teacher', // 客服消息当作teacher类型
               type: serverMsg.fromId === userId ? 'user' : 'teacher',
-              messageType: serverMsg.msgType === 'IMAGE' ? 'image' : 'text', // 根据msgType设置正确的消息类型
+              // 简化的消息类型判断
+              messageType: serverMsg.msgType === 'multi_image' ? 'multi_image' : 'text',
               isRead: serverMsg.read !== undefined ? serverMsg.read : false,
               sessionId: conversationId,
-              // 为图片消息构造 imageData 对象，使用 content 作为图片URL
-              imageData: serverMsg.msgType === 'IMAGE' && serverMsg.content ? {
+              // 只处理 imageList，移除 imageData（客服对话只用 multi_image）
+              imageList: serverMsg.imageList ? serverMsg.imageList.map(img => ({
                 filePath: '',
-                width: serverMsg.attachments?.[0]?.width || 0,
-                height: serverMsg.attachments?.[0]?.height || 0,
-                fileSize: serverMsg.attachments?.[0]?.size || 0,
-                base64DataUrl: serverMsg.content // 使用 content 字段作为图片URL
-              } : undefined,
+                width: img.width || 0,
+                height: img.height || 0,
+                fileSize: img.size || 0,
+                base64DataUrl: img.url, // 使用服务器返回的URL
+                url: img.url // 兼容MultiImageMessage组件
+              })) : undefined,
             }
             return convertedMsg
           })
@@ -228,21 +233,24 @@ export const useUserClientStore = defineStore('userClient', () => {
               const convertedMsg: ChatBubble = {
                 id: serverMsg.messageId || `msg_${Date.now()}_${Math.random()}`,
                 messageId: serverMsg.messageId,
-                content: serverMsg.msgType === 'IMAGE' ? '' : (serverMsg.content || ''), // 图片消息content为空
+                // 客服对话只处理 multi_image 和 text 消息
+                content: serverMsg.content || '', // multi_image消息保留文本内容用于显示
                 timestamp: serverMsg.createdAt ? new Date(serverMsg.createdAt).toISOString() : new Date().toISOString(),
                 sender: serverMsg.fromId === userId ? 'user' : 'teacher',
                 type: serverMsg.fromId === userId ? 'user' : 'teacher',
-                messageType: serverMsg.msgType === 'IMAGE' ? 'image' : 'text',
+                // 简化的消息类型判断
+                messageType: serverMsg.msgType === 'multi_image' ? 'multi_image' : 'text',
                 isRead: serverMsg.read !== undefined ? serverMsg.read : false,
                 sessionId: conversationId,
-                // 为图片消息构造 imageData 对象，使用 content 作为图片URL
-                imageData: serverMsg.msgType === 'IMAGE' && serverMsg.content ? {
+                // 只处理 imageList，移除 imageData（客服对话只用 multi_image）
+                imageList: serverMsg.imageList ? serverMsg.imageList.map(img => ({
                   filePath: '',
-                  width: serverMsg.attachments?.[0]?.width || 0,
-                  height: serverMsg.attachments?.[0]?.height || 0,
-                  fileSize: serverMsg.attachments?.[0]?.size || 0,
-                  base64DataUrl: serverMsg.content // 使用 content 字段作为图片URL
-                } : undefined,
+                  width: img.width || 0,
+                  height: img.height || 0,
+                  fileSize: img.size || 0,
+                  base64DataUrl: img.url, // 使用服务器返回的URL
+                  url: img.url // 兼容MultiImageMessage组件
+                })) : undefined,
               }
               return convertedMsg
             })
@@ -524,34 +532,15 @@ export const useUserClientStore = defineStore('userClient', () => {
 
         console.log(`[用户端] 上传第${index + 1}张图片...`)
 
-        // 将base64转换为blob
-        const base64Data = imageInfo.base64DataUrl.split(',')[1]
-        const mimeType = imageInfo.base64DataUrl.split(',')[0].split(':')[1].split(';')[0]
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: mimeType })
-
-        // 上传图片
-        const formData = new FormData()
-        formData.append('file', blob, `image_${index}.${mimeType.split('/')[1]}`)
-
-        const uploadResponse = await fetch(`${getImBaseUrl()}/im/api/images/upload`, {
-          method: 'POST',
-          body: formData
-        })
-
-        const uploadResult = await uploadResponse.json()
-
-        if (!uploadResponse.ok || !uploadResult.success) {
-          console.error(`[用户端] 第${index + 1}张图片上传失败:`, uploadResult.message)
+        try {
+          // 使用通用接口上传图片
+          const imageUrl = await apiService.uploadImageAndGetUrl(imageInfo.base64DataUrl)
+          console.log(`[用户端] 第${index + 1}张图片上传成功，URL:`, imageUrl)
+          return imageUrl
+        } catch (error) {
+          console.error(`[用户端] 第${index + 1}张图片上传失败:`, error)
           return null
         }
-
-        return uploadResult.data.url
       })
 
       const imageUrls = await Promise.all(uploadPromises)
@@ -639,81 +628,40 @@ export const useUserClientStore = defineStore('userClient', () => {
       let imageUrl: string
 
       if (imageInfo.base64DataUrl) {
-        // 如果有base64，先上传获取URL
+        // 如果有base64，使用通用接口上传获取URL
         console.log('[用户端] 检测到base64图片，开始上传...')
-
-        // 将base64转换为blob
-        const base64Data = imageInfo.base64DataUrl.split(',')[1]
-        const mimeType = imageInfo.base64DataUrl.split(',')[0].split(':')[1].split(';')[0]
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: mimeType })
-
-        // 上传图片
-        const formData = new FormData()
-        formData.append('file', blob, `image.${mimeType.split('/')[1]}`)
-
-        const uploadResponse = await fetch(`${getImBaseUrl()}/im/api/images/upload`, {
-          method: 'POST',
-          body: formData
-        })
-
-        const uploadResult = await uploadResponse.json()
-
-        if (!uploadResponse.ok || !uploadResult.success) {
-          // 直接使用后端返回的错误信息
-          addErrorMessage(uploadResult.message || `上传失败 (${uploadResponse.status})`)
-          throw new Error(uploadResult.message || '上传失败')
-        }
-
-        imageUrl = uploadResult.data.url
+        imageUrl = await apiService.uploadImageAndGetUrl(imageInfo.base64DataUrl)
         console.log('[用户端] base64图片上传成功，URL:', imageUrl)
 
       } else {
-        // 如果没有base64，先上传图片获取URL
+        // 如果没有base64，从文件路径读取并转换为base64，然后使用通用接口上传
         console.log('[用户端] 开始上传图片文件...')
 
         const fileResponse = await fetch(imageInfo.filePath)
         const blob = await fileResponse.blob()
-        const formData = new FormData()
-        formData.append('file', blob, imageInfo.filePath.split('/').pop() || 'image.jpg')
 
-        const uploadResponse = await fetch(`${getImBaseUrl()}/im/api/images/upload`, {
-          method: 'POST',
-          body: formData
+        // 将blob转换为base64
+        const base64Data = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
         })
 
-        const uploadResult = await uploadResponse.json()
-
-        if (!uploadResponse.ok || !uploadResult.success) {
-          // 直接使用后端返回的错误信息
-          addErrorMessage(uploadResult.message || `上传失败 (${uploadResponse.status})`)
-          throw new Error(uploadResult.message || '上传失败')
-        }
-
-        imageUrl = uploadResult.data.url
+        // 使用通用接口上传
+        imageUrl = await apiService.uploadImageAndGetUrl(base64Data)
         console.log('[用户端] 图片上传成功，URL:', imageUrl)
       }
 
-      // 发送标准的WebSocket消息格式
-      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      // 1. 发送图片消息（只包含图片URL）
+      const imageMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-      // 如果有文本内容，将图片URL和文本组合在一起
-      const messageContent = textContent && textContent.trim()
-        ? `${imageUrl}\n\n${textContent.trim()}`
-        : imageUrl
-
-      const wsPayload = {
+      const imagePayload = {
         type: 'CHAT',
-        content: messageContent, // 发送图片URL和文本内容
+        content: imageUrl, // 只发送图片URL
         timestamp: new Date().toISOString(),
         from: getUserId() || '',
         to: 'Agent_007',
-        messageId: messageId,
+        messageId: imageMessageId,
         conversationId: `user-client-session-${getUserId()}`,
         msgType: 'IMAGE', // 明确标识为图片消息
         attachments: [
@@ -725,14 +673,39 @@ export const useUserClientStore = defineStore('userClient', () => {
       }
 
       console.log('[用户端] 发送图片消息:', {
-        from: wsPayload.from,
-        to: wsPayload.to,
-        msgType: wsPayload.msgType,
-        contentLength: wsPayload.content.length,
-        imageUrl: wsPayload.content
+        from: imagePayload.from,
+        to: imagePayload.to,
+        msgType: imagePayload.msgType,
+        contentLength: imagePayload.content.length,
+        imageUrl: imagePayload.content
       })
 
-      ws.value.send(JSON.stringify(wsPayload))
+      ws.value.send(JSON.stringify(imagePayload))
+
+      // 2. 如果有文本内容，发送单独的文本消息
+      if (textContent && textContent.trim()) {
+        const textMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+        const textPayload = {
+          type: 'CHAT',
+          content: textContent.trim(), // 只发送文本内容
+          timestamp: new Date().toISOString(),
+          from: getUserId() || '',
+          to: 'Agent_007',
+          messageId: textMessageId,
+          conversationId: `user-client-session-${getUserId()}`
+          // 注意：文本消息不设置msgType，默认为TEXT
+        }
+
+        console.log('[用户端] 发送文本消息:', {
+          from: textPayload.from,
+          to: textPayload.to,
+          content: textPayload.content,
+          contentLength: textPayload.content.length
+        })
+
+        ws.value.send(JSON.stringify(textPayload))
+      }
     } catch (error) {
       console.error('发送图片失败:', error)
       addErrorMessage('发送图片失败，请重试。')
@@ -838,19 +811,21 @@ export const useUserClientStore = defineStore('userClient', () => {
       id: generateUniqueId(),
       sender: message.from === getUserId() ? 'user' : 'teacher', // 根据from字段判断发送者
       type: message.from === getUserId() ? 'user' : 'teacher',
-      content: message.msgType === 'IMAGE' ? '' : (message.content || ''), // 图片消息content为空
+      // 客服对话只处理 multi_image 和 text 消息
+      content: message.content || '', // multi_image消息保留文本内容用于显示
       timestamp: messageTimestamp,
       sessionId: 'user-client-session',
-      // 如果后端通过 msgType 标记为 IMAGE，则在本地也标记为 image，方便前端渲染
-      messageType: message.msgType === 'IMAGE' ? 'image' : undefined,
-      // 为图片消息构造 imageData 对象，使用 content 作为图片URL
-      imageData: message.msgType === 'IMAGE' && message.content ? {
+      // 简化的消息类型判断
+      messageType: message.msgType === 'multi_image' ? 'multi_image' : undefined,
+      // 只处理 imageList，移除 imageData（客服对话只用 multi_image）
+      imageList: message.imageList ? message.imageList.map(img => ({
         filePath: '',
-        width: message.attachments?.[0]?.width || 0,
-        height: message.attachments?.[0]?.height || 0,
-        fileSize: message.attachments?.[0]?.size || 0,
-        base64DataUrl: message.content // 使用 content 字段作为图片URL
-      } : undefined,
+        width: img.width || 0,
+        height: img.height || 0,
+        fileSize: img.size || 0,
+        base64DataUrl: img.url, // 使用服务器返回的URL
+        url: img.url // 兼容MultiImageMessage组件
+      })) : undefined,
       isRead: isDialogOpen.value // 如果对话框打开，新消息直接标记为已读
     }
     messages.value.push(chatBubble)

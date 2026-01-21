@@ -243,6 +243,8 @@ export function getRouteBaseMap(): Record<string, string> {
     '/ai': apiBaseUrl,
     '/history_manage': historyManageBaseUrl,
     '/biologyTopicKnowledge': apiBaseUrl,
+    // IM服务（图片上传等）
+    '/im/api/images/upload': 'https://www.imates.com.cn',
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
     '/homework': yanbanBaseUrl,

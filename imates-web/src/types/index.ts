@@ -8,6 +8,7 @@ export * from './base'
 
 // ========== 枚举类型 ==========
 export * from './enums'
+export type { SceneType } from './enums'
 
 // ========== 用户相关 ==========
 export * from './user'

@@ -104,14 +104,6 @@ export class TeacherStrategy implements ChatStrategy {
     return null // 老师对话不支持转发
   }
   
-  // 第11步：转发单条消息
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async forwardMessage(_message: ChatBubble, _options?: import('./ChatStrategy').ForwardOptions): Promise<import('./ChatStrategy').ForwardResult> {
-    return {
-      success: false,
-      error: '老师对话不支持转发消息',
-    }
-  }
   
   // 第12步：转发多条消息
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

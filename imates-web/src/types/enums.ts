@@ -34,5 +34,17 @@ export enum Subject {
   SUBJECT_ENGLISH = 'SUBJECT_ENGLISH'
 }
 
+/**
+ * 场景类型枚举
+ * 用于标识用户进入不同页面的场景来源
+ */
+export type SceneType =
+  /** 作业场景 - 从作业页面跳转进入 */
+  | 'homework'
+  /** 收藏场景 - 从收藏页面跳转进入 */
+  | 'favorites'
+  /** 习题场景 - 从主页面"我的习题"导航跳转进入 */
+  | 'exercise'
+
 /** 环境类型枚举 */
 export type EnvType = 'RELEASE' | 'INTERNAL_TEST' | 'DEVELOPMENT'

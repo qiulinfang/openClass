@@ -4,6 +4,7 @@
  */
 
 import { AndroidBridge } from '../business/android-bridge'
+import { getImBaseUrl } from '../../config/env-config'
 
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
@@ -298,6 +299,46 @@ export class ApiService {
    */
   public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<boolean> {
     return this.homeworkApi.homeworkSubmitSave(homeworkSubmitReq)
+  }
+
+  // ========== 图片上传相关接口 ==========
+
+  /**
+   * 上传图片并获取URL（用于转发图片消息）
+   * 将base64数据上传到服务器获得可访问的URL
+   */
+  public async uploadImageAndGetUrl(base64Data: string): Promise<string> {
+    console.log(`[API] 开始上传图片...`)
+
+    // 将base64转换为blob
+    const base64Parts = base64Data.split(',')
+    const mimeType = base64Parts[0].split(':')[1].split(';')[0]
+    const byteCharacters = atob(base64Parts[1])
+
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: mimeType })
+
+    const formData = new FormData()
+    formData.append('file', blob, `forward_image_${Date.now()}.jpg`)
+
+    const response = await fetch('/im/api/images/upload', {
+      method: 'POST',
+      body: formData
+    })
+
+    const result = await response.json()
+    if (result.success) {
+      console.log(`[API] 图片上传成功，URL: ${result.data.url}`)
+      return result.data.url
+    } else {
+      console.error(`[API] 图片上传失败:`, result.message)
+      throw new Error(`图片上传失败: ${result.message}`)
+    }
   }
 }
 

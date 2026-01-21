@@ -1,17 +1,21 @@
 <template>
   <div class="question-list" @click.stop>
     <!-- 全局加载遮罩 -->
-    <div
-      v-if="loading || renderingQuestions"
-      class="question-list-loading-overlay"
-    >
+    <div v-if="loading || renderingQuestions" class="question-list-loading-overlay">
       <div class="question-list-loading-spinner"></div>
       <div class="question-list-loading-text">题目加载中...</div>
     </div>
     <!-- 搜索输入框 -->
     <div class="search-container">
       <!-- 拍照搜题按钮：根据策略能力和 props 决定是否显示 -->
-      <q-btn v-if="props.showPhotoSearch !== false && strategy.canPhotoSearch()" flat round dense class="photo-search-btn" @click="handlePhotoSearch">
+      <q-btn
+        v-if="props.showPhotoSearch !== false && strategy.canPhotoSearch()"
+        flat
+        round
+        dense
+        class="photo-search-btn"
+        @click="handlePhotoSearch"
+      >
         <img :src="searchQuestionIcon" alt="拍照搜题" class="photo-search-icon" />
         <q-tooltip>拍照搜题</q-tooltip>
       </q-btn>
@@ -44,7 +48,11 @@
       <div v-if="displayedQuestions.length === 0 && !loading" class="native-empty-state">
         <q-icon name="quiz" size="80px" color="grey-5" />
         <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">
-          {{ searchQuery || selectedSubjectFilter ? strategy.getNoResultText() : strategy.getEmptyText() }}
+          {{
+            searchQuery || selectedSubjectFilter
+              ? strategy.getNoResultText()
+              : strategy.getEmptyText()
+          }}
         </div>
         <q-btn
           v-if="!searchQuery"
@@ -153,7 +161,6 @@
       :question-title="miniClassQuestionTitle"
     />
 
-
     <!-- 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
 
@@ -196,7 +203,6 @@ import RubberBandList from './base/VirtualList.vue'
 import Dialog from './base/Dialog.vue'
 import BubblePopup from './base/Popover.vue'
 import ActionList from './ActionList.vue'
-import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { SUBJECT_FILTER_MAP } from '../constants/subjects'
 
 // 策略模式支持
@@ -208,23 +214,25 @@ import searchQuestionIcon from '/icons/search_question.svg'
 // 导入功能图标
 import zhidingIcon from '/icons/zhiding.svg'
 import quxiaozhidingIcon from '/icons/quxiaozhiding.svg'
-import shoucangIcon from '/icons/shoucang1.svg'
-import xingxingLightIcon from '/icons/xingxing-light.svg'
+// 收藏图标已移除（收藏功能不再需要）
 
-const props = withDefaults(defineProps<{
-  searchQuery?: string
-  selectedSubjectFilter?: string | null
-  // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
-  externalQuestions?: ExerciseItem[]
-  // 是否显示拍照搜题按钮，默认 true
-  showPhotoSearch?: boolean
-  // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
-  showSendToAi?: boolean
-  // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
-  type?: QuestionListType
-}>(), {
-  showSendToAi: true,
-})
+const props = withDefaults(
+  defineProps<{
+    searchQuery?: string
+    selectedSubjectFilter?: string | null
+    // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
+    externalQuestions?: ExerciseItem[]
+    // 是否显示拍照搜题按钮，默认 true
+    showPhotoSearch?: boolean
+    // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
+    showSendToAi?: boolean
+    // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
+    type?: QuestionListType
+  }>(),
+  {
+    showSendToAi: true,
+  }
+)
 
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
@@ -255,7 +263,7 @@ const currentPage = ref(1) // 当前页码
 // 2) 非受控：父组件不传 searchQuery，由组件内部维护
 const internalSearchQuery = ref('')
 const searchQuery = computed(() => {
-  return props.searchQuery !== undefined ? (props.searchQuery || '') : internalSearchQuery.value
+  return props.searchQuery !== undefined ? props.searchQuery || '' : internalSearchQuery.value
 }) //搜索关键词
 const selectedSubjectFilter = computed(() => props.selectedSubjectFilter || null) //全部学科
 
@@ -369,7 +377,6 @@ const showMiniClassDialog = computed({
 const miniClassUrl = computed(() => uiStore.miniClassUrl)
 const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
-
 // 计算属性
 const filteredQuestions = computed(() => {
   let result = questions.value
@@ -380,7 +387,9 @@ const filteredQuestions = computed(() => {
     const filterSubject = selectedSubjectFilter.value
 
     // 获取过滤学科的所有可能值
-    const filterValues = SUBJECT_FILTER_MAP[filterSubject as keyof typeof SUBJECT_FILTER_MAP] || [filterSubject]
+    const filterValues = SUBJECT_FILTER_MAP[filterSubject as keyof typeof SUBJECT_FILTER_MAP] || [
+      filterSubject,
+    ]
 
     result = result.filter((question) => {
       if (!question.subject) return false
@@ -449,31 +458,30 @@ let setQuestionCardRefImpl: (
   index: number
 ) => void = () => {}
 
-  // 处理内容引用（用于模板中的 ref）
-  const handleContentRef = (el: unknown, questionId: string) => {
-    const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
-    if (element instanceof HTMLElement) {
-      setContentRef(element, questionId)
-    }
+// 处理内容引用（用于模板中的 ref）
+const handleContentRef = (el: unknown, questionId: string) => {
+  const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
+  if (element instanceof HTMLElement) {
+    setContentRef(element, questionId)
   }
+}
 
-  // 设置内容引用，渲染MathJax并标记为已渲染完成
-  const setContentRef = async (el: HTMLElement | null, questionId: string) => {
-    if (el) {
-      contentRefs.value.set(questionId, el)
+// 设置内容引用，渲染MathJax并标记为已渲染完成
+const setContentRef = async (el: HTMLElement | null, questionId: string) => {
+  if (el) {
+    contentRefs.value.set(questionId, el)
 
+    // 渲染MathJax
+    await MathJaxUtils.renderMath(el, false)
 
-      // 渲染MathJax
-      await MathJaxUtils.renderMath(el, false)
+    // 给图片添加点击事件监听器
+    await nextTick()
+    attachImageClickListeners(el)
 
-      // 给图片添加点击事件监听器
-      await nextTick()
-      attachImageClickListeners(el)
-
-      // 标记该题目已完成渲染（包括公式和图片处理）
-      questionRenderedMap.value.set(questionId, true)
-    }
+    // 标记该题目已完成渲染（包括公式和图片处理）
+    questionRenderedMap.value.set(questionId, true)
   }
+}
 
 // 给元素内的所有图片添加点击事件监听器
 const attachImageClickListeners = (container: HTMLElement) => {
@@ -567,40 +575,7 @@ const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
   moveQuestionToTop(questionId)
 })
 
-// 收藏相关状态
-const favoriteStatus = ref<Map<string, boolean>>(new Map())
-
-// 检查题目是否已收藏
-const isExerciseFavorite = (itemId: string): boolean => {
-  return favoriteStatus.value.get(itemId) ?? false
-}
-
-// 初始化收藏状态
-const initFavoriteStatus = () => {
-  const favorites = getFavoriteExercises()
-  favoriteStatus.value.clear()
-  favorites.forEach((f) => {
-    favoriteStatus.value.set(f.item.bmNo, true)
-  })
-}
-
-// 切换收藏状态
-const toggleFavorite = (item: ExerciseItem) => {
-  const wasFavorite = isExerciseFavorite(item.bmNo)
-  const success = toggleExerciseFavorite(item)
-
-  if (success) {
-    // 更新收藏状态
-    favoriteStatus.value.set(item.bmNo, !wasFavorite)
-    showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
-  } else {
-    showMessage('操作失败，请重试', 'error')
-  }
-}
-
-const throttledToggleFavorite = ThrottleUtils.fast((item: ExerciseItem) => {
-  toggleFavorite(item)
-})
+// 收藏功能已移除：相关状态与切换逻辑不再需要
 
 // 通用操作列表：构造更多菜单的 actions（根据策略能力决定显示哪些操作）
 const buildMoreActions = (question: ExerciseItem, index: number) => {
@@ -634,13 +609,7 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
       visible: currentStrategy.canMoveToTop(),
       onClick: wrap(() => throttledMoveToTop(bmNo)),
     },
-    {
-      key: 'favorite',
-      label: isExerciseFavorite(bmNo) ? '取消收藏' : '收藏题目',
-      icon: isExerciseFavorite(bmNo) ? xingxingLightIcon : shoucangIcon,
-      visible: currentStrategy.canFavorite(),
-      onClick: wrap(() => throttledToggleFavorite(question)),
-    },
+
     {
       key: 'delete',
       label: deletingIds.value.has(bmNo) ? '删除中...' : '删除题目',
@@ -661,7 +630,6 @@ const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' =>
   }
   return 'MATH'
 }
-
 
 const openDeleteDialog = (question: ExerciseItem) => {
   deleteTargetQuestion.value = question
@@ -711,7 +679,7 @@ const deleteQuestion = async () => {
           const aiExerciseStore = useAiExerciseChatStore()
           await aiExerciseStore.clearChatHistory(question.bmNo)
         }
-        
+
         // 通过策略从 store 中移除已删除的题目
         const currentStrategy = strategy.value
         const storeQuestions = currentStrategy.getQuestions()
@@ -743,7 +711,6 @@ const deleteQuestion = async () => {
           // 具体学科：刷新指定学科的题目
           await currentStrategy.fetchQuestions({ subject: subjectToDelete, useLocalFirst: false })
         }
-
       } else {
         showMessage('题目删除失败', 'error')
       }
@@ -822,7 +789,7 @@ const loadQuestions = async () => {
     loading.value = false
     return
   }
-  
+
   const currentStrategy = strategy.value
   console.log('[QuestionList] 开始加载题目', {
     type: props.type || 'exercise',
@@ -904,7 +871,7 @@ const handlePullDownRefresh = async () => {
     }
     return
   }
-  
+
   const currentStrategy = strategy.value
   try {
     console.log('[QuestionList] 下拉刷新开始', {
@@ -948,9 +915,7 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
     // 通过策略选择题目
     const currentStrategy = strategy.value
     const storeQuestions = currentStrategy.getQuestions()
-    const storeIndex = storeQuestions.findIndex(
-      (q: ExerciseItem) => q.bmNo === question.bmNo
-    )
+    const storeIndex = storeQuestions.findIndex((q: ExerciseItem) => q.bmNo === question.bmNo)
 
     if (storeIndex >= 0) {
       await currentStrategy.selectQuestion(storeIndex)
@@ -1041,9 +1006,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     const currentStrategy = strategy.value
     const targetQuestion = list[targetIndex]
     const storeQuestions = currentStrategy.getQuestions()
-    const storeIndex = storeQuestions.findIndex(
-      (q: ExerciseItem) => q.bmNo === targetQuestion.bmNo
-    )
+    const storeIndex = storeQuestions.findIndex((q: ExerciseItem) => q.bmNo === targetQuestion.bmNo)
     if (storeIndex >= 0) {
       await currentStrategy.selectQuestion(storeIndex)
     }
@@ -1094,7 +1057,6 @@ const moveQuestionToTop = async (questionId: string) => {
 
     // 通过策略同步到 store
     await currentStrategy.setQuestions(questions.value, selectedSubject.value)
-
   } catch {
     showMessage('操作失败', 'error')
   }
@@ -1105,7 +1067,6 @@ const moveQuestionToTop = async (questionId: string) => {
 // 发送给AI
 const sendToAi = async (question: ExerciseItem) => {
   try {
-    
     // 发出事件通知父组件切换到AI聊天界面
     emit('startAiGuidance', question)
     const aiExerciseStore = useAiExerciseChatStore()
@@ -1114,7 +1075,8 @@ const sendToAi = async (question: ExerciseItem) => {
     const aiSubject = getAiSubjectFromQuestion(question)
 
     // 根据当前列表类型 / 策略判断使用哪个 store
-    const isHomeworkType = strategy.value?.getListTitle?.() === '我的作业' || props.type === 'homework'
+    const isHomeworkType =
+      strategy.value?.getListTitle?.() === '我的作业' || props.type === 'homework'
 
     if (isHomeworkType) {
       // 作业场景：使用 homeworkStore
@@ -1149,7 +1111,7 @@ const sendToAi = async (question: ExerciseItem) => {
         aiSubject,
         'mate',
         undefined,
-        true,
+        true
       )
     } else {
       // 习题场景：沿用 questionStore 逻辑
@@ -1193,10 +1155,9 @@ const sendToAi = async (question: ExerciseItem) => {
         aiSubject,
         'mate',
         undefined,
-        true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
+        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
     }
-
   } catch (error) {
     // 发生错误时重置AI指导状态（仅对习题场景有效）
     const questionStore = useQuestionStore()
@@ -1322,7 +1283,7 @@ watch(
       currentPage.value = 1
       return
     }
-    
+
     // 学科过滤时重置显示数量和页码
     displayedCount.value = INITIAL_DISPLAY_COUNT
     currentPage.value = 1
@@ -1395,19 +1356,9 @@ onUnmounted(() => {
 // 窗口大小变化处理（可选，用于响应式布局）
 let windowResizeCleanup: (() => void) | null = null
 
-// 生命周期
-// 监听 questions 变化，更新收藏状态
-watch(
-  () => questions.value,
-  () => {
-    initFavoriteStatus()
-  },
-  { deep: true }
-)
-
 onMounted(() => {
   loadQuestions()
-  initFavoriteStatus()
+  // initFavoriteStatus() removed - 收藏功能已移除
 
   // 设置窗口大小变化监听
   let resizeTimeout: ReturnType<typeof setTimeout>
@@ -1783,7 +1734,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
       }
     }
-
   }
 
   // 题目内容区域
@@ -1907,7 +1857,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       display: none !important; /* Chrome/Safari/Opera */
     }
   }
-
 
   :deep(p) {
     margin: 0 0 8px 0;
@@ -2219,5 +2168,4 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     transform: rotate(360deg);
   }
 }
-
 </style>
