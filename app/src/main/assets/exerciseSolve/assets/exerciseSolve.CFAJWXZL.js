@@ -106633,7 +106633,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
       if (msg.type === "user") {
         messageContent = "[学生] " + messageContent;
       } else if (msg.type === "ai") {
-        messageContent = "[AI助手] " + messageContent;
+        messageContent = "[学伴] " + messageContent;
       }
       return {
         id: msg.id,

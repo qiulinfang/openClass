@@ -18,7 +18,7 @@
     
     <!-- 取消录音提示 -->
     <div v-if="props.showCancelHint" class="cancel-hint">
-      <img src="/icons/delete.svg" alt="取消录音" width="32" height="32" />
+      <img :src="deleteIcon" alt="取消录音" width="32" height="32" />
       <div class="cancel-text">松开取消发送</div>
     </div>
   </div>
@@ -29,6 +29,9 @@ import { ref, watch, onUnmounted } from 'vue'
 
 // 导入类型定义
 import type { VoiceRecorderProps } from '../../types'
+
+// 导入图标
+import deleteIcon from '/icons/delete.svg'
 
 // 定义Props
 const props = withDefaults(defineProps<VoiceRecorderProps>(), {

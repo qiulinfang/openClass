@@ -451,11 +451,10 @@ const handleFavorite = () => {
     transition: opacity 0.2s;
 
     .more-btn {
-      color: #999;
-
-      &:hover {
-        color: #333;
-      }
+      color: #333;
+      display: inline-block;
+      transform: rotate(90deg);
+      transition: transform 0.2s ease;
     }
   }
 

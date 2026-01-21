@@ -1,17 +1,10 @@
 <template>
-  <Modal
-    v-model="isVisible"
+  <Dialog
+    ref="dialogRef"
     title="选择老师"
-    :initial-width="300"
-    :initial-height="200"
-    :min-width="280"
-    :min-height="180"
-    :show-footer="true"
-    :confirm-disabled="!selectedSubject"
-    confirm-text="确定"
-    cancel-text="取消"
+    confirm-button-text="确定"
+    cancel-button-text="取消"
     @confirm="handleConfirm"
-    @cancel="handleCancel"
   >
     <div class="teacher-selection-content">
       <div class="teacher-list">
@@ -56,15 +49,15 @@
         </div>
       </div>
     </div>
-  </Modal>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import Modal from '../base/Modal.vue'
+import { ref, watch } from 'vue'
+import Dialog from '../base/Dialog.vue'
 
 interface Teacher {
-  subject: 'BIOLOGY' | 'MATH'
+  subject: 'biology' | 'math'
   name: string
 }
 
@@ -83,21 +76,20 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'confirm': [subject: 'BIOLOGY' | 'MATH']
-  'cancel': []
+  'confirm': [subject: 'biology' | 'math']
 }>()
 
-const isVisible = computed({
-  get: () => props.modelValue,
-  set: (value: boolean) => emit('update:modelValue', value)
-})
+const dialogRef = ref<InstanceType<typeof Dialog>>()
 
 const selectedSubject = ref<'biology' | 'math' | null>(null)
 
-// 当对话框打开时重置选择
+// 当对话框打开时显示对话框并重置选择
 watch(() => props.modelValue, (newValue) => {
-  if (newValue) {
+  if (newValue && dialogRef.value) {
     selectedSubject.value = null
+    dialogRef.value.openDialog()
+  } else if (!newValue && dialogRef.value) {
+    dialogRef.value.closeDialog()
   }
 })
 
@@ -108,10 +100,6 @@ const handleConfirm = () => {
   }
 }
 
-const handleCancel = () => {
-  emit('cancel')
-  emit('update:modelValue', false)
-}
 </script>
 
 <style lang="scss" scoped>

@@ -151,30 +151,10 @@
 
         <!-- 右侧控制组 -->
         <div class="right-controls">
-          <!-- 语音按钮 - 仅老师对话显示，AI模式下隐藏 -->
-          <button
-            v-if="props.type === 'teacher'"
-            type="button"
-            @mousedown="handleVoiceStart"
-            @mouseup="handleVoiceEnd"
-            @mouseleave="handleVoiceEnd"
-            @touchstart="handleVoiceStart"
-            @touchend="handleVoiceEnd"
-            @touchmove="handleVoiceMove"
-            class="control-icon-btn voice-btn"
-            :class="{ 'voice-btn--recording': props.isRecording }"
-          >
-            <q-icon
-              :name="props.isRecording ? 'mic' : 'mic_none'"
-              :color="props.isRecording ? 'red-6' : 'grey-6'"
-              size="20px"
-            />
-            <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
-          </button>
 
           <!-- 图片上传 - 在 ai-general 和 user-client 场景下显示 -->
           <button
-            v-if="props.type === 'ai-general' || props.type === 'user-client'"
+            v-if="props.type === 'ai-general' || props.type === 'user-client' || props.type === 'teacher'"
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"
@@ -184,27 +164,6 @@
             <q-tooltip>添加图片</q-tooltip>
           </button>
 
-          <!-- 麦克风图标 - 显示在AI模式下 -->
-          <!-- <button
-            v-if="props.type !== 'teacher'"
-            type="button"
-            @click="handleMicButtonClick"
-            @mousedown="handleVoiceStart"
-            @mouseup="handleVoiceEnd"
-            @mouseleave="handleVoiceEnd"
-            @touchstart="handleVoiceStart"
-            @touchend="handleVoiceEnd"
-            @touchmove="handleVoiceMove"
-            class="control-icon-btn mic-btn"
-            :class="{ 'voice-btn--recording': props.isRecording }"
-          >
-            <q-icon 
-              :name="props.isRecording ? 'mic' : 'mic_none'" 
-              :color="props.isRecording ? 'red-6' : 'grey-6'" 
-              size="24px" 
-            />
-            <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
-          </button> -->
 
           <!-- 发送按钮（外层透明点击区域更大，内部视觉尺寸不变） -->
           <div class="send-button-hit-area" @click="handleSendButtonHitAreaClick">
@@ -287,10 +246,6 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
-  isRecording: {
-    type: Boolean,
-    required: true,
-  },
   enableWebSearch: {
     type: Boolean,
     required: true,
@@ -362,9 +317,6 @@ const emit = defineEmits({
   'add-new-line': () => true,
   'input-focus': () => true,
   'input-blur': () => true,
-  'start-voice-input': (_evt?: TouchEvent | MouseEvent) => true,
-  'stop-voice-input': (_evt?: TouchEvent | MouseEvent) => true,
-  'voice-move': (_evt: TouchEvent | MouseEvent) => true,
   'show-image-picker': () => true,
   'toggle-web-search': () => true,
   'scroll-to-bottom': () => true,
@@ -538,7 +490,6 @@ const selectedBlockIndex = ref<number>(-1)
 const isKeyboardTransitioning = ref(false)
 const isPlaceholderClicked = ref(false)
 const isReadyForTextInput = ref(false)
-const isLongPressRecording = ref(false) // 跟踪是否正在进行长按录音
 
 // 消息渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -666,47 +617,9 @@ const handleSendButtonHitAreaClick = () => {
 
 // 麦克风按钮点击处理
 const handleMicButtonClick = () => {
-  // 如果正在进行长按录音，忽略点击事件
-  if (isLongPressRecording.value) {
-    return
-  }
   // 注意：此功能可能尚未实现，仅记录日志
 }
 
-// 语音录制事件处理
-const handleVoiceStart = (event: TouchEvent | MouseEvent) => {
-  // 标记为长按录音模式
-  isLongPressRecording.value = true
-
-  // 1. 阻止默认行为
-  event.preventDefault()
-  event.stopPropagation()
-
-  // 2. 触发开始录音事件
-  emit('start-voice-input', event)
-}
-
-const handleVoiceEnd = (event: TouchEvent | MouseEvent) => {
-  // 1. 阻止默认行为
-  event.preventDefault()
-  event.stopPropagation()
-
-  // 2. 触发停止录音事件
-  emit('stop-voice-input', event)
-
-  // 3. 清除长按录音标志（延迟清除，避免与 click 事件冲突）
-  setTimeout(() => {
-    isLongPressRecording.value = false
-  }, 100)
-}
-
-const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
-  // 1. 阻止默认行为
-  event.preventDefault()
-
-  // 2. 触发语音移动事件
-  emit('voice-move', event)
-}
 
 // 完成公式编辑
 const finishFormulaEditing = async (blockId: string) => {
@@ -1739,91 +1652,6 @@ defineExpose({
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 语音按钮特殊样式 - 录音状态 */
-.voice-btn--recording {
-  color: #ea4335 !important;
-  background: linear-gradient(
-    135deg,
-    rgba(234, 67, 53, 0.15) 0%,
-    rgba(234, 67, 53, 0.25) 100%
-  ) !important;
-  position: relative;
-  animation: voice-recording-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4), 0 2px 8px rgba(234, 67, 53, 0.3),
-    0 4px 16px rgba(234, 67, 53, 0.2) !important;
-  transform: scale(1);
-}
-
-.voice-btn--recording::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2px solid rgba(234, 67, 53, 0.5);
-  transform: translate(-50%, -50%);
-  animation: voice-recording-ring 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  pointer-events: none;
-}
-
-.voice-btn--recording:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(234, 67, 53, 0.2) 0%,
-    rgba(234, 67, 53, 0.3) 100%
-  ) !important;
-  box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5), 0 4px 12px rgba(234, 67, 53, 0.4),
-    0 6px 20px rgba(234, 67, 53, 0.3) !important;
-}
-
-.voice-btn--recording :deep(.q-icon) {
-  position: relative;
-  z-index: 1;
-  animation: voice-recording-icon 1.5s ease-in-out infinite;
-}
-
-/* 语音按钮脉冲动画 */
-@keyframes voice-recording-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4), 0 2px 8px rgba(234, 67, 53, 0.3),
-      0 4px 16px rgba(234, 67, 53, 0.2);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.2), 0 4px 12px rgba(234, 67, 53, 0.4),
-      0 6px 20px rgba(234, 67, 53, 0.3);
-  }
-}
-
-/* 语音按钮环形动画 */
-@keyframes voice-recording-ring {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.8;
-  }
-  50% {
-    opacity: 0.4;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.8);
-    opacity: 0;
-  }
-}
-
-/* 语音按钮图标动画 */
-@keyframes voice-recording-icon {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-}
 
 .control-icon-btn.active {
   background: #e8f0fe;
@@ -1840,30 +1668,6 @@ defineExpose({
   margin: -16px -16px;
 }
 
-/* 麦克风按钮 */
-.mic-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: #5f6368;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0;
-}
-
-.mic-btn :deep(.q-icon) {
-  font-size: 24px; /* 图标更大 */
-}
-
-.mic-btn:hover {
-  background-color: rgba(95, 99, 104, 0.12);
-  color: #3c4043;
-}
 
 /* 发送按钮 - 浅紫色圆圈 */
 .send-button {

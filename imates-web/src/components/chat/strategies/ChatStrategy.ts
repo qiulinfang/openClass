@@ -78,10 +78,7 @@ export interface ChatStrategy {
   // 第10步：获取当前科目（用于转发）
   getCurrentSubjectForForward(): 'biology' | 'math' | null
   
-  // 第11步：转发单条消息
-  forwardMessage(message: ChatBubble, options?: ForwardOptions): Promise<ForwardResult>
-  
-  // 第12步：转发多条消息
+  // 第11步：转发消息（支持单条或多条，通过数组传入）
   forwardMessages(messages: ChatBubble[], options?: ForwardOptions): Promise<ForwardResult>
   
   // 第13步：获取输入框占位符文本

@@ -25,11 +25,11 @@
   >
     <!-- 选择模式下的复选框 -->
     <div v-if="isSelectionMode" class="message-checkbox">
-      <q-checkbox
-        :model-value="isSelected"
-        @update:model-value="$emit('toggle-selection', message.id)"
-        color="primary"
+      <Checkbox
+        :modelValue="isSelected"
+        :indeterminate="false"
         size="sm"
+        @update:modelValue="handleToggleSelection"
       />
     </div>
 
@@ -302,7 +302,8 @@ import Dialog from '../base/Dialog.vue'
 import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import MultiImageMessage from './MultiImageMessage.vue'
-import type { ChatBubble } from '../../types'
+import Checkbox from '../base/Checkbox.vue'
+import type { ChatBubble, SceneType } from '../../types'
 import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import refreshIcon from '/icons/refresh.svg'
@@ -391,7 +392,7 @@ const { currentQuestion: exerciseCurrentQuestion } = storeToRefs(questionStore)
 const { currentQuestion: homeworkCurrentQuestion } = storeToRefs(homeworkStore)
 
 const isFromHomework = computed(() => {
-  const scene = route.query.scene as string | undefined
+  const scene = route.query.scene as SceneType | undefined
   return scene === 'homework' || route.name === 'homeworkExercise'
 })
 
@@ -600,8 +601,13 @@ const renderedContent = computed(() => {
   return rendered
 })
 
+// 处理复选框选择
+const handleToggleSelection = (event: Event) => {
+  event.stopPropagation()
+  emit('toggle-selection', props.message.id)
+}
+
 const handleClick = () => {
-  console.log(11)
   // 如果当前已经显示长按菜单，再次点击消息时优先关闭菜单
   if (showActionMenu.value) {
     showActionMenu.value = false
@@ -779,7 +785,6 @@ const formatTimeSeparator = (timestamp: string): string => {
 
 // 处理引用消息
 const handleQuote = () => {
-  console.log('[ChatMessage] handleQuote 被调用', props.message)
   showActionMenu.value = false
   emit('quote-message', props.message)
 }
@@ -938,9 +943,8 @@ const handleRefresh = async () => {
     case 'ai-general':
       storeMessages = aiGeneralStore.messages
       break
-    case 'ai-textbook':
-      console.log('刷新AI教材消息', props.message)
-      storeMessages = aiTextbookStore.messages
+      case 'ai-textbook':
+        storeMessages = aiTextbookStore.messages
       break
       case 'teacher':
       storeMessages = teacherStore.messages
@@ -1008,16 +1012,7 @@ const handleRefresh = async () => {
     }
   }
 
-  console.log('[ChatMessage][handleRefresh]', {
-    type: props.type,
-    aiMessageId: props.message.id,
-    userMessageId: userMessage.id,
-    originalDstUrl: props.message.originalDstUrl,
-    shouldUseScreenshotOnRefresh,
-    hasUserImageData: !!userMessage.imageData?.base64DataUrl,
-    hasTextbookImageData: !!textbookImageData?.base64DataUrl,
-    textbookImageListCount: textbookImageList?.length || 0,
-  })
+    // 调试信息已移除
 
   // 使用用户消息的内容重新发送
   try {
@@ -1373,9 +1368,7 @@ const processMarkdownImages = (container: HTMLElement) => {
     })
   })
 }
-watch(showActionMenu, (v) => {
-  console.log('[ChatMessage] showActionMenu changed', v)
-})
+
 // 组件卸载时清理事件监听器（当前仅有懒加载等内部逻辑，无需额外清理 BubblePopup 的监听）
 onUnmounted(() => {
   // 保留钩子以便后续扩展

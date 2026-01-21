@@ -24,7 +24,7 @@ export class UserClientStrategy implements ChatStrategy {
 
   // 第3步：发送消息的具体逻辑
   async sendMessage(content: string, options?: SendMessageOptions): Promise<void> {
-    // 如果有多张图片，使用 sendImagesMessage 方法
+    // 如果有图片（单张或多张），统一使用 sendImagesMessage 方法
     if (options?.imageList && options.imageList.length > 0) {
       await this.store.sendImagesMessage(
         options.imageList.map(img => ({
@@ -37,15 +37,15 @@ export class UserClientStrategy implements ChatStrategy {
         content
       )
     }
-    // 如果有单张图片，使用 sendImageMessage 方法
+    // 如果有单张图片，也使用 sendImagesMessage 方法
     else if (options?.imageData) {
-      await this.store.sendImageMessage({
+      await this.store.sendImagesMessage([{
         filePath: options.imageData.filePath || '',
         width: options.imageData.width || 0,
         height: options.imageData.height || 0,
         fileSize: options.imageData.fileSize || 0,
         base64DataUrl: options.imageData.base64DataUrl,
-      }, content)
+      }], content)
     }
     // 纯文本消息
     else {
@@ -89,17 +89,9 @@ export class UserClientStrategy implements ChatStrategy {
     return null // 不支持转发
   }
 
-  // 第11步：转发单条消息
-  async forwardMessage(_message: ChatBubble, _options?: ForwardOptions): Promise<ForwardResult> {
-    showMessage('客服对话不支持转发消息', 'info')
-    return {
-      success: false,
-      error: '客服对话不支持转发消息'
-    }
-  }
 
   // 第12步：转发多条消息
-  async forwardMessages(_messages: ChatBubble[], _options?: ForwardOptions): Promise<ForwardResult> {
+  async forwardMessages(messages: ChatBubble[], options?: ForwardOptions): Promise<ForwardResult> {
     showMessage('客服对话不支持转发消息', 'info')
     return {
       success: false,
@@ -145,7 +137,7 @@ export class UserClientStrategy implements ChatStrategy {
     return false // 允许用户在发送图片后继续输入文字
   }
 
-  // 第20步：发送图片消息
+  // 第20步：发送图片消息（兼容接口，实际调用sendImagesMessage）
   async sendImageMessage(
     imageInfo: {
       filePath: string
@@ -157,8 +149,16 @@ export class UserClientStrategy implements ChatStrategy {
     textContent?: string,
     _options?: SendMessageOptions
   ): Promise<void> {
-    await this.store.sendImageMessage(imageInfo, textContent)
+    // 将单张图片包装成数组，调用sendImagesMessage
+    await this.store.sendImagesMessage([{
+      filePath: imageInfo.filePath || '',
+      width: imageInfo.width || 0,
+      height: imageInfo.height || 0,
+      fileSize: imageInfo.fileSize || 0,
+      base64DataUrl: imageInfo.base64DataUrl,
+    }], textContent)
   }
+
 
   // 第21步：更新已编辑的消息（不支持）
   async updateEditedMessage(_messageId: string, _newContent: string, _options?: SendMessageOptions): Promise<void> {

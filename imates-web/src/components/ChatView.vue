@@ -208,17 +208,13 @@
     <!-- 功能：当用户进入多选模式时显示，提供批量操作功能，替换 ChatInput 的位置 -->
     <div v-if="isSelectionMode" class="selection-toolbar">
       <!-- 左侧：全选区域 -->
-      <div
-        class="selection-left"
-        @click="selectAllMessages"
-        :title="isAllSelected ? '取消全选' : '全选'"
-      >
-        <span
-          :class="[
-            'checkbox-icon',
-            { checked: isAllSelected, indeterminate: selectedMessages.size > 0 && !isAllSelected },
-          ]"
-        ></span>
+      <div class="selection-left" :title="isAllSelected ? '取消全选' : '全选'">
+        <Checkbox
+          :modelValue="isAllSelected"
+          :indeterminate="selectedMessages.size > 0 && !isAllSelected"
+          size="md"
+          @update:modelValue="handleSelectAllCheckboxChange"
+        />
         <span class="select-all-text">全选</span>
         <span class="selection-count">已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span>
       </div>
@@ -229,14 +225,12 @@
           label="取消"
           variant="outline"
           size="md"
-          class="cancel-btn"
           @click="exitSelectionMode"
         />
 
         <Button
           v-if="chatStrategy?.shouldShowForwardButton()"
           :label="selectionMode === 'ask-teacher' ? '发送' : '发送'"
-          variant="primary"
           size="md"
           :disabled="selectedMessages.size === 0"
           @click="() => forwardToTeacher()"
@@ -418,6 +412,7 @@ import CardStack from './base/CardStack.vue'
 import RubberBandList from './base/VirtualList.vue'
 import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
 import Dialog from './base/Dialog.vue'
+import Checkbox from './base/Checkbox.vue'
 import Button from './base/Button.vue'
 
 // 类型定义导入
@@ -1252,7 +1247,7 @@ const placeholderText = computed(() => {
   if (!hasSelectedQuestion.value) {
     return '可以先聊聊，或选择题目后开始讨论'
   }
-  return '向AI助手提问...'
+  return '向学伴提问...'
 })
 
 /**
@@ -2314,7 +2309,7 @@ const handleForwardMessage = async (message: ChatBubble) => {
 
   try {
     // 使用策略的转发方法（策略内部会处理是否显示对话框）
-    const result = await chatStrategy.value.forwardMessage(message, {
+    const result = await chatStrategy.value.forwardMessages([message], {
       showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
       // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
       currentQuestion: currentQuestion.value || undefined,
@@ -2323,6 +2318,7 @@ const handleForwardMessage = async (message: ChatBubble) => {
       onSuccess: async (result) => {
         // 转发成功后的回调
         if (result.sessionId) {
+          console.log('[ChatView111] 转发成功，sessionId =', result.sessionId)
           // 触发跳转到老师对话的事件
           emit('open-teacher-dialog', { sessionId: result.sessionId })
         }
@@ -2577,6 +2573,17 @@ const selectAllMessages = () => {
     displayedMessages.value.forEach((message) => {
       selectedMessages.value.add(message.id)
     })
+  }
+}
+
+// 处理工具栏全选复选框的变更（来自 q-checkbox）
+const handleSelectAllCheckboxChange = (val: boolean) => {
+  if (val) {
+    // 选中所有
+    selectAllMessages()
+  } else {
+    // 取消全选
+    selectedMessages.value.clear()
   }
 }
 
@@ -3094,84 +3101,7 @@ defineExpose({
   gap: 8px;
 }
 
-.selection-toolbar .cancel-btn {
-  color: #6b7280;
-}
 
-.selection-toolbar .send-btn {
-  min-width: 80px;
-}
-
-/* 新的原生控件样式：复选框图标与按钮 */
-.checkbox-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  box-sizing: border-box;
-  display: inline-block;
-  vertical-align: middle;
-  border: 2px solid #cbd5e1;
-  background: transparent;
-  position: relative;
-}
-.checkbox-icon.checked {
-  background: linear-gradient(90deg, #7a7cff, #7a5cff);
-  border-color: transparent;
-}
-.checkbox-icon.checked::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  top: 2px;
-  width: 6px;
-  height: 12px;
-  border-right: 2px solid #fff;
-  border-bottom: 2px solid #fff;
-  transform: rotate(45deg);
-}
-.checkbox-icon.indeterminate {
-  background: transparent;
-  border-color: #7a7cff;
-}
-.checkbox-icon.indeterminate::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 9px;
-  width: 12px;
-  height: 2px;
-  background: #7a7cff;
-  border-radius: 2px;
-}
-
-/* 通用按钮样式（取消 / 发送） */
-.btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.cancel-btn {
-  background: #ffffff;
-  border: 1px solid #e6e7ee;
-  color: #111827;
-  min-width: 96px;
-}
-.send-btn {
-  background: linear-gradient(90deg, #6f5bff, #8b57ff);
-  color: #ffffff;
-  box-shadow: 0 6px 14px rgba(133, 90, 255, 0.24);
-  min-width: 96px;
-}
 
 /* 空状态 */
 .snapshot-empty {

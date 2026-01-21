@@ -42,10 +42,11 @@
 <script setup lang="ts">
 import { ref, watch, computed, defineAsyncComponent } from 'vue'
 const BubblePopup = defineAsyncComponent(() => import('../base/Popover.vue'))
+import DeskmateIcon from '/icons/Deskmate.svg'
+import RepresentativeIcon from '/icons/Representative.svg'
+import GuruIcon from '/icons/Guru.svg'
+
 const ActionList = defineAsyncComponent(() => import('../ActionList.vue'))
-const DeskmateIcon = '/icons/Deskmate.svg'
-const RepresentativeIcon = '/icons/Representative.svg'
-const GuruIcon = '/icons/Guru.svg'
 
 // Props
 const props = withDefaults(

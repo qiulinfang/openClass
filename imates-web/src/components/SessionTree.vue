@@ -163,7 +163,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
-import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
+import { isSessionFavorite, toggleSessionFavorite, removeSessionFavorite } from '@/utils/storage/favorites'
 import { getUserId } from '@/services'
 import { showMessage } from '../utils'
 import SearchInput from './SearchInput.vue'
@@ -590,6 +590,13 @@ const confirmDelete = async () => {
       
       // 直接调用 store 删除
       await aiGeneralStore.deleteSession(node.sessionId)
+
+      // 如果该会话在收藏中，同步移除收藏
+      try {
+        removeSessionFavorite(node.sessionId)
+      } catch (e) {
+        console.warn('[SessionTree] 同步移除会话收藏失败（忽略）', e)
+      }
       
       // 数据更新后，手动处理 treeNodes 变化（替代 watch）
       await nextTick()
@@ -720,9 +727,47 @@ const getSelectedCategory = (): 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITIC
   return null
 }
 
+// 切换到指定会话（供父组件调用）
+const switchToSession = (type: 'ai' | 'teacher', sessionId: string) => {
+  if (type === 'teacher') {
+    // 触发教师会话切换逻辑（类似于 handleSessionClick 中的教师会话处理）
+    const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
+    const session = allTeacherSessions.find(s => s.sessionId === sessionId)
+    if (session) {
+      // 设置会话
+      teacherChatStore.setSession(session)
+
+      // 更新选中状态
+      selectedSessionId.value = sessionId
+
+      // 设置 localStorage
+      const userId = getUserId()
+      const storeSubject = session.subject
+      localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+
+      // 加载聊天历史
+      teacherChatStore.loadChatHistory(session.sessionId)
+
+      // 初始化WebSocket连接
+      teacherChatStore.initMessageReceiver().catch(error => {
+        console.error('[SessionTree] 初始化教师WebSocket失败:', error)
+      })
+
+      // 通知父组件切换分类
+      emit('category-should-change', 'teacher')
+    }
+  } else if (type === 'ai') {
+    // AI 会话切换逻辑
+    aiGeneralStore.switchSession(sessionId)
+    selectedSessionId.value = sessionId
+    emit('category-should-change', 'ai-general')
+  }
+}
+
 // 暴露方法供父组件调用
 defineExpose({
   getSelectedCategory,
+  switchToSession,
 })
 
 

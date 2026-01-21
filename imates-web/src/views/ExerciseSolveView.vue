@@ -1,65 +1,22 @@
-﻿<template>
+<template>
   <div class="exercise-solve-container">
     <!-- 顶部工具栏 -->
-    <div class="app-header">
-      <!-- 左侧返回按钮（从作业作答页跳转过来时显示） -->
-      <div v-if="showBackButton" class="toolbar-left">
-        <div class="back-btn" @click="goBackToHomework">
+    <Toolbar :nav-items="navItems" v-model="currentFunction">
+      <template #left>
+        <div  class="back-btn" @click="goBack">
           <img :src="goBackIcon" alt="返回" class="back-icon" />
         </div>
-      </div>
-      <div class="app-toolbar">
-        <!-- 居中的功能导航 -->
-        <div class="toolbar-center">
-          <div class="function-nav">
-            <div
-              class="nav-item"
-              :class="{ active: currentFunction === 'chatAi', disabled: !canUseChatAi }"
-              @click="canUseChatAi && (currentFunction = 'chatAi')"
-            >
-              学伴答疑
-            </div>
-            <div
-              class="nav-item"
-              :class="{ active: currentFunction === 'teacherChat', disabled: !canUseTeacherChat }"
-              @click="canUseTeacherChat && handleSwitchToTeacherChat()"
-            >
-              老师答疑
-            </div>
-            <div
-              class="nav-item active-item"
-              :class="{
-                active: currentFunction === 'viewAnswer',
-                disabled: isFromHomework || !canUseViewAnswer,
-              }"
-              @click="!isFromHomework && canUseViewAnswer && (currentFunction = 'viewAnswer')"
-            >
-              查看答案
-            </div>
-            <div
-              class="nav-item"
-              :class="{
-                active: currentFunction === 'similarQuestion',
-                disabled: isFromHomework || !canUseSimilarQuestion,
-              }"
-              @click="
-                !isFromHomework && canUseSimilarQuestion && (currentFunction = 'similarQuestion')
-              "
-            >
-              举一反三
-            </div>
-          </div>
-          <!-- 题目过滤下拉框 -->
-          <CommonSelect
-            v-if="!isFromHomework"
-            v-model="selectedSubjectFilter"
-            :options="SUBJECT_OPTIONS"
-            class="subject-filter-select"
-            @change="onSubjectFilterChange"
-          />
-        </div>
-      </div>
-    </div>
+      </template>
+      <template #right>
+        <CommonSelect
+          v-if="!isFromHomework"
+          v-model="selectedSubjectFilter"
+          :options="SUBJECT_OPTIONS"
+          class="subject-filter-select"
+          @change="onSubjectFilterChange"
+        />
+      </template>
+    </Toolbar>
 
     <!-- 主要内容区域 -->
     <div class="main-content">
@@ -108,10 +65,8 @@
                   type="ai-exercise"
                   :compressed-height="327"
                   :question="currentQuestion"
-                  @response="handleChatResponse"
                   @scroll-to-bottom="scrollToBottom"
                   @send-message="handleSendSuggestion"
-                  @focus-input="handleFocusInput"
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
                 >
@@ -120,7 +75,7 @@
                     <button
                       type="button"
                       class="toolbar-btn"
-                      @click="goBackToHomework"
+                      @click="goBack"
                     >
                       <img
                         :src="backToHomeworkIcon"
@@ -161,7 +116,7 @@
                       <button
                         class="session-manager-btn"
                         :disabled="!hasAiSessions"
-                        @click="hasAiSessions && clearAllDialogRef.value?.openDialog()"
+                        @click="handleClearAllSessionsClick"
                       >
                         <img :src="deleteSessionIcon" alt="清除会话" class="session-manager-icon" />
                         <span class="session-back-text">清除会话</span>
@@ -190,7 +145,7 @@
                     <button
                       type="button"
                       class="toolbar-btn"
-                      @click="goBackToHomework"
+                      @click="goBack"
                     >
                       <img
                         :src="backToHomeworkIcon"
@@ -244,7 +199,7 @@ defineOptions({
   name: 'ExerciseSolveView',
 })
 
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
  import { useRoute, useRouter } from 'vue-router'
  import { useQuestionStore } from '../stores/questionStore'
  import { useHomeworkStore } from '../stores/homeworkStore'
@@ -260,19 +215,19 @@ import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 import GlobalChatDialog from '../components/dialog/GlobalChatDialog.vue'
 import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import Dialog from '../components/base/Dialog.vue'
+import Toolbar from '../components/base/Toolbar.vue'
+import CommonSelect from '../components/base/Select.vue'
 import { useUIStore } from '../stores/uiStore'
-import type { ExerciseItem, ChatBubble } from '../types'
+import type { ExerciseItem, ChatBubble, SceneType } from '../types'
 import { Subject } from '../types'
 import RubberBandList from '../components/base/VirtualList.vue'
-import CommonSelect from '../components/base/Select.vue'
 import { SUBJECT_OPTIONS, SUPPORTED_SUBJECTS } from '../constants/subjects'
 import addSessionIcon from '/icons/addsession.png'
 import newSessionIcon from '/icons/new.svg'
-import goBackIcon from '/icons/goback.svg'
 import sessionManagerIcon from '/icons/session_manager.svg'
-import shareIcon from '/icons/share.svg'
 import deleteSessionIcon from '/icons/delete.svg'
 import backToHomeworkIcon from '/icons/backtohomework.svg'
+import goBackIcon from '/icons/goback.svg'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -293,9 +248,9 @@ const { currentQuestion: homeworkCurrentQuestion, questions: homeworkQuestions }
 
 const currentFunction = ref<'chatAi' | 'teacherChat' | 'viewAnswer' | 'similarQuestion' | ''>('')
 
-// 是否处于作业场景：通过路由参数 scene=homework 或 homeworkExercise 路由名判断
+// 是否处于作业场景：通过路由参数 scene=homework/favorites 或 homeworkExercise 路由名判断
 const isFromHomework = computed(() => {
-  const scene = route.query.scene as string | undefined
+  const scene = route.query.scene as SceneType | undefined
   return scene === 'homework' || route.name === 'homeworkExercise'
 })
 
@@ -306,13 +261,8 @@ const currentQuestion = computed(() => {
   return isFromHomework.value ? homeworkCurrentQuestion.value : exerciseCurrentQuestion.value
 })
 
-// 是否显示返回按钮（从作业作答页跳转过来时显示）
-const showBackButton = computed(() => {
-  return isFromHomework.value || route.query.tab === 'chatAi'
-})
-
 // 返回作业作答页（选中状态依赖 homeworkStore.currentQuestionIndex）
-const goBackToHomework = () => {
+const goBack = () => {
   router.back()
 }
 
@@ -323,10 +273,6 @@ const splitterModel = ref(30)
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 // AI ChatView 组件引用（用于控制会话管理面板）
 const aiChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
-// 老师 ChatView 组件引用
-const teacherChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
-// 橡皮筋下拉刷新容器引用
-const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
 
 // GlobalChatDialog 组件引用
 const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
@@ -356,8 +302,6 @@ const selectedSubjectFilter = ref<string>('') // 空字符串表示显示所有�
 
 // 学科过滤变化处理
 const onSubjectFilterChange = async () => {
-  // 过滤逻辑在 QuestionList 组件内部处理
-
   // 学科过滤条件改变时，清除当前功能选择
   currentFunction.value = 'chatAi'
 
@@ -396,9 +340,29 @@ const canUseSimilarQuestion = computed(
   () => hasSelectedQuestion.value && aiExerciseStore.canViewAnswer
 )
 
-const handleChatResponse = () => {
-  // AI回复后的处理逻辑
-}
+// 导航项配置
+const navItems = computed(() => [
+  {
+    key: 'chatAi',
+    label: '学伴答疑',
+    disabled: !canUseChatAi.value
+  },
+  {
+    key: 'teacherChat',
+    label: '老师答疑',
+    disabled: !canUseTeacherChat.value
+  },
+  {
+    key: 'viewAnswer',
+    label: '查看答案',
+    disabled: isFromHomework.value || !canUseViewAnswer.value
+  },
+  {
+    key: 'similarQuestion',
+    label: '举一反三',
+    disabled: isFromHomework.value || !canUseSimilarQuestion.value
+  }
+])
 
 // 切换会话管理面板
 const toggleSessionListPanel = async () => {
@@ -419,6 +383,20 @@ const handleCloseSessionPanel = () => {
 const confirmClearAllSessions = async () => {
   await handleClearAllSessions()
   clearAllDialogRef.value?.closeDialog()
+}
+
+// 处理清除所有会话按钮点击
+const handleClearAllSessionsClick = () => {
+  console.log('[ExerciseSolveView] handleClearAllSessionsClick 被调用')
+  console.log('[ExerciseSolveView] hasAiSessions:', hasAiSessions.value)
+  console.log('[ExerciseSolveView] clearAllDialogRef.value:', clearAllDialogRef.value)
+
+  if (hasAiSessions.value && clearAllDialogRef.value) {
+    console.log('[ExerciseSolveView] 调用 openDialog')
+    clearAllDialogRef.value.openDialog()
+  } else {
+    console.log('[ExerciseSolveView] 条件不满足，跳过 openDialog')
+  }
 }
 
 // 新建会话（底部会话管理按钮 / 右上角新增会话按钮复用同一逻辑）
@@ -491,18 +469,6 @@ const getTeacherSessionBySubject = (): string => {
 
   // 如果找不到对应科目，默认使用数学老师
   return `teacher_${userId}_math`
-}
-
-// 处理切换到教师聊天页面
-const handleSwitchToTeacherChat = async () => {
-  // 设置当前功能为教师聊天
-  currentFunction.value = 'teacherChat'
-}
-
-// 处理聚焦输入框
-const handleFocusInput = () => {
-  // 触发输入框聚焦（ChatView 内部会处理）
-  // 这里可以添加额外逻辑，比如滚动到底部等
 }
 
 // 处理从ChatView转发后跳转到老师对话的事件
@@ -989,86 +955,6 @@ $desktop-breakpoint: 1025px;
   flex-direction: column;
 }
 
-// 题目过滤下拉框样式（在功能导航中）
-.subject-filter-select {
-  min-width: 120px;
-  max-width: 150px;
-  position: absolute;
-  right: -12px;
-  :deep(.select-trigger) {
-    background-color: transparent;
-    border: none;
-    font-size: 16px;
-    font-weight: 400;
-    color: #d4d1dd;
-    width: 100px;
-  }
-  :deep(.select-icon-wrapper) {
-    color: #d4d1dd;
-    font-size: 18px;
-    transition: transform 0.2s ease;
-  }
-  :deep(.select-dropdown) {
-    min-width: 120px;
-  }
-  :deep(.select-icon) {
-    filter: brightness(0) invert(1);
-  }
-}
-
-.app-header {
-  height: $header-height;
-  min-height: $header-height;
-  max-height: $header-height;
-  border-bottom: none;
-  box-shadow: none;
-  background-color: #0f002e; /* 深紫色背景 */
-  flex-shrink: 0;
-  position: relative;
-}
-
-.app-toolbar {
-  height: $header-height;
-  min-height: $header-height;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 16px;
-}
-
-.toolbar-left {
-  position: absolute;
-  left: 24px;
-  top: 11px;
-  z-index: 10;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
-  background: transparent;
-  transition: background-color 0.15s ease;
-}
-
-.back-icon {
-  width: 25px;
-  height: 25px;
-}
-
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-.toolbar-center {
-  flex: 1;
-  display: flex;
-  position: relative;
-  justify-content: center;
-  align-items: center;
-}
 
 .main-content {
   flex: 1;
@@ -1183,51 +1069,6 @@ $desktop-breakpoint: 1025px;
   }
 }
 
-.function-nav {
-  display: flex;
-  align-items: center;
-}
-
-.nav-item {
-  font-size: 14px;
-  color: #9792ac; /* 浅灰色文字 */
-  cursor: pointer;
-  // 用高度+左右 padding 控制宽度，不再让它随文字无限变窄
-  position: relative;
-  display: inline-flex; /* 以内联块的形式，让背景宽度只包裹内容 */
-  align-items: center;
-  justify-content: center;
-  min-width: 110px; /* 适配你的 sessionbackground.svg 宽度，可按实际调整 */
-  height: 36px; /* 对应底图高度，可按实际调整 */
-  box-sizing: border-box;
-  font-weight: 500;
-
-  // 激活状态 - 使用 sessionbackground.svg 作为背景
-  &.active {
-    background-image: url('/icons/sessionbackfround.png');
-    background-repeat: no-repeat;
-    background-size: 100% 100%; // 背景完整铺满 nav-item
-    background-position: center;
-    color: #504b64;
-    font-weight: 600;
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 1px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 30%;
-      height: 3px;
-      background: #6e55ff; /* 亮紫色下划线 */
-      border-radius: 2px;
-    }
-    .nav-icon {
-      filter: none;
-    }
-  }
-}
-
-// 特殊的激活项（查看答案）样式已包含在 .nav-item.active 中
 
 .function-content {
   flex: 1;
@@ -1270,21 +1111,6 @@ $desktop-breakpoint: 1025px;
   }
 }
 
-.toolbar-btn {
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ffffff;
-  border: none;
-  cursor: pointer;
-}
-
-.toolbar-icon {
-  display: block;
-  height: 32px;
-  object-fit: contain;
-}
 
 // 工具类
 .full-height {
@@ -1433,6 +1259,29 @@ $desktop-breakpoint: 1025px;
   font-weight: 500;
 }
 
+// 返回按钮样式
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.back-icon {
+  width: 25px;
+  height: 25px;
+}
+
 @media (max-width: $mobile-breakpoint) {
   .main-content {
     flex-direction: column !important;
@@ -1458,24 +1307,43 @@ $desktop-breakpoint: 1025px;
     @include hide-mobile-scrollbar;
   }
 
-  .function-nav {
-    gap: 12px;
-    padding: 0 8px;
+  .back-btn {
+    width: 36px;
+    height: 36px;
   }
 
-  .nav-item {
-    font-size: 12px;
-    padding: 6px 12px;
+  .back-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+// 学科过滤选择器样式
+.subject-filter-select {
+  min-width: 120px;
+  max-width: 150px;
+
+  :deep(.select-trigger) {
+    background-color: transparent;
+    border: none;
+    font-size: 16px;
+    font-weight: 400;
+    color: #d4d1dd;
+    width: 100px;
   }
 
-  .subject-filter-select {
-    min-width: 100px;
-    max-width: 120px;
+  :deep(.select-icon-wrapper) {
+    color: #d4d1dd;
+    font-size: 18px;
+    transition: transform 0.2s ease;
+  }
 
-    :deep(.q-field__native) {
-      font-size: 12px;
-      padding: 6px 10px;
-    }
+  :deep(.select-dropdown) {
+    min-width: 120px;
+  }
+
+  :deep(.select-icon) {
+    filter: brightness(0) invert(1);
   }
 }
 </style>

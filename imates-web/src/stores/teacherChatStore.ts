@@ -14,6 +14,7 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { showMessage } from '../utils'
 import { getUserInfo, getUserId } from '../services'
+import { getResourceBaseUrl } from '../config/env-config'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import { getWebSocketService, destroyWebSocketService } from '../services/websocket/webSocketService'
 import type { WebSocketMessage } from '../services/websocket/webSocketService'
@@ -285,7 +286,9 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
       // 第5步：通过WebSocket发送学生消息到研伴后端
       const msgType = imageData ? '1' : '0' // 0=文本消息, 1=图片消息
-      const msgContent = imageData ? imageData.base64DataUrl || imageData.filePath || content : content
+      const msgContent = imageData ?
+        (imageData.filePath?.startsWith('http') ? imageData.filePath :
+         imageData.base64DataUrl || imageData.filePath || content) : content
       const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
       // 从sessionId中解析科目ID（数据库ID）
@@ -367,13 +370,17 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
                 fileSize: 0,
               }
             } else if (msg.type === 'image' && msg.content) {
-              // 图片消息：msgContent是图片URL或base64
+              // 图片消息：msgContent是图片URL、base64或文件路径
+              const isBase64 = msg.content.startsWith('data:')
+              const isFilePath = !isBase64 && msg.content.includes('/') // 简单判断是否为文件路径
+
               baseMessage.imageData = {
                 filePath: msg.content,
                 width: 0,
                 height: 0,
                 fileSize: 0,
-                base64DataUrl: msg.content.startsWith('data:') ? msg.content : undefined,
+                base64DataUrl: isBase64 ? msg.content :
+                               isFilePath ? `${getResourceBaseUrl()}/${msg.content}` : undefined,
               }
             }
 

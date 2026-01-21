@@ -30,7 +30,12 @@
 
           <!-- 草稿本卡片 -->
           <div class="feature-card" @click="openDraftNotebook">
-            <img src="/icons/draw.svg" alt="草稿本" class="card-icon" />
+            <img :src="drawIcon" alt="草稿本" class="card-icon" />
+          </div>
+
+          <!-- 老师答疑卡片 -->
+          <div class="feature-card" @click="openTeacherQADialog">
+            <img :src="teacherQAIcon" alt="老师答疑" class="card-icon" />
           </div>
         </div>
         <!-- 退出登录按钮 -->
@@ -42,19 +47,14 @@
       </div>
     </RubberBandList>
 
-    <!-- 加入课堂确认对话框：使用可拖拽对话框组件 -->
-    <Modal
-      v-model="showJoinClassDialog"
-      class="join-class-dialog"
-      title="课堂提示"
-      :show-footer="true"
-      :auto-size="true"
-      :confirm-text="isInClass ? '确认退出' : '确认加入'"
-      :cancel-text="'取消'"
-      :confirm-variant="isInClass ? 'danger' : 'primary'"
-      :confirm-disabled="!canConfirmJoinClass"
-      @cancel="showJoinClassDialog = false"
+    <!-- 加入课堂确认对话框：使用基础对话框组件 -->
+    <Dialog
+      ref="joinClassDialogRef"
+      :title="isInClass ? '确认退出课堂' : '课堂提示'"
+      :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
+      :cancelButtonText="'取消'"
       @confirm="confirmJoinClass"
+      @cancel="handleJoinClassDialogCancel"
     >
       <div class="exit-classroom" v-if="isInClass">
         <div class="exit-icon">!</div>
@@ -106,7 +106,7 @@
           </div>
         </div>
       </div>
-    </Modal>
+    </Dialog>
 
     <!-- 退出登录确认对话框 -->
     <Dialog
@@ -142,9 +142,11 @@ import Dialog from '@/components/base/Dialog.vue'
 import CommonSelect from '@/components/base/Select.vue'
 
 // 导入 SVG 图标
+import drawIcon from '/icons/draw.svg'
 import joinClassIcon from '/icons/join_class.svg'
 import myFavoritesIcon from '/icons/my_favorites.svg'
 import feedbackIcon from '/icons/feedback.svg'
+import teacherQAIcon from '/icons/teacher_qa.svg'
 
 const router = useRouter()
 const userClientStore = useUserClientStore()
@@ -154,13 +156,14 @@ const closeToolbox = inject<() => void>('closeToolbox')
 const openMainChatPanel = inject<() => void>('openMainChatPanel')
 const openFeedbackDialog = inject<() => void>('openFeedbackDialog')
 const openToolboxFromParent = inject<() => void>('openToolbox')
+const openTeacherQADialogFromParent = inject<() => void>('openTeacherQADialog')
 
 // 响应式数据
 const isInClass = ref(false)
 const isProjecting = ref(false)
-const showJoinClassDialog = ref(false)
 const isLoggingOut = ref(false)
 const logoutDialogRef = ref<InstanceType<typeof Dialog>>()
+const joinClassDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 教室选择相关状态
 const classroomTree = ref<any | null>(null)
@@ -429,13 +432,24 @@ const toggleJoinClass = () => {
     loadClassroomTree()
   }
 
-  showJoinClassDialog.value = true
+  joinClassDialogRef.value?.openDialog()
+}
+
+// 处理加入课堂对话框取消
+const handleJoinClassDialogCancel = () => {
+  // 取消时关闭对话框
+  joinClassDialogRef.value?.closeDialog()
 }
 
 // 确认加入/退出课堂
 const confirmJoinClass = () => {
+  // 检查是否可以执行操作（仅在加入课堂时需要检查）
+  if (!isInClass.value && !canConfirmJoinClass.value) {
+    return
+  }
+
   // 流程：关闭确认弹窗 -> 分支(在课堂/不在课堂) -> 调用原生接口 -> 根据结果同步状态与提示
-  showJoinClassDialog.value = false
+  joinClassDialogRef.value?.closeDialog()
 
   const traceId = `JC_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
   console.log('[Classroom][Action] start', { traceId, isInClass: isInClass.value })
@@ -535,6 +549,18 @@ const openDraftNotebook = () => {
   }
 }
 
+// 打开老师答疑对话框
+const openTeacherQADialog = () => {
+  // 第1步：关闭工具箱
+  if (closeToolbox) {
+    closeToolbox()
+  }
+  // 第2步：通知父组件显示老师答疑对话框
+  if (openTeacherQADialogFromParent) {
+    openTeacherQADialogFromParent()
+  }
+}
+
 // 处理退出登录
 const handleLogout = () => {
   logoutDialogRef.value?.openDialog()
@@ -577,10 +603,6 @@ const confirmLogout = async () => {
   }
 }
 
-// 取消退出登录
-const cancelLogout = () => {
-  showLogoutConfirm.value = false
-}
 </script>
 
 <style lang="scss" scoped>
@@ -621,7 +643,7 @@ $bg-gray: #f9fafb;
 .content-wrapper {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 40px;
   place-items: center;
   padding-top:20px;
 

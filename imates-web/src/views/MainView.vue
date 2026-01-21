@@ -27,14 +27,11 @@
           >
             <div class="nav-icon-wrapper" v-if="item.key === 'toolbox'">
               <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-              <span class="notification-badge" v-if="userClientUnreadCount > 0">{{ userClientUnreadCount }}</span>
+              <span class="notification-badge" v-if="userClientUnreadCount > 0">{{
+                userClientUnreadCount
+              }}</span>
             </div>
-            <img
-              v-else
-              :src="getNavIcon(item)"
-              :alt="item.label"
-              class="nav-icon"
-            />
+            <img v-else :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
             <span class="nav-text">{{ item.label }}</span>
           </div>
         </div>
@@ -52,12 +49,7 @@
               <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
               <span class="notification-dot" v-if="hasResourceNotification"></span>
             </div>
-            <img
-              v-else
-              :src="getNavIcon(item)"
-              :alt="item.label"
-              class="nav-icon"
-            />
+            <img v-else :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
             <span class="nav-text">{{ item.label }}</span>
           </div>
         </div>
@@ -97,7 +89,12 @@
       @touchstart="startDrag"
     >
       <!-- 悬浮功能按钮 -->
-      <button type="button" class="floating-fab-btn" :style="{ backgroundImage: `url(${ipGif})` }" @click.stop="handleFloatingFabClick"></button>
+      <button
+        type="button"
+        class="floating-fab-btn"
+        :style="{ backgroundImage: `url(${ipGif})` }"
+        @click.stop="handleFloatingFabClick"
+      ></button>
 
       <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
       <div v-if="shouldShowGoResourcesHint && showGoResourcesBubble" class="go-resources-bubble">
@@ -146,7 +143,7 @@
       :initial-height="800"
     >
       <DrawingBoardView />
-  </Modal>
+    </Modal>
   </div>
 </template>
 
@@ -166,9 +163,14 @@ import Modal from '@/components/base/Modal.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
+import { getUserId } from '@/services'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
-import { getCurrentSchoolAppConfig, type NavItemConfig, type NavKey } from '@/config/school-app-config'
+import {
+  getCurrentSchoolAppConfig,
+  type NavItemConfig,
+  type NavKey,
+} from '@/config/school-app-config'
 import type { UserTextbookInfo } from '@/types'
 
 // 流程：导入图标资源
@@ -217,9 +219,6 @@ const userClientStore = useUserClientStore()
 const activeNavItem = ref(props.activeNavItem)
 const isInClass = ref(false)
 
-
-
-
 // 当前学校应用配置（通过 VITE_SCHOOL_ID 区分不同学校版本）
 const currentSchoolAppConfig = getCurrentSchoolAppConfig()
 
@@ -244,7 +243,7 @@ const currentUserInfo = ref<{
   name: '',
   avatar: '',
   avatarNew: '',
-  roles: []
+  roles: [],
 })
 
 // 更新当前用户信息
@@ -259,7 +258,7 @@ const updateCurrentUserInfo = () => {
           name: parsed.name || '',
           avatar: parsed.avatar || '',
           avatarNew: parsed.avatarNew || '',
-          roles: parsed.roles || []
+          roles: parsed.roles || [],
         }
         return
       }
@@ -273,7 +272,7 @@ const updateCurrentUserInfo = () => {
     name: '',
     avatar: '',
     avatarNew: '',
-    roles: []
+    roles: [],
   }
 }
 
@@ -306,21 +305,19 @@ const displayUserName = computed(() => {
 // 注意：这里的名称必须与组件的 name 选项匹配（defineOptions 或组件 export default 中的 name）
 const cachedComponents = ref<string[]>([
   // 'knowledgeGraph',     // 知识图谱页面
-  'pdfViewer',          // PDF 查看器
-  'htmlViewer',         // HTML 查看器
-  'videoViewer',        // 视频查看器
+  'pdfViewer', // PDF 查看器
+  'htmlViewer', // HTML 查看器
+  'videoViewer', // 视频查看器
   // 'ExerciseSolveView',  // 我的习题页面
   'MyResourcesView', // 资源下载页面（资源页需要每次进入都强制刷新，这里不再缓存）
-  'DrawingBoardView',   // 画板页面
-  'FindExerciseView',   // 查找习题页面
-  'MyFavoritesView',    // 我的收藏页面
+  'DrawingBoardView', // 画板页面
+  'FindExerciseView', // 查找习题页面
+  'MyFavoritesView', // 我的收藏页面
   // 'learning',           // 去练习弹窗页（/app/learning）
   // 'learningContent',     // 去练习内容查看页（/app/learning-content）
   'MyHomeworkView', // 我的作业页面
   'homeworkAnswer', // 作业答题页面
 ])
-
-
 
 // 对话框显示状态
 const showTeacherChatDialog = ref(false)
@@ -364,20 +361,13 @@ const fabStyle = computed(() => ({
 }))
 
 // 需要隐藏左侧导航菜单的路由
-const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer']
+const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve']
 
 // 是否隐藏左侧导航菜单
 // 在作业作答 / 作业答题等专注场景隐藏，避免干扰
 const hideFunctionMenu = computed(() => {
   const name = route.name as string | undefined
   return !!name && routesHideFunctionMenu.includes(name)
-})
-
-// 是否为开发环境（显示调试功能）
-const isDev = computed(() => {
-  return import.meta.env.VITE_ENABLE_DEBUG === 'true' ||
-         import.meta.env.DEV ||
-         localStorage.getItem('debug') === 'true'
 })
 
 // 不显示悬浮按钮的路由
@@ -440,11 +430,9 @@ const mainViewStyle = computed(() => {
       return {
         background: '#0a0020',
       }
-      case 'homeworkExercise':
-      return {
-        background: 'linear-gradient(to bottom, #0f002e 50%, #f7f6ff 50%)',
-      }
-      case 'homeworkAnswer':
+    case 'homeworkExercise':
+    case 'homeworkAnswer':
+    case 'myFavorites':
       return {
         background: 'linear-gradient(to bottom, #0f002e 50%, #f7f6ff 50%)',
       }
@@ -488,7 +476,6 @@ const currentExerciseIcon = computed(() => {
 const currentHomeworkIcon = computed(() => {
   return activeNavItem.value === 'homework' ? homeworkSelectIcon : homeworkIcon
 })
-
 
 const currentDownloadResourcesIcon = computed(() => {
   return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
@@ -602,7 +589,7 @@ const checkResourceUpdates = async () => {
           // 会话无效，跳转到登录页
           console.warn('❌ [MainView] 登录状态无效，跳转到登录页')
           await router.push({ name: 'login' })
-            return
+          return
         }
 
         // 从服务器获取教材数据
@@ -769,7 +756,7 @@ const handleAvatarChanged = (newAvatarUrl: string) => {
   // 更新用户信息并持久化到localStorage
   setUserInfoToStorage({
     ...currentUserInfo.value,
-    avatarNew: newAvatarUrl
+    avatarNew: newAvatarUrl,
   })
 }
 
@@ -777,7 +764,6 @@ const handleAvatarChanged = (newAvatarUrl: string) => {
 const handleAvatarClick = () => {
   showProfileDialog.value = true
 }
-
 
 // 处理AI聊天点击
 const handleAIChatClick = async () => {
@@ -866,34 +852,31 @@ const handleToggleMainChatMode = () => {
   uiStore.openAIChatDialog()
 }
 
-// 通过 provide 向子组件提供关闭工具箱的方法和控制对话框的方法
-// - closeToolbox: 关闭左侧工具箱
-// - openTeacherChatDialog: 打开教师聊天对话框（全屏形式）
-// - openMainChatPanel: 打开主页右侧统一聊天面板
-// - openFeedbackDialog: 打开意见反馈对话框
-// - getTeacherChatDialogRef: 获取教师聊天对话框引用
 const openMainChatPanel = () => {
   showMainChatPanel.value = true
 }
 
+// 打开老师答疑对话框
+const openTeacherQADialog = () => {
+  showTeacherChatDialog.value = true
+
+  // 自动定位到数学老师对话
+  nextTick(() => {
+    if (teacherChatDialogRef.value) {
+      const userId = getUserId() || 'default'
+      const mathSessionId = `teacher_${userId}_math`
+      teacherChatDialogRef.value.switchToTeacherSession(mathSessionId)
+    }
+  })
+}
+
 provide('closeToolbox', closeToolbox)
 provide('openTeacherChatDialog', openTeacherChatDialog)
+provide('openTeacherQADialog', openTeacherQADialog)
 provide('openMainChatPanel', openMainChatPanel)
 provide('openFeedbackDialog', openFeedbackDialog)
 provide('getTeacherChatDialogRef', getTeacherChatDialogRef)
 provide('openToolbox', handleOpenToolbox)
-
-// 工具箱动画进入完成后的处理
-const handleToolboxEnter = () => {
-  // 动画完成后，移除 will-change 以节省内存
-  // 由于 CSS 中已经设置了 will-change，这里主要是标记动画完成
-  // 如果需要，可以通过 DOM 操作动态移除 will-change
-}
-
-// 工具箱动画离开完成后的处理
-const handleToolboxLeave = () => {
-  // 动画完成后清理，如果需要的话
-}
 
 // 处理内容区域点击事件
 const handleContentAreaClick = () => {
@@ -956,9 +939,12 @@ const handleMyExercisesClick = () => {
     showToolbox.value = false
   }
 
-  // 跳转到默认的习题页面
+  // 跳转到默认的习题页面，传递 scene 参数
   console.log('[导航] 跳转到我的习题页')
-  router.push({ name: 'exerciseSolve' })
+  router.push({
+    name: 'exerciseSolve',
+    query: { scene: 'exercise' }
+  })
 }
 
 // 示例：我的作业导航点击处理
@@ -975,7 +961,6 @@ const handleMyHomeworkClick = () => {
   router.push({ name: 'myHomework' })
 }
 
-
 const handleKnowledgeGraphClick = () => {
   activeNavItem.value = 'knowledge'
   emit('nav-item-change', 'knowledge')
@@ -988,7 +973,6 @@ const handleKnowledgeGraphClick = () => {
   console.log('[导航] 跳转到知识图谱主页')
   router.push({ name: 'knowledgeGraph' })
 }
-
 </script>
 
 <style lang="scss" scoped>
@@ -1068,7 +1052,8 @@ const handleKnowledgeGraphClick = () => {
         margin: 2px;
       }
 
-      img, .user-name {
+      img,
+      .user-name {
         position: relative;
         z-index: 1;
       }
@@ -1246,7 +1231,7 @@ const handleKnowledgeGraphClick = () => {
   top: 0;
   width: 33%;
   height: 100vh;
-  background: #3d3070;
+  background: #26184f;
   overflow-y: auto;
   z-index: 999; // 层级低于功能菜单，不可覆盖功能菜单
   // 启用 GPU 硬件加速，优化 webview 性能

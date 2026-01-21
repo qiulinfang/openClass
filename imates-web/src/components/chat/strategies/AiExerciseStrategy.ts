@@ -145,54 +145,6 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
   }
   
-  // 第11步：转发单条消息
-  async forwardMessage(message: ChatBubble, options: ForwardOptions = {}): Promise<ForwardResult> {
-    try {
-      // 获取题目信息
-      const question = options.currentQuestion as { id?: string; bmNo?: string; subject?: string; question?: string; title?: string } | undefined
-      if (!question?.id) {
-        return {
-          success: false,
-          error: '请先选择题目',
-        }
-      }
-
-      // 确定科目
-      const subject = this.getSubjectFromQuestion(question)
-      if (!subject) {
-        return {
-          success: false,
-          error: '无法确定题目科目',
-        }
-      }
-
-      // 从写死会话中选择对应的会话
-      const teacherStore = useTeacherChatStore()
-      const allSessions = teacherStore.loadAllSessions()
-      const subjectUpper = subject === 'math' ? 'MATH' : 'BIOLOGY'
-      const session = Object.values(allSessions).find(s => s.subject === subjectUpper)
-
-      if (!session) {
-        return {
-          success: false,
-          error: `未找到${subject === 'math' ? '数学' : '生物'}科目的教师会话`,
-        }
-      }
-
-      // 转发消息
-      const success = await this.forwardMessageToTeacher([message], session.sessionId)
-      return {
-        success,
-        error: success ? undefined : '转发失败',
-      }
-    } catch (error) {
-      console.error('[AiExerciseStrategy] ❌ 转发消息失败:', error)
-      return {
-        success: false,
-        error: '转发失败，请重试',
-      }
-    }
-  }
 
   // 第12步：转发多条消息
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
@@ -498,9 +450,9 @@ export class AiExerciseStrategy implements ChatStrategy {
 
     // 根据角色类型添加前缀
     if (msg.type === 'user') {
-      messageContent = '[学生] ' + messageContent
+      messageContent = '[学生]\n' + messageContent
     } else if (msg.type === 'ai') {
-      messageContent = '[AI助手] ' + messageContent
+      messageContent = '[学伴]\n' + messageContent
     }
 
     const cleanedContent = messageContent
@@ -526,117 +478,6 @@ export class AiExerciseStrategy implements ChatStrategy {
   /**
    * 转发消息到老师
    */
-  private async forwardMessageToTeacher(
-    messages: ChatBubble[],
-    sessionId: string
-  ): Promise<boolean> {
-    // 第1步：转换消息格式
-    const cleanedMessages = messages.map(msg => this.convertMessageForForwarding(msg))
-
-    // 第2步：序列化消息数据
-    let selectedMessagesData: string
-    try {
-      selectedMessagesData = JSON.stringify(cleanedMessages)
-    } catch (error) {
-      console.error('[AiExerciseStrategy] ❌ 序列化失败:', error)
-      return false
-    }
-    
-    // 第3步：直接通过WebSocket发送转发消息
-    try {
-      const teacherStore = useTeacherChatStore()
-
-      // 确保当前会话设置正确
-      const allSessions = teacherStore.loadAllSessions()
-      const targetSession = allSessions[sessionId]
-      if (targetSession) {
-        teacherStore.setSession(targetSession)
-      }
-
-      // 预先添加转发消息到store（模拟正常发送流程）
-      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const forwardContent = `[AI聊天转发]\n${selectedMessagesData}`
-
-      const forwardMessage: ChatBubble = {
-        id: messageId,
-        messageId: messageId,
-        content: forwardContent,
-        type: 'user',
-        timestamp: new Date().toISOString(),
-        sender: 'user',
-        messageType: 'text',
-      }
-
-      teacherStore.addMessage(forwardMessage)
-
-      // 检查WebSocket连接状态，如果未连接则主动建立连接
-      const { getWebSocketService } = await import('../../../services/websocket/webSocketService')
-      const webSocket = getWebSocketService('teacher')
-      if (!webSocket.isConnected()) {
-        console.log('[AiExerciseStrategy] WebSocket未连接，转发前先建立连接...')
-        const connected = await teacherStore.connectWebSocket()
-        if (!connected) {
-          throw new Error('WebSocket连接失败')
-        }
-      }
-
-      // 通过WebSocket发送转发消息
-      const success = await teacherStore.sendMessage(forwardContent)
-      console.log('转发消息成功', success)
-      if (success) {
-        // 第4步：保存转发消息到本地存储
-        const convertedMessages = messages.map((msg) => {
-          // 确定消息类型
-          let messageType: 'text' | 'voice' | 'image' = (msg.messageType || 'text') as 'text' | 'voice' | 'image'
-          if (!messageType || (messageType !== 'text' && messageType !== 'voice' && messageType !== 'image')) {
-            // 如果没有 messageType 或类型不正确，根据数据判断
-            if (msg.imageData?.filePath || msg.imageData?.base64DataUrl) {
-              messageType = 'image'
-            } else if (msg.voiceData?.filePath) {
-              messageType = 'voice'
-            } else {
-              messageType = 'text'
-            }
-          }
-          
-          // 生成唯一的转发消息ID，允许同一条消息多次转发
-          // 提取原始ID（如果已经是转发消息，提取原始ID）
-          const originalId = msg.id.startsWith('forwarded_') 
-            ? msg.id.replace(/^forwarded_/, '').split('_')[0] // 提取第一个下划线前的原始ID
-            : msg.id
-          const uniqueId = generateUniqueId(`forwarded_${originalId}`)
-          
-          return {
-            ...msg,
-            id: uniqueId,
-            sender: 'user' as const,
-            type: 'user' as const,
-            messageType: messageType
-          }
-        })
-        
-        // 使用teacherStore存储转发消息
-        const teacherStore = useTeacherChatStore()
-        // 确保 currentSession 指向正确的会话
-        const allSessions = teacherStore.loadAllSessions()
-        const targetSession = allSessions[sessionId]
-        if (targetSession) {
-          teacherStore.setSession(targetSession)
-        }
-        // 直接添加到老师消息存储并持久化
-        convertedMessages.forEach(msg => teacherStore.addMessage(msg))
-        console.log('保存聊天历史完成', teacherStore.messages.length)
-        // 立即保存，避免防抖问题导致消息丢失
-        await teacherStore.loadChatHistory(sessionId)
-      }
-      
-      return success
-    } catch (error) {
-      console.error('[AiExerciseStrategy] ❌ forwardMessageToTeacher 异常:', error)
-      return false
-    }
-  }
-
   /**
    * 逐条转发消息
    */
@@ -664,37 +505,112 @@ export class AiExerciseStrategy implements ChatStrategy {
         console.error('[AiExerciseStrategy] WebSocket连接失败，无法进行批量转发')
         return { successCount: 0, totalCount: messages.length }
       }
+
+      // 连接成功后加载聊天历史
+      console.log('[AiExerciseStrategy] 加载教师会话历史记录...')
+      await teacherStore.loadChatHistory(sessionId)
     }
 
     for (const message of messages) {
-      const selectedMessagesData = JSON.stringify([this.convertMessageForForwarding(message)])
-
       try {
-        // 预先添加转发消息到store
-        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        const forwardContent = `[AI聊天转发]\n${selectedMessagesData}`
+        if (message.messageType === 'multi_image' && message.imageList?.length) {
+          console.log(`[转发] 多图消息: ${message.imageList.length}张图片`)
+          // 多图消息：每张图片转为独立消息
+          for (const imageInfo of message.imageList) {
+            if (imageInfo.base64DataUrl) {
+              // 先上传图片获得URL
+              const imageUrl = await apiService.uploadImageAndGetUrl(imageInfo.base64DataUrl)
 
-        const forwardMessage: ChatBubble = {
-          id: messageId,
-          messageId: messageId,
-          content: forwardContent,
-          type: 'user',
-          timestamp: new Date().toISOString(),
-          sender: 'user',
-          messageType: 'text',
+              const imageMessage = this.createImageForwardMessage(message, {
+                ...imageInfo,
+                filePath: imageUrl // 使用上传获得的URL
+              })
+
+              teacherStore.addMessage(imageMessage)
+              console.log(`[发送] 图片URL: ${imageUrl}`)
+
+              // 发送URL而不是base64数据
+              await teacherStore.sendMessage(imageMessage.content, {
+                filePath: imageUrl, // 发送URL
+                width: imageInfo.width,
+                height: imageInfo.height,
+                fileSize: imageInfo.fileSize,
+                base64DataUrl: undefined // 不发送base64数据
+              })
+
+              successCount++
+              console.log(`[AiExerciseStrategy] ✅ 转发图片消息成功 (${successCount})`)
+
+              // 图片间延迟，避免发送过快
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+          }
+        } else if (message.messageType === 'image' && message.imageData) {
+          // 单图消息：先上传获得URL再转发
+          const convertedMessage = this.convertMessageForForwarding(message)
+          const forwardContent = convertedMessage.content
+          console.log(`[转发] 单图消息: ${forwardContent}`)
+
+          // 先上传图片获得URL
+          const imageUrl = await apiService.uploadImageAndGetUrl(message.imageData.base64DataUrl)
+
+          const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          const forwardMessage: ChatBubble = {
+            id: messageId,
+            messageId: messageId,
+            content: forwardContent,
+            type: 'user',
+            timestamp: new Date().toISOString(),
+            sender: 'user',
+            messageType: 'image',
+            imageData: {
+              ...message.imageData,
+              filePath: imageUrl, // 使用上传获得的URL
+              base64DataUrl: undefined // 清空base64数据
+            }
+          }
+
+          teacherStore.addMessage(forwardMessage)
+          console.log(`[发送] 图片URL: ${imageUrl}`)
+          await teacherStore.sendMessage(forwardContent, {
+            filePath: imageUrl, // 发送URL
+            width: message.imageData.width,
+            height: message.imageData.height,
+            fileSize: message.imageData.fileSize,
+            base64DataUrl: undefined // 不发送base64数据
+          })
+          successCount++
+
+          console.log(`[AiExerciseStrategy] ✅ 转发单图消息成功 (${successCount})`)
+        } else {
+          // 文本消息：正常转发
+          const convertedMessage = this.convertMessageForForwarding(message)
+          const forwardContent = convertedMessage.content
+          console.log(`[转发] 文本消息: ${forwardContent}`)
+
+          const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          const forwardMessage: ChatBubble = {
+            id: messageId,
+            messageId: messageId,
+            content: forwardContent,
+            type: 'user',
+            timestamp: new Date().toISOString(),
+            sender: 'user',
+            messageType: 'text',
+          }
+
+          teacherStore.addMessage(forwardMessage)
+          console.log(`[发送] 文本消息: ${forwardContent}`)
+          await teacherStore.sendMessage(forwardContent)
+          successCount++
+
+          console.log(`[AiExerciseStrategy] ✅ 转发文本消息成功 (${successCount})`)
         }
-
-        teacherStore.addMessage(forwardMessage)
-
-        // 通过WebSocket发送转发消息
-        await teacherStore.sendMessage(forwardContent)
-
-        successCount++
       } catch (error) {
-        console.error(`[AiExerciseStrategy] ❌ 单条转发消息失败:`, error)
+        console.error(`[AiExerciseStrategy] ❌ 转发消息失败:`, error)
       }
 
-      // 每条消息之间延迟50ms，避免发送过快
+      // 消息间延迟
       if (messages.indexOf(message) < messages.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 50))
       }
@@ -706,6 +622,41 @@ export class AiExerciseStrategy implements ChatStrategy {
   }
 
   // ========== 会话管理方法（ChatStrategy 可选接口） ==========
+
+
+  /**
+   * 创建图片转发消息
+   */
+  private createImageForwardMessage(originalMessage: ChatBubble, imageInfo: any): ChatBubble {
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+    // 根据原消息类型生成转发内容
+    let forwardContent: string
+    if (originalMessage.type === 'ai') {
+      forwardContent = '[学伴]\n[图片消息]'
+    } else if (originalMessage.type === 'user') {
+      forwardContent = '[学生]\n[图片消息]'
+    } else {
+      forwardContent = '[图片消息]'
+    }
+
+    return {
+      id: messageId,
+      messageId: messageId,
+      content: forwardContent,
+      type: 'user',
+      timestamp: new Date().toISOString(),
+      sender: 'user',
+      messageType: 'image',
+      imageData: {
+        filePath: imageInfo.filePath || '',
+        width: imageInfo.width || 0,
+        height: imageInfo.height || 0,
+        fileSize: imageInfo.fileSize || 0,
+        base64DataUrl: imageInfo.base64DataUrl
+      }
+    }
+  }
 
   // 获取会话卡片列表
   getSessionCards(): unknown[] {

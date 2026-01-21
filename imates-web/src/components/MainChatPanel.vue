@@ -264,7 +264,7 @@ const setTeacherSession = (sessionId: string) => {
   if (session) {
     teacherChatStore.setSession(session)
     const userId = getUserId()
-    const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+    const storeSubject = session.subject
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   }
 }
@@ -279,6 +279,8 @@ const handleOpenTeacherDialog = async ({
   try {
     setTeacherSession(sessionId)
     activeCategory.value = 'teacher'
+    // 通知 SessionTree 更新选中状态
+    sessionTreeRef.value?.switchToSession('teacher', sessionId)
     // setTeacherSession已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
   } catch (error) {
     console.error('设置老师会话失败:', error)
@@ -299,6 +301,8 @@ const handleSwitchToTeacher = async (forwardData?: {
   try {
     setTeacherSession(forwardData.sessionId)
     activeCategory.value = 'teacher'
+    // 通知 SessionTree 更新选中状态
+    sessionTreeRef.value?.switchToSession('teacher', forwardData.sessionId)
     // setTeacherSession已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
   } catch (error) {
     console.error('设置老师会话失败:', error)
