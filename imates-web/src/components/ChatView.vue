@@ -254,6 +254,7 @@
           :enable-web-search="enableWebSearch"
           :selected-model="selectedModel"
           :type="type"
+          :hide-ask-teacher-icon="props.hideAskTeacherIcon"
           :uploaded-files="uploadedFiles"
           :active-mode="activeMode ?? undefined"
           :can-send="isEditingMessage ? canSendInEditMode : canSend"
@@ -444,6 +445,7 @@ const props = withDefaults(
     attachedScreenshots?: AttachedScreenshot[]
     showFooterText?: boolean // 是否显示底部提示文案
     showToolbar?: boolean // 是否显示输入区域顶部工具栏
+    hideAskTeacherIcon?: boolean // 是否隐藏问老师图标
     showActionButtons?: boolean // 是否显示消息气泡的功能按钮
     enableLongPress?: boolean // 是否启用消息长按功能
     showReadStatus?: boolean // 是否显示消息已读状态

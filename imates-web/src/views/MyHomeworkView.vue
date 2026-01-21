@@ -1,38 +1,21 @@
 <template>
   <div class="my-homework-view">
     <div class="title">作业查看</div>
-    <div class="header">
-      <div class="filters">
-        <div class="filter-item">
-          <span class="filter-label">日期：</span>
-          <CommonDatePicker v-model="selectedDate" placeholder="请选择日期" />
-        </div>
-        <div class="filter-item">
-          <span class="filter-label">学科：</span>
-          <CommonSelect
-            v-model="selectedSubject"
-            :options="subjects"
-            placeholder="全部"
-          />
-        </div>
-      </div>
-    </div>
 
     <div class="content">
       <RubberBandList
         ref="rubberBandListRef"
         class="homework-list-wrapper"
         :enable-refresh="true"
-        :enable-load-more="hasMore"
+        :enable-load-more="false"
         :is-loading-more="loading"
         @refresh="handleRefresh"
-        @load-more="handleLoadMore"
       >
         <!-- 空状态提示 -->
         <div v-if="!loading && homeworkList.length === 0" class="empty-state">
           <img :src="homeworkDeepIcon" class="empty-icon" alt="作业图标" />
           <div class="empty-text">暂无作业</div>
-          <div class="empty-desc">当前日期和学科条件下没有找到作业</div>
+          <div class="empty-desc">暂无未完成的作业</div>
         </div>
 
         <!-- 作业列表 -->
@@ -47,36 +30,31 @@
                   </span>
                 </div>
               </div>
-              <div
-                class="card-desc markdown-content"
-                v-html="renderMessageContent(item.questionContent)"
-                v-mathjax-preview="handleImagePreview"
-              ></div>
+              <div class="card-desc">
+                <div class="homework-info">{{ item.description }}</div>
+                <div v-if="item.remark" class="homework-remark">{{ item.remark }}</div>
+              </div>
             </div>
             <div class="card-right">
-              <div class="card-date">{{ selectedDate }}</div>
+              <div class="card-date">{{ item.date }}</div>
               <CommonActionButton label="去作答" size="mdCompact"  @click="goAnswer(item)" />
             </div>
           </div>
         </div>
-        <div v-if="!hasMore && !loading && homeworkList.length > 0" class="list-footer">没有更多了</div>
       </RubberBandList>
     </div>
-    <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessageRenderer } from '@/composables/useMessageRenderer'
-import { apiService, type HomeworkQueryResp } from '@/services/http/api-service'
+import { apiService } from '@/services/http/api-service'
 import { useHomeworkStore } from '@/stores/homeworkStore'
+import type { HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
 import type { ExerciseItem } from '@/types'
+import { SUBJECT_ID_TO_NAME } from '@/constants/subjects'
 import CommonActionButton from '@/components/base/Button.vue'
-import CommonDatePicker from '@/components/base/DatePicker.vue'
-import CommonSelect from '@/components/base/Select.vue'
-import ImageViewer from '@/components/ImageViewer.vue'
 import RubberBandList from '@/components/base/VirtualList.vue'
 import homeworkDeepIcon from '/icons/homework_deep.svg'
 
@@ -84,160 +62,122 @@ defineOptions({
   name: 'MyHomeworkView',
 })
 
-const today = new Date().toISOString().slice(0, 10)
-const selectedDate = ref(today)
 
-const subjects = [
-  { label: '全部', value: '' },
-  { label: '语文', value: '1' },
-  { label: '数学', value: '2' },
-  { label: '英语', value: '3' },
-  { label: '物理', value: '4' },
-  { label: '化学', value: '5' },
-  { label: '生物', value: '6' },
-  { label: '政治', value: '7' },
-  { label: '历史', value: '8' },
-  { label: '地理', value: '9' },
-]
-
-const selectedSubject = ref('')
-
-const { renderMessageContent } = useMessageRenderer()
 const showImagePreview = ref(false)
 const previewImageUrl = ref('')
 
 // 作业列表数据
-const homeworkList = ref<HomeworkQueryResp[]>([])
+const homeworkList = ref<HomeworkUndoItem[]>([])
 const loading = ref(false)
-const pageNumber = ref(1)
 
 // RubberBandList 组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
-const pageSize = ref(20)
-const hasMore = ref(true)
 
 // 获取作业列表
-const fetchHomeworkList = async (reset = false) => {
-  if (loading.value && !reset) return
-  if (!reset && !hasMore.value) return
-
-  if (reset) {
-    pageNumber.value = 1
-    homeworkList.value = []
-    hasMore.value = true
-  }
+const fetchHomeworkList = async () => {
+  if (loading.value) return
 
   loading.value = true
   try {
-    const queryReq = {
-      pageNumber: pageNumber.value,
-      pageSize: pageSize.value,
-      subject: selectedSubject.value || undefined,
-      // 如果需要按日期筛选，可以添加时间范围
-      // createTimeStart: selectedDate.value,
-      // createTimeEnd: selectedDate.value,
-    }
-
-    const result = await apiService.homeworkPage(queryReq)
-
-    if (result?.records) {
-      const records = result.records
-      if (reset) {
-        homeworkList.value = records
-      } else {
-        homeworkList.value = [...homeworkList.value, ...records]
-      }
-      // 判断是否还有更多数据
-      hasMore.value = records.length >= pageSize.value
-      pageNumber.value++
-    } else {
-      hasMore.value = false
-    }
+    const result = await apiService.getHomeworkUndoList()
+    homeworkList.value = result
   } catch (error) {
     console.error('[MyHomeworkView] 获取作业列表异常:', error)
-    hasMore.value = false
+    homeworkList.value = []
   } finally {
     loading.value = false
   }
 }
 
-// 下拉刷新（与 MyResourcesView 保持一致）
+// 下拉刷新
 const handleRefresh = async () => {
   try {
-    await fetchHomeworkList(true)
+    await fetchHomeworkList()
   } finally {
     // 通知 RubberBandList 刷新已完成，复位回弹效果
     rubberBandListRef.value?.finishRefresh()
   }
 }
 
-// 上拉加载更多
-const handleLoadMore = async () => {
-  if (!loading.value && hasMore.value) {
-    await fetchHomeworkList(false)
-  }
-}
 
 const displayHomeworkList = computed(() => {
-  return homeworkList.value.map((homework, index) => {
+  return homeworkList.value.map((homework: HomeworkUndoItem) => {
+    // 状态转换映射
+    const statusMap = {
+      '0': '草稿',
+      '1': '进行中',
+      '2': '已撤销',
+      '3': '已结束'
+    }
+
+    // 生成标签数组
+    const tags = []
+    if (homework.subject) {
+      // 根据科目ID映射到中文名称
+      const subjectName = SUBJECT_ID_TO_NAME[homework.subject] || homework.subject
+      tags.push(subjectName)
+    }
+    if (statusMap[homework.status]) tags.push(statusMap[homework.status])
+    if (homework.fullSubmit === '1') tags.push('一次性提交')
+    if (homework.lateSubmit === '1') tags.push('允许补交')
+    if (homework.resubmit === '1') tags.push('允许重交')
+
+    // 生成内容描述
+    const contentParts = []
+    if (homework.totalScore) contentParts.push(`总分：${homework.totalScore}分`)
+    if (homework.releaseTime) {
+      const releaseDate = new Date(homework.releaseTime).toISOString().slice(0, 10).replace(/-/g, '/')
+      contentParts.push(`发布时间：${releaseDate}`)
+    }
+    if (homework.deadline) {
+      const deadlineDate = new Date(homework.deadline).toISOString().slice(0, 10).replace(/-/g, '/')
+      contentParts.push(`截止时间：${deadlineDate}`)
+    }
+
     // 格式化为前端需要的显示格式
     return {
       id: homework.id,
-      name: homework.name,
-      // 暂时使用空标签，后续可以从作业详情中获取
-      tags: [],
-      // 使用创建时间作为日期显示
-      date: homework.createTime ? new Date(homework.createTime).toISOString().slice(0, 10).replace(/-/g, '/') : selectedDate.value,
-      // 预览内容暂时为空，后续可以通过作业详情API获取题目信息
-      questionContent: `${homework.subject}作业 - 共${homework.questionCount || 0}题`,
+      name: homework.title,
+      tags: tags,
+      // 使用发布时间作为日期显示（右上角）
+      date: homework.releaseTime ? new Date(homework.releaseTime).toISOString().slice(0, 10).replace(/-/g, '/') : '暂无',
+      // 作业详细信息描述
+      description: contentParts.join(' · '),
+      // 作业备注（如果有的话）
+      remark: homework.remark || '',
       // 保留原始作业数据，供跳转答题时使用
       homework: homework,
     }
   })
 })
 
-const handleImagePreview = (url: string) => {
-  previewImageUrl.value = url
-  showImagePreview.value = true
-}
 
 onMounted(async () => {
-  await fetchHomeworkList(true)
+  await fetchHomeworkList()
 })
-
-// 监听筛选条件变化，重新加载数据
-watch(
-  [selectedDate, selectedSubject],
-  async () => {
-    await fetchHomeworkList(true)
-  },
-  { immediate: false }
-)
 
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
 // 这里 item 来自 displayHomeworkList 计算属性
-const goAnswer = async (item: any) => {
+const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
   // 获取作业详情以获取题目列表
   try {
-    const homeworkDetail = await apiService.homeworkInfo(item.id)
+    const questionDetails = await apiService.getHomeworkDetailList(item.id)
 
-    if (homeworkDetail && homeworkDetail.questions) {
+    if (questionDetails && questionDetails.length > 0) {
       // 将题目列表存入 homeworkStore
-      const exerciseItems: ExerciseItem[] = homeworkDetail.questions.map((question: any, index: number) => {
-        const bmNo = question.bmNo || question.id || String(index + 1)
-        const rawQuestion = question.questionData || question.content || ''
-        const questionText = rawQuestion.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
+      const exerciseItems: ExerciseItem[] = questionDetails.map((question: HomeworkQuestionDetail, index: number) => {
+        const bmNo = question.questionId || String(index + 1)
 
         const merged = {
-          id: question.id,
+          id: question.questionId,
           bmNo,
-          question: questionText,
-          answer: question.answer || '',
-          explanation: question.explanation || question.analysisData || '',
-          questionData: rawQuestion,
-          subject: homeworkDetail.subject,
+          title: question.questionContent,
+          question: question.questionContent,
+          answer: '',
+          explanation: '',
+          subject: item.homework.subject,
         }
 
         return merged as unknown as ExerciseItem
@@ -245,7 +185,7 @@ const goAnswer = async (item: any) => {
 
       homeworkStore.setQuestions(exerciseItems)
       // 记录当前这份作业的名称，供 HomeworkAnswerView 使用
-      homeworkStore.setHomeworkName(homeworkDetail.name)
+      homeworkStore.setHomeworkName(item.homework.title)
 
       router.push({
         name: 'homeworkAnswer',
@@ -257,7 +197,7 @@ const goAnswer = async (item: any) => {
         },
       })
     } else {
-      console.error('[MyHomeworkView] 获取作业详情失败或无题目数据:', homeworkDetail)
+      console.error('[MyHomeworkView] 获取作业详情失败或无题目数据:', questionDetails)
       // 可以显示错误提示给用户
     }
   } catch (error) {
@@ -276,51 +216,6 @@ const goAnswer = async (item: any) => {
   flex-direction: column;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 24px;
-  min-height: 56px;
-  background-color: #ffffff;
-  padding: 20px;
-}
-
-.filters {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-}
-
-.filter-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.filter-label {
-  font-size: 14px;
-  color: #4b5563;
-  white-space: nowrap;
-}
-
-.date-input,
-.subject-select {
-  min-width: 180px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  padding: 0 12px;
-  font-size: 14px;
-  color: #111827;
-  outline: none;
-}
-
-.date-input:focus,
-.subject-select:focus {
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
-}
 
 .title {
   text-align: center;
@@ -439,14 +334,22 @@ const goAnswer = async (item: any) => {
 }
 
 .card-desc {
-  /* 防止图片等内容撑破卡片 */
-  overflow: auto;
+  /* 防止内容撑破卡片 */
+  overflow: hidden;
 }
 
-.card-desc :deep(img) {
-  max-width: 100%;
-  height: auto;
-  display: block;
+.homework-info {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.homework-remark {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.4;
+  font-style: italic;
 }
 
 .card-right {

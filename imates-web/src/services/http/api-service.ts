@@ -24,10 +24,9 @@ import type {
   BackendHistoryMessage,
   ManageConversationMemoryRequest,
   FindSimilarQuestionByBmNoRequest,
-  HomeworkQueryReq,
-  HomeworkQueryResp,
-  HomeworkInfoResp,
   HomeworkSubmitSaveReq,
+  HomeworkUndoItem,
+  HomeworkQuestionDetail,
 } from '@/types'
 
 
@@ -292,6 +291,20 @@ export class ApiService {
    */
   public async homeworkInfo(homeworkId: string): Promise<HomeworkInfoResp | null> {
     return this.homeworkApi.homeworkInfo(homeworkId)
+  }
+
+  /**
+   * 获取未完成作业列表
+   */
+  public async getHomeworkUndoList(): Promise<HomeworkUndoItem[]> {
+    return this.homeworkApi.getHomeworkUndoList()
+  }
+
+  /**
+   * 获取作业详情（问题列表）
+   */
+  public async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
+    return this.homeworkApi.getHomeworkDetailList(homeworkId)
   }
 
   /**

@@ -28,3 +28,16 @@ export const SUBJECT_FILTER_MAP: Record<SubjectType, string[]> = {
   CHINESE: ['chinese', 'CHINESE', '语文'],
   ENGLISH: ['english', 'ENGLISH', '英语'],
 }
+
+// 科目ID到中文名称的映射表（对应后端返回的科目ID）
+export const SUBJECT_ID_TO_NAME: Record<string, string> = {
+  '1': '语文',
+  '2': '数学',
+  '3': '英语',
+  '4': '物理',
+  '5': '化学',
+  '6': '生物',
+  '7': '历史',
+  '8': '地理',
+  '9': '政治'
+}
