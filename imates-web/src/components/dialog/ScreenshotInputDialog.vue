@@ -349,21 +349,10 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
 
 // 确定按钮：返回当前截图数组，但不直接发送消息
 const handleConfirm = async () => {
-  console.log('[ScreenshotInputDialog] confirm (start)', {
-    currentShotId: currentShotId.value,
-    thumbnailCount: thumbnailList.value.length,
-  })
-
   const shots = await exportCurrentScreenshot()
   if (!shots) return
-
   emit('confirm', shots, { ...drawingStates.value })
   localVisible.value = false
-
-  console.log('[ScreenshotInputDialog] confirm (emitted)', {
-    shots: shots.map((s) => ({ id: s.id, dataUrlHead: (s.dataUrl || '').slice(0, 40) })),
-    statesKeys: Object.keys(drawingStates.value || {}).length,
-  })
 }
 
 // 继续截图：返回当前截图数组并关闭对话框，交给父组件继续触发截图流程

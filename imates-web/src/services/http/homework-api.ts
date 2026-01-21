@@ -4,52 +4,51 @@
  */
 
 import { httpClient } from './http-client'
-import type { HomeworkQueryResp, HomeworkQueryReq, HomeworkInfoResp, IdReq, HomeworkSubmitSaveReq, PageResponse } from '@/types'
+import type { IdReq, HomeworkSubmitSaveReq, HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
 
 export class HomeworkApi {
   /**
-   * 分页查询作业列表
+   * 获取未完成作业列表
    */
-  public async homeworkPage(queryReq: HomeworkQueryReq): Promise<PageResponse<HomeworkQueryResp> | null> {
-    const endpoint = '/homework/homeworkPage'
+  public async getHomeworkUndoList(): Promise<HomeworkUndoItem[]> {
+    const endpoint = '/blw-edu-yb/api/app/homework-undo-list'
     try {
       const response = await httpClient.post<{
         code?: number
-        data?: PageResponse<HomeworkQueryResp>
+        data?: HomeworkUndoItem[]
         message?: string
-      }>(endpoint, queryReq)
+      }>(endpoint)
 
       if (response.success && response.data?.code === 200) {
-        return response.data.data || null
+        return response.data.data || []
       }
-      return null
+      return []
     } catch (error) {
-      console.error('[HomeworkApi] homeworkPage error:', error)
-      return null
+      console.error('[HomeworkApi] getHomeworkUndoList error:', error)
+      return []
     }
   }
 
-
   /**
-   * 获取作业详情
+   * 获取作业详情（问题列表）
    */
-  public async homeworkInfo(homeworkId: string): Promise<HomeworkInfoResp | null> {
-    const endpoint = '/homework/homeworkInfo'
+  public async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
+    const endpoint = '/blw-edu-yb/api/app/homework-detail-list'
     const requestBody: IdReq = { id: homeworkId }
     try {
       const response = await httpClient.post<{
         code?: number
-        data?: HomeworkInfoResp
+        data?: HomeworkQuestionDetail[]
         message?: string
       }>(endpoint, requestBody)
 
       if (response.success && response.data?.code === 200) {
-        return response.data.data || null
+        return response.data.data || []
       }
-      return null
+      return []
     } catch (error) {
-      console.error('[HomeworkApi] homeworkInfo error:', error)
-      return null
+      console.error('[HomeworkApi] getHomeworkDetailList error:', error)
+      return []
     }
   }
 
@@ -57,11 +56,11 @@ export class HomeworkApi {
    * 提交作业答案
    */
   public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<boolean> {
-    const endpoint = '/homework-submit-save'
+    const endpoint = '/blw-edu-yb/api/app/homework-submit-save'
     try {
       const response = await httpClient.post<{
         code?: number
-        data?: any
+        data?: Record<string, unknown>
         message?: string
       }>(endpoint, homeworkSubmitReq)
 

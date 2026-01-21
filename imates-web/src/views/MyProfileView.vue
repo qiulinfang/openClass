@@ -12,30 +12,24 @@
           >
             <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
           </div>
-
-
-
+          <!-- 老师答疑卡片 -->
+          <div class="feature-card" @click="openTeacherQADialog">
+            <img :src="teacherQAIcon" alt="老师答疑" class="card-icon" />
+          </div>
           <!-- 我的收藏卡片 -->
           <div class="feature-card" @click="showFavorites">
             <img :src="myFavoritesIcon" alt="我的收藏" class="card-icon" />
           </div>
-
+          <!-- 草稿本卡片 -->
+          <div class="feature-card" @click="openDraftNotebook">
+            <img :src="drawIcon" alt="草稿本" class="card-icon" />
+          </div>
           <!-- 意见反馈卡片 -->
           <div class="feature-card" @click="showFeedback">
             <img :src="feedbackIcon" alt="在线客服" class="card-icon" />
             <span class="notification-badge" v-if="userClientUnreadCount > 0">{{
               userClientUnreadCount
             }}</span>
-          </div>
-
-          <!-- 草稿本卡片 -->
-          <div class="feature-card" @click="openDraftNotebook">
-            <img :src="drawIcon" alt="草稿本" class="card-icon" />
-          </div>
-
-          <!-- 老师答疑卡片 -->
-          <div class="feature-card" @click="openTeacherQADialog">
-            <img :src="teacherQAIcon" alt="老师答疑" class="card-icon" />
           </div>
         </div>
         <!-- 退出登录按钮 -->

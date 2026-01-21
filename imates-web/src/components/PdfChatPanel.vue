@@ -6,8 +6,14 @@
       <img src="/icons/ipWord.svg" alt="ipWord" class="explore-icon ipWord" />
     </div>
     <!-- 遮罩层上的按钮（独立于遮罩层，避免被覆盖） -->
-    <button v-if="isExploring" type="button" class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay" @click.stop="handleSelectAndAskClick">
-      <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%;"/>
+    <button
+      v-if="isExploring"
+      type="button"
+      class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
+      :class="{ 'explore-icon-large': hasAttachedScreenshots }"
+      @click.stop="handleSelectAndAskClick"
+    >
+      <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
     </button>
 
     <!-- 对话面板头部 -->
@@ -26,15 +32,7 @@
         </div>
       </div>
       <!-- 关闭按钮 -->
-      <q-btn
-        flat
-        round
-        dense
-        icon="close"
-        size="md"
-        @click="handleClose"
-        class="close-button"
-      />
+      <q-btn flat round dense icon="close" size="md" @click="handleClose" class="close-button" />
     </div>
 
     <!-- Tab 内容区域 -->
@@ -45,7 +43,9 @@
           ref="chatViewRef"
           type="ai-textbook"
           :compressed-height="360"
-          @send-with-screenshot="(text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)"
+          @send-with-screenshot="
+            (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
+          "
           @remove-screenshot="(id) => emit('remove-screenshot', id)"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
@@ -142,10 +142,15 @@ const isExploring = computed(() => {
   return pdfViewerStore.selectedTool === 'screenshot' && activeTab.value === 'ai-chat'
 })
 
-// 计算当前使用的“选中并问”图标
+// 计算当前使用的"选中并问"图标
 const selectAndAskIconToUse = computed(() =>
-  isSelectAndAskSelected.value ? selectAndAskIconSelected : selectAndAskIcon,
+  isSelectAndAskSelected.value ? selectAndAskIconSelected : selectAndAskIcon
 )
+
+// 计算是否有附加截图，用于动态调整按钮尺寸
+const hasAttachedScreenshots = computed(() => {
+  return aiTextbookStore.attachedScreenshots.length > 0
+})
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getSessionId = (session: AiTextbookSession): string => {
@@ -427,5 +432,8 @@ defineExpose({
   cursor: pointer; /* 覆盖遮罩层的 not-allowed 光标 */
 }
 
-
+/* 当有附加截图时，按钮更大 */
+.explore-icon-large {
+  bottom: 26.7%  !important;;
+}
 </style>

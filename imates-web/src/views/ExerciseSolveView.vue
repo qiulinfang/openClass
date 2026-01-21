@@ -3,7 +3,7 @@
     <!-- 顶部工具栏 -->
     <Toolbar :nav-items="navItems" v-model="currentFunction">
       <template #left>
-        <div  class="back-btn" @click="goBack">
+        <div v-if="showGobakBtn"  class="back-btn" @click="goBack">
           <img :src="goBackIcon" alt="返回" class="back-icon" />
         </div>
       </template>
@@ -65,6 +65,7 @@
                   type="ai-exercise"
                   :compressed-height="327"
                   :question="currentQuestion"
+                  :hide-ask-teacher-icon="isFromHomework"
                   @scroll-to-bottom="scrollToBottom"
                   @send-message="handleSendSuggestion"
                   @open-teacher-dialog="handleOpenTeacherDialog"
@@ -100,7 +101,7 @@
                     <div class="session-bottom-bar">
                       <!-- 返回按钮 -->
                       <button class="session-manager-btn" @click="handleCloseSessionPanel">
-                        <img :src="goBackIcon" alt="返回" class="session-manager-icon" />
+                        <img :src="goBackBlackIcon" alt="返回" class="session-manager-icon" />
                         <span class="session-back-text">返回</span>
                       </button>
                       <!-- 新建按钮 -->
@@ -228,6 +229,7 @@ import sessionManagerIcon from '/icons/session_manager.svg'
 import deleteSessionIcon from '/icons/delete.svg'
 import backToHomeworkIcon from '/icons/backtohomework.svg'
 import goBackIcon from '/icons/goback.svg'
+import goBackBlackIcon from '/icons/goback_black.svg'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -252,6 +254,11 @@ const currentFunction = ref<'chatAi' | 'teacherChat' | 'viewAnswer' | 'similarQu
 const isFromHomework = computed(() => {
   const scene = route.query.scene as SceneType | undefined
   return scene === 'homework' || route.name === 'homeworkExercise'
+})
+
+const showGobakBtn = computed(() => {
+  const scene = route.query.scene as SceneType | undefined
+  return scene === 'homework' || scene === 'favorites'
 })
 
 // 统一的 currentQuestion：根据场景选择来源
@@ -1155,6 +1162,22 @@ $desktop-breakpoint: 1025px;
 }
 
 .session-toggle-icon {
+  display: block;
+  height: 32px;
+  object-fit: contain;
+}
+
+.toolbar-btn {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.toolbar-icon {
   display: block;
   height: 32px;
   object-fit: contain;

@@ -22,9 +22,9 @@
                 <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
               </button>
               -->
-              <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
+              <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏，作业场景也隐藏 -->
               <button
-                v-if="props.type !== 'teacher' && props.type !== 'teacher-exercise'"
+                v-if="props.type !== 'teacher' && !props.hideAskTeacherIcon"
                 type="button"
                 class="toolbar-btn"
                 @click="handleAskTeacherClick"
@@ -160,7 +160,7 @@
             class="control-icon-btn"
             :class="{ active: props.activeMode?.label === '图片模式' }"
           >
-            <q-icon name="add_photo_alternate" color="grey-6" size="20px" />
+            <img :src="picturIcon" alt="添加图片" class="control-icon" />
             <q-tooltip>添加图片</q-tooltip>
           </button>
 
@@ -230,6 +230,7 @@ import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索�
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
+import picturIcon from '/icons/picture.svg' // 图片上传
 import type { ContentBlock } from '../../types'
 import type { AttachedScreenshot } from '@/types'
 
@@ -271,6 +272,11 @@ const props = defineProps({
     type: Object,
     required: false,
     default: null,
+  },
+  hideAskTeacherIcon: {
+    type: Boolean,
+    required: false,
+    default: false,
   },
   canSend: {
     type: Boolean,
@@ -1610,6 +1616,14 @@ defineExpose({
 .web-search-btn.active {
   background: #e8f5e8;
   color: #34a853;
+}
+
+/* 控制图标 */
+.control-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 /* 控制图标按钮 */

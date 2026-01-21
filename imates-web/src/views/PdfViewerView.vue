@@ -686,23 +686,26 @@ const handleScreenshotConfirmShots = (
   states: Record<string, ScreenshotDrawingState>,
 ) => {
   if (!shots || !shots.length) return
-  
+
   // 将当前截图添加到临时列表
   tempScreenshots.value.push(...shots)
   tempDrawingStates.value = { ...tempDrawingStates.value, ...states }
-  
+
   // 将所有临时截图添加到 store（此时 ChatInput 才会显示）
   aiTextbookStore.appendAttachedScreenshots(tempScreenshots.value)
   aiTextbookStore.setScreenshotDrawingStates(tempDrawingStates.value)
-  
+
   // 清空临时列表
   tempScreenshots.value = []
   tempDrawingStates.value = {}
-  
+
   // 关闭对话框
   screenshotDialogVisible.value = false
   screenshotDataUrl.value = ''
-  
+
+  // 退出探索模式（重置选中工具）
+  handleToolChange('screenshot')
+
   // 打开对话面板并切换到 AI 问答 Tab
   pdfViewerStore.openChatPanel()
 }
