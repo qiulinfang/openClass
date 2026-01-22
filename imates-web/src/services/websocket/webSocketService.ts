@@ -176,39 +176,18 @@ export class WebSocketService {
 
   /**
    * 设置当前会话ID
+   * 单连接多会话架构：sessionId仅在内存中记录，不再通过URL传递
    */
   setSessionId(sessionId: string): void {
     this.sessionId = sessionId
-    console.log('[WebSocket] 设置会话ID:', sessionId)
+    console.log('[WebSocket] 设置会话ID（单连接多会话）:', sessionId)
 
-    // 如果是教师类型且已经连接，需要重新连接以更新URL参数
-    if (this.config.url?.includes('/ws?') && this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] 检测到会话ID变更，需要重新连接以更新URL参数')
-      this.reconnectWithNewSessionId(sessionId)
-    }
+    // 单连接多会话架构下，不需要重新连接，只需要更新内存中的sessionId
+    // 实际使用时，消息体中会包含具体的sessionId
   }
 
-  /**
-   * 使用新的sessionId重新连接
-   */
-  private reconnectWithNewSessionId(sessionId: string): void {
-    if (!this.config.url) return
-
-    // 更新URL中的sessionId参数
-    const url = new URL(this.config.url.replace('wss://', 'https://'))
-    url.searchParams.set('sessionId', sessionId)
-    this.config.url = url.toString().replace('https://', 'wss://')
-
-    console.log('[WebSocket] 更新连接URL为:', this.config.url)
-
-    // 断开现有连接并重新连接
-    if (this.socket) {
-      this.socket.close(1000, 'Reconnecting with new sessionId')
-    }
-
-    // 重新连接
-    this.connect()
-  }
+  // 单连接多会话架构下，不再需要重新连接来更新sessionId
+  // sessionId通过消息体传递，不再通过URL参数
 
   /**
    * 添加事件监听器
@@ -439,14 +418,15 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
   let config: WebSocketConfig
 
   if (type === 'teacher') {
-    // 教师聊天WebSocket配置（适配研伴后端）
+    // 教师聊天WebSocket配置（适配研伴后端单连接多会话架构）
     // 研伴后端WebSocket端点为 /ws，支持双向消息传输
-    // 初始连接时使用临时sessionId，实际使用时通过setSessionId()设置
+    // 单连接多会话：sessionId通过消息体传递，不再在URL中指定
     const yanbanBaseUrl = getYanbanBaseUrl()
     const userId = getUserId()
-    // 动态生成临时sessionId，避免硬编码
-    const tempSessionId = `temp-teacher-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-    const wsUrl = yanbanBaseUrl.replace('https://', 'wss://') + `/ws?userId=${userId}&sessionId=${tempSessionId}&clientType=web`
+    // 正确处理HTTP和HTTPS到WebSocket协议的转换
+    const wsUrl = yanbanBaseUrl
+      .replace('https://', 'wss://')
+      .replace('http://', 'ws://') + `/ws?userId=${userId}&clientType=web`
     config = {
       url: wsUrl,
       reconnectAttempts: 5,
@@ -460,7 +440,9 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
   } else {
     // 自定义配置
     const yanbanBaseUrl = getYanbanBaseUrl()
-    const wsUrl = yanbanBaseUrl.replace('https://', 'wss://') + `/${type}/ws`
+    const wsUrl = yanbanBaseUrl
+      .replace('https://', 'wss://')
+      .replace('http://', 'ws://') + `/${type}/ws`
     config = {
       url: wsUrl,
       reconnectAttempts: 5,

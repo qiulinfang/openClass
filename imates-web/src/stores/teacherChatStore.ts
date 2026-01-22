@@ -142,6 +142,27 @@ const getHardcodedTeacherSessions = (): TeacherSession[] => {
 
 export const useTeacherChatStore = defineStore('teacherChat', () => {
 
+  // ============ 消息缓存机制 ============
+  // 缓存不同会话的消息数据，避免重复加载
+  interface SessionCache {
+    messages: ChatBubble[]
+    pagination: {
+      currentPage: number
+      pageSize: number
+      hasMore: boolean
+      isLoadingMore: boolean
+      total: number
+    }
+    chatResponseTimes: number
+    lastUpdateTime: number // 最后更新时间，用于缓存过期判断
+  }
+
+  // 会话缓存Map：sessionId -> SessionCache
+  const sessionCache = ref<Map<string, SessionCache>>(new Map())
+
+  // 缓存过期时间：30分钟
+  const CACHE_EXPIRE_TIME = 30 * 60 * 1000
+
   const messages = ref<ChatBubble[]>([]) // 当前会话的消息列表，包含所有聊天消息（用户消息、教师回复等）
 
 
@@ -151,35 +172,138 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   const chatResponseTimes = ref(0) // 聊天响应次数计数器，记录已完成的对话轮数（用于判断是否可以查看答案）
   const enableWebSearch = ref(false) // 是否启用网络搜索功能（当前未使用，保留用于未来扩展）
 
+  // 分页相关状态
+  const pagination = ref({
+    currentPage: 1,
+    pageSize: 20,
+    hasMore: true,
+    isLoadingMore: false,
+    total: 0
+  })
+
   const VIEW_ANSWER_CHAT_TIMES = 3 // 查看答案所需的聊天次数阈值（达到此次数后可以查看答案）
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) // 计算属性：是否可以查看答案（基于聊天响应次数）
 
   // WebSocket连接管理
   const webSocketInitialized = ref(false)
   
+  // ==================== 缓存管理工具方法 ====================
+
+  /**
+   * 检查缓存是否有效（未过期）
+   */
+  const isCacheValid = (cache: SessionCache): boolean => {
+    const now = Date.now()
+    return (now - cache.lastUpdateTime) < CACHE_EXPIRE_TIME
+  }
+
+  /**
+   * 从缓存加载会话数据
+   */
+  const loadSessionFromCache = (sessionId: string): boolean => {
+    const cache = sessionCache.value.get(sessionId)
+    if (cache && isCacheValid(cache)) {
+      // 从缓存恢复数据
+      messages.value = [...cache.messages]
+      pagination.value = { ...cache.pagination }
+      chatResponseTimes.value = cache.chatResponseTimes
+
+      console.log(`[TeacherStore] 从缓存恢复会话数据: ${sessionId}, 消息数: ${messages.value.length}`)
+      return true
+    }
+    return false
+  }
+
+  /**
+   * 保存会话数据到缓存
+   */
+  const saveSessionToCache = (sessionId: string): void => {
+    const cache: SessionCache = {
+      messages: [...messages.value],
+      pagination: { ...pagination.value },
+      chatResponseTimes: chatResponseTimes.value,
+      lastUpdateTime: Date.now()
+    }
+
+    sessionCache.value.set(sessionId, cache)
+    console.log(`[TeacherStore] 保存会话数据到缓存: ${sessionId}, 消息数: ${messages.value.length}`)
+  }
+
+  /**
+   * 清除指定会话的缓存
+   */
+  const clearSessionCache = (sessionId: string): void => {
+    if (sessionCache.value.has(sessionId)) {
+      sessionCache.value.delete(sessionId)
+      console.log(`[TeacherStore] 清除会话缓存: ${sessionId}`)
+    }
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  const cleanupExpiredCache = (): void => {
+    const now = Date.now()
+    const expiredKeys: string[] = []
+
+    sessionCache.value.forEach((cache, sessionId) => {
+      if ((now - cache.lastUpdateTime) >= CACHE_EXPIRE_TIME) {
+        expiredKeys.push(sessionId)
+      }
+    })
+
+    expiredKeys.forEach(sessionId => {
+      sessionCache.value.delete(sessionId)
+    })
+
+    if (expiredKeys.length > 0) {
+      console.log(`[TeacherStore] 清理过期缓存: ${expiredKeys.length} 个会话`)
+    }
+  }
+
   // ==================== 会话管理 ====================
 
   /**
    * 设置当前会话
+   * 支持缓存：如果会话数据已在缓存中，直接从缓存恢复，无需重新加载
    */
   const setSession = (session: TeacherSession): void => {
+    // 如果是切换到不同的会话，先保存当前会话数据到缓存
+    if (currentSession.value && currentSession.value.sessionId !== session.sessionId) {
+      saveSessionToCache(currentSession.value.sessionId)
+    }
+
     currentSession.value = session
+
+    // 尝试从缓存加载会话数据
+    const loadedFromCache = loadSessionFromCache(session.sessionId)
 
     // 清除该会话的未读标记
     const unreadStore = useUnreadMessageStore()
-    const unreadKey = `teacher_${session.sessionId}`
-    unreadStore.clearUnread(unreadKey)
+    unreadStore.clearUnread(session.sessionId) // 直接使用原始sessionId
+
+    if (loadedFromCache) {
+      console.log(`[TeacherStore] 会话 ${session.sessionId} 从缓存恢复，无需重新加载`)
+    } else {
+      console.log(`[TeacherStore] 会话 ${session.sessionId} 缓存不存在或已过期，需要加载数据`)
+    }
 
     // 注意：轮询由 initMessageReceiver 统一管理，这里不再单独启动
   }
 
   /**
    * 清除会话
-   * 第1步：停止消息轮询
-   * 第2步：清空当前会话信息
-   * 第3步：清空消息列表
+   * 第1步：保存当前会话数据到缓存
+   * 第2步：停止消息轮询
+   * 第3步：清空当前会话信息
+   * 第4步：清空消息列表
    */
   const clearSession = (): void => {
+    // 保存当前会话数据到缓存（如果有当前会话）
+    if (currentSession.value) {
+      saveSessionToCache(currentSession.value.sessionId)
+    }
+
     currentSession.value = null
     clearMessages()
   }
@@ -208,6 +332,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   /**
    * 添加消息到列表
    * 添加去重逻辑，防止重复添加相同 messageId 的消息
+   * 新消息到达时自动更新缓存
    */
   const addMessage = (message: ChatBubble): void => {
     // 检查是否已存在相同的消息ID
@@ -224,6 +349,11 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     const oldCount = messages.value.length
     messages.value.push(message)
     console.log(`[messages] +1 添加消息 id=${message.id} ${oldCount}→${messages.value.length}`)
+
+    // 新消息到达时，更新当前会话的缓存
+    if (currentSession.value) {
+      saveSessionToCache(currentSession.value.sessionId)
+    }
   }
 
   /**
@@ -272,9 +402,17 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
     const webSocket = getWebSocketService('teacher')
     if (!webSocket.isConnected()) {
-      console.error('[TeacherStore] ❌ WebSocket未连接，无法发送消息')
-      showMessage('连接未建立，请重试', 'error')
-      return
+      console.warn('[TeacherStore] ⚠️ WebSocket未连接，尝试重新建立连接')
+
+      // 尝试重新建立连接
+      const connected = await connectWebSocket()
+      if (!connected) {
+        console.error('[TeacherStore] ❌ WebSocket重新连接失败，无法发送消息')
+        showMessage('连接建立失败，请重试', 'error')
+        return
+      }
+
+      console.log('[TeacherStore] ✅ WebSocket重新连接成功，继续发送消息')
     }
 
     // 注意：ChatView会在调用sendMessage前预先添加用户消息到store
@@ -327,20 +465,58 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
 
   /**
-   * 加载聊天历史（从服务器获取历史消息）
-   * 第1步：清空当前消息
-   * 第2步：调用API获取历史消息
-   * 第3步：转换数据格式并添加到消息列表
+   * 强制刷新指定会话的缓存（清除缓存并重新加载）
+   * @param sessionId 会话ID
    */
-  const loadChatHistory = async (sessionId: string, page?: number, pageSize?: number): Promise<void> => {
+  const refreshSessionCache = async (sessionId: string): Promise<void> => {
+    clearSessionCache(sessionId)
+    await loadChatHistory(sessionId, 1, false, true) // 强制刷新
+    console.log(`[TeacherStore] 强制刷新会话缓存: ${sessionId}`)
+  }
+
+  /**
+   * 加载聊天历史（从缓存或服务器获取历史消息）
+   * 优先使用缓存数据，避免重复API调用
+   * @param sessionId 会话ID
+   * @param page 页码（可选，不传则一次性加载所有，用于向后兼容）
+   * @param loadMore 是否加载更多历史消息（用于分页加载）
+   * @param forceRefresh 是否强制刷新缓存（忽略缓存直接调用API）
+   */
+  const loadChatHistory = async (sessionId: string, page?: number, loadMore: boolean = false, forceRefresh: boolean = false): Promise<void> => {
     try {
-      // 第1步：清空当前消息
-      messages.value = []
-      chatResponseTimes.value = 0
+      console.log("loadChatHistory")
+      // 首次加载且未强制刷新时，检查缓存
+      if (!loadMore && !forceRefresh) {
+        const cache = sessionCache.value.get(sessionId)
+        if (cache && isCacheValid(cache)) {
+          // 从缓存恢复数据
+          messages.value = [...cache.messages]
+          pagination.value = { ...cache.pagination }
+          chatResponseTimes.value = cache.chatResponseTimes
+
+          console.log(`[TeacherStore] 从缓存加载历史消息: ${sessionId}, 消息数: ${messages.value.length}`)
+          return
+        }
+      }
+
+      if (!loadMore) {
+        // 第1步：首次加载，清空当前消息
+        messages.value = []
+        chatResponseTimes.value = 0
+        pagination.value.currentPage = 1
+        pagination.value.hasMore = true
+        pagination.value.isLoadingMore = false
+      } else {
+        // 加载更多：设置加载状态
+        pagination.value.isLoadingMore = true
+      }
 
       // 第2步：调用API获取历史消息
-      const historyData = await apiService.getTeacherChatHistory(sessionId, page, pageSize)
-      console.log("historyData",historyData.length)
+      // 如果是首次加载且没有指定页码，则使用第1页进行分页加载
+      const pageToLoad = loadMore ? (page || pagination.value.currentPage + 1) : (page || 1)
+      const historyData = await apiService.getTeacherChatHistory(sessionId, pageToLoad, pagination.value.pageSize)
+      console.log("historyData", historyData?.length || 0, loadMore ? "加载更多" : "首次加载")
+
       if (historyData && historyData.length > 0) {
         const historyMessages: ChatBubble[] = historyData
           .map((msg: {
@@ -389,20 +565,59 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
         // 第3步：添加到消息列表
         if (historyMessages.length > 0) {
-          messages.value.push(...historyMessages)
-          console.log("historyMessages",historyMessages)
-          console.log(`[TeacherStore] 从服务器加载了 ${historyMessages.length} 条历史消息`)
+          if (loadMore) {
+            // 加载更多：将历史消息添加到列表前面（时间上更早的消息）
+            messages.value.unshift(...historyMessages)
+            console.log(`[TeacherStore] 加载了 ${historyMessages.length} 条历史消息到列表前面`)
+          } else {
+            // 首次加载：添加到列表后面
+            messages.value.push(...historyMessages)
+            console.log(`[TeacherStore] 首次加载了 ${historyMessages.length} 条历史消息`)
+          }
+
+          // 更新分页状态
+          pagination.value.currentPage = pageToLoad || 1
+          pagination.value.hasMore = historyData.length === pagination.value.pageSize
+          console.log(`[TeacherStore] 分页状态更新: 当前页${pagination.value.currentPage}, 是否还有更多${pagination.value.hasMore}`)
         }
+      } else {
+        // 没有更多数据
+        pagination.value.hasMore = false
+        console.log(`[TeacherStore] 没有更多历史消息数据`)
       }
 
-      console.log(`[TeacherStore] 初始化聊天历史加载完成，会话: ${sessionId}`)
+      console.log(`[TeacherStore] 聊天历史加载完成，会话: ${sessionId}, 总消息数: ${messages.value.length}`)
+
+      // 保存加载的数据到缓存（仅首次加载时保存）
+      if (!loadMore) {
+        saveSessionToCache(sessionId)
+      }
 
     } catch (error) {
       console.error('[TeacherStore] ❌ 加载教师聊天历史失败:', error)
-      // 加载失败时保持空历史，不抛出异常
-      messages.value = []
-      chatResponseTimes.value = 0
+      // 加载失败时保持现有状态，不清空消息
+      pagination.value.isLoadingMore = false
+    } finally {
+      pagination.value.isLoadingMore = false
     }
+  }
+
+  /**
+   * 加载更多历史消息（分页加载）
+   */
+  const loadMoreChatHistory = async (): Promise<void> => {
+    if (!currentSession.value || !pagination.value.hasMore || pagination.value.isLoadingMore) {
+      console.log('[TeacherStore] 跳过加载更多:', {
+        hasSession: !!currentSession.value,
+        hasMore: pagination.value.hasMore,
+        isLoading: pagination.value.isLoadingMore
+      })
+      return
+    }
+
+    const nextPage = pagination.value.currentPage + 1
+    console.log(`[TeacherStore] 开始加载更多历史消息，页码: ${nextPage}`)
+    await loadChatHistory(currentSession.value.sessionId, nextPage, true)
   }
 
 
@@ -485,28 +700,26 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
   /**
    * 实际执行初始化的内部函数
+   * 单连接多会话架构：建立一个通用的WebSocket连接，支持所有会话
    */
   const doInitMessageReceiver = async (): Promise<void> => {
-    if (!currentSession.value) {
-      console.warn('[TeacherStore] 无当前会话，跳过WebSocket初始化')
-      return
-    }
-
+    // 单连接多会话架构：不再检查currentSession，因为一个连接支持多个会话
     if (webSocketInitialized.value) {
-      console.log('[TeacherStore] WebSocket已初始化，跳过重复初始化')
+      console.log('[TeacherStore] WebSocket已初始化（单连接多会话），跳过重复初始化')
       return
     }
 
-    // 获取WebSocket实例
+    // 获取WebSocket实例（单连接）
     const webSocket = getWebSocketService('teacher')
 
-    // 使用当前会话的sessionId设置WebSocket
-    webSocket.setSessionId(currentSession.value.sessionId)
+    // 单连接多会话：不再预设sessionId，消息体中动态指定
+    // webSocket.setSessionId() 不再需要调用
 
     // 连接到WebSocket服务器
     webSocket.connect().then(success => {
       if (success) {
-        console.log('[TeacherStore] WebSocket连接建立成功')
+        console.log('[TeacherStore] WebSocket连接建立成功（单连接多会话）')
+        webSocketInitialized.value = true
       } else {
         console.warn('[TeacherStore] WebSocket连接建立失败，将使用HTTP轮询')
       }
@@ -533,15 +746,6 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
         // 验证消息格式
         if (!message.sessionId || !message.content || !message.messageId) {
           console.error('[TeacherStore] 教师回复消息格式不完整:', message)
-          return
-        }
-
-        // 检查是否属于当前会话
-        if (currentSession.value?.sessionId !== message.sessionId) {
-          console.log('[TeacherStore] 教师回复不属于当前会话，跳过处理:', {
-            currentSessionId: currentSession.value?.sessionId,
-            messageSessionId: message.sessionId
-          })
           return
         }
 
@@ -582,6 +786,13 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
         // 添加消息到列表
         addMessage(teacherMessage)
         console.log('[TeacherStore] 成功添加教师回复消息:', message.messageId)
+
+        // 标记未读状态（如果当前不是正在查看的会话）
+        if (currentSession.value?.sessionId !== message.sessionId) {
+          const unreadStore = useUnreadMessageStore()
+          unreadStore.markUnread(message.sessionId) // 直接使用原始sessionId
+          console.log('[TeacherStore] 标记教师会话为未读:', message.sessionId)
+        }
 
         // 增加响应次数
         chatResponseTimes.value++
@@ -624,16 +835,17 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
   /**
    * 清理消息接收器
+   * 单连接多会话架构：路由守卫调用时断开WebSocket连接
    */
   const cleanupMessageReceiver = async (): Promise<void> => {
     // 清除初始化 Promise 缓存，允许重新初始化
     initPromise = null
 
-    // 清理WebSocket连接
+    // 断开WebSocket连接（仅在路由守卫中调用）
     destroyWebSocketService('teacher')
     webSocketInitialized.value = false
 
-    console.log('[TeacherStore] 清理教师WebSocket接收器完成')
+    console.log('[TeacherStore] 清理教师WebSocket接收器完成（连接已断开）')
   }
 
   // ==================== 导出 ====================
@@ -727,6 +939,9 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     })
   }
 
+  // 初始化时清理过期缓存
+  cleanupExpiredCache()
+
   return {
     // 状态
     messages,
@@ -738,6 +953,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
     webSocketInitialized,
+    pagination,
 
     // 会话管理
     setSession,
@@ -751,6 +967,8 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
     // 历史记录
     loadChatHistory,
+    loadMoreChatHistory,
+    refreshSessionCache,
 
     // 消息接收
     initMessageReceiver,
@@ -766,5 +984,9 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     // 会话存储管理（供外部组件使用）
     loadAllSessions,
     getAvailableTeachers,
+
+    // 缓存管理（调试用）
+    clearSessionCache,
+    cleanupExpiredCache,
   }
 })

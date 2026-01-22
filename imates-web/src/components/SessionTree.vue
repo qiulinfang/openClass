@@ -1,69 +1,79 @@
 <template>
+  <!-- 会话树组件 - 支持AI和教师会话的分层展示 -->
   <div class="session-tree">
-    <!-- 顶部标题栏 -->
+    <!-- ============ 顶部搜索栏区域 ============ -->
     <div class="tree-header">
-      <SearchInput
-        v-model="searchKeyword"
-        placeholder="搜索会话"
-        class="search-input-custom"
-      >
+      <!-- 搜索输入框 - 支持实时搜索会话 -->
+      <SearchInput v-model="searchKeyword" placeholder="搜索会话" class="search-input-custom">
         <template #append>
-          <img :src="search1Icon" class="search-icon" alt="search" /> 
+          <img :src="search1Icon" class="search-icon" alt="search" />
         </template>
       </SearchInput>
+
+      <!-- 头部操作按钮区域 - 支持扩展自定义按钮 -->
       <div class="header-actions">
-        <!-- 自定义按钮插槽 -->
         <slot name="header-actions"></slot>
       </div>
     </div>
 
-    <!-- 手风琴列表（使用 RubberBandList 实现橡皮筋效果） -->
+    <!-- ============ 会话列表区域 ============ -->
+    <!-- 仅在有会话数据时显示列表 -->
     <div v-if="treeNodes.length > 0" ref="scrollWrapper" class="scroll-wrapper">
-      <RubberBandList class="scroll-content rubber-scroll" :enable-refresh="false" :enable-load-more="false">
+      <!-- 使用RubberBandList实现橡皮筋滚动效果 -->
+      <RubberBandList
+        class="scroll-content rubber-scroll"
+        :enable-refresh="false"
+        :enable-load-more="false"
+      >
+        <!-- 手风琴式分类列表 -->
         <div class="accordion-list">
-          <!-- 分类项 -->
-          <div
-            v-for="category in treeNodes"
-            :key="category.id"
-            class="accordion-item"
-          >
-            <!-- 分类头部 -->
-            <div 
-              class="accordion-header"
-              @click="toggleCategory(category.id)"
-            >
+          <!-- ============ 分类项循环 ============ -->
+          <div v-for="category in treeNodes" :key="category.id" class="accordion-item">
+            <!-- ============ 分类头部 - 点击展开/收起 ============ -->
+            <div class="accordion-header" @click="toggleCategory(category.id)">
               <div class="header-content">
+                <!-- 分类标题：如"学伴默认"、"老师答疑" -->
                 <span class="category-title">{{ category.label }}</span>
               </div>
-              <q-icon 
-                name="expand_more" 
+
+              <!-- 展开/收起图标 - 根据展开状态旋转 -->
+              <q-icon
+                name="expand_more"
                 class="expand-icon"
-                :class="{ 'expanded': expandedCategories.has(category.id) }"
+                :class="{ expanded: expandedCategories.has(category.id) }"
               />
             </div>
 
-            <!-- 会话列表 -->
+            <!-- ============ 会话列表 - 带过渡动画 ============ -->
             <transition name="accordion">
-              <div 
-                v-show="expandedCategories.has(category.id)"
-                class="accordion-body"
-              >
+              <div v-show="expandedCategories.has(category.id)" class="accordion-body">
+                <!-- ============ 会话项循环 ============ -->
                 <div
                   v-for="session in category.children"
                   :key="session.id"
                   class="session-item"
-                  :class="{ 'active': isSelectedNode(session) }"
+                  :class="{ active: isSelectedNode(session) }"
                   @click="handleSessionClick(session)"
                 >
+                  <!-- ============ 会话内容区域 ============ -->
                   <div class="session-content">
+                    <!-- 会话标题行 - 包含标题和未读消息标识 -->
                     <div class="session-main">
+                      <!-- 会话标题：AI会话名称或教师科目名称 -->
                       <span class="session-title">{{ session.label }}</span>
+
+                      <!-- 未读消息红点 - 有未读消息时显示 -->
                       <div v-if="hasUnreadMessage(session)" class="unread-badge"></div>
                     </div>
+
+                    <!-- 会话副标题 - 可选显示 -->
                     <div v-if="session.subtitle" class="session-subtitle">
                       {{ session.subtitle }}
                     </div>
                   </div>
+
+                  <!-- ============ 更多操作菜单 ============ -->
+                  <!-- 气泡弹窗菜单 - 仅对有sessionId的会话显示 -->
                   <BubblePopup
                     v-if="session.sessionId"
                     v-model="showMoreMenu[session.sessionId]"
@@ -71,53 +81,56 @@
                     :offset="8"
                     :show-arrow="false"
                   >
+                    <!-- 触发按钮 - 更多操作按钮 -->
                     <template #trigger>
-                      <q-btn 
-                        flat 
-                        round 
-                        dense 
-                        icon="more_vert" 
-                        size="sm" 
-                        class="more-btn"
-                      >
-                      </q-btn>
+                      <q-btn flat round dense icon="more_vert" size="sm" class="more-btn"> </q-btn>
                     </template>
 
+                    <!-- ============ 菜单内容 ============ -->
                     <div class="session-more-menu-card">
+                      <!-- AI会话专用操作 -->
+                      <template v-if="session.category === 'ai'">
+                        <!-- 置顶/取消置顶 -->
+                        <div
+                          class="more-menu-item-row"
+                          @click="closeMenuAndExecute(session.sessionId, () => handlePin(session))"
+                        >
+                          <img
+                            :src="session.pinned ? 'icons/quxiaozhiding.svg' : 'icons/zhiding.svg'"
+                            alt="置顶"
+                            width="18"
+                            height="18"
+                          />
+                          <div>{{ session.pinned ? '取消置顶' : '置顶' }}</div>
+                        </div>
 
-                      <!-- 置顶 -->
-                      <div
-                        v-if="session.category === 'ai'"
-                        class="more-menu-item-row"
-                        @click="closeMenuAndExecute(session.sessionId, () => handlePin(session))"
-                      >
-                        <img :src="session.pinned ? 'icons/quxiaozhiding.svg' : 'icons/zhiding.svg'" alt="置顶" width="18" height="18" />
-                        <div>{{ session.pinned ? '取消置顶' : '置顶' }}</div>
-                      </div>
+                        <!-- 收藏/取消收藏 -->
+                        <div
+                          class="more-menu-item-row"
+                          @click="
+                            closeMenuAndExecute(session.sessionId, () => handleFavorite(session))
+                          "
+                        >
+                          <img
+                            :src="session.favorited ? xingxingLightIcon : shoucangIcon"
+                            alt="收藏"
+                            width="18"
+                            height="18"
+                          />
+                          <div>{{ session.favorited ? '取消收藏' : '收藏' }}</div>
+                        </div>
 
-                      <!-- 收藏 -->
-                      <div
-                        v-if="session.category === 'ai'"
-                        class="more-menu-item-row"
-                        @click="closeMenuAndExecute(session.sessionId, () => handleFavorite(session))"
-                      >
-                        <img
-                          :src="session.favorited ? xingxingLightIcon : shoucangIcon"
-                          alt="收藏"
-                          width="18"
-                          height="18"
-                        />
-                        <div>{{ session.favorited ? '取消收藏' : '收藏' }}</div>
-                      </div>
+                        <!-- 分隔线 -->
+                        <div class="session-more-menu-divider"></div>
+                      </template>
 
-                      <!-- 分隔线 -->
-                      <div v-if="session.category === 'ai'" class="session-more-menu-divider"></div>
-
-                      <!-- 删除 -->
+                      <!-- 通用操作：删除会话 -->
                       <div class="session-more-menu-delete-wrapper">
                         <div
                           class="more-menu-item-row"
-                          @click="closeMenuAndExecute(session.sessionId, () => handleDelete(session))"
+                          @click="
+                            closeMenuAndExecute(session.sessionId, () => handleDelete(session))
+                          "
                         >
                           <img src="icons/delete.svg" alt="删除会话" width="18" height="18" />
                           <div class="text-delete">删除</div>
@@ -133,19 +146,25 @@
       </RubberBandList>
     </div>
 
-    <!-- 空状态 -->
+    <!-- ============ 空状态显示 ============ -->
+    <!-- 当没有会话数据时显示的空状态界面 -->
     <div v-else class="empty-state">
+      <!-- 空状态图标 -->
       <q-icon name="chat" size="48px" color="grey-5" />
+
+      <!-- 空状态标题 - 根据是否有搜索关键词显示不同内容 -->
       <div class="q-mt-md text-h6 text-grey-6">
         {{ searchKeyword ? '未找到匹配的会话' : '暂无会话' }}
       </div>
+
+      <!-- 空状态描述 - 提供相应的提示信息 -->
       <div class="q-mt-sm text-caption text-grey-5">
         {{ searchKeyword ? '尝试使用其他关键词搜索' : '您的会话记录将显示在这里' }}
       </div>
     </div>
 
-
-    <!-- 删除确认对话框 -->
+    <!-- ============ 删除确认对话框 ============ -->
+    <!-- 会话删除前的确认对话框，防止误操作 -->
     <Dialog
       ref="deleteDialogRef"
       title="删除确认"
@@ -153,6 +172,7 @@
       :cancelButtonText="'取消'"
       @confirm="confirmDelete"
     >
+      <!-- 显示具体的删除确认内容 -->
       {{ deleteConfirmContent }}
     </Dialog>
   </div>
@@ -163,7 +183,11 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
-import { isSessionFavorite, toggleSessionFavorite, removeSessionFavorite } from '@/utils/storage/favorites'
+import {
+  isSessionFavorite,
+  toggleSessionFavorite,
+  removeSessionFavorite,
+} from '@/utils/storage/favorites'
 import { getUserId } from '@/services'
 import { showMessage } from '../utils'
 import SearchInput from './SearchInput.vue'
@@ -207,7 +231,10 @@ const findNodeBySessionId = (nodes: TreeNode[], targetSessionId: string): TreeNo
 }
 
 // 根据 sessionId 获取会话类型（需要在 computed setter 之前定义）
-const getSessionCategory = (sessionId: string | undefined, nodes: TreeNode[]): 'ai-general' | 'teacher' | null => {
+const getSessionCategory = (
+  sessionId: string | undefined,
+  nodes: TreeNode[]
+): 'ai-general' | 'teacher' | null => {
   if (!sessionId) return null
 
   const node = findNodeBySessionId(nodes, sessionId)
@@ -215,7 +242,19 @@ const getSessionCategory = (sessionId: string | undefined, nodes: TreeNode[]): '
 
   if (node.category === 'ai') {
     return 'ai-general'
-  } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
+  } else if (
+    [
+      'CHINESE',
+      'MATH',
+      'ENGLISH',
+      'POLITICS',
+      'HISTORY',
+      'GEOGRAPHY',
+      'PHYSICS',
+      'CHEMISTRY',
+      'BIOLOGY',
+    ].includes(node.category)
+  ) {
     return 'teacher'
   }
 
@@ -230,9 +269,9 @@ const selectedSessionId = computed({
     if (newSessionId === oldSessionId) {
       return
     }
-    
+
     _selectedSessionId.value = newSessionId
-    
+
     // 在 setter 中直接处理分类切换通知，而不是通过 watch
     if (newSessionId) {
       const category = getSessionCategory(newSessionId, treeNodes.value)
@@ -253,10 +292,6 @@ const selectedSessionId = computed({
 
 // 选中的节点ID
 const selectedNodeId = ref<string | null>(null)
-
-
-// 滚动容器引用
-const scrollWrapper = ref<HTMLElement | null>(null)
 
 // 未读消息 store
 const unreadStore = useUnreadMessageStore()
@@ -286,12 +321,22 @@ const deleteConfirmContent = computed(() => {
 
 // ==================== 计算属性 ====================
 
-
 // 树节点类型定义
 interface TreeNode {
   id: string
   label: string
-  category: 'ai' | 'teacher' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY'
+  category:
+    | 'ai'
+    | 'teacher'
+    | 'CHINESE'
+    | 'MATH'
+    | 'ENGLISH'
+    | 'POLITICS'
+    | 'HISTORY'
+    | 'GEOGRAPHY'
+    | 'PHYSICS'
+    | 'CHEMISTRY'
+    | 'BIOLOGY'
   level: number
   children?: TreeNode[]
   sessionId?: string
@@ -306,7 +351,7 @@ interface TreeNode {
 const treeNodes = computed<TreeNode[]>(() => {
   // 依赖 favoriteUpdateTrigger 来触发收藏状态重新计算
   void favoriteUpdateTrigger.value
-  
+
   const nodes: TreeNode[] = []
 
   // 1. AI聊天（学伴默认）分类
@@ -317,7 +362,7 @@ const treeNodes = computed<TreeNode[]>(() => {
         return name.includes(searchKeyword.value.toLowerCase().trim())
       })
     : aiGeneralStore.sessions
-  
+
   const aiSessions = aiSessionsList
     .sort((a, b) => {
       // 置顶的排在前面
@@ -336,7 +381,7 @@ const treeNodes = computed<TreeNode[]>(() => {
         level: 2,
         pinned: session.pinned || false,
         favorited: isSessionFavorite(session.sessionId),
-      }),
+      })
     )
 
   if (aiSessions.length > 0 || !searchKeyword.value) {
@@ -368,7 +413,16 @@ const treeNodes = computed<TreeNode[]>(() => {
     label: session.sessionName,
     timestamp: session.createTime,
     sessionId: session.sessionId,
-    category: session.subject as 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY',
+    category: session.subject as
+      | 'CHINESE'
+      | 'MATH'
+      | 'ENGLISH'
+      | 'POLITICS'
+      | 'HISTORY'
+      | 'GEOGRAPHY'
+      | 'PHYSICS'
+      | 'CHEMISTRY'
+      | 'BIOLOGY',
     level: 2,
   }))
 
@@ -413,22 +467,14 @@ const findNodeById = (nodes: TreeNode[], targetId: string): TreeNode | null => {
   return null
 }
 
-
 // ==================== 方法 ====================
 
 // 检查会话是否有未读消息
 const hasUnreadMessage = (node: TreeNode): boolean => {
   if (!node.sessionId) return false
 
-  if (node.category === 'ai') {
-    // AI 会话未读 key 格式: ai_{sessionId}
-    return unreadStore.hasUnread(`ai_${node.sessionId}`)
-  } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
-    // 教师会话未读 key 格式: teacher_{sessionId}
-    return unreadStore.hasUnread(`teacher_${node.sessionId}`)
-  }
-
-  return false
+  // 直接使用原始sessionId作为未读key
+  return unreadStore.hasUnread(node.sessionId)
 }
 
 // 处理会话点击（内部完成所有切换逻辑，只发送最终结果）
@@ -438,7 +484,7 @@ const handleSessionClick = async (node: TreeNode) => {
     category: node.category,
     sessionId: node.sessionId,
     label: node.label,
-    level: node.level
+    level: node.level,
   })
   if (node.level !== 2 || !node.sessionId) {
     console.log('[SessionTree] 节点不符合会话点击条件，跳过处理')
@@ -448,7 +494,7 @@ const handleSessionClick = async (node: TreeNode) => {
   try {
     if (node.category === 'ai') {
       // AI 会话切换逻辑
-      unreadStore.clearUnread(`ai_${node.sessionId}`)
+      unreadStore.clearUnread(node.sessionId) // 直接使用原始sessionId
       await aiGeneralStore.switchSession(node.sessionId)
       // 更新内部维护的选中会话ID和节点ID
       // 使用 computed setter，会自动处理分类切换通知
@@ -468,15 +514,27 @@ const handleSessionClick = async (node: TreeNode) => {
 
       console.log('[SessionTree] 发出session-switched事件: ai,', node.sessionId)
       emit('session-switched', 'ai', node.sessionId)
-    } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
+    } else if (
+      [
+        'CHINESE',
+        'MATH',
+        'ENGLISH',
+        'POLITICS',
+        'HISTORY',
+        'GEOGRAPHY',
+        'PHYSICS',
+        'CHEMISTRY',
+        'BIOLOGY',
+      ].includes(node.category)
+    ) {
       // 教师会话切换逻辑
       console.log('[SessionTree] 处理教师会话切换')
-      unreadStore.clearUnread(`teacher_${node.sessionId}`)
+      unreadStore.clearUnread(node.sessionId) // 直接使用原始sessionId
 
       // 查找会话数据（使用响应式的 allSessions ref，Pinia 会自动解包）
       const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
       console.log('[SessionTree] 查找教师会话，当前会话数量:', allTeacherSessions.length)
-      const session = allTeacherSessions.find(s => s.sessionId === node.sessionId)
+      const session = allTeacherSessions.find((s) => s.sessionId === node.sessionId)
       if (!session) {
         console.error('[SessionTree] 未找到教师会话:', node.sessionId)
         return
@@ -492,11 +550,11 @@ const handleSessionClick = async (node: TreeNode) => {
       console.log('[SessionTree] 设置教师会话:', session.sessionId)
       teacherChatStore.setSession(session)
       console.log('[SessionTree] 开始加载教师聊天历史')
-      await teacherChatStore.loadChatHistory(session.sessionId)
+      await teacherChatStore.loadChatHistory(session.sessionId, 1) // 首次加载第1页
 
-        // 初始化WebSocket连接（新增）
+      // 初始化WebSocket连接（新增）
       console.log('[SessionTree] 初始化教师WebSocket连接')
-      await teacherChatStore.initMessageReceiver().catch(error => {
+      await teacherChatStore.initMessageReceiver().catch((error) => {
         console.error('[SessionTree] 初始化教师WebSocket失败:', error)
       })
 
@@ -505,7 +563,7 @@ const handleSessionClick = async (node: TreeNode) => {
       console.log('[SessionTree] 设置选中会话ID:', node.sessionId)
       selectedSessionId.value = node.sessionId
       selectedNodeId.value = node.id
-      
+
       // 数据更新后，手动处理 treeNodes 变化（替代 watch）
       await nextTick()
       const oldLength = previousTreeNodesLength
@@ -514,14 +572,13 @@ const handleSessionClick = async (node: TreeNode) => {
         previousTreeNodesLength = newLength
         await handleTreeNodesChange(oldLength, newLength)
       }
-      
+
       emit('session-switched', 'teacher', node.sessionId)
     }
   } catch (error) {
     console.error('切换会话失败:', error)
   }
 }
-
 
 // 处理置顶
 const handlePin = async (node: TreeNode) => {
@@ -530,7 +587,7 @@ const handlePin = async (node: TreeNode) => {
   try {
     // 直接调用 store 方法完成置顶操作
     await aiGeneralStore.togglePin(node.sessionId)
-    
+
     // 显示成功消息
     showMessage('操作成功', 'positive')
   } catch (error) {
@@ -549,20 +606,20 @@ const closeMenuAndExecute = (sessionId: string | undefined, action: () => void) 
 // 处理收藏
 const handleFavorite = (node: TreeNode) => {
   if (node.level !== 2 || node.category !== 'ai' || !node.sessionId) return
-  
+
   // 查找对应的会话数据
-  const session = aiGeneralStore.sessions.find(s => s.sessionId === node.sessionId)
+  const session = aiGeneralStore.sessions.find((s) => s.sessionId === node.sessionId)
   if (!session) {
     showMessage('未找到会话数据', 'negative')
     return
   }
-  
+
   // 切换收藏状态
   const success = toggleSessionFavorite(session)
   if (success) {
     // 触发收藏状态重新计算
     favoriteUpdateTrigger.value++
-    
+
     showMessage(isSessionFavorite(session.sessionId) ? '已收藏' : '已取消收藏', 'positive')
   } else {
     showMessage('操作失败，请重试', 'negative')
@@ -584,10 +641,10 @@ const confirmDelete = async () => {
   if (!node) return
   deleting.value = true
   try {
-  if (node.category === 'ai') {
+    if (node.category === 'ai') {
       // 检查是否是当前会话
       const wasCurrentSession = aiGeneralStore.currentSession?.sessionId === node.sessionId
-      
+
       // 直接调用 store 删除
       await aiGeneralStore.deleteSession(node.sessionId)
 
@@ -597,7 +654,7 @@ const confirmDelete = async () => {
       } catch (e) {
         console.warn('[SessionTree] 同步移除会话收藏失败（忽略）', e)
       }
-      
+
       // 数据更新后，手动处理 treeNodes 变化（替代 watch）
       await nextTick()
       const oldLength = previousTreeNodesLength
@@ -606,27 +663,39 @@ const confirmDelete = async () => {
         previousTreeNodesLength = newLength
         await handleTreeNodesChange(oldLength, newLength)
       }
-      
+
       // 发送删除结果事件
       emit('ai-session-deleted', node.sessionId, true, wasCurrentSession)
 
       // 显示成功消息
       showMessage('会话已删除', 'positive')
-  } else if (['CHINESE', 'MATH', 'ENGLISH', 'POLITICS', 'HISTORY', 'GEOGRAPHY', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'].includes(node.category)) {
+    } else if (
+      [
+        'CHINESE',
+        'MATH',
+        'ENGLISH',
+        'POLITICS',
+        'HISTORY',
+        'GEOGRAPHY',
+        'PHYSICS',
+        'CHEMISTRY',
+        'BIOLOGY',
+      ].includes(node.category)
+    ) {
       // 老师会话不支持删除
       showMessage('老师会话不支持删除', 'warning')
-      return;
+      return
     }
   } catch (error) {
     console.error('删除会话失败:', error)
-    
+
     // 发送删除失败事件
     if (node.category === 'ai') {
       emit('ai-session-deleted', node.sessionId, false, false)
     } else if (node.category === 'BIOLOGY' || node.category === 'MATH') {
       emit('teacher-session-deleted', node.sessionId, false, false)
     }
-    
+
     // 显示失败消息
     showMessage('删除失败，请重试', 'negative')
   } finally {
@@ -670,7 +739,10 @@ const formatTime = (timestamp: number): string => {
   // 小于48小时：昨天
   if (diff < 48 * 60 * 60 * 1000) {
     const date = new Date(timestamp)
-    return `昨天 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    return `昨天 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(
+      2,
+      '0'
+    )}`
   }
 
   // 小于7天：X天前
@@ -699,7 +771,18 @@ const formatTime = (timestamp: number): string => {
 // 返回：'ai' | 教师科目 | null
 // 如果选中的是一级分类节点，返回该分类
 // 如果选中的是二级会话节点，返回该会话的分类
-const getSelectedCategory = (): 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY' | null => {
+const getSelectedCategory = ():
+  | 'ai'
+  | 'CHINESE'
+  | 'MATH'
+  | 'ENGLISH'
+  | 'POLITICS'
+  | 'HISTORY'
+  | 'GEOGRAPHY'
+  | 'PHYSICS'
+  | 'CHEMISTRY'
+  | 'BIOLOGY'
+  | null => {
   if (!selectedNodeId.value) {
     return null
   }
@@ -716,12 +799,32 @@ const getSelectedCategory = (): 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITIC
     if (selectedNode.category === 'teacher') {
       return null
     }
-    return selectedNode.category as 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY'
+    return selectedNode.category as
+      | 'ai'
+      | 'CHINESE'
+      | 'MATH'
+      | 'ENGLISH'
+      | 'POLITICS'
+      | 'HISTORY'
+      | 'GEOGRAPHY'
+      | 'PHYSICS'
+      | 'CHEMISTRY'
+      | 'BIOLOGY'
   }
 
   // 如果是二级会话节点，返回会话的分类
   if (selectedNode.level === 2) {
-    return selectedNode.category as 'ai' | 'CHINESE' | 'MATH' | 'ENGLISH' | 'POLITICS' | 'HISTORY' | 'GEOGRAPHY' | 'PHYSICS' | 'CHEMISTRY' | 'BIOLOGY'
+    return selectedNode.category as
+      | 'ai'
+      | 'CHINESE'
+      | 'MATH'
+      | 'ENGLISH'
+      | 'POLITICS'
+      | 'HISTORY'
+      | 'GEOGRAPHY'
+      | 'PHYSICS'
+      | 'CHEMISTRY'
+      | 'BIOLOGY'
   }
 
   return null
@@ -732,7 +835,7 @@ const switchToSession = (type: 'ai' | 'teacher', sessionId: string) => {
   if (type === 'teacher') {
     // 触发教师会话切换逻辑（类似于 handleSessionClick 中的教师会话处理）
     const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
-    const session = allTeacherSessions.find(s => s.sessionId === sessionId)
+    const session = allTeacherSessions.find((s) => s.sessionId === sessionId)
     if (session) {
       // 设置会话
       teacherChatStore.setSession(session)
@@ -745,11 +848,11 @@ const switchToSession = (type: 'ai' | 'teacher', sessionId: string) => {
       const storeSubject = session.subject
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
 
-      // 加载聊天历史
-      teacherChatStore.loadChatHistory(session.sessionId)
+      // 加载聊天历史（分页加载）
+      teacherChatStore.loadChatHistory(session.sessionId, 1) // 首次加载第1页
 
       // 初始化WebSocket连接
-      teacherChatStore.initMessageReceiver().catch(error => {
+      teacherChatStore.initMessageReceiver().catch((error) => {
         console.error('[SessionTree] 初始化教师WebSocket失败:', error)
       })
 
@@ -770,7 +873,6 @@ defineExpose({
   switchToSession,
 })
 
-
 // 更新选中状态的辅助函数（仅用于同步外部状态，不处理未读标记）
 // 添加条件判断避免重复更新导致的死循环
 const updateSelectedNode = (sessionId: string | undefined) => {
@@ -787,7 +889,7 @@ const updateSelectedNode = (sessionId: string | undefined) => {
       return
     }
   }
-  
+
   if (sessionId) {
     const node = findNodeBySessionId(treeNodes.value, sessionId)
     if (node) {
@@ -821,9 +923,7 @@ const handleTreeNodesChange = async (oldLength: number, newLength: number) => {
   }
 }
 
-
 let previousTreeNodesLength = 0
-
 
 // 从 stores 同步选中状态的函数（替代 watch）
 const syncSelectedNodeFromStores = () => {
@@ -836,7 +936,7 @@ const syncSelectedNodeFromStores = () => {
     }
     return
   }
-  
+
   // 检查 AI 会话
   const aiSession = aiGeneralStore.currentSession
   if (aiSession?.sessionId) {
@@ -846,30 +946,29 @@ const syncSelectedNodeFromStores = () => {
     }
     return
   }
-  
+
   // 如果两个 store 都没有当前会话，且之前有选中状态，清空选中状态
   if (_selectedSessionId.value !== undefined) {
     updateSelectedNode(undefined)
   }
 }
 
-
 // 生命周期
 onMounted(async () => {
   // 初始化 treeNodes 长度追踪
   previousTreeNodesLength = treeNodes.value.length
-  
+
   // 默认展开所有分类
-  treeNodes.value.forEach(node => {
+  treeNodes.value.forEach((node) => {
     expandedCategories.value.add(node.id)
   })
-  
+
   // 初始化会话列表和选择
   await initializeSessions()
-  
+
   // 初始化后，同步 store 的选中状态
   syncSelectedNodeFromStores()
-  
+
   // 初始化后，处理 treeNodes 变化（确保 BetterScroll 正确初始化）
   await nextTick()
   const currentLength = treeNodes.value.length
@@ -877,22 +976,22 @@ onMounted(async () => {
     await handleTreeNodesChange(previousTreeNodesLength, currentLength)
     previousTreeNodesLength = currentLength
   }
-  
+
   // VirtualList 组件会自动处理滚动，无需手动初始化
 })
 
 // 切换教师会话（内部辅助方法，用于对话框打开时的会话恢复）
 const setTeacherSubject = async (sessionId: string, subject: 'BIOLOGY' | 'MATH') => {
   const allSessions = Object.values(teacherChatStore.loadAllSessions())
-  const session = allSessions.find(s => s.sessionId === sessionId)
+  const session = allSessions.find((s) => s.sessionId === sessionId)
   if (!session) return
-  
+
   const userId = getUserId()
   const storeSubject = subject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-  
+
   teacherChatStore.setSession(session)
-  await teacherChatStore.loadChatHistory(session.sessionId)
+  await teacherChatStore.loadChatHistory(session.sessionId, 1) // 首次加载第1页
   emit('category-should-change', 'teacher')
   emit('should-switch-session', 'teacher', sessionId)
 }
@@ -910,20 +1009,20 @@ const toggleCategory = (categoryId: string) => {
 const initializeSessions = async () => {
   // 加载AI会话列表
   await aiGeneralStore.loadSessions()
-  
+
   // 优先检查是否有当前会话（无论是AI还是教师），如果有，选中它
   // 这样可以确保从收藏页点击的会话能正确选中
   const teacherSession = teacherChatStore.currentSession
   if (teacherSession?.sessionId) {
     // 如果有当前教师会话，优先选中它
     const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
-    const session = allTeacherSessions.find(s => s.sessionId === teacherSession.sessionId)
+    const session = allTeacherSessions.find((s) => s.sessionId === teacherSession.sessionId)
     if (session && (session.subject === 'BIOLOGY' || session.subject === 'MATH')) {
       await setTeacherSubject(session.sessionId, session.subject)
       return
     }
   }
-  
+
   // 检查是否有当前AI会话
   if (aiGeneralStore.currentSession?.sessionId) {
     // updateSelectedNode 内部会更新 selectedSessionId 和 selectedNodeId
@@ -1002,7 +1101,7 @@ const initializeSessions = async () => {
 // 手风琴列表
 .accordion-list {
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
 }
 
 // 手风琴项

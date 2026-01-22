@@ -37,8 +37,10 @@ export class TeacherWebSocketService {
   private connect(): void {
     try {
       const yanbanBaseUrl = getYanbanBaseUrl()
-      // 将HTTPS URL转换为WebSocket URL
-      const wsUrl = yanbanBaseUrl.replace('https://', 'wss://') + '/teacher/ws'
+      // 将HTTP/HTTPS URL转换为WebSocket URL
+      const wsUrl = yanbanBaseUrl
+        .replace('https://', 'wss://')
+        .replace('http://', 'ws://') + '/teacher/ws'
 
       console.log('[TeacherWebSocket] 连接到:', wsUrl)
       this.socket = new WebSocket(wsUrl)

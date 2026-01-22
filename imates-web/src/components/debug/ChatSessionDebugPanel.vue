@@ -931,7 +931,7 @@ const selectAiSession = (session: AiGeneralSession) => {
 const selectTeacherSession = (session: TeacherSession & { msgCount: number; sessionType: 'general' }) => {
   // 选择教师通用会话
   teacherStore.setSession(session)
-  teacherStore.loadChatHistory(session.sessionId)
+  teacherStore.loadChatHistory(session.sessionId, 1) // 首次加载第1页
 }
 
 // 第7步：导出数据
@@ -1153,7 +1153,7 @@ const manualLoad = async () => {
       showMessage('无当前会话，无法加载', 'warning')
       return
     }
-    await teacherStore.loadChatHistory(currentTeacherSession.value.sessionId)
+    await teacherStore.loadChatHistory(currentTeacherSession.value.sessionId, 1) // 首次加载第1页
     await refreshStorageData()
     showMessage('手动加载成功', 'success')
   } catch (error) {

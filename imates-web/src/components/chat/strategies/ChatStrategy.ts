@@ -7,6 +7,40 @@ import type { ChatBubble } from '../../../types'
 import type { SendMessageOptions } from './types'
 
 /**
+ * ChatView接口定义
+ * 策略可以调用的ChatView方法
+ */
+export interface ChatViewInterface {
+  // 滚动控制
+  scrollToBottom(): Promise<void>
+  checkIfUserAtBottom(): void
+
+  // 题目切换
+  executeQuestionSwitch(): void
+
+  // 状态访问
+  getLastMessageCount(): number
+  setLastMessageCount(count: number): void
+  getIsUserAtBottom(): boolean
+  setIsUserAtBottom(isAtBottom: boolean): void
+  getShowNewMessageIndicator(): boolean
+  setShowNewMessageIndicator(show: boolean): void
+  getIsKeyboardVisible(): boolean
+  getIsKeyboardAnimating(): boolean
+
+  // 消息操作
+  getDisplayedMessages(): ChatBubble[]
+  emitResponse(): void
+
+  // 编辑相关
+  getIsEditingMessage(): boolean
+  setIsEditingMessage(editing: boolean): void
+  getEditingQuestionId(): string | undefined
+  cancelEditMessage(): void
+  clearInputContent(): void
+}
+
+/**
  * 转发结果
  */
 export interface ForwardResult {
@@ -163,5 +197,11 @@ export interface ChatStrategy {
 
   // 第36步：检查是否正在加载历史消息
   isLoadingHistory?(): boolean
+
+  // 第37步：设置ChatView接口（用于策略主动调用ChatView方法）
+  setChatView?(chatView: ChatViewInterface): void
+
+  // 第38步：处理题目切换（由ChatView主动调用）
+  onQuestionChanged?(newQuestion: unknown, oldQuestion: unknown): void
 }
 

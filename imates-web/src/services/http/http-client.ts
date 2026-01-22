@@ -92,12 +92,6 @@ export class HttpClient {
   }
 
 
-  /**
-   * 设置基础 URL
-   */
-  setBaseURL(url: string) {
-    this.baseURL = url
-  }
 
   /**
    * 通用请求方法

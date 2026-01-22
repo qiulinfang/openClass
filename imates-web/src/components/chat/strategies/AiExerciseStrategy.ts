@@ -16,6 +16,7 @@ import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 
 export class AiExerciseStrategy implements ChatStrategy {
   private aiExerciseStore = useAiExerciseChatStore()
+  private chatView?: import('./ChatStrategy').ChatViewInterface
   
   // 第1步：获取消息列表
   getMessages(): ChatBubble[] {
@@ -25,6 +26,8 @@ export class AiExerciseStrategy implements ChatStrategy {
   // 第2步：添加消息（直接操作messages）
   async addMessage(message: ChatBubble): Promise<void> {
     this.aiExerciseStore.messages.push(message)
+    // 通知ChatView处理消息变化
+    this.handleMessagesChanged(this.getMessages())
   }
   
   // 第3步：发送消息
@@ -363,15 +366,14 @@ export class AiExerciseStrategy implements ChatStrategy {
         return
       }
 
-      // 如果连接到不同的会话，先断开旧连接
+      // 单连接多会话架构：会话切换时不操作WebSocket连接（连接由路由守卫管理）
       if (currentSessionId && currentSessionId !== sessionId) {
-        console.log('[AiExerciseStrategy] 切换教师会话，断开旧连接:', currentSessionId)
+        console.log('[AiExerciseStrategy] 切换教师会话，清除旧记录（连接保持）:', currentSessionId)
         try {
-          await teacherStore.cleanupMessageReceiver()
           teacherStore.clearMessages()
-          console.log('[AiExerciseStrategy] 旧教师连接已断开并清除记录')
+          console.log('[AiExerciseStrategy] 旧教师记录已清除（连接保持）')
         } catch (error) {
-          console.error('[AiExerciseStrategy] 断开旧教师连接失败:', error)
+          console.error('[AiExerciseStrategy] 清除旧教师记录失败:', error)
         }
       }
 
@@ -397,9 +399,9 @@ export class AiExerciseStrategy implements ChatStrategy {
       // 建立WebSocket连接
       const connected = await teacherStore.connectToTeacherSession(sessionId)
       if (connected) {
-        // 连接成功后加载聊天历史
+        // 连接成功后加载聊天历史（分页加载）
         try {
-          await teacherStore.loadChatHistory(sessionId)
+          await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
           console.log('[AiExerciseStrategy] 教师聊天历史加载完成')
         } catch (error) {
           console.error('[AiExerciseStrategy] 加载教师聊天历史失败:', error)
@@ -506,9 +508,9 @@ export class AiExerciseStrategy implements ChatStrategy {
         return { successCount: 0, totalCount: messages.length }
       }
 
-      // 连接成功后加载聊天历史
+      // 连接成功后加载聊天历史（分页加载）
       console.log('[AiExerciseStrategy] 加载教师会话历史记录...')
-      await teacherStore.loadChatHistory(sessionId)
+      await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
     }
 
     for (const message of messages) {
@@ -696,5 +698,71 @@ export class AiExerciseStrategy implements ChatStrategy {
   // 切换联网搜索状态
   toggleWebSearch(): void {
     this.aiExerciseStore.toggleWebSearch()
+  }
+
+  // 设置ChatView接口
+  setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void {
+    this.chatView = chatView
+  }
+
+  /**
+   * 处理消息变化
+   * 替代原有的watch监听器，由策略主动调用
+   */
+  private handleMessagesChanged(newMessages: ChatBubble[]): void {
+    if (!this.chatView || !newMessages || newMessages.length === 0) return
+
+    // 检测是否有新消息（消息数量增加）
+    const hasNewMessage = newMessages.length > this.chatView.getLastMessageCount()
+    this.chatView.setLastMessageCount(newMessages.length)
+
+    // 检查用户是否在底部（允许50px的误差）
+    this.chatView.checkIfUserAtBottom()
+
+    // 如果是键盘显示状态，立即滚动；否则根据用户位置决定
+    if (this.chatView.getIsKeyboardVisible() || this.chatView.getIsKeyboardAnimating()) {
+      // 键盘显示时立即滚动，确保用户体验
+      this.chatView.scrollToBottom()
+      this.chatView.setShowNewMessageIndicator(false)
+    } else {
+      // 如果用户不在底部且有新消息，显示提示按钮
+      if (hasNewMessage && !this.chatView.getIsUserAtBottom()) {
+        this.chatView.setShowNewMessageIndicator(true)
+      } else if (this.chatView.getIsUserAtBottom()) {
+        // 用户在底部，自动滚动并隐藏提示按钮
+        this.chatView.scrollToBottom()
+        this.chatView.setShowNewMessageIndicator(false)
+      }
+    }
+  }
+
+  // 处理题目切换（由ChatView主动调用）
+  onQuestionChanged(newQuestion: unknown, oldQuestion: unknown): void {
+    if (!this.chatView) return
+
+    console.log('题目切换处理函数', newQuestion, oldQuestion)
+    if ((newQuestion as any)?.bmNo !== (oldQuestion as any)?.bmNo) {
+      // 检查是否正在编辑消息
+      if (this.chatView.getIsEditingMessage()) {
+        // 检查是否切换回正在编辑的题目
+        if (
+          this.chatView.getEditingQuestionId() &&
+          newQuestion &&
+          (newQuestion as any).bmNo === this.chatView.getEditingQuestionId()
+        ) {
+          // 直接执行切换，不显示确认对话框
+          this.chatView.executeQuestionSwitch()
+          return
+        }
+
+        // 简化处理：直接退出编辑模式并执行切换
+        this.chatView.cancelEditMessage()
+        this.chatView.clearInputContent()
+        this.chatView.executeQuestionSwitch()
+      } else {
+        // 如果没有编辑状态，直接执行切换
+        this.chatView.executeQuestionSwitch()
+      }
+    }
   }
 }
