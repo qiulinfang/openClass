@@ -6,15 +6,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { ApiService } from '../services/http/api-service'
-import { httpClient } from '../services/http/http-client'
-import type { 
-  ExerciseItem, 
-  FindSimilarQuestionByKnowledgeRequest, 
-  AddQuestionRequest, 
-  FindExerciseConfig 
+import type {
+  ExerciseItem,
+  FindSimilarQuestionByKnowledgeRequest,
+  AddQuestionRequest,
+  FindExerciseConfig
 } from '../types'
 import { Subject } from '../types'
-import { showMessage } from '@/utils'
 
 export const useFindExerciseStore = defineStore('findExercise', () => {
   // ==================== 响应式状态定义 ====================
@@ -68,9 +66,6 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
    * 对应Android中的initData方法
    */
   const initializeStore = async (newConfig: FindExerciseConfig) => {
-    // 设置API基础URL - 使用相对路径让Vite代理处理（策略1）
-    httpClient.setBaseURL('')
-    
     config.value = newConfig
     pagination.value.currentPage = 0
   }

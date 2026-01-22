@@ -2,8 +2,8 @@
   <div class="chat-panel-container">
     <!-- 探索遮罩（在选择探索/截图工具时显示） -->
     <div v-if="isExploring" class="explore-overlay" @click.stop>
-      <img src="/icons/textbookip.svg" alt="textbookip" class="explore-icon textbookip" />
-      <img src="/icons/ipWord.svg" alt="ipWord" class="explore-icon ipWord" />
+      <img :src="textbookipIcon" alt="textbookip" class="explore-icon textbookip" />
+      <img :src="ipWordIcon" alt="ipWord" class="explore-icon ipWord" />
     </div>
     <!-- 遮罩层上的按钮（独立于遮罩层，避免被覆盖） -->
     <button
@@ -96,6 +96,8 @@ import {
 } from '@/utils/storage/screenshotSessions'
 import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
+import textbookipIcon from '/icons/textbookip.svg'
+import ipWordIcon from '/icons/ipWord.svg'
 
 const pdfViewerStore = usePdfViewerStore()
 const aiTextbookStore = useAiTextbookChatStore()

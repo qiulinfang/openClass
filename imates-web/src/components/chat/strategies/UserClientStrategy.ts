@@ -11,6 +11,7 @@ import { showMessage } from '../../../utils'
 
 export class UserClientStrategy implements ChatStrategy {
   private store = useUserClientStore()
+  private chatView?: import('./ChatStrategy').ChatViewInterface
 
   // 第1步：获取消息存储引用
   getMessages(): ChatBubble[] {
@@ -20,6 +21,8 @@ export class UserClientStrategy implements ChatStrategy {
   // 第2步：添加消息到存储
   async addMessage(message: ChatBubble): Promise<void> {
     this.store.messages.push(message)
+    // 通知ChatView处理消息变化
+    this.handleMessagesChanged(this.getMessages())
   }
 
   // 第3步：发送消息的具体逻辑
@@ -235,5 +238,47 @@ export class UserClientStrategy implements ChatStrategy {
   // 第36步：检查是否正在加载历史消息
   isLoadingHistory(): boolean {
     return this.store.isLoadingHistory
+  }
+
+  // 设置ChatView接口
+  setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void {
+    this.chatView = chatView
+  }
+
+  /**
+   * 处理消息变化
+   * 替代原有的watch监听器，由策略主动调用
+   */
+  private handleMessagesChanged(newMessages: ChatBubble[]): void {
+    if (!this.chatView || !newMessages || newMessages.length === 0) return
+
+    // 检测是否有新消息（消息数量增加）
+    const hasNewMessage = newMessages.length > this.chatView.getLastMessageCount()
+    this.chatView.setLastMessageCount(newMessages.length)
+
+    // 检查用户是否在底部（允许50px的误差）
+    this.chatView.checkIfUserAtBottom()
+
+    // 如果是键盘显示状态，立即滚动；否则根据用户位置决定
+    if (this.chatView.getIsKeyboardVisible() || this.chatView.getIsKeyboardAnimating()) {
+      // 键盘显示时立即滚动，确保用户体验
+      this.chatView.scrollToBottom()
+      this.chatView.setShowNewMessageIndicator(false)
+    } else {
+      // 如果用户不在底部且有新消息，显示提示按钮
+      if (hasNewMessage && !this.chatView.getIsUserAtBottom()) {
+        this.chatView.setShowNewMessageIndicator(true)
+      } else if (this.chatView.getIsUserAtBottom()) {
+        // 用户在底部，自动滚动并隐藏提示按钮
+        this.chatView.scrollToBottom()
+        this.chatView.setShowNewMessageIndicator(false)
+      }
+    }
+  }
+
+  // 处理题目切换（由ChatView主动调用）
+  onQuestionChanged(newQuestion: unknown, oldQuestion: unknown): void {
+    // 用户客户端策略不需要特殊的题目切换处理
+    console.log('用户客户端策略题目切换:', newQuestion, oldQuestion)
   }
 }

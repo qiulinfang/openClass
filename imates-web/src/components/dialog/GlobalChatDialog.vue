@@ -387,19 +387,6 @@ const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
     activeCategory.value = 'ai-general'
   }
 }
-
-// ==================== 组件生命周期 ====================
-onMounted(async () => {
-  console.log('[GlobalChatDialog] onMounted: 初始化写死教师会话')
-  // 写死会话通过 loadAllSessions() 方法动态获取，无需预加载
-})
-
-// ==================== 清理 ====================
-onUnmounted(async () => {
-  if (teacherChatStore.currentSession?.sessionId) {
-    await teacherChatStore.cleanupMessageReceiver()
-  }
-})
 </script>
 
 <style lang="scss" scoped>

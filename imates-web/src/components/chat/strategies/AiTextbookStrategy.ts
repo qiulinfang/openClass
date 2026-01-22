@@ -16,6 +16,7 @@ import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 export class AiTextbookStrategy implements ChatStrategy {
   private aiTextbookStore = useAiTextbookChatStore()
   private knowledgeGraphStore = useKnowledgeGraphStore()
+  private chatView?: import('./ChatStrategy').ChatViewInterface
   
   // 第1步：获取消息列表
   getMessages(): ChatBubble[] {
@@ -25,6 +26,8 @@ export class AiTextbookStrategy implements ChatStrategy {
   // 第2步：添加消息
   async addMessage(message: ChatBubble): Promise<void> {
     this.aiTextbookStore.addMessage(message)
+    // 通知ChatView处理消息变化
+    this.handleMessagesChanged(this.getMessages())
   }
   
   // 第3步：发送消息
@@ -431,9 +434,9 @@ export class AiTextbookStrategy implements ChatStrategy {
         return { successCount: 0, totalCount: messages.length }
       }
 
-      // 连接成功后加载聊天历史
+      // 连接成功后加载聊天历史（分页加载）
       console.log('[AiTextbookStrategy] 加载教师会话历史记录...')
-      await teacherStore.loadChatHistory(sessionId)
+      await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
     }
 
     for (const message of messages) {
@@ -586,6 +589,48 @@ export class AiTextbookStrategy implements ChatStrategy {
   // 切换联网搜索状态
   toggleWebSearch(): void {
     this.aiTextbookStore.toggleWebSearch()
+  }
+
+  // 设置ChatView接口
+  setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void {
+    this.chatView = chatView
+  }
+
+  /**
+   * 处理消息变化
+   * 替代原有的watch监听器，由策略主动调用
+   */
+  private handleMessagesChanged(newMessages: ChatBubble[]): void {
+    if (!this.chatView || !newMessages || newMessages.length === 0) return
+
+    // 检测是否有新消息（消息数量增加）
+    const hasNewMessage = newMessages.length > this.chatView.getLastMessageCount()
+    this.chatView.setLastMessageCount(newMessages.length)
+
+    // 检查用户是否在底部（允许50px的误差）
+    this.chatView.checkIfUserAtBottom()
+
+    // 如果是键盘显示状态，立即滚动；否则根据用户位置决定
+    if (this.chatView.getIsKeyboardVisible() || this.chatView.getIsKeyboardAnimating()) {
+      // 键盘显示时立即滚动，确保用户体验
+      this.chatView.scrollToBottom()
+      this.chatView.setShowNewMessageIndicator(false)
+    } else {
+      // 如果用户不在底部且有新消息，显示提示按钮
+      if (hasNewMessage && !this.chatView.getIsUserAtBottom()) {
+        this.chatView.setShowNewMessageIndicator(true)
+      } else if (this.chatView.getIsUserAtBottom()) {
+        // 用户在底部，自动滚动并隐藏提示按钮
+        this.chatView.scrollToBottom()
+        this.chatView.setShowNewMessageIndicator(false)
+      }
+    }
+  }
+
+  // 处理题目切换（由ChatView主动调用）
+  onQuestionChanged(newQuestion: unknown, oldQuestion: unknown): void {
+    // AI教材对话策略不需要特殊的题目切换处理
+    console.log('AI教材策略题目切换:', newQuestion, oldQuestion)
   }
 }
 

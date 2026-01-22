@@ -1,5 +1,6 @@
 <template>
   <div class="exercise-solve-container">
+    <button @click="console.log(currentFunction)"></button>
     <!-- 顶部工具栏 -->
     <Toolbar :nav-items="navItems" v-model="currentFunction">
       <template #left>
@@ -131,7 +132,6 @@
                     </div>
                   </template>
                 </ChatView>
-
                 <!-- 老师聊天界面 -->
                 <ChatView
                   ref="teacherChatViewRef"
@@ -313,15 +313,14 @@ const onSubjectFilterChange = async () => {
   currentFunction.value = 'chatAi'
 
 
-  // 断开教师连接
+  // 单连接多会话架构：学科切换时不操作WebSocket连接（连接由路由守卫管理）
   if (!isFromHomework.value) {
-    console.log('[ExerciseSolveView] 学科过滤条件改变，断开教师连接')
+    console.log('[ExerciseSolveView] 学科过滤条件改变，清除教师聊天记录（连接保持）')
     try {
-      await teacherChatStore.cleanupMessageReceiver()
       teacherChatStore.clearMessages()
-      console.log('[ExerciseSolveView] 教师WebSocket连接已断开并清除聊天记录')
+      console.log('[ExerciseSolveView] 教师聊天记录已清除（连接保持）')
     } catch (error) {
-      console.error('[ExerciseSolveView] 断开教师WebSocket连接失败:', error)
+      console.error('[ExerciseSolveView] 清除教师聊天记录失败:', error)
     }
   }
 }
@@ -394,10 +393,6 @@ const confirmClearAllSessions = async () => {
 
 // 处理清除所有会话按钮点击
 const handleClearAllSessionsClick = () => {
-  console.log('[ExerciseSolveView] handleClearAllSessionsClick 被调用')
-  console.log('[ExerciseSolveView] hasAiSessions:', hasAiSessions.value)
-  console.log('[ExerciseSolveView] clearAllDialogRef.value:', clearAllDialogRef.value)
-
   if (hasAiSessions.value && clearAllDialogRef.value) {
     console.log('[ExerciseSolveView] 调用 openDialog')
     clearAllDialogRef.value.openDialog()
@@ -605,9 +600,9 @@ const handleQuestionSelected = async () => {
       // 建立新连接
       const connected = await teacherChatStore.connectToTeacherSession(teacherSessionId)
       if (connected) {
-        // 连接成功后加载聊天历史
+        // 连接成功后加载聊天历史（分页加载）
         try {
-          await teacherChatStore.loadChatHistory(teacherSessionId)
+          await teacherChatStore.loadChatHistory(teacherSessionId, 1) // 首次加载第1页
           console.log('[ExerciseSolveView] 教师聊天历史加载完成')
         } catch (error) {
           console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)

@@ -21,6 +21,7 @@ import RenderTestView from '@/views/RenderTestView.vue'
 import LottieTest from '@/views/LottieTest.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -203,6 +204,13 @@ router.beforeEach(async (to, from, next) => {
           userClientStore.disconnect()
         }
 
+        // 断开教师WebSocket连接
+        const teacherChatStore = useTeacherChatStore()
+        if (teacherChatStore.webSocketInitialized) {
+          console.log('[路由守卫] 检测到登录过期或退出登录，断开教师 WebSocket 连接')
+          teacherChatStore.cleanupMessageReceiver()
+        }
+
       } catch (error) {
         console.error('[路由守卫] 断开 WebSocket 连接时出错:', error)
       }
@@ -227,10 +235,23 @@ router.beforeEach(async (to, from, next) => {
       console.log("userClientStore.isConnected111", userClientStore.isConnected)
       // 只有在未连接状态时才建立连接
       if (!userClientStore.isConnected) {
-        console.log('[路由守卫] 检测到用户进入 /app 路由，开始建立 WebSocket 连接111')
+        console.log('[路由守卫] 检测到用户进入 /app 路由，开始建立客服 WebSocket 连接')
         // 注意：这里不等待连接结果，避免阻塞路由跳转
         userClientStore.connect().catch(error => {
-          console.error('[路由守卫] WebSocket 连接失败:', error)
+          console.error('[路由守卫] 客服WebSocket 连接失败:', error)
+          // 连接失败不阻止路由跳转，用户可以在界面上重试
+        })
+      }
+
+      // 教师WebSocket连接（单连接多会话架构）
+      const teacherChatStore = useTeacherChatStore()
+      console.log("teacherChatStore.webSocketInitialized111", teacherChatStore.webSocketInitialized)
+      // 只有在未初始化状态时才建立连接
+      if (!teacherChatStore.webSocketInitialized) {
+        console.log('[路由守卫] 检测到用户进入 /app 路由，开始建立教师 WebSocket 连接')
+        // 注意：这里不等待连接结果，避免阻塞路由跳转
+        teacherChatStore.initMessageReceiver().catch(error => {
+          console.error('[路由守卫] 教师WebSocket 连接失败:', error)
           // 连接失败不阻止路由跳转，用户可以在界面上重试
         })
       }

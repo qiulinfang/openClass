@@ -16,6 +16,7 @@ export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' 
 export interface ChatStrategyFactoryOptions {
   subject?: string
   session?: TeacherSessionInfo
+  chatView?: import('./ChatStrategy').ChatViewInterface
 }
 
 export class ChatStrategyFactory {
@@ -24,26 +25,40 @@ export class ChatStrategyFactory {
    * 每个策略内部会获取自己需要的Store
    */
   static create(type: ChatType, options?: ChatStrategyFactoryOptions): ChatStrategy {
+    let strategy: ChatStrategy
+
     switch (type) {
       case 'ai-general':
-        return new AiGeneralStrategy()
+        strategy = new AiGeneralStrategy()
+        break
 
       case 'ai-exercise':
-        return new AiExerciseStrategy()
+        strategy = new AiExerciseStrategy()
+        break
 
       case 'ai-textbook':
-        return new AiTextbookStrategy()
+        strategy = new AiTextbookStrategy()
+        break
 
       case 'teacher':
         // TeacherStrategy 现在直接从 store 读取 session 信息，不需要构造函数参数
-        return new TeacherStrategy()
+        strategy = new TeacherStrategy()
+        break
 
       case 'user-client':
-        return new UserClientStrategy()
+        strategy = new UserClientStrategy()
+        break
 
       default:
         // 默认返回AI通用策略
-        return new AiGeneralStrategy()
+        strategy = new AiGeneralStrategy()
     }
+
+    // 如果提供了ChatView接口，设置给策略
+    if (options?.chatView && strategy.setChatView) {
+      strategy.setChatView(options.chatView)
+    }
+
+    return strategy
   }
 }

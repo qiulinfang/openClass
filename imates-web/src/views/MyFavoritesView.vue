@@ -216,8 +216,8 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       // 调用 store 的 setSession（设置当前会话）
       teacherStore.setSession(teacherSession)
-      // 加载聊天历史（确保会话数据完整）
-      await teacherStore.loadChatHistory(teacherSession.sessionId)
+      // 加载聊天历史（分页加载，确保会话数据完整）
+      await teacherStore.loadChatHistory(teacherSession.sessionId, 1) // 首次加载第1页
     }
   } else {
     // AI 聊天：在打开对话框之前先切换到对应的会话

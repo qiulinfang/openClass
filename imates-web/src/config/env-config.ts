@@ -41,7 +41,7 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     resourceBaseUrl: 'https://www.imates.com.cn:9099',
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    yanbanBaseUrl: 'http://localhost:8080/blw-edu-yb',
+    yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     // IM即时通讯服务
     imServiceBaseUrl: 'https://www.imates.com.cn',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',

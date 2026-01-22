@@ -6,7 +6,7 @@
       <RubberBandList
         ref="rubberBandListRef"
         class="chat-rubber-list"
-        :enable-load-top="chatStrategy?.supportsPaginatedHistory?.() ?? false"
+        :enable-load-top="(props.type === 'user-client' && chatStrategy?.supportsPaginatedHistory?.()) || (props.type === 'teacher' && teacherStore.pagination.hasMore)"
         :load-top-threshold="100"
         @load-top="handleLoadTop"
       >
@@ -80,6 +80,19 @@
               </template>
             </div>
           </div>
+        </div>
+
+        <!-- 顶部加载指示器（教师聊天分页加载） -->
+        <div v-if="type === 'teacher' && teacherStore.pagination.isLoadingMore"
+             class="loading-more-indicator">
+          <div class="loading-spinner"></div>
+          <span>正在加载历史消息...</span>
+        </div>
+
+        <!-- 没有更多数据提示（教师聊天） -->
+        <div v-if="type === 'teacher' && !teacherStore.pagination.hasMore && displayedMessages.length > 0"
+             class="no-more-indicator">
+          没有更多历史消息了
         </div>
         <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
         <div
@@ -392,7 +405,7 @@
 <script setup lang="ts">
 // ==================== 导入依赖 ====================
 // Vue 核心功能
-import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed, watchEffect } from 'vue'
 
 // 状态管理和工具函数
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
@@ -427,7 +440,7 @@ interface ScreenshotDrawingState {
 }
 
 // 策略模式导入
-import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
+import { ChatStrategyFactory, type ChatStrategy, type ChatViewInterface } from './chat/strategies'
 
 // ==================== 组件配置 ====================
 // 定义组件属性 - 支持AI和老师两种对话模式
@@ -521,7 +534,45 @@ const createStrategy = () => {
     return
   }
 
-  chatStrategy.value = ChatStrategyFactory.create(props.type)
+  // ChatView接口实现
+  // 提供给策略调用的方法和状态访问
+  const chatViewInterface: ChatViewInterface = {
+    // 滚动控制
+    scrollToBottom,
+    checkIfUserAtBottom,
+
+    // 题目切换
+    executeQuestionSwitch,
+
+    // 状态访问
+    getLastMessageCount: () => lastMessageCount.value,
+    setLastMessageCount: (count: number) => lastMessageCount.value = count,
+    getIsUserAtBottom: () => isUserAtBottom.value,
+    setIsUserAtBottom: (isAtBottom: boolean) => isUserAtBottom.value = isAtBottom,
+    getShowNewMessageIndicator: () => showNewMessageIndicator.value,
+    setShowNewMessageIndicator: (show: boolean) => showNewMessageIndicator.value = show,
+    getIsKeyboardVisible: () => isKeyboardVisible.value,
+    getIsKeyboardAnimating: () => isKeyboardAnimating.value,
+
+    // 消息操作
+    getDisplayedMessages: () => displayedMessages.value,
+    emitResponse: () => emit('response'),
+
+    // 编辑相关
+    getIsEditingMessage: () => isEditingMessage.value,
+    setIsEditingMessage: (editing: boolean) => isEditingMessage.value = editing,
+    getEditingQuestionId: () => editingQuestionId.value || undefined,
+    cancelEditMessage,
+    clearInputContent: () => {
+      if (chatInputRef.value && typeof chatInputRef.value.clearInputContent === 'function') {
+        chatInputRef.value.clearInputContent()
+      }
+    }
+  }
+
+  chatStrategy.value = ChatStrategyFactory.create(props.type, {
+    chatView: chatViewInterface
+  })
 }
 
 // 组件引用
@@ -1174,7 +1225,6 @@ const originalMessageContent = ref<string>('') // 原始消息内容（用于取
 const editingQuestionId = ref<string | null>(null) // 记录正在编辑的题目ID
 
 // 编辑模式确认对话框状态
-const pendingSwitchAction = ref<(() => void) | null>(null) // 待执行的切换操作（用于编辑模式下的确认）
 
 // ==================== 消息管理函数 ====================
 /**
@@ -1773,29 +1823,52 @@ const sendMessage = async (attachedFile?: File) => {
 const handleLoadTop = async () => {
   console.log('[历史记录] UI: 接收到顶部加载事件')
 
-  // 只在支持分页历史的用户客户端类型中启用
-  if (props.type !== 'user-client' || !chatStrategy.value?.supportsPaginatedHistory?.()) {
-    console.log('[历史记录] UI: 不支持分页历史，跳过加载')
-    return
-  }
+  // 支持用户客户端和教师聊天两种类型
+  if (props.type === 'user-client') {
+    // 用户客户端类型：使用策略模式
+    if (!chatStrategy.value?.supportsPaginatedHistory?.()) {
+      console.log('[历史记录] UI: 用户客户端不支持分页历史，跳过加载')
+      return
+    }
 
-  // 检查是否正在加载或没有更多历史
-  if (chatStrategy.value.isLoadingHistory?.()) {
-    console.log('[历史记录] UI: 正在加载中，跳过重复请求')
-    return
-  }
+    if (chatStrategy.value.isLoadingHistory?.()) {
+      console.log('[历史记录] UI: 正在加载中，跳过重复请求')
+      return
+    }
 
-  if (!chatStrategy.value.hasMoreHistory?.()) {
-    console.log('[历史记录] UI: 没有更多历史记录')
-    return
-  }
+    if (!chatStrategy.value.hasMoreHistory?.()) {
+      console.log('[历史记录] UI: 没有更多历史记录')
+      return
+    }
 
-  console.log('[历史记录] UI: 开始加载更多历史消息')
-  try {
-    await chatStrategy.value.loadMoreHistory?.()
-    console.log('[历史记录] UI: 加载更多历史消息成功')
-  } catch (error) {
-    console.error('[历史记录] UI: 加载更多历史消息失败', error)
+    console.log('[历史记录] UI: 开始加载更多用户客户端历史消息')
+    try {
+      await chatStrategy.value.loadMoreHistory?.()
+      console.log('[历史记录] UI: 加载更多用户客户端历史消息成功')
+    } catch (error) {
+      console.error('[历史记录] UI: 加载更多用户客户端历史消息失败', error)
+    }
+  } else if (props.type === 'teacher') {
+    // 教师聊天类型：使用teacherStore
+    if (teacherStore.pagination.isLoadingMore) {
+      console.log('[历史记录] UI: 教师聊天正在加载中，跳过重复请求')
+      return
+    }
+
+    if (!teacherStore.pagination.hasMore) {
+      console.log('[历史记录] UI: 教师聊天没有更多历史记录')
+      return
+    }
+
+    console.log('[历史记录] UI: 开始加载更多教师聊天历史消息')
+    try {
+      await teacherStore.loadMoreChatHistory()
+      console.log('[历史记录] UI: 加载更多教师聊天历史消息成功')
+    } catch (error) {
+      console.error('[历史记录] UI: 加载更多教师聊天历史消息失败', error)
+    }
+  } else {
+    console.log('[历史记录] UI: 不支持的历史加载类型:', props.type)
   }
 }
 
@@ -1864,6 +1937,7 @@ const checkIfUserAtBottom = () => {
   const distanceToBottom = scrollHeight - scrollTop - clientHeight
   isUserAtBottom.value = distanceToBottom <= threshold
 }
+
 
 // 作用：处理输入框失去焦点事件，响应键盘已隐藏状态
 // 键盘隐藏支持失焦和全局事件两种方式
@@ -2805,96 +2879,25 @@ onUnmounted(() => {
 // 图片加载刷新定时器
 const imageLoadRefreshTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-// 消息变化监听器 - 通过策略接口获取消息
-watch(
-  () => chatStrategy.value?.getMessages?.() ?? [],
-  (newMessages) => {
-    if (newMessages && newMessages.length > 0) {
-      // 检测是否有新消息（消息数量增加）
-      const hasNewMessage = newMessages.length > lastMessageCount.value
-      lastMessageCount.value = newMessages.length
+// 消息变化监听器已移除，由策略主动调用ChatView方法处理
 
-      // 检查用户是否在底部（允许50px的误差）
-      checkIfUserAtBottom()
+// 教师会话创建监听器已移除，由策略主动管理会话状态
 
-      // 如果是键盘显示状态，立即滚动；否则根据用户位置决定
-      if (isKeyboardVisible.value || isKeyboardAnimating.value) {
-        // 键盘显示时立即滚动，确保用户体验
-        scrollToBottom()
-        showNewMessageIndicator.value = false
-      } else {
-        // 如果用户不在底部且有新消息，显示提示按钮
-        if (hasNewMessage && !isUserAtBottom.value) {
-          showNewMessageIndicator.value = true
-        } else if (isUserAtBottom.value) {
-          // 用户在底部，自动滚动并隐藏提示按钮
-          scrollToBottom()
-          showNewMessageIndicator.value = false
-        }
-      }
+// 题目切换监听器 - 通过ChatView主动调用策略方法处理
+let previousQuestion = currentQuestion.value
+watchEffect(() => {
+  const newQuestion = currentQuestion.value
+  if (newQuestion?.bmNo !== previousQuestion?.bmNo) {
+    console.log('[ChatView] 题目切换检测到:', { old: previousQuestion, new: newQuestion })
+    // 调用策略的题目切换处理方法
+    if (chatStrategy.value?.onQuestionChanged) {
+      chatStrategy.value.onQuestionChanged(newQuestion, previousQuestion)
     }
-  },
-  { deep: true, immediate: false }
-)
-
-// 教师会话创建监听器
-watch(
-  () => teacherStore.currentSession,
-  (session, oldSession) => {
-    console.log('[ChatView] teacherStore.currentSession 变化:', {
-      oldSessionId: oldSession?.sessionId,
-      newSessionId: session?.sessionId,
-      propsType: props.type,
-    })
-
-    // 只有在teacher类型且session存在时才创建或更新策略
-    if (props.type === 'teacher' && session) {
-      console.log('[ChatView] 重新创建TeacherStrategy')
-      // 创建或更新策略
-      // 策略会直接从 store 读取 session 信息，不需要传递参数
-      chatStrategy.value = ChatStrategyFactory.create(props.type)
-    }
+    previousQuestion = newQuestion
   }
-)
+})
 
-// 题目切换处理函数
-watch(
-  () => currentQuestion.value,
-  (newQuestion, oldQuestion) => {
-    console.log('题目切换处理函数', newQuestion, oldQuestion)
-    if (newQuestion?.bmNo !== oldQuestion?.bmNo) {
-      // 检查是否正在编辑消息
-      if (isEditingMessage.value) {
-        // 检查是否切换回正在编辑的题目
-        if (
-          editingQuestionId.value &&
-          newQuestion &&
-          newQuestion.bmNo === editingQuestionId.value
-        ) {
-          // 直接执行切换，不显示确认对话框
-          executeQuestionSwitch()
-          return
-        }
-
-        // 设置待执行的切换操作
-        pendingSwitchAction.value = () => {
-          // 退出编辑模式
-          cancelEditMessage()
-          // 清空输入内容
-          if (chatInputRef.value && typeof chatInputRef.value.clearInputContent === 'function') {
-            chatInputRef.value.clearInputContent()
-          }
-          // 执行正常的切换逻辑
-          executeQuestionSwitch()
-        }
-        return
-      }
-
-      // 如果没有编辑状态，直接执行切换
-      executeQuestionSwitch()
-    }
-  }
-)
+// 题目切换处理函数已移除，由策略主动调用ChatView方法处理
 
 // 题目切换处理函数
 const executeQuestionSwitch = () => {
@@ -2902,9 +2905,6 @@ const executeQuestionSwitch = () => {
   if (isSelectionMode.value) {
     exitSelectionMode()
   }
-
-  // 重置会话状态（使用策略模式）
-  // 所有策略都不需要 getSessionInfo 方法，此检查已移除
 
   // 使用策略模式重置会话（如果策略支持）
   if (chatStrategy.value?.resetSession) {
@@ -3383,5 +3383,41 @@ defineExpose({
   100% {
     background-color: transparent;
   }
+}
+
+/* ==================== 分页加载指示器样式 ==================== */
+/* 顶部加载指示器 */
+.loading-more-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: #666;
+  font-size: 14px;
+  gap: 8px;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007aff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 没有更多数据提示 */
+.no-more-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: #999;
+  font-size: 12px;
 }
 </style>

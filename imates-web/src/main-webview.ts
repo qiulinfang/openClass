@@ -8,7 +8,6 @@ import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import router from './router'
 import { initPolyfills } from './utils/common/polyfills'
-import { httpClient } from './services/http/http-client'
 import { initQuestionStorage } from './services/storage/question-storage'
 import { AndroidBridge } from './services/business/android-bridge'
 import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
@@ -49,10 +48,7 @@ async function createWebViewApp() {
   // 立即初始化模拟老师对话功能（必须在 store 初始化之前）
   // 这样确保在 store 检查 AndroidBridge 时，模拟功能已经就绪
   initMockTeacherBridge()
-  
-  // 设置API基础URL - 使用相对路径让Vite代理处理（策略1）
-  httpClient.setBaseURL('')
-  
+
   // 提前初始化 IndexedDB（并行加载，不阻塞应用启动）
   initQuestionStorage().then(() => {
   }).catch((error) => {

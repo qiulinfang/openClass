@@ -438,6 +438,7 @@ export class AuthService {
 
   public async cleanupOnAccountSwitch(oldUserId?: string): Promise<void> {
     try {
+      // 账户切换时断开教师WebSocket连接（用户ID改变需要重新连接）
       try {
         const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
         const teacherStore = useTeacherChatStore()
