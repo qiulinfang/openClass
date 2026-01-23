@@ -152,8 +152,7 @@ export interface HomeworkQueryReq {
   name?: string
   subject?: string
   status?: string
-  createTimeStart?: string
-  createTimeEnd?: string
+  date?: string
 }
 
 /** 作业查询响应 */

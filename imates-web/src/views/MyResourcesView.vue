@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <q-layout view="lHh Lpr lFf">
     <q-page-container>
       <q-page class="my-resources-view">
@@ -318,8 +318,9 @@ import { useRouter } from 'vue-router'
  import { apiService } from '../services/http/api-service'
  import { httpClient } from '../services/http/http-client'
  import { showMessage } from '../utils'
+ import { getUserId } from '../services'
  import CommonSelect from '@/components/base/Select.vue'
- import type { UserTextbookInfo, TextbookVersion } from '../types'
+ import type { UserTextbookInfo, TextbookVersion, ChapterNode } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
@@ -1019,6 +1020,26 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           getLocalResourceFileName: textbook.getLocalResourceFileName,
         })
 
+        // 下载成功后，同时获取教材章节结构
+        try {
+          const chapterData = await apiService.getTextbookStructure(textbook.textbookId)
+          if (chapterData && chapterData.length > 0) {
+            // 更新教材的结构数据
+            fullTextbook.structure = chapterData
+            await resourceManager.updateTextbookInfo(fullTextbook, {
+              structure: chapterData
+            })
+
+            // 同时保存到知识图谱专用缓存表，确保知识图谱页面能正确加载
+            await saveChapterStructureToKnowledgeGraphCache(textbook.textbookId, chapterData)
+
+            console.log(`[MyResourcesView] 成功获取《${textbook.textbookName}》章节结构并缓存:`, chapterData.length, '章')
+          }
+        } catch (error) {
+          console.warn(`[MyResourcesView] 获取《${textbook.textbookName}》章节结构失败:`, error)
+          // 不影响下载成功的状态，只记录警告
+        }
+
         // 使用 store 通知其他组件教材已更新完成
         resourceStore.markTextbookUpdated()
       } else {
@@ -1276,6 +1297,54 @@ onMounted(async () => {
     60 * 60 * 1000,
   )
 })
+
+// 知识图谱章节结构缓存相关
+interface KnowledgeGraphChapterStructureRecord {
+  id: string // 主键：`${userId}_${textbookId}`
+  userId: string
+  textbookId: string
+  data: ChapterNode[]
+  timestamp: number
+}
+
+const buildKGRecordId = (userId: string, textbookId: string): string => {
+  return `${userId}_${textbookId}`
+}
+
+const ensureKGStoreInitialized = async () => {
+  const db = resourceManager.indexedDB
+  if (!db.isInitialized) {
+    await db.init()
+  }
+}
+
+// 将章节结构保存到知识图谱缓存表
+const saveChapterStructureToKnowledgeGraphCache = async (
+  textbookId: string,
+  chapterData: ChapterNode[]
+): Promise<boolean> => {
+  try {
+    await ensureKGStoreInitialized()
+    const db = resourceManager.indexedDB
+    const userId = getUserId()
+    if (!userId) {
+      console.warn('[MyResourcesView] 用户ID为空，无法保存章节结构到缓存')
+      return false
+    }
+    const record: KnowledgeGraphChapterStructureRecord = {
+      id: buildKGRecordId(userId, textbookId),
+      userId,
+      textbookId,
+      data: chapterData,
+      timestamp: Date.now()
+    }
+    await db.put<KnowledgeGraphChapterStructureRecord>('knowledge_graph_chapter_structure', record)
+    return true
+  } catch (error) {
+    console.warn('[MyResourcesView] 保存章节结构到知识图谱缓存失败:', error)
+    return false
+  }
+}
 
 // 暂停所有正在下载的任务
 const pauseAllDownloadingTasks = async () => {

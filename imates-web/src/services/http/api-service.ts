@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API 服务层
  * 处理所有网络请求相关的接口调用
  */
@@ -27,6 +27,10 @@ import type {
   HomeworkSubmitSaveReq,
   HomeworkUndoItem,
   HomeworkQuestionDetail,
+  HomeworkQueryReq,
+  PageResponse,
+  HomeworkQueryResp,
+  HomeworkInfoResp,
 } from '@/types'
 
 
@@ -277,27 +281,11 @@ export class ApiService {
   }
 
   // ========== 作业管理相关接口 ==========
-
-  /**
-   * 分页查询作业列表
-   */
-  public async homeworkPage(queryReq: HomeworkQueryReq): Promise<PageResponse<HomeworkQueryResp> | null> {
-    return this.homeworkApi.homeworkPage(queryReq)
-  }
-
-
-  /**
-   * 获取作业详情
-   */
-  public async homeworkInfo(homeworkId: string): Promise<HomeworkInfoResp | null> {
-    return this.homeworkApi.homeworkInfo(homeworkId)
-  }
-
   /**
    * 获取未完成作业列表
    */
-  public async getHomeworkUndoList(): Promise<HomeworkUndoItem[]> {
-    return this.homeworkApi.getHomeworkUndoList()
+  public async getHomeworkUndoList(queryReq?: HomeworkQueryReq): Promise<HomeworkUndoItem[]> {
+    return this.homeworkApi.getHomeworkUndoList(queryReq)
   }
 
   /**

@@ -11,6 +11,7 @@
       type="button"
       class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
       :class="{ 'explore-icon-large': hasAttachedScreenshots }"
+      :style="overlayButtonStyle"
       @click.stop="handleSelectAndAskClick"
     >
       <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
@@ -80,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed, type ComponentPublicInstance } from 'vue'
+import { ref, onMounted, nextTick, computed, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
@@ -162,6 +163,15 @@ const getSessionId = (session: AiTextbookSession): string => {
 // 获取当前 resourceId（仅从路由参数获取）
 const getCurrentResourceId = (): string | undefined => {
   return (route.query.resourceId as string) || undefined
+}
+
+// 设置store的resourceId，确保会话ID基于资源生成
+const setupResourceId = () => {
+  const resourceId = getCurrentResourceId()
+  if (resourceId) {
+    aiTextbookStore.setResourceId(resourceId)
+    console.log('[PdfChatPanel] 设置资源ID:', resourceId)
+  }
 }
 
 // 加载会话列表
@@ -251,9 +261,63 @@ const handleSelectAndAskClick = () => {
   emit('select-and-ask-click')
 }
 
-// 对外暴露：供父组件在新增截图会话后刷新列表
+// 遮罩层按钮位置样式
+const overlayButtonStyle = ref<Record<string, string>>({
+  position: 'fixed', // 使用 fixed 定位相对于视口
+  left: '24px',
+  top: '16px',
+  width: '32px',
+  height: '32px',
+  zIndex: '35'
+})
+
+// 计算并更新遮罩层按钮位置，确保覆盖实际按钮
+const updateOverlayButtonPosition = async () => {
+  await nextTick()
+
+  try {
+    // 获取实际按钮元素
+    const actualButton = document.querySelector('.chat-content-container .tab-content .pdf-toolbar-btn') as HTMLElement
+    if (!actualButton) {
+      console.warn('[PdfChatPanel] 找不到实际按钮元素')
+      return
+    }
+
+    // 获取按钮相对于视口的位置
+    const buttonRect = actualButton.getBoundingClientRect()
+
+    // 更新遮罩层按钮样式 - 使用视口固定定位
+    overlayButtonStyle.value = {
+      position: 'fixed' as const,
+      left: `${buttonRect.left}px`,
+      top: `${buttonRect.top}px`,
+      width: `${buttonRect.width}px`,
+      height: `${buttonRect.height}px`,
+      zIndex: '35'
+    }
+
+    console.log('[PdfChatPanel] 遮罩层按钮位置已更新:', overlayButtonStyle.value)
+  } catch (error) {
+    console.error('[PdfChatPanel] 计算按钮位置失败:', error)
+  }
+}
+
+// 监听相关状态变化，更新遮罩层按钮位置
+watch([isExploring, activeTab], async (newValues) => {
+  const [exploring, tab] = newValues
+  if (exploring && tab === 'ai-chat') {
+    // 延迟执行，确保DOM已更新
+    setTimeout(updateOverlayButtonPosition, 100)
+  }
+}, { immediate: false })
+
 onMounted(async () => {
+  // 设置资源ID，确保基于资源的会话ID生成
+  setupResourceId()
   await loadSessions()
+
+  // 初始计算按钮位置
+  setTimeout(updateOverlayButtonPosition, 200)
 })
 
 defineExpose({
@@ -423,15 +487,19 @@ defineExpose({
   height: auto;
 }
 
+/* 遮罩层按钮样式：位置由JavaScript动态计算和设置 */
 .explore-icon.pdf-toolbar-icon-overlay {
-  position: absolute;
-  right: 63%;
-  bottom: 19%;
-  width: 134px;
-  height: auto;
-  z-index: 35; /* 高于遮罩层的 z-index: 30 */
-  pointer-events: auto; /* 确保按钮可以接收点击事件 */
-  cursor: pointer; /* 覆盖遮罩层的 not-allowed 光标 */
+  position: fixed;
+  z-index: 35;
+  pointer-events: auto;
+  cursor: pointer;
+  /* 基础样式，具体位置由:style动态设置 */
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
 }
 
 /* 当有附加截图时，按钮更大 */

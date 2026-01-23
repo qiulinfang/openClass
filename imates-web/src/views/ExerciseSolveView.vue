@@ -1,6 +1,5 @@
 <template>
   <div class="exercise-solve-container">
-    <button @click="console.log(currentFunction)"></button>
     <!-- 顶部工具栏 -->
     <Toolbar :nav-items="navItems" v-model="currentFunction">
       <template #left>

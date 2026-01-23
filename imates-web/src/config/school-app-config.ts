@@ -13,6 +13,7 @@ export type NavKey =
   | 'exercises'
   | 'homework'
   | 'resources'
+  | 'photoQa'
   | 'logout'
 
 // 导航菜单配置
@@ -84,6 +85,13 @@ const SCHOOL_CONFIGS: Record<string, SchoolAppConfig> = {
           iconType: 'homework',
           position: 'main',
           routeName: 'myHomework',
+        },
+        {
+          key: 'photoQa',
+          label: '拍照答疑',
+          iconType: 'photoQa',
+          position: 'main',
+          routeName: 'photoSearch',
         },
       ],
       bottom: [

@@ -42,11 +42,11 @@
             <q-icon name="search" color="white" />
           </template>
           <template v-slot:append v-if="searchQuery">
-            <q-icon 
-              name="close" 
-              color="white" 
-              class="cursor-pointer touch-target" 
-              @click="clearSearch" 
+            <q-icon
+              name="close"
+              color="white"
+              class="cursor-pointer touch-target"
+              @click="clearSearch"
             />
           </template>
         </q-input>
@@ -56,14 +56,17 @@
       <RubberBandList class="chapter-list">
         <!-- 显示搜索结果 -->
         <template v-if="searchQuery && searchResults.length > 0">
-          <div 
-            v-for="result in searchResults" 
+          <div
+            v-for="result in searchResults"
             :key="`${result.chapterIndex}-${result.node.id}`"
             class="chapter-item touch-target search-result-item"
             @click="handleSearchResultClick(result)"
           >
             <div class="search-result-content">
-              <div class="search-result-node" v-html="highlightText(result.node.name || result.node.label)"></div>
+              <div
+                class="search-result-node"
+                v-html="highlightText(result.node.name || result.node.label)"
+              ></div>
               <div class="search-result-chapter">{{ result.chapterName }}</div>
             </div>
           </div>
@@ -77,13 +80,11 @@
         <template v-else-if="!searchQuery">
           <div v-if="filteredChapters.length === 0" class="empty-chapters">
             <q-icon name="menu_book" size="32px" color="grey-4" />
-            <div class="empty-text">
-              未下载任何教材
-            </div>
+            <div class="empty-text">未下载任何教材</div>
           </div>
-          <div 
+          <div
             v-else
-            v-for="item in filteredChapters" 
+            v-for="item in filteredChapters"
             :key="item.index"
             class="chapter-item touch-target"
             :class="{ active: item.index === getCurrentChapter() }"
@@ -99,35 +100,15 @@
     <div class="main-content">
       <!-- 右上角工具栏 -->
       <div class="top-right-toolbar">
-        <q-btn
-          flat
-          round
-          dense
-          class="toolbar-icon-btn"
-          @click="toggleNodeSearch"
-        >
+        <q-btn flat round dense class="toolbar-icon-btn" @click="toggleNodeSearch">
           <img :src="chapterSearchIcon" alt="搜索节点" class="toolbar-icon" />
           <q-tooltip>搜索节点</q-tooltip>
-        </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          class="toolbar-icon-btn"
-          @click="handlePhotoSearch"
-        >
-          <img :src="photoSearchIcon" alt="拍照搜题" class="toolbar-icon" />
-          <q-tooltip>拍照搜题</q-tooltip>
         </q-btn>
       </div>
 
       <!-- 银河知识图谱容器（使用 newGrap 替换原环形多图） -->
       <div class="circular-graphs-container" v-if="newGrapData">
-        <NewGrap 
-          ref="newGrapRef"
-          :data="newGrapData"
-          @action="handleNewGrapAction"
-        />
+        <NewGrap ref="newGrapRef" :data="newGrapData" @action="handleNewGrapAction" />
       </div>
 
       <!-- 底部状态标识 - 只在选择了章节时显示 -->
@@ -148,7 +129,7 @@
     </div>
 
     <!-- 学习对话框 -->
-    <LearningView 
+    <LearningView
       v-if="learningDialogData"
       v-model="learningDialogVisible"
       :key="`${learningDialogData.nodeId}-${learningDialogData.textbookId}`"
@@ -170,14 +151,13 @@
       :chapter-structure="chapterStructure"
       @refresh="handleLearningStatusRefresh"
     />
-
   </div>
 </template>
 
 <script setup lang="ts">
 // Component name
 defineOptions({
-  name: 'knowledgeGraph'
+  name: 'knowledgeGraph',
 })
 import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -192,10 +172,11 @@ import LearningStatusControlPanel from '../components/debug/LearningStatusContro
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { getUserId, getScopedStorageValue, isYanbanLoggedIn } from '../services'
 import { showMessage } from '../utils'
-import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../utils/business/shijingshan-knowledge-utils'
 import {
-  convertToChineseNumber
-} from '../utils/business/chapter-utils'
+  queryShijingshanKnowledgeId,
+  queryShijingshanBmNoList,
+} from '../utils/business/shijingshan-knowledge-utils'
+import { convertToChineseNumber } from '../utils/business/chapter-utils'
 // 流程：导入图标资源
 import bookIcon from '/images/book.png'
 import notLearnedStarIcon from '/icons/notLearnedStar.svg'
@@ -203,7 +184,6 @@ import learnedStarIcon from '/icons/learnedStar.svg'
 import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
 import backgroundImage from '/icons/background.svg'
 import chapterSearchIcon from '/icons/chapter_search.svg'
-import photoSearchIcon from '/icons/photo_search.svg'
 
 // ========== 学习状态：沿用旧 KnowledgeGraph 逻辑（lastLearned / learned / notLearned） ==========
 
@@ -285,7 +265,7 @@ const {
   getCurrentChapter,
   savePageState,
   restorePageState,
-  getCurrentSubject
+  getCurrentSubject,
 } = useKnowledgeGraphStore()
 
 // 获取路由实例
@@ -294,6 +274,11 @@ const router = useRouter()
 
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
+
+// 处理搜索输入
+const handleSearchInput = (value: string | number | null) => {
+  searchQuery.value = String(value || '')
+}
 const showNodeSearch = ref(false) // 控制搜索框显示/隐藏
 
 // 章节数据
@@ -335,7 +320,7 @@ const mapToNewGrapChapter = (root: ChapterNode | null): NewGrapChapter | null =>
     name: root.name || root.label || '',
     label: root.label,
     level: root.level ?? 0,
-    children: []
+    children: [],
   }
 
   const sections: NewGrapSection[] = (root.children || []).map((sec, secIndex) => {
@@ -344,10 +329,10 @@ const mapToNewGrapChapter = (root: ChapterNode | null): NewGrapChapter | null =>
       name: sec.name || sec.label || `小节 ${secIndex + 1}`,
       label: sec.label,
       level: sec.level ?? 1,
-      children: []
+      children: [],
     }
 
-    const hasChildren = (sec.children && sec.children.length > 0)
+    const hasChildren = sec.children && sec.children.length > 0
 
     if (hasChildren) {
       // 有知识点：按知识点学习状态聚合
@@ -361,16 +346,16 @@ const mapToNewGrapChapter = (root: ChapterNode | null): NewGrapChapter | null =>
 
       section.children = kpList
 
-      if (kpList.some(kp => kp.learningStatus === 'lastLearned')) {
+      if (kpList.some((kp) => kp.learningStatus === 'lastLearned')) {
         section.learningStatus = 'lastLearned'
-      } else if (kpList.some(kp => kp.learningStatus === 'learned')) {
+      } else if (kpList.some((kp) => kp.learningStatus === 'learned')) {
         section.learningStatus = 'learned'
       } else {
         section.learningStatus = 'notLearned'
       }
     } else {
       // 没有任何知识点：直接用章节本身的 id 和 lastLearnedNodeId 比较
-      const status = getLearningStatus(sec)  // 注意这里传的是 sec（章节节点）
+      const status = getLearningStatus(sec) // 注意这里传的是 sec（章节节点）
       section.learningStatus = status
     }
 
@@ -387,7 +372,10 @@ const newGrapData = computed(() => {
 })
 
 // 递归收集所有节点（包括所有层级的子节点）
-const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
+const collectAllNodes = (
+  chapter: ChapterNode,
+  chapterIndex: number
+): Array<{
   node: ChapterNode
   chapterIndex: number
   chapterName: string
@@ -397,30 +385,30 @@ const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
     chapterIndex: number
     chapterName: string
   }> = []
-  
+
   // 第1步：添加当前节点
   const chapterName = chapters.value[chapterIndex] || chapter.name
   results.push({
     node: chapter,
     chapterIndex,
-    chapterName
+    chapterName,
   })
-  
+
   // 第2步：递归处理子节点
   const collectChildren = (node: ChapterNode) => {
     if (node.children && node.children.length > 0) {
-      node.children.forEach(child => {
+      node.children.forEach((child) => {
         results.push({
           node: child,
           chapterIndex,
-          chapterName
+          chapterName,
         })
         // 递归处理子节点的子节点
         collectChildren(child)
       })
     }
   }
-  
+
   collectChildren(chapter)
   return results
 }
@@ -430,22 +418,22 @@ const searchResults = computed(() => {
   if (!searchQuery.value.trim() || chapterStructure.value.length === 0) {
     return []
   }
-  
+
   // 第1步：收集所有章节的所有节点
   const allNodes: Array<{
     node: ChapterNode
     chapterIndex: number
     chapterName: string
   }> = []
-  
+
   chapterStructure.value.forEach((chapter, index) => {
     const nodes = collectAllNodes(chapter, index)
     allNodes.push(...nodes)
   })
-  
+
   // 第2步：模糊搜索节点（搜索name和label）
   const query = searchQuery.value.trim().toLowerCase()
-  return allNodes.filter(item => {
+  return allNodes.filter((item) => {
     const node = item.node
     const name = (node.name || '').toLowerCase()
     const label = (node.label || '').toLowerCase()
@@ -458,13 +446,13 @@ const filteredChapters = computed(() => {
   if (!searchQuery.value.trim()) {
     // 直接使用后台返回的顺序，不进行排序
     return chapters.value.map((chapter, index) => {
-      return { 
-        chapter, 
-        index
+      return {
+        chapter,
+        index,
       }
     })
   }
-  
+
   return []
 })
 
@@ -501,7 +489,9 @@ const handleNewGrapAction = (payload: { type: 'learn' | 'practice'; data: any })
 }
 
 // 检查本地学习方案数据（从 KnowledgeGraph.vue 复制过来，略作适配）
-const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{hasPackages: boolean, reason: 'no_packages' | 'not_downloaded' | 'error'}> => {
+const checkLocalLearningPackages = async (
+  textbookRecordId: string
+): Promise<{ hasPackages: boolean; reason: 'no_packages' | 'not_downloaded' | 'error' }> => {
   try {
     if (!textbookRecordId) {
       console.warn('教材记录ID为空，无法检查学习方案')
@@ -511,7 +501,7 @@ const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{ha
     const rm = ResourceManager.getInstance()
     const textbooks = await rm.getUserLocalTextbooks()
     console.log('textbooks', textbooks)
-    const textbook = textbooks.find(t => t.id === textbookRecordId)
+    const textbook = textbooks.find((t) => t.id === textbookRecordId)
 
     if (!textbook) {
       return { hasPackages: false, reason: 'not_downloaded' }
@@ -536,7 +526,9 @@ const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{ha
       return { hasPackages: false, reason: 'not_downloaded' }
     }
 
-    const hasLearningPackages = Boolean(textbook.learningPackages && textbook.learningPackages.length > 0)
+    const hasLearningPackages = Boolean(
+      textbook.learningPackages && textbook.learningPackages.length > 0
+    )
     if (!hasLearningPackages) {
       return { hasPackages: false, reason: 'no_packages' }
     }
@@ -562,7 +554,11 @@ const showErrorAlert = (sectionName: string) => {
 }
 
 // 处理 newGrap 的“去学习”逻辑（复用 KnowledgeGraph 的业务）
-const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; level?: number | null }) => {
+const handleLearnFromKnowledgeGraph = async (node: {
+  id: string
+  name: string
+  level?: number | null
+}) => {
   const textbookRecordId = getCurrentTextbookId() || ''
   try {
     if (!textbookRecordId) {
@@ -593,7 +589,9 @@ const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; l
     if (selectedTextbook.value) {
       console.log('textbookIdForDialog', textbookRecordId)
 
-      const currentOption = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
+      const currentOption = textbookOptions.value.find(
+        (opt) => opt.value === selectedTextbook.value
+      )
       const chapterGrade = currentOption?.grade || ''
       const chapterSubject = currentOption?.subject || ''
       const chapterTextbook = currentOption ? currentOption.label.split(' ').slice(3).join(' ') : ''
@@ -614,7 +612,9 @@ const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; l
     console.error('检查学习方案失败:', error)
     // 检查失败时仍然允许打开空数据学习对话框
     if (selectedTextbook.value) {
-      const currentOption = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
+      const currentOption = textbookOptions.value.find(
+        (opt) => opt.value === selectedTextbook.value
+      )
       const chapterGrade = currentOption?.grade || ''
       const chapterSubject = currentOption?.subject || ''
       const chapterTextbook = currentOption ? currentOption.label.split(' ').slice(3).join(' ') : ''
@@ -634,12 +634,16 @@ const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; l
   }
 }
 
-const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string; level?: number | null }) => {
+const handlePracticeFromKnowledgeGraph = async (node: {
+  id: string
+  name: string
+  level?: number | null
+}) => {
   const subjectLabel = currentSubjectLabel.value
 
   // 1. 拿到当前教材 option
-  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
-  const textbookId = option?.textbookId  // 这里是真正的 textbookId（版本ID）
+  const option = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
+  const textbookId = option?.textbookId // 这里是真正的 textbookId（版本ID）
 
   if (!textbookId || !subjectLabel) {
     showMessage('缺少教材信息，无法查询习题', 'warning')
@@ -647,9 +651,10 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
   }
 
   try {
-    const subjectForApi = subjectLabel === '数学'
-      ? 'math'
-      : subjectLabel === '生物'
+    const subjectForApi =
+      subjectLabel === '数学'
+        ? 'math'
+        : subjectLabel === '生物'
         ? 'biology'
         : subjectLabel.toLowerCase()
 
@@ -671,8 +676,8 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
         query: {
           bmNoList: shijingshanBmNoList.trim(),
           subject: subjectParam,
-          token: getScopedStorageValue('token') || ''
-        }
+          token: getScopedStorageValue('token') || '',
+        },
       })
       return
     }
@@ -692,10 +697,12 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
       // 3. 通用接口同旧版：textbook_id 传版本ID
       const request = {
         subject: subjectForApi,
-        param: [{
-          textbook_id: textbookId,
-          section_id: node.id
-        }]
+        param: [
+          {
+            textbook_id: textbookId,
+            section_id: node.id,
+          },
+        ],
       }
 
       knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
@@ -711,11 +718,15 @@ const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string
       query: {
         knowledgeList,
         subject: subjectParam,
-        token: getScopedStorageValue('token') || ''
-      }
+        token: getScopedStorageValue('token') || '',
+      },
     })
   } catch (error) {
-    if (error instanceof Error && 'code' in error && (error as Error & { code?: string }).code === 'NO_QUESTIONS') {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as Error & { code?: string }).code === 'NO_QUESTIONS'
+    ) {
       showMessage(error.message, 'warning')
       return
     }
@@ -750,12 +761,15 @@ const handleNodeUpdate = (
   node: ChapterNode,
   oldNode?: ChapterNode
 ) => {
-  console.warn('handleNodeUpdate is deprecated in new KnowledgeGraphView and kept only for debug panel compatibility.', {
-    action,
-    nodeType,
-    node,
-    oldNode
-  })
+  console.warn(
+    'handleNodeUpdate is deprecated in new KnowledgeGraphView and kept only for debug panel compatibility.',
+    {
+      action,
+      nodeType,
+      node,
+      oldNode,
+    }
+  )
 }
 
 // 防抖定时器
@@ -772,7 +786,7 @@ const subjectOptions = ref([
   { value: 'biology', label: '生物' },
   { value: 'geography', label: '地理' },
   { value: 'history', label: '历史' },
-  { value: 'politics', label: '政治' }
+  { value: 'politics', label: '政治' },
 ])
 
 // 教材选择器
@@ -781,31 +795,31 @@ const textbookOptions = ref<TextbookOption[]>([])
 
 // 计算属性：当前选中的教材标签
 const selectedTextbookLabel = computed(() => {
-  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  const option = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
   if (!option) {
     // 尚未下载教材
     return ''
   }
-  
+
   // 格式：出版社/年级/学期/教材名称（去除学科字段，用/拼接）
   // 原始格式：年级 学期 学科 教材名称（例如：高一 必修 生物 一/分子与细胞）
   // 目标格式：出版社/高一/必修/一/分子与细胞
   const parts: string[] = [option.publisher || '']
-  
+
   // 将原始 label 按空格分割
   const labelParts = option.label.split(' ')
-  
+
   // 找到学科的位置并移除
-  const subjectIndex = labelParts.findIndex(part => part === option.subject)
+  const subjectIndex = labelParts.findIndex((part) => part === option.subject)
   if (subjectIndex !== -1) {
     // 移除学科，保留年级、学期和教材名称
     const filteredParts = [
       ...labelParts.slice(0, subjectIndex), // 年级、学期
-      ...labelParts.slice(subjectIndex + 1) // 教材名称部分
+      ...labelParts.slice(subjectIndex + 1), // 教材名称部分
     ]
-    
+
     // 处理每个部分：如果包含"/"，则拆分；否则直接添加
-    filteredParts.forEach(part => {
+    filteredParts.forEach((part) => {
       if (part.includes('/')) {
         // 如果部分包含"/"，拆分成多个子部分
         parts.push(...part.split('/'))
@@ -817,7 +831,7 @@ const selectedTextbookLabel = computed(() => {
     // 如果找不到学科，尝试从 label 中提取（去除前两个部分：年级和学期）
     if (labelParts.length > 2) {
       const filteredParts = labelParts.slice(2) // 跳过年级和学期
-      filteredParts.forEach(part => {
+      filteredParts.forEach((part) => {
         if (part.includes('/')) {
           parts.push(...part.split('/'))
         } else {
@@ -826,19 +840,19 @@ const selectedTextbookLabel = computed(() => {
       })
     }
   }
-  
+
   return parts.join('/')
 })
 
 // 计算属性：当前科目标签
 const currentSubjectLabel = computed(() => {
-  const option = subjectOptions.value.find(opt => opt.value === selectedSubject.value)
+  const option = subjectOptions.value.find((opt) => opt.value === selectedSubject.value)
   return option ? option.label : '数学'
 })
 
 // 获取当前教材的真实ID（教材版本ID）
 const getCurrentTextbookId = () => {
-  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  const option = textbookOptions.value.find((opt) => opt.value === selectedTextbook.value)
   if (option) {
     // 从value中提取教材版本ID（最后一个-后面的部分）
     const parts = option.value.split('-')
@@ -857,9 +871,9 @@ const saveCurrentPageState = () => {
       selectedChapterDetails: selectedChapterDetails.value,
       chapters: chapters.value,
       chapterStructure: chapterStructure.value,
-      textbookOptions: textbookOptions.value // 保存当前教材选项
+      textbookOptions: textbookOptions.value, // 保存当前教材选项
     }
-    
+
     savePageState(state)
   } catch (error) {
     // 状态保存失败，静默处理
@@ -869,25 +883,26 @@ const saveCurrentPageState = () => {
 
 // 第30步：恢复页面状态
 const restorePageStateFromStore = async (): Promise<boolean> => {
-  
   try {
     const savedState = restorePageState()
     if (!savedState) {
       return false
     }
-    
+
     // 恢复基本状态
     selectedSubject.value = savedState.selectedSubject
     chapters.value = savedState.chapters
     chapterStructure.value = savedState.chapterStructure
-    
+
     // 恢复教材选项：如果保存的状态中有教材选项，直接使用；否则从IndexedDB加载
     if (savedState.textbookOptions && savedState.textbookOptions.length > 0) {
       // 直接使用保存的教材选项
       textbookOptions.value = savedState.textbookOptions
-      
+
       // 验证并设置选中的教材
-      const foundOption = savedState.textbookOptions.find(opt => opt.value === savedState.selectedTextbook)
+      const foundOption = savedState.textbookOptions.find(
+        (opt) => opt.value === savedState.selectedTextbook
+      )
       if (foundOption) {
         selectedTextbook.value = savedState.selectedTextbook
       } else {
@@ -904,24 +919,24 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
       if (localOptions.length > 0) {
         // 根据恢复的学科筛选教材选项
         const subjectMap: { [key: string]: string } = {
-          'math': '数学',
-          'chinese': '语文', 
-          'english': '英语',
-          'physics': '物理',
-          'chemistry': '化学',
-          'biology': '生物',
-          'geography': '地理',
-          'history': '历史',
-          'politics': '政治'
+          math: '数学',
+          chinese: '语文',
+          english: '英语',
+          physics: '物理',
+          chemistry: '化学',
+          biology: '生物',
+          geography: '地理',
+          history: '历史',
+          politics: '政治',
         }
-        
+
         const subjectLabel = subjectMap[savedState.selectedSubject] || '数学'
-        const filteredOptions = localOptions.filter(option => option.subject === subjectLabel)
-        
+        const filteredOptions = localOptions.filter((option) => option.subject === subjectLabel)
+
         textbookOptions.value = filteredOptions
-        
+
         // 验证恢复的教材是否在筛选后的选项中，然后设置选中的教材
-        const foundOption = filteredOptions.find(opt => opt.value === savedState.selectedTextbook)
+        const foundOption = filteredOptions.find((opt) => opt.value === savedState.selectedTextbook)
         if (!foundOption) {
           console.warn('⚠️ [KnowledgeGraphView] 保存的教材不在当前学科选项中，使用第一个教材')
           if (filteredOptions.length > 0) {
@@ -937,21 +952,27 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
         selectedTextbook.value = ''
       }
     }
-    
+
     // 恢复章节状态
-    if (savedState.selectedChapterIndex >= 0 && savedState.selectedChapterIndex < chapterStructure.value.length) {
+    if (
+      savedState.selectedChapterIndex >= 0 &&
+      savedState.selectedChapterIndex < chapterStructure.value.length
+    ) {
       setCurrentChapter(savedState.selectedChapterIndex)
       selectedChapterDetails.value = savedState.selectedChapterDetails
-      
+
       // 恢复展开的知识图谱状态
       if (savedState.selectedChapterDetails) {
         const subChapters = getSubChapters(savedState.selectedChapterDetails)
-        
+
         if (subChapters.length > 0) {
           // 尝试恢复之前展开的图谱，如果不存在则自动展开位于targetAngle的图谱
           const previousExpandedGraph = getCurrentChapterExpandedGraph()
-          
-          if (previousExpandedGraph && subChapters.some(sub => sub.id === previousExpandedGraph)) {
+
+          if (
+            previousExpandedGraph &&
+            subChapters.some((sub) => sub.id === previousExpandedGraph)
+          ) {
             setCurrentChapterExpandedGraph(previousExpandedGraph)
           } else {
             // 如果没有之前保存的展开状态，自动展开位于targetAngle的图谱
@@ -960,7 +981,7 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
         }
       }
     }
-    
+
     return true
   } catch (error) {
     console.error('❌ [KnowledgeGraphView] 状态恢复失败:', error)
@@ -971,7 +992,7 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
 // 缓存键名常量 - 仅用于统计 localStorage 中旧的知识图谱缓存键
 const CACHE_KEYS = {
   CHAPTER_STRUCTURE: 'knowledge_graph_chapter_structure_',
-  CACHE_TIMESTAMP: 'knowledge_graph_cache_timestamp'
+  CACHE_TIMESTAMP: 'knowledge_graph_cache_timestamp',
 }
 
 // 缓存过期时间（24小时）
@@ -1043,7 +1064,7 @@ const saveChapterStructureToDB = async (
       userId,
       textbookId,
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }
     await db.put<KnowledgeGraphChapterStructureRecord>('knowledge_graph_chapter_structure', record)
     return true
@@ -1057,11 +1078,9 @@ const saveChapterStructureToDB = async (
 const cleanupExpiredCache = () => {
   try {
     const keys = Object.keys(localStorage)
-    const knowledgeGraphKeys = keys.filter(key => 
-      key.startsWith('knowledge_graph_')
-    )
-    
-    knowledgeGraphKeys.forEach(key => {
+    const knowledgeGraphKeys = keys.filter((key) => key.startsWith('knowledge_graph_'))
+
+    knowledgeGraphKeys.forEach((key) => {
       const cached = localStorage.getItem(key)
       if (cached) {
         try {
@@ -1080,19 +1099,20 @@ const cleanupExpiredCache = () => {
   }
 }
 
-
-// 获取缓存状态信息 
+// 获取缓存状态信息
 const getCacheStatus = () => {
   try {
     const keys = Object.keys(localStorage)
-    const knowledgeGraphKeys = keys.filter(key => key.startsWith('knowledge_graph_'))
-    
-    const status = {  
+    const knowledgeGraphKeys = keys.filter((key) => key.startsWith('knowledge_graph_'))
+
+    const status = {
       totalKeys: knowledgeGraphKeys.length, // 总缓存键数量
-      chapterStructures: knowledgeGraphKeys.filter(key => key.startsWith(CACHE_KEYS.CHAPTER_STRUCTURE)).length // 章节结构缓存数量
+      chapterStructures: knowledgeGraphKeys.filter((key) =>
+        key.startsWith(CACHE_KEYS.CHAPTER_STRUCTURE)
+      ).length, // 章节结构缓存数量
     }
-    
-    return status 
+
+    return status
   } catch {
     return { totalKeys: 0, chapterStructures: 0 }
   }
@@ -1103,10 +1123,12 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
   try {
     // 从IndexedDB获取所有教材
     const textbooks = await resourceManager.getUserLocalTextbooks()
-    
+
     if (textbooks && textbooks.length > 0) {
       // 仅保留本地“已下载完成”的教材，避免在知识图谱中展示未下载教材
-      const downloadedTextbooks = textbooks.filter(textbook => textbook.isDownloaded && textbook.downloadStatus === 2)
+      const downloadedTextbooks = textbooks.filter(
+        (textbook) => textbook.isDownloaded && textbook.downloadStatus === 2
+      )
 
       // 如果没有已下载的教材，则不展示任何教材选项
       if (downloadedTextbooks.length === 0) {
@@ -1114,7 +1136,7 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
       }
 
       // 将已下载的 UserTextbookInfo 转换为 TextbookOption 格式
-      const options: TextbookOption[] = downloadedTextbooks.map(textbook => ({
+      const options: TextbookOption[] = downloadedTextbooks.map((textbook) => ({
         value: `${textbook.textbookSubjectLabel}-${textbook.textbookGradeLabel}-${textbook.textbookSemesterLabel}-${textbook.id}`,
         label: `${textbook.textbookGradeLabel} ${textbook.textbookSemesterLabel} ${textbook.textbookSubjectLabel} ${textbook.textbookName}`,
         textbookId: textbook.textbookId,
@@ -1122,12 +1144,12 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
         grade: textbook.textbookGradeLabel,
         semester: textbook.textbookSemesterLabel,
         publisher: textbook.textbookPublisher,
-        cover: textbook.textbookCover
+        cover: textbook.textbookCover,
       }))
-      
+
       return options
     }
-    
+
     return []
   } catch {
     return []
@@ -1152,20 +1174,20 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
 
     // 根据学科筛选教材选项
     const subjectMap: { [key: string]: string } = {
-      'math': '数学',
-      'chinese': '语文', 
-      'english': '英语',
-      'physics': '物理',
-      'chemistry': '化学',
-      'biology': '生物',
-      'geography': '地理',
-      'history': '历史',
-      'politics': '政治'
+      math: '数学',
+      chinese: '语文',
+      english: '英语',
+      physics: '物理',
+      chemistry: '化学',
+      biology: '生物',
+      geography: '地理',
+      history: '历史',
+      politics: '政治',
     }
 
     const subjectLabel = subjectMap[subjectValue] || '数学'
 
-    textbookOptions.value = localOptions.filter(option => option.subject === subjectLabel)
+    textbookOptions.value = localOptions.filter((option) => option.subject === subjectLabel)
 
     // 如果当前学科下没有任何已下载教材，则清空章节
     if (textbookOptions.value.length === 0) {
@@ -1208,14 +1230,16 @@ const loadChapterStructure = async (textbookId: string) => {
   try {
     // 先尝试从 IndexedDB 缓存加载章节结构
     const cachedChapterData = await loadChapterStructureFromDB(textbookId)
-    
+
     if (cachedChapterData && cachedChapterData.length > 0) {
       // 直接使用后台返回的顺序，不进行排序
       chapterStructure.value = cachedChapterData
-      
+
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
-      chapters.value = cachedChapterData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
-      
+      chapters.value = cachedChapterData.map((chapter: { name: string }) =>
+        convertToChineseNumber(chapter.name)
+      )
+
       // 初始化所有章节的状态
       initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
       return
@@ -1223,17 +1247,17 @@ const loadChapterStructure = async (textbookId: string) => {
 
     // 缓存中没有数据，从API获取
     const chapterData = await apiService.getTextbookStructure(textbookId)
-    
+
     if (chapterData && chapterData.length > 0) {
       // 直接使用后台返回的顺序，不进行排序
       chapterStructure.value = chapterData
-      
+
       // 缓存章节结构数据到 IndexedDB
       await saveChapterStructureToDB(textbookId, chapterData)
-      
+
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
-      chapters.value = chapterData.map(chapter => convertToChineseNumber(chapter.name))
-      
+      chapters.value = chapterData.map((chapter) => convertToChineseNumber(chapter.name))
+
       // 初始化所有章节的状态
       initializeChapterStates(textbookId, chapterData, getSubChapters)
     } else {
@@ -1257,128 +1281,161 @@ const ensureAuthentication = async (): Promise<boolean> => {
   // 会话无效，直接跳转到登录页
   console.warn('❌ [KnowledgeGraphView] 会话无效，跳转到登录页')
   await router.push({ name: 'login' })
-        return false
-      }
-      
+  return false
+}
 
+// 处理路由参数初始化（最高优先级）
+const handleRouteParamsInitialization = async (): Promise<boolean> => {
+  const initSubject = route.query.initSubject as string | undefined
+  const initTextbookId = route.query.initTextbookId as string | undefined
+  const hasRouteInitParams = !!(initSubject || initTextbookId)
+
+  if (!hasRouteInitParams) {
+    return false
+  }
+
+  console.log(`[KnowledgeGraph] 使用路由参数进行初始化: initSubject=${initSubject}, initTextbookId=${initTextbookId}`)
+
+  // 学科：路由 initSubject 或默认数学
+  let initialSubject = initSubject || 'math'
+  if (!subjectOptions.value.some((opt) => opt.value === initialSubject)) {
+    initialSubject = 'math'
+  }
+  selectedSubject.value = initialSubject
+
+  // 根据学科加载教材数据
+  await loadTextbookDataBySubject(selectedSubject.value)
+
+  // 如果有教材数据，优先根据路由 initTextbookId 选择教材
+  if (textbookOptions.value.length > 0) {
+    let targetTextbook: TextbookOption | undefined
+
+    if (initTextbookId) {
+      targetTextbook = textbookOptions.value.find(
+        (opt) => opt.textbookId === initTextbookId || opt.value.includes(initTextbookId)
+      )
+    }
+
+    if (!targetTextbook) {
+      targetTextbook = textbookOptions.value[0]
+    }
+
+    selectedTextbook.value = targetTextbook.value
+
+    if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
+      await loadChapterStructure(targetTextbook.textbookId)
+
+      if (chapterStructure.value.length > 0) {
+        setCurrentChapter(0)
+        selectedChapterDetails.value = chapterStructure.value[0]
+        await nextTick()
+      }
+    }
+  }
+
+  await nextTick()
+  return true
+}
+
+// 处理状态恢复逻辑
+const handleStateRestoration = async (): Promise<boolean> => {
+  const stateRestored = await restorePageStateFromStore()
+
+  if (!stateRestored) {
+    return false
+  }
+
+  // 🔧 修复：如果章节结构为空但有选中的教材，尝试加载章节结构
+  if (chapterStructure.value.length === 0 && selectedTextbook.value) {
+    const selectedOption = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+    if (selectedOption?.textbookId && selectedOption.textbookId !== 'default') {
+      console.log(`[KnowledgeGraph] 状态恢复后发现章节为空，尝试加载: ${selectedOption.textbookId}`)
+      await loadChapterStructure(selectedOption.textbookId)
+
+      if (chapterStructure.value.length > 0) {
+        console.log(`[KnowledgeGraph] 章节加载成功，设置默认章节`)
+        setCurrentChapter(0)
+        selectedChapterDetails.value = chapterStructure.value[0]
+      } else {
+        console.warn(`[KnowledgeGraph] 章节加载失败`)
+      }
+    }
+  }
+
+  await nextTick()
+  return true
+}
+
+// 处理默认初始化逻辑
+const handleDefaultInitialization = async (): Promise<void> => {
+  const storeSubject = getCurrentSubject()
+  const storeTextbookId = getCurrentTextbook()
+
+  // 学科优先顺序：Store -> 默认数学
+  let initialSubject = storeSubject || 'math'
+  if (!subjectOptions.value.some((opt) => opt.value === initialSubject)) {
+    initialSubject = 'math'
+  }
+  selectedSubject.value = initialSubject
+
+  // 根据科目加载教材数据
+  await loadTextbookDataBySubject(selectedSubject.value)
+
+  // 如果有教材数据，选择目标教材：优先 Store，否则使用第一个教材
+  if (textbookOptions.value.length > 0) {
+    let targetTextbook: TextbookOption | undefined
+
+    if (storeTextbookId) {
+      targetTextbook = textbookOptions.value.find(
+        (opt) => opt.textbookId === storeTextbookId || opt.value.includes(storeTextbookId)
+      )
+    }
+
+    // 如果没有找到，使用第一个教材
+    if (!targetTextbook) {
+      targetTextbook = textbookOptions.value[0]
+    }
+
+    selectedTextbook.value = targetTextbook.value
+
+    // 加载选中教材的章节结构
+    if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
+      await loadChapterStructure(targetTextbook.textbookId)
+
+      // 自动选择第一个章节
+      if (chapterStructure.value.length > 0) {
+        setCurrentChapter(0)
+        selectedChapterDetails.value = chapterStructure.value[0]
+        await nextTick()
+      }
+    }
+  }
+
+  await nextTick()
+}
 
 // 第32步：初始化图谱
 const initGraph = async () => {
   loading.value = true
-  
+
   try {
     // 使用智能认证，只在必要时重新登录
     const authSuccess = await ensureAuthentication()
-    
+
     if (!authSuccess) {
       console.error('❌ [KnowledgeGraphView] 认证失败，终止初始化')
       return
     }
-    
-    // 第33步：如果路由中携带了用于初始化的参数（initSubject/initTextbookId），则优先使用并跳过状态恢复逻辑
-    const initSubject = route.query.initSubject as string | undefined
-    const initTextbookId = route.query.initTextbookId as string | undefined
-    const hasRouteInitParams = !!(initSubject || initTextbookId)
 
-    if (hasRouteInitParams) {
-      // 学科：路由 initSubject 或默认数学
-      let initialSubject = initSubject || 'math'
-      if (!subjectOptions.value.some(opt => opt.value === initialSubject)) {
-        initialSubject = 'math'
-      }
-      selectedSubject.value = initialSubject
+    // 优先级顺序：路由参数 -> 状态恢复 -> 默认初始化
+    const routeHandled = await handleRouteParamsInitialization()
+    if (routeHandled) return
 
-      // 根据学科加载教材数据
-      await loadTextbookDataBySubject(selectedSubject.value)
+    const stateRestored = await handleStateRestoration()
+    if (stateRestored) return
 
-      // 如果有教材数据，优先根据路由 initTextbookId 选择教材
-      if (textbookOptions.value.length > 0) {
-        let targetTextbook: TextbookOption | undefined
+    await handleDefaultInitialization()
 
-        if (initTextbookId) {
-          targetTextbook = textbookOptions.value.find(
-            opt => opt.textbookId === initTextbookId || opt.value.includes(initTextbookId)
-          )
-        }
-
-        if (!targetTextbook) {
-          targetTextbook = textbookOptions.value[0]
-        }
-
-        selectedTextbook.value = targetTextbook.value
-
-        if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
-          await loadChapterStructure(targetTextbook.textbookId)
-
-          if (chapterStructure.value.length > 0) {
-            setCurrentChapter(0)
-            selectedChapterDetails.value = chapterStructure.value[0]
-
-            await nextTick()
-          }
-        }
-      }
-      await nextTick()
-      return
-    }
-
-    // 第33.1步：没有路由参数时，优先尝试恢复保存的页面状态
-    const stateRestored = await restorePageStateFromStore()
-    
-    if (stateRestored) {
-      // 状态恢复成功，直接渲染图谱
-      await nextTick()
-      return
-    }
-
-    // 第33.2步：从 Store 中确定学科和教材
-    const storeSubject = getCurrentSubject()
-    const storeTextbookId = getCurrentTextbook()
-    
-    // 学科优先顺序：Store -> 默认数学
-    let initialSubject = storeSubject || 'math'
-    if (!subjectOptions.value.some(opt => opt.value === initialSubject)) {
-      initialSubject = 'math'
-    }
-    selectedSubject.value = initialSubject
-    
-    // 根据科目加载教材数据
-    await loadTextbookDataBySubject(selectedSubject.value)
-    
-    // 如果有教材数据，选择目标教材：优先 Store，否则使用第一个教材
-    if (textbookOptions.value.length > 0) {
-      let targetTextbook: TextbookOption | undefined
-      
-      if (storeTextbookId) {
-        targetTextbook = textbookOptions.value.find(
-          opt => opt.textbookId === storeTextbookId || opt.value.includes(storeTextbookId)
-        )
-      }
-      
-      // 如果没有找到，使用第一个教材
-      if (!targetTextbook) {
-        targetTextbook = textbookOptions.value[0]
-      }
-      
-      selectedTextbook.value = targetTextbook.value
-      
-      // 第34步：加载选中教材的章节结构
-      if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
-        await loadChapterStructure(targetTextbook.textbookId)
-        
-        // 自动选择第一个章节
-        if (chapterStructure.value.length > 0) {
-          setCurrentChapter(0)
-          selectedChapterDetails.value = chapterStructure.value[0]
-          
-          // 初始状态下自动展开位于targetAngle的图谱
-          await nextTick()
-        }
-      }
-    }
-    
-    await nextTick()
-    
   } catch (error) {
     // 图谱初始化失败，静默处理
     console.error('❌ [KnowledgeGraphView] 图谱初始化失败:', error)
@@ -1386,8 +1443,6 @@ const initGraph = async () => {
     loading.value = false
   }
 }
-
-
 
 // 学科切换
 const onSubjectChange = async (subjectValue: string) => {
@@ -1398,10 +1453,10 @@ const onSubjectChange = async (subjectValue: string) => {
     chapterStructure.value = []
     chapters.value = []
     selectedChapterDetails.value = null
-    
+
     // 根据学科筛选教材选项（内部会自动加载第一个教材的章节结构）
     await loadTextbookDataBySubject(subjectValue)
-    
+
     // 如果有教材数据，确保章节数据已加载并自动选择第一个章节
     if (textbookOptions.value.length > 0 && chapterStructure.value.length > 0) {
       // 自动选择第一个章节
@@ -1422,21 +1477,21 @@ const onSubjectChange = async (subjectValue: string) => {
 const onTextbookChange = async (value: string) => {
   try {
     // 找到选中的教材选项
-    const selectedOption = textbookOptions.value.find(opt => opt.value === value)
+    const selectedOption = textbookOptions.value.find((opt) => opt.value === value)
     if (!selectedOption) {
       return
     }
-    
+
     // 设置当前教材到状态管理器
     if (selectedOption.textbookId) {
       console.log('selectedOption.textbookId', selectedOption.textbookId)
       setCurrentTextbook(selectedOption.textbookId)
     }
-    
+
     // 根据教材ID加载章节结构
     if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
       await loadChapterStructure(selectedOption.textbookId)
-      
+
       // 自动选择第一个章节
       if (chapterStructure.value.length > 0) {
         setCurrentChapter(0)
@@ -1446,11 +1501,6 @@ const onTextbookChange = async (value: string) => {
   } catch {
     // 切换教材失败
   }
-}
-
-// 第5步：添加搜索处理方法
-const handleSearchInput = () => {
-  // 搜索输入时不需要额外处理，computed会自动更新
 }
 
 // 第6步：清空搜索
@@ -1467,15 +1517,6 @@ const toggleNodeSearch = () => {
   }
 }
 
-// 拍照搜题处理
-const handlePhotoSearch = () => {
-  router.push({
-    path: '/photo-search',
-    query: { subject: 'math' }
-  })
-}
-
-
 // 第7步：处理搜索结果点击
 const handleSearchResultClick = async (result: {
   node: ChapterNode
@@ -1486,39 +1527,39 @@ const handleSearchResultClick = async (result: {
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex !== result.chapterIndex) {
     selectChapter(result.chapterIndex)
-    
+
     // 等待章节切换完成
     await nextTick()
-    
+
     // 更新selectedChapterDetails（因为selectChapter可能还没完全更新）
     if (chapterStructure.value && chapterStructure.value.length > result.chapterIndex) {
       selectedChapterDetails.value = chapterStructure.value[result.chapterIndex]
     }
-    
+
     // 再次等待DOM更新
     await nextTick()
   }
-  
+
   // 第2步：获取当前章节的子章节列表
   const chapter = chapterStructure.value[result.chapterIndex]
   if (!chapter) {
     return
   }
-  
+
   const subChapters = getSubChapters(chapter)
-  
+
   // 第3步：查找节点在子章节列表中的索引
   // 如果节点本身是level=1的子章节，直接使用其ID
   // 如果节点是更深层的子节点，需要找到其父节点（level=1的子章节）
   let targetNodeId: string | null = null
-  
+
   // 如果节点是章节点本身（level=0），不需要旋转
   if (result.node.level === 0) {
     // 清空搜索并返回，只跳转到章节
     searchQuery.value = ''
     return
   }
-  
+
   if (result.node.level === 1) {
     // 节点本身就是level=1的子章节
     targetNodeId = result.node.id
@@ -1541,7 +1582,7 @@ const handleSearchResultClick = async (result: {
           }
           return null
         }
-        
+
         currentNode = findNodeById(chapter.children || [])
         if (!currentNode) {
           break
@@ -1550,24 +1591,24 @@ const handleSearchResultClick = async (result: {
         break
       }
     }
-    
+
     if (currentNode && currentNode.level === 1) {
       targetNodeId = currentNode.id
     }
   }
-  
+
   // 第4步：如果找到了目标节点ID，旋转到targetAngle
   if (targetNodeId) {
-    const targetIndex = subChapters.findIndex(sub => sub.id === targetNodeId)
+    const targetIndex = subChapters.findIndex((sub) => sub.id === targetNodeId)
     if (targetIndex !== -1) {
       // 确保当前章节详情已更新
       if (!selectedChapterDetails.value) {
         selectedChapterDetails.value = chapter
       }
-      
+
       // 等待DOM更新
       await nextTick()
-      
+
       // 设置展开状态并旋转到targetAngle
       setCurrentChapterExpandedGraph(targetNodeId)
       await nextTick()
@@ -1594,7 +1635,7 @@ const highlightText = (text: string): string => {
   if (!searchQuery.value.trim()) {
     return text
   }
-  
+
   const query = searchQuery.value.trim()
   const regex = new RegExp(`(${query})`, 'gi')
   return text.replace(regex, '<mark class="search-highlight">$1</mark>')
@@ -1602,19 +1643,18 @@ const highlightText = (text: string): string => {
 
 // 选择章节
 const selectChapter = async (index: number) => {
-  
   // 第8步：重复点击检测：检查是否点击的是当前已选中的章节
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex === index) {
     return
   }
-  
+
   setCurrentChapter(index)
-  
+
   // 获取选中章节的详细信息
   if (chapterStructure.value && chapterStructure.value.length > index) {
     selectedChapterDetails.value = chapterStructure.value[index]
-    
+
     // 自动展开位于targetAngle的图谱
     await nextTick()
   }
@@ -1644,14 +1684,14 @@ const checkAndOpenLearningDialog = () => {
         chapterTextbook: route.query.learningChapterTextbook as string,
         chapterTitle: route.query.learningChapterTitle as string,
       }
-      
+
       // 显示对话框
       learningDialogVisible.value = true
-      
+
       // 清理路由参数，避免重复打开
       router.replace({
         name: 'knowledgeGraph',
-        query: {}
+        query: {},
       })
     }
   }
@@ -1671,12 +1711,12 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   if (!chapterDetails) {
     return []
   }
-  
+
   // 过滤出level=1的子章节（x.x格式）
   // 如果children为null或undefined，subChapters为空数组
   // 直接使用后台返回的顺序，不进行排序
-  const subChapters = chapterDetails.children?.filter(child => child.level === 1) || []
-  
+  const subChapters = chapterDetails.children?.filter((child) => child.level === 1) || []
+
   // 为每个章节添加章节练习节点，使用章的名字
   const exerciseNode: ChapterNode = {
     id: chapterDetails.id, // 直接使用父章节ID
@@ -1686,22 +1726,20 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
     level: 1, // 确保是x.x层级
     isRoot: false,
     updateTime: new Date().toISOString(),
-    children: []
+    children: [],
   }
-  
+
   // 将章节练习节点添加到子章节列表的末尾
   return [...subChapters, exerciseNode].reverse()
 }
-
 
 // 通过 provide 传递知识图谱角度数据给调试面板（在所有函数定义之后）
 provide('knowledgeGraphAngleData', {
   selectedChapterDetails,
   getSubChapters,
   getChapterRotation,
-  getCurrentChapter
+  getCurrentChapter,
 })
-
 
 // 组件挂载时初始化
 onMounted(async () => {
@@ -1710,15 +1748,15 @@ onMounted(async () => {
 
   // 获取缓存状态信息
   getCacheStatus()
-  
+
   // 加载学习状态
   refreshLearningStatusFromStorage()
-  
+
   initGraph()
 
   // 检查路由参数，如果需要自动打开学习对话框
   checkAndOpenLearningDialog()
-  
+
   // 清理函数：仅清理防抖定时器
   onUnmounted(() => {
     if (debounceTimer.value) {
@@ -1726,7 +1764,6 @@ onMounted(async () => {
     }
   })
 })
-
 
 onUnmounted(() => {
   // 保存页面状态
@@ -1752,7 +1789,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   position: relative;
-  
+
   .subject-header {
     flex-shrink: 0;
     margin-top: 16px;
@@ -1760,54 +1797,53 @@ onUnmounted(() => {
     :deep(.select-label) {
       font-size: 36px;
       color: #ffffff;
-      font-weight: 900;                    // 超粗
-      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue',
-        Arial, '黑体', sans-serif;         // 无衬线中文常用字体
-      letter-spacing: 0.02em;              // 适当加一点字距（可选）
-      line-height: 1;    
+      font-weight: 900; // 超粗
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, '黑体', sans-serif; // 无衬线中文常用字体
+      letter-spacing: 0.02em; // 适当加一点字距（可选）
+      line-height: 1;
     }
 
-    :deep(.select-trigger){
+    :deep(.select-trigger) {
       background-color: transparent;
       border: none;
     }
 
-    :deep(.select-icon){
+    :deep(.select-icon) {
       filter: brightness(0) invert(1);
     }
 
-    :deep(.q-field__marginal){
-      color: #FFFFFF;
+    :deep(.q-field__marginal) {
+      color: #ffffff;
     }
-      
-    :deep(.q-field--outlined .q-field__control:before){
+
+    :deep(.q-field--outlined .q-field__control:before) {
       border: none;
     }
 
-    :deep(.q-field__control){
-      color:transparent;
+    :deep(.q-field__control) {
+      color: transparent;
     }
   }
-  
+
   .textbook-info {
     flex-shrink: 0;
-    :deep(.common-select){
-      width:100%;
+    :deep(.common-select) {
+      width: 100%;
     }
-    :deep(.q-field__marginal){
-      color: #FFFFFF;
+    :deep(.q-field__marginal) {
+      color: #ffffff;
     }
 
-    :deep(.select-icon){
+    :deep(.select-icon) {
       filter: brightness(0) invert(1);
     }
   }
-  
+
   .scroll-wrapper.chapter-list {
     flex: 1;
     overflow: hidden;
     margin-top: 16px;
-    
+
     .scroll-content {
       min-height: calc(100% + 1px);
     }
@@ -1826,7 +1862,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   min-height: 85px;
-  
+
   .subject-icon {
     width: 98px;
     height: 79px;
@@ -1834,13 +1870,13 @@ onUnmounted(() => {
 
   .subject-select {
     width: fit-content;
-      
+
     .subject-selected {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
-        
+
       .subject-text {
         font-size: 36px;
         font-weight: 500;
@@ -1856,40 +1892,40 @@ onUnmounted(() => {
   margin: 14px 20px;
   border-radius: 12px;
   font-family: 'PingFang SC', sans-serif;
-  
+
   .search-input {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    
+
     :deep(.q-field__control) {
       border-radius: 12px;
       border: 1px solid rgba(227, 224, 235, 0.3);
       background: rgba(255, 255, 255, 0.1);
-      color: #FFFFFF;
+      color: #ffffff;
       min-height: 44px; // 增加触摸区域
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.15);
         border-color: rgba(227, 224, 235, 0.4);
       }
-      
+
       &:focus-within {
         border-color: rgba(139, 92, 246, 0.5);
         background: rgba(255, 255, 255, 0.15);
       }
     }
-    
+
     :deep(.q-field__native) {
-      color: #FFFFFF;
+      color: #ffffff;
       padding: 8px 12px;
       font-size: 16px; // 移动端避免自动缩放
     }
-    
+
     :deep(.q-placeholder) {
       color: rgba(255, 255, 255, 0.6);
     }
   }
-  
+
   // 触摸目标优化
   .touch-target {
     min-width: 44px;
@@ -1899,7 +1935,7 @@ onUnmounted(() => {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    
+
     &:active {
       transform: scale(0.95);
     }
@@ -1966,7 +2002,6 @@ onUnmounted(() => {
   }
 }
 
-
 .chapter-list {
   flex: 1;
   overflow-y: auto;
@@ -1974,7 +2009,7 @@ onUnmounted(() => {
   scroll-behavior: smooth;
   // 移动端优化
   -webkit-overflow-scrolling: touch;
-  
+
   .empty-chapters {
     display: flex;
     flex-direction: column;
@@ -1982,13 +2017,13 @@ onUnmounted(() => {
     justify-content: center;
     padding: 40px 20px;
     color: #9ca3af;
-    
+
     .empty-text {
       margin-top: 12px;
       font-size: 14px;
     }
   }
-  
+
   .chapter-item {
     padding: 11px 15px;
     margin: 2px 20px;
@@ -2003,28 +2038,28 @@ onUnmounted(() => {
     // 触摸反馈优化
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    white-space: nowrap;      /* 禁止换行 - 非active状态单行显示 */
-    overflow: hidden;         /* 隐藏溢出内容 */
-    text-overflow: ellipsis;  /* 溢出部分显示省略号 */
-    
+    white-space: nowrap; /* 禁止换行 - 非active状态单行显示 */
+    overflow: hidden; /* 隐藏溢出内容 */
+    text-overflow: ellipsis; /* 溢出部分显示省略号 */
+
     &.active {
       background-color: #e0dbff;
-      height: auto;           /* 覆盖固定高度，允许自适应 */
-      white-space: normal;    /* active状态允许换行 */
-      min-height: 44px;       /* 最小高度保持44px */
-      max-height: 80px;       /* 最大高度限制为2行（19px字体 * 1.4行高 * 2行 + padding） */
+      height: auto; /* 覆盖固定高度，允许自适应 */
+      white-space: normal; /* active状态允许换行 */
+      min-height: 44px; /* 最小高度保持44px */
+      max-height: 80px; /* 最大高度限制为2行（19px字体 * 1.4行高 * 2行 + padding） */
       align-items: flex-start; /* 顶部对齐，支持多行 */
-      padding-top: 11px;      /* 保持顶部padding */
-      
+      padding-top: 11px; /* 保持顶部padding */
+
       .chapter-text {
         color: #393548;
-        white-space: normal;  /* 允许换行 */
+        white-space: normal; /* 允许换行 */
         display: -webkit-box;
-        -webkit-line-clamp: 2;           /* 限制为2行 */
+        -webkit-line-clamp: 2; /* 限制为2行 */
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
-        line-height: 1.4;     /* 行高 */
+        line-height: 1.4; /* 行高 */
         word-break: break-word; /* 允许单词内换行，避免长单词溢出 */
       }
     }
@@ -2034,17 +2069,17 @@ onUnmounted(() => {
       transform: scale(0.98);
       transition: transform 0.1s ease;
     }
-    
+
     .chapter-text {
       font-size: 19px;
       font-weight: 500;
-      color: #9E9AAD;
+      color: #9e9aad;
       line-height: 1.4;
-      white-space: nowrap;      /* 禁止换行 */
-      overflow: hidden;         /* 隐藏溢出内容 */
-      text-overflow: ellipsis;  /* 溢出部分显示省略号 */
+      white-space: nowrap; /* 禁止换行 */
+      overflow: hidden; /* 隐藏溢出内容 */
+      text-overflow: ellipsis; /* 溢出部分显示省略号 */
     }
-    
+
     // 搜索结果样式
     &.search-result-item {
       flex-direction: column;
@@ -2055,10 +2090,10 @@ onUnmounted(() => {
       margin: 8px 20px; // 增加上下间距，避免重叠
       white-space: normal; // 允许换行
       overflow: visible; // 允许内容正常显示
-      
+
       .search-result-content {
         width: 100%;
-        
+
         .search-result-node {
           font-size: 18px;
           font-weight: 500;
@@ -2067,7 +2102,7 @@ onUnmounted(() => {
           margin-bottom: 6px; // 增加节点名称和章节名称之间的间距
           word-break: break-word; // 允许长文本换行
         }
-        
+
         .search-result-chapter {
           font-size: 14px;
           color: #9ca3af;
@@ -2098,7 +2133,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 12px;
   align-items: center;
-  
+
   .toolbar-icon-btn {
     width: 48px;
     height: 48px;
@@ -2107,16 +2142,16 @@ onUnmounted(() => {
     backdrop-filter: blur(10px);
     border-radius: 12px;
     transition: all 0.2s ease;
-    
+
     &:hover {
       background: rgba(255, 255, 255, 0.2);
       transform: scale(1.05);
     }
-    
+
     &:active {
       transform: scale(0.95);
     }
-    
+
     .toolbar-icon {
       width: 46px;
       height: 46px;
@@ -2171,21 +2206,21 @@ onUnmounted(() => {
   // 移动端优化
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  
+
   &:active {
     cursor: grabbing;
   }
-  
+
   // 当有图谱展开时，禁用滚动交互
   &.scroll-disabled {
     cursor: default;
     touch-action: none;
-    
+
     &:active {
       cursor: default;
     }
   }
-  
+
   // 第24步：移动端响应式优化
   @media (max-width: 768px) {
     // 移动端增加可交互区域
@@ -2208,7 +2243,7 @@ onUnmounted(() => {
   justify-content: center;
   flex-direction: column;
   align-items: center;
-  
+
   .indicator-dot {
     width: 7px;
     height: 7px;
@@ -2223,36 +2258,36 @@ onUnmounted(() => {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     margin: 5px;
-    
+
     &:hover {
       background: rgba(139, 92, 246, 0.8);
       transform: scale(1.1);
     }
-    
+
     &:active {
       transform: scale(0.95);
       transition: transform 0.1s ease;
     }
-    
+
     &.active {
       background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #6d28d9 100%);
       box-shadow: 0 0 12px rgba(139, 92, 246, 0.8), 0 0 24px rgba(139, 92, 246, 0.4);
       position: relative;
       opacity: 1 !important;
     }
-    
+
     // 移动端增大触摸区域
     @media (max-width: 768px) {
       min-width: 28px;
       min-height: 28px;
-      
+
       &.active {
         min-width: 24px;
         min-height: 24px;
       }
     }
   }
-  
+
   .indicator-icon {
     position: absolute;
     left: -30px;
@@ -2278,8 +2313,6 @@ onUnmounted(() => {
   transform-origin: center center;
 }
 
-
-
 // 底部状态标识样式
 .status-indicators {
   display: flex;
@@ -2289,29 +2322,27 @@ onUnmounted(() => {
   padding: 16px 24px;
   position: relative;
   z-index: 50; // 降低层级，确保知识图谱气泡不被遮挡
-  
+
   .status-item {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
-    
+
     .status-icon {
       width: 30px;
       height: 30px;
       opacity: 0.8;
       transition: opacity 0.2s ease;
     }
-    
+
     .status-label {
       font-size: 15px;
-      color: #FFFFFF;
+      color: #ffffff;
       font-weight: 500;
     }
   }
 }
-
-
 
 // 响应式设计
 @media (max-width: 768px) {
@@ -2321,7 +2352,8 @@ onUnmounted(() => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
