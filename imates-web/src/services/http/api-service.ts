@@ -4,14 +4,12 @@
  */
 
 import { AndroidBridge } from '../business/android-bridge'
-import { getImBaseUrl } from '../../config/env-config'
 
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
 import { HomeworkApi } from './homework-api'
-import type { TeacherHistoryMessage } from './teacher-chat-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 使用统一类型定义
@@ -208,17 +206,6 @@ export class ApiService {
 
 
   /**
-   * 发送消息到教师
-   */
-  public async sendTeacherMessage(
-    sessionId: string,
-    msgType: string,
-    msgContent: string
-  ): Promise<boolean> {
-    return this.teacherChatApi.sendMessage(sessionId, msgType, msgContent)
-  }
-
-  /**
    * 获取老师会话的消息历史
    */
   public async getTeacherChatHistory(sessionId: string, page?: number, pageSize?: number): Promise<TeacherHistoryMessage[]> {
@@ -305,8 +292,52 @@ export class ApiService {
   // ========== 图片上传相关接口 ==========
 
   /**
+   * 上传图片到研伴后端并获取URL
+   * 使用研伴后端的 /api/system/uploadImg 接口
+   * 与IM服务器调用逻辑一致：都返回完整的可访问URL
+   */
+  public async uploadImageToYanban(base64Data: string): Promise<string> {
+    console.log(`[API] 开始上传图片到研伴后端...`)
+
+    // 将base64转换为blob
+    const base64Parts = base64Data.split(',')
+    const mimeType = base64Parts[0].split(':')[1].split(';')[0]
+    const byteCharacters = atob(base64Parts[1])
+
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: mimeType })
+
+    const formData = new FormData()
+    formData.append('file', blob, `yanban_image_${Date.now()}.jpg`)
+
+    const response = await fetch('/api/system/uploadImg', {
+      method: 'POST',
+      body: formData
+    })
+
+    const result = await response.json()
+    if (result.success && result.data && result.data.path) {
+      // 研伴后端返回相对路径，构造完整的可访问URL
+      // 与IM服务器调用逻辑保持一致：都返回完整的HTTP URL
+      const fullUrl = `http://39.107.234.140:8201/blw-edu-yb${result.data.path}`
+      console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}，完整URL: ${fullUrl}`)
+      return fullUrl
+    } else {
+      const errorMsg = result.message || '未知错误'
+      console.error(`[API] 研伴图片上传失败:`, errorMsg)
+      throw new Error(`研伴图片上传失败: ${errorMsg}`)
+    }
+  }
+
+  /**
    * 上传图片并获取URL（用于转发图片消息）
-   * 将base64数据上传到服务器获得可访问的URL
+   * 将base64数据上传到IM服务器获得可访问的URL
+   * 返回完整的可访问URL，与研伴后端调用逻辑一致
    */
   public async uploadImageAndGetUrl(base64Data: string): Promise<string> {
     console.log(`[API] 开始上传图片...`)
@@ -333,12 +364,16 @@ export class ApiService {
     })
 
     const result = await response.json()
-    if (result.success) {
-      console.log(`[API] 图片上传成功，URL: ${result.data.url}`)
-      return result.data.url
+    if (result.success && result.data && result.data.path) {
+      // IM服务器现在也返回相对路径，需要构造完整的可访问URL
+      // 与研伴后端调用逻辑保持一致
+      const fullUrl = `https://www.imates.com.cn${result.data.path}`
+      console.log(`[API] 图片上传成功，相对路径: ${result.data.path}，完整URL: ${fullUrl}`)
+      return fullUrl
     } else {
-      console.error(`[API] 图片上传失败:`, result.message)
-      throw new Error(`图片上传失败: ${result.message}`)
+      const errorMsg = result.message || '未知错误'
+      console.error(`[API] 图片上传失败:`, errorMsg)
+      throw new Error(`图片上传失败: ${errorMsg}`)
     }
   }
 }

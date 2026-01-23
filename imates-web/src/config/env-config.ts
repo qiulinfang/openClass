@@ -24,6 +24,7 @@ interface EnvConfig {
   baseUrl: string
   resourceBaseUrl: string
   yanbanBaseUrl: string
+  teacherBaseUrl: string  // 新增教师服务基础URL
   historyManageBaseUrl: string
   imServiceBaseUrl: string
   apiPaths: ApiPaths
@@ -42,8 +43,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    // IM即时通讯服务
-    imServiceBaseUrl: 'https://www.imates.com.cn',
+    // 教师服务：直接使用WebSocket URL（wss协议）
+    teacherBaseUrl: 'ws://www.imates.com.cn:8201/ws',
+    // IM即时通讯服务（直接使用端口，HTTP协议）
+    imServiceBaseUrl: 'ws://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
       previewPictureQA: '/ai/2.0/previewPictureQA',
@@ -65,8 +68,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 研伴测试环境：使用 HTTPS 访问 50013 端口
     // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     yanbanBaseUrl: 'https://43.138.16.5:50013',
-    // IM即时通讯服务（测试环境使用相同地址）
-    imServiceBaseUrl: 'https://www.imates.com.cn',
+    // 教师服务：直接使用WebSocket URL（wss协议）
+    teacherBaseUrl: 'ws://www.imates.com.cn:8201/ws',
+    // IM即时通讯服务（直接使用端口，HTTP协议）
+    imServiceBaseUrl: 'ws://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
       previewPictureQA: '/ai/2.0/previewPictureQA',
@@ -181,6 +186,14 @@ export function getYanbanBaseUrl(): string {
 }
 
 /**
+ * 获取教师服务 WebSocket URL
+ * 注意：直接返回完整的WebSocket URL (wss://)
+ */
+export function getTeacherBaseUrl(): string {
+  return getCurrentEnvConfig().teacherBaseUrl
+}
+
+/**
  * 获取对话记忆管理服务 Base URL
  */
 export function getHistoryManageBaseUrl(): string {
@@ -202,10 +215,24 @@ export function getMqPort(): number {
 }
 
 /**
- * 获取 IM 服务完整基础URL（包含协议和域名）
+ * 获取 IM 服务完整基础URL（包含协议和域名，用于认证接口）
  */
 export function getImBaseUrl(): string {
-  return getCurrentEnvConfig().imServiceBaseUrl || 'https://www.imates.com.cn'
+  const wsUrl = getCurrentEnvConfig().imServiceBaseUrl
+  // 从 WebSocket URL 转换为 HTTP URL 用于认证
+  if (wsUrl.startsWith('wss://')) {
+    return 'https://' + wsUrl.substring(6).replace('/ws/im', '')
+  } else if (wsUrl.startsWith('ws://')) {
+    return 'http://' + wsUrl.substring(5).replace('/ws/im', '')
+  }
+  return wsUrl // fallback
+}
+
+/**
+ * 获取 IM WebSocket URL（直接返回配置的 WebSocket URL）
+ */
+export function getImWebSocketUrl(): string {
+  return getCurrentEnvConfig().imServiceBaseUrl
 }
 
 /**
@@ -232,6 +259,7 @@ export function getRouteBaseMap(): Record<string, string> {
   const apiBaseUrl = getApiBaseUrl()
   const resourceBaseUrl = getResourceBaseUrl()
   const yanbanBaseUrl = getYanbanBaseUrl()
+  const teacherBaseUrl = getTeacherBaseUrl()
   const historyManageBaseUrl = getHistoryManageBaseUrl()
 
   return {
@@ -245,6 +273,9 @@ export function getRouteBaseMap(): Record<string, string> {
     '/biologyTopicKnowledge': apiBaseUrl,
     // IM服务（图片上传等）
     '/im/api/images/upload': 'https://www.imates.com.cn',
+    // 教师相关API（使用新的8201端口）
+    '/api/question': teacherBaseUrl,  // 教师聊天API
+    '/api/system': teacherBaseUrl,    // 研伴系统API（文件上传等）
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
     '/homework': yanbanBaseUrl,

@@ -81,30 +81,6 @@ interface TeacherHistoryMessage {
  */
 export class TeacherChatApi {
   /**
-   * 发送消息到教师
-   */
-  public async sendMessage(
-    sessionId: string,
-    msgType: string,
-    msgContent: string
-  ): Promise<boolean> {
-    try {
-      // 研伴后端不支持WebSocket发送消息，使用HTTP API
-      const response = await httpClient.post('/api/question/replyMessage', {
-        sessionId: sessionId,
-        msgType: msgType,
-        msgContent: msgContent
-      })
-
-      console.log('[TeacherChatApi] 通过HTTP API发送消息成功:', { sessionId, msgType, msgContent })
-      return response.success
-    } catch (error) {
-      console.error('[TeacherChatApi] 发送消息失败:', error)
-      return false
-    }
-  }
-
-  /**
    * 获取教师聊天历史（支持分页）
    */
   public async getTeacherChatHistory(sessionId: string, page?: number, pageSize?: number): Promise<TeacherHistoryMessage[]> {
@@ -160,3 +136,6 @@ export class TeacherChatApi {
   }
 
 }
+
+// 导出类型
+export type { TeacherHistoryMessage }
