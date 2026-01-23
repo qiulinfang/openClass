@@ -307,18 +307,18 @@ const displayUserName = computed(() => {
 // 注意：这里的名称必须与组件的 name 选项匹配（defineOptions 或组件 export default 中的 name）
 const cachedComponents = ref<string[]>([
   // 'knowledgeGraph',     // 知识图谱页面
-  'pdfViewer', // PDF 查看器
-  'htmlViewer', // HTML 查看器
-  'videoViewer', // 视频查看器
+  // 'pdfViewer', // PDF 查看器
+  // 'htmlViewer', // HTML 查看器
+  // 'videoViewer', // 视频查看器
   // 'ExerciseSolveView',  // 我的习题页面
   'MyResourcesView', // 资源下载页面（资源页需要每次进入都强制刷新，这里不再缓存）
-  'DrawingBoardView', // 画板页面
-  'FindExerciseView', // 查找习题页面
-  'MyFavoritesView', // 我的收藏页面
+  // 'DrawingBoardView', // 画板页面
+  // 'FindExerciseView', // 查找习题页面
+  // 'MyFavoritesView', // 我的收藏页面
   // 'learning',           // 去练习弹窗页（/app/learning）
   // 'learningContent',     // 去练习内容查看页（/app/learning-content）
   'MyHomeworkView', // 我的作业页面
-  'homeworkAnswer', // 作业答题页面
+  // 'homeworkAnswer', // 作业答题页面
 ])
 
 // 对话框显示状态

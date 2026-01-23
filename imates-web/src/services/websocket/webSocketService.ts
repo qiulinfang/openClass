@@ -5,7 +5,7 @@
 
 import { ref, readonly } from 'vue'
 import { getUserId } from '../http/auth-service'
-import { getYanbanBaseUrl } from '@/config/env-config'
+import { getYanbanBaseUrl, getTeacherBaseUrl } from '@/config/env-config'
 
 export interface WebSocketMessage {
   type: string
@@ -421,12 +421,10 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
     // 教师聊天WebSocket配置（适配研伴后端单连接多会话架构）
     // 研伴后端WebSocket端点为 /ws，支持双向消息传输
     // 单连接多会话：sessionId通过消息体传递，不再在URL中指定
-    const yanbanBaseUrl = getYanbanBaseUrl()
+    // teacherBaseUrl 现在直接是完整的WebSocket URL
+    const teacherBaseUrl = getTeacherBaseUrl()
     const userId = getUserId()
-    // 正确处理HTTP和HTTPS到WebSocket协议的转换
-    const wsUrl = yanbanBaseUrl
-      .replace('https://', 'wss://')
-      .replace('http://', 'ws://') + `/ws?userId=${userId}&clientType=web`
+    const wsUrl = `${teacherBaseUrl}?userId=${userId}&clientType=web`
     config = {
       url: wsUrl,
       reconnectAttempts: 5,

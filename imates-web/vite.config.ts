@@ -340,11 +340,53 @@ export default defineConfig(({ mode }) => {
           })
         }
       },
-      // 🔥 新增：匹配以 "/api" 开头的请求，转发到资源服务器（解决CORS问题）
-      '/api': {
-        target: 'http://localhost:8080/blw-edu-yb', // 资源服务器地址
+      // 🔥 新增：教师聊天API，转发到研伴后端服务器（优先级最高）
+      '/api/question': {
+        target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
-        secure: true, // 使用HTTPS协议
+        secure: false, // 使用HTTP协议
+        // 添加CORS头信息
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/api/question')
+          proxy.on('proxyRes', (proxyRes, req) => {
+            // 添加CORS头信息
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*'
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, sa-token, token'
+            proxyRes.headers['Access-Control-Allow-Credentials'] = 'true'
+            console.log('代理教师API请求:', req.url)
+          })
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理教师API请求到服务器:', req.url)
+          })
+        }
+      },
+      // 🔥 新增：系统API（包括文件上传），转发到研伴后端服务器
+      '/api/system': {
+        target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 使用HTTP协议
+        // 添加CORS头信息
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/api/system')
+          proxy.on('proxyRes', (proxyRes, req) => {
+            // 添加CORS头信息
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*'
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, sa-token, token'
+            proxyRes.headers['Access-Control-Allow-Credentials'] = 'true'
+            console.log('代理系统API请求:', req.url)
+          })
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理系统API请求到服务器:', req.url)
+          })
+        }
+      },
+      // 🔥 新增：通用API，转发到研伴后端服务器（兜底配置）
+      '/api': {
+        target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 使用HTTP协议
         // 添加CORS头信息
         configure: (proxy) => {
           attachBasicProxyLog(proxy, '/api')
@@ -354,10 +396,10 @@ export default defineConfig(({ mode }) => {
             proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
             proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, sa-token, token'
             proxyRes.headers['Access-Control-Allow-Credentials'] = 'true'
-            console.log('代理API请求:', req.url)
+            console.log('代理通用API请求:', req.url)
           })
           proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('代理API请求到服务器:', req.url)
+            console.log('代理通用API请求到服务器:', req.url)
           })
         }
       },

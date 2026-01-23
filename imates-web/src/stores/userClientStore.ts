@@ -7,7 +7,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ChatBubble } from '../types'
 import { showMessage } from '../utils'
-import { getImBaseUrl } from '@/config/env-config'
+import { getImBaseUrl, getImWebSocketUrl } from '@/config/env-config'
 import { getUserId } from '../services'
 import { generateUniqueId } from './utils/chatStoreUtils'
 import { apiService } from '@/services/http/api-service'
@@ -96,7 +96,7 @@ export const useUserClientStore = defineStore('userClient', () => {
         return
       }
       const conversationId = `user-client-session-${userId}`
-      const apiUrl = `${getImBaseUrl()}/im/api/conversations/${conversationId}/messages?page=1&pageSize=${pageSize.value}`
+      const apiUrl = `${getImBaseUrl().replace('/ws/im', '')}/api/conversations/${conversationId}/messages?page=1&pageSize=${pageSize.value}`
 
       console.log(`[历史记录] 调用API: ${apiUrl}`)
 
@@ -291,23 +291,32 @@ export const useUserClientStore = defineStore('userClient', () => {
 
   /** 连接到WebSocket服务器 */
   const connect = async (): Promise<boolean> => {
+    console.log('[IM连接] 开始连接到WebSocket服务器')
     return new Promise(async (resolve) => {
       try {
         // 调用IM服务的用户认证接口，获取IM专用token（独立部署，永远不传递token）
         try {
           const userId = getUserId() || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+          console.log('[IM连接] 开始用户认证，userId:', userId)
+
           const headers = {
             'Content-Type': 'application/x-www-form-urlencoded'
           }
 
-          const authResponse = await fetch(`${getImBaseUrl()}/im/api/auth/user-login`, {
+          const authUrl = `${getImBaseUrl().replace('/ws/im', '')}/api/auth/user-login`
+          console.log('[IM连接] 认证请求URL:', authUrl)
+
+          const authResponse = await fetch(authUrl, {
             method: 'POST',
             headers,
             body: `userId=${encodeURIComponent(userId)}`
           })
 
+          console.log('[IM连接] 认证响应状态:', authResponse.status)
+
           if (!authResponse.ok) {
             const errorData = await authResponse.json()
+            console.error('[IM连接] 认证失败，状态码:', authResponse.status, '错误信息:', errorData)
             connectionStatus.value = '认证失败'
             showMessage(errorData.message || 'IM认证失败', 'error')
             resolve(false)
@@ -315,49 +324,63 @@ export const useUserClientStore = defineStore('userClient', () => {
           }
 
           const authData = await authResponse.json()
+          console.log('[IM连接] 认证响应数据:', authData)
+
           if (!authData.success) {
+            console.warn('[IM连接] 认证无权限:', authData.message)
             connectionStatus.value = '无权限'
             showMessage(authData.message || '您没有IM权限', 'warning')
             resolve(false)
             return
           }
 
+          console.log('[IM连接] 认证成功，开始建立WebSocket连接')
           // 使用IM专用token建立WebSocket连接
           const imToken = authData.data.token
+          console.log('[IM连接] 获取到IM token，长度:', imToken ? imToken.length : 0)
+
           connectionStatus.value = '连接中...'
           isConnected.value = false
 
-          const wsUrl = `wss://${getImBaseUrl().replace('https://', '')}/im/ws/im?token=${encodeURIComponent(imToken)}&role=user`
+          // 直接使用 WebSocket URL 并添加参数
+          const wsUrl = `${getImWebSocketUrl()}?token=${encodeURIComponent(imToken)}&role=user`
+          console.log('[IM连接] WebSocket URL:', wsUrl)
+          console.log('[IM连接] 创建WebSocket实例')
           ws.value = new WebSocket(wsUrl)
 
         } catch (authError) {
-          console.error('IM认证异常:', authError)
+          console.error('[IM连接] IM认证异常:', authError)
           connectionStatus.value = '认证异常'
           showMessage('IM认证服务异常，请稍后重试', 'error')
           resolve(false)
           return
         }
 
+        console.log('[IM连接] 设置WebSocket事件处理器')
         ws.value.onopen = () => {
+          console.log('[IM连接] WebSocket onopen 事件触发')
           onConnected()
           resolve(true)
         }
 
         ws.value.onmessage = (event) => {
+          console.log('[IM连接] WebSocket onmessage 事件触发，数据长度:', event.data.length)
           onMessage(event)
         }
 
-        ws.value.onclose = () => {
+        ws.value.onclose = (event) => {
+          console.log('[IM连接] WebSocket onclose 事件触发，代码:', event.code, '原因:', event.reason)
           onDisconnected()
         }
 
         ws.value.onerror = (error) => {
+          console.error('[IM连接] WebSocket onerror 事件触发:', error)
           onError(error)
           resolve(false)
         }
 
       } catch (error) {
-        console.error('连接失败:', error)
+        console.error('[IM连接] 连接过程出现异常:', error)
         connectionStatus.value = '连接错误'
         resolve(false)
       }
