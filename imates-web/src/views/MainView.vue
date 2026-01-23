@@ -181,6 +181,7 @@ import downloadResourcesIcon from '/icons/downloadResources.svg'
 import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import homeworkIcon from '/icons/homework.png'
+import photoQaIcon from '/icons/paizhaodayi.svg'
 import ipGif from '/icons/ip.gif'
 
 // 第2步：导入选中状态图标
@@ -189,6 +190,7 @@ import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
 import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
 import homeworkSelectIcon from '/icons/homework_select.png'
+import photoQaSelectIcon from '/icons/paizhaodayi_select.svg'
 
 // 定义 props
 interface Props {
@@ -477,6 +479,10 @@ const currentHomeworkIcon = computed(() => {
   return activeNavItem.value === 'homework' ? homeworkSelectIcon : homeworkIcon
 })
 
+const currentPhotoQaIcon = computed(() => {
+  return activeNavItem.value === 'photoQa' ? photoQaSelectIcon : photoQaIcon
+})
+
 const currentDownloadResourcesIcon = computed(() => {
   return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
 })
@@ -492,6 +498,8 @@ const getNavIcon = (item: NavItemConfig) => {
       return currentExerciseIcon.value
     case 'homework':
       return currentHomeworkIcon.value
+    case 'photoQa':
+      return currentPhotoQaIcon.value
     case 'resources':
       return currentDownloadResourcesIcon.value
     default:
@@ -800,6 +808,9 @@ watch(
       case 'knowledgeGraph':
         activeNavItem.value = 'knowledge'
         break
+      case 'photoSearch':
+        activeNavItem.value = 'photoQa'
+        break
       default:
         // 保持当前状态
         break
@@ -823,15 +834,12 @@ const closeToolbox = () => {
 const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'teacher') => {
   // 如果是教师会话，设置会话到 Store（使用统一存储格式）
   if (type === 'teacher') {
-    const session = teacherStore.getSession(sessionId)
-    if (session) {
-      teacherStore.setSession(session)
-    }
+    teacherStore.setSession({ sessionId, type })
   }
 }
 
 // 打开教师聊天对话框
-const openTeacherChatDialog = (subject: 'BIOLOGY' | 'MATH' = 'MATH') => {
+const openTeacherChatDialog = (subject: 'biology' | 'math' = 'math') => {
   teacherChatSubject.value = subject
   showTeacherChatDialog.value = true
 }
@@ -909,6 +917,9 @@ const handleNavItemClick = (item: NavItemConfig) => {
     case 'homework':
       handleMyHomeworkClick()
       break
+    case 'photoQa':
+      handlePhotoQaClick()
+      break
     case 'resources':
       handleMyResourcesClick()
       break
@@ -972,6 +983,19 @@ const handleKnowledgeGraphClick = () => {
   // 跳转到默认的知识图谱页面
   console.log('[导航] 跳转到知识图谱主页')
   router.push({ name: 'knowledgeGraph' })
+}
+
+const handlePhotoQaClick = () => {
+  activeNavItem.value = 'photoQa'
+  emit('nav-item-change', 'photoQa')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
+
+  // 跳转到拍照答疑页面
+  console.log('[导航] 跳转到拍照答疑页面')
+  router.push({ name: 'photoSearch' })
 }
 </script>
 

@@ -4,20 +4,20 @@
  */
 
 import { httpClient } from './http-client'
-import type { IdReq, HomeworkSubmitSaveReq, HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
+import type { IdReq, HomeworkSubmitSaveReq, HomeworkUndoItem, HomeworkQuestionDetail, HomeworkQueryReq } from '@/types'
 
 export class HomeworkApi {
   /**
    * 获取未完成作业列表
    */
-  public async getHomeworkUndoList(): Promise<HomeworkUndoItem[]> {
+  public async getHomeworkUndoList(queryReq?: HomeworkQueryReq): Promise<HomeworkUndoItem[]> {
     const endpoint = '/blw-edu-yb/api/app/homework-undo-list'
     try {
       const response = await httpClient.post<{
         code?: number
         data?: HomeworkUndoItem[]
         message?: string
-      }>(endpoint)
+      }>(endpoint, queryReq || {})
 
       if (response.success && response.data?.code === 200) {
         return response.data.data || []

@@ -426,14 +426,43 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
   
   // ==================== 发送消息 ====================
+
+  // 基于资源ID的会话ID持久化管理
+  const RESOURCE_SESSION_KEY = 'ai_textbook_resource_sessions'
+
   /**
-   * 确保存在一个可用的后端会话ID
+   * 获取资源ID到会话ID的映射
+   */
+  const getResourceSessionMap = (): Record<string, string> => {
+    try {
+      const stored = localStorage.getItem(RESOURCE_SESSION_KEY)
+      return stored ? JSON.parse(stored) : {}
+    } catch (error) {
+      console.error('[AI_TEXTBOOK] 读取资源会话映射失败:', error)
+      return {}
+    }
+  }
+
+  /**
+   * 保存资源ID到会话ID的映射
+   */
+  const saveResourceSessionMap = (map: Record<string, string>): void => {
+    try {
+      localStorage.setItem(RESOURCE_SESSION_KEY, JSON.stringify(map))
+    } catch (error) {
+      console.error('[AI_TEXTBOOK] 保存资源会话映射失败:', error)
+    }
+  }
+
+
+  /**
+   * 确保存在一个可用的后端会话ID（同步版本，用于没有资源ID的情况）
    * 优先级：
    * 1. 使用 aiGeneral 顶部会话ID
    * 2. 使用已维护的 backendSessionId
    * 3. 创建新的会话ID并保存到 backendSessionId
    */
-  const ensureTopGeneralSession = async () => {
+  const ensureTopGeneralSessionSync = (): string => {
     const currentUserId = getUserId() || ''
 
     // 切换账号后，必须丢弃旧的 backendSessionId（以及不要复用旧的 ai-general session）
@@ -478,6 +507,50 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     backendSessionId.value = newSessionId
     backendSessionOwnerUserId.value = currentUserId
     return newSessionId
+  }
+
+  /**
+   * 确保存在一个可用的后端会话ID
+   * 优先级：
+   * 1. 使用 aiGeneral 顶部会话ID
+   * 2. 使用已维护的 backendSessionId
+   * 3. 创建新的会话ID并保存到 backendSessionId
+   */
+  const ensureTopGeneralSession = (): string => {
+    // 直接使用基于资源的会话ID
+    const currentUserId = getUserId() || ''
+
+    if (resourceId.value) {
+      // 有资源ID，使用基于资源的会话ID
+      const resourceSessionMap = getResourceSessionMap()
+      const mapKey = `${currentUserId}_${resourceId.value}`
+
+      if (resourceSessionMap[mapKey]) {
+        // 已存在，直接复用
+        console.log('[AI_TEXTBOOK] 复用资源会话ID:', {
+          resourceId,
+          sessionId: resourceSessionMap[mapKey],
+          userId: currentUserId
+        })
+        return resourceSessionMap[mapKey]
+      } else {
+        // 不存在，创建新的并持久化
+        const newSessionId = `${currentUserId}_${resourceId.value}_textbook`
+        resourceSessionMap[mapKey] = newSessionId
+        saveResourceSessionMap(resourceSessionMap)
+
+        console.log('[AI_TEXTBOOK] 创建新的资源会话ID:', {
+          resourceId,
+          sessionId: newSessionId,
+          userId: currentUserId
+        })
+
+        return newSessionId
+      }
+    } else {
+      // 没有资源ID，使用原有逻辑（向后兼容）
+      return ensureTopGeneralSessionSync()
+    } 
   }
   /**
    * 发送聊天消息
@@ -569,7 +642,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const userInfo = getUserInfo()
       
       // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
-      const sessionIdForBackend = await ensureTopGeneralSession()
+      const sessionIdForBackend = ensureTopGeneralSession()
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
