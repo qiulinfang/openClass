@@ -76,6 +76,12 @@ const buildAiExerciseMessage = (
     return request
   }
   
+  // 根据题目学科确定API路径，而不是全局用户学科设置
+  const questionSubject = currentQuestion.subject?.toLowerCase()
+  const apiUrl = questionSubject === 'math'
+    ? getCurrentEnvConfig().apiPaths.chatMath
+    : getCurrentEnvConfig().apiPaths.chat
+
   // 普通文本消息
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
@@ -89,7 +95,7 @@ const buildAiExerciseMessage = (
     isWebSearch: enableWebSearch ? '1' : '0',
     role: selectedModel,
     subject: subject,
-    dstUrl: subject === 'MATH' ? getCurrentEnvConfig().apiPaths.chatMath : getCurrentEnvConfig().apiPaths.chat,
+    dstUrl: apiUrl,
     explanation: currentQuestion.explanation || '', // 添加 explanation 字段
   }
   
