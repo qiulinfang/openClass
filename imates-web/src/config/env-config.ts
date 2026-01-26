@@ -46,7 +46,7 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 教师服务：直接使用WebSocket URL（wss协议）
     teacherBaseUrl: 'ws://www.imates.com.cn:8201/ws',
     // IM即时通讯服务（直接使用端口，HTTP协议）
-    imServiceBaseUrl: 'ws://www.imates.com.cn:8200/ws/im',
+    imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
       previewPictureQA: '/ai/2.0/previewPictureQA',
@@ -71,7 +71,7 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 教师服务：直接使用WebSocket URL（wss协议）
     teacherBaseUrl: 'ws://www.imates.com.cn:8201/ws',
     // IM即时通讯服务（直接使用端口，HTTP协议）
-    imServiceBaseUrl: 'ws://www.imates.com.cn:8200/ws/im',
+    imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
     apiPaths: {
       previewPictureQA: '/ai/2.0/previewPictureQA',
