@@ -38,18 +38,18 @@ class ThumbnailQueue {
    * @param task 缩略图任务
    */
   public addTask(task: ThumbnailTask): void {
-    // 第1步：检查是否已经在处理或队列中
+    // 检查是否已经在处理或队列中
     if (this.processingFileIds.has(task.fileId)) {
       return
     }
     
-    // 第2步：添加到处理集合
+    // 添加到处理集合
     this.processingFileIds.add(task.fileId)
     
-    // 第3步：添加任务到队列
+    // 添加任务到队列
     this.queue.push(task)
     
-    // 第4步：如果没有在处理，启动处理
+    // 如果没有在处理，启动处理
     if (!this.processing) {
       this.processQueue()
     }
@@ -64,10 +64,10 @@ class ThumbnailQueue {
     this.processing = true
     
     while (this.queue.length > 0) {
-      // 第1步：取出一批任务（最多maxConcurrent个）
+      // 取出一批任务（最多maxConcurrent个）
       const batch = this.queue.splice(0, this.maxConcurrent)
       
-      // 第2步：并发处理这批任务
+      // 并发处理这批任务
       await Promise.all(
         batch.map(task => this.processTask(task))
       )
@@ -84,7 +84,7 @@ class ThumbnailQueue {
     const { fileId, textbookId, fileName, fileData } = task
     
     try {
-      // 第1步：根据文件类型选择生成方式
+      // 根据文件类型选择生成方式
       let thumbnail: string
       
       if (isPdfFile(fileName)) {
@@ -107,11 +107,11 @@ class ThumbnailQueue {
         return
       }
       
-      // 第2步：更新IndexedDB中的缩略图
+      // 更新IndexedDB中的缩略图
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateThumbnail(textbookId, fileId, thumbnail)
       
-      // 第3步：如果提供了回调，执行回调通知外部
+      // 如果提供了回调，执行回调通知外部
       if (task.onComplete) {
         task.onComplete(fileId, thumbnail)
       }
@@ -154,19 +154,19 @@ class ThumbnailQueue {
     try {
       const resourceManager = ResourceManager.getInstance()
       
-      // 第1步：获取所有本地教材
+      // 获取所有本地教材
       const textbooks = await resourceManager.getUserLocalTextbooks()
       
       let recoveredCount = 0
       
-      // 第2步：遍历所有教材，查找没有缩略图的PDF文件
+      // 遍历所有教材，查找没有缩略图的PDF文件
       for (const textbook of textbooks) {
         if (!textbook.localFiles || textbook.localFiles.length === 0) {
           continue
         }
         
         for (const file of textbook.localFiles) {
-          // 第3步：检查是否是已下载的文件且没有缩略图
+          // 检查是否是已下载的文件且没有缩略图
           // 支持PDF、图片、HTML和视频文件
           const isPdf = isPdfFile(file.fileName)
           const isImage = isImageFile(file.fileName)
@@ -177,10 +177,10 @@ class ThumbnailQueue {
               (isPdf || isImage || isHtml || isVideo) &&
               !file.thumbnail) {
             
-            // 第4步：从textbook_files表读取文件数据
+            // 从textbook_files表读取文件数据
             const fileData = await resourceManager.getFileData(textbook.id, file.id)
             if (fileData && fileData.length > 0) {
-              // 第5步：添加到队列
+              // 添加到队列
               this.addTask({
                 fileId: file.id,
                 textbookId: textbook.textbookId,

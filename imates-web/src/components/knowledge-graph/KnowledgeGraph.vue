@@ -542,11 +542,11 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     }
     
     // 跳转到习题查找页面
-    // 第2步：判断科目类型（支持中文标签和英文值）
+    // 判断科目类型（支持中文标签和英文值）
     const isBiology = props.subject === '生物' || props.subject === 'biology'
     const isMath = props.subject === '数学' || props.subject === 'math'
     
-    // 第3步：根据科目类型设置路由参数
+    // 根据科目类型设置路由参数
     const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
     
     router.push({
@@ -558,13 +558,13 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
       }
     })
   } catch (error) {
-    // 第1步：检查是否是"没有题目"的错误
+    // 检查是否是"没有题目"的错误
     if (error instanceof Error && 'code' in error && (error as Error & { code?: string }).code === 'NO_QUESTIONS') {
       showMessage(error.message, 'warning')
       return
     }
     
-    // 第2步：其他错误显示通用错误提示
+    // 其他错误显示通用错误提示
     console.error('查询知识点ID失败:', error)
     showMessage('查询知识点失败，请重试', 'error')
   }

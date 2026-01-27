@@ -8,9 +8,9 @@
  * 为不支持 Promise.withResolvers 的环境提供兼容性（ES2024新特性）
  */
 export function polyfillPromiseWithResolvers() {
-  // 第1步：检查Promise.withResolvers是否存在
+  // 检查Promise.withResolvers是否存在
   if (typeof Promise !== 'undefined' && !('withResolvers' in Promise)) {
-    // 第2步：添加Promise.withResolvers方法
+    // 添加Promise.withResolvers方法
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Promise as any).withResolvers = function<T>(): {
       promise: Promise<T>
@@ -20,13 +20,13 @@ export function polyfillPromiseWithResolvers() {
       let resolve!: (value: T | PromiseLike<T>) => void
       let reject!: (reason?: unknown) => void
       
-      // 第3步：创建Promise并捕获resolve和reject函数
+      // 创建Promise并捕获resolve和reject函数
       const promise = new Promise<T>((res, rej) => {
         resolve = res
         reject = rej
       })
       
-      // 第4步：返回包含promise、resolve、reject的对象
+      // 返回包含promise、resolve、reject的对象
       return { promise, resolve, reject }
     }
   }

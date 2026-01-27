@@ -17,32 +17,32 @@ export async function generateVideoThumbnail(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
-      // 第1步：将Uint8Array转换为Blob
+      // 将Uint8Array转换为Blob
       const blob = new Blob([fileData])
       
-      // 第2步：创建视频URL
+      // 创建视频URL
       const videoUrl = URL.createObjectURL(blob)
       
-      // 第3步：创建video元素
+      // 创建video元素
       const video = document.createElement('video')
       video.preload = 'metadata'
       video.muted = true // 静音以避免自动播放限制
       video.playsInline = true
       
-      // 第4步：等待视频加载元数据
+      // 等待视频加载元数据
       video.onloadedmetadata = () => {
         try {
-          // 第5步：跳转到第一帧（0秒）
+          // 跳转到第一帧（0秒）
           video.currentTime = 0.1 // 使用0.1秒以确保第一帧已加载
         } catch (error) {
           console.warn('设置视频时间失败:', error)
         }
       }
       
-      // 第6步：等待视频帧加载完成
+      // 等待视频帧加载完成
       video.onseeked = () => {
         try {
-          // 第7步：计算缩略图尺寸
+          // 计算缩略图尺寸
           const videoWidth = video.videoWidth
           const videoHeight = video.videoHeight
           
@@ -54,7 +54,7 @@ export async function generateVideoThumbnail(
           const thumbWidth = videoWidth * scale
           const thumbHeight = videoHeight * scale
           
-          // 第8步：创建canvas元素
+          // 创建canvas元素
           const canvas = document.createElement('canvas')
           const context = canvas.getContext('2d')
           
@@ -62,17 +62,17 @@ export async function generateVideoThumbnail(
             throw new Error('无法创建canvas上下文')
           }
           
-          // 第9步：设置canvas尺寸
+          // 设置canvas尺寸
           canvas.width = thumbWidth
           canvas.height = thumbHeight
           
-          // 第10步：将视频帧绘制到canvas
+          // 将视频帧绘制到canvas
           context.drawImage(video, 0, 0, thumbWidth, thumbHeight)
           
-          // 第11步：转换为base64数据URL
+          // 转换为base64数据URL
           const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8)
           
-          // 第12步：清理资源
+          // 清理资源
           URL.revokeObjectURL(videoUrl)
           video.src = ''
           video.load()
@@ -87,7 +87,7 @@ export async function generateVideoThumbnail(
         }
       }
       
-      // 第13步：处理视频加载错误
+      // 处理视频加载错误
       video.onerror = (error) => {
         URL.revokeObjectURL(videoUrl)
         video.src = ''
@@ -122,10 +122,10 @@ export async function generateVideoThumbnail(
         resolve(thumbnailDataUrl)
       }
       
-      // 第14步：设置视频源并加载
+      // 设置视频源并加载
       video.src = videoUrl
       
-      // 第15步：设置超时，防止视频加载时间过长
+      // 设置超时，防止视频加载时间过长
       setTimeout(() => {
         if (video.readyState < 2) { // 如果视频元数据还未加载完成
           URL.revokeObjectURL(videoUrl)

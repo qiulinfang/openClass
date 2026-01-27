@@ -200,9 +200,9 @@ const handleStartExercise = async () => {
       }
       
       // 添加成功后，刷新questionStore的题目列表，确保新添加的题目显示
-      // 第1步：获取科目名称
+      // 获取科目名称
       const subjectName = findExerciseStore.config?.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
-      // 第2步：强制从服务器刷新题目列表，不使用本地缓存
+      // 强制从服务器刷新题目列表，不使用本地缓存
       await questionStore.fetchQuestions(subjectName, false)
       
       // 验证刷新后的题目列表

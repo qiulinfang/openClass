@@ -69,6 +69,7 @@
       :confirmButtonText="dialogConfig.confirmText"
       :cancelButtonText="dialogConfig.cancelText"
       @confirm="handleEnvSwitchConfirm"
+      @cancel="cancelEnvSwitchDialog"
     >
       <div class="env-switch-content">
         <p>{{ dialogConfig.message }}</p>
@@ -179,14 +180,14 @@ const checkAppUpdate = async () => {
   }
 }
 
-// 第1步：页面加载时从统一存储读取已保存的账号密码
+// 页面加载时从统一存储读取已保存的账号密码
 onMounted(async () => {
-  // 第2步：获取保存的账号（从统一存储）
+  // 获取保存的账号（从统一存储）
   const savedUserId = getUserId()
-  // 第3步：获取保存的密码（从统一存储）
+  // 获取保存的密码（从统一存储）
   const savedPassword = getPassword()
   
-  // 第4步：如果账号密码都存在且有效，则自动填充表单
+  // 如果账号密码都存在且有效，则自动填充表单
   if (savedUserId && savedPassword && 
       savedUserId !== 'undefined' && savedPassword !== 'undefined' &&
       savedUserId.trim() !== '' && savedPassword.trim() !== '') {
@@ -194,23 +195,23 @@ onMounted(async () => {
     loginForm.password = savedPassword
   }
 
-  // 第5步：从 localStorage 加载已保存的版本号
+  // 从 localStorage 加载已保存的版本号
   appVersion.value = loadAppVersion()
   console.log('[LoginView] 从 localStorage 加载版本号:', appVersion.value)
 
-  // 第6步：Web 端主动调用更新接口检查服务器版本号
+  // Web 端主动调用更新接口检查服务器版本号
   await checkAppUpdate()
   
-  // 第5步：监听Android原生日志
+  // 监听Android原生日志
   // 保存原有的回调（如果存在，可能是App.vue中设置的）
   const previousCallback = window.onAndroidLog
   window.onAndroidLog = (level: string, tag: string, message: string) => {
-    // 第1步：如果有原有回调，先调用它（保持App.vue中的全局日志功能）
+    // 如果有原有回调，先调用它（保持App.vue中的全局日志功能）
     if (previousCallback) {
       previousCallback(level, tag, message)
     }
     
-    // 第2步：在LoginView中打印日志
+    // 在LoginView中打印日志
     const logMessage = `[Android-${tag}] ${message}`
     
     switch (level.toUpperCase()) {
@@ -332,6 +333,13 @@ const handleEnvSwitchConfirm = () => {
   }
 }
 
+// 取消环境切换对话框，重置临时状态
+const cancelEnvSwitchDialog = () => {
+  dialogConfig.needPassword = false
+  envSwitchPassword.value = ''
+  envSwitchDialog.value?.closeDialog()
+}
+
 const handleLogin = async () => {
   // 清除之前的错误信息
   errorMessage.value = ''
@@ -347,17 +355,17 @@ const handleLogin = async () => {
   isLoading.value = true
   
   try {
-    // 第1步：直接发送明文密码，与Android端LoginActivity保持一致
+    // 直接发送明文密码，与Android端LoginActivity保持一致
     // loginXueban内部已自动保存token和用户凭据到localStorage
     const token = await authService.loginXueban(loginForm.account, loginForm.password)
 
-    // 第2步：获取用户信息
+    // 获取用户信息
     // getUserInfo内部已自动完成：
     // - 持久化到localStorage
     // - 同步到Android原生ViewModel
     await authService.getUserInfo(token)
     
-    // 第3步：跳转到首页（使用 replace 避免登录页留在历史记录中）
+    // 跳转到首页（使用 replace 避免登录页留在历史记录中）
     router.replace('/app')
     
   } catch (error: unknown) {

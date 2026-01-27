@@ -222,8 +222,8 @@ const groupedRecords = computed(() => {
 	return sortedGroups
 })
 
-// 第1步：根据搜索关键词过滤会话列表，并排序（pinned 在前）
-// 第2步：置顶的会话无论是否匹配搜索关键词都要显示
+// 根据搜索关键词过滤会话列表，并排序（pinned 在前）
+// 置顶的会话无论是否匹配搜索关键词都要显示
 const filteredRecords = computed(() => {
   const sourceRecords = props.records || []
   let filtered: AiTextbookSession[] = []
@@ -261,7 +261,7 @@ const filteredRecords = computed(() => {
 
 // ==================== 批量选择相关方法 ====================
 
-// 第1步：切换会话选择状态
+// 切换会话选择状态
 const toggleRecordSelection = (recordId: string) => {
   if (selectedRecords.value.has(recordId)) {
     selectedRecords.value.delete(recordId)
@@ -270,7 +270,7 @@ const toggleRecordSelection = (recordId: string) => {
   }
 }
 
-// 第2步：全选/取消全选
+// 全选/取消全选
 const toggleSelectAll = () => {
   if (selectedRecords.value.size === props.records.length) {
     selectedRecords.value.clear()
@@ -282,19 +282,19 @@ const toggleSelectAll = () => {
   }
 }
 
-// 第3步：进入批量选择模式
+// 进入批量选择模式
 const enterSelectionMode = () => {
   isSelectionMode.value = true
   selectedRecords.value.clear()
 }
 
-// 第4步：退出批量选择模式
+// 退出批量选择模式
 const exitSelectionMode = () => {
   isSelectionMode.value = false
   selectedRecords.value.clear()
 }
 
-// 第5步：处理批量删除
+// 处理批量删除
 const handleBatchDelete = () => {
   if (selectedRecords.value.size === 0) return
 
@@ -305,7 +305,7 @@ const handleBatchDelete = () => {
   exitSelectionMode()
 }
 
-// 第6步：处理项目点击（区分选择模式和普通模式）
+// 处理项目点击（区分选择模式和普通模式）
 const handleItemClick = (record: AiTextbookSession) => {
   if (isSelectionMode.value) {
     toggleRecordSelection(getRecordId(record))
@@ -314,7 +314,7 @@ const handleItemClick = (record: AiTextbookSession) => {
   }
 }
 
-// 第7步：处理长按（进入批量选择模式）
+// 处理长按（进入批量选择模式）
 const handleLongPress = (record: AiTextbookSession) => {
   if (!isSelectionMode.value) {
     enterSelectionMode()
@@ -322,12 +322,12 @@ const handleLongPress = (record: AiTextbookSession) => {
   }
 }
 
-// 第4步：处理置顶/取消置顶
+// 处理置顶/取消置顶
 const handlePin = (record: AiTextbookSession) => {
   emit('record-pin', record)
 }
 
-// 第5步：处理删除
+// 处理删除
 const handleDelete = (record: AiTextbookSession) => {
   emit('record-delete', record)
 }

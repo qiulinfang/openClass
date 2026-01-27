@@ -13,9 +13,9 @@ export function useImagePicker() {
   // 流程：显示图片选择器 -> 等待用户选择 -> 返回选择结果
   const pickImage = (): Promise<ImageData | null> => {
     return new Promise((resolve) => {
-      // 第1步：保存 resolve 回调
+      // 保存 resolve 回调
       resolveCallback = resolve
-      // 第2步：显示选择器对话框
+      // 显示选择器对话框
       isPickerVisible.value = true
     })
   }

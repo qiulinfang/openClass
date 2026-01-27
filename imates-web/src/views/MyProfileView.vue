@@ -328,23 +328,23 @@ onUnmounted(async () => {
 // 加载用户信息
 const loadUserInfo = async () => {
   try {
-    // 第1步：尝试从持久化存储加载
+    // 尝试从持久化存储加载
     const cached = getUserInfo()
     if (cached) {
       return
     }
 
-    // 第2步：从统一存储获取XUEBAN_TOKEN
+    // 从统一存储获取XUEBAN_TOKEN
     const token = getXuebanToken()
     if (!token) {
       console.warn('未找到 XUEBAN_TOKEN')
       return
     }
 
-    // 第3步：调用 /admin/info 接口获取用户信息
+    // 调用 /admin/info 接口获取用户信息
     const userData = await authService.getUserInfo(token)
 
-    // 第4步：更新用户信息并持久化
+    // 更新用户信息并持久化
     if (userData) {
       setUserInfo({
         id: userData.id || '',
@@ -512,11 +512,11 @@ const confirmJoinClass = () => {
 
 // 显示反馈对话框
 const showFeedback = () => {
-  // 第1步：关闭工具箱
+  // 关闭工具箱
   if (closeToolbox) {
     closeToolbox()
   }
-  // 第2步：显示反馈对话框
+  // 显示反馈对话框
   if (openFeedbackDialog) {
     openFeedbackDialog()
   }
@@ -524,11 +524,11 @@ const showFeedback = () => {
 
 // 显示我的收藏
 const showFavorites = () => {
-  // 第1步：关闭工具箱
+  // 关闭工具箱
   if (closeToolbox) {
     closeToolbox()
   }
-  // 第2步：导航到我的收藏页面
+  // 导航到我的收藏页面
   router.push({ name: 'myFavorites' })
 }
 
@@ -545,11 +545,11 @@ const openDraftNotebook = () => {
 
 // 打开老师答疑对话框
 const openTeacherQADialog = () => {
-  // 第1步：关闭工具箱
+  // 关闭工具箱
   if (closeToolbox) {
     closeToolbox()
   }
-  // 第2步：通知父组件显示老师答疑对话框
+  // 通知父组件显示老师答疑对话框
   if (openTeacherQADialogFromParent) {
     openTeacherQADialogFromParent()
   }

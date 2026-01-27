@@ -174,7 +174,7 @@ import {
 import type { UserTextbookInfo } from '@/types'
 
 // 流程：导入图标资源
-// 第1步：导入普通状态图标
+// 导入普通状态图标
 import avatarIcon from '/icons/avatar.svg'
 import toolBoxIcon from '/icons/toolBox.svg'
 import downloadResourcesIcon from '/icons/downloadResources.svg'
@@ -184,7 +184,7 @@ import homeworkIcon from '/icons/homework.png'
 import photoQaIcon from '/icons/paizhaodayi.svg'
 import ipGif from '/icons/ip.gif'
 
-// 第2步：导入选中状态图标
+// 导入选中状态图标
 import toolBoxSelectIcon from '/icons/toolBox_select.svg'
 import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
 import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
@@ -460,7 +460,7 @@ const handleFloatingFabClick = () => {
   }
 }
 
-// 第3步：根据选中状态计算当前应该显示的图标
+// 根据选中状态计算当前应该显示的图标
 // 工具箱图标仅由工具箱展开状态决定，与当前路由高亮无关
 const currentToolBoxIcon = computed(() => {
   return showToolbox.value ? toolBoxSelectIcon : toolBoxIcon
@@ -586,10 +586,10 @@ const isNavItemActive = (key: NavKey | string) => {
 // 检查教材更新状态和未下载状态
 const checkResourceUpdates = async () => {
   try {
-    // 第1步：获取所有本地教材
+    // 获取所有本地教材
     let textbooks = await resourceManager.getUserLocalTextbooks()
 
-    // 第2步：如果本地没有数据，从服务器获取
+    // 如果本地没有数据，从服务器获取
     if (textbooks.length === 0) {
       try {
         // 检查登录状态
@@ -618,12 +618,12 @@ const checkResourceUpdates = async () => {
       }
     }
 
-    // 第3步：检查是否有教材需要更新
+    // 检查是否有教材需要更新
     const hasUpdates = textbooks.some((textbook: UserTextbookInfo) => {
       return textbook.hasUpdatesAvailable === true
     })
 
-    // 第4步：检查是否有教材未下载或未完全下载
+    // 检查是否有教材未下载或未完全下载
     const hasUndownloaded = textbooks.some((textbook: UserTextbookInfo) => {
       // 判断条件：未下载或未完全下载
       // - isDownloaded === false 表示未下载
@@ -642,10 +642,10 @@ const checkResourceUpdates = async () => {
       }
     })
 
-    // 第5步：更新通知状态（有更新或未下载都显示小红点）
+    // 更新通知状态（有更新或未下载都显示小红点）
     hasResourceNotification.value = hasUpdates || hasUndownloaded
 
-    // 第6步：更新“是否已下载任意教材”状态：仅当存在 downloadStatus === 2 且 isDownloaded 为 true 的教材时为 true
+    // 更新“是否已下载任意教材”状态：仅当存在 downloadStatus === 2 且 isDownloaded 为 true 的教材时为 true
     hasAnyDownloadedTextbook.value = textbooks.some((textbook: UserTextbookInfo) => {
       return textbook.isDownloaded === true && textbook.downloadStatus === 2
     })
@@ -666,10 +666,10 @@ watch(
 
 // 初始化按钮位置
 onMounted(async () => {
-  // 第1步：加载用户信息
+  // 加载用户信息
   updateCurrentUserInfo()
 
-  // 第2步：初始化按钮位置
+  // 初始化按钮位置
   fabPosition.value = { x: 18, y: 18 }
 
   // 监听课堂状态，高亮头像
@@ -686,23 +686,23 @@ onMounted(async () => {
     isInClass.value = !!status?.isInClass
   })
 
-  // 第2步：等待 Vue 渲染完成
+  // 等待 Vue 渲染完成
   await nextTick()
 
-  // 第3步：确保 IndexedDB 已初始化，然后检查教材更新状态
+  // 确保 IndexedDB 已初始化，然后检查教材更新状态
   // getUserLocalTextbooks 内部会检查并初始化 IndexedDB，所以直接调用即可
   await checkResourceUpdates()
 
-  // 第4步：监听Android原生日志
+  // 监听Android原生日志
   // 保存原有的回调（如果存在，可能是App.vue或LoginView中设置的）
   const previousCallback = window.onAndroidLog
   window.onAndroidLog = (level: string, tag: string, message: string) => {
-    // 第1步：如果有原有回调，先调用它（保持App.vue或LoginView中的全局日志功能）
+    // 如果有原有回调，先调用它（保持App.vue或LoginView中的全局日志功能）
     if (previousCallback) {
       previousCallback(level, tag, message)
     }
 
-    // 第2步：在MainView中打印日志
+    // 在MainView中打印日志
     const logMessage = `[Android-${tag}] ${message}`
 
     switch (level.toUpperCase()) {
@@ -721,7 +721,7 @@ onMounted(async () => {
     }
   }
 
-  // 第5步：监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
+  // 监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
   window.addEventListener('floating-fab-action', (event: Event) => {
     const customEvent = event as CustomEvent<{ action: string }>
     const action = customEvent.detail?.action
@@ -888,7 +888,7 @@ provide('openToolbox', handleOpenToolbox)
 
 // 处理内容区域点击事件
 const handleContentAreaClick = () => {
-  // 第1步：如果工具箱是打开的，则关闭它
+  // 如果工具箱是打开的，则关闭它
   if (showToolbox.value) {
     showToolbox.value = false
   }

@@ -8,15 +8,15 @@ import type { ImageData } from '../types'
 export class WebImagePickerAdapter implements IImagePickerAdapter {
   /**
    * 从相机拍照（Web 环境直接调用电脑摄像头）
-   * 第1步：检查浏览器是否支持 getUserMedia
-   * 第2步：请求摄像头权限并获取视频流
-   * 第3步：创建预览界面显示摄像头画面
-   * 第4步：用户点击拍照按钮时捕获画面
-   * 第5步：将捕获的画面转换为 base64 数据
-   * 第6步：清理资源并返回图片数据
+   * 检查浏览器是否支持 getUserMedia
+   * 请求摄像头权限并获取视频流
+   * 创建预览界面显示摄像头画面
+   * 用户点击拍照按钮时捕获画面
+   * 将捕获的画面转换为 base64 数据
+   * 清理资源并返回图片数据
    */
   async captureFromCamera(): Promise<ImageData | null> {
-    // 第1步：检查浏览器是否支持 getUserMedia
+    // 检查浏览器是否支持 getUserMedia
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       console.error('[WebImagePickerAdapter] ❌ 浏览器不支持摄像头访问')
       return null
@@ -27,14 +27,14 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
     let modal: HTMLDivElement | null = null
 
     try {
-      // 第2步：请求摄像头权限并获取视频流
+      // 请求摄像头权限并获取视频流
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user' // 使用前置摄像头（电脑通常只有前置摄像头）
         }
       })
 
-      // 第3步：创建预览界面
+      // 创建预览界面
       modal = this.createCameraModal()
       video = document.createElement('video')
       video.autoplay = true
@@ -51,10 +51,10 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
         video!.onerror = () => reject(new Error('视频加载失败'))
       })
 
-      // 第4步：等待用户点击拍照按钮
+      // 等待用户点击拍照按钮
       const capturedData = await this.waitForCapture(video, modal)
 
-      // 第5步：清理资源
+      // 清理资源
       this.cleanup(stream, video, modal)
 
       return capturedData
@@ -84,21 +84,21 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
 
   /**
    * 创建摄像头预览模态框
-   * 第1步：创建模态框容器
-   * 第2步：创建视频预览区域
-   * 第3步：创建拍照按钮和取消按钮
-   * 第4步：添加样式并返回模态框元素
+   * 创建模态框容器
+   * 创建视频预览区域
+   * 创建拍照按钮和取消按钮
+   * 添加样式并返回模态框元素
    */
   private createCameraModal(): HTMLDivElement {
-    // 第1步：创建模态框容器
+    // 创建模态框容器
     const modal = document.createElement('div')
     modal.className = 'camera-modal-overlay'
     
-    // 第2步：创建内容区域
+    // 创建内容区域
     const content = document.createElement('div')
     content.className = 'camera-modal-content'
     
-    // 第3步：创建视频预览区域
+    // 创建视频预览区域
     const videoContainer = document.createElement('div')
     videoContainer.className = 'camera-video-container'
     const videoPreview = document.createElement('div')
@@ -106,7 +106,7 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
     videoPreview.id = 'camera-video-preview'
     videoContainer.appendChild(videoPreview)
     
-    // 第4步：创建按钮区域
+    // 创建按钮区域
     const buttonContainer = document.createElement('div')
     buttonContainer.className = 'camera-button-container'
     
@@ -127,7 +127,7 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
     content.appendChild(buttonContainer)
     modal.appendChild(content)
     
-    // 第5步：添加样式
+    // 添加样式
     this.injectCameraModalStyles()
     
     // 添加到页面
@@ -138,10 +138,10 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
 
   /**
    * 等待用户点击拍照按钮
-   * 第1步：将视频元素添加到预览区域
-   * 第2步：等待用户点击拍照或取消按钮
-   * 第3步：如果点击拍照，使用 canvas 捕获画面
-   * 第4步：将 canvas 转换为 base64 数据并返回
+   * 将视频元素添加到预览区域
+   * 等待用户点击拍照或取消按钮
+   * 如果点击拍照，使用 canvas 捕获画面
+   * 将 canvas 转换为 base64 数据并返回
    */
   private waitForCapture(video: HTMLVideoElement, modal: HTMLDivElement): Promise<ImageData | null> {
     return new Promise((resolve) => {
@@ -149,7 +149,7 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
       const captureButton = modal.querySelector('#camera-capture-btn') as HTMLButtonElement
       const cancelButton = modal.querySelector('#camera-cancel-btn') as HTMLButtonElement
       
-      // 第1步：将视频元素添加到预览区域
+      // 将视频元素添加到预览区域
       if (videoPreview) {
         video.style.width = '100%'
         video.style.height = '100%'
@@ -157,10 +157,10 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
         videoPreview.appendChild(video)
       }
       
-      // 第2步：处理拍照按钮点击
+      // 处理拍照按钮点击
       const handleCapture = () => {
         try {
-          // 第3步：创建 canvas 并捕获画面
+          // 创建 canvas 并捕获画面
           const canvas = document.createElement('canvas')
           canvas.width = video.videoWidth
           canvas.height = video.videoHeight
@@ -174,7 +174,7 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
           // 绘制当前视频帧到 canvas
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
           
-          // 第4步：转换为 base64
+          // 转换为 base64
           const base64DataUrl = canvas.toDataURL('image/jpeg', 0.9)
           
           // 构造图片数据
@@ -205,21 +205,21 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
 
   /**
    * 清理资源
-   * 第1步：停止视频流
-   * 第2步：移除模态框
+   * 停止视频流
+   * 移除模态框
    */
   private cleanup(stream: MediaStream | null, video: HTMLVideoElement | null, modal: HTMLDivElement | null): void {
-    // 第1步：停止视频流中的所有轨道
+    // 停止视频流中的所有轨道
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
     }
     
-    // 第2步：移除视频元素的源对象
+    // 移除视频元素的源对象
     if (video) {
       video.srcObject = null
     }
     
-    // 第3步：移除模态框
+    // 移除模态框
     if (modal && modal.parentNode) {
       document.body.removeChild(modal)
     }

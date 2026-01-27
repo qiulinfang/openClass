@@ -171,6 +171,7 @@
       :confirmButtonText="'删除'"
       :cancelButtonText="'取消'"
       @confirm="confirmDelete"
+      @cancel="cancelDelete"
     >
       <!-- 显示具体的删除确认内容 -->
       {{ deleteConfirmContent }}

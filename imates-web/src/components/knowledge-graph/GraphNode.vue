@@ -114,10 +114,10 @@ const emit = defineEmits<Emits>()
 const nodeRef = ref<HTMLElement>()
 const menuRef = ref<HTMLElement>()
 
-// 第1步：获取调试参数
+// 获取调试参数
 const debugParams = inject<Ref<KnowledgeGraphDebugParams> | undefined>('knowledgeGraphDebugParams', undefined)
 
-// 第2步：气泡框菜单定位方向（'top' 在上方，'bottom' 在下方）
+// 气泡框菜单定位方向（'top' 在上方，'bottom' 在下方）
 const menuPosition = ref<'top' | 'bottom'>('bottom')
 
 /**
@@ -297,13 +297,13 @@ const contentClasses = computed(() => {
   return classes
 })
 
-// 第2步：计算中心节点的样式（包括大小）
+// 计算中心节点的样式（包括大小）
 const centerNodeStyle = computed(() => {
   if (props.type !== 'center') {
     return {}
   }
   
-  // 第3步：根据节点状态获取对应的大小
+  // 根据节点状态获取对应的大小
   let size = debugParams?.value?.centerNodeSizeDefault ?? 180 // 默认大小
   
   if (props.isExpanded) {
@@ -314,10 +314,10 @@ const centerNodeStyle = computed(() => {
     size = debugParams?.value?.centerNodeSizeShrunk ?? 140
   }
   
-  // 第4步：获取缩放速度（从 debugParams 中读取）
+  // 获取缩放速度（从 debugParams 中读取）
   const scaleSpeed = debugParams?.value?.centerNodeScaleSpeed ?? 0.5
   
-  // 第5步：返回样式对象（包括大小和过渡时间）
+  // 返回样式对象（包括大小和过渡时间）
   return {
     width: `${size}px`,
     height: `${size}px`,
@@ -382,7 +382,7 @@ const wrapperStyle = computed(() => {
   return nodeStyle.value
 })
 
-// 第3步：动态计算气泡框菜单位置
+// 动态计算气泡框菜单位置
 const calculateMenuPosition = async () => {
   if (!props.isMenuVisible || !nodeRef.value) {
     return
@@ -390,16 +390,16 @@ const calculateMenuPosition = async () => {
   
   await nextTick()
   
-  // 第1步：获取节点在视口中的位置
+  // 获取节点在视口中的位置
   const nodeRect = nodeRef.value.getBoundingClientRect()
   
-  // 第2步：查找 viewport-clipper 容器元素
+  // 查找 viewport-clipper 容器元素
   const viewportClipper = nodeRef.value.closest('.viewport-clipper') as HTMLElement | null
   
   // 预估气泡框菜单高度（包括按钮和间距）
   const estimatedMenuHeight = 120 // 两个按钮 + 间距 + padding
   
-  // 第4步：计算节点下方和上方的可用空间
+  // 计算节点下方和上方的可用空间
   // 使用 viewport-clipper 容器的底部位置来计算下方空间
   const containerBottom = viewportClipper 
     ? viewportClipper.getBoundingClientRect().bottom 
@@ -765,8 +765,8 @@ const learningTagStyle = computed(() => {
 /* 中心节点内部标题 */
 .node-content--center .node-title {
   font-size: 190%; /* 节点宽度的180% */
-  margin-top: -8px; /* 第1步：向上占据一些空间 */
-  margin-bottom: 4px; /* 第2步：增加与章节名的间距 */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 4px; /* 增加与章节名的间距 */
   color: white;
   font-family: '优设标题黑', 'YouSheBiaoTiHei', sans-serif;
   font-weight: bold;
@@ -787,9 +787,9 @@ const learningTagStyle = computed(() => {
 
 /* 中心节点标题展开状态 - 字体放大 */
 .node-content--center.node-content--expanded .node-title {
-  font-size: 230%; /* 第1步：展开时字体放大到230% */
-  margin-top: -8px; /* 第2步：向上占据一些空间 */
-  margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
+  font-size: 230%; /* 展开时字体放大到230% */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 4px; /* 增加与章节名的间距 */
   line-height: 1.3; /* 调整行高以适应放大后的字体和换行文本 */
   /* 多行文本截断：最多显示两行，超出部分用省略号 */
   display: -webkit-box;
@@ -804,9 +804,9 @@ const learningTagStyle = computed(() => {
 
 /* 中心节点标题在其他图谱展开时字体保持不变 */
 .node-content--center.node-content--shrunk .node-title {
-  font-size: 190%; /* 第1步：保持与默认状态相同的字体大小 */
-  margin-top: -8px; /* 第2步：向上占据一些空间 */
-  margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
+  font-size: 190%; /* 保持与默认状态相同的字体大小 */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 4px; /* 增加与章节名的间距 */
   line-height: 1.2; /* 调整行高以适应换行 */
   /* 多行文本截断：最多显示两行，超出部分用省略号 */
   display: -webkit-box;
@@ -858,7 +858,7 @@ const learningTagStyle = computed(() => {
   font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
   font-weight: normal;
   text-align: center;
-  line-height: 1.4; /* 第1步：增加行高，改善可读性 */
+  line-height: 1.4; /* 增加行高，改善可读性 */
   opacity: 0.9;
   transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
@@ -875,32 +875,32 @@ const learningTagStyle = computed(() => {
 
 /* 中心节点章节名展开状态 - 字号保持一致 */
 .node-content--center.node-content--expanded .node-chapter {
-  font-size: 145%; /* 第1步：保持与默认状态相同的字体大小 */
-  line-height: 1.4; /* 第2步：增加行高，改善可读性 */
-  display: -webkit-box; /* 第3步：使用弹性盒子布局以支持多行截断 */
-  -webkit-box-orient: vertical; /* 第4步：垂直方向排列 */
-  -webkit-line-clamp: 2; /* 第5步：最多显示两行 */
-  line-clamp: 2; /* 第6步：标准属性，最多显示两行 */
-  overflow: hidden; /* 第7步：隐藏超出部分 */
-  text-overflow: ellipsis; /* 第8步：超出部分显示省略号 */
-  word-wrap: break-word; /* 第9步：允许文字换行 */
-  word-break: break-word; /* 第10步：确保长文本正确换行 */
-  margin-bottom: 2px; /* 第11步：底部留一些间距 */
+  font-size: 145%; /* 保持与默认状态相同的字体大小 */
+  line-height: 1.4; /* 增加行高，改善可读性 */
+  display: -webkit-box; /* 使用弹性盒子布局以支持多行截断 */
+  -webkit-box-orient: vertical; /* 垂直方向排列 */
+  -webkit-line-clamp: 2; /* 最多显示两行 */
+  line-clamp: 2; /* 标准属性，最多显示两行 */
+  overflow: hidden; /* 隐藏超出部分 */
+  text-overflow: ellipsis; /* 超出部分显示省略号 */
+  word-wrap: break-word; /* 允许文字换行 */
+  word-break: break-word; /* 确保长文本正确换行 */
+  margin-bottom: 2px; /* 底部留一些间距 */
 }
 
 /* 中心节点章节名在其他图谱展开时字体保持不变 */
 .node-content--center.node-content--shrunk .node-chapter {
-  font-size: 140%; /* 第1步：保持与默认状态相同的字体大小 */
-  line-height: 1.4; /* 第2步：增加行高，改善可读性 */
-  display: -webkit-box; /* 第3步：使用弹性盒子布局以支持多行截断 */
-  -webkit-box-orient: vertical; /* 第4步：垂直方向排列 */
-  -webkit-line-clamp: 2; /* 第5步：最多显示两行 */
-  line-clamp: 2; /* 第6步：标准属性，最多显示两行 */
-  overflow: hidden; /* 第7步：隐藏超出部分 */
-  text-overflow: ellipsis; /* 第8步：超出部分显示省略号 */
-  word-wrap: break-word; /* 第9步：允许文字换行 */
-  word-break: break-word; /* 第10步：确保长文本正确换行 */
-  margin-bottom: 2px; /* 第11步：底部留一些间距 */
+  font-size: 140%; /* 保持与默认状态相同的字体大小 */
+  line-height: 1.4; /* 增加行高，改善可读性 */
+  display: -webkit-box; /* 使用弹性盒子布局以支持多行截断 */
+  -webkit-box-orient: vertical; /* 垂直方向排列 */
+  -webkit-line-clamp: 2; /* 最多显示两行 */
+  line-clamp: 2; /* 标准属性，最多显示两行 */
+  overflow: hidden; /* 隐藏超出部分 */
+  text-overflow: ellipsis; /* 超出部分显示省略号 */
+  word-wrap: break-word; /* 允许文字换行 */
+  word-break: break-word; /* 确保长文本正确换行 */
+  margin-bottom: 2px; /* 底部留一些间距 */
 }
 
 
@@ -920,20 +920,20 @@ const learningTagStyle = computed(() => {
   line-height: 16px;
   /* 提升层级，确保不会被中心节点圆形遮挡 */
   z-index: 20;
-  /* 第1步：初始状态为透明，通过动画变为不透明 */
+  /* 初始状态为透明，通过动画变为不透明 */
   opacity: 0;
-  /* 第2步：添加透明度过渡效果，实现从透明到不透明的淡入动画 */
+  /* 添加透明度过渡效果，实现从透明到不透明的淡入动画 */
   transition: opacity var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1),
               all var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1);
   pointer-events: none; /* 禁用点击事件 */
-  /* 第3步：使用动画实现淡入效果 */
+  /* 使用动画实现淡入效果 */
   animation: learning-tag-fade-in var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
 /* 学习标签在节点展开时变为完全透明 */
 .learning-tag--expanded {
   opacity: 0;
-  /* 第1步：展开状态时禁用淡入动画，直接变为透明 */
+  /* 展开状态时禁用淡入动画，直接变为透明 */
   animation: none;
 }
 

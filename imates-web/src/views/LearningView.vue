@@ -572,7 +572,7 @@ const checkAndGenerateThumbnails = async () => {
     
     // 遍历每个资源文件
     for (const resource of resources) {
-      // 第1步：检查是否是支持生成缩略图的文件类型（PDF、图片、HTML或视频）
+      // 检查是否是支持生成缩略图的文件类型（PDF、图片、HTML或视频）
       const isPdf = isPdfFile(resource.fileName)
       const isImage = isImageFile(resource.fileName)
       const isHtml = isHtmlFile(resource.fileName)
@@ -583,17 +583,17 @@ const checkAndGenerateThumbnails = async () => {
         continue
       }
       
-      // 第2步：查找对应的本地文件信息
+      // 查找对应的本地文件信息
       const localFile = localFiles.value.find(file => file.id === resource.id)
       
-      // 第3步：检查是否需要生成缩略图
+      // 检查是否需要生成缩略图
       // 条件：文件已下载 && 没有缩略图
       if (localFile && localFile.isDownloaded && !localFile.thumbnail) {
-        // 第4步：从IndexedDB读取文件数据
+        // 从IndexedDB读取文件数据
         const fileData = await resourceManager.getFileData(id.value, resource.id)
         
         if (fileData && fileData.length > 0) {
-          // 第5步：添加到缩略图生成队列
+          // 添加到缩略图生成队列
           thumbnailQueue.addTask({
             fileId: resource.id,
             textbookId: currentTextbookId.value,

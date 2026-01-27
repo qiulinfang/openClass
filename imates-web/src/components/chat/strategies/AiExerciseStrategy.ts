@@ -18,19 +18,19 @@ export class AiExerciseStrategy implements ChatStrategy {
   private aiExerciseStore = useAiExerciseChatStore()
   private chatView?: import('./ChatStrategy').ChatViewInterface
   
-  // 第1步：获取消息列表
+  // 获取消息列表
   getMessages(): ChatBubble[] {
     return this.aiExerciseStore.messages
   }
   
-  // 第2步：添加消息（直接操作messages）
+  // 添加消息（直接操作messages）
   async addMessage(message: ChatBubble): Promise<void> {
     this.aiExerciseStore.messages.push(message)
     // 通知ChatView处理消息变化
     this.handleMessagesChanged(this.getMessages())
   }
   
-  // 第3步：发送消息
+  // 发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     // 优先使用 options.currentQuestion（由 ChatView 通过 props.overrideQuestion 传入）
     const currentQuestion = options.currentQuestion as unknown | undefined
@@ -84,27 +84,27 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
   }
   
-  // 第4步：获取欢迎消息
+  // 获取欢迎消息
   getWelcomeMessage(): string {
     return '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。'
   }
   
-  // 第5步：检查是否需要选择题目
+  // 检查是否需要选择题目
   requiresQuestion(): boolean {
     return true
   }
   
-  // 第6步：获取消息类型
+  // 获取消息类型
   getMessageType(): 'ai' | 'teacher' {
     return 'ai'
   }
   
-  // 第7步：获取发送者类型
+  // 获取发送者类型
   getSenderType(): 'ai' | 'teacher' {
     return 'ai'
   }
   
-  // 第8步：保存聊天历史（AI题目场景统一使用 bmNo 作为存储键）
+  // 保存聊天历史（AI题目场景统一使用 bmNo 作为存储键）
   async saveChatHistory(questionBmNo?: string): Promise<void> {
     if (questionBmNo) {
       await this.aiExerciseStore.saveChatHistory(questionBmNo)
@@ -118,12 +118,12 @@ export class AiExerciseStrategy implements ChatStrategy {
     await this.aiExerciseStore.deleteMessage(messageId, bmNo)
   }
   
-  // 第9步：检查是否支持转发消息
+  // 检查是否支持转发消息
   canForwardMessage(): boolean {
     return true // AI题目对话支持转发
   }
   
-  // 第10步：获取当前科目（用于转发）
+  // 获取当前科目（用于转发）
   // 策略接口中定义为无参数方法，这里提供一个占位实现，始终返回 null
   getCurrentSubjectForForward(): 'biology' | 'math' | null {
     return null
@@ -149,7 +149,7 @@ export class AiExerciseStrategy implements ChatStrategy {
   }
   
 
-  // 第12步：转发多条消息
+  // 转发多条消息
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
       // 获取题目信息
@@ -198,7 +198,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
   }
   
-  // 第13步：初始化消息
+  // 初始化消息
   async initialize(options: InitializeOptions): Promise<void> {
     // 如果有题目，加载该题目的聊天历史（此处 currentQuestionId 约定为 bmNo）
     if (options.hasSelectedQuestion && options.currentQuestionId) {
@@ -224,7 +224,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
   }
 
-  // 第16步：检查是否应该乐观发送
+  // 检查是否应该乐观发送
   async sendVoiceMessage(voiceInfo: {
     filePath: string
     duration: number
@@ -234,7 +234,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     return { success: true }
   }
   
-  // 第15步：发送图片消息
+  // 发送图片消息
   async sendImageMessage(
     imageInfo: {
       filePath: string
@@ -282,7 +282,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     })
   }
   
-  // 第16步：更新编辑的消息
+  // 更新编辑的消息
   async updateEditedMessage(
     messageId: string,
     newContent: string,
@@ -313,7 +313,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     })
   }
   
-  // 第17步：获取占位符文本
+  // 获取占位符文本
   getPlaceholderText(hasSelectedQuestion: boolean): string {
     if (!hasSelectedQuestion) {
       return '可以先聊聊，或选择题目后开始讨论'
@@ -416,25 +416,25 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
   }
 
-  // 第19步：是否显示转发按钮
+  // 是否显示转发按钮
   shouldShowForwardButton(): boolean {
     return true // AI题目对话支持转发
   }
   
-  // 第20步：发送图片消息后是否清空输入框
+  // 发送图片消息后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return true // AI场景需要清空输入框
   }
   
-  // 第21步：是否使用乐观发送
+  // 是否使用乐观发送
   shouldOptimisticSend(): boolean {
     return false // AI场景不使用乐观发送
   }
   
-  // 第22步：清理资源
+  // 清理资源
   // cleanup 不实现，因为AI策略不需要特殊清理
   
-  // 第23步：获取当前科目
+  // 获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
     return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
   }

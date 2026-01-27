@@ -127,7 +127,7 @@ import TeacherSelectionDialog from './TeacherSelectionDialog.vue'
 import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
 
-// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 判断是否显示调试功能（仅通过环境变量控制）
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // ==================== Props & Emits ====================

@@ -220,14 +220,14 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   /**
    * 发送聊天消息（AI题目场景）
    *
-   * 第1步：验证题目
-   * 第2步：新建会话ID（如需要）
-   * 第3步：构建并验证AI请求参数
-   * 第4步：创建用户消息
-   * 第5步：创建临时AI回复
-   * 第6步：发送请求
-   * 第7步：更新消息
-   * 第8步：保存历史
+   * 验证题目
+   * 新建会话ID（如需要）
+   * 构建并验证AI请求参数
+   * 创建用户消息
+   * 创建临时AI回复
+   * 发送请求
+   * 更新消息
+   * 保存历史
    */
   const sendMessage = async (
     content: string,
@@ -240,12 +240,12 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     skipUserMessage?: boolean,
     quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
-    // 第1步：验证题目
+    // 验证题目
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
     }
     
-    // 第2步：如果没有 sessionId，则新建（基于题目bmNo）
+    // 如果没有 sessionId，则新建（基于题目bmNo）
     if (!currentSessionId.value) {
       const questionBmNo = currentQuestion.bmNo || ''
       const userId = getUserId() || ''
@@ -253,7 +253,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       currentSessionId.value = newSessionId
     }
 
-    // 第3步：构建AI请求并验证参数完整性（在插入占位消息前进行校验）
+    // 构建AI请求并验证参数完整性（在插入占位消息前进行校验）
     let aiRequest: AiChatMessageRequest
     try {
       aiRequest = buildAiExerciseMessage(
@@ -273,7 +273,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       throw error // 重新抛出错误，让上层处理
     }
 
-    // 第4步：创建用户消息（可选）
+    // 创建用户消息（可选）
     // 自动检测并去除"我们开始吧"前缀（如果未显式设置 shouldHidePrefix）
     const shouldHidePrefixFlag = hidePrefix || content.includes('我们开始吧')
     if (!skipUserMessage) {
@@ -287,7 +287,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       messages.value.push(userMessage)
     }
 
-    // 第5步：创建临时AI回复（使用工具函数）
+    // 创建临时AI回复（使用工具函数）
     const tempReplyId = generateUniqueId('temp_ai')
     const tempReply: ChatBubble = {
       id: tempReplyId,
@@ -302,7 +302,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     messages.value.push(tempReply)
     
     try {
-      // 第6步：发送请求（带流式回调）
+      // 发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
 
       const wrappedOnStream = (chunk: string, isComplete: boolean) => {
@@ -328,7 +328,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
 
       const response = await apiService.sendChatMessage(aiRequest, onComplete, wrappedOnStream, onHistoryUpdate)
 
-      // 第7步：更新回复次数
+      // 更新回复次数
       chatResponseTimes.value++
 
       // 检查是否可以查看答案
@@ -336,7 +336,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         canViewAnswer.value = true
       }
 
-      // 第8步：保存聊天历史（统一使用 bmNo 作为存储键）
+      // 保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
         await saveChatHistory(questionBmNo)
@@ -386,7 +386,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     imageData?: ChatImageData,
     quotedMessage?: ChatQuotedMessage,
   ): Promise<void> => {
-    // 第1步：验证题目
+    // 验证题目
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
     }
@@ -394,7 +394,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     const { index, message, retryCount, originalContent } = retryHelper.prepareRetryInfo(messages, messageId)
     const maxRetries = retryHelper.maxRetries
     
-    // 第4步：更新为重试中状态
+    // 更新为重试中状态
     messages.value[index] = {
       ...message,
       content: '',
@@ -405,7 +405,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
     }
     
-    // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
+    // 构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     let aiRequest: AiChatMessageRequest
     try {
       aiRequest = buildAiExerciseMessage(
@@ -426,7 +426,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     try {
-      // 第6步：重新发送请求（带流式回调）
+      // 重新发送请求（带流式回调）
       let accumulatedContent = ''
       const response = await apiService.sendChatMessage(
         aiRequest,
@@ -466,7 +466,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         },
       )
       
-      // 第9步：保存聊天历史（统一使用 bmNo 作为存储键）
+      // 保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
         await saveChatHistory(questionBmNo)
@@ -618,13 +618,13 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
    */
   const deleteMessage = async (messageId: string, questionBmNo?: string): Promise<void> => {
     try {
-      // 第1步：查找被点击消息在列表中的索引
+      // 查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index < 0) {
         throw new Error('消息不存在')
       }
 
-      // 第2步：确定删除起点索引
+      // 确定删除起点索引
       let startIndex = index
       const target = messages.value[index]
 
@@ -638,7 +638,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         }
       }
 
-      // 第3步：确定用于后端 delete_messages 的起始 message_id
+      // 确定用于后端 delete_messages 的起始 message_id
       // 优先使用起点消息的 backend messageId；如果没有，则向后找第一条带 messageId 的消息
       let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
       if (!startBackendMessageId) {
@@ -650,15 +650,15 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         }
       }
 
-      // 第4步：先更新本地消息列表（从起点到末尾全部删除）
+      // 先更新本地消息列表（从起点到末尾全部删除）
       messages.value.splice(startIndex)
 
-      // 第5步：保存更新后的聊天历史（questionBmNo 由调用方传入）
+      // 保存更新后的聊天历史（questionBmNo 由调用方传入）
       if (questionBmNo) {
         await saveChatHistory(questionBmNo)
       }
 
-      // 第6步：调用后端 manageConversationMemory，同步删除对应线程的后续历史
+      // 调用后端 manageConversationMemory，同步删除对应线程的后续历史
       if (currentSessionId.value && startBackendMessageId) {
         try {
           await apiService.manageConversationMemory({

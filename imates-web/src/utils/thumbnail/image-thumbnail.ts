@@ -16,13 +16,13 @@ export async function generateImageThumbnail(
   maxHeight: number = 280
 ): Promise<string> {
   try {
-    // 第1步：将Uint8Array转换为Blob
+    // 将Uint8Array转换为Blob
     const blob = new Blob([fileData])
     
-    // 第2步：创建图片URL
+    // 创建图片URL
     const imageUrl = URL.createObjectURL(blob)
     
-    // 第3步：加载图片
+    // 加载图片
     const img = new Image()
     await new Promise((resolve, reject) => {
       img.onload = resolve
@@ -30,12 +30,12 @@ export async function generateImageThumbnail(
       img.src = imageUrl
     })
     
-    // 第4步：计算缩略图尺寸
+    // 计算缩略图尺寸
     const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1)
     const thumbWidth = img.width * scale
     const thumbHeight = img.height * scale
     
-    // 第5步：创建canvas元素
+    // 创建canvas元素
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     
@@ -43,17 +43,17 @@ export async function generateImageThumbnail(
       throw new Error('无法创建canvas上下文')
     }
     
-    // 第6步：设置canvas尺寸
+    // 设置canvas尺寸
     canvas.width = thumbWidth
     canvas.height = thumbHeight
     
-    // 第7步：绘制缩略图
+    // 绘制缩略图
     context.drawImage(img, 0, 0, thumbWidth, thumbHeight)
     
-    // 第8步：转换为base64数据URL
+    // 转换为base64数据URL
     const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8)
     
-    // 第9步：清理资源
+    // 清理资源
     URL.revokeObjectURL(imageUrl)
     
     return thumbnailDataUrl

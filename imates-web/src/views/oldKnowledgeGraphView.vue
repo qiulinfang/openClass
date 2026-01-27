@@ -48,7 +48,7 @@
         </q-select>
       </div>
 
-      <!-- 第1步：添加节点搜索框 -->
+      <!-- 添加节点搜索框 -->
       <div v-show="showNodeSearch" class="chapter-search">
         <q-input
           v-model="searchQuery"
@@ -312,7 +312,7 @@ import backgroundImage from '/icons/background.svg'
 import chapterSearchIcon from '/icons/chapter_search.svg'
 import photoSearchIcon from '/icons/photo_search.svg'
 
-// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 // 使用统一的章节状态管理
@@ -339,7 +339,7 @@ const router = useRouter()
 // Store
 const questionStore = useQuestionStore()
 
-// 第4步：添加搜索相关的响应式数据
+// 添加搜索相关的响应式数据
 const searchQuery = ref('')
 const showNodeSearch = ref(false) // 控制搜索框显示/隐藏
 
@@ -385,7 +385,7 @@ const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
     chapterName: string
   }> = []
   
-  // 第1步：添加当前节点
+  // 添加当前节点
   const chapterName = chapters.value[chapterIndex] || chapter.name
   results.push({
     node: chapter,
@@ -393,7 +393,7 @@ const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
     chapterName
   })
   
-  // 第2步：递归处理子节点
+  // 递归处理子节点
   const collectChildren = (node: ChapterNode) => {
     if (node.children && node.children.length > 0) {
       node.children.forEach(child => {
@@ -418,7 +418,7 @@ const searchResults = computed(() => {
     return []
   }
   
-  // 第1步：收集所有章节的所有节点
+  // 收集所有章节的所有节点
   const allNodes: Array<{
     node: ChapterNode
     chapterIndex: number
@@ -430,7 +430,7 @@ const searchResults = computed(() => {
     allNodes.push(...nodes)
   })
   
-  // 第2步：模糊搜索节点（搜索name和label）
+  // 模糊搜索节点（搜索name和label）
   const query = searchQuery.value.trim().toLowerCase()
   return allNodes.filter(item => {
     const node = item.node
@@ -655,11 +655,11 @@ const handleNodeUpdate = (
 
     if (action === 'add') {
       // 添加新节点
-      // 第1步：检查传入节点的 parentId，判断是添加到中心节点下还是添加到一级节点下
+      // 检查传入节点的 parentId，判断是添加到中心节点下还是添加到一级节点下
       const parentId = node.parentId || updatedChapter.id || null
       const isAddingToCenter = parentId === updatedChapter.id || !parentId
       
-      // 第2步：根据父节点确定新节点的层级
+      // 根据父节点确定新节点的层级
       let newNodeLevel: number
       let targetParentNode: ChapterNode | null = null
       
@@ -680,7 +680,7 @@ const handleNodeUpdate = (
         }
       }
       
-      // 第3步：创建新节点
+      // 创建新节点
       const newNode: ChapterNode = {
         ...node,
         level: newNodeLevel,
@@ -691,7 +691,7 @@ const handleNodeUpdate = (
         children: []
       }
       
-      // 第4步：根据父节点类型决定添加到哪个位置
+      // 根据父节点类型决定添加到哪个位置
       if (isAddingToCenter || !targetParentNode) {
         // 添加到中心节点的 children（作为一级节点）
         updatedChapter.children = updatedChapter.children || []
@@ -761,7 +761,7 @@ const combinedTransition = computed(() => {
   return `${transformTransition.value}, ${opacityTransition.value}`
 })
 
-// 第21步：优化拖拽阈值常量 - 使用可调参数
+// 优化拖拽阈值常量 - 使用可调参数
 const DRAG_THRESHOLD = computed(() => debugParams.value.dragThreshold)
 
 // 防抖定时器
@@ -1069,7 +1069,7 @@ const getValidationStatistics = () => {
 }
 // ========== 触摸序列验证逻辑结束 ==========
 
-// 第1步：检查触摸目标是否是圆周节点（或其子元素）
+// 检查触摸目标是否是圆周节点（或其子元素）
 // 注意：现在圆周节点和中心节点都不再被特殊处理，触摸会被当作背景区域处理，会触发旋转操作
 // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，因此不再检测节点类型，始终返回 false
 const isCircularNodeTarget = (): boolean => {
@@ -1401,16 +1401,16 @@ const handleMouseUp = () => {
 
 // 椭圆轨迹指示器坐标系 - 统一的角度计算函数
 const calculateCircularTrackAngle = (index: number, total: number) => {
-  // 第1步：从调试参数中获取起始角度（目标角度），并转换为弧度
+  // 从调试参数中获取起始角度（目标角度），并转换为弧度
   const startAngle = (debugParams.value.targetAngle * Math.PI) / 180
-  // 第2步：计算每个节点之间的角度间隔
+  // 计算每个节点之间的角度间隔
   const angleStep = (2 * Math.PI) / total
-  // 第3步：基础角度：从起始角度开始，按索引逆时针排列
+  // 基础角度：从起始角度开始，按索引逆时针排列
   let baseAngle = startAngle + (angleStep * index)
-  // 第4步：当前角度：基础角度 + 当前章节的旋转角度
+  // 当前角度：基础角度 + 当前章节的旋转角度
   let currentAngle = baseAngle + (getChapterRotation(getCurrentChapter()) * Math.PI / 180)
   
-  // 第5步：将角度标准化到 [0, 2π] 范围
+  // 将角度标准化到 [0, 2π] 范围
   while (baseAngle >= 2 * Math.PI) baseAngle -= 2 * Math.PI
   while (baseAngle < 0) baseAngle += 2 * Math.PI
   while (currentAngle >= 2 * Math.PI) currentAngle -= 2 * Math.PI
@@ -1447,10 +1447,10 @@ const startExpandingRotation = (graphId: string) => {
   const total = subChapters.length
   const { currentAngle } = calculateCircularTrackAngle(targetIndex, total)
   
-  // 第5步：从调试参数中获取目标角度，并转换为弧度
+  // 从调试参数中获取目标角度，并转换为弧度
   const targetAngleRadians = (debugParams.value.targetAngle * Math.PI) / 180
   
-  // 第6步：计算角度差的绝对值 alpha（当前角度与目标角度的差）
+  // 计算角度差的绝对值 alpha（当前角度与目标角度的差）
   const alpha = Math.abs(currentAngle - targetAngleRadians)
   
   // 7. 判断目标知识图谱当前所在的半圆区域
@@ -1492,7 +1492,7 @@ const startExpandingRotation = (graphId: string) => {
     // 更新当前章节的旋转角度
     setChapterRotation(getCurrentChapter(), currentAngle)
     
-    // 第28步：检查动画是否完成
+    // 检查动画是否完成
     if (progress < 1) {
       requestAnimationFrame(animateExpandingRotation)
     } else {
@@ -1629,7 +1629,7 @@ const initGraphDataWithoutReset = () => {
   // 不重置当前选中的章节状态，保持已选择的章节
 }
 
-// 第29步：保存页面状态
+// 保存页面状态
 const saveCurrentPageState = () => {
   try {
     const state = {
@@ -1649,7 +1649,7 @@ const saveCurrentPageState = () => {
   }
 }
 
-// 第30步：恢复页面状态
+// 恢复页面状态
 const restorePageStateFromStore = async (): Promise<boolean> => {
   
   try {
@@ -2083,7 +2083,7 @@ const sessionManager = {
 }
 
 
-// 第32步：初始化图谱
+// 初始化图谱
 const initGraph = async () => {
   loading.value = true
   
@@ -2096,7 +2096,7 @@ const initGraph = async () => {
       return
     }
     
-    // 第33步：如果路由中携带了用于初始化的参数（initSubject/initTextbookId），则优先使用并跳过状态恢复逻辑
+    // 如果路由中携带了用于初始化的参数（initSubject/initTextbookId），则优先使用并跳过状态恢复逻辑
     const initSubject = route.query.initSubject as string | undefined
     const initTextbookId = route.query.initTextbookId as string | undefined
     const hasRouteInitParams = !!(initSubject || initTextbookId)
@@ -2189,7 +2189,7 @@ const initGraph = async () => {
       
       selectedTextbook.value = targetTextbook.value
       
-      // 第34步：加载选中教材的章节结构
+      // 加载选中教材的章节结构
       if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
         await loadChapterStructure(targetTextbook.textbookId)
         
@@ -2277,7 +2277,7 @@ const onSubjectChange = async (subjectValue: string) => {
   }
 }
 
-// 第35步：教材切换
+// 教材切换
 const onTextbookChange = async (value: string) => {
   try {
     // 找到选中的教材选项
@@ -2316,12 +2316,12 @@ const onTextbookChange = async (value: string) => {
   }
 }
 
-// 第5步：添加搜索处理方法
+// 添加搜索处理方法
 const handleSearchInput = () => {
   // 搜索输入时不需要额外处理，computed会自动更新
 }
 
-// 第6步：清空搜索
+// 清空搜索
 const clearSearch = () => {
   searchQuery.value = ''
 }
@@ -2347,10 +2347,10 @@ const handlePhotoSearch = () => {
 
 // 处理打开空白页面
 const handleOpenBlankPage = () => {
-  // 第1步：检查 AndroidBridge 是否可用
+  // 检查 AndroidBridge 是否可用
   if (typeof window !== 'undefined' && window.AndroidBridge) {
     try {
-      // 第2步：调用 Android 原生方法打开空白页面
+      // 调用 Android 原生方法打开空白页面
       // 使用类型断言避免 TypeScript 类型检查错误
       const bridge = window.AndroidBridge as typeof window.AndroidBridge & { openBlankPage?: () => void }
       if (bridge.openBlankPage) {
@@ -2370,13 +2370,13 @@ const handleOpenBlankPage = () => {
   }
 }
 
-// 第7步：处理搜索结果点击
+// 处理搜索结果点击
 const handleSearchResultClick = async (result: {
   node: ChapterNode
   chapterIndex: number
   chapterName: string
 }) => {
-  // 第1步：如果节点在其他章节，先跳转到对应章节
+  // 如果节点在其他章节，先跳转到对应章节
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex !== result.chapterIndex) {
     selectChapter(result.chapterIndex)
@@ -2393,7 +2393,7 @@ const handleSearchResultClick = async (result: {
     await nextTick()
   }
   
-  // 第2步：获取当前章节的子章节列表
+  // 获取当前章节的子章节列表
   const chapter = chapterStructure.value[result.chapterIndex]
   if (!chapter) {
     return
@@ -2401,7 +2401,7 @@ const handleSearchResultClick = async (result: {
   
   const subChapters = getSubChapters(chapter)
   
-  // 第3步：查找节点在子章节列表中的索引
+  // 查找节点在子章节列表中的索引
   // 如果节点本身是level=1的子章节，直接使用其ID
   // 如果节点是更深层的子节点，需要找到其父节点（level=1的子章节）
   let targetNodeId: string | null = null
@@ -2450,7 +2450,7 @@ const handleSearchResultClick = async (result: {
     }
   }
   
-  // 第4步：如果找到了目标节点ID，旋转到targetAngle
+  // 如果找到了目标节点ID，旋转到targetAngle
   if (targetNodeId) {
     const targetIndex = subChapters.findIndex(sub => sub.id === targetNodeId)
     if (targetIndex !== -1) {
@@ -2473,7 +2473,7 @@ const handleSearchResultClick = async (result: {
   }
 }
 
-// 第8步：高亮匹配文本
+// 高亮匹配文本
 // 将中文括号【】转换为英文括号[]
 const convertBrackets = (text: string): string => {
   return text.replace(/【/g, '[').replace(/】/g, ']')
@@ -2492,7 +2492,7 @@ const highlightText = (text: string): string => {
 // 选择章节
 const selectChapter = async (index: number) => {
   
-  // 第8步：重复点击检测：检查是否点击的是当前已选中的章节
+  // 重复点击检测：检查是否点击的是当前已选中的章节
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex === index) {
     return
@@ -2682,7 +2682,7 @@ const getIndicatorSize = (subChapterId: string, index: number) => {
   return Math.max(14, Math.min(24, size))
 }
 
-// 第1步：根据触摸点位置计算当前在哪个指示器上
+// 根据触摸点位置计算当前在哪个指示器上
 const getIndicatorIndexFromTouch = (touchY: number): number | null => {
   if (!indicatorContainerRef.value || !selectedChapterDetails.value) return null
   
@@ -2708,7 +2708,7 @@ const getIndicatorIndexFromTouch = (touchY: number): number | null => {
   return nearestIndex
 }
 
-// 第2步：处理指示器触摸开始事件
+// 处理指示器触摸开始事件
 const handleIndicatorTouchStart = (event: TouchEvent) => {
   if (!indicatorContainerRef.value || !selectedChapterDetails.value) return
   
@@ -2743,7 +2743,7 @@ const handleIndicatorTouchStart = (event: TouchEvent) => {
   }
 }
 
-// 第3步：处理指示器触摸移动事件
+// 处理指示器触摸移动事件
 const handleIndicatorTouchMove = (event: TouchEvent) => {
   if (!indicatorContainerRef.value || !selectedChapterDetails.value || !isIndicatorDragging.value) return
   
@@ -2778,7 +2778,7 @@ const handleIndicatorTouchMove = (event: TouchEvent) => {
   }
 }
 
-// 第4步：处理指示器触摸结束事件
+// 处理指示器触摸结束事件
 const handleIndicatorTouchEnd = (event: TouchEvent) => {
   if (!isIndicatorDragging.value) return
   
@@ -2890,14 +2890,14 @@ const getGraphPosition = (index: number, total: number) => {
         angleDiff = 2 * Math.PI - angleDiff
       }
       
-      // 第1步：从调试参数中获取影响范围
+      // 从调试参数中获取影响范围
       const influenceRange = debugParams.value.influenceRange
       
-      // 第2步：检查是否在影响范围内
+      // 检查是否在影响范围内
       if (angleDiff < influenceRange) {
-        // 第3步：计算距离因子：距离越近，推开角度越大
+        // 计算距离因子：距离越近，推开角度越大
         const distanceFactor = 1 - (angleDiff / influenceRange)
-        // 第4步：从调试参数中获取最大推开角度，使用二次缓动函数实现距离越近推得越远的效果
+        // 从调试参数中获取最大推开角度，使用二次缓动函数实现距离越近推得越远的效果
         const maxPushAngle = debugParams.value.maxPushAngle
         const pushAngle = maxPushAngle * Math.pow(distanceFactor, 2)
         
@@ -3160,7 +3160,7 @@ onUnmounted(() => {
   }
 }
 
-// 第9步：添加搜索框样式
+// 添加搜索框样式
 .chapter-search {
   padding: 6px 5px;
   margin: 14px 20px;
@@ -3216,7 +3216,7 @@ onUnmounted(() => {
   }
 }
 
-// 第10步：搜索高亮样式
+// 搜索高亮样式
 :deep(.search-highlight) {
   background: rgba(255, 215, 0, 0.4);
   color: #ffffff;
@@ -3276,7 +3276,7 @@ onUnmounted(() => {
 .chapter-list {
   flex: 1;
   overflow-y: auto;
-  // 第11步：平滑滚动
+  // 平滑滚动
   scroll-behavior: smooth;
   // 移动端优化
   -webkit-overflow-scrolling: touch;
@@ -3302,7 +3302,7 @@ onUnmounted(() => {
     position: relative;
     border-radius: 12px;
     font-family: 'PingFang SC', sans-serif;
-    height: 50px; // 第12步：增加触摸区域
+    height: 50px; // 增加触摸区域
     width: 313px;
     display: flex;
     align-items: center;
@@ -3339,7 +3339,7 @@ onUnmounted(() => {
       background: #f3f4f6;
     }
     
-    // 第13步：触摸状态
+    // 触摸状态
     &:active {
       transform: scale(0.98);
       transition: transform 0.1s ease;
@@ -3476,7 +3476,7 @@ onUnmounted(() => {
   margin-top: -450px;
   cursor: grab;
   user-select: none;
-  touch-action: pan-y; // 第23步：允许垂直滑动，提高触摸响应
+  touch-action: pan-y; // 允许垂直滑动，提高触摸响应
   z-index: 100; // 设置基础层级
   // 移动端优化
   -webkit-user-select: none;
@@ -3496,7 +3496,7 @@ onUnmounted(() => {
     }
   }
   
-  // 第24步：移动端响应式优化
+  // 移动端响应式优化
   @media (max-width: 768px) {
     // 移动端增加可交互区域
     padding: 20px;
@@ -3528,7 +3528,7 @@ onUnmounted(() => {
     cursor: pointer; // 添加指针样式
     position: relative;
     z-index: 1001; // 确保圆点在最上层
-    // 第25步：移动端触控优化
+    // 移动端触控优化
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;

@@ -292,12 +292,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     imageData?: ChatImageData,
     imageList?: ChatImageData[],
   ): Promise<void> => {
-    // 第1步：如果没有当前会话，创建新会话
+    // 如果没有当前会话，创建新会话
     if (!currentSession.value) {
       await createSession(content)
     }
     
-    // 第2步：创建用户消息（可选）
+    // 创建用户消息（可选）
     if (!skipUserMessage) {
       // 普通文本消息（无图片）
       const userMessage = createUserMessage(content, currentSession.value?.sessionId, quotedMessage)
@@ -369,11 +369,11 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       }
     }
     
-    // 第3步：创建临时AI回复
+    // 创建临时AI回复
     const { message: tempReply, id: tempReplyId } = createTempReplyMessage(selectedModel)
     messages.value.push(tempReply)
     
-    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
+    // 构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     // 当存在图片数据时，使用截图接口 /permission/previewPictureQA，并附带 imageList
     const hasMultiImages = !!(imageList && imageList.length > 0)
     const hasSingleImage = !!(imageData && imageData.base64DataUrl)
@@ -407,13 +407,13 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     }
     
     try {
-      // 第5步：发送请求（带流式回调）
+      // 发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
       const response = await apiService.sendChatMessage(aiRequest, onComplete, onStream, onHistoryUpdate)
       
-      // 第7步：保存聊天历史
+      // 保存聊天历史
       await saveChatHistory()
-      // 第8步：检查是否需要自动生成标题（第3轮对话后，加上临时消息后，7条消息）
+      // 检查是否需要自动生成标题（第3轮对话后，加上临时消息后，7条消息）
       if (currentSession.value && messages.value.length === 7) {
         // 异步生成标题，不阻塞主流程
         generateSessionTitle(currentSession.value.sessionId, userInfo, subject).catch(error => {
@@ -486,12 +486,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 2. 如果有当前会话且消息数为0，不允许创建
    */
   const canCreateSession = computed(() => {
-    // 第1步：检查是否正在创建
+    // 检查是否正在创建
     if (isCreatingSession.value) {
       return false
     }
     
-    // 第2步：检查当前会话是否有消息
+    // 检查当前会话是否有消息
     if (currentSession.value && currentSession.value.msgCount === 0) {
       return false
     }
@@ -503,17 +503,17 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 创建新会话（AI通用场景专属）
    */
   const createSession = async (firstMessage: string): Promise<void> => {
-    // 第1步：检查是否可以创建
+    // 检查是否可以创建
     if (!canCreateSession.value) {
       console.warn('[AI_GENERAL] ⚠️ 无法创建新会话：当前会话无消息或正在创建中')
       return
     }
     
     try {
-      // 第2步：设置创建中状态
+      // 设置创建中状态
       isCreatingSession.value = true
       
-      // 第3步：生成会话信息
+      // 生成会话信息
       const MAX_SESSION_NAME_LENGTH = 20 // 会话名称最大长度（约10个汉字）
       const userId = getUserId() || ''
       const newSession: AiGeneralSession = {
@@ -527,17 +527,17 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         msgCount: 0
       }
       
-      // 第4步：添加到会话列表（置顶）
+      // 添加到会话列表（置顶）
       sessions.value.unshift(newSession)
       currentSession.value = newSession
       
-      // 第5步：清空当前消息
+      // 清空当前消息
       messages.value = []
       
-      // 第6步：保存会话列表
+      // 保存会话列表
       await saveSessions()
     } finally {
-      // 第7步：重置创建中状态（延迟500ms防止频繁点击）
+      // 重置创建中状态（延迟500ms防止频繁点击）
       setTimeout(() => {
         isCreatingSession.value = false
       }, 500)
@@ -548,17 +548,17 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 切换会话（AI通用场景专属）
    */
   const switchSession = async (sessionId: string): Promise<void> => {
-    // 第1步：查找会话
+    // 查找会话
     const session = sessions.value.find(s => s.sessionId === sessionId)
     if (!session) {
       console.warn(`[AI_GENERAL] ⚠️ 会话不存在: ${sessionId}`)
       return
     }
     
-    // 第2步：切换当前会话
+    // 切换当前会话
     currentSession.value = session
     
-    // 第3步：加载该会话的聊天记录
+    // 加载该会话的聊天记录
     await loadChatHistory(sessionId)
   }
   
@@ -568,11 +568,11 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   const saveChatHistory = async (): Promise<void> => {
     if (!currentSession.value || messages.value.length === 0) return
     
-    // 第1步：更新会话信息
+    // 更新会话信息
     currentSession.value.msgCount = messages.value.length
     currentSession.value.updateTime = Date.now()
     
-    // 第2步：保存消息
+    // 保存消息
     const historyData: ChatHistoryData = {
       questionId: currentSession.value.sessionId,  // 使用sessionId作为存储键
       messages: messages.value,
@@ -583,7 +583,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     try {
       await chatPersistence.save(`ai-general-${currentSession.value.sessionId}`, historyData)
       
-      // 第3步：保存会话列表
+      // 保存会话列表
       await saveSessions()
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存聊天历史失败:', error)
@@ -654,17 +654,17 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const renameSession = async (sessionId: string, newName: string): Promise<void> => {
     try {
-      // 第1步：查找会话
+      // 查找会话
       const session = sessions.value.find(s => s.sessionId === sessionId)
       if (!session) {
         throw new Error('会话不存在')
       }
       
-      // 第2步：更新会话名称
+      // 更新会话名称
       session.sessionName = newName
       session.updateTime = Date.now()
       
-      // 第3步：保存会话列表
+      // 保存会话列表
       await saveSessions()
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 重命名会话失败:', error)
@@ -677,24 +677,24 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const togglePin = async (sessionId: string): Promise<void> => {
     try {
-      // 第1步：查找会话
+      // 查找会话
       const session = sessions.value.find(s => s.sessionId === sessionId)
       if (!session) {
         throw new Error('会话不存在')
       }
       
-      // 第2步：切换置顶状态
+      // 切换置顶状态
       session.pinned = !session.pinned
       session.updateTime = Date.now()
       
-      // 第3步：重新排序（置顶的排在前面）
+      // 重新排序（置顶的排在前面）
       sessions.value.sort((a, b) => {
         if (a.pinned && !b.pinned) return -1
         if (!a.pinned && b.pinned) return 1
         return b.updateTime - a.updateTime
       })
       
-      // 第4步：保存会话列表
+      // 保存会话列表
       await saveSessions()
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 置顶操作失败:', error)
@@ -707,23 +707,23 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const deleteSession = async (sessionId: string): Promise<void> => {
     try {
-      // 第1步：从列表中移除
+      // 从列表中移除
       const index = sessions.value.findIndex(s => s.sessionId === sessionId)
       if (index >= 0) {
         sessions.value.splice(index, 1)
       }
       
-      // 第2步：如果是当前会话，清空
+      // 如果是当前会话，清空
       if (currentSession.value?.sessionId === sessionId) {
         currentSession.value = null
         messages.value = []
       }
       
-      // 第3步：删除本地聊天历史
+      // 删除本地聊天历史
       const key = `chat_history_session_${sessionId}`
       await localforage.removeItem(key)
 
-      // 第4步：同步删除后端记忆（chatbot 线程）
+      // 同步删除后端记忆（chatbot 线程）
       try {
         await apiService.manageConversationMemory({
           command: 'delete_thread',
@@ -734,7 +734,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         console.warn('[AI_GENERAL] 删除会话时同步后端记忆失败:', error)
       }
       
-      // 第5步：保存会话列表
+      // 保存会话列表
       await saveSessions()
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 删除会话失败:', error)
@@ -752,13 +752,13 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
-      // 第1步：查找被点击消息在列表中的索引
+      // 查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index < 0) {
         throw new Error('消息不存在')
       }
 
-      // 第2步：确定删除起点索引
+      // 确定删除起点索引
       let startIndex = index
       const target = messages.value[index]
 
@@ -772,7 +772,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         }
       }
 
-      // 第3步：确定用于后端 delete_messages 的起始 message_id
+      // 确定用于后端 delete_messages 的起始 message_id
       let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
       if (!startBackendMessageId) {
         for (let i = startIndex; i < messages.value.length; i++) {
@@ -783,13 +783,13 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         }
       }
 
-      // 第4步：先更新本地消息列表（从起点到末尾全部删除）
+      // 先更新本地消息列表（从起点到末尾全部删除）
       messages.value.splice(startIndex)
 
-      // 第5步：保存更新后的聊天历史
+      // 保存更新后的聊天历史
       await saveChatHistory()
 
-      // 第6步：调用后端 manageConversationMemory，同步删除对应线程的后续历史
+      // 调用后端 manageConversationMemory，同步删除对应线程的后续历史
       if (currentSession.value?.sessionId && startBackendMessageId) {
         try {
           await apiService.manageConversationMemory({
@@ -822,10 +822,10 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   /**
    * 自动生成会话标题（基于会话内容）
    * 
-   * 第1步：获取会话的前几条消息
-   * 第2步：构建生成标题的提示词
-   * 第3步：调用AI接口生成标题
-   * 第4步：更新会话名称
+   * 获取会话的前几条消息
+   * 构建生成标题的提示词
+   * 调用AI接口生成标题
+   * 更新会话名称
    */
   const generateSessionTitle = async (
     sessionId: string,
@@ -834,13 +834,13 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     _subject: 'MATH' | 'BIOLOGY'
   ): Promise<void> => {
     try {
-      // 第1步：查找会话
+      // 查找会话
       const session = sessions.value.find(s => s.sessionId === sessionId)
       if (!session) {
         throw new Error('会话不存在')
       }
       
-      // 第2步：获取前6条消息（3轮对话）
+      // 获取前6条消息（3轮对话）
       const firstMessages = messages.value.slice(0, 6)
         .filter(m => m.sender === 'user' || m.sender === 'ai')
         .map(m => ({
@@ -853,12 +853,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         return
       }
       
-      // 第3步：构建对话摘要
+      // 构建对话摘要
       const conversationSummary = firstMessages
         .map(m => `${m.role}: ${m.content}`)
         .join('\n')
       
-      // 第4步：构建生成标题的提示词
+      // 构建生成标题的提示词
       const titlePrompt = `你是一个对话标题生成器。请为以下对话生成一个使用动宾结构或名词短语的标题（不超过15个字）。只返回标题文本，不要有引号或其他说明。
 
 对话内容：
@@ -868,7 +868,7 @@ ${conversationSummary}
 
 标题：`
       
-      // 第5步：构建AI请求（使用独立 session，避免提示词污染当前会话）
+      // 构建AI请求（使用独立 session，避免提示词污染当前会话）
       const titleSessionId = `${sessionId}-title-${Date.now()}`
       const titleRequest = buildAiGeneralMessage(
         titlePrompt,
@@ -878,11 +878,11 @@ ${conversationSummary}
         titleSessionId,
         false,
       )
-      // 第6步：调用AI接口
+      // 调用AI接口
       const response = await apiService.sendChatMessage(titleRequest)
       
       if (response && response.reply) {
-        // 第7步：清理生成的标题（去除引号、换行等）
+        // 清理生成的标题（去除引号、换行等）
         const generatedTitle = response.reply
           .trim()
           .replace(/^["']|["']$/g, '') // 去除开头和结尾的引号
@@ -896,11 +896,11 @@ ${conversationSummary}
           return
         }
         
-        // 第8步：更新会话标题
+        // 更新会话标题
         session.sessionName = generatedTitle
         session.updateTime = Date.now()
         
-        // 第9步：保存会话列表
+        // 保存会话列表
         await saveSessions()
       } else {
         console.warn('[AI_GENERAL] ⚠️ AI未返回有效标题')

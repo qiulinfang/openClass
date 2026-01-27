@@ -125,49 +125,49 @@ function getPrefixTypePriority(prefixType: string): number {
  * @returns 提取到的数字，如果无法提取则返回 9999（排在最后）
  */
 export function extractChapterNumberFromName(originalName: string): number {
-  // 第1步：尝试匹配阿拉伯数字格式"第X章"
+  // 尝试匹配阿拉伯数字格式"第X章"
   const arabicMatch = originalName.match(/第(\d+)章/)
   if (arabicMatch) {
     return parseInt(arabicMatch[1], 10)
   }
   
-  // 第2步：尝试匹配中文数字格式"第X章"（如"第一章"、"第二章"等）
+  // 尝试匹配中文数字格式"第X章"（如"第一章"、"第二章"等）
   const chineseMatch = originalName.match(/第([一二三四五六七八九十]+)章/)
   if (chineseMatch) {
     return convertChineseNumberToArabic(chineseMatch[1])
   }
   
-  // 第3步：尝试匹配"目录X"格式（阿拉伯数字）
+  // 尝试匹配"目录X"格式（阿拉伯数字）
   const directoryArabicMatch = originalName.match(/目录(\d+)/)
   if (directoryArabicMatch) {
     return parseInt(directoryArabicMatch[1], 10)
   }
   
-  // 第4步：尝试匹配"目录X"格式（中文数字，如"目录一"、"目录二"等）
+  // 尝试匹配"目录X"格式（中文数字，如"目录一"、"目录二"等）
   const directoryChineseMatch = originalName.match(/目录([一二三四五六七八九十]+)/)
   if (directoryChineseMatch) {
     return convertChineseNumberToArabic(directoryChineseMatch[1])
   }
   
-  // 第5步：尝试匹配"专题X"格式（阿拉伯数字）
+  // 尝试匹配"专题X"格式（阿拉伯数字）
   const topicArabicMatch = originalName.match(/专题(\d+)/)
   if (topicArabicMatch) {
     return parseInt(topicArabicMatch[1], 10)
   }
   
-  // 第6步：尝试匹配"专题X"格式（中文数字，如"专题一"、"专题二"等）
+  // 尝试匹配"专题X"格式（中文数字，如"专题一"、"专题二"等）
   const topicChineseMatch = originalName.match(/专题([一二三四五六七八九十]+)/)
   if (topicChineseMatch) {
     return convertChineseNumberToArabic(topicChineseMatch[1])
   }
   
-  // 第7步：尝试匹配开头的阿拉伯数字
+  // 尝试匹配开头的阿拉伯数字
   const numberMatch = originalName.match(/^(\d+)/)
   if (numberMatch) {
     return parseInt(numberMatch[1], 10)
   }
   
-  // 第8步：如果无法提取数字，返回一个很大的数字，排在最后
+  // 如果无法提取数字，返回一个很大的数字，排在最后
   return 9999
 }
 

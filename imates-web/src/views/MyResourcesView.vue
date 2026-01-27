@@ -327,7 +327,7 @@ import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import RubberBandList from '../components/base/VirtualList.vue'
 import Dialog from '../components/base/Dialog.vue'
 
-// 第2步：判断是否显示调试功能（仅通过环境变量控制）
+// 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -528,7 +528,7 @@ const handleLearnTextbook = (textbook: UserTextbookInfo) => {
   })
 }
 
-// 第4步：处理下拉刷新（由 RubberBandList 触发）
+// 处理下拉刷新（由 RubberBandList 触发）
 const handlePullDownRefresh = async () => {
   try {
     // 流程：下拉刷新时暂停所有正在下载的任务
@@ -672,7 +672,7 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
     }
   }> = []
 
-  // 第1步：快速检查需要修复的教材
+  // 快速检查需要修复的教材
   for (const textbook of textbooks) {
     if (textbook.downloadStatus === 1) {
       const hasActiveDownload = apiService.hasActiveDownload(textbook.textbookId)
@@ -715,7 +715,7 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
     }
   }
 
-  // 第2步：批量保存更新（如果有需要修复的）
+  // 批量保存更新（如果有需要修复的）
   if (updatesToSave.length > 0) {
     const savePromises = updatesToSave.map(({ textbook, updates }) =>
       resourceManager.updateTextbookInfo(textbook, updates),
@@ -729,10 +729,10 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
 // - isPullDownRefresh = false：普通进入页面/重新加载入口，优先用本地数据秒开；
 // - isPullDownRefresh = true：下拉刷新入口，一定从服务器拉最新数据并写回本地。
 const loadResources = async (isPullDownRefresh = false) => {
-  // 第0步：重置“初始加载完成”标记，避免空状态闪烁
+  // 重置“初始加载完成”标记，避免空状态闪烁
   initialLoadCompleted.value = false
 
-  // 第1步：先从 IndexedDB 读取本地教材数据
+  // 先从 IndexedDB 读取本地教材数据
   const localTextbooks = await loadLocalData()
 
   // 分支A：有本地数据且当前不是下拉刷新 → 直接使用本地数据渲染列表，提升首屏速度
@@ -825,7 +825,7 @@ const loadResources = async (isPullDownRefresh = false) => {
 
 // 更新学科筛选选项 - 优化版本，避免重复计算
 const updateSubjectChips = () => {
-  // 第1步：检查是否需要更新（避免重复计算）
+  // 检查是否需要更新（避免重复计算）
   const currentSubjects = new Set(textbooks.value.map((t) => t.textbookSubjectLabel))
   const currentSubjectKeys = Array.from(currentSubjects).sort().join(',')
   const lastSubjectKeys = categories.value
@@ -841,7 +841,7 @@ const updateSubjectChips = () => {
     return
   }
 
-  // 第2步：构建新的学科选项
+  // 构建新的学科选项
   const newCategories = [{ label: '全部', value: 'all' }]
   currentSubjects.forEach((subject) => {
     newCategories.push({ label: subject, value: subject })
@@ -849,7 +849,7 @@ const updateSubjectChips = () => {
 
   categories.value = newCategories
 
-  // 第3步：默认选择"全部"
+  // 默认选择"全部"
   if (selectedSubjects.value.size === 0) {
     selectedSubjects.value.add('all')
   }
@@ -1215,7 +1215,7 @@ const confirmDeleteTextbook = async () => {
   deleting.value = true
 
   try {
-    // 第1步：再次检查是否有正在进行的下载，如果有则取消
+    // 再次检查是否有正在进行的下载，如果有则取消
     const textbookToDelete = textbooks.value.find((t) => t.id === deleteTextbookId.value)
     if (
       textbookToDelete &&
@@ -1228,17 +1228,17 @@ const confirmDeleteTextbook = async () => {
       }
     }
 
-    // 第2步：删除教材及其所有相关数据
+    // 删除教材及其所有相关数据
     const success = await resourceManager.deleteTextbook(deleteTextbookId.value)
 
     if (success) {
-      // 第3步：从列表中移除教材
+      // 从列表中移除教材
       const index = textbooks.value.findIndex((t) => t.id === deleteTextbookId.value)
       if (index !== -1) {
         textbooks.value.splice(index, 1)
       }
 
-      // 第4步：如果删除后列表为空，重新加载数据
+      // 如果删除后列表为空，重新加载数据
       if (textbooks.value.length === 0) {
         await loadResources()
       }
@@ -1262,10 +1262,10 @@ const confirmDeleteTextbook = async () => {
 
 // 生命周期
 onMounted(async () => {
-  // 第1步：加载资源数据（始终走服务器刷新路径，保证账号隔离后一致性）
+  // 加载资源数据（始终走服务器刷新路径，保证账号隔离后一致性）
   await loadResources(true)
  
-  // 第2步：启动周期性检查资源更新的定时器（例如每隔5分钟检查一次）
+  // 启动周期性检查资源更新的定时器（例如每隔5分钟检查一次）
   resourceManager.cleanupExpiredData()
 
   // 定期检查更新（每60分钟）- 延迟启动
@@ -1391,7 +1391,7 @@ onUnmounted(async () => {
   // 流程：页面离开时立即暂停所有正在下载的任务
   await pauseAllDownloadingTasks()
 
-  // 第2步：清理资源更新检查定时器
+  // 清理资源更新检查定时器
   if (resourceUpdateCheckTimer) {
     clearInterval(resourceUpdateCheckTimer)
     resourceUpdateCheckTimer = null
