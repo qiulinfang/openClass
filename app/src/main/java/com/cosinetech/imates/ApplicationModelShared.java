@@ -138,24 +138,32 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     }
 
     private void onAppExit() {
-        // 这里处理应用退出逻辑
-        Log.e("MyApp", "Application is exiting");
-        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
-                this,
-                new ViewModelProvider.AndroidViewModelFactory(this)
-        ).get(UserInfoViewModel.class);
-        userInfoViewModel.token.postValue("");
-        userInfoViewModel.userId.postValue("");
-        userInfoViewModel.userInfo.postValue(new UserInfo());
-        ScreenCastingManager.setClassMode(false);
-        ScreenCastingManager.stopLoop();
-        UdpForwarderManager.getInstance().stop();
-        H264MpegTSStreamerManager.getInstance().stop();
-        multicastLock.release();
-        fakeClassMode = false;
-        
-        // 停止系统级悬浮FAB按钮服务
-        stopFloatingFabService();
+        try {
+            // 这里处理应用退出逻辑
+            Log.e("MyApp", "Application is exiting");
+            UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                    this,
+                    new ViewModelProvider.AndroidViewModelFactory(this)
+            ).get(UserInfoViewModel.class);
+            userInfoViewModel.token.postValue("");
+            userInfoViewModel.userId.postValue("");
+            userInfoViewModel.userInfo.postValue(new UserInfo());
+            ScreenCastingManager.setClassMode(false);
+            ScreenCastingManager.stopLoop();
+            UdpForwarderManager.getInstance().stop();
+            H264MpegTSStreamerManager.getInstance().stop();
+            multicastLock.release();
+            fakeClassMode = false;
+
+            // 停止系统级悬浮FAB按钮服务
+            stopFloatingFabService();
+        } catch (Exception e) {
+            Log.e("MyApp", "Error during app exit: " + e.getMessage());
+        }
+        finally {
+            android.os.Process.killProcess(android.os.Process.myPid());
+            System.exit(0);
+        }
     }
 
     /**
