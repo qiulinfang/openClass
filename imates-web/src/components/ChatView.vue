@@ -368,6 +368,7 @@
       :confirmButtonText="'删除'"
       :cancelButtonText="'取消'"
       @confirm="confirmDeleteSession"
+      @cancel="cancelDeleteSession"
     >
       {{ `确认删除「${pendingDeleteSessionTitle}」？` }}
     </Dialog>
@@ -1577,12 +1578,12 @@ const restoreChatViewHeight = () => {
  * 作用：使用策略模式统一处理不同对话类型的初始化逻辑
  */
 const initializeMessages = async () => {
-  // 第1步：设置当前科目（使用策略模式）
+  // 设置当前科目（使用策略模式）
   if (chatStrategy.value) {
     currentSubject.value = chatStrategy.value.getCurrentSubject()
   }
 
-  // 第2步：使用策略模式初始化消息
+  // 使用策略模式初始化消息
   if (!chatStrategy.value) {
     console.warn('[ChatView] ⚠️ 策略未初始化，无法执行初始化消息')
     return
@@ -1640,7 +1641,7 @@ const sendMessage = async (attachedFile?: File) => {
     return
   }
 
-  // 第1步：检查是否需要选择题目（策略模式重构版）
+  // 检查是否需要选择题目（策略模式重构版）
   // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
     const userMessage: ChatBubble = {
@@ -2182,7 +2183,7 @@ const sendVoiceMessage = async (voiceInfo: {
   duration: number
   fileSize: number
 }) => {
-  // 第1步：检查是否需要选择题目（策略模式重构版）
+  // 检查是否需要选择题目（策略模式重构版）
   // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
     console.warn('[ChatView] 未选择题目，取消发送语音消息')
@@ -2233,7 +2234,7 @@ const onVoiceRecognitionResult = (text: string) => {
 
 // 作用：显示图片选择器对话框并处理选择结果
 const showImagePickerDialog = async () => {
-  // 第1步：检查是否需要选择题目（策略模式重构版）
+  // 检查是否需要选择题目（策略模式重构版）
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
     androidBridge.showToast('请先选择题目')
     return
@@ -2246,15 +2247,15 @@ const showImagePickerDialog = async () => {
     return
   }
 
-  // 第2步：打开全局图片选择器并等待结果
+  // 打开全局图片选择器并等待结果
   const imageInfo = await pickImage()
 
-  // 第3步：如果用户取消，直接返回
+  // 如果用户取消，直接返回
   if (!imageInfo) {
     return
   }
 
-  // 第4步：处理选择的图片
+  // 处理选择的图片
   if (shouldAnnotatePickedImage()) {
     openAnnotateDialog(imageInfo)
     return
@@ -2312,7 +2313,7 @@ const onImageSelected = async (imageInfo: {
         inputMessage.value = ''
       }
 
-      // 第5步：在非 ai-textbook 场景下，将选择的图片挂到输入框上方的缩略图列表
+      // 在非 ai-textbook 场景下，将选择的图片挂到输入框上方的缩略图列表
       if (props.type !== 'ai-textbook' && imageInfo.base64DataUrl) {
         const id = `local_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
         const shot: AttachedScreenshot = {

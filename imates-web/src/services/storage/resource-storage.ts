@@ -276,8 +276,8 @@ export class ResourceManager {
 
   /**
    * 保存文件二进制数据 - 分离存储版本
-   * 第1步：文件数据存储到textbook_files表
-   * 第2步：元数据（不含fileData）存储到textbooks表的localFiles中
+   * 文件数据存储到textbook_files表
+   * 元数据（不含fileData）存储到textbooks表的localFiles中
    * @param fileInfo 文件信息
    * @param fileData 文件二进制数据
    * @param immediate 是否立即更新到IndexedDB（默认true，立即保存）
@@ -295,14 +295,14 @@ export class ResourceManager {
     sortOrder?: number
   }, fileData: Uint8Array, textbook?: UserTextbookInfo): Promise<void> {
     try {
-      // 第1步：存储文件数据到textbook_files表（分离存储）
+      // 存储文件数据到textbook_files表（分离存储）
       await this.indexedDBInstance.update('textbook_files', {
         fileId: fileInfo.id,
         textbookId: fileInfo.textbookId,
         fileData: fileData
       })
       
-      // 第2步：获取教材信息 - 优先使用传入的教材信息，避免并发时重复获取
+      // 获取教材信息 - 优先使用传入的教材信息，避免并发时重复获取
       let textbookInfo: UserTextbookInfo
       if (textbook) {
         textbookInfo = textbook
@@ -318,18 +318,18 @@ export class ResourceManager {
         textbookInfo = foundTextbook
       }
       
-      // 第3步：查找对应的学习包
+      // 查找对应的学习包
       const packageIndex = textbookInfo.learningPackages.findIndex(p => p.packageId === fileInfo.packageId)
       if (packageIndex === -1) {
         throw new Error(`学习包 ${fileInfo.packageId} 不存在`)
       }
       
-      // 第4步：初始化textbookInfo.localFiles数组
+      // 初始化textbookInfo.localFiles数组
       if (!textbookInfo.localFiles) {
         textbookInfo.localFiles = []
       }
       
-      // 第5步：查找或创建本地文件元数据（不含fileData）
+      // 查找或创建本地文件元数据（不含fileData）
       const localFiles = textbookInfo.localFiles
       const localFileIndex = localFiles.findIndex(f => f.id === fileInfo.id)
       
@@ -355,11 +355,11 @@ export class ResourceManager {
         }
       }
       
-      // 第6步：更新已下载文件数（基于 localFiles 中已下载的文件）
+      // 更新已下载文件数（基于 localFiles 中已下载的文件）
       const downloadedFilesCount = localFiles.filter(f => f.isDownloaded).length
       textbookInfo.downloadedFiles = downloadedFilesCount
       
-      // 第7步：更新教材元数据到IndexedDB
+      // 更新教材元数据到IndexedDB
       const success = await this.updateTextbookInfo(textbookInfo, {
         downloadedFiles: downloadedFilesCount
       })
@@ -376,7 +376,7 @@ export class ResourceManager {
 
   /**
    * 获取文件数据 - 分离存储版本，从textbook_files表按需读取
-   * 第1步：直接从textbook_files表查询文件数据
+   * 直接从textbook_files表查询文件数据
    * @param id 教材主键ID（保留参数以兼容旧代码，实际不使用）
    * @param fileId 文件ID
    * @returns 文件二进制数据，如果不存在则返回null
@@ -426,7 +426,7 @@ export class ResourceManager {
 
   /**
    * 检查文件数据是否存在 - 分离存储版本，检查textbook_files表
-   * 第1步：直接从textbook_files表查询是否存在
+   * 直接从textbook_files表查询是否存在
    * @param id 教材主键ID（保留参数以兼容旧代码，实际不使用）
    * @param fileId 文件ID
    * @returns 文件数据是否存在
@@ -449,7 +449,7 @@ export class ResourceManager {
    */
   public async updateThumbnail(textbookId: string, fileId: string, thumbnail: string): Promise<void> {
     try {
-      // 第1步：获取教材信息（使用降级策略：textbookId索引 -> getAll）
+      // 获取教材信息（使用降级策略：textbookId索引 -> getAll）
       const textbook = await this.getTextbookByTextbookIdWithFallback(
         textbookId
       )
@@ -458,13 +458,13 @@ export class ResourceManager {
         return
       }
       
-      // 第2步：查找并更新文件的缩略图
+      // 查找并更新文件的缩略图
       if (textbook.localFiles) {
         const localFile = textbook.localFiles.find(f => f.id === fileId)
         if (localFile) {
           localFile.thumbnail = thumbnail
           
-          // 第3步：保存更新后的教材信息
+          // 保存更新后的教材信息
           await this.updateTextbookInfo(textbook, undefined)
         }
       }
@@ -501,12 +501,12 @@ export class ResourceManager {
 
   /**
    * 清理教材相关的所有数据 - 分离存储版本
-   * 第1步：清理textbook_files表中的文件数据
-   * 第2步：清理textbooks表中的元数据
+   * 清理textbook_files表中的文件数据
+   * 清理textbooks表中的元数据
    */
   private async cleanupTextbookRelatedData(textbookId: string): Promise<void> {
     try {
-      // 第1步：获取教材信息（使用降级策略：textbookId索引 -> getAll）
+      // 获取教材信息（使用降级策略：textbookId索引 -> getAll）
       const textbook = await this.getTextbookByTextbookIdWithFallback(
         textbookId
       )
@@ -515,7 +515,7 @@ export class ResourceManager {
         return
       }
       
-      // 第2步：删除textbook_files表中该教材的所有文件
+      // 删除textbook_files表中该教材的所有文件
       if (textbook.localFiles && textbook.localFiles.length > 0) {
         const deletePromises = textbook.localFiles.map(file => 
           this.indexedDBInstance.delete('textbook_files', file.id)
@@ -523,7 +523,7 @@ export class ResourceManager {
         await Promise.all(deletePromises)
       }
       
-      // 第3步：清空教材中的元数据
+      // 清空教材中的元数据
       textbook.localFiles = []
       textbook.downloadedFiles = 0
       textbook.isDownloaded = false
@@ -573,7 +573,7 @@ export class ResourceManager {
           learningPackages: (dataRecord.learningPackages as LearningPackage[]) || [],
           localFiles: (() => {
             const localFiles = (dataRecord.localFiles as LocalFileInfo[]) || []
-            // 第1步：瘦身处理 - 去掉fileData字段，避免响应式化大型二进制数据
+            // 瘦身处理 - 去掉fileData字段，避免响应式化大型二进制数据
             return localFiles.map(file => ({
               id: file.id,
               fileName: file.fileName,
@@ -699,19 +699,19 @@ export class ResourceManager {
 
   /**
    * 清理教材文件数据 - 分离存储版本
-   * 第1步：清理textbook_files表中的文件数据
-   * 第2步：清理textbooks表中的元数据
+   * 清理textbook_files表中的文件数据
+   * 清理textbooks表中的元数据
    * @param id 教材主键ID
    */
   public async clearTextbookFiles(id: string): Promise<void> {
     try {
-      // 第1步：获取教材信息
+      // 获取教材信息
       const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
       if (!textbook) {
         return
       }
       
-      // 第2步：删除textbook_files表中该教材的所有文件
+      // 删除textbook_files表中该教材的所有文件
       if (textbook.localFiles && textbook.localFiles.length > 0) {
         const deletePromises = textbook.localFiles.map(file => 
           this.indexedDBInstance.delete('textbook_files', file.id)
@@ -719,7 +719,7 @@ export class ResourceManager {
         await Promise.all(deletePromises)
       }
       
-      // 第3步：清空教材中的元数据
+      // 清空教材中的元数据
       textbook.localFiles = []
       textbook.downloadedFiles = 0
       textbook.isDownloaded = false
@@ -734,20 +734,20 @@ export class ResourceManager {
 
   /**
    * 删除教材 - 完全删除教材及其所有相关数据
-   * 第1步：删除textbook_files表中该教材的所有文件
-   * 第2步：删除textbooks表中的教材记录
+   * 删除textbook_files表中该教材的所有文件
+   * 删除textbooks表中的教材记录
    * @param id 教材主键ID
    * @returns 是否删除成功
    */
   public async deleteTextbook(id: string): Promise<boolean> {
     try {
-      // 第1步：获取教材信息
+      // 获取教材信息
       const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
       if (!textbook) {
         return false
       }
       
-      // 第2步：删除textbook_files表中该教材的所有文件
+      // 删除textbook_files表中该教材的所有文件
       if (textbook.localFiles && textbook.localFiles.length > 0) {
         const deletePromises = textbook.localFiles.map(file => 
           this.indexedDBInstance.delete('textbook_files', file.id)
@@ -755,7 +755,7 @@ export class ResourceManager {
         await Promise.all(deletePromises)
       }
       
-      // 第3步：删除textbooks表中的教材记录
+      // 删除textbooks表中的教材记录
       await this.indexedDBInstance.delete('textbooks', id)
       
       return true

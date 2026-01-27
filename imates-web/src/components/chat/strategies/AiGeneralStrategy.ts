@@ -18,19 +18,19 @@ export class AiGeneralStrategy implements ChatStrategy {
   private aiGeneralStore = useAiGeneralChatStore()
   private chatView?: import('./ChatStrategy').ChatViewInterface
   
-  // 第1步：获取消息列表
+  // 获取消息列表
   getMessages(): ChatBubble[] {
     return this.aiGeneralStore.messages
   }
   
-  // 第2步：添加消息（直接操作messages）
+  // 添加消息（直接操作messages）
   async addMessage(message: ChatBubble): Promise<void> {
     this.aiGeneralStore.messages.push(message)
     // 通知ChatView处理消息变化
     this.handleMessagesChanged(this.getMessages())
   }
   
-  // 第3步：发送消息
+  // 发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     // 当 options.imageData 存在时，说明上游已插入了图片用户消息
     // 为避免再次插入空文本用户消息，传递 skipUserMessage 标记给 Store
@@ -48,44 +48,44 @@ export class AiGeneralStrategy implements ChatStrategy {
     )
   }
   
-  // 第4步：获取欢迎消息
+  // 获取欢迎消息
   getWelcomeMessage(): string {
     return '你好！我是你的学习伙伴。有什么问题我可以帮你解答吗？'
   }
   
-  // 第5步：检查是否需要选择题目
+  // 检查是否需要选择题目
   requiresQuestion(): boolean {
     return false // AI通用对话不需要题目
   }
   
-  // 第6步：获取消息类型
+  // 获取消息类型
   getMessageType(): 'ai' | 'teacher' {
     return 'ai'
   }
   
-  // 第7步：获取发送者类型
+  // 获取发送者类型
   getSenderType(): 'ai' | 'teacher' {
     return 'ai'
   }
   
-  // 第8步：保存聊天历史
+  // 保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.aiGeneralStore.saveChatHistory()
   }
   
-  // 第9步：检查是否支持转发消息
+  // 检查是否支持转发消息
   canForwardMessage(): boolean {
     return true // AI通用对话支持转发
   }
   
-  // 第10步：获取当前科目（用于转发）
+  // 获取当前科目（用于转发）
   getCurrentSubjectForForward(): 'biology' | 'math' | null {
     // AI通用场景：返回 null，需要用户手动选择老师
     return null
   }
   
   
-  // 第12步：转发多条消息
+  // 转发多条消息
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
       // 选择老师会话
@@ -148,7 +148,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     }
   }
   
-  // 第13步：初始化消息
+  // 初始化消息
   async initialize(options: InitializeOptions): Promise<void> {
     // AI通用对话不需要特殊初始化，只需要添加欢迎消息
     if (!options.hasSelectedQuestion && this.aiGeneralStore.messages.length === 0) {
@@ -163,7 +163,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     }
   }
 
-  // 第16步：检查是否应该乐观发送
+  // 检查是否应该乐观发送
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async sendVoiceMessage(_voiceInfo: {
     filePath: string
@@ -174,7 +174,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     return { success: true }
   }
   
-  // 第15步：发送图片消息
+  // 发送图片消息
   async sendImageMessage(
     imageInfo: {
       filePath: string
@@ -222,7 +222,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     })
   }
   
-  // 第16步：更新编辑的消息
+  // 更新编辑的消息
   async updateEditedMessage(
     messageId: string,
     newContent: string,
@@ -253,7 +253,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     })
   }
   
-  // 第17步：获取占位符文本
+  // 获取占位符文本
   getPlaceholderText(hasSelectedQuestion: boolean): string {
     if (!hasSelectedQuestion) {
       return '可以先聊聊，或选择题目后开始讨论'
@@ -263,25 +263,25 @@ export class AiGeneralStrategy implements ChatStrategy {
   
   // getSessionInfo 方法已删除，所有策略都不需要此方法
   
-  // 第19步：是否显示转发按钮
+  // 是否显示转发按钮
   shouldShowForwardButton(): boolean {
     return true // AI通用对话支持转发
   }
   
-  // 第20步：发送图片消息后是否清空输入框
+  // 发送图片消息后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return true // AI场景需要清空输入框
   }
   
-  // 第21步：是否使用乐观发送
+  // 是否使用乐观发送
   shouldOptimisticSend(): boolean {
     return false // AI场景不使用乐观发送
   }
   
-  // 第22步：清理资源
+  // 清理资源
   // cleanup 不实现，因为AI策略不需要特殊清理
   
-  // 第23步：获取当前科目
+  // 获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
     return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
   }

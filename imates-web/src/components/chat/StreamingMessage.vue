@@ -185,22 +185,22 @@ watch(() => props.isStreaming, (streaming) => {
 
 // 处理 Markdown 渲染出的图片
 const processMarkdownImages = (container: HTMLElement) => {
-  // 第1步：查找容器内所有的图片元素
+  // 查找容器内所有的图片元素
   const allImages = container.querySelectorAll('img')
   
   allImages.forEach((img) => {
-    // 第2步：检查图片是否在 MathJax 公式容器内，如果是则跳过
+    // 检查图片是否在 MathJax 公式容器内，如果是则跳过
     const mathContainer = img.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
     if (mathContainer) {
       return
     }
     
-    // 第3步：检查图片是否已经被处理过
+    // 检查图片是否已经被处理过
     if (img.classList.contains('markdown-image')) {
       return
     }
     
-    // 第4步：添加标记类名和样式类名
+    // 添加标记类名和样式类名
     img.classList.add('markdown-image')
   })
 }

@@ -17,14 +17,14 @@ export interface AccountStatus {
 
 /**
  * 场景41：检查账号状态（是否被禁言）
- * 第1步：从用户信息中检查账号状态
- * 第2步：如果被禁言，显示提示
+ * 从用户信息中检查账号状态
+ * 如果被禁言，显示提示
  * @param userInfo 用户信息
  * @returns 账号状态
  */
 export const checkAccountStatus = async (userInfo: { id?: string; roles?: string[] } | null): Promise<AccountStatus> => {
   try {
-    // 第1步：检查用户信息
+    // 检查用户信息
     if (!userInfo || !userInfo.id) {
       return {
         isBanned: false,
@@ -32,7 +32,7 @@ export const checkAccountStatus = async (userInfo: { id?: string; roles?: string
       }
     }
     
-    // 第2步：检查角色中是否包含禁言标记
+    // 检查角色中是否包含禁言标记
     // 注意：这里假设后端会在roles中添加'banned'标记，实际实现需要根据后端API调整
     const roles = userInfo.roles || []
     const isBanned = roles.includes('banned') || roles.includes('muted')
@@ -64,19 +64,19 @@ export const checkAccountStatus = async (userInfo: { id?: string; roles?: string
 
 /**
  * 场景42：检查通知权限状态
- * 第1步：检查浏览器通知权限
- * 第2步：如果未授权，提示用户开启
+ * 检查浏览器通知权限
+ * 如果未授权，提示用户开启
  * @returns 是否已授权通知权限
  */
 export const checkNotificationPermission = async (): Promise<boolean> => {
   try {
-    // 第1步：检查浏览器是否支持通知API
+    // 检查浏览器是否支持通知API
     if (!('Notification' in window)) {
       console.warn('[NOTIFICATION] ⚠️ 浏览器不支持通知API')
       return false
     }
     
-    // 第2步：检查当前权限状态
+    // 检查当前权限状态
     const permission = Notification.permission
     
     if (permission === 'granted') {
@@ -91,7 +91,7 @@ export const checkNotificationPermission = async (): Promise<boolean> => {
     
     // permission === 'default'，未请求过权限
     try {
-      // 第3步：请求通知权限
+      // 请求通知权限
       const result = await Notification.requestPermission()
       
       if (result === 'granted') {

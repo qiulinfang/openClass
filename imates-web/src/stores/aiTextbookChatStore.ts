@@ -368,13 +368,13 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
-      // 第1步：查找被点击消息在列表中的索引
+      // 查找被点击消息在列表中的索引
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index < 0) {
         throw new Error('消息不存在')
       }
 
-      // 第2步：确定删除起点索引
+      // 确定删除起点索引
       let startIndex = index
       const target = messages.value[index]
 
@@ -387,7 +387,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         }
       }
 
-      // 第3步：确定用于后端 delete_messages 的起始 message_id
+      // 确定用于后端 delete_messages 的起始 message_id
       let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
       if (!startBackendMessageId) {
         for (let i = startIndex; i < messages.value.length; i++) {
@@ -398,15 +398,15 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         }
       }
 
-      // 第4步：本地删除：从起点到末尾
+      // 本地删除：从起点到末尾
       messages.value.splice(startIndex)
 
-      // 第5步：保存更新后的聊天历史
+      // 保存更新后的聊天历史
       if (resourceId.value) {
         await saveChatHistory()
       }
 
-      // 第6步：调用后端 manageConversationMemory（教材场景仍归 chatbot）
+      // 调用后端 manageConversationMemory（教材场景仍归 chatbot）
       if (backendSessionId.value && startBackendMessageId) {
         try {
           await apiService.manageConversationMemory({
@@ -554,10 +554,10 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
   /**
    * 发送聊天消息
-   * 第1步：创建用户消息
-   * 第2步：调用API发送
-   * 第3步：处理流式响应
-   * 第4步：错误处理和重试
+   * 创建用户消息
+   * 调用API发送
+   * 处理流式响应
+   * 错误处理和重试
    */
   const sendMessage = async (
     content: string,
@@ -568,7 +568,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' }, // 引用消息信息（用于消息气泡展示）
     imageList?: ChatImageData[], // 多图数据列表（用于截图多图场景）
   ): Promise<void> => {
-    // 第1步：创建并添加用户消息（可选）
+    // 创建并添加用户消息（可选）
     if (!skipUserMessage) {
       // 如果有图片列表，则创建 multi_image 类型的消息气泡
       if (imageList && imageList.length > 0) {
@@ -628,23 +628,23 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       await saveChatHistory()
     }
     
-    // 第2步：创建临时AI回复消息
+    // 创建临时AI回复消息
     const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage(
       selectedModel || 'mate',
       currentSessionId.value || undefined,
     )
     addMessage(tempReply)
     
-    // 第3步：设置渲染状态（发送消息时不需要设置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
+    // 设置渲染状态（发送消息时不需要设置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
     
     try {
-      // 第4步：获取用户信息和科目
+      // 获取用户信息和科目
       const userInfo = getUserInfo()
       
       // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
       const sessionIdForBackend = ensureTopGeneralSession()
       
-      // 第5步：构建AI消息请求（传入科目以确定dstUrl）
+      // 构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
       const builderImageData = imageData?.base64DataUrl
         ? { base64DataUrl: imageData.base64DataUrl }
@@ -695,7 +695,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       useScreenshotApi.value = shouldUseScreenshotApi
       isNewSession.value = false
 
-      // 第6步：调用API发送消息
+      // 调用API发送消息
       // 对于截图接口和文本接口，统一使用 onStream 累积内容：
       // - drawing 控制帧：chunk 为空字符串，只打开 isStreaming（用于骨架屏）；
       // - talking/内容帧：chunk 为非空字符串，立即追加到 accumulatedContent 并更新 content。
@@ -735,7 +735,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
       const response = await apiService.sendChatMessage(aiMessage, wrappedOnComplete, wrappedOnStream, onHistoryUpdate)
       
-      // 第8步：处理响应（如果轮询已完成，这里response已经是最终结果）
+      // 处理响应（如果轮询已完成，这里response已经是最终结果）
       // 注意：由于使用了回调，这里主要是确保没有错误
       if (!isResponseSuccess(response)) {
         // 如果既没有成功响应，也没有累积内容，标记为错误
@@ -753,7 +753,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     } catch (error) {
       console.error('发送消息失败:', error)
       
-      // 第8步：错误处理
+      // 错误处理
       const errorMessage = updateMessageError(
         tempReply,
         '发送失败，请检查网络连接后重试。',
@@ -764,7 +764,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       
       showMessage('发送消息失败', 'error')
     } finally {
-      // 第9步：重置渲染状态（发送消息时不需要重置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
+      // 重置渲染状态（发送消息时不需要重置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
     }
   }
   
@@ -772,17 +772,17 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   
   /**
    * 重试失败的消息
-   * 第1步：查找并验证消息
-   * 第2步：检查重试条件
-   * 第3步：删除失败的消息（本地+后端同步）
-   * 第4步：重新发送消息（复用 sendMessage 逻辑）
+   * 查找并验证消息
+   * 检查重试条件
+   * 删除失败的消息（本地+后端同步）
+   * 重新发送消息（复用 sendMessage 逻辑）
    */
   const retryAiMessage = async (
     messageId: string,
     chatRole: string = 'mate',
     imageData?: ChatImageData
   ): Promise<void> => {
-    // 第1步：查找消息
+    // 查找消息
     const index = findMessageIndex(messages.value, messageId)
     try {
       validateMessageExists(index)
@@ -793,14 +793,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     
     const message = messages.value[index]
     
-    // 第2步：检查重试条件
+    // 检查重试条件
     const { canRetry, error } = checkRetryCondition(message)
     if (!canRetry) {
       showMessage(error || '无法重试', 'warning')
       return
     }
     
-    // 第3步：保存原始内容，用于重新发送
+    // 保存原始内容，用于重新发送
     const originalContent = message.originalMessage
     const originalQuotedMessage = message.quotedMessage
     const originalImageData = (message.imageData as ChatImageData | undefined) || imageData

@@ -726,7 +726,7 @@ watch(activeTab, (newTab) => {
   }
 })
 
-// 第1步：刷新数据
+// 刷新数据
 const refreshData = async () => {
   try {
     // 刷新学伴对话
@@ -776,7 +776,7 @@ const loadTeacherSessions = async () => {
 }
 
 
-// 第2步：计算存储大小
+// 计算存储大小
 const calculateStorageSize = async () => {
   try {
     let totalSize = 0
@@ -826,7 +826,7 @@ const calculateStorageSize = async () => {
   }
 }
 
-// 第3步：清空所有会话
+// 清空所有会话
 const clearAllSessions = async () => {
   try {
     // 删除所有学伴会话的聊天历史
@@ -858,7 +858,7 @@ const clearAllSessions = async () => {
   }
 }
 
-// 第4步：删除学伴会话
+// 删除学伴会话
 const deleteAiSession = async (session: AiGeneralSession) => {
   try {
     await aiGeneralStore.deleteSession(session.sessionId)
@@ -881,7 +881,7 @@ const deleteTeacherSession = async (session: TeacherSession & { msgCount: number
   }
 }
 
-// 第5步：查看学伴会话详情
+// 查看学伴会话详情
 const viewAiSessionDetail = async (session: AiGeneralSession) => {
   try {
     selectedAiSession.value = session
@@ -922,7 +922,7 @@ const viewTeacherSessionDetail = async (session: TeacherSession & { msgCount: nu
   }
 }
 
-// 第6步：选择学伴会话
+// 选择学伴会话
 const selectAiSession = (session: AiGeneralSession) => {
   aiGeneralStore.switchSession(session.sessionId)
 }
@@ -934,7 +934,7 @@ const selectTeacherSession = (session: TeacherSession & { msgCount: number; sess
   teacherStore.loadChatHistory(session.sessionId, 1) // 首次加载第1页
 }
 
-// 第7步：导出数据
+// 导出数据
 const exportData = async () => {
   try {
     const exportData: {
@@ -996,12 +996,12 @@ const exportData = async () => {
   }
 }
 
-// 第8步：导入数据
+// 导入数据
 const importData = () => {
   fileInputRef.value?.click()
 }
 
-// 第9步：处理文件导入
+// 处理文件导入
 const handleFileImport = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -1190,31 +1190,31 @@ const copyToClipboard = async (text: string) => {
   }
 }
 
-// 第10步：创建虚拟老师对话
+// 创建虚拟老师对话
 const createVirtualTeacherSession = async (subject: 'BIOLOGY' | 'MATH') => {
   try {
-    // 第1步：生成会话ID和名称
+    // 生成会话ID和名称
     const subjectName = subject === 'biology' ? '生物' : '数学'
     const sessionId = `teacher_virtual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const sessionName = `${subjectName}老师答疑 - 虚拟对话 ${new Date().toLocaleString()}`
     
-    // 第2步：调用store创建会话
+    // 调用store创建会话
     teacherStore.createTeacherSession(
       sessionId,
       sessionName,
       subject
     )
     
-    // 第3步：初始化消息监听器
+    // 初始化消息监听器
     await teacherStore.initMessageReceiver()
     
-    // 第4步：刷新数据
+    // 刷新数据
     await refreshData()
     
-    // 第5步：显示成功消息
+    // 显示成功消息
     showMessage(`已创建${subjectName}老师虚拟对话`, 'success')
     
-    // 第6步：关闭对话框
+    // 关闭对话框
     showCreateTeacherDialog.value = false
   } catch (error) {
     console.error('创建虚拟老师对话失败:', error)

@@ -66,7 +66,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   }
   
   // 设置当前文件信息
-  // 第1步：保存文件ID和资源ID
+  // 保存文件ID和资源ID
   const setCurrentFileInfo = (fileId: string, resourceId: string) => {
     currentFileId.value = fileId
     currentResourceId.value = resourceId

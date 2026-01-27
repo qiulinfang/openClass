@@ -648,15 +648,15 @@ const handleTouchStart = (event: TouchEvent) => {
     return
   }
 
-  // 第1步：确保能找到气泡元素
+  // 确保能找到气泡元素
   ensureBubbleTarget(target)
 
-  // 第2步：如果找不到气泡元素，直接返回
+  // 如果找不到气泡元素，直接返回
   if (!bubbleTarget.value) {
     return
   }
 
-  // 第3步：记录触摸开始时间和坐标
+  // 记录触摸开始时间和坐标
   touchStartTime.value = Date.now()
   isLongPressing.value = false
 
@@ -667,15 +667,15 @@ const handleTouchStart = (event: TouchEvent) => {
     touchStartY.value = touch.clientY
   }
 
-  // 第4步：设置长按定时器
+  // 设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
     if (!props.isSelectionMode && bubbleTarget.value) {
       isLongPressing.value = true
       // 标记本次交互为长按，后续产生的 click 不再触发图片预览
       ignoreClickAfterLongPress.value = true
-      // 第5步：计算气泡框位置并显示
+      // 计算气泡框位置并显示
       calculateBubblePosition(target)
-      // 第6步：显示气泡菜单
+      // 显示气泡菜单
       showActionMenu.value = true
     }
   }, 400) // 400ms长按触发
@@ -683,7 +683,7 @@ const handleTouchStart = (event: TouchEvent) => {
 
 // 触摸移动
 const handleTouchMove = (event: TouchEvent) => {
-  // 第1步：检查移动距离
+  // 检查移动距离
   const touch = event.touches[0]
   if (!touch) return
 
@@ -691,7 +691,7 @@ const handleTouchMove = (event: TouchEvent) => {
     Math.pow(touch.clientX - touchStartX.value, 2) + Math.pow(touch.clientY - touchStartY.value, 2),
   )
 
-  // 第2步：如果移动距离超过阈值，取消长按定时器
+  // 如果移动距离超过阈值，取消长按定时器
   if (moveDistance > 10 && longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
@@ -716,37 +716,37 @@ const handleTouchEnd = (event: TouchEvent) => {
     return
   }
 
-  // 第1步：取消长按定时器
+  // 取消长按定时器
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
 
-  // 第2步：如果气泡框已经显示，说明是长按成功触发的，保持显示状态
+  // 如果气泡框已经显示，说明是长按成功触发的，保持显示状态
   // 只重置长按状态，不关闭气泡框
   if (showActionMenu.value) {
     isLongPressing.value = false
     return
   }
 
-  // 第3步：如果不是长按，则正常处理点击
+  // 如果不是长按，则正常处理点击
   if (!isLongPressing.value && Date.now() - touchStartTime.value < 500) {
     handleClick()
   }
 
-  // 第4步：重置长按状态
+  // 重置长按状态
   isLongPressing.value = false
 }
 
 // 触摸取消
 const handleTouchCancel = () => {
-  // 第1步：取消长按定时器
+  // 取消长按定时器
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
 
-  // 第2步：重置长按状态（不主动关闭已显示的菜单，交由 BubblePopup 和显式逻辑处理）
+  // 重置长按状态（不主动关闭已显示的菜单，交由 BubblePopup 和显式逻辑处理）
   isLongPressing.value = false
 }
 
@@ -892,7 +892,7 @@ const buildUserActions = () => {
 
 // 处理删除消息
 const handleDelete = async () => {
-  // 第1步：关闭菜单
+  // 关闭菜单
   showActionMenu.value = false
 
   pendingDeleteMessageId.value = props.message.id
@@ -1186,12 +1186,12 @@ const ensureBubbleTarget = (eventTarget: HTMLElement) => {
 
 // 动态计算气泡框位置
 const calculateBubblePosition = (eventTarget?: HTMLElement) => {
-  // 第1步：如果没有气泡引用，尝试从事件目标中获取
+  // 如果没有气泡引用，尝试从事件目标中获取
   if (!bubbleTarget.value && eventTarget) {
     ensureBubbleTarget(eventTarget)
   }
 
-  // 第2步：如果仍然找不到气泡元素，尝试从整个消息项中查找
+  // 如果仍然找不到气泡元素，尝试从整个消息项中查找
   if (!bubbleTarget.value && eventTarget) {
     const messageItem = eventTarget.closest('.message-item') as HTMLElement
     if (messageItem) {
@@ -1207,12 +1207,12 @@ const calculateBubblePosition = (eventTarget?: HTMLElement) => {
     }
   }
 
-  // 第3步：如果仍然找不到，直接返回
+  // 如果仍然找不到，直接返回
   if (!bubbleTarget.value) {
     return
   }
 
-  // 第4步：计算气泡框位置
+  // 计算气泡框位置
   const bubbleRect = bubbleTarget.value.getBoundingClientRect()
 
   // 确保元素有有效的尺寸（即使没有视觉气泡框，只要有内容就会有尺寸）
@@ -1330,34 +1330,34 @@ const handleImageClick = (event: MouseEvent) => {
 
 // 处理 Markdown 渲染出的图片
 const processMarkdownImages = (container: HTMLElement) => {
-  // 第1步：查找容器内所有的图片元素
+  // 查找容器内所有的图片元素
   const allImages = container.querySelectorAll('img')
 
   allImages.forEach((img) => {
-    // 第2步：检查图片是否在 MathJax 公式容器内，如果是则跳过
+    // 检查图片是否在 MathJax 公式容器内，如果是则跳过
     const mathContainer = img.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
     if (mathContainer) {
       return
     }
 
-    // 第3步：检查图片是否已经被处理过
+    // 检查图片是否已经被处理过
     if (img.classList.contains('markdown-image')) {
       return
     }
 
-    // 第4步：添加标记类名和样式类名
+    // 添加标记类名和样式类名
     img.classList.add('markdown-image')
 
-    // 第5步：设置图片样式属性
+    // 设置图片样式属性
     const imgElement = img as HTMLImageElement
 
-    // 第6步：添加错误处理
+    // 添加错误处理
     imgElement.addEventListener('error', () => {
       imgElement.classList.add('image-error')
       imgElement.alt = '图片加载失败'
     })
 
-    // 第7步：添加加载成功处理
+    // 添加加载成功处理
     imgElement.addEventListener('load', () => {
       imgElement.classList.remove('image-error')
       // 图片加载完成后，通知父组件刷新滚动容器

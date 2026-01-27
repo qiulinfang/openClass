@@ -2229,15 +2229,15 @@ const handleConfigChange = (config: { [key: string]: string | number | boolean |
 
 // 缩放控制
 const zoomIn = () => {
-  // 第1步：边界检查
+  // 边界检查
   if (zoomLevel.value >= 3) {
     console.warn('[DrawingBoard] zoomIn: 已达最大缩放，忽略。当前=', zoomLevel.value)
     return
   }
-  // 第2步：更新缩放
+  // 更新缩放
   const before = zoomLevel.value
   zoomLevel.value = Math.min(3, zoomLevel.value + 0.1)
-  // 第3步：记录缩放变化
+  // 记录缩放变化
   console.warn('[DrawingBoard] zoomIn: 触发点击，缩放从', before, '到', zoomLevel.value)
   // viewport 变化需要重绘
   historyDirty = true
@@ -2245,15 +2245,15 @@ const zoomIn = () => {
 }
 
 const zoomOut = () => {
-  // 第1步：边界检查
+  // 边界检查
   if (zoomLevel.value <= 0.1) {
     console.warn('[DrawingBoard] zoomOut: 已达最小缩放，忽略。当前=', zoomLevel.value)
     return
   }
-  // 第2步：更新缩放
+  // 更新缩放
   const before = zoomLevel.value
   zoomLevel.value = Math.max(0.1, zoomLevel.value - 0.1)
-  // 第3步：记录缩放变化
+  // 记录缩放变化
   console.warn('[DrawingBoard] zoomOut: 触发点击，缩放从', before, '到', zoomLevel.value)
   // viewport 变化需要重绘
   historyDirty = true
@@ -2399,7 +2399,7 @@ defineExpose({
   
   // 流程：获取缩略图
   getThumbnail: (maxWidth = 200, maxHeight = 150): string => {
-    // 第1步：检查canvas是否存在
+    // 检查canvas是否存在
     if (!historyCanvasRef.value) return ''
 
     // 确保 history 已是最新
@@ -2407,7 +2407,7 @@ defineExpose({
       render()
     }
     
-    // 第2步：创建临时canvas生成缩略图
+    // 创建临时canvas生成缩略图
     const sourceCanvas = historyCanvasRef.value
     const overlayCanvas = liveCanvasRef.value
     const tempCanvas = document.createElement('canvas')
@@ -2425,23 +2425,23 @@ defineExpose({
       compositeCtx.drawImage(overlayCanvas, 0, 0)
     }
     
-    // 第3步：计算缩放比例
+    // 计算缩放比例
     const scale = Math.min(maxWidth / compositeCanvas.width, maxHeight / compositeCanvas.height)
     tempCanvas.width = compositeCanvas.width * scale
     tempCanvas.height = compositeCanvas.height * scale
     
-    // 第4步：绘制缩略图
+    // 绘制缩略图
     tempCtx.fillStyle = '#ffffff'
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
     tempCtx.drawImage(compositeCanvas, 0, 0, tempCanvas.width, tempCanvas.height)
     
-    // 第5步：返回base64数据
+    // 返回base64数据
     return tempCanvas.toDataURL('image/png', 0.8)
   },
 
   // 流程：导出画布为 JPG 图片
   exportToJpg: (quality = 0.9): string => {
-    // 第1步：检查canvas是否存在
+    // 检查canvas是否存在
     if (!historyCanvasRef.value) return ''
 
     // 确保 history 已是最新
@@ -2449,28 +2449,28 @@ defineExpose({
       render()
     }
     
-    // 第2步：创建临时canvas（确保有白色背景）
+    // 创建临时canvas（确保有白色背景）
     const sourceCanvas = historyCanvasRef.value
     const overlayCanvas = liveCanvasRef.value
     const tempCanvas = document.createElement('canvas')
     const tempCtx = tempCanvas.getContext('2d')
     if (!tempCtx) return ''
     
-    // 第3步：设置临时canvas尺寸
+    // 设置临时canvas尺寸
     tempCanvas.width = sourceCanvas.width
     tempCanvas.height = sourceCanvas.height
     
-    // 第4步：填充白色背景（JPG 不支持透明）
+    // 填充白色背景（JPG 不支持透明）
     tempCtx.fillStyle = '#ffffff'
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
     
-    // 第5步：绘制原canvas内容（history + live）
+    // 绘制原canvas内容（history + live）
     tempCtx.drawImage(sourceCanvas, 0, 0)
     if (overlayCanvas) {
       tempCtx.drawImage(overlayCanvas, 0, 0)
     }
     
-    // 第6步：返回 JPG base64 数据
+    // 返回 JPG base64 数据
     return tempCanvas.toDataURL('image/jpeg', quality)
   },
 

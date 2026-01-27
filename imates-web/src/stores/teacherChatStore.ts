@@ -293,10 +293,10 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
   /**
    * 清除会话
-   * 第1步：保存当前会话数据到缓存
-   * 第2步：停止消息轮询
-   * 第3步：清空当前会话信息
-   * 第4步：清空消息列表
+   * 保存当前会话数据到缓存
+   * 停止消息轮询
+   * 清空当前会话信息
+   * 清空消息列表
    */
   const clearSession = (): void => {
     // 保存当前会话数据到缓存（如果有当前会话）
@@ -383,10 +383,10 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
   /**
    * 发送学生消息
-   * 第1步：验证会话和WebSocket连接
-   * 第2步：创建学生消息
-   * 第3步：通过WebSocket直接发送到后端
-   * 第4步：等待发送确认和教师回复
+   * 验证会话和WebSocket连接
+   * 创建学生消息
+   * 通过WebSocket直接发送到后端
+   * 等待发送确认和教师回复
    */
   const sendMessage = async (content: string, imageData?: ChatImageData): Promise<void> => {
     if (!(await validateSendMessagePreconditions(
@@ -422,7 +422,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     try {
       const sessionId = currentSession.value!.sessionId
 
-      // 第5步：通过WebSocket发送学生消息到研伴后端
+      // 通过WebSocket发送学生消息到研伴后端
       const msgType = imageData ? '1' : '0' // 0=文本消息, 1=图片消息
       const msgContent = imageData ?
         (imageData.filePath?.startsWith('http') ? imageData.filePath :
@@ -454,7 +454,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
       // TODO: 可以在这里添加消息发送失败的处理逻辑，比如更新消息状态为失败
     } finally {
-      // 第7步：重置加载状态
+      // 重置加载状态
       isChatLoading.value = false
       isChatRendering.value = false
     }
@@ -500,7 +500,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       }
 
       if (!loadMore) {
-        // 第1步：首次加载，清空当前消息
+        // 首次加载，清空当前消息
         messages.value = []
         chatResponseTimes.value = 0
         pagination.value.currentPage = 1
@@ -511,7 +511,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
         pagination.value.isLoadingMore = true
       }
 
-      // 第2步：调用API获取历史消息
+      // 调用API获取历史消息
       // 如果是首次加载且没有指定页码，则使用第1页进行分页加载
       const pageToLoad = loadMore ? (page || pagination.value.currentPage + 1) : (page || 1)
       const historyData = await apiService.getTeacherChatHistory(sessionId, pageToLoad, pagination.value.pageSize)
@@ -563,7 +563,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
             return baseMessage
           })
 
-        // 第3步：添加到消息列表
+        // 添加到消息列表
         if (historyMessages.length > 0) {
           if (loadMore) {
             // 加载更多：将历史消息添加到列表前面（时间上更早的消息）
@@ -655,8 +655,8 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
   /**
    * 初始化教师消息接收器
-   * 第1步：设置全局回调函数（如果还未设置）
-   * 第2步：调用原生接口初始化RabbitMQ监听
+   * 设置全局回调函数（如果还未设置）
+   * 调用原生接口初始化RabbitMQ监听
    *
    * 使用 Promise 缓存机制，确保多个组件并发调用时只初始化一次
    */

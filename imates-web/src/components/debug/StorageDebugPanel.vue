@@ -450,7 +450,7 @@ watch(activeTab, (newTab) => {
   }
 })
 
-// 第1步：刷新所有数据
+// 刷新所有数据
 const refreshData = async () => {
   if (activeTab.value === 'localStorage') {
     await refreshLocalStorage()
@@ -459,7 +459,7 @@ const refreshData = async () => {
   }
 }
 
-// 第2步：刷新 localStorage 数据
+// 刷新 localStorage 数据
 const refreshLocalStorage = () => {
   try {
     const keys: string[] = []
@@ -511,7 +511,7 @@ const refreshLocalStorage = () => {
   }
 }
 
-// 第3步：刷新 IndexedDB 数据
+// 刷新 IndexedDB 数据
 const refreshIndexedDB = async () => {
   try {
     // 获取所有数据库
@@ -532,7 +532,7 @@ const refreshIndexedDB = async () => {
   }
 }
 
-// 第4步：获取所有 IndexedDB 数据库
+// 获取所有 IndexedDB 数据库
 const getIndexedDBDatabases = async (): Promise<Array<{
   name: string
   version: number
@@ -624,7 +624,7 @@ const getObjectStores = async (dbName: string, version: number): Promise<string[
   })
 }
 
-// 第5步：获取已知的数据库列表（降级方案）
+// 获取已知的数据库列表（降级方案）
 const getKnownDatabases = (): Array<{
   name: string
   version: number
@@ -644,7 +644,7 @@ const getKnownDatabases = (): Array<{
   ]
 }
 
-// 第6步：加载数据库数据
+// 加载数据库数据
 const loadDatabaseData = async (db: { name: string; version: number; objectStores: Array<{ name: string }> }) => {
   try {
     // 如果对象存储列表为空，重新获取
@@ -673,7 +673,7 @@ const loadDatabaseData = async (db: { name: string; version: number; objectStore
   }
 }
 
-// 第7步：加载对象存储数据
+// 加载对象存储数据
 const loadObjectStoreData = async (objectStore: { name: string }) => {
   if (!selectedDatabase.value) return
 
@@ -732,7 +732,7 @@ const loadObjectStoreData = async (objectStore: { name: string }) => {
   }
 }
 
-// 第8步：打开数据库
+// 打开数据库
 const openDatabase = (dbName: string, version: number): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, version)
@@ -751,19 +751,19 @@ const openDatabase = (dbName: string, version: number): Promise<IDBDatabase> => 
   })
 }
 
-// 第9步：查看 localStorage 项详情
+// 查看 localStorage 项详情
 const viewLocalStorageItem = (item: { key: string; value: string }) => {
   selectedLocalStorageItem.value = item
   showLocalStorageDetailDialog.value = true
 }
 
-// 第10步：查看 IndexedDB 项详情
+// 查看 IndexedDB 项详情
 const viewIndexedDBItem = (item: { key: unknown; value: unknown }) => {
   selectedIndexedDBItem.value = item
   showIndexedDBDetailDialog.value = true
 }
 
-// 第11步：删除 localStorage 项
+// 删除 localStorage 项
 const deleteLocalStorageItem = async (key: string) => {
   try {
     localStorage.removeItem(key)
@@ -775,7 +775,7 @@ const deleteLocalStorageItem = async (key: string) => {
   }
 }
 
-// 第12步：删除 IndexedDB 项
+// 删除 IndexedDB 项
 const deleteIndexedDBItem = async (key: unknown) => {
   if (!selectedDatabase.value || !selectedObjectStore.value) return
 
@@ -805,7 +805,7 @@ const deleteIndexedDBItem = async (key: unknown) => {
   }
 }
 
-// 第13步：清空当前存储
+// 清空当前存储
 const clearCurrentStorage = async () => {
   if (activeTab.value === 'localStorage') {
     if (confirm('确定要清空所有 localStorage 数据吗？此操作不可恢复！')) {
@@ -852,7 +852,7 @@ const clearCurrentStorage = async () => {
   }
 }
 
-// 第14步：导出数据
+// 导出数据
 const exportData = () => {
   try {
     let exportData: Record<string, unknown> = {}
@@ -891,7 +891,7 @@ const exportData = () => {
   }
 }
 
-// 第15步：复制到剪贴板
+// 复制到剪贴板
 const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
@@ -913,7 +913,7 @@ const copyToClipboard = async (text: string) => {
   }
 }
 
-// 第16步：格式化大小
+// 格式化大小
 const formatSize = (bytes: number): string => {
   if (bytes < 1024) {
     return `${bytes} B`
@@ -924,7 +924,7 @@ const formatSize = (bytes: number): string => {
   }
 }
 
-// 第17步：格式化键
+// 格式化键
 const formatKey = (key: unknown): string => {
   if (typeof key === 'string' || typeof key === 'number') {
     return String(key)

@@ -35,19 +35,19 @@ export class TeacherStrategy implements ChatStrategy {
     }
   }
   
-  // 第1步：获取消息列表
+  // 获取消息列表
   getMessages(): ChatBubble[] {
     return this.teacherStore.messages
   }
   
-  // 第2步：添加消息
+  // 添加消息
   async addMessage(message: ChatBubble): Promise<void> {
     this.teacherStore.addMessage(message)
     // 通知ChatView处理消息变化
     this.handleMessagesChanged(this.getMessages())
   }
   
-  // 第3步：发送消息
+  // 发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     // 注意：options.imageData 被传递给 store.sendMessage
     try {
@@ -71,44 +71,44 @@ export class TeacherStrategy implements ChatStrategy {
     }
   }
   
-  // 第4步：获取欢迎消息
+  // 获取欢迎消息
   getWelcomeMessage(): string {
     const session = this.getCurrentSession()
     return `你好！我是你的${session.subject}老师。有什么问题可以问我。`
   }
   
-  // 第5步：检查是否需要选择题目
+  // 检查是否需要选择题目
   requiresQuestion(): boolean {
     return false // 教师答疑可以在没有题目的情况下进行通用问答
   }
   
-  // 第6步：获取消息类型
+  // 获取消息类型
   getMessageType(): 'ai' | 'teacher' {
     return 'teacher'
   }
   
-  // 第7步：获取发送者类型
+  // 获取发送者类型
   getSenderType(): 'ai' | 'teacher' {
     return 'teacher'
   }
   
-  // 第8步：保存聊天历史
+  // 保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.teacherStore.saveChatHistory()
   }
   
-  // 第9步：检查是否支持转发消息
+  // 检查是否支持转发消息
   canForwardMessage(): boolean {
     return false // 老师对话不支持转发
   }
   
-  // 第10步：获取当前科目（用于转发）
+  // 获取当前科目（用于转发）
   getCurrentSubjectForForward(): 'biology' | 'math' | null {
     return null // 老师对话不支持转发
   }
   
   
-  // 第12步：转发多条消息
+  // 转发多条消息
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async forwardMessages(_messages: ChatBubble[], _options?: import('./ChatStrategy').ForwardOptions): Promise<import('./ChatStrategy').ForwardResult> {
     return {
@@ -117,7 +117,7 @@ export class TeacherStrategy implements ChatStrategy {
     }
   }
   
-  // 第13步：初始化消息
+  // 初始化消息
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async initialize(_options: InitializeOptions): Promise<void> {
     console.log('[TeacherStrategy] initialize 被调用')
@@ -176,12 +176,12 @@ export class TeacherStrategy implements ChatStrategy {
     }
   }
   
-  // 第14步：发送语音消息（不支持）
+  // 发送语音消息（不支持）
   async sendVoiceMessage(): Promise<{ success: boolean; message?: string }> {
     return { success: false, message: '教师对话不支持发送语音消息' }
   }
   
-  // 第15步：发送图片消息
+  // 发送图片消息
   async sendImageMessage(
     imageInfo: {
       filePath: string
@@ -231,7 +231,7 @@ export class TeacherStrategy implements ChatStrategy {
     })
   }
   
-  // 第16步：更新编辑的消息
+  // 更新编辑的消息
   async updateEditedMessage(
     messageId: string,
     newContent: string,
@@ -260,7 +260,7 @@ export class TeacherStrategy implements ChatStrategy {
     // 如果需要重新发送，可以在这里调用 sendMessage
   }
   
-  // 第17步：获取占位符文本
+  // 获取占位符文本
   getPlaceholderText(hasSelectedQuestion: boolean): string {
     if (!hasSelectedQuestion) {
       return '可以先聊聊，或选择题目后开始讨论'
@@ -271,22 +271,22 @@ export class TeacherStrategy implements ChatStrategy {
 
   // getSessionInfo 方法已删除，所有策略都不需要此方法
   
-  // 第19步：是否显示转发按钮
+  // 是否显示转发按钮
   shouldShowForwardButton(): boolean {
     return false // 教师通用对话不支持转发
   }
   
-  // 第20步：发送图片消息后是否清空输入框
+  // 发送图片消息后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return false // 教师场景不清空输入框
   }
   
-  // 第21步：是否使用乐观发送
+  // 是否使用乐观发送
   shouldOptimisticSend(): boolean {
     return true // 教师场景使用乐观发送
   }
   
-  // 第22步：清理资源
+  // 清理资源
   cleanup(): void {
     // 清理 Android 原生监听器
     if (typeof window !== 'undefined' && window.AndroidBridge?.cleanupTeacherMessageListener) {
@@ -299,7 +299,7 @@ export class TeacherStrategy implements ChatStrategy {
     // 注意：不再清理 window.onTeacherMessageReceived，由 teacherGeneralChatStore 统一管理
   }
   
-  // 第23步：获取当前科目
+  // 获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
     // 从localStorage读取当前教师科目
     const userId = getUserId()

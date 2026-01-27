@@ -316,11 +316,11 @@ export class TextbookDownloadApi {
   ): Promise<boolean> {
     const startTime = Date.now()
     try {
-      // 第1步：初始化下载控制器
+      // 初始化下载控制器
       const controller = new AbortController()
       this.downloadControllers.set(textbook.textbookId, controller)
 
-      // 第2步：获取学习资源包（优先使用本地数据）
+      // 获取学习资源包（优先使用本地数据）
       let serverPackages: any[] = []
 
       if (textbook.learningPackages && textbook.learningPackages.length > 0) {
@@ -333,15 +333,15 @@ export class TextbookDownloadApi {
         return true
       }
 
-      // 第3步：增量文件筛选（收集需要更新的文件）
+      // 增量文件筛选（收集需要更新的文件）
       const { filesToUpdate, totalServerFiles } = await this.collectFilesToUpdate(textbook, serverPackages)
       const filesToDownload = filesToUpdate.length
 
-      // 第4步：保存学习资源包到IndexedDB
+      // 保存学习资源包到IndexedDB
       const rm = ResourceManager.getInstance()
       await rm.updateTextbookInfo(textbook, undefined)
 
-      // 第5步：设置教材总文件数
+      // 设置教材总文件数
       const textbooks = await rm.getUserLocalTextbooks()
       const textbookRecord = textbooks.find(t => t.textbookId === textbook.textbookId)
       if (textbookRecord) {
@@ -354,7 +354,7 @@ export class TextbookDownloadApi {
         return true
       }
 
-      // 第6步：并发下载需要更新的文件
+      // 并发下载需要更新的文件
       const alreadyDownloadedFiles = totalServerFiles - filesToDownload
 
       const result = await this.downloadFilesConcurrently(
@@ -369,10 +369,10 @@ export class TextbookDownloadApi {
         textbook,
       )
 
-      // 第7步：强制刷新IndexedDB
+      // 强制刷新IndexedDB
       await rm.forceFlushPendingUpdates()
 
-      // 第8步：清理下载控制器
+      // 清理下载控制器
       this.downloadControllers.delete(textbook.textbookId)
 
       return result.successCount === filesToDownload
@@ -668,13 +668,13 @@ export class TextbookDownloadApi {
    */
   public async checkForUpdates(): Promise<TextbookVersion[]> {
     try {
-      // 第1步：获取服务器端教材版本列表
+      // 获取服务器端教材版本列表
       const serverTextbooks = await this.getTextbookVersions()
 
-      // 第2步：获取本地教材信息
+      // 获取本地教材信息
       const localTextbooks = await resourceManager.getUserLocalTextbooks()
 
-      // 第3步：执行三级对比检查
+      // 执行三级对比检查
       const updatedTextbooks: TextbookVersion[] = []
 
       for (const serverTextbook of serverTextbooks) {

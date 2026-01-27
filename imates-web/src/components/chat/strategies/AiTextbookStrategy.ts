@@ -18,19 +18,19 @@ export class AiTextbookStrategy implements ChatStrategy {
   private knowledgeGraphStore = useKnowledgeGraphStore()
   private chatView?: import('./ChatStrategy').ChatViewInterface
   
-  // 第1步：获取消息列表
+  // 获取消息列表
   getMessages(): ChatBubble[] {
     return this.aiTextbookStore.messages
   }
   
-  // 第2步：添加消息
+  // 添加消息
   async addMessage(message: ChatBubble): Promise<void> {
     this.aiTextbookStore.addMessage(message)
     // 通知ChatView处理消息变化
     this.handleMessagesChanged(this.getMessages())
   }
   
-  // 第3步：发送消息
+  // 发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     const hidePrefix = content.includes('我们开始吧')
     await this.aiTextbookStore.sendMessage(
@@ -44,37 +44,37 @@ export class AiTextbookStrategy implements ChatStrategy {
     )
   }
   
-  // 第4步：获取欢迎消息
+  // 获取欢迎消息
   getWelcomeMessage(): string {
     return '你好！我可以帮你解答教材中的问题。请告诉我你的疑问，或者使用探索区域工具发送教材截图。'
   }
   
-  // 第5步：检查是否需要选择题目
+  // 检查是否需要选择题目
   requiresQuestion(): boolean {
     return false // AI教材对话不需要题目
   }
   
-  // 第6步：获取消息类型
+  // 获取消息类型
   getMessageType(): 'ai' | 'teacher' {
     return 'ai'
   }
   
-  // 第7步：获取发送者类型
+  // 获取发送者类型
   getSenderType(): 'ai' | 'teacher' {
     return 'ai'
   }
   
-  // 第8步：保存聊天历史
+  // 保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.aiTextbookStore.saveChatHistory()
   }
   
-  // 第9步：检查是否支持转发消息
+  // 检查是否支持转发消息
   canForwardMessage(): boolean {
     return true // AI教材对话支持转发
   }
   
-  // 第10步：获取当前科目（用于转发）
+  // 获取当前科目（用于转发）
   getCurrentSubjectForForward(): 'biology' | 'math' | null {
     // AI教材场景：使用知识图谱的 store 的科目状态字段
     try {
@@ -86,7 +86,7 @@ export class AiTextbookStrategy implements ChatStrategy {
     }
   }
   
-  // 第11步：转发消息（支持单条或多条，通过数组传入）
+  // 转发消息（支持单条或多条，通过数组传入）
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
       // 选择老师会话（用户手动选择）
@@ -149,14 +149,14 @@ export class AiTextbookStrategy implements ChatStrategy {
     }
   }
   
-  // 第13步：初始化消息
+  // 初始化消息
   async initialize(options: InitializeOptions): Promise<void> {
-    // 第1步：如果是AI教材对话模式且提供了resourceId，加载聊天历史
+    // 如果是AI教材对话模式且提供了resourceId，加载聊天历史
     if (options.resourceId) {
       await this.aiTextbookStore.loadChatHistory(options.resourceId)
     }
     
-    // 第2步：只有在没有选择题目且没有聊天记录时才添加引导消息
+    // 只有在没有选择题目且没有聊天记录时才添加引导消息
     if (!options.hasSelectedQuestion && this.aiTextbookStore.messages.length === 0) {
       const welcomeMessage: ChatBubble = {
         id: 'welcome_' + Date.now(),
@@ -169,7 +169,7 @@ export class AiTextbookStrategy implements ChatStrategy {
     }
   }
 
-  // 第16步：检查是否应该乐观发送
+  // 检查是否应该乐观发送
   async sendVoiceMessage(voiceInfo: {
     filePath: string
     duration: number
@@ -179,7 +179,7 @@ export class AiTextbookStrategy implements ChatStrategy {
     return { success: true }
   }
   
-  // 第15步：发送图片消息
+  // 发送图片消息
   async sendImageMessage(
     imageInfo: {
       filePath: string
@@ -227,7 +227,7 @@ export class AiTextbookStrategy implements ChatStrategy {
     })
   }
   
-  // 第16步：更新编辑的消息
+  // 更新编辑的消息
   async updateEditedMessage(
     messageId: string,
     newContent: string,
@@ -258,7 +258,7 @@ export class AiTextbookStrategy implements ChatStrategy {
     })
   }
   
-  // 第17步：获取占位符文本
+  // 获取占位符文本
   getPlaceholderText(hasSelectedQuestion: boolean): string {
     if (!hasSelectedQuestion) {
       return '可以先聊聊，或选择题目后开始讨论'
@@ -268,25 +268,25 @@ export class AiTextbookStrategy implements ChatStrategy {
   
   // getSessionInfo 方法已删除，所有策略都不需要此方法
   
-  // 第19步：是否显示转发按钮
+  // 是否显示转发按钮
   shouldShowForwardButton(): boolean {
     return true // AI教材对话支持转发
   }
   
-  // 第20步：发送图片消息后是否清空输入框
+  // 发送图片消息后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return true // AI场景需要清空输入框
   }
   
-  // 第21步：是否使用乐观发送
+  // 是否使用乐观发送
   shouldOptimisticSend(): boolean {
     return false // AI场景不使用乐观发送
   }
   
-  // 第22步：清理资源
+  // 清理资源
   // cleanup 不实现，因为AI策略不需要特殊清理
   
-  // 第23步：获取当前科目
+  // 获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
     // AI教材场景使用knowledgeGraphStore中的科目
     const subject = this.knowledgeGraphStore.getCurrentSubject()

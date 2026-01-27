@@ -898,8 +898,8 @@ const handleSelectFromGallery = async () => {
 }
 
 // 确保 base64 字符串是完整的 data URL 格式
-// 第1步：检查输入是否已经是 data URL 格式
-// 第2步：如果不是，添加 data:image/jpeg;base64, 前缀
+// 检查输入是否已经是 data URL 格式
+// 如果不是，添加 data:image/jpeg;base64, 前缀
 const ensureDataUrl = (base64: string): string => {
   if (!base64 || typeof base64 !== 'string') {
     return base64

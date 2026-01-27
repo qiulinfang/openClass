@@ -903,7 +903,7 @@ function getKnowledgeFromHardcodedMapping(nodeId: string, nodeName: string): str
     return null
   }
 
-  // 第1步：优先通过 nodeId 精确匹配
+  // 优先通过 nodeId 精确匹配
   if (nodeId) {
     const matchById = mappingArray.find((item) => item.nodeId === nodeId)
     if (matchById && matchById.knowledge) {
@@ -911,7 +911,7 @@ function getKnowledgeFromHardcodedMapping(nodeId: string, nodeName: string): str
     }
   }
 
-  // 第2步：通过 nodeName 精确匹配
+  // 通过 nodeName 精确匹配
   if (nodeName) {
     const matchByName = mappingArray.find(
       (item) => item.nodeName === nodeName || item.name === nodeName,
@@ -920,7 +920,7 @@ function getKnowledgeFromHardcodedMapping(nodeId: string, nodeName: string): str
       return String(matchByName.knowledge)
     }
 
-    // 第3步：通过 nodeName 模糊匹配（包含关系）
+    // 通过 nodeName 模糊匹配（包含关系）
     const matchByContains = mappingArray.find((item) => {
       const itemName = String(item.nodeName || item.name || '')
       return itemName.includes(nodeName) || nodeName.includes(itemName)
@@ -982,24 +982,24 @@ export async function queryShijingshanKnowledgeId(
   nodeName: string,
   subject: string,
 ): Promise<string | null> {
-  // 第1步：检查是否是石景山学校的textbookId
+  // 检查是否是石景山学校的textbookId
   if (!isShijingshanTextbook(textbookId)) {
     return null
   }
 
-  // 第2步：优先从硬编码映射数据中获取（最快、最准确）
+  // 优先从硬编码映射数据中获取（最快、最准确）
   const knowledgeFromHardcoded = getKnowledgeFromHardcodedMapping(nodeId, nodeName)
   if (knowledgeFromHardcoded) {
     return knowledgeFromHardcoded
   }
 
-  // 第3步：从合并后的扁平化数据中获取（持久化存储）
+  // 从合并后的扁平化数据中获取（持久化存储）
   const knowledgeFromMergedData = getKnowledgeFromMergedData(nodeId, nodeName, subject)
   if (knowledgeFromMergedData) {
     return knowledgeFromMergedData
   }
 
-  // 第4步：检查映射是否已初始化（按学科）
+  // 检查映射是否已初始化（按学科）
   const initialized = isMappingInitialized(subject)
 
   if (!initialized) {

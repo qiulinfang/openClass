@@ -17,11 +17,11 @@ export async function generateHtmlThumbnail(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
-      // 第1步：将Uint8Array转换为文本
+      // 将Uint8Array转换为文本
       const decoder = new TextDecoder('utf-8')
       const htmlContent = decoder.decode(fileData)
       
-      // 第2步：创建隐藏的iframe元素
+      // 创建隐藏的iframe元素
       const iframe = document.createElement('iframe')
       iframe.style.position = 'fixed'
       iframe.style.top = '-9999px'
@@ -31,20 +31,20 @@ export async function generateHtmlThumbnail(
       iframe.style.border = 'none'
       iframe.style.visibility = 'hidden'
       
-      // 第3步：定义iframe加载完成处理函数
+      // 定义iframe加载完成处理函数
       const handleIframeLoad = async () => {
         try {
-          // 第4步：获取iframe的contentDocument
+          // 获取iframe的contentDocument
           const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
           
           if (!iframeDoc) {
             throw new Error('无法访问iframe内容（可能由于跨域限制）')
           }
           
-          // 第5步：等待内容渲染完成
+          // 等待内容渲染完成
           await new Promise(resolve => setTimeout(resolve, 500))
           
-          // 第6步：创建canvas元素
+          // 创建canvas元素
           const canvas = document.createElement('canvas')
           const context = canvas.getContext('2d')
           
@@ -52,11 +52,11 @@ export async function generateHtmlThumbnail(
             throw new Error('无法创建canvas上下文')
           }
           
-          // 第7步：设置canvas尺寸
+          // 设置canvas尺寸
           canvas.width = maxWidth
           canvas.height = maxHeight
           
-          // 第8步：尝试从iframe截图
+          // 尝试从iframe截图
           // 由于浏览器安全限制，直接使用drawImage可能不工作
           // 我们尝试使用html2canvas的替代方案：手动绘制关键元素
           // 或者使用Canvas的drawImage方法（如果iframe内容可访问）
@@ -100,10 +100,10 @@ export async function generateHtmlThumbnail(
           context.textAlign = 'center'
           context.fillText(previewText || 'HTML文件', maxWidth / 2, maxHeight / 2 + 20)
           
-          // 第9步：转换为base64数据URL
+          // 转换为base64数据URL
           const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8)
           
-          // 第10步：清理资源
+          // 清理资源
           document.body.removeChild(iframe)
           
           resolve(thumbnailDataUrl)
@@ -140,10 +140,10 @@ export async function generateHtmlThumbnail(
         }
       }
       
-      // 第4步：将iframe添加到DOM
+      // 将iframe添加到DOM
       document.body.appendChild(iframe)
       
-      // 第5步：将HTML内容写入iframe
+      // 将HTML内容写入iframe
       // 优先尝试直接写入，如果失败则使用Blob URL
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document

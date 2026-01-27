@@ -406,21 +406,21 @@ const downloadingCount = computed(() => {
 
 const sortedTextbooks = computed(() => {
   return [...textbooks.value].sort((a, b) => {
-    // 第1步：按下载状态排序（下载中 > 已下载 > 未下载）
+    // 按下载状态排序（下载中 > 已下载 > 未下载）
     if (a.downloadStatus !== b.downloadStatus) {
       const order = { 1: 0, 2: 1, 3: 2, 0: 3 }
       return (order[a.downloadStatus as keyof typeof order] || 999) - (order[b.downloadStatus as keyof typeof order] || 999)
     }
-    // 第2步：按学科排序
+    // 按学科排序
     if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
       return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
     }
-    // 第3步：按年级排序
+    // 按年级排序
     return a.textbookGradeLabel.localeCompare(b.textbookGradeLabel)
   })
 })
 
-// 第1步：刷新数据
+// 刷新数据
 const refreshData = async () => {
   try {
     textbooks.value = await resourceManager.getUserLocalTextbooks()
@@ -430,7 +430,7 @@ const refreshData = async () => {
   }
 }
 
-// 第2步：计算存储大小
+// 计算存储大小
 const calculateStorageSize = async () => {
   try {
     let totalSize = 0
@@ -465,7 +465,7 @@ const calculateStorageSize = async () => {
   }
 }
 
-// 第3步：清理过期数据
+// 清理过期数据
 const cleanupExpiredData = async () => {
   try {
     await resourceManager.cleanupExpiredData()
@@ -475,7 +475,7 @@ const cleanupExpiredData = async () => {
   }
 }
 
-// 第4步：导出教材数据
+// 导出教材数据
 const exportTextbooksData = async () => {
   try {
     const exportData = {
@@ -496,7 +496,7 @@ const exportTextbooksData = async () => {
   }
 }
 
-// 第5步：清空所有资源
+// 清空所有资源
 const clearAllResources = async () => {
   try {
     // 删除所有教材数据
@@ -513,13 +513,13 @@ const clearAllResources = async () => {
   }
 }
 
-// 第6步：查看教材详情
+// 查看教材详情
 const viewTextbookDetail = (textbook: UserTextbookInfo) => {
   selectedTextbook.value = textbook
   showDetailDialog.value = true
 }
 
-// 第7步：删除教材
+// 删除教材
 const deleteTextbook = async (textbook: UserTextbookInfo) => {
   try {
     await resourceManager.indexedDB.delete('textbooks', textbook.id)
@@ -529,7 +529,7 @@ const deleteTextbook = async (textbook: UserTextbookInfo) => {
   }
 }
 
-// 第8步：删除单个本地文件
+// 删除单个本地文件
 const deleteLocalFile = async (index: number) => {
   if (!selectedTextbook.value) {
     return
@@ -541,7 +541,7 @@ const deleteLocalFile = async (index: number) => {
   }
   
   try {
-    // 第1步：确认删除
+    // 确认删除
     $q.dialog({
       title: '确认删除',
       message: `确定要删除文件 "${file.fileName || file.localPath}" 吗？`,
@@ -549,27 +549,27 @@ const deleteLocalFile = async (index: number) => {
       persistent: true
     }).onOk(async () => {
       try {
-        // 第2步：删除textbook_files表中的文件数据
+        // 删除textbook_files表中的文件数据
         await resourceManager.indexedDB.delete('textbook_files', file.id)
         
-        // 第3步：从localFiles数组中移除该文件
+        // 从localFiles数组中移除该文件
         if (selectedTextbook.value && selectedTextbook.value.localFiles) {
           selectedTextbook.value.localFiles.splice(index, 1)
           
-          // 第4步：更新下载文件数
+          // 更新下载文件数
           const downloadedFiles = selectedTextbook.value.localFiles.filter(f => f.isDownloaded).length
           selectedTextbook.value.downloadedFiles = downloadedFiles
           
-          // 第5步：如果所有文件都被删除，更新下载状态
+          // 如果所有文件都被删除，更新下载状态
           if (selectedTextbook.value.localFiles.length === 0) {
             selectedTextbook.value.isDownloaded = false
             selectedTextbook.value.downloadStatus = 0
           }
           
-          // 第6步：更新教材数据到IndexedDB
+          // 更新教材数据到IndexedDB
           await resourceManager.indexedDB.update('textbooks', selectedTextbook.value)
           
-          // 第7步：刷新主列表数据
+          // 刷新主列表数据
           await refreshData()
 
           showMessage('文件删除成功', 'positive')
@@ -584,7 +584,7 @@ const deleteLocalFile = async (index: number) => {
   }
 }
 
-// 第9步：删除单个学习资源包
+// 删除单个学习资源包
 const deleteLearningPackage = async (index: number) => {
   if (!selectedTextbook.value) {
     return
@@ -596,7 +596,7 @@ const deleteLearningPackage = async (index: number) => {
   }
   
   try {
-    // 第1步：确认删除
+    // 确认删除
     $q.dialog({
       title: '确认删除',
       message: `确定要删除学习资源包 "${pkg.packageName}" 吗？`,
@@ -604,14 +604,14 @@ const deleteLearningPackage = async (index: number) => {
       persistent: true
     }).onOk(async () => {
       try {
-        // 第2步：从learningPackages数组中移除该资源包
+        // 从learningPackages数组中移除该资源包
         if (selectedTextbook.value && selectedTextbook.value.learningPackages) {
           selectedTextbook.value.learningPackages.splice(index, 1)
           
-          // 第3步：更新教材数据到IndexedDB
+          // 更新教材数据到IndexedDB
           await resourceManager.indexedDB.update('textbooks', selectedTextbook.value)
           
-          // 第4步：刷新主列表数据
+          // 刷新主列表数据
           await refreshData()
 
           showMessage('学习资源包删除成功', 'positive')

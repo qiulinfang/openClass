@@ -18,25 +18,25 @@ export async function generatePdfThumbnail(
   maxHeight: number = 280
 ): Promise<string> {
   try {
-    // 第1步：将Uint8Array转换为ArrayBuffer
+    // 将Uint8Array转换为ArrayBuffer
     const arrayBuffer = fileData.buffer.slice(fileData.byteOffset, fileData.byteOffset + fileData.byteLength)
     
-    // 第2步：使用 MuPDF 加载PDF文档
+    // 使用 MuPDF 加载PDF文档
     const uint8Array = new Uint8Array(arrayBuffer as ArrayBuffer)
     const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
     
-    // 第3步：获取第一页（MuPDF 使用 0-based index）
+    // 获取第一页（MuPDF 使用 0-based index）
     const page = doc.loadPage(0)
     const bounds = page.getBounds()
     const pageWidth = bounds[2] - bounds[0]
     const pageHeight = bounds[3] - bounds[1]
     
-    // 第4步：计算缩略图尺寸
+    // 计算缩略图尺寸
     const scale = Math.min(maxWidth / pageWidth, maxHeight / pageHeight)
     const scaledWidth = pageWidth * scale
     const scaledHeight = pageHeight * scale
     
-    // 第5步：创建canvas元素
+    // 创建canvas元素
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     
@@ -44,11 +44,11 @@ export async function generatePdfThumbnail(
       throw new Error('无法创建canvas上下文')
     }
     
-    // 第6步：设置canvas尺寸
+    // 设置canvas尺寸
     canvas.width = scaledWidth
     canvas.height = scaledHeight
     
-    // 第7步：创建变换矩阵并渲染PDF页面到canvas
+    // 创建变换矩阵并渲染PDF页面到canvas
     const matrix: mupdf.Matrix = [
       scale, // sx
       0, // shx
@@ -87,10 +87,10 @@ export async function generatePdfThumbnail(
     const imageData = new ImageData(rgbaData, width, height)
     context.putImageData(imageData, 0, 0)
     
-    // 第8步：转换为base64数据URL
+    // 转换为base64数据URL
     const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8)
     
-    // 第9步：清理资源
+    // 清理资源
     pixmap.destroy()
     page.destroy()
     doc.destroy()

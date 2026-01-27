@@ -107,11 +107,11 @@ export const useQuestionStore = defineStore('question', () => {
       // 并行加载所有学科的题目（始终从服务器获取，失败时才回退到本地）
       const loadPromises = allSubjects.map(async (subject) => {
         try {
-          // 第1步：从 API 获取题目
+          // 从 API 获取题目
           const apiService = ApiService.getInstance()
           const questionList = await apiService.getExerciseList(subject)
 
-          // 第2步：转换 API 响应的 ExerciseItem 类型
+          // 转换 API 响应的 ExerciseItem 类型
           const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
             const question = q as Record<string, unknown>
             return {
@@ -126,7 +126,7 @@ export const useQuestionStore = defineStore('question', () => {
             }
           })
 
-          // 第3步：覆盖写入 IndexedDB（每次加载都用最新服务器数据替换本地缓存）
+          // 覆盖写入 IndexedDB（每次加载都用最新服务器数据替换本地缓存）
           if (convertedQuestions.length > 0) {
             try {
               await deleteQuestionsFromIndexedDB(subject)
@@ -174,10 +174,10 @@ export const useQuestionStore = defineStore('question', () => {
 
   /**
    * 获取题目列表
-   * 第1步：尝试从本地存储加载
-   * 第2步：如果本地没有数据，调用API获取题目
-   * 第3步：保存到本地存储
-   * 第4步：去重并更新状态
+   * 尝试从本地存储加载
+   * 如果本地没有数据，调用API获取题目
+   * 保存到本地存储
+   * 去重并更新状态
    */
   const fetchQuestions = async (subject: string = 'math', useLocalFirst: boolean = true): Promise<void> => {
     // 防重复调用：如果该科目正在加载，直接返回
@@ -188,11 +188,11 @@ export const useQuestionStore = defineStore('question', () => {
     
     try {
       isLoading.value = true
-      // 第1步：从API获取题目
+      // 从API获取题目
       const apiService = ApiService.getInstance()
       const questionList = await apiService.getExerciseList(subject)
       
-      // 第2步：转换 API 响应的 ExerciseItem 类型
+      // 转换 API 响应的 ExerciseItem 类型
       const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
         const question = q as Record<string, unknown>
         return {
@@ -207,9 +207,9 @@ export const useQuestionStore = defineStore('question', () => {
         }
       })
       
-      // 第3步：去重并更新状态  
+      // 去重并更新状态  
       questions.value = deduplicateQuestions(convertedQuestions)
-      // 第4步：保存到 IndexedDB
+      // 保存到 IndexedDB
       try {
         await deleteQuestionsFromIndexedDB(subject)
         console.log(`[QUESTION] ✅ 删除本地 ${subject} 科目题目成功`)
@@ -234,8 +234,8 @@ export const useQuestionStore = defineStore('question', () => {
   
   /**
    * 选择题目
-   * 第1步：更新当前题目索引
-   * 第2步：标记题目为已查看（已废弃 isViewed 标记，仅保留索引更新）
+   * 更新当前题目索引
+   * 标记题目为已查看（已废弃 isViewed 标记，仅保留索引更新）
    */
   const selectQuestion = async (index: number): Promise<void> => {
     // 检查索引是否有效

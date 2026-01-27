@@ -187,6 +187,7 @@
       :confirmButtonText="'清除'"
       :cancelButtonText="'取消'"
       @confirm="confirmClearAllSessions"
+      @cancel="cancelClearAllSessions"
     >
       确定要清除当前题目的所有会话吗？此操作不可撤销。
     </Dialog>
@@ -230,7 +231,7 @@ import backToHomeworkIcon from '/icons/backtohomework.svg'
 import goBackIcon from '/icons/goback.svg'
 import goBackBlackIcon from '/icons/goback_black.svg'
 
-// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -390,6 +391,13 @@ const confirmClearAllSessions = async () => {
   clearAllDialogRef.value?.closeDialog()
 }
 
+// 取消清除所有会话对话框
+const cancelClearAllSessions = () => {
+  if (clearAllDialogRef.value && typeof clearAllDialogRef.value.closeDialog === 'function') {
+    clearAllDialogRef.value.closeDialog()
+  }
+}
+
 // 处理清除所有会话按钮点击
 const handleClearAllSessionsClick = () => {
   if (hasAiSessions.value && clearAllDialogRef.value) {
@@ -546,12 +554,12 @@ const handleQuestionSelected = async () => {
     ;(aiChatViewRef.value as any).showSessionListPanel = false
   }
 
-  // 第1步：如果当前没有任何功能被选中，自动切换到AI指导模式
+  // 如果当前没有任何功能被选中，自动切换到AI指导模式
   if (!currentFunction.value || !['chatAi', 'teacherChat', 'viewAnswer', 'similarQuestion'].includes(currentFunction.value)) {
     currentFunction.value = 'chatAi'
   }
 
-  // 第2步：如果已选择题目，加载对应题目的聊天记录
+  // 如果已选择题目，加载对应题目的聊天记录
   if (currentQuestion.value) {
     // 统一使用 bmNo 作为 AI 题目聊天历史的存储键（无 bmNo 时回退到 id）
     const questionId = currentQuestion.value.bmNo || currentQuestion.value.id
@@ -561,7 +569,7 @@ const handleQuestionSelected = async () => {
       usedKey: questionId,
     })
 
-    // 第3步：根据当前功能类型加载对应题目的聊天记录
+    // 根据当前功能类型加载对应题目的聊天记录
     if (currentFunction.value === 'chatAi') {
       // 学伴答疑：加载AI题目的聊天记录
       // 多会话系统：loadChatHistory 会自动加载会话列表和最近活跃的会话
@@ -573,7 +581,7 @@ const handleQuestionSelected = async () => {
       }
     }
 
-    // 第4步：在习题场景下，建立教师WebSocket连接（根据题目科目）
+    // 在习题场景下，建立教师WebSocket连接（根据题目科目）
     if (!isFromHomework.value) {
       const teacherSessionId = getTeacherSessionBySubject()
 

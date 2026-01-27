@@ -177,7 +177,7 @@ const goBack = () => {
 const getChatType = (
   session: AiGeneralSession
 ): { type: 'ai' | 'teacher'; subject?: 'BIOLOGY' | 'MATH' } => {
-  // 第1步：检查是否是教师通用对话会话（使用统一存储格式）
+  // 检查是否是教师通用对话会话（使用统一存储格式）
   try {
     const teacherStore = useTeacherChatStore()
     const teacherSession = teacherStore.getSession(session.sessionId)
@@ -407,10 +407,10 @@ const formatTimestamp = (timestamp: number) => {
 const loadQaFavorites = async () => {
   isLoadingQa.value = true
   try {
-    // 第1步：从工具函数获取收藏的问答
+    // 从工具函数获取收藏的问答
     const qaFavs = getFavoriteQas()
 
-    // 第2步：从工具函数获取收藏的会话，转换为 FavoriteQa 格式
+    // 从工具函数获取收藏的会话，转换为 FavoriteQa 格式
     const sessionFavs = getFavoriteSessions()
     const sessionFavsAsQa: FavoriteQa[] = sessionFavs.map((fav) => ({
       id: fav.session.sessionId,
@@ -435,10 +435,10 @@ const loadQaFavorites = async () => {
       timestamp: fav.timestamp,
     }))
 
-    // 第3步：合并问答收藏和会话收藏
+    // 合并问答收藏和会话收藏
     const allFavorites = [...qaFavs, ...sessionFavsAsQa]
 
-    // 第4步：按时间戳倒序排列
+    // 按时间戳倒序排列
     allFavorites.sort((a, b) => b.timestamp - a.timestamp)
     qaFavorites.value = allFavorites
 

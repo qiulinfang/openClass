@@ -80,7 +80,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 第1步：主容器样式 - 无遮罩层，仅显示内容 */
+/* 主容器样式 - 无遮罩层，仅显示内容 */
 .voice-recorder {
   position: absolute;
   top: 50%;
@@ -96,13 +96,13 @@ onUnmounted(() => {
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
 }
 
-/* 第2步：录音状态激活时的样式 */
+/* 录音状态激活时的样式 */
 .voice-recorder.recording {
   opacity: 1;
   visibility: visible;
 }
 
-/* 第3步：录音状态容器布局 */
+/* 录音状态容器布局 */
 .recording-status {
   display: flex;
   flex-direction: column;
@@ -118,7 +118,7 @@ onUnmounted(() => {
   animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 第4步：录音动画容器 - 麦克风图标和脉冲效果 */
+/* 录音动画容器 - 麦克风图标和脉冲效果 */
 .recording-animation {
   position: relative;
   display: flex;
@@ -135,7 +135,7 @@ onUnmounted(() => {
   animation: recording-bounce 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 第5步：脉冲圆圈动画效果 */
+/* 脉冲圆圈动画效果 */
 .pulse-circle {
   position: absolute;
   width: 100%;
@@ -145,7 +145,7 @@ onUnmounted(() => {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* 第6步：脉冲动画关键帧 */
+/* 脉冲动画关键帧 */
 @keyframes pulse {
   0% {
     transform: scale(1);
@@ -160,7 +160,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第7步：录音信息容器 */
+/* 录音信息容器 */
 .recording-info {
   display: flex;
   flex-direction: column;
@@ -168,7 +168,7 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-/* 第8步：录音文字样式 */
+/* 录音文字样式 */
 .recording-text {
   font-size: 16px;
   font-weight: 500;
@@ -176,7 +176,7 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* 第9步：录音时间显示样式 */
+/* 录音时间显示样式 */
 .recording-time {
   font-size: 32px;
   font-weight: 700;
@@ -187,7 +187,7 @@ onUnmounted(() => {
   min-width: 80px;
 }
 
-/* 第10步：录音提示容器 */
+/* 录音提示容器 */
 .recording-hint {
   display: flex;
   flex-direction: column;
@@ -203,14 +203,14 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.06);
 }
 
-/* 第11步：提示文字样式 */
+/* 提示文字样式 */
 .hint-text {
   font-size: 13px;
   color: #999;
   font-weight: 400;
 }
 
-/* 第12步：取消提示容器 */
+/* 取消提示容器 */
 .cancel-hint {
   display: flex;
   flex-direction: column;
@@ -226,7 +226,7 @@ onUnmounted(() => {
   animation: fadeInScale 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 第13步：取消提示图标容器 */
+/* 取消提示图标容器 */
 .cancel-hint :deep(.q-icon) {
   width: 48px;
   height: 48px;
@@ -236,7 +236,7 @@ onUnmounted(() => {
   animation: shake 0.5s ease-in-out infinite;
 }
 
-/* 第14步：取消文字样式 */
+/* 取消文字样式 */
 .cancel-text {
   font-size: 18px;
   font-weight: 600;
@@ -244,7 +244,7 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* 第15步：录音动画进入效果 */
+/* 录音动画进入效果 */
 @keyframes recording-bounce {
   0% {
     transform: scale(0.6);
@@ -259,7 +259,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第16步：淡入上移动画 */
+/* 淡入上移动画 */
 @keyframes fadeInUp {
   0% {
     opacity: 0;
@@ -271,7 +271,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第17步：淡入缩放动画 */
+/* 淡入缩放动画 */
 @keyframes fadeInScale {
   0% {
     opacity: 0;
@@ -283,7 +283,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第18步：摇晃动画（用于取消提示） */
+/* 摇晃动画（用于取消提示） */
 @keyframes shake {
   0%, 100% {
     transform: translateX(0);
@@ -296,7 +296,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第19步：响应式设计 - 平板设备 */
+/* 响应式设计 - 平板设备 */
 @media (min-width: 769px) and (max-width: 1024px) {
   .recording-animation {
     width: 112px;
@@ -316,7 +316,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第20步：响应式设计 - 手机设备 */
+/* 响应式设计 - 手机设备 */
 @media (max-width: 768px) {
   .recording-status {
     gap: 24px;
@@ -350,7 +350,7 @@ onUnmounted(() => {
   }
 }
 
-/* 第21步：响应式设计 - 小屏手机 */
+/* 响应式设计 - 小屏手机 */
 @media (max-width: 480px) {
   .recording-animation {
     width: 80px;

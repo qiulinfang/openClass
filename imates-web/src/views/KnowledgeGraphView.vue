@@ -28,7 +28,7 @@
         </CommonSelect>
       </div>
 
-      <!-- 第1步：添加节点搜索框 -->
+      <!-- 添加节点搜索框 -->
       <div v-show="showNodeSearch" class="chapter-search">
         <q-input
           v-model="searchQuery"
@@ -250,7 +250,7 @@ const saveLastLearnedNodeId = (nodeId: string) => {
   }
 }
 
-// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 // 使用统一的章节状态管理
@@ -272,7 +272,7 @@ const {
 const route = useRoute()
 const router = useRouter()
 
-// 第4步：添加搜索相关的响应式数据
+// 添加搜索相关的响应式数据
 const searchQuery = ref('')
 
 // 处理搜索输入
@@ -386,7 +386,7 @@ const collectAllNodes = (
     chapterName: string
   }> = []
 
-  // 第1步：添加当前节点
+  // 添加当前节点
   const chapterName = chapters.value[chapterIndex] || chapter.name
   results.push({
     node: chapter,
@@ -394,7 +394,7 @@ const collectAllNodes = (
     chapterName,
   })
 
-  // 第2步：递归处理子节点
+  // 递归处理子节点
   const collectChildren = (node: ChapterNode) => {
     if (node.children && node.children.length > 0) {
       node.children.forEach((child) => {
@@ -419,7 +419,7 @@ const searchResults = computed(() => {
     return []
   }
 
-  // 第1步：收集所有章节的所有节点
+  // 收集所有章节的所有节点
   const allNodes: Array<{
     node: ChapterNode
     chapterIndex: number
@@ -431,7 +431,7 @@ const searchResults = computed(() => {
     allNodes.push(...nodes)
   })
 
-  // 第2步：模糊搜索节点（搜索name和label）
+  // 模糊搜索节点（搜索name和label）
   const query = searchQuery.value.trim().toLowerCase()
   return allNodes.filter((item) => {
     const node = item.node
@@ -861,7 +861,7 @@ const getCurrentTextbookId = () => {
   return ''
 }
 
-// 第29步：保存页面状态
+// 保存页面状态
 const saveCurrentPageState = () => {
   try {
     const state = {
@@ -881,7 +881,7 @@ const saveCurrentPageState = () => {
   }
 }
 
-// 第30步：恢复页面状态
+// 恢复页面状态
 const restorePageStateFromStore = async (): Promise<boolean> => {
   try {
     const savedState = restorePageState()
@@ -1414,7 +1414,7 @@ const handleDefaultInitialization = async (): Promise<void> => {
   await nextTick()
 }
 
-// 第32步：初始化图谱
+// 初始化图谱
 const initGraph = async () => {
   loading.value = true
 
@@ -1473,7 +1473,7 @@ const onSubjectChange = async (subjectValue: string) => {
   }
 }
 
-// 第35步：教材切换
+// 教材切换
 const onTextbookChange = async (value: string) => {
   try {
     // 找到选中的教材选项
@@ -1503,7 +1503,7 @@ const onTextbookChange = async (value: string) => {
   }
 }
 
-// 第6步：清空搜索
+// 清空搜索
 const clearSearch = () => {
   searchQuery.value = ''
 }
@@ -1517,13 +1517,13 @@ const toggleNodeSearch = () => {
   }
 }
 
-// 第7步：处理搜索结果点击
+// 处理搜索结果点击
 const handleSearchResultClick = async (result: {
   node: ChapterNode
   chapterIndex: number
   chapterName: string
 }) => {
-  // 第1步：如果节点在其他章节，先跳转到对应章节
+  // 如果节点在其他章节，先跳转到对应章节
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex !== result.chapterIndex) {
     selectChapter(result.chapterIndex)
@@ -1540,7 +1540,7 @@ const handleSearchResultClick = async (result: {
     await nextTick()
   }
 
-  // 第2步：获取当前章节的子章节列表
+  // 获取当前章节的子章节列表
   const chapter = chapterStructure.value[result.chapterIndex]
   if (!chapter) {
     return
@@ -1548,7 +1548,7 @@ const handleSearchResultClick = async (result: {
 
   const subChapters = getSubChapters(chapter)
 
-  // 第3步：查找节点在子章节列表中的索引
+  // 查找节点在子章节列表中的索引
   // 如果节点本身是level=1的子章节，直接使用其ID
   // 如果节点是更深层的子节点，需要找到其父节点（level=1的子章节）
   let targetNodeId: string | null = null
@@ -1597,7 +1597,7 @@ const handleSearchResultClick = async (result: {
     }
   }
 
-  // 第4步：如果找到了目标节点ID，旋转到targetAngle
+  // 如果找到了目标节点ID，旋转到targetAngle
   if (targetNodeId) {
     const targetIndex = subChapters.findIndex((sub) => sub.id === targetNodeId)
     if (targetIndex !== -1) {
@@ -1625,7 +1625,7 @@ const handleSearchResultClick = async (result: {
   }
 }
 
-// 第8步：高亮匹配文本
+// 高亮匹配文本
 // 将中文括号【】转换为英文括号[]
 const convertBrackets = (text: string): string => {
   return text.replace(/【/g, '[').replace(/】/g, ']')
@@ -1643,7 +1643,7 @@ const highlightText = (text: string): string => {
 
 // 选择章节
 const selectChapter = async (index: number) => {
-  // 第8步：重复点击检测：检查是否点击的是当前已选中的章节
+  // 重复点击检测：检查是否点击的是当前已选中的章节
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex === index) {
     return
@@ -1886,7 +1886,7 @@ onUnmounted(() => {
   }
 }
 
-// 第9步：添加搜索框样式
+// 添加搜索框样式
 .chapter-search {
   padding: 6px 5px;
   margin: 14px 20px;
@@ -1942,7 +1942,7 @@ onUnmounted(() => {
   }
 }
 
-// 第10步：搜索高亮样式
+// 搜索高亮样式
 :deep(.search-highlight) {
   background: rgba(255, 215, 0, 0.4);
   color: #ffffff;
@@ -2005,7 +2005,7 @@ onUnmounted(() => {
 .chapter-list {
   flex: 1;
   overflow-y: auto;
-  // 第11步：平滑滚动
+  // 平滑滚动
   scroll-behavior: smooth;
   // 移动端优化
   -webkit-overflow-scrolling: touch;
@@ -2031,7 +2031,7 @@ onUnmounted(() => {
     position: relative;
     border-radius: 12px;
     font-family: 'PingFang SC', sans-serif;
-    height: 50px; // 第12步：增加触摸区域
+    height: 50px; // 增加触摸区域
     width: 313px;
     display: flex;
     align-items: center;
@@ -2064,7 +2064,7 @@ onUnmounted(() => {
       }
     }
 
-    // 第13步：触摸状态
+    // 触摸状态
     &:active {
       transform: scale(0.98);
       transition: transform 0.1s ease;
@@ -2201,7 +2201,7 @@ onUnmounted(() => {
   margin-top: -450px;
   cursor: grab;
   user-select: none;
-  touch-action: pan-y; // 第23步：允许垂直滑动，提高触摸响应
+  touch-action: pan-y; // 允许垂直滑动，提高触摸响应
   z-index: 100; // 设置基础层级
   // 移动端优化
   -webkit-user-select: none;
@@ -2221,7 +2221,7 @@ onUnmounted(() => {
     }
   }
 
-  // 第24步：移动端响应式优化
+  // 移动端响应式优化
   @media (max-width: 768px) {
     // 移动端增加可交互区域
     padding: 20px;
@@ -2253,7 +2253,7 @@ onUnmounted(() => {
     cursor: pointer; // 添加指针样式
     position: relative;
     z-index: 1001; // 确保圆点在最上层
-    // 第25步：移动端触控优化
+    // 移动端触控优化
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;

@@ -43,16 +43,16 @@ export function createUserMessage(
   sessionId?: string,
   quotedMessage?: ChatQuotedMessage,
 ): ChatBubble {
-  // 第1步：处理内容显示
+  // 处理内容显示
   let displayContent = content
   if (hidePrefix && content.startsWith('我们开始吧，')) {
     displayContent = content.replace('我们开始吧，', '')
   }
   
-  // 第2步：判断是否为图片消息（只要有 base64DataUrl 即视为图片）
+  // 判断是否为图片消息（只要有 base64DataUrl 即视为图片）
   const isImageMessage = !!(imageData && imageData.base64DataUrl)
   
-  // 第3步：如果有图片数据，转换为标准ImageData格式
+  // 如果有图片数据，转换为标准ImageData格式
   // ChatBubble.imageData 现在直接使用 base64DataUrl 字段用于UI显示
   let standardImageData: { filePath: string; width: number; height: number; fileSize: number; base64DataUrl?: string } | undefined = undefined
   if (isImageMessage && imageData) {
