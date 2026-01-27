@@ -10,7 +10,6 @@ import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import LearningContentView from '@/views/LearningContentView.vue'
-import DrawingBoardView from '@/views/DrawingBoardView.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
@@ -93,12 +92,6 @@ const router = createRouter({
           path: 'learning-content',
           name: 'learningContent',
           component: LearningContentView
-        },
-        // 画板路由
-        {
-          path: 'drawing-board',
-          name: 'drawingBoard',
-          component: DrawingBoardView
         },
         // 我的收藏路由
         {

@@ -179,6 +179,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { PRESET_OPTIONS, EASING_OPTIONS } from '../../constants/options'
 import Modal from '../base/Modal.vue'
 import CommonActionButton from '../base/Button.vue'
 import CommonSelect from '../base/Select.vue'
@@ -217,21 +218,9 @@ const update = (patch: Partial<PfConfig>) => {
   emit('update:pfConfig', { ...props.pfConfig, ...patch })
 }
 
-const presetOptions = [
-  { label: '自定义', value: 'custom' },
-  { label: '圆珠笔', value: 'ballpoint' },
-  { label: '中性笔', value: 'gel' },
-  { label: '钢笔', value: 'fountain' },
-  { label: '马克笔', value: 'marker' },
-  { label: '毛笔', value: 'brush' },
-]
+const presetOptions = PRESET_OPTIONS
 
-const easingOptions = [
-  { label: 'linear', value: 'linear' },
-  { label: 'easeIn', value: 'easeIn' },
-  { label: 'easeOut', value: 'easeOut' },
-  { label: 'easeInOut', value: 'easeInOut' },
-]
+const easingOptions = EASING_OPTIONS
 
 const preset = ref('ballpoint')
 

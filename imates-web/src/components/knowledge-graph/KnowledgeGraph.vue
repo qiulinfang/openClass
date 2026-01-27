@@ -57,6 +57,7 @@ import { ResourceManager } from '../../services/storage/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/http/api-service'
 import { getUserId, getScopedStorageValue } from '../../services'
+import { normalizeSubject } from '../../constants/subjects'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
 
@@ -493,7 +494,7 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
   }
   
   try {
-    const subjectForApi = props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase()
+    const subjectForApi = normalizeSubject(props.subject)
 
     const shijingshanBmNoList = await queryShijingshanBmNoList(
       props.textbookId,
@@ -503,9 +504,7 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     )
 
     if (shijingshanBmNoList && shijingshanBmNoList.trim()) {
-      const isBiology = props.subject === '生物' || props.subject === 'biology'
-      const isMath = props.subject === '数学' || props.subject === 'math'
-      const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+      const subjectParam = subjectForApi
 
       router.push({
         path: '/find-exercise',
@@ -543,11 +542,8 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     
     // 跳转到习题查找页面
     // 判断科目类型（支持中文标签和英文值）
-    const isBiology = props.subject === '生物' || props.subject === 'biology'
-    const isMath = props.subject === '数学' || props.subject === 'math'
-    
-    // 根据科目类型设置路由参数
-    const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+    // 统一使用后端小写学科码作为路由参数
+    const subjectParam = subjectForApi
     
     router.push({
       path: '/find-exercise',

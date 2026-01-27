@@ -1,123 +1,127 @@
 <template>
-  <!-- 全屏遮罩：点击遮罩空白区域时关闭面板 -->
-  <div class="main-chat-overlay" @click.self="emit('close')">
-    <div class="main-chat-panel" @click.stop>
-      <!-- 头部：Tab + 关闭按钮 -->
-      <div class="chat-panel-header">
-        <!-- Tab -->
-        <div class="chat-tabs">
-          <div class="tab-list">
-            <div
-              v-for="tab in tabOptions"
-              :key="tab.value"
-              :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
-              @click="activeTab = tab.value"
-            >
-              <span>
-                {{
-                  tab.value === 'ai-chat'
-                    ? activeCategory === 'teacher'
-                      ? '老师答疑'
-                      : 'AI问答'
-                    : tab.label
-                }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <!-- 形态切换按钮：panel <-> dialog -->
-        <button type="button" class="toggle-mode-button" @click="emit('toggle-mode')">
-          <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
-        </button>
-        <!-- WebSocket连接状态 -->
-        <div v-if="isDev" class="connection-status" @click="logWebSocketStatus">
-          <div
-            :class="['status-indicator', {
-              'status-connected': teacherChatStore.webSocketInitialized,
-              'status-disconnected': !teacherChatStore.webSocketInitialized
-            }]"
-            :title="teacherChatStore.webSocketInitialized ? 'WebSocket已初始化' : 'WebSocket未初始化'"
-          ></div>
-        </div>
-        <!-- 关闭按钮 -->
-        <q-btn
-          flat
-          round
-          dense
-          icon="close"
-          size="md"
-          @click="emit('close')"
-          class="close-button"
-        />
-      </div>
-
-      <!-- Tab 内容区域 -->
-      <div class="chat-content-container">
-        <!-- AI 问答 Tab：仅展示聊天内容区域 -->
-        <div v-show="activeTab === 'ai-chat'" class="tab-content">
-          <div class="main-chat-body">
-            <!-- 右侧聊天内容区域 -->
-            <div class="right-panel">
-              <!-- AI 问答 -->
-              <ChatView
-                v-if="activeCategory === 'ai-general'"
-                type="ai-general"
-                :compressed-height="339"
-                @open-teacher-dialog="handleOpenTeacherDialog"
-                @switch-to-teacher="handleSwitchToTeacher"
+  <Teleport to="body">
+    <!-- 全屏遮罩：点击遮罩空白区域时关闭面板 -->
+    <div class="main-chat-overlay" @click.self="emit('close')">
+      <div class="main-chat-panel" @click.stop>
+        <!-- 头部：Tab + 关闭按钮 -->
+        <div class="chat-panel-header">
+          <!-- Tab -->
+          <div class="chat-tabs">
+            <div class="tab-list">
+              <div
+                v-for="tab in tabOptions"
+                :key="tab.value"
+                :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
+                @click="activeTab = tab.value"
               >
-                <!-- 新增会话按钮 -->
-                <template #header-right>
-                  <div @click="handleNewChatClick" class="add-session-btn">
-                    <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
-                  </div>
-                </template>
-              </ChatView>
-              <!-- 老师聊天内容区域 -->
-              <ChatView
-                v-else-if="
-                  activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId
-                "
-                type="teacher"
-                :compressed-height="339"
-                :sessionId="teacherChatStore.currentSession.sessionId"
-                :key="teacherChatStore.currentSession.sessionId"
-              >
-                <!-- 新增会话按钮 -->
-                <template #header-right>
-                  <div @click="handleNewChatClick" class="add-session-btn">
-                    <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
-                  </div>
-                </template>
-              </ChatView>
-              <!-- 无会话 -->
-              <div v-else class="empty-chat">
-                <q-icon name="chat" size="48px" color="grey-4" />
-                <div class="empty-text">请选择或创建一个会话</div>
+                <span>
+                  {{
+                    tab.value === 'ai-chat'
+                      ? activeCategory === 'teacher'
+                        ? '老师答疑'
+                        : 'AI问答'
+                      : tab.label
+                  }}
+                </span>
               </div>
             </div>
           </div>
+          <!-- 形态切换按钮：panel <-> dialog -->
+          <button type="button" class="toggle-mode-button" @click="emit('toggle-mode')">
+            <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
+          </button>
+          <!-- WebSocket连接状态 -->
+          <div v-if="isDev" class="connection-status" @click="logWebSocketStatus">
+            <div
+              :class="['status-indicator', {
+                'status-connected': teacherChatStore.webSocketInitialized,
+                'status-disconnected': !teacherChatStore.webSocketInitialized
+              }]"
+              :title="teacherChatStore.webSocketInitialized ? 'WebSocket已初始化' : 'WebSocket未初始化'"
+            ></div>
+          </div>
+          <!-- 关闭按钮 -->
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            size="md"
+            @click="emit('close')"
+            class="close-button"
+          />
         </div>
 
-        <!-- 会话记录 Tab：仅展示会话列表 -->
-        <div v-show="activeTab === 'question-record'" class="tab-content">
-          <div class="session-list-wrapper">
-            <SessionTree
-              ref="sessionTreeRef"
-              @session-switched="handleSessionSwitched"
-              @ai-session-deleted="handleAiSessionDeleted"
-              @teacher-session-deleted="handleTeacherSessionDeleted"
-              @category-should-change="handleCategoryShouldChange"
-            />
+        <!-- Tab 内容区域 -->
+        <div class="chat-content-container">
+          <!-- AI 问答 Tab：仅展示聊天内容区域 -->
+          <div v-show="activeTab === 'ai-chat'" class="tab-content">
+            <div class="main-chat-body">
+              <!-- 右侧聊天内容区域 -->
+              <div class="right-panel">
+                <!-- AI 问答 -->
+                <ChatView
+                  v-if="activeCategory === 'ai-general'"
+                  ref="aiGeneralChatViewRef"
+                  type="ai-general"
+                  :compressed-height="339"
+                  @open-teacher-dialog="handleOpenTeacherDialog"
+                  @switch-to-teacher="handleSwitchToTeacher"
+                >
+                  <!-- 新增会话按钮 -->
+                  <template #header-right>
+                    <div @click="handleNewChatClick" class="add-session-btn">
+                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                    </div>
+                  </template>
+                </ChatView>
+                <!-- 老师聊天内容区域 -->
+                <ChatView
+                  v-else-if="
+                    activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId
+                  "
+                  type="teacher"
+                  :compressed-height="339"
+                  :sessionId="teacherChatStore.currentSession.sessionId"
+                  :key="teacherChatStore.currentSession.sessionId"
+                >
+                  <!-- 新增会话按钮 -->
+                  <template #header-right>
+                    <div @click="handleNewChatClick" class="add-session-btn">
+                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                    </div>
+                  </template>
+                </ChatView>
+                <!-- 无会话 -->
+                <div v-else class="empty-chat">
+                  <q-icon name="chat" size="48px" color="grey-4" />
+                  <div class="empty-text">请选择或创建一个会话</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 会话记录 Tab：仅展示会话列表 -->
+          <div v-show="activeTab === 'question-record'" class="tab-content">
+            <div class="session-list-wrapper">
+              <SessionTree
+                ref="sessionTreeRef"
+                @session-switched="handleSessionSwitched"
+                @ai-session-deleted="handleAiSessionDeleted"
+                @teacher-session-deleted="handleTeacherSessionDeleted"
+                @category-should-change="handleCategoryShouldChange"
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../utils'
@@ -136,6 +140,7 @@ const emit = defineEmits<{
 
 // 引用
 const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
+const aiGeneralChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 
 // 老师选择相关状态（与 UnifiedChatDialog 逻辑保持一致）
 const availableTeachers = ref<any[]>([])
@@ -145,10 +150,7 @@ const showTeacherSelectDialog = ref(false)
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 
 // Tab 选项
-const tabOptions = [
-  { label: '会话记录', value: 'question-record', icon: 'quiz' },
-  { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
-]
+const tabOptions = CHAT_TAB_OPTIONS
 
 // 当前激活的分类（AI 或 老师）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
@@ -326,6 +328,24 @@ const logWebSocketStatus = () => {
 onMounted(async () => {
   console.log('[MainChatPanel] onMounted: 初始化写死教师会话')
   // 写死会话通过 loadAllSessions() 方法动态获取，无需预加载
+})
+
+defineExpose({
+  attachImageToAiGeneral: async (imageInfo: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }) => {
+    // 强制切到 AI 问答 / AI 学伴
+    activeTab.value = 'ai-chat'
+    activeCategory.value = 'ai-general'
+    await nextTick()
+
+    // 挂到输入框预览区（ai-general 场景下 onImageSelected 不会立即发送）
+    await aiGeneralChatViewRef.value?.onImageSelected?.(imageInfo)
+  },
 })
 </script>
 

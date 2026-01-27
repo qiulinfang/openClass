@@ -1,4 +1,4 @@
-﻿<template>
+﻿ <template>
   <div class="find-exercise-view">
     <!-- 内部工具栏 -->
     <div class="internal-toolbar">
@@ -81,11 +81,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
+import { getScopedStorageValue } from '../services'
+import { normalizeSubject } from '../constants/subjects'
 import FindExerciseQuestionList from '../components/FindExerciseQuestionList.vue'
 import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
-import { getScopedStorageValue } from '../services'
 
 // 定义组件名称，便于 Vue DevTools 识别
 defineOptions({
@@ -201,7 +202,7 @@ const handleStartExercise = async () => {
       
       // 添加成功后，刷新questionStore的题目列表，确保新添加的题目显示
       // 获取科目名称
-      const subjectName = findExerciseStore.config?.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      const subjectName = (findExerciseStore.config?.subject || 'math').toString()
       // 强制从服务器刷新题目列表，不使用本地缓存
       await questionStore.fetchQuestions(subjectName, false)
       
@@ -223,7 +224,7 @@ const handleStartExercise = async () => {
         path: '/exercise-solve',
         query: {
           questionIds: allSelectedIds.join(','),
-          subject: findExerciseStore.config?.subject || Subject.SUBJECT_MATH,
+          subject: (findExerciseStore.config?.subject || 'math').toString(),
           token: findExerciseStore.config?.token || ''
         }
       })
@@ -256,7 +257,7 @@ onMounted(async () => {
     // 从Vue Router的query参数获取配置
     const config: FindExerciseConfig = {
       apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-      subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
+      subject: normalizeSubject(route.query.subject as string),
       token: (route.query.token as string) || getScopedStorageValue('token') || '',
       knowledgeList: (route.query.knowledgeList as string) || '',
       bmNoList: (route.query.bmNoList as string) || ''

@@ -173,6 +173,10 @@ import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { getUserId, getScopedStorageValue, isYanbanLoggedIn } from '../services'
 import { showMessage } from '../utils'
 import {
+  KNOWLEDGE_GRAPH_SUBJECT_OPTIONS,
+  type ApiSubjectType,
+} from '../constants/subjects'
+import {
   queryShijingshanKnowledgeId,
   queryShijingshanBmNoList,
 } from '../utils/business/shijingshan-knowledge-utils'
@@ -651,12 +655,7 @@ const handlePracticeFromKnowledgeGraph = async (node: {
   }
 
   try {
-    const subjectForApi =
-      subjectLabel === '数学'
-        ? 'math'
-        : subjectLabel === '生物'
-        ? 'biology'
-        : subjectLabel.toLowerCase()
+    const subjectForApi = (selectedSubject.value || 'math') as ApiSubjectType
 
     // 2. 石景山特殊逻辑
     const shijingshanBmNoList = await queryShijingshanBmNoList(
@@ -667,9 +666,7 @@ const handlePracticeFromKnowledgeGraph = async (node: {
     )
 
     if (shijingshanBmNoList && shijingshanBmNoList.trim()) {
-      const isBiology = subjectLabel === '生物' || subjectLabel === 'biology'
-      const isMath = subjectLabel === '数学' || subjectLabel === 'math'
-      const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+      const subjectParam = subjectForApi
 
       router.push({
         path: '/find-exercise',
@@ -709,9 +706,7 @@ const handlePracticeFromKnowledgeGraph = async (node: {
     }
 
     // 4. 路由跳转逻辑与旧版保持一致
-    const isBiology = subjectLabel === '生物' || subjectLabel === 'biology'
-    const isMath = subjectLabel === '数学' || subjectLabel === 'math'
-    const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+    const subjectParam = subjectForApi
 
     router.push({
       path: '/find-exercise',
@@ -773,21 +768,17 @@ const handleNodeUpdate = (
 }
 
 // 防抖定时器
-const debounceTimer = ref<NodeJS.Timeout | null>(null)
+const debounceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 // 学科选择器
-const selectedSubject = ref('')
-const subjectOptions = ref([
-  { value: 'math', label: '数学' },
-  { value: 'chinese', label: '语文' },
-  { value: 'english', label: '英语' },
-  { value: 'physics', label: '物理' },
-  { value: 'chemistry', label: '化学' },
-  { value: 'biology', label: '生物' },
-  { value: 'geography', label: '地理' },
-  { value: 'history', label: '历史' },
-  { value: 'politics', label: '政治' },
-])
+const selectedSubject = ref<ApiSubjectType | ''>('')
+const subjectOptions = ref(KNOWLEDGE_GRAPH_SUBJECT_OPTIONS)
+
+const normalizeApiSubject = (raw?: string): ApiSubjectType => {
+  const candidate = (raw || 'math') as string
+  const isValid = subjectOptions.value.some((opt) => opt.value === candidate)
+  return (isValid ? candidate : 'math') as ApiSubjectType
+}
 
 // 教材选择器
 const selectedTextbook = ref('')
@@ -890,7 +881,7 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
     }
 
     // 恢复基本状态
-    selectedSubject.value = savedState.selectedSubject
+    selectedSubject.value = normalizeApiSubject(savedState.selectedSubject)
     chapters.value = savedState.chapters
     chapterStructure.value = savedState.chapterStructure
 
@@ -1297,10 +1288,7 @@ const handleRouteParamsInitialization = async (): Promise<boolean> => {
   console.log(`[KnowledgeGraph] 使用路由参数进行初始化: initSubject=${initSubject}, initTextbookId=${initTextbookId}`)
 
   // 学科：路由 initSubject 或默认数学
-  let initialSubject = initSubject || 'math'
-  if (!subjectOptions.value.some((opt) => opt.value === initialSubject)) {
-    initialSubject = 'math'
-  }
+  const initialSubject = normalizeApiSubject(initSubject)
   selectedSubject.value = initialSubject
 
   // 根据学科加载教材数据
@@ -1372,10 +1360,7 @@ const handleDefaultInitialization = async (): Promise<void> => {
   const storeTextbookId = getCurrentTextbook()
 
   // 学科优先顺序：Store -> 默认数学
-  let initialSubject = storeSubject || 'math'
-  if (!subjectOptions.value.some((opt) => opt.value === initialSubject)) {
-    initialSubject = 'math'
-  }
+  const initialSubject = normalizeApiSubject(storeSubject || undefined)
   selectedSubject.value = initialSubject
 
   // 根据科目加载教材数据

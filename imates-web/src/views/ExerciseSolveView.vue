@@ -174,7 +174,7 @@
     <GlobalChatDialog
       ref="globalChatDialogRef"
       v-model="showUnifiedChatDialog"
-      :initial-teacher-subject="currentSubject"
+      :initial-teacher-subject="currentTeacherSubject"
     />
 
     <!-- 题目调试面板 - 只在开发场景下显示 -->
@@ -222,7 +222,7 @@ import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble, SceneType } from '../types'
 import { Subject } from '../types'
 import RubberBandList from '../components/base/VirtualList.vue'
-import { SUBJECT_OPTIONS, SUPPORTED_SUBJECTS } from '../constants/subjects'
+import { SUBJECT_OPTIONS, SUPPORTED_SUBJECTS, normalizeSubject } from '../constants/subjects'
 import addSessionIcon from '/icons/addsession.png'
 import newSessionIcon from '/icons/new.svg'
 import sessionManagerIcon from '/icons/session_manager.svg'
@@ -288,9 +288,10 @@ const showUnifiedChatDialog = ref(false)
 // 清除所有会话确认对话框
 const clearAllDialogRef = ref<InstanceType<typeof Dialog>>()
 
-// 当前科目（用于 UnifiedChatDialog）- 使用 computed 监听 localStorage 变化
-const currentSubject = computed(() => {
-  return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
+// 当前教师聊天学科（用于 GlobalChatDialog）
+// 教师聊天目前只支持 math/biology，因此这里做收敛（避免全量学科导致类型不匹配）
+const currentTeacherSubject = computed(() => {
+  return normalizeSubject(getSubject()) === 'biology' ? 'biology' : 'math'
 })
 
 // 当前题目下是否存在 AI 会话（用于控制“清除会话”按钮可用状态）
@@ -732,28 +733,25 @@ const initializeSubjectAndFilters = () => {
   // 作业场景：不做学科推断，也不设置学科筛选
   if (isFromHomework.value) {
     selectedSubjectFilter.value = ''
-    return 'MATH' // 默认返回数学，但作业场景不使用
+    return 'math' // 默认返回数学，但作业场景不使用
   }
 
   const routeSubject = route.query.subject as string | undefined
-  let subjectName = 'MATH'
+  let subjectName = 'math'
 
   if (routeSubject) {
-    // 路由参数转换为大写格式
-    subjectName = routeSubject.toUpperCase()
+    // 路由参数：统一归一化为小写
+    subjectName = normalizeSubject(routeSubject)
     // 如果不是有效的学科名称，使用默认值
     if (!SUPPORTED_SUBJECTS.includes(subjectName as any)) {
-      subjectName = 'MATH'
+      subjectName = 'math'
     }
   } else {
-    // 从用户store获取科目（已经是大写格式）
-    const userSubject = getSubject()
-    if (userSubject) {
-      subjectName = userSubject
-    }
+    // 从用户store获取科目（历史可能是大写/小写/中文），统一归一化
+    subjectName = normalizeSubject(getSubject())
   }
 
-  // 设置大写格式的筛选值
+  // 设置小写格式的筛选值
   selectedSubjectFilter.value = subjectName
 
   return subjectName
@@ -771,9 +769,7 @@ const loadQuestionsData = async (subjectName: string, questionIdsParam?: string)
       await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
     } else {
       // 具体学科：加载指定学科的题目
-      // 将大写格式转换为小写格式传递给store
-      const subjectForApi = subjectName.toLowerCase()
-      await questionStore.fetchQuestions(subjectForApi, useLocalFirst)
+      await questionStore.fetchQuestions(subjectName, useLocalFirst)
     }
   }
   // 注意：作业场景下不再重新拉取题目，直接使用预先写入的 homeworkStore.questions

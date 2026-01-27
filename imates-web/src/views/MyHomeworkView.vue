@@ -79,6 +79,7 @@ import CommonSelect from '@/components/base/Select.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import RubberBandList from '@/components/base/VirtualList.vue'
 import homeworkDeepIcon from '/icons/homework_deep.svg'
+import { HOMEWORK_SUBJECT_OPTIONS } from '@/constants/subjects'
 
 defineOptions({
   name: 'MyHomeworkView',
@@ -87,18 +88,7 @@ defineOptions({
 const today = new Date().toISOString().slice(0, 10)
 const selectedDate = ref(today)
 
-const subjects = [
-  { label: '全部', value: '' },
-  { label: '语文', value: '1' },
-  { label: '数学', value: '2' },
-  { label: '英语', value: '3' },
-  { label: '物理', value: '4' },
-  { label: '化学', value: '5' },
-  { label: '生物', value: '6' },
-  { label: '政治', value: '7' },
-  { label: '历史', value: '8' },
-  { label: '地理', value: '9' },
-]
+const subjects = HOMEWORK_SUBJECT_OPTIONS
 
 const selectedSubject = ref('')
 

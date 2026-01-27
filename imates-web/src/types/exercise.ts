@@ -3,7 +3,7 @@
  * 包含练习题目、相似题目、查找配置、API请求等所有题目相关类型
  */
 
-import type { Subject } from './enums'
+import type { AllSubjectType } from '@/constants/subjects'
 
 // ========== 基础题目类型 ==========
 
@@ -43,8 +43,11 @@ export interface QuestionListResponse {
 /** 习题查找配置接口 */
 export interface FindExerciseConfig {
   apiBaseURL: string
-  subject: Subject
-  token: string
+  token?: string
+  subject: AllSubjectType
   knowledgeList?: string
+  sectionId?: string
+  sectionName?: string
   bmNoList?: string
+  isLearningMode?: boolean
 }

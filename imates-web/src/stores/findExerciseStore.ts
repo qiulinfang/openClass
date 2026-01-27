@@ -12,7 +12,6 @@ import type {
   AddQuestionRequest,
   FindExerciseConfig
 } from '../types'
-import { Subject } from '../types'
 
 export const useFindExerciseStore = defineStore('findExercise', () => {
   // ==================== 响应式状态定义 ====================
@@ -83,7 +82,7 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       const apiService = ApiService.getInstance()
       
       // 获取用户收藏的题目列表
-      const subjectName = config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      const subjectName = (config.value.subject || 'math').toString()
       const questions = await apiService.getExerciseList(subjectName)
       questionsInFavor.value = questions
       
@@ -114,7 +113,7 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       
       const bmNoList = (config.value.bmNoList || '').trim()
       const knowledgeList = (config.value.knowledgeList || '').trim()
-      const type = config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      const type = (config.value.subject || 'math').toString()
       const size = Math.max(1, pagination.value.pageSize)
       const current = Math.max(1, pagination.value.currentPage + 1)
       
@@ -326,18 +325,19 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     try {
       // 不设置全局加载状态，避免显示"正在查找相似题目..."
       const apiService = ApiService.getInstance()
+
+      const subjectName = (config.value.subject || 'math').toString()
       
       // 构建请求参数 - 去重 ID 列表
       const uniqueSelectedIds = [...new Set(manuallySelectedIds)].join(',')
       const uniqueExerciseIds = [...new Set(questionsInFavor.value.map(q => q.bmNo).filter(id => id))].join(',')
       const request: AddQuestionRequest = {
         bmNo: uniqueSelectedIds,
-        type: config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology',
+        type: subjectName,
         exercisesId: uniqueExerciseIds
       }
       
       // 调用API添加题目
-      const subjectName = config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
       const success = await apiService.addQuestionToList(request, subjectName)
       
       if (success) {

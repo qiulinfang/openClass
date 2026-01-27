@@ -208,6 +208,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
+import { AI_ROLE_OPTIONS } from '../../constants/options'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
 import ImageViewer from '../ImageViewer.vue'
@@ -531,11 +532,7 @@ const handleEditorUpdate = (content: string) => {
 }
 
 // 学习伙伴角色选项
-const aiRoleOptions = [
-  { label: '同桌', value: 'mate' },
-  { label: '课代表', value: 'mentor' },
-  { label: '大神', value: 'researcher' },
-]
+const aiRoleOptions = AI_ROLE_OPTIONS
 
 // 根据选择的模式获取显示名称
 const getModelDisplayName = (model: string) => {

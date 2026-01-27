@@ -170,7 +170,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useRoute, useRouter } from 'vue-router'
 import { resourceManager } from '@/services/storage/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
@@ -203,10 +204,7 @@ const splitterModel = ref(60) // 分隔比例（左侧占60%）
 const activeTab = ref('ai-chat') // 当前激活的 tab
 
 // Tab 选项
-const tabOptions = [
-  { label: '问题记录', value: 'question-record', icon: 'quiz' },
-  { label: 'AI问答', value: 'ai-chat', icon: 'chat' }
-]
+const tabOptions = CHAT_TAB_OPTIONS
 
 // 问题记录数据
 const questionRecords = ref<QuestionRecord[]>([])

@@ -249,9 +249,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useQuestionStore } from '@/stores/questionStore'
-import type { ExerciseItem } from '@/types'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useQuestionStore } from '../../stores/questionStore'
+import type { ExerciseItem } from '../../types'
+import { SUBJECT_OPTIONS } from '../../constants/subjects'
 import {
   clearAllQuestionsFromIndexedDB,
   loadQuestionsFromIndexedDB
@@ -290,12 +291,7 @@ const filterSubject = ref<string | null>(null)
 
 const subjectFilterOptions = [
   { label: '全部', value: null },
-  { label: '数学', value: 'math' },
-  { label: '生物', value: 'biology' },
-  { label: '化学', value: 'chemistry' },
-  { label: '物理', value: 'physics' },
-  { label: '语文', value: 'chinese' },
-  { label: '英语', value: 'english' },
+  ...SUBJECT_OPTIONS.filter((opt) => opt.value).map((opt) => ({ label: opt.label, value: opt.value })),
 ]
 
 // 计算属性
