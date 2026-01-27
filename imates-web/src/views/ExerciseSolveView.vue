@@ -3,7 +3,7 @@
     <!-- 顶部工具栏 -->
     <Toolbar :nav-items="navItems" v-model="currentFunction">
       <template #left>
-        <div v-if="showGobakBtn"  class="back-btn" @click="goBack">
+        <div class="back-btn" @click="goBack">
           <img :src="goBackIcon" alt="返回" class="back-icon" />
         </div>
       </template>
