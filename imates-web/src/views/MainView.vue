@@ -80,28 +80,31 @@
       </div>
     </div>
 
-    <!-- 悬浮功能按钮（手动实现） -->
-    <div
-      v-if="showFab"
-      class="floating-fab"
-      :style="fabStyle"
-      @mousedown="startDrag"
-      @touchstart="startDrag"
-    >
-      <!-- 悬浮功能按钮 -->
-      <button
-        type="button"
-        class="floating-fab-btn"
-        :style="{ backgroundImage: `url(${ipGif})` }"
-        @click.stop="handleFloatingFabClick"
-      ></button>
+    <Teleport to="body">
+      <!-- 悬浮功能按钮（手动实现） -->
+      <div
+        v-if="showFab"
+        class="floating-fab"
+        :style="fabStyle"
+        @mousedown="startDrag"
+        @touchstart="startDrag"
+      >
+        <!-- 悬浮功能按钮 -->
+        <button
+          type="button"
+          class="floating-fab-btn"
+          :style="{ backgroundImage: `url(${ipGif})` }"
+          @click.stop="handleFabActivate"
+          @touchend.stop="handleFabTouchEnd"
+        ></button>
 
-      <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
-      <div v-if="shouldShowGoResourcesHint && showGoResourcesBubble" class="go-resources-bubble">
-        <div class="go-resources-text">请去资源下载寻找你想学习的教材哦</div>
-        <button class="go-resources-btn" @click="goToResources">去资源下载</button>
+        <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
+        <div v-if="shouldShowGoResourcesHint && showGoResourcesBubble" class="go-resources-bubble">
+          <div class="go-resources-text">请去资源下载寻找你想学习的教材哦</div>
+          <button class="go-resources-btn" @click="goToResources">去资源下载</button>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- AI统一聊天对话框 -->
     <GlobalChatDialog
@@ -130,6 +133,7 @@
     <!-- 主页右侧统一聊天面板 -->
     <MainChatPanel
       v-if="showMainChatPanel"
+      ref="mainChatPanelRef"
       @close="showMainChatPanel = false"
       @toggle-mode="handleToggleMainChatMode"
     />
@@ -142,7 +146,22 @@
       :initial-width="1200"
       :initial-height="800"
     >
-      <DrawingBoardView />
+      <DrawingBoardNew
+        ref="drawingBoardRef"
+        :showGrid="true"
+        @clear="handleClearRequest"
+        @ask-ai-image-selected="handleAskAiImageSelected"
+      />
+
+      <Dialog
+        ref="clearDialogRef"
+        title="清空确认"
+        :confirmButtonText="'清空'"
+        :cancelButtonText="'取消'"
+        @confirm="confirmClearCanvas"
+      >
+        确定要清空画布吗？此操作不可撤销。
+      </Dialog>
     </Modal>
   </div>
 </template>
@@ -158,8 +177,9 @@ import FeedbackDialog from '@/components/dialog/FeedbackDialog.vue'
 import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
-import DrawingBoardView from '@/views/DrawingBoardView.vue'
 import Modal from '@/components/base/Modal.vue'
+import DrawingBoardNew from '@/components/drawingBoardNew.vue'
+import Dialog from '@/components/base/Dialog.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
@@ -172,6 +192,14 @@ import {
   type NavKey,
 } from '@/config/school-app-config'
 import type { UserTextbookInfo } from '@/types'
+
+type AskAiImageInfo = {
+  filePath: string
+  width: number
+  height: number
+  fileSize: number
+  base64DataUrl?: string
+}
 
 // 流程：导入图标资源
 // 导入普通状态图标
@@ -331,11 +359,21 @@ const teacherChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(n
 // 主页右侧聊天面板显示状态
 const showMainChatPanel = ref(false)
 
+const mainChatPanelRef = ref<
+  | (InstanceType<typeof MainChatPanel> & {
+      attachImageToAiGeneral?: (imageInfo: AskAiImageInfo) => Promise<void> | void
+    })
+  | null
+>(null)
+
 // 工具箱显示状态
 const showToolbox = ref(false)
 
 // 工具箱对话框显示状态
 const showDraftNotebook = ref(false)
+
+const drawingBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
+const clearDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 
 // 资源通知状态
 const hasResourceNotification = ref(false)
@@ -355,6 +393,23 @@ const isDragging = ref(false)
 const dragStartPos = ref({ x: 0, y: 0 })
 const dragOffset = ref({ x: 0, y: 0 })
 const hasMoved = ref(false)
+const suppressFabClick = ref(false)
+
+const bindGlobalDragListeners = () => {
+  window.addEventListener('mousemove', handleDrag)
+  window.addEventListener('mouseup', stopDrag)
+  window.addEventListener('touchmove', handleDrag, { passive: false })
+  window.addEventListener('touchend', stopDrag)
+  window.addEventListener('touchcancel', stopDrag)
+}
+
+const unbindGlobalDragListeners = () => {
+  window.removeEventListener('mousemove', handleDrag)
+  window.removeEventListener('mouseup', stopDrag)
+  window.removeEventListener('touchmove', handleDrag)
+  window.removeEventListener('touchend', stopDrag)
+  window.removeEventListener('touchcancel', stopDrag)
+}
 
 // 计算悬浮按钮样式
 const fabStyle = computed(() => ({
@@ -363,7 +418,7 @@ const fabStyle = computed(() => ({
 }))
 
 // 需要隐藏左侧导航菜单的路由
-const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer']
+const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve']
 
 // 是否隐藏左侧导航菜单
 // 在作业作答 / 作业答题等专注场景隐藏，避免干扰
@@ -377,8 +432,6 @@ const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
-// 2）在主页右侧聊天面板打开时隐藏（避免视觉和交互冲突）
-// 3）在 PDF 查看页（pdfViewer）右侧聊天面板打开时隐藏悬浮按钮
 const showFab = computed(() => {
   const name = route.name as string | undefined
   const isRouteAllowed = !name || !routesHideFab.includes(name)
@@ -460,6 +513,18 @@ const handleFloatingFabClick = () => {
   }
 }
 
+const handleFabActivate = () => {
+  if (suppressFabClick.value) return
+  handleFloatingFabClick()
+}
+
+const handleFabTouchEnd = (e: TouchEvent) => {
+  if (suppressFabClick.value) return
+  // 在移动端用 touchend 主动触发，避免部分浏览器 click 丢失
+  e.preventDefault()
+  handleFloatingFabClick()
+}
+
 // 根据选中状态计算当前应该显示的图标
 // 工具箱图标仅由工具箱展开状态决定，与当前路由高亮无关
 const currentToolBoxIcon = computed(() => {
@@ -512,6 +577,10 @@ const startDrag = (event: MouseEvent | TouchEvent) => {
   // 设置拖动状态
   isDragging.value = true
   hasMoved.value = false
+  suppressFabClick.value = false
+
+  // FAB Teleport 到 body，不能依赖 main-view 上的 move/end 事件
+  bindGlobalDragListeners()
 
   // 获取当前鼠标/触摸点位置
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
@@ -551,6 +620,12 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
   // 如果移动距离超过5px，认为是拖动而不是点击
   if (deltaX > 5 || deltaY > 5) {
     hasMoved.value = true
+    suppressFabClick.value = true
+
+    if ('touches' in event) {
+      // 只有确认发生拖动后才阻止默认滚动，否则会导致轻点 click 失效
+      event.preventDefault()
+    }
 
     // 计算按钮左上角的新位置
     const newLeft = clientX - dragOffset.value.x
@@ -573,6 +648,13 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
 const stopDrag = () => {
   isDragging.value = false
   hasMoved.value = false
+
+  unbindGlobalDragListeners()
+
+  // 保留一个短窗口：拖动结束后避免触发“误点击打开”
+  setTimeout(() => {
+    suppressFabClick.value = false
+  }, 200)
 }
 
 // 判断某个导航 key 是否处于激活状态
@@ -862,6 +944,25 @@ const handleToggleMainChatMode = () => {
 
 const openMainChatPanel = () => {
   showMainChatPanel.value = true
+}
+
+const handleAskAiImageSelected = async (imageInfo: AskAiImageInfo) => {
+  openMainChatPanel()
+  await nextTick()
+  await mainChatPanelRef.value?.attachImageToAiGeneral?.(imageInfo)
+}
+
+const handleClearRequest = () => {
+  clearDialogRef.value?.openDialog()
+}
+
+const confirmClearCanvas = () => {
+  drawingBoardRef.value?.loadData({
+    objects: [],
+    history: [[]],
+    historyIndex: 0,
+  })
+  clearDialogRef.value?.closeDialog()
 }
 
 // 打开老师答疑对话框
@@ -1332,7 +1433,7 @@ const handlePhotoQaClick = () => {
 // 悬浮功能按钮
 .floating-fab {
   position: fixed;
-  z-index: 9999;
+  z-index: 30000;
   cursor: move;
   user-select: none;
 

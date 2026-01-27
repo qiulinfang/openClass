@@ -326,6 +326,12 @@ import { useResourceStore } from '../stores/resourceStore'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import RubberBandList from '../components/base/VirtualList.vue'
 import Dialog from '../components/base/Dialog.vue'
+import { RESOURCE_SUBJECT_OPTIONS } from '@/constants/subjects'
+import {
+  RESOURCE_GRADE_OPTIONS,
+  RESOURCE_VERSION_OPTIONS,
+  RESOURCE_DOWNLOAD_STATUS_OPTIONS,
+} from '@/constants/options'
 
 // 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -362,44 +368,14 @@ const selectedSubject = ref<string>('')
 const selectedStatus = ref<string>('')
 
 // 筛选器选项
-const gradeOptions = ref([
-  { label: '全部', value: '' },
-  { label: '高一', value: '高一' },
-  { label: '高二', value: '高二' },
-  { label: '高三', value: '高三' },
-  { label: '初一', value: '初一' },
-  { label: '初二', value: '初二' },
-  { label: '初三', value: '初三' },
-])
+const gradeOptions = ref(RESOURCE_GRADE_OPTIONS)
 
-const versionOptions = ref([
-  { label: '全部', value: '' },
-  { label: '人教版', value: '人教版' },
-  { label: '沪科技版', value: '沪科技版' },
-  { label: '苏教版', value: '苏教版' },
-  { label: '鲁教版', value: '鲁教版' },
-])
+const versionOptions = ref(RESOURCE_VERSION_OPTIONS)
 
-const subjectOptions = ref([
-  { label: '全部', value: '' },
-  { label: '数学', value: '数学' },
-  { label: '语文', value: '语文' },
-  { label: '英语', value: '英语' },
-  { label: '物理', value: '物理' },
-  { label: '化学', value: '化学' },
-  { label: '生物', value: '生物' },
-  { label: '历史', value: '历史' },
-  { label: '地理', value: '地理' },
-  { label: '政治', value: '政治' },
-])
+const subjectOptions = ref(RESOURCE_SUBJECT_OPTIONS)
 
 // 下载状态选项
-const statusOptions = ref([
-  { label: '全部', value: '' },
-  { label: '未下载', value: 'notDownloaded' },
-  { label: '已下载', value: 'downloaded' },
-  { label: '待更新', value: 'pendingUpdate' },
-])
+const statusOptions = ref(RESOURCE_DOWNLOAD_STATUS_OPTIONS)
 
 // 删除教材相关状态
 const deleteDialogRef = ref<InstanceType<typeof Dialog>>()

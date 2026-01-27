@@ -82,12 +82,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, watch, type ComponentPublicInstance } from 'vue'
-import { useRoute } from 'vue-router'
+import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
+import { useRoute } from 'vue-router'
 import type { AiTextbookSession, AttachedScreenshot } from '@/types'
 import {
   getScreenshotSessionsByResourceId,
@@ -123,10 +124,7 @@ const chatViewRef = ref<ComponentPublicInstance | null>(null)
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 
 // Tab 选项
-const tabOptions = [
-  { label: '会话记录', value: 'question-record', icon: 'quiz' },
-  { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
-] as const
+const tabOptions = CHAT_TAB_OPTIONS
 
 // 会话数据
 const sessions = ref<AiTextbookSession[]>([])

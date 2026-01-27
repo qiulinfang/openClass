@@ -963,6 +963,8 @@ const handleForwardSuccessConfirm = () => {
     forwardSuccessResolve({ goToTeacher: true })
     forwardSuccessResolve = null
   }
+
+  forwardSuccessDialogRef.value?.closeDialog()
 }
 
 // 处理转发成功对话框取消
@@ -971,6 +973,8 @@ const handleForwardSuccessCancel = () => {
     forwardSuccessResolve({ goToTeacher: false })
     forwardSuccessResolve = null
   }
+
+  forwardSuccessDialogRef.value?.closeDialog()
 }
 
 // 新建会话卡片（兼容旧接口）
@@ -2936,6 +2940,7 @@ const scrollSessionListToBottom = () => {
 defineExpose({
   inputMessage,
   sendMessage,
+  onImageSelected,
   isLoading,
   scrollToBottom,
   scrollSessionListToBottom,

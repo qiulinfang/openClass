@@ -27,7 +27,16 @@
     </div>
 
     <!-- 画布容器 -->
-    <div ref="containerRef" class="canvas-container" style="touch-action: none">
+    <div
+      ref="containerRef"
+      class="canvas-container"
+      style="touch-action: none"
+      @pointerdown="handleAskAiPointerDown"
+      @pointermove="handleAskAiPointerMove"
+      @pointerup="handleAskAiPointerUp"
+      @pointercancel="handleAskAiPointerUp"
+      @pointerleave="handleAskAiPointerUp"
+    >
       <!-- 历史层：绘制背景、网格、已完成的笔画 (交互事件透传) -->
       <canvas ref="historyCanvasRef" class="canvas-layer canvas-history"></canvas>
 
@@ -41,6 +50,21 @@
         @pointerleave="handlePointerLeave"
         @pointerenter="renderLive()"
       ></canvas>
+
+      <!-- 问问学伴截图框选遮罩 -->
+      <div
+        v-if="currentMode === 'askAi' && askAiDragRect"
+        class="ask-ai-screenshot-overlay"
+        :style="getAskAiRectStyle(askAiDragRect)"
+      ></div>
+
+      <svg
+        v-if="currentMode === 'askAi' && selectMode === 'freeform' && askAiDragPath && askAiDragPath.length"
+        class="ask-ai-freeform-overlay"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path :d="askAiFreeformPathD" />
+      </svg>
 
       <textarea
         v-if="inputState.visible"
@@ -149,17 +173,38 @@
         </div>
       </div>
     </div>
+
+    <!-- 问问学伴截图编辑对话框 -->
+    <ScreenshotInputDialog
+      v-model="showScreenshotDialog"
+      :screenshot-data-url="currentScreenshotDataUrl"
+      :existing-screenshots="[]"
+      :drawing-states-from-parent="screenshotDrawingStates"
+      mode="single"
+      @confirm="handleScreenshotConfirm"
+      @cancel="handleScreenshotCancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ZOOM_PRESET_OPTIONS } from '../constants/options'
 import UnifiedToolbar from './UnifiedToolbar.vue'
 import CommonSelect from './base/Select.vue'
+import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
+import { showMessage } from '@/utils'
+import type { AttachedScreenshot } from '@/types'
 
 const emit = defineEmits<{
-  clear: []
-  contentChange: []
+  (e: 'clear'): void
+  (e: 'ask-ai-image-selected', imageInfo: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }): void
 }>()
 
 const props = defineProps({
@@ -218,6 +263,19 @@ const toolStates = reactive({
   'eraser-stroke': { color: '#ffffff', size: 15, opacity: 1 },
 })
 
+// 问问学伴截图相关状态
+const askAiDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
+const askAiStartPoint = ref<{ x: number; y: number } | null>(null)
+const askAiDragPath = ref<Point[] | null>(null)
+const showScreenshotDialog = ref(false)
+const currentScreenshotDataUrl = ref('')
+const screenshotDrawingStates = ref<Record<string, any>>({})
+
+interface Point {
+  x: number
+  y: number
+}
+
 const toolbarTools = {
   middle: [
     'undo',
@@ -225,6 +283,7 @@ const toolbarTools = {
     'clear',
     'hand',
     'select',
+    'askAi',
     'draw',
     'highlighter',
     'eraser-stroke',
@@ -247,6 +306,12 @@ watch(currentOpacity, (v) => (toolbarToolConfig.value.opacity = v))
 watch(selectMode, (v) => (toolbarToolConfig.value.selectMode = v))
 
 function handleToolbarToolChange(tool) {
+  // 问问学伴工具：进入截图模式
+  if (tool === 'askAi') {
+    enterAskAiMode()
+    return
+  }
+
   if (toolStates[currentMode.value]) {
     toolStates[currentMode.value] = {
       color: currentColor.value,
@@ -361,12 +426,7 @@ function ensureBoundsForStroke(obj: any) {
   }
 }
 
-const zoomPresetOptions = [
-  { label: '50%', value: 0.5 },
-  { label: '100%', value: 1 },
-  { label: '150%', value: 1.5 },
-  { label: '200%', value: 2 },
-]
+const zoomPresetOptions = ZOOM_PRESET_OPTIONS
 
 const zoomPresetModelValue = computed(() => {
   const candidates = zoomPresetOptions
@@ -1041,6 +1101,10 @@ function loadState(jsonStr) {
 // --- 交互逻辑 ---
 function handlePointerDown(e) {
   if (inputState.visible) return
+
+  // askAi 框选截图模式下，禁止进入画板绘制逻辑（否则会落入 draw 分支产生笔迹）
+  if (currentMode.value === 'askAi') return
+
   liveCanvasRef.value.setPointerCapture(e.pointerId)
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
@@ -1564,12 +1628,271 @@ function handleKeyup(e) {
 }
 
 function setMode(mode) {
+  const wasAskAi = currentMode.value === 'askAi'
   currentMode.value = mode
+
+  if (wasAskAi && mode !== 'askAi') {
+    resetAskAiSelection()
+    document.body.style.cursor = ''
+  }
+
+  if (mode === 'askAi') {
+    resetAskAiSelection()
+    document.body.style.cursor = 'crosshair'
+  }
+
   if (mode !== 'select') {
     selectedIndices.clear()
     groupBounds = null
     requestRenderAll()
   }
+}
+
+// 进入问问学伴截图模式
+function enterAskAiMode() {
+  setMode('askAi')
+}
+
+function resetAskAiSelection() {
+  askAiDragRect.value = null
+  askAiStartPoint.value = null
+  askAiDragPath.value = null
+}
+
+const askAiFreeformPathD = computed(() => {
+  const path = askAiDragPath.value
+  if (!path || path.length === 0) return ''
+  const parts: string[] = []
+  path.forEach((p, idx) => {
+    const sx = p.x * camera.zoom + camera.x
+    const sy = p.y * camera.zoom + camera.y
+    parts.push(`${idx === 0 ? 'M' : 'L'} ${sx} ${sy}`)
+  })
+  return parts.join(' ')
+})
+
+// 获取内容坐标（考虑缩放和平移）
+function getContentPoint(clientX: number, clientY: number): Point | null {
+  if (!containerRef.value) return null
+  const rect = containerRef.value.getBoundingClientRect()
+  const x = (clientX - rect.left - camera.x) / camera.zoom
+  const y = (clientY - rect.top - camera.y) / camera.zoom
+  return { x, y }
+}
+
+// 处理问问学伴截图的指针按下
+function handleAskAiPointerDown(e: PointerEvent) {
+  if (currentMode.value !== 'askAi') return
+
+  const p = getContentPoint(e.clientX, e.clientY)
+  if (p) {
+    if (selectMode.value === 'freeform') {
+      askAiDragPath.value = [p]
+      askAiStartPoint.value = null
+      askAiDragRect.value = null
+    } else {
+      askAiStartPoint.value = p
+      askAiDragRect.value = { x: p.x, y: p.y, w: 0, h: 0 }
+      askAiDragPath.value = null
+    }
+  }
+}
+
+// 处理问问学伴截图的指针移动
+function handleAskAiPointerMove(e: PointerEvent) {
+  if (currentMode.value !== 'askAi') return
+
+  const p = getContentPoint(e.clientX, e.clientY)
+  if (!p) return
+
+  if (selectMode.value === 'freeform') {
+    if (!askAiDragPath.value) return
+    askAiDragPath.value = [...askAiDragPath.value, p]
+    return
+  }
+
+  if (!askAiStartPoint.value) return
+  const start = askAiStartPoint.value
+  askAiDragRect.value = {
+    x: Math.min(start.x, p.x),
+    y: Math.min(start.y, p.y),
+    w: Math.abs(p.x - start.x),
+    h: Math.abs(p.y - start.y),
+  }
+}
+
+// 处理问问学伴截图的指针抬起
+function handleAskAiPointerUp() {
+  if (currentMode.value !== 'askAi') return
+
+  if (selectMode.value === 'freeform') {
+    const path = askAiDragPath.value
+    if (path && path.length >= 3) {
+      takeAskAiScreenshotFreeform(path)
+      return
+    }
+    resetAskAiSelection()
+    return
+  }
+
+  const rect = askAiDragRect.value
+  if (rect && rect.w >= 5 && rect.h >= 5) {
+    takeAskAiScreenshot(rect)
+  } else {
+    resetAskAiSelection()
+  }
+}
+
+function takeAskAiScreenshotFreeform(path: Point[]) {
+  const historyCanvas = historyCanvasRef.value
+  const liveCanvas = liveCanvasRef.value
+
+  if (!historyCanvas || !liveCanvas || !path.length) {
+    resetAskAiSelection()
+    return
+  }
+
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  path.forEach((p) => {
+    minX = Math.min(minX, p.x)
+    minY = Math.min(minY, p.y)
+    maxX = Math.max(maxX, p.x)
+    maxY = Math.max(maxY, p.y)
+  })
+
+  const w = maxX - minX
+  const h = maxY - minY
+  if (w < 5 || h < 5) {
+    resetAskAiSelection()
+    return
+  }
+
+  const dpr = window.devicePixelRatio || 1
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = Math.round(w * dpr)
+  tempCanvas.height = Math.round(h * dpr)
+  const ctx = tempCanvas.getContext('2d')
+  if (!ctx) {
+    resetAskAiSelection()
+    return
+  }
+
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+
+  ctx.save()
+  ctx.beginPath()
+  path.forEach((p, idx) => {
+    const lx = (p.x - minX) * dpr
+    const ly = (p.y - minY) * dpr
+    if (idx === 0) ctx.moveTo(lx, ly)
+    else ctx.lineTo(lx, ly)
+  })
+  ctx.closePath()
+  ctx.clip()
+
+  const sx = minX * dpr
+  const sy = minY * dpr
+  const sw = w * dpr
+  const sh = h * dpr
+  ctx.drawImage(historyCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
+  ctx.drawImage(liveCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
+  ctx.restore()
+
+  currentScreenshotDataUrl.value = tempCanvas.toDataURL('image/png')
+  showScreenshotDialog.value = true
+  resetAskAiSelection()
+}
+
+// 生成问问学伴截图
+function takeAskAiScreenshot(rect: { x: number; y: number; w: number; h: number }) {
+  const historyCanvas = historyCanvasRef.value
+  const liveCanvas = liveCanvasRef.value
+
+  if (!historyCanvas || !liveCanvas) {
+    resetAskAiSelection()
+    return
+  }
+
+  const dpr = window.devicePixelRatio || 1
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = Math.round(rect.w * dpr)
+  tempCanvas.height = Math.round(rect.h * dpr)
+  const ctx = tempCanvas.getContext('2d')
+
+  if (!ctx) {
+    resetAskAiSelection()
+    return
+  }
+
+  const sx = rect.x * dpr
+  const sy = rect.y * dpr
+  const sw = rect.w * dpr
+  const sh = rect.h * dpr
+
+  // 绘制背景为白色
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+
+  // 合并绘制历史层和实时层
+  ctx.drawImage(historyCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
+  ctx.drawImage(liveCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
+
+  // 转换为 dataUrl
+  currentScreenshotDataUrl.value = tempCanvas.toDataURL('image/png')
+  showScreenshotDialog.value = true
+
+  // 重置状态
+  resetAskAiSelection()
+}
+
+// 获取框选框样式
+function getAskAiRectStyle(rect: { x: number; y: number; w: number; h: number }) {
+  return {
+    left: `${rect.x * camera.zoom + camera.x}px`,
+    top: `${rect.y * camera.zoom + camera.y}px`,
+    width: `${rect.w * camera.zoom}px`,
+    height: `${rect.h * camera.zoom}px`,
+  }
+}
+
+// 处理截图确认
+async function handleScreenshotConfirm(
+  shots: AttachedScreenshot[],
+  states: Record<string, any>
+) {
+  showScreenshotDialog.value = false
+
+  if (shots.length > 0) {
+    try {
+      const first = shots[0]
+      if (!first?.dataUrl) {
+        showMessage('截图数据为空，请重试', 'warning')
+      } else {
+        emit('ask-ai-image-selected', {
+          filePath: '',
+          width: first.width || 0,
+          height: first.height || 0,
+          fileSize: 0,
+          base64DataUrl: first.dataUrl,
+        })
+      }
+    } catch (error) {
+      console.error('[DrawingBoardNew] ask-ai-image-selected emit failed:', error)
+      showMessage('操作失败，请重试', 'error')
+    }
+  }
+
+  currentScreenshotDataUrl.value = ''
+}
+
+// 处理截图取消
+function handleScreenshotCancel() {
+  showScreenshotDialog.value = false
+  currentScreenshotDataUrl.value = ''
 }
 
 function zoomIn() {
@@ -2073,5 +2396,32 @@ defineExpose({
 }
 .debug-panel button:hover {
   background: #e0e0e0;
+}
+
+ /* 问问学伴截图框选遮罩 */
+ .ask-ai-screenshot-overlay {
+   position: absolute;
+   border: 2px dashed #6e55ff;
+   background-color: rgba(110, 85, 255, 0.1);
+   pointer-events: none;
+   z-index: 100;
+ }
+
+ .ask-ai-freeform-overlay {
+   position: absolute;
+   left: 0;
+   top: 0;
+   width: 100%;
+   height: 100%;
+   pointer-events: none;
+   z-index: 100;
+
+  path {
+    fill: rgba(110, 85, 255, 0.12);
+    stroke: #6e55ff;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
 }
 </style>

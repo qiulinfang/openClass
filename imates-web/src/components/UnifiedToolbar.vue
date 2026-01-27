@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div :class="['unified-toolbar-container', `variant-${variant}`, `orientation-${orientation}`]">
     <!-- 统一工具栏 -->
     <div
@@ -309,6 +309,7 @@ import selectConfigIcon from '/icons/select_config.svg' // 选择配置
 import redoIcon from '/icons/undo.svg' // 撤销
 import undoIcon from '/icons/redo.svg' // 重做
 import dustbinIcon from '/icons/dustbin.svg' // 清空（垃圾桶）
+import askAiIcon from '/icons/askAI.svg' // 问问学伴
 
 // 工具配置接口
 interface ToolConfig {
@@ -716,6 +717,29 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     value: 'chat',
     label: '聊天',
     icon: 'chat',
+  },
+  askAi: {
+    value: 'askAi',
+    label: '问问学伴',
+    icon: askAiIcon,
+    config: {
+      showSelectionModePicker: true,
+      selectionModes: [
+        {
+          value: 'rectangle',
+          label: '矩形框选',
+          icon: 'crop_square',
+          description: '拖拽形成矩形选区',
+        },
+        {
+          value: 'freeform',
+          label: '自由框选',
+          icon: 'polyline',
+          description: '自由绘制选区',
+        },
+      ],
+      selectionModeLabel: '截图模式',
+    },
   },
   help: {
     value: 'help',

@@ -302,6 +302,7 @@ import { showMessage } from '../utils'
 import {
   convertToChineseNumber
 } from '../utils/business/chapter-utils'
+import { KNOWLEDGE_GRAPH_SUBJECT_OPTIONS } from '../constants/subjects'
 // 流程：导入图标资源
 import bookIcon from '/images/book.png'
 import indicatorIcon from '/icons/Indicator.svg'
@@ -1511,17 +1512,7 @@ const startExpandingRotation = (graphId: string) => {
 
 // 学科选择器
 const selectedSubject = ref('')
-const subjectOptions = ref([
-  { value: 'math', label: '数学' },
-  { value: 'chinese', label: '语文' },
-  { value: 'english', label: '英语' },
-  { value: 'physics', label: '物理' },
-  { value: 'chemistry', label: '化学' },
-  { value: 'biology', label: '生物' },
-  { value: 'geography', label: '地理' },
-  { value: 'history', label: '历史' },
-  { value: 'politics', label: '政治' }
-])
+const subjectOptions = ref(KNOWLEDGE_GRAPH_SUBJECT_OPTIONS)
 
 // 教材选择器
 const selectedTextbook = ref('')

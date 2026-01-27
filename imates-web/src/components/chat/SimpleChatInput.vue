@@ -40,7 +40,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { AI_ROLE_OPTIONS } from '../../constants/options'
 const BubblePopup = defineAsyncComponent(() => import('../base/Popover.vue'))
 import DeskmateIcon from '/icons/Deskmate.svg'
 import RepresentativeIcon from '/icons/Representative.svg'
@@ -80,11 +81,7 @@ const inputRef = ref<HTMLInputElement>()
 // 模式选择器相关（复用 ChatInput 的简化逻辑）
 const showModeSelectorMenu = ref(false)
 
-const aiRoleOptions = [
-  { label: '同桌', value: 'mate' },
-  { label: '课代表', value: 'mentor' },
-  { label: '大神', value: 'researcher' },
-]
+const aiRoleOptions = AI_ROLE_OPTIONS
 
 const getModelDisplayName = (model: string) => {
   const option = aiRoleOptions.find((opt) => opt.value === model)
