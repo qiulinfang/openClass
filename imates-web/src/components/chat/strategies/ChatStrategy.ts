@@ -12,7 +12,7 @@ import type { SendMessageOptions } from './types'
  */
 export interface ChatViewInterface {
   // 滚动控制
-  scrollToBottom(): Promise<void>
+  scrollToBottom(instant?: boolean): Promise<void>
   checkIfUserAtBottom(): void
 
   // 题目切换

@@ -185,15 +185,51 @@ export class AiExerciseStrategy implements ChatStrategy {
 
       // 转发消息
       const result = await this.forwardMessagesSeparately(messages, session.sessionId)
+
+      if (result.successCount > 0) {
+        const forwardResult: ForwardResult = {
+          success: true,
+          successCount: result.successCount,
+          sessionId: session.sessionId,
+        }
+
+        // 显示成功提示或对话框
+        if (options.showDialog !== false && options.showForwardSuccessDialog) {
+          const msg =
+            result.successCount > 1
+              ? `已成功转发 ${result.successCount} 条消息给老师，是否前往老师对话查看？`
+              : '消息已成功转发给老师，是否前往老师对话查看？'
+
+          const dialogResult = await options.showForwardSuccessDialog(msg, session.sessionId)
+          if (dialogResult?.goToTeacher && options.onSuccess) {
+            await options.onSuccess(forwardResult)
+          }
+        } else {
+          if (options.onSuccess) {
+            await options.onSuccess(forwardResult)
+          }
+        }
+
+        return forwardResult
+      }
+
+      const errorMsg = `转发失败 (${result.successCount}/${result.totalCount})`
+      if (options.onError) {
+        options.onError(errorMsg)
+      }
       return {
-        success: result.successCount > 0,
-        error: result.successCount > 0 ? undefined : `转发失败 (${result.successCount}/${result.totalCount})`,
+        success: false,
+        error: errorMsg,
       }
     } catch (error) {
       console.error('[AiExerciseStrategy] ❌ 转发消息失败:', error)
+      const errorMsg = '转发失败，请重试'
+      if (options.onError) {
+        options.onError(errorMsg)
+      }
       return {
         success: false,
-        error: '转发失败，请重试',
+        error: errorMsg,
       }
     }
   }
@@ -443,26 +479,18 @@ export class AiExerciseStrategy implements ChatStrategy {
     const messageType = dataType.toUpperCase() // text -> TEXT, voice -> VOICE, image -> IMAGE
     let messageContent = msg.content || ''
 
-    // 根据角色类型添加前缀
+    // 根据角色类型添加前缀，但保留完整格式
     if (msg.type === 'user') {
       messageContent = '[学生]\n' + messageContent
     } else if (msg.type === 'ai') {
       messageContent = '[学伴]\n' + messageContent
     }
 
-    const cleanedContent = messageContent
-      ? messageContent
-          .replace(/\$[^$]*\$/g, '') // 移除 $...$ 格式的LaTeX
-          .replace(/\\[a-zA-Z]+/g, '') // 移除 \command 格式的LaTeX命令
-          .replace(/[{}()[\]]/g, '') // 移除LaTeX括号
-          .replace(/\s+/g, ' ') // 合并多个空格
-          .trim()
-      : ''
-    
+    // 直接返回原内容，不清理任何格式，保留完整的 Markdown 和 LaTeX
     const result = {
       id: msg.id,
       type: messageType,
-      content: cleanedContent,
+      content: messageContent,
       timestamp: '',
     }
     

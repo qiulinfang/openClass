@@ -487,7 +487,6 @@ const handleOpenTeacherDialog = async () => {
   try {
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
-
     const targetSessionId = getTeacherSessionBySubject()
     const activated = await teacherChatStore.activateTeacherSession(targetSessionId)
     if (!activated) {
