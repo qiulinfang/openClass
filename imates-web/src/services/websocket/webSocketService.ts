@@ -4,7 +4,7 @@
  */
 
 import { ref, readonly } from 'vue'
-import { getUserId } from '../http/auth-service'
+import { getUserId, getCurrentYanbanUserId } from '../http/auth-service'
 import { getYanbanBaseUrl, getTeacherBaseUrl } from '@/config/env-config'
 
 export interface WebSocketMessage {
@@ -423,8 +423,23 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
     // 单连接多会话：sessionId通过消息体传递，不再在URL中指定
     // teacherBaseUrl 现在直接是完整的WebSocket URL
     const teacherBaseUrl = getTeacherBaseUrl()
-    const userId = getUserId()
-    const wsUrl = `${teacherBaseUrl}?userId=${userId}&clientType=web`
+    
+    // 优先使用研伴用户ID，如果没有则使用学班用户ID
+    let userId = getCurrentYanbanUserId() || getUserId() || 'guest045'
+    
+    // 获取YANBAN_TOKEN用于WebSocket认证
+    let token = ''
+    try {
+      token = localStorage.getItem('YANBAN_TOKEN') || ''
+    } catch (error) {
+      console.warn('[WebSocket] 获取token失败:', error)
+    }
+    
+    // 构建WebSocket URL，包含认证token
+    const wsUrl = `${teacherBaseUrl}?userId=${userId}&clientType=web${token ? `&token=${encodeURIComponent(token)}` : ''}`
+    console.log('[WebSocket] 教师WebSocket连接URL:', wsUrl)
+    console.log('[WebSocket] 使用用户ID:', userId)
+    
     config = {
       url: wsUrl,
       reconnectAttempts: 5,

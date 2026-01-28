@@ -342,7 +342,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：教师聊天API，转发到研伴后端服务器（优先级最高）
       '/api/question': {
-        target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
+        target: 'http://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 添加CORS头信息
@@ -400,6 +400,28 @@ export default defineConfig(({ mode }) => {
           })
           proxy.on('proxyReq', (proxyReq, req) => {
             console.log('代理通用API请求到服务器:', req.url)
+          })
+        }
+      },
+      // 🔥 新增：教师WebSocket代理，转发到研伴后端WebSocket服务器
+      '/blw-edu-yb/ws': {
+        target: 'ws://www.imates.com.cn:8201', // 研伴后端WebSocket服务器地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        ws: true, // 启用WebSocket代理
+        secure: false, // 使用WS协议
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/blw-edu-yb/ws')
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理教师WebSocket请求到服务器:', req.url)
+          })
+          proxy.on('proxyRes', (proxyRes, req) => {
+            console.log('教师WebSocket响应:', req.url, proxyRes.statusCode)
+          })
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ [教师WebSocket代理失败]:', {
+              url: req.url,
+              error: err.message
+            })
           })
         }
       },

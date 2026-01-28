@@ -185,14 +185,14 @@
             <div v-else class="fullscreen-top-buttons">
               <!-- 左侧：大小切换按钮 -->
               <img
-                src="icons/Switcher.svg"
+                :src="switcherIcon"
                 alt="toggle size"
                 class="switcher-btn"
                 @click.stop="handleToggleFullscreen"
               />
 
               <!-- 右侧：关闭按钮 -->
-              <img src="icons/close.svg" alt="close" class="close-btn" @click.stop="handleClose" />
+              <img :src="closeIcon" alt="close" class="close-btn" @click.stop="handleClose" />
             </div>
 
             <!-- 内容区域：删除类型优先使用插槽内容或默认提示 -->
@@ -242,6 +242,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import CommonActionButton from './Button.vue'
+import switcherIcon from '/icons/Switcher.svg'
+import closeIcon from '/icons/close.svg'
 
 interface Props {
   modelValue: boolean

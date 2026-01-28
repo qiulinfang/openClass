@@ -28,7 +28,7 @@
           </div>
           <!-- 形态切换按钮：panel <-> dialog -->
           <button type="button" class="toggle-mode-button" @click="emit('toggle-mode')">
-            <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
+            <img :src="switcherIcon" alt="switch mode" class="toggle-mode-icon" />
           </button>
           <!-- WebSocket连接状态 -->
           <div v-if="isDev" class="connection-status" @click="logWebSocketStatus">
@@ -69,7 +69,7 @@
                   @switch-to-teacher="handleSwitchToTeacher"
                 >
                   <!-- 新增会话按钮 -->
-                  <template #header-right>
+                  <template #header-right v-if="activeCategory === 'ai-general'">
                     <div @click="handleNewChatClick" class="add-session-btn">
                       <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
                     </div>
@@ -85,12 +85,7 @@
                   :sessionId="teacherChatStore.currentSession.sessionId"
                   :key="teacherChatStore.currentSession.sessionId"
                 >
-                  <!-- 新增会话按钮 -->
-                  <template #header-right>
-                    <div @click="handleNewChatClick" class="add-session-btn">
-                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
-                    </div>
-                  </template>
+                  <!-- 教师场景不显示新增会话按钮 -->
                 </ChatView>
                 <!-- 无会话 -->
                 <div v-else class="empty-chat">
@@ -106,10 +101,10 @@
             <div class="session-list-wrapper">
               <SessionTree
                 ref="sessionTreeRef"
-                @session-switched="handleSessionSwitched"
+                @session-selected="handleSessionSelected"
+                @create-new-chat="handleCreateNewChatFromTree"
                 @ai-session-deleted="handleAiSessionDeleted"
                 @teacher-session-deleted="handleTeacherSessionDeleted"
-                @category-should-change="handleCategoryShouldChange"
               />
             </div>
           </div>
@@ -120,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -129,9 +124,18 @@ import { getUserId } from '@/services'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import addSessionIcon from '/icons/addsession.png'
+import switcherIcon from '/icons/Switcher.svg'
 import type { ChatBubble } from '@/types'
+import type { ChatEntry } from '../types/chat'
+
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()
+
+interface Props {
+  entry?: ChatEntry
+}
+
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   close: []
@@ -155,6 +159,8 @@ const tabOptions = CHAT_TAB_OPTIONS
 // 当前激活的分类（AI 或 老师）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 
+const entry = computed(() => props.entry)
+
 // 是否为开发模式
 const isDev = computed(() => import.meta.env.DEV)
 
@@ -177,12 +183,23 @@ const ensureTeacherSessionSelected = () => {
   teacherChatStore.setSession(firstSession)
 }
 
-// 处理会话切换（由 SessionTree 通知）
-const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
-  console.log('[MainChatPanel] handleSessionSwitched 被调用:', { type, sessionId, currentActiveCategory: activeCategory.value })
+// 处理会话切换（用户在 SessionTree 点击）
+const handleSessionSelected = async (type: 'ai' | 'teacher', sessionId: string) => {
+  console.log('[MainChatPanel] handleSessionSelected 被调用:', {
+    type,
+    sessionId,
+    currentActiveCategory: activeCategory.value,
+  })
+
+  activeTab.value = 'ai-chat'
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
-  console.log('[MainChatPanel] activeCategory 设置为:', activeCategory.value)
-  // SessionTree已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
+
+  if (type === 'ai') {
+    await aiGeneralStore.loadSessions()
+    await aiGeneralStore.switchSession(sessionId)
+  } else {
+    await teacherChatStore.connectToTeacherSession(sessionId)
+  }
 }
 
 // AI 会话删除
@@ -226,6 +243,20 @@ const handleNewChatClick = async () => {
   activeCategory.value = 'ai-general'
 }
 
+const handleCreateNewChatFromTree = async () => {
+  activeTab.value = 'ai-chat'
+  activeCategory.value = 'ai-general'
+
+  if (!aiGeneralStore.canCreateSession) {
+    if (!aiGeneralStore.isCreatingSession) {
+      showMessage('请先在当前会话中发送消息', 'warning')
+    }
+    return
+  }
+
+  aiGeneralStore.resetState()
+}
+
 // 老师会话删除
 const handleTeacherSessionDeleted = (
   sessionId: string,
@@ -235,27 +266,6 @@ const handleTeacherSessionDeleted = (
   if (!success) return
   if (wasCurrentSession) {
     activeCategory.value = 'ai-general'
-  }
-}
-
-// 切换分类事件
-const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
-  console.log('[MainChatPanel] handleCategoryShouldChange 被调用:', { category, currentActiveCategory: activeCategory.value })
-
-  if (category === 'teacher') {
-    // 设置为教师分类（不管当前状态如何）
-    activeCategory.value = 'teacher'
-    console.log('[MainChatPanel] 设置为教师分类，开始选择教师会话')
-    ensureTeacherSessionSelected()
-
-    // WebSocket 初始化已在 SessionTree 中完成，这里不再重复初始化
-    console.log('[MainChatPanel] WebSocket 初始化已在 SessionTree 中完成')
-  } else {
-    // 从教师模式切换到AI模式
-    if (activeCategory.value === 'teacher') {
-      activeCategory.value = 'ai-general'
-      console.log('[MainChatPanel] 设置为AI分类')
-    }
   }
 }
 
@@ -282,7 +292,7 @@ const handleOpenTeacherDialog = async ({
     setTeacherSession(sessionId)
     activeCategory.value = 'teacher'
     // 通知 SessionTree 更新选中状态
-    sessionTreeRef.value?.switchToSession('teacher', sessionId)
+    sessionTreeRef.value?.highlightSession?.(sessionId)
     // setTeacherSession已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
   } catch (error) {
     console.error('设置老师会话失败:', error)
@@ -304,7 +314,7 @@ const handleSwitchToTeacher = async (forwardData?: {
     setTeacherSession(forwardData.sessionId)
     activeCategory.value = 'teacher'
     // 通知 SessionTree 更新选中状态
-    sessionTreeRef.value?.switchToSession('teacher', forwardData.sessionId)
+    sessionTreeRef.value?.highlightSession?.(forwardData.sessionId)
     // setTeacherSession已经设置了具体会话，这里不再需要ensureTeacherSessionSelected
   } catch (error) {
     console.error('设置老师会话失败:', error)
@@ -329,6 +339,60 @@ onMounted(async () => {
   console.log('[MainChatPanel] onMounted: 初始化写死教师会话')
   // 写死会话通过 loadAllSessions() 方法动态获取，无需预加载
 })
+
+const applyEntry = async (nextEntry?: ChatEntry) => {
+  if (!nextEntry) return
+
+  activeTab.value = 'ai-chat'
+  activeCategory.value = nextEntry.category
+  await nextTick()
+
+  if (nextEntry.mode === 'default') {
+    if (nextEntry.category === 'ai-general') {
+      await aiGeneralStore.loadSessions()
+      const targetSessionId =
+        aiGeneralStore.currentSession?.sessionId ?? aiGeneralStore.sessions[0]?.sessionId
+      if (targetSessionId) {
+        sessionTreeRef.value?.highlightSession?.(targetSessionId)
+      }
+    } else {
+      const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
+      const targetSessionId = teacherChatStore.currentSession?.sessionId ?? allTeacherSessions[0]?.sessionId
+      if (targetSessionId) {
+        sessionTreeRef.value?.highlightSession?.(targetSessionId)
+      }
+    }
+    return
+  }
+
+  if (nextEntry.mode === 'new') {
+    if (nextEntry.category === 'ai-general') {
+      aiGeneralStore.resetState()
+    } else {
+      ensureTeacherSessionSelected()
+    }
+    return
+  }
+
+  if (nextEntry.mode === 'session') {
+    if (nextEntry.category === 'ai-general') {
+      await aiGeneralStore.loadSessions()
+      await aiGeneralStore.switchSession(nextEntry.sessionId)
+      sessionTreeRef.value?.highlightSession?.(nextEntry.sessionId)
+    } else {
+      await teacherChatStore.connectToTeacherSession(nextEntry.sessionId)
+      sessionTreeRef.value?.highlightSession?.(nextEntry.sessionId)
+    }
+  }
+}
+
+watch(
+  () => props.entry,
+  async (nextEntry) => {
+    await applyEntry(nextEntry)
+  },
+  { immediate: true }
+)
 
 defineExpose({
   attachImageToAiGeneral: async (imageInfo: {

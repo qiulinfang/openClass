@@ -24,7 +24,8 @@ interface EnvConfig {
   baseUrl: string
   resourceBaseUrl: string
   yanbanBaseUrl: string
-  teacherBaseUrl: string  // 新增教师服务基础URL
+  teacherBaseUrl: string  // WebSocket连接用教师服务URL
+  teacherApiBaseUrl: string  // HTTP API请求用教师服务URL
   historyManageBaseUrl: string
   imServiceBaseUrl: string
   apiPaths: ApiPaths
@@ -43,8 +44,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 研伴正式环境：使用 HTTPS 访问 9099 端口
     // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    // 教师服务：直接使用WebSocket URL（wss协议）
-    teacherBaseUrl: 'ws://www.imates.com.cn:8201/ws',
+    // 教师服务WebSocket：使用WebSocket协议
+    teacherBaseUrl: 'ws://www.imates.com.cn:8201/blw-edu-yb/ws',
+    // 教师服务API：使用HTTP协议
+    teacherApiBaseUrl: 'http://www.imates.com.cn:8201/blw-edu-yb',
     // IM即时通讯服务（直接使用端口，HTTP协议）
     imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
@@ -68,8 +71,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // 研伴测试环境：使用 HTTPS 访问 50013 端口
     // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     yanbanBaseUrl: 'https://43.138.16.5:50013',
-    // 教师服务：直接使用WebSocket URL（wss协议）
-    teacherBaseUrl: 'ws://www.imates.com.cn:8201/ws',
+    // 教师服务WebSocket：使用WebSocket协议
+    teacherBaseUrl: 'ws://www.imates.com.cn:8201/blw-edu-yb/ws',
+    // 教师服务API：使用HTTP协议
+    teacherApiBaseUrl: 'http://www.imates.com.cn:8201/blw-edu-yb',
     // IM即时通讯服务（直接使用端口，HTTP协议）
     imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
@@ -194,6 +199,14 @@ export function getTeacherBaseUrl(): string {
 }
 
 /**
+ * 获取教师服务 API Base URL
+ * 注意：返回HTTP协议的URL，用于API请求
+ */
+export function getTeacherApiBaseUrl(): string {
+  return getCurrentEnvConfig().teacherApiBaseUrl
+}
+
+/**
  * 获取对话记忆管理服务 Base URL
  */
 export function getHistoryManageBaseUrl(): string {
@@ -260,6 +273,7 @@ export function getRouteBaseMap(): Record<string, string> {
   const resourceBaseUrl = getResourceBaseUrl()
   const yanbanBaseUrl = getYanbanBaseUrl()
   const teacherBaseUrl = getTeacherBaseUrl()
+  const teacherApiBaseUrl = getTeacherApiBaseUrl()
   const historyManageBaseUrl = getHistoryManageBaseUrl()
 
   return {
@@ -273,9 +287,9 @@ export function getRouteBaseMap(): Record<string, string> {
     '/biologyTopicKnowledge': apiBaseUrl,
     // IM服务（图片上传等）
     '/im/api/images/upload': 'https://www.imates.com.cn',
-    // 教师相关API（使用新的8201端口）
-    '/api/question': teacherBaseUrl,  // 教师聊天API
-    '/api/system': teacherBaseUrl,    // 研伴系统API（文件上传等）
+    // 教师相关API（使用新的8201端口）- HTTP API使用teacherApiBaseUrl
+    '/api/question': teacherApiBaseUrl,  // 教师聊天API
+    '/api/system': teacherApiBaseUrl,    // 研伴系统API（文件上传等）
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
     '/homework': yanbanBaseUrl,

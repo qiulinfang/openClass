@@ -485,19 +485,6 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   const loadChatHistory = async (sessionId: string, page?: number, loadMore: boolean = false, forceRefresh: boolean = false): Promise<void> => {
     try {
       console.log("loadChatHistory")
-      // 首次加载且未强制刷新时，检查缓存
-      if (!loadMore && !forceRefresh) {
-        const cache = sessionCache.value.get(sessionId)
-        if (cache && isCacheValid(cache)) {
-          // 从缓存恢复数据
-          messages.value = [...cache.messages]
-          pagination.value = { ...cache.pagination }
-          chatResponseTimes.value = cache.chatResponseTimes
-
-          console.log(`[TeacherStore] 从缓存加载历史消息: ${sessionId}, 消息数: ${messages.value.length}`)
-          return
-        }
-      }
 
       if (!loadMore) {
         // 首次加载，清空当前消息
