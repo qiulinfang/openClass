@@ -396,12 +396,15 @@ const showGoResourcesBubble = ref(true)
 const hasAnyDownloadedTextbook = ref<boolean | null>(null)
 
 // 悬浮按钮拖动相关状态
+const fabSize = 120
 const fabPosition = ref({ x: 0, y: 0 })
 const isDragging = ref(false)
 const dragStartPos = ref({ x: 0, y: 0 })
 const dragOffset = ref({ x: 0, y: 0 })
 const hasMoved = ref(false)
 const suppressFabClick = ref(false)
+const pendingFabPosition = ref<{ x: number; y: number } | null>(null)
+let fabDragRafId: number | null = null
 
 const bindGlobalDragListeners = () => {
   window.addEventListener('mousemove', handleDrag)
@@ -421,8 +424,10 @@ const unbindGlobalDragListeners = () => {
 
 // 计算悬浮按钮样式
 const fabStyle = computed(() => ({
-  right: `${fabPosition.value.x}px`,
-  bottom: `${fabPosition.value.y}px`,
+  left: '0px',
+  top: '0px',
+  transform: `translate3d(${fabPosition.value.x}px, ${fabPosition.value.y}px, 0)`,
+  willChange: isDragging.value ? 'transform' : 'auto',
 }))
 
 // 需要隐藏左侧导航菜单的路由
@@ -598,18 +603,10 @@ const startDrag = (event: MouseEvent | TouchEvent) => {
   // 记录起始位置
   dragStartPos.value = { x: clientX, y: clientY }
 
-  // 计算当前按钮的实际位置（从右下角算起）
-  const currentRight = fabPosition.value.x
-  const currentBottom = fabPosition.value.y
-
-  // 计算按钮左上角的位置
-  const buttonLeft = window.innerWidth - currentRight - 60 // 60是按钮宽度
-  const buttonTop = window.innerHeight - currentBottom - 60 // 60是按钮高度
-
-  // 保存鼠标相对按钮左上角的偏移
+  // 保存鼠标相对按钮左上角的偏移（fabPosition 存 left/top）
   dragOffset.value = {
-    x: clientX - buttonLeft,
-    y: clientY - buttonTop,
+    x: clientX - fabPosition.value.x,
+    y: clientY - fabPosition.value.y,
   }
 }
 
@@ -641,14 +638,23 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
     const newTop = clientY - dragOffset.value.y
 
     // 限制在视口范围内
-    const buttonSize = 60
-    const constrainedLeft = Math.max(0, Math.min(window.innerWidth - buttonSize, newLeft))
-    const constrainedTop = Math.max(0, Math.min(window.innerHeight - buttonSize, newTop))
+    const constrainedLeft = Math.max(0, Math.min(window.innerWidth - fabSize, newLeft))
+    const constrainedTop = Math.max(0, Math.min(window.innerHeight - fabSize, newTop))
 
-    // 转换为 right 和 bottom 值
-    fabPosition.value = {
-      x: window.innerWidth - constrainedLeft - buttonSize,
-      y: window.innerHeight - constrainedTop - buttonSize,
+    // 用 rAF 节流（合成层 transform 移动，减少 layout/reflow）
+    pendingFabPosition.value = {
+      x: constrainedLeft,
+      y: constrainedTop,
+    }
+
+    if (fabDragRafId == null) {
+      fabDragRafId = window.requestAnimationFrame(() => {
+        fabDragRafId = null
+        if (pendingFabPosition.value) {
+          fabPosition.value = pendingFabPosition.value
+          pendingFabPosition.value = null
+        }
+      })
     }
   }
 }
@@ -657,6 +663,12 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
 const stopDrag = () => {
   isDragging.value = false
   hasMoved.value = false
+
+  if (fabDragRafId != null) {
+    window.cancelAnimationFrame(fabDragRafId)
+    fabDragRafId = null
+  }
+  pendingFabPosition.value = null
 
   unbindGlobalDragListeners()
 
@@ -761,7 +773,10 @@ onMounted(async () => {
   updateCurrentUserInfo()
 
   // 初始化按钮位置
-  fabPosition.value = { x: 18, y: 18 }
+  fabPosition.value = {
+    x: Math.max(0, window.innerWidth - fabSize - 18),
+    y: Math.max(0, window.innerHeight - fabSize - 18),
+  }
 
   // 监听课堂状态，高亮头像
   const updateClassStatus = () => {

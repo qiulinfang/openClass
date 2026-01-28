@@ -1117,9 +1117,13 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
 
     if (textbooks && textbooks.length > 0) {
       // 仅保留本地“已下载完成”的教材，避免在知识图谱中展示未下载教材
-      const downloadedTextbooks = textbooks.filter(
-        (textbook) => textbook.isDownloaded && textbook.downloadStatus === 2
-      )
+      // 说明：部分场景下 isDownloaded / downloadStatus 可能不同步（例如登录后刷新、历史数据迁移等）
+      // 因此这里以“完成状态/本地文件存在”作为兜底判定。
+      const downloadedTextbooks = textbooks.filter((textbook) => {
+        const hasLocalFiles = Boolean(textbook.localFiles && textbook.localFiles.length > 0)
+        const isCompleted = textbook.downloadStatus === 2
+        return Boolean(textbook.isDownloaded) || isCompleted || hasLocalFiles
+      })
 
       // 如果没有已下载的教材，则不展示任何教材选项
       if (downloadedTextbooks.length === 0) {
@@ -1182,6 +1186,29 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
 
     // 如果当前学科下没有任何已下载教材，则清空章节
     if (textbookOptions.value.length === 0) {
+      // 兜底：如果其他学科有教材，自动切到第一个可用学科，避免误导用户“未下载任何教材”
+      if (localOptions.length > 0) {
+        const firstAvailableSubjectLabel = localOptions[0].subject
+        const reverseSubjectMap: { [key: string]: string } = {
+          数学: 'math',
+          语文: 'chinese',
+          英语: 'english',
+          物理: 'physics',
+          化学: 'chemistry',
+          生物: 'biology',
+          地理: 'geography',
+          历史: 'history',
+          政治: 'politics',
+        }
+
+        const nextSubjectValue = reverseSubjectMap[firstAvailableSubjectLabel]
+        if (nextSubjectValue && nextSubjectValue !== subjectValue) {
+          selectedSubject.value = nextSubjectValue as any
+          await loadTextbookDataBySubject(nextSubjectValue)
+          return
+        }
+      }
+
       selectedTextbook.value = ''
       chapterStructure.value = []
       chapters.value = []
