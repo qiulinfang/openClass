@@ -131,7 +131,7 @@
       <button
         v-if="showNewMessageIndicator"
         class="new-message-indicator"
-        @click="scrollToBottom"
+        @click="() => scrollToBottom()"
         title="有新消息，点击查看"
       >
         <svg
@@ -490,6 +490,16 @@ const emit = defineEmits<{
       sessionId?: string
     }
   ] // 切换到老师对话事件
+  'switch-to-teacher': [
+    {
+      messages: ChatBubble[]
+      currentQuestion: unknown
+      additionalMessage?: string
+      forwardMode?: string
+      successCount?: number
+      sessionId?: string
+    }
+  ]
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'scroll-to-message': [messageId: string] // 滚动到指定消息事件
@@ -1878,11 +1888,17 @@ const handleLoadTop = async () => {
 }
 
 // 作用：滚动聊天区域到底部，确保最新消息可见
-const scrollToBottom = async () => {
+const scrollToBottom = async (instant = false) => {
   await nextTick()
   const container = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
   if (container) {
-    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
+    if (instant) {
+      // 初始化时：瞬时跳转，无滚动动画
+      container.scrollTop = container.scrollHeight
+    } else {
+      // 用户交互时：平滑滚动
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
+    }
   }
 
   showNewMessageIndicator.value = false
@@ -2706,7 +2722,7 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
           // 转发成功后的回调
           if (result.sessionId) {
             // 触发跳转到老师对话的事件
-            emit('switchToTeacher', {
+            emit('switch-to-teacher', {
               messages: selectedMessageList,
               currentQuestion: currentQuestion.value,
               additionalMessage: '',
@@ -2833,7 +2849,7 @@ const cleanupGlobalEventListeners = () => {
 onMounted(async () => {
   createStrategy()
   await initializeMessages()
-  await scrollToBottom()
+  await scrollToBottom(true) // 初始化时使用瞬时跳转
   lastMessageCount.value = chatStrategy.value?.getMessages?.().length ?? 0
   nextTick(() => {
     const container = rubberBandListRef.value?.scrollContainerRef as HTMLElement | null
@@ -2918,7 +2934,7 @@ const executeQuestionSwitch = () => {
 
   initializeMessages()
   nextTick(() => {
-    scrollToBottom()
+    scrollToBottom(true) // 题目切换时使用瞬时跳转
   })
 }
 

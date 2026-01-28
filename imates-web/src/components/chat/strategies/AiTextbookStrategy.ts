@@ -304,26 +304,18 @@ export class AiTextbookStrategy implements ChatStrategy {
     const messageType = dataType.toUpperCase() // text -> TEXT, voice -> VOICE, image -> IMAGE
     let messageContent = msg.content || ''
 
-    // 根据角色类型添加前缀
+    // 根据角色类型添加前缀，但保留完整格式
     if (msg.type === 'user') {
       messageContent = '[学生]\n' + messageContent
     } else if (msg.type === 'ai') {
       messageContent = '[学伴]\n' + messageContent
     }
 
-    const cleanedContent = messageContent
-      ? messageContent
-          .replace(/\$[^$]*\$/g, '') // 移除 $...$ 格式的LaTeX
-          .replace(/\\[a-zA-Z]+/g, '') // 移除 \command 格式的LaTeX命令
-          .replace(/[{}()[\]]/g, '') // 移除LaTeX括号
-          .replace(/\s+/g, ' ') // 合并多个空格
-          .trim()
-      : ''
-    
+    // 直接返回原内容，不清理任何格式，保留完整的 Markdown 和 LaTeX
     const result = {
       id: msg.id,
       type: messageType,
-      content: cleanedContent,
+      content: messageContent,
       timestamp: '',
     }
     
