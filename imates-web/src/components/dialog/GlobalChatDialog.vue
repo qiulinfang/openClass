@@ -128,7 +128,7 @@ const handleSessionSelected = async (type: 'ai' | 'teacher', sessionId: string) 
     await aiGeneralStore.loadSessions()
     await aiGeneralStore.switchSession(sessionId)
   } else {
-    await teacherChatStore.connectToTeacherSession(sessionId)
+    await teacherChatStore.activateTeacherSession(sessionId)
   }
 }
 
@@ -144,12 +144,18 @@ const applyEntry = async (nextEntry?: ChatEntry) => {
       const targetSessionId =
         aiGeneralStore.currentSession?.sessionId ?? aiGeneralStore.sessions[0]?.sessionId
       if (targetSessionId) {
+        if (aiGeneralStore.currentSession?.sessionId !== targetSessionId) {
+          await aiGeneralStore.switchSession(targetSessionId)
+        }
         sessionTreeRef.value?.highlightSession?.(targetSessionId)
       }
     } else {
       const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
       const targetSessionId = teacherChatStore.currentSession?.sessionId ?? allTeacherSessions[0]?.sessionId
       if (targetSessionId) {
+        if (teacherChatStore.currentSession?.sessionId !== targetSessionId) {
+          await teacherChatStore.activateTeacherSession(targetSessionId)
+        }
         sessionTreeRef.value?.highlightSession?.(targetSessionId)
       }
     }
@@ -169,7 +175,7 @@ const applyEntry = async (nextEntry?: ChatEntry) => {
       await aiGeneralStore.switchSession(nextEntry.sessionId)
       sessionTreeRef.value?.highlightSession?.(nextEntry.sessionId)
     } else {
-      await teacherChatStore.connectToTeacherSession(nextEntry.sessionId)
+      await teacherChatStore.activateTeacherSession(nextEntry.sessionId)
       sessionTreeRef.value?.highlightSession?.(nextEntry.sessionId)
     }
   }

@@ -407,16 +407,16 @@ const bindGlobalDragListeners = () => {
   window.addEventListener('mousemove', handleDrag)
   window.addEventListener('mouseup', stopDrag)
   window.addEventListener('touchmove', handleDrag, { passive: false })
-  window.addEventListener('touchend', stopDrag)
-  window.addEventListener('touchcancel', stopDrag)
+  window.addEventListener('touchend', stopDrag, { capture: true })
+  window.addEventListener('touchcancel', stopDrag, { capture: true })
 }
 
 const unbindGlobalDragListeners = () => {
   window.removeEventListener('mousemove', handleDrag)
   window.removeEventListener('mouseup', stopDrag)
   window.removeEventListener('touchmove', handleDrag)
-  window.removeEventListener('touchend', stopDrag)
-  window.removeEventListener('touchcancel', stopDrag)
+  window.removeEventListener('touchend', stopDrag, { capture: true })
+  window.removeEventListener('touchcancel', stopDrag, { capture: true })
 }
 
 // 计算悬浮按钮样式

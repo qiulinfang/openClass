@@ -150,13 +150,13 @@
         <!-- 老师对话列表 -->
         <q-list v-else-if="activeTab === 'teacher'" separator>
           <q-item
-            v-for="session in sortedTeacherSessions"
+            v-for="session in teacherSessions"
             :key="session.sessionId"
             clickable
             @click="selectTeacherSession(session)"
           >
             <q-item-section avatar>
-              <q-avatar :color="session.subject === 'biology' ? 'green' : 'purple'" text-color="white">
+              <q-avatar :color="session.subject === 'BIOLOGY' ? 'green' : 'purple'" text-color="white">
                 <q-icon name="school" />
               </q-avatar>
             </q-item-section>
@@ -170,7 +170,7 @@
                 ID: {{ session.sessionId.substring(0, 20) }}...
               </q-item-label>
               <q-item-label caption>
-                科目: {{ session.subject === 'biology' ? '生物' : '数学' }} | 
+                科目: {{ session.subject === 'BIOLOGY' ? '生物' : '数学' }} | 
                 创建: {{ formatDate(session.createTime) }} | 
                 消息: {{ session.msgCount || 0 }}
               </q-item-label>
@@ -539,7 +539,7 @@
           <q-item>
             <q-item-section>
               <q-item-label caption>科目</q-item-label>
-              <q-item-label>{{ selectedTeacherSession.subject === 'biology' ? '生物' : '数学' }}</q-item-label>
+              <q-item-label>{{ selectedTeacherSession.subject === 'BIOLOGY' ? '生物' : '数学' }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
@@ -600,7 +600,7 @@
       <q-card-section>
         <div class="text-subtitle2 q-mb-md">请选择科目：</div>
         <q-list>
-          <q-item clickable v-close-popup @click="createVirtualTeacherSession('biology')">
+          <q-item clickable v-close-popup @click="createVirtualTeacherSession('BIOLOGY')">
             <q-item-section avatar>
               <q-avatar color="green" text-color="white">
                 <q-icon name="science" />
@@ -611,7 +611,7 @@
               <q-item-label caption>创建生物科目的虚拟老师对话</q-item-label>
             </q-item-section>
           </q-item>
-          <q-item clickable v-close-popup @click="createVirtualTeacherSession('math')">
+          <q-item clickable v-close-popup @click="createVirtualTeacherSession('MATH')">
             <q-item-section avatar>
               <q-avatar color="purple" text-color="white">
                 <q-icon name="calculate" />
@@ -847,7 +847,6 @@ const clearAllSessions = async () => {
     for (const session of teacherSessions.value) {
       const storageKey = `teacher-general-${session.sessionId}`
       await chatStorage.removeChatHistory(storageKey)
-      teacherStore.deleteSession(session.sessionId)
     }
     
     
@@ -871,8 +870,9 @@ const deleteAiSession = async (session: AiGeneralSession) => {
 // 第4.1步：删除教师会话
 const deleteTeacherSession = async (session: TeacherSession & { msgCount: number; sessionType: 'general' }) => {
   try {
-    // 删除教师通用会话（从统一存储中删除）
-    await teacherStore.clearChatHistory(session.sessionId)
+    // 删除教师通用会话（从独立存储中删除）
+    const storageKey = `teacher-general-${session.sessionId}`
+    await chatStorage.removeChatHistory(storageKey)
     
     // 刷新数据
     await refreshData()
@@ -931,7 +931,7 @@ const selectAiSession = (session: AiGeneralSession) => {
 const selectTeacherSession = (session: TeacherSession & { msgCount: number; sessionType: 'general' }) => {
   // 选择教师通用会话
   teacherStore.setSession(session)
-  teacherStore.loadChatHistory(session.sessionId, 1) // 首次加载第1页
+  teacherStore.activateTeacherSession(session.sessionId, { connect: false, loadHistory: true })
 }
 
 // 导出数据
@@ -1031,11 +1031,6 @@ const handleFileImport = async (event: Event) => {
       
       // 导入教师通用会话（使用独立存储格式）
       if (importData.teacherSessions && importData.teacherMessages) {
-        // 使用 store 的统一方法保存会话
-        for (const session of importData.teacherSessions) {
-          teacherStore.saveSession(session)
-        }
-        
         // 导入每个会话的消息（保存到独立存储）
         for (const sessionId in importData.teacherMessages) {
           const history = importData.teacherMessages[sessionId]
@@ -1137,7 +1132,7 @@ const manualSave = async () => {
       showMessage('无当前会话，无法保存', 'warning')
       return
     }
-    await teacherStore.saveChatHistory()
+    showMessage('当前版本不支持手动保存', 'info')
     await refreshStorageData()
     showMessage('手动保存成功', 'success')
   } catch (error) {
@@ -1153,7 +1148,7 @@ const manualLoad = async () => {
       showMessage('无当前会话，无法加载', 'warning')
       return
     }
-    await teacherStore.loadChatHistory(currentTeacherSession.value.sessionId, 1) // 首次加载第1页
+    await teacherStore.activateTeacherSession(currentTeacherSession.value.sessionId, { connect: false, loadHistory: true })
     await refreshStorageData()
     showMessage('手动加载成功', 'success')
   } catch (error) {
@@ -1194,25 +1189,14 @@ const copyToClipboard = async (text: string) => {
 const createVirtualTeacherSession = async (subject: 'BIOLOGY' | 'MATH') => {
   try {
     // 生成会话ID和名称
-    const subjectName = subject === 'biology' ? '生物' : '数学'
-    const sessionId = `teacher_virtual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const sessionName = `${subjectName}老师答疑 - 虚拟对话 ${new Date().toLocaleString()}`
-    
-    // 调用store创建会话
-    teacherStore.createTeacherSession(
-      sessionId,
-      sessionName,
-      subject
-    )
-    
-    // 初始化消息监听器
-    await teacherStore.initMessageReceiver()
+    const subjectName = subject === 'BIOLOGY' ? '生物' : '数学'
+    showMessage(`当前版本不支持创建${subjectName}老师虚拟对话`, 'info')
     
     // 刷新数据
     await refreshData()
     
     // 显示成功消息
-    showMessage(`已创建${subjectName}老师虚拟对话`, 'success')
+    showMessage(`已关闭创建弹窗`, 'success')
     
     // 关闭对话框
     showCreateTeacherDialog.value = false
