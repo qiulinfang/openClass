@@ -186,6 +186,8 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
 
   // WebSocket连接管理
   const webSocketInitialized = ref(false)
+
+  const activatePromiseMap = new Map<string, Promise<boolean>>()
   
   // ==================== 缓存管理工具方法 ====================
 
@@ -926,6 +928,45 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     })
   }
 
+  const activateTeacherSession = async (sessionId: string, options?: { connect?: boolean; loadHistory?: boolean }): Promise<boolean> => {
+    const connect = options?.connect !== false
+    const loadHistory = options?.loadHistory !== false
+
+    if (!sessionId) return false
+
+    if (activatePromiseMap.has(sessionId)) {
+      return activatePromiseMap.get(sessionId)!
+    }
+
+    const p = (async (): Promise<boolean> => {
+      try {
+        if (connect) {
+          const connected = await connectToTeacherSession(sessionId)
+          if (!connected) return false
+        } else {
+          const allSessions = loadAllSessions()
+          const session = allSessions[sessionId]
+          if (!session) {
+            console.error('[TeacherStore] 未找到教师会话:', sessionId)
+            return false
+          }
+          setSession(session)
+        }
+
+        if (loadHistory) {
+          await loadChatHistory(sessionId, 1)
+        }
+
+        return true
+      } finally {
+        activatePromiseMap.delete(sessionId)
+      }
+    })()
+
+    activatePromiseMap.set(sessionId, p)
+    return p
+  }
+
   // 初始化时清理过期缓存
   cleanupExpiredCache()
 
@@ -967,6 +1008,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     // WebSocket管理
     connectWebSocket,
     connectToTeacherSession,
+    activateTeacherSession,
 
     // 会话存储管理（供外部组件使用）
     loadAllSessions,

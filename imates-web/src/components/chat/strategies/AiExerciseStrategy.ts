@@ -396,18 +396,11 @@ export class AiExerciseStrategy implements ChatStrategy {
         createTime: Date.now()
       })
 
-      // 建立WebSocket连接
-      const connected = await teacherStore.connectToTeacherSession(sessionId)
-      if (connected) {
-        // 连接成功后加载聊天历史（分页加载）
-        try {
-          await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
-          console.log('[AiExerciseStrategy] 教师聊天历史加载完成')
-        } catch (error) {
-          console.error('[AiExerciseStrategy] 加载教师聊天历史失败:', error)
-        }
+      const activated = await teacherStore.activateTeacherSession(sessionId)
+      if (activated) {
+        console.log('[AiExerciseStrategy] 教师聊天历史加载完成')
       } else {
-        console.error('[AiExerciseStrategy] 建立教师WebSocket连接失败:', sessionId)
+        console.error('[AiExerciseStrategy] 激活教师会话失败:', sessionId)
       }
 
     } catch (error) {
@@ -510,7 +503,7 @@ export class AiExerciseStrategy implements ChatStrategy {
 
       // 连接成功后加载聊天历史（分页加载）
       console.log('[AiExerciseStrategy] 加载教师会话历史记录...')
-      await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
+      await teacherStore.activateTeacherSession(sessionId, { connect: false, loadHistory: true })
     }
 
     for (const message of messages) {

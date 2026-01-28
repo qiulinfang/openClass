@@ -436,7 +436,7 @@ export class AiTextbookStrategy implements ChatStrategy {
 
       // 连接成功后加载聊天历史（分页加载）
       console.log('[AiTextbookStrategy] 加载教师会话历史记录...')
-      await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
+      await teacherStore.activateTeacherSession(sessionId, { connect: false, loadHistory: true })
     }
 
     for (const message of messages) {

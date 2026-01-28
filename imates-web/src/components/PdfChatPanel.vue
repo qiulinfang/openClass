@@ -76,7 +76,7 @@
     </div>
 
     <!-- 全局聊天对话框 -->
-    <GlobalChatDialog v-model="showGlobalChatDialog" />
+    <GlobalChatDialog v-model="showGlobalChatDialog" :entry="globalChatEntry" />
   </div>
 </template>
 
@@ -89,7 +89,7 @@ import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import { useRoute } from 'vue-router'
-import type { AiTextbookSession, AttachedScreenshot } from '@/types'
+import type { AiTextbookSession, AttachedScreenshot, ChatEntry } from '@/types'
 import {
   getScreenshotSessionsByResourceId,
   deleteScreenshotSession,
@@ -134,6 +134,8 @@ const selectedRecordId = ref<string | undefined>(undefined)
 
 // 全局聊天对话框显示状态
 const showGlobalChatDialog = ref(false)
+
+const globalChatEntry = ref<ChatEntry | undefined>(undefined)
 
 // “选中并问”按钮选中状态：与截图工具是否被选中保持一致
 const isSelectAndAskSelected = computed(() => pdfViewerStore.selectedTool === 'screenshot')
@@ -235,6 +237,7 @@ const handleClose = () => {
 const handleOpenTeacherDialog = ({ sessionId }: { sessionId: string; message?: any }) => {
   console.log('[PdfChatPanel] handleOpenTeacherDialog 被调用:', sessionId)
   console.log('[PdfChatPanel] 设置 showGlobalChatDialog 为 true')
+  globalChatEntry.value = { mode: 'session', category: 'teacher', sessionId }
   showGlobalChatDialog.value = true
 }
 
@@ -250,6 +253,7 @@ const handleSwitchToTeacher = (forwardData: {
   if (forwardData.sessionId) {
     console.log('[PdfChatPanel] handleSwitchToTeacher 被调用:', forwardData.sessionId)
     console.log('[PdfChatPanel] 设置 showGlobalChatDialog 为 true')
+    globalChatEntry.value = { mode: 'session', category: 'teacher', sessionId: forwardData.sessionId }
     showGlobalChatDialog.value = true
   }
 }

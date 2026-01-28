@@ -489,15 +489,9 @@ const handleOpenTeacherDialog = async () => {
     currentFunction.value = 'teacherChat'
 
     const targetSessionId = getTeacherSessionBySubject()
-    const connected = await teacherChatStore.connectToTeacherSession(targetSessionId)
-    if (connected) {
-      try {
-        await teacherChatStore.loadChatHistory(targetSessionId, 1)
-      } catch (error) {
-        console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)
-      }
-    } else {
-      console.error('[ExerciseSolveView] 建立教师WebSocket连接失败:', targetSessionId)
+    const activated = await teacherChatStore.activateTeacherSession(targetSessionId)
+    if (!activated) {
+      console.error('[ExerciseSolveView] 激活教师会话失败:', targetSessionId)
     }
   } catch (error) {
     console.error('打开老师对话失败:', error)
@@ -525,15 +519,9 @@ const handleSwitchToTeacher = async (forwardData?: {
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
 
-    const connected = await teacherChatStore.connectToTeacherSession(targetSessionId)
-    if (connected) {
-      try {
-        await teacherChatStore.loadChatHistory(targetSessionId, 1)
-      } catch (error) {
-        console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)
-      }
-    } else {
-      console.error('[ExerciseSolveView] 建立教师WebSocket连接失败:', targetSessionId)
+    const activated = await teacherChatStore.activateTeacherSession(targetSessionId)
+    if (!activated) {
+      console.error('[ExerciseSolveView] 激活教师会话失败:', targetSessionId)
     }
   } catch (error) {
     console.error('打开老师对话失败:', error)
@@ -605,17 +593,11 @@ const handleQuestionSelected = async () => {
       }
 
       // 建立新连接
-      const connected = await teacherChatStore.connectToTeacherSession(teacherSessionId)
-      if (connected) {
-        // 连接成功后加载聊天历史（分页加载）
-        try {
-          await teacherChatStore.loadChatHistory(teacherSessionId, 1) // 首次加载第1页
-          console.log('[ExerciseSolveView] 教师聊天历史加载完成')
-        } catch (error) {
-          console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)
-        }
+      const activated = await teacherChatStore.activateTeacherSession(teacherSessionId)
+      if (activated) {
+        console.log('[ExerciseSolveView] 教师聊天历史加载完成')
       } else {
-        console.error('[ExerciseSolveView] 建立教师WebSocket连接失败:', teacherSessionId)
+        console.error('[ExerciseSolveView] 激活教师会话失败:', teacherSessionId)
       }
     }
   }

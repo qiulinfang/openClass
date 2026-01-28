@@ -395,7 +395,7 @@ export class AiGeneralStrategy implements ChatStrategy {
 
       // 连接成功后加载聊天历史（分页加载）
       console.log('[AiGeneralStrategy] 加载教师会话历史记录...')
-      await teacherStore.loadChatHistory(sessionId, 1) // 首次加载第1页
+      await teacherStore.activateTeacherSession(sessionId, { connect: false, loadHistory: true })
     }
 
     for (const message of messages) {
@@ -439,6 +439,10 @@ export class AiGeneralStrategy implements ChatStrategy {
           console.log(`[转发] 单图消息: ${forwardContent}`)
 
           // 先上传图片获得URL
+          if (!message.imageData.base64DataUrl) {
+            console.warn('[AiGeneralStrategy] 单图消息缺少base64DataUrl，跳过转发')
+            continue
+          }
           const imageUrl = await apiService.uploadImageAndGetUrl(message.imageData.base64DataUrl)
 
           const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
