@@ -16,7 +16,7 @@
       <div class="chat-view-container">
         <ChatView
           type="user-client"
-          :compressed-height="0"
+          :compressed-height="305"
           input-mode="full"
           :show-footer-text="false"
           :show-toolbar="false"
