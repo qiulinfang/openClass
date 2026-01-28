@@ -98,7 +98,7 @@
         <!-- 删除 -->
         <div class="session-more-menu-delete-wrapper">
           <div class="more-menu-item-row" @click="closeMenuAndExecute(() => $emit('delete'))">
-            <img src="icons/delete.svg" alt="删除" width="18" height="18" />
+            <img :src="deleteIcon" alt="删除" width="18" height="18" />
             <div class="text-delete">删除</div>
           </div>
         </div>
@@ -126,6 +126,7 @@ import starIcon from '/icons/xingxing-light.svg'
 import starBorderIcon from '/icons/shoucang1.svg'
 import pinIcon from '/icons/zhiding.svg'
 import pinOutlinedIcon from '/icons/quxiaozhiding.svg'
+import deleteIcon from '/icons/delete.svg'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getRecordId = (record: AiTextbookSession): string => {

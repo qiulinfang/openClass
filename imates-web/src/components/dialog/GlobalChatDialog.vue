@@ -14,55 +14,11 @@
       <div class="left-panel">
         <SessionTree
           ref="sessionTreeRef"
-          @session-switched="handleSessionSwitched"
+          @session-selected="handleSessionSelected"
+          @create-new-chat="handleCreateNewChatFromTree"
           @ai-session-deleted="handleAiSessionDeleted"
           @teacher-session-deleted="handleTeacherSessionDeleted"
-          @category-should-change="handleCategoryShouldChange"
         >
-          <template #header-actions>
-            <!-- 调试按钮 -->
-            <q-btn
-              v-if="isDev"
-              flat
-              round
-              dense
-              icon="bug_report"
-              color="orange"
-              size="sm"
-              class="debug-btn"
-              @click="showDebugPanel = true"
-            >
-              <q-tooltip>调试面板</q-tooltip>
-            </q-btn>
-            <!-- 新增对话按钮 -->
-            <q-btn
-              flat
-              round
-              dense
-              icon="add"
-              color="primary"
-              size="sm"
-              class="new-chat-btn"
-              :disable="!canCreateNewChat"
-              @click="handleNewChatClick"
-            >
-              <q-tooltip>
-                {{
-                  canCreateNewChat
-                    ? isTeacherCategory
-                      ? '新增老师对话'
-                      : '新增AI对话'
-                    : aiGeneralStore.isCreatingSession
-                    ? '创建中...'
-                    : '请先在当前会话中发送消息'
-                }}
-              </q-tooltip>
-            </q-btn>
-            <!-- 刷新列表按钮 -->
-            <q-btn flat dense round icon="refresh" size="sm" @click="aiGeneralStore.loadSessions()">
-              <q-tooltip>刷新列表</q-tooltip>
-            </q-btn>
-          </template>
         </SessionTree>
       </div>
 
@@ -100,9 +56,6 @@
       </div>
     </div>
 
-    <!-- 调试面板 -->
-    <ChatSessionDebugPanel v-if="isDev" v-model="showDebugPanel" />
-
     <!-- 老师选择对话框 -->
     <TeacherSelectionDialog
       v-model="showTeacherSelectDialog"
@@ -114,26 +67,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../../utils'
-import { getUserInfo, getUserId } from '@/services'
+import { getUserId } from '@/services'
 import Modal from '../base/Modal.vue'
 import SessionTree from '../SessionTree.vue'
 import ChatView from '../ChatView.vue'
-import ChatSessionDebugPanel from '../debug/ChatSessionDebugPanel.vue'
 import TeacherSelectionDialog from './TeacherSelectionDialog.vue'
 import addSessionIcon from '/icons/addsession.png'
 import type { ChatBubble } from '@/types'
-
-// 判断是否显示调试功能（仅通过环境变量控制）
-const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
+import type { ChatEntry } from '../../types/chat'
 
 // ==================== Props & Emits ====================
 interface Props {
   modelValue: boolean
   initialTeacherSubject?: 'biology' | 'math' // 初始教师科目（用于创建新会话）
+  entry?: ChatEntry
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -162,38 +113,84 @@ const localVisible = computed({
 
 // 当前激活的分类（根据选中的会话自动判断）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
-const showDebugPanel = ref(false)
-
-// 教师会话相关（已移除，现在直接从 store 获取）
 
 // 老师选择对话框
 const showTeacherSelectDialog = ref(false)
-const availableTeachers = ref<Array<{ subject: 'BIOLOGY' | 'MATH'; name: string }>>([])
-
-// 判断当前选中的分类是否为老师类型
-const isTeacherCategory = computed(() => {
-  const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
-  return selectedCategory === 'BIOLOGY' || selectedCategory === 'MATH'
-})
-
-// 判断是否可以创建新对话
-const canCreateNewChat = computed(() => {
-  if (isTeacherCategory.value) {
-    // 老师类型：只要有可选的老师就可以创建
-    return teacherChatStore.getAvailableTeachers().length > 0
-  } else {
-    // AI类型：需要满足原有条件
-    return aiGeneralStore.canCreateSession
-  }
-})
+const availableTeachers = ref<Array<{ subject: 'biology' | 'math'; name: string }>>([])
 
 // ==================== AI聊天相关方法 ====================
 
-// 处理会话切换（接收 SessionTree 的最终结果）
-const handleSessionSwitched = (type: 'ai' | 'teacher', _sessionId: string) => {
-  // 只更新分类，所有切换逻辑已在 SessionTree 内部完成
+// 处理会话切换（用户在 SessionTree 点击）
+const handleSessionSelected = async (type: 'ai' | 'teacher', sessionId: string) => {
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
+
+  if (type === 'ai') {
+    await aiGeneralStore.loadSessions()
+    await aiGeneralStore.switchSession(sessionId)
+  } else {
+    await teacherChatStore.connectToTeacherSession(sessionId)
+  }
 }
+
+const applyEntry = async (nextEntry?: ChatEntry) => {
+  if (!nextEntry) return
+
+  activeCategory.value = nextEntry.category
+  await nextTick()
+
+  if (nextEntry.mode === 'default') {
+    if (nextEntry.category === 'ai-general') {
+      await aiGeneralStore.loadSessions()
+      const targetSessionId =
+        aiGeneralStore.currentSession?.sessionId ?? aiGeneralStore.sessions[0]?.sessionId
+      if (targetSessionId) {
+        sessionTreeRef.value?.highlightSession?.(targetSessionId)
+      }
+    } else {
+      const allTeacherSessions = Object.values(teacherChatStore.loadAllSessions())
+      const targetSessionId = teacherChatStore.currentSession?.sessionId ?? allTeacherSessions[0]?.sessionId
+      if (targetSessionId) {
+        sessionTreeRef.value?.highlightSession?.(targetSessionId)
+      }
+    }
+    return
+  }
+
+  if (nextEntry.mode === 'new') {
+    if (nextEntry.category === 'ai-general') {
+      aiGeneralStore.resetState()
+    }
+    return
+  }
+
+  if (nextEntry.mode === 'session') {
+    if (nextEntry.category === 'ai-general') {
+      await aiGeneralStore.loadSessions()
+      await aiGeneralStore.switchSession(nextEntry.sessionId)
+      sessionTreeRef.value?.highlightSession?.(nextEntry.sessionId)
+    } else {
+      await teacherChatStore.connectToTeacherSession(nextEntry.sessionId)
+      sessionTreeRef.value?.highlightSession?.(nextEntry.sessionId)
+    }
+  }
+}
+
+watch(
+  () => props.entry,
+  async (nextEntry) => {
+    if (!localVisible.value) return
+    await applyEntry(nextEntry)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => localVisible.value,
+  async (visible) => {
+    if (!visible) return
+    await applyEntry(props.entry)
+  }
+)
 
 // 处理新增对话（可以是AI对话或教师对话）
 const handleNewChatClick = async () => {
@@ -202,7 +199,10 @@ const handleNewChatClick = async () => {
 
   if (selectedCategory === 'BIOLOGY' || selectedCategory === 'MATH') {
     // 如果选中的是教师分类，显示老师选择对话框
-    availableTeachers.value = teacherChatStore.getAvailableTeachers()
+    availableTeachers.value = teacherChatStore.getAvailableTeachers().map((t) => ({
+      name: t.name,
+      subject: t.subject === 'BIOLOGY' ? 'biology' : 'math',
+    }))
 
     if (availableTeachers.value.length === 0) {
       showMessage('所有老师都有对话记录', 'info')
@@ -224,8 +224,13 @@ const handleNewChatClick = async () => {
   activeCategory.value = 'ai-general'
 }
 
+const handleCreateNewChatFromTree = async () => {
+  activeCategory.value = 'ai-general'
+  await handleNewChatClick()
+}
+
 // 处理老师选择
-const handleTeacherSelect = async (subject: 'BIOLOGY' | 'MATH') => {
+const handleTeacherSelect = async (subject: 'biology' | 'math') => {
   showTeacherSelectDialog.value = false
 
   // 根据学科找到对应的写死会话
@@ -314,7 +319,7 @@ const handleOpenTeacherDialog = async ({
     setTeacherSession(sessionId)
 
     // 通知 SessionTree 更新选中状态
-    sessionTreeRef.value?.switchToSession('teacher', sessionId)
+    sessionTreeRef.value?.highlightSession?.(sessionId)
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -340,7 +345,7 @@ const handleSwitchToTeacher = async (forwardData?: {
     setTeacherSession(forwardData.sessionId)
 
     // 通知 SessionTree 更新选中状态
-    sessionTreeRef.value?.switchToSession('teacher', forwardData.sessionId)
+    sessionTreeRef.value?.highlightSession?.(forwardData.sessionId)
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -378,15 +383,7 @@ defineExpose({
 
 // ==================== 监听器 ====================
 
-// 处理分类应该改变的事件（由 SessionTree 发出）
-const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
-  if (category === 'teacher') {
-    activeCategory.value = 'teacher'
-  } else if (activeCategory.value === 'teacher') {
-    // 如果当前是教师分类但会话被清空，切换到 AI 分类
-    activeCategory.value = 'ai-general'
-  }
-}
+// SessionTree 已纯列表化，不再反向驱动分类
 </script>
 
 <style lang="scss" scoped>

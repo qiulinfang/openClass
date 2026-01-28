@@ -15,7 +15,14 @@
     <!-- 内容区域 -->
     <div class="content-area">
       <!-- 问答收藏列表 -->
-      <RubberBandList v-if="activeTab === 'qa'" class="list-container scroll-wrapper">
+      <RubberBandList
+        v-if="activeTab === 'qa'"
+        ref="qaListRef"
+        class="list-container scroll-wrapper"
+        :enable-refresh="true"
+        :loading="isLoadingQa"
+        @refresh="handleQaRefresh"
+      >
         <div class="scroll-content">
           <div v-if="qaFavorites.length === 0 && !isLoadingQa" class="empty-state">
             <q-icon name="chat_bubble_outline" size="80px" color="grey-5" />
@@ -61,7 +68,14 @@
       </RubberBandList>
 
       <!-- 练习收藏列表 -->
-      <RubberBandList v-if="activeTab === 'exercise'" class="list-container scroll-wrapper">
+      <RubberBandList
+        v-if="activeTab === 'exercise'"
+        ref="exerciseListRef"
+        class="list-container scroll-wrapper"
+        :enable-refresh="true"
+        :loading="isLoadingExercise"
+        @refresh="handleExerciseRefresh"
+      >
         <div class="scroll-content">
           <div v-if="exerciseFavorites.length === 0 && !isLoadingExercise" class="empty-state">
             <q-icon name="quiz" size="80px" color="grey-5" />
@@ -96,6 +110,8 @@
         ref="globalChatDialogRef"
         v-model="showUnifiedChatDialog"
         :initial-teacher-subject="initialTeacherSubject"
+        :entry="unifiedChatEntry"
+        @toggle-mode="handleToggleMode"
       />
 
       <!-- 图片预览对话框 -->
@@ -105,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onActivated, computed } from 'vue'
+import { ref, onMounted, watch, onActivated, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import {
@@ -120,6 +136,7 @@ import { useTeacherChatStore } from '../stores/teacherChatStore'
 import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import GlobalChatDialog from '../components/dialog/GlobalChatDialog.vue'
+import type { ChatEntry } from '../types/chat'
 import RubberBandList from '../components/base/VirtualList.vue'
 import Toolbar from '../components/base/Toolbar.vue'
 import { getUserId, getScopedStorageValue } from '../services'
@@ -135,6 +152,8 @@ defineOptions({
 
 const router = useRouter()
 
+const openMainChatPanelWithEntry = inject<(entry: ChatEntry) => void>('openMainChatPanelWithEntry')
+
 // 使用消息渲染器
 const { renderMessageContent } = useMessageRenderer()
 
@@ -145,12 +164,16 @@ const exerciseFavorites = ref<FavoriteExercise[]>([])
 const isLoadingQa = ref(false)
 const isLoadingExercise = ref(false)
 
+const qaListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
+const exerciseListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
+
 // 列表滚动已改为使用 RubberBandList 橡皮筋滚动效果，不再依赖 BetterScroll
 
 // 统一聊天对话框状态
 const showUnifiedChatDialog = ref(false)
 const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
 const initialTeacherSubject = ref<'biology' | 'math'>('math')
+const unifiedChatEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
 
 // 图片预览状态
 const imageViewerVisible = ref(false)
@@ -173,19 +196,43 @@ const goBack = () => {
   router.back()
 }
 
+const handleQaRefresh = async () => {
+  if (isLoadingQa.value) {
+    qaListRef.value?.finishRefresh?.()
+    return
+  }
+  try {
+    await loadQaFavorites()
+  } finally {
+    qaListRef.value?.finishRefresh?.()
+  }
+}
+
+const handleExerciseRefresh = async () => {
+  if (isLoadingExercise.value) {
+    exerciseListRef.value?.finishRefresh?.()
+    return
+  }
+  try {
+    await loadExerciseFavorites()
+  } finally {
+    exerciseListRef.value?.finishRefresh?.()
+  }
+}
+
 // 判断收藏的对话类型（AI聊天还是教师通用对话）
 const getChatType = (
   session: AiGeneralSession
-): { type: 'ai' | 'teacher'; subject?: 'BIOLOGY' | 'MATH' } => {
+): { type: 'ai' | 'teacher'; subject?: 'biology' | 'math' } => {
   // 检查是否是教师通用对话会话（使用统一存储格式）
   try {
     const teacherStore = useTeacherChatStore()
-    const teacherSession = teacherStore.getSession(session.sessionId)
+    const teacherSession = teacherStore.loadAllSessions()[session.sessionId]
 
     if (teacherSession && teacherSession.subject) {
       return {
         type: 'teacher',
-        subject: teacherSession.subject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH',
+        subject: teacherSession.subject === 'BIOLOGY' ? 'biology' : 'math',
       }
     }
   } catch (error) {
@@ -205,39 +252,19 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
     initialTeacherSubject.value = chatType.subject
   }
 
-  // 在打开对话框之前，先设置会话和加载历史（确保 SessionTree 初始化时能正确识别）
   if (chatType.type === 'teacher') {
-    const teacherStore = useTeacherChatStore()
-    const teacherSession = teacherStore.getSession(session.sessionId)
-    if (teacherSession) {
-      // 设置 localStorage
-      const userId = getUserId()
-      const storeSubject = teacherSession.subject
-      localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-      // 调用 store 的 setSession（设置当前会话）
-      teacherStore.setSession(teacherSession)
-      // 加载聊天历史（分页加载，确保会话数据完整）
-      await teacherStore.loadChatHistory(teacherSession.sessionId, 1) // 首次加载第1页
-    }
+    unifiedChatEntry.value = { mode: 'session', category: 'teacher', sessionId: session.sessionId }
   } else {
-    // AI 聊天：在打开对话框之前先切换到对应的会话
-    const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
-    const aiGeneralStore = useAiGeneralChatStore()
-    await aiGeneralStore.loadSessions()
-
-    // 切换到对应的会话
-    const foundSession = aiGeneralStore.sessions.find(
-      (s: AiGeneralSession) => s.sessionId === session.sessionId
-    )
-    if (foundSession) {
-      await aiGeneralStore.switchSession(session.sessionId)
-    } else {
-      console.warn('未找到对应的 AI 会话:', session.sessionId)
-    }
+    unifiedChatEntry.value = { mode: 'session', category: 'ai-general', sessionId: session.sessionId }
   }
 
   // 打开对话框（此时会话已经设置好，SessionTree 初始化时会正确识别）
   showUnifiedChatDialog.value = true
+}
+
+const handleToggleMode = () => {
+  showUnifiedChatDialog.value = false
+  openMainChatPanelWithEntry?.(unifiedChatEntry.value)
 }
 
 // 获取问答收藏的显示名称

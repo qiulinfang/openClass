@@ -272,3 +272,10 @@ export interface AiTextbookSession {
   storageKey?: string      // 存储键，用于加载消息历史（格式：ai-textbook-${resourceId} 或 ai-textbook-${resourceId}-${sessionId}）
   hasImage?: boolean       // 是否包含图片消息，用于判断接口类型
 }
+
+export type ChatCategory = 'ai-general' | 'teacher'
+
+export type ChatEntry =
+  | { mode: 'default'; category: ChatCategory }
+  | { mode: 'new'; category: ChatCategory }
+  | { mode: 'session'; category: ChatCategory; sessionId: string }

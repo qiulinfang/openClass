@@ -137,7 +137,6 @@
                   v-show="currentFunction === 'teacherChat'"
                   type="teacher"
                   :compressed-height="327"
-                  @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
                 >
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮 -->
@@ -175,6 +174,7 @@
       ref="globalChatDialogRef"
       v-model="showUnifiedChatDialog"
       :initial-teacher-subject="currentTeacherSubject"
+      :entry="unifiedChatEntry"
     />
 
     <!-- 题目调试面板 - 只在开发场景下显示 -->
@@ -220,7 +220,7 @@ import Toolbar from '../components/base/Toolbar.vue'
 import CommonSelect from '../components/base/Select.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble, SceneType } from '../types'
-import { Subject } from '../types'
+import type { ChatEntry } from '../types/chat'
 import RubberBandList from '../components/base/VirtualList.vue'
 import { SUBJECT_OPTIONS, SUPPORTED_SUBJECTS, normalizeSubject } from '../constants/subjects'
 import addSessionIcon from '/icons/addsession.png'
@@ -284,6 +284,7 @@ const aiChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 // GlobalChatDialog 组件引用
 const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
+const unifiedChatEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
 
 // 清除所有会话确认对话框
 const clearAllDialogRef = ref<InstanceType<typeof Dialog>>()
@@ -487,17 +488,16 @@ const handleOpenTeacherDialog = async () => {
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
 
-    // 打开GlobalChatDialog（如果还没打开）
-    if (!showUnifiedChatDialog.value) {
-      showUnifiedChatDialog.value = true
-      // 等待组件挂载
-      await nextTick()
-    }
-
-    // 获取教师会话并设置
     const targetSessionId = getTeacherSessionBySubject()
-    if (targetSessionId && globalChatDialogRef.value) {
-      await globalChatDialogRef.value.switchToTeacherSession(targetSessionId)
+    const connected = await teacherChatStore.connectToTeacherSession(targetSessionId)
+    if (connected) {
+      try {
+        await teacherChatStore.loadChatHistory(targetSessionId, 1)
+      } catch (error) {
+        console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)
+      }
+    } else {
+      console.error('[ExerciseSolveView] 建立教师WebSocket连接失败:', targetSessionId)
     }
   } catch (error) {
     console.error('打开老师对话失败:', error)
@@ -525,16 +525,15 @@ const handleSwitchToTeacher = async (forwardData?: {
     // 切换到老师答疑功能
     currentFunction.value = 'teacherChat'
 
-    // 打开GlobalChatDialog（如果还没打开）
-    if (!showUnifiedChatDialog.value) {
-      showUnifiedChatDialog.value = true
-      // 等待组件挂载
-      await nextTick()
-    }
-
-    // 设置教师会话并切换分类
-    if (targetSessionId && globalChatDialogRef.value) {
-      await globalChatDialogRef.value.switchToTeacherSession(targetSessionId)
+    const connected = await teacherChatStore.connectToTeacherSession(targetSessionId)
+    if (connected) {
+      try {
+        await teacherChatStore.loadChatHistory(targetSessionId, 1)
+      } catch (error) {
+        console.error('[ExerciseSolveView] 加载教师聊天历史失败:', error)
+      }
+    } else {
+      console.error('[ExerciseSolveView] 建立教师WebSocket连接失败:', targetSessionId)
     }
   } catch (error) {
     console.error('打开老师对话失败:', error)

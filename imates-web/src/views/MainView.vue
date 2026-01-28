@@ -109,6 +109,7 @@
     <!-- AI统一聊天对话框 -->
     <GlobalChatDialog
       v-model="uiStore.showAIChatDialog"
+      :entry="aiChatDialogEntry"
       @toggle-mode="handleToggleUnifiedChatMode"
     />
 
@@ -117,6 +118,7 @@
       ref="teacherChatDialogRef"
       v-model="showTeacherChatDialog"
       :initial-teacher-subject="teacherChatSubject"
+      :entry="teacherChatDialogEntry"
       @session-created="handleTeacherSessionCreated"
     />
 
@@ -134,6 +136,7 @@
     <MainChatPanel
       v-if="showMainChatPanel"
       ref="mainChatPanelRef"
+      :entry="mainChatPanelEntry"
       @close="showMainChatPanel = false"
       @toggle-mode="handleToggleMainChatMode"
     />
@@ -186,6 +189,7 @@ import { androidBridge } from '@/services/business/android-bridge'
 import { getUserId } from '@/services'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
+import type { ChatEntry } from '../types/chat'
 import {
   getCurrentSchoolAppConfig,
   type NavItemConfig,
@@ -359,6 +363,10 @@ const teacherChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(n
 // 主页右侧聊天面板显示状态
 const showMainChatPanel = ref(false)
 
+const mainChatPanelEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
+const aiChatDialogEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
+const teacherChatDialogEntry = ref<ChatEntry>({ mode: 'default', category: 'teacher' })
+
 const mainChatPanelRef = ref<
   | (InstanceType<typeof MainChatPanel> & {
       attachImageToAiGeneral?: (imageInfo: AskAiImageInfo) => Promise<void> | void
@@ -509,6 +517,7 @@ const handleFloatingFabClick = () => {
   if (route.name === 'pdfViewer') {
     pdfViewerStore.chatPanelVisible = !pdfViewerStore.chatPanelVisible
   } else {
+    mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
     showMainChatPanel.value = !showMainChatPanel.value
   }
 }
@@ -830,6 +839,7 @@ const handleToggleUnifiedChatMode = () => {
   // 关闭 AI 统一聊天对话框
   uiStore.showAIChatDialog = false
   // 打开主页右侧聊天面板
+  mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
   showMainChatPanel.value = true
 }
 
@@ -916,7 +926,7 @@ const closeToolbox = () => {
 const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'teacher') => {
   // 如果是教师会话，设置会话到 Store（使用统一存储格式）
   if (type === 'teacher') {
-    teacherStore.setSession({ sessionId, type })
+    teacherStore.connectToTeacherSession(sessionId)
   }
 }
 
@@ -939,10 +949,17 @@ const getTeacherChatDialogRef = () => {
 // 在右侧 panel 和统一 AI 聊天对话框之间切换
 const handleToggleMainChatMode = () => {
   showMainChatPanel.value = false
+  aiChatDialogEntry.value = { mode: 'default', category: 'ai-general' }
   uiStore.openAIChatDialog()
 }
 
 const openMainChatPanel = () => {
+  mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
+  showMainChatPanel.value = true
+}
+
+const openMainChatPanelWithEntry = (entry: ChatEntry) => {
+  mainChatPanelEntry.value = entry
   showMainChatPanel.value = true
 }
 
@@ -967,22 +984,19 @@ const confirmClearCanvas = () => {
 
 // 打开老师答疑对话框
 const openTeacherQADialog = () => {
+  teacherChatDialogEntry.value = { mode: 'default', category: 'teacher' }
   showTeacherChatDialog.value = true
-
-  // 自动定位到数学老师对话
-  nextTick(() => {
-    if (teacherChatDialogRef.value) {
-      const userId = getUserId() || 'default'
-      const mathSessionId = `teacher_${userId}_math`
-      teacherChatDialogRef.value.switchToTeacherSession(mathSessionId)
-    }
-  })
 }
+
+const handleToolboxEnter = () => {}
+
+const handleToolboxLeave = () => {}
 
 provide('closeToolbox', closeToolbox)
 provide('openTeacherChatDialog', openTeacherChatDialog)
 provide('openTeacherQADialog', openTeacherQADialog)
 provide('openMainChatPanel', openMainChatPanel)
+provide('openMainChatPanelWithEntry', openMainChatPanelWithEntry)
 provide('openFeedbackDialog', openFeedbackDialog)
 provide('getTeacherChatDialogRef', getTeacherChatDialogRef)
 provide('openToolbox', handleOpenToolbox)
