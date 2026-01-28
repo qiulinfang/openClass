@@ -95,18 +95,6 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
 // localStorage 键名
 const STORAGE_KEY = 'app_env_type'
 
-// 研伴原生登录开关 特殊情况下（经开中学公开课配置）
-let yanbanNativeEnabledOverride: boolean | null = false
-
-export function getYanbanNativeEnabled(): boolean {
-  if (yanbanNativeEnabledOverride !== null) return yanbanNativeEnabledOverride
-  return getCurrentEnvType() === AppEnvType.INTERNAL_TEST
-}
-
-export function setYanbanNativeEnabled(enabled: boolean): void {
-  yanbanNativeEnabledOverride = enabled
-}
-
 // 测试环境切换密码（与 Android 保持一致）
 const TEST_ENV_PASSWORD = '985211'
 
