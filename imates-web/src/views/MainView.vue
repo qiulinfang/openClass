@@ -152,6 +152,7 @@
       <DrawingBoardNew
         ref="drawingBoardRef"
         :showGrid="true"
+        :enableAskAi="true"
         @clear="handleClearRequest"
         @ask-ai-image-selected="handleAskAiImageSelected"
       />

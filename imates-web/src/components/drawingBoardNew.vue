@@ -63,7 +63,14 @@
         class="ask-ai-freeform-overlay"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <path :d="askAiFreeformPathD" />
+        <path
+          :d="askAiFreeformPathD"
+          fill="rgba(110, 85, 255, 0.12)"
+          stroke="#6e55ff"
+          stroke-width="2"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        />
       </svg>
 
       <textarea
@@ -212,6 +219,7 @@ const props = defineProps({
   fitBackground: { type: Boolean, default: false },
   showGrid: { type: Boolean, default: false },
   initialZoom: { type: Number, default: 1 },
+  enableAskAi: { type: Boolean, default: false },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -276,20 +284,22 @@ interface Point {
   y: number
 }
 
-const toolbarTools = {
-  middle: [
-    'undo',
-    'redo',
-    'clear',
-    'hand',
-    'select',
-    'askAi',
-    'draw',
-    'highlighter',
-    'eraser-stroke',
-    'shape',
-  ],
-}
+const toolbarTools = computed(() => {
+  return {
+    middle: [
+      'undo',
+      'redo',
+      'clear',
+      'hand',
+      'select',
+      ...(props.enableAskAi ? ['askAi'] : []),
+      'draw',
+      'highlighter',
+      'eraser-stroke',
+      'shape',
+    ],
+  }
+})
 
 const toolbarSelectedTool = computed(() => currentMode.value)
 
@@ -1771,9 +1781,10 @@ function takeAskAiScreenshotFreeform(path: Point[]) {
   }
 
   const dpr = window.devicePixelRatio || 1
+  const zoom = camera.zoom
   const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = Math.round(w * dpr)
-  tempCanvas.height = Math.round(h * dpr)
+  tempCanvas.width = Math.round(w * zoom * dpr)
+  tempCanvas.height = Math.round(h * zoom * dpr)
   const ctx = tempCanvas.getContext('2d')
   if (!ctx) {
     resetAskAiSelection()
@@ -1786,18 +1797,18 @@ function takeAskAiScreenshotFreeform(path: Point[]) {
   ctx.save()
   ctx.beginPath()
   path.forEach((p, idx) => {
-    const lx = (p.x - minX) * dpr
-    const ly = (p.y - minY) * dpr
+    const lx = (p.x - minX) * zoom * dpr
+    const ly = (p.y - minY) * zoom * dpr
     if (idx === 0) ctx.moveTo(lx, ly)
     else ctx.lineTo(lx, ly)
   })
   ctx.closePath()
   ctx.clip()
 
-  const sx = minX * dpr
-  const sy = minY * dpr
-  const sw = w * dpr
-  const sh = h * dpr
+  const sx = (minX * zoom + camera.x) * dpr
+  const sy = (minY * zoom + camera.y) * dpr
+  const sw = w * zoom * dpr
+  const sh = h * zoom * dpr
   ctx.drawImage(historyCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
   ctx.drawImage(liveCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
   ctx.restore()
@@ -1818,9 +1829,10 @@ function takeAskAiScreenshot(rect: { x: number; y: number; w: number; h: number 
   }
 
   const dpr = window.devicePixelRatio || 1
+  const zoom = camera.zoom
   const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = Math.round(rect.w * dpr)
-  tempCanvas.height = Math.round(rect.h * dpr)
+  tempCanvas.width = Math.round(rect.w * zoom * dpr)
+  tempCanvas.height = Math.round(rect.h * zoom * dpr)
   const ctx = tempCanvas.getContext('2d')
 
   if (!ctx) {
@@ -1828,10 +1840,10 @@ function takeAskAiScreenshot(rect: { x: number; y: number; w: number; h: number 
     return
   }
 
-  const sx = rect.x * dpr
-  const sy = rect.y * dpr
-  const sw = rect.w * dpr
-  const sh = rect.h * dpr
+  const sx = (rect.x * zoom + camera.x) * dpr
+  const sy = (rect.y * zoom + camera.y) * dpr
+  const sw = rect.w * zoom * dpr
+  const sh = rect.h * zoom * dpr
 
   // 绘制背景为白色
   ctx.fillStyle = '#ffffff'
@@ -2415,13 +2427,13 @@ defineExpose({
    height: 100%;
    pointer-events: none;
    z-index: 100;
+ }
 
-  path {
-    fill: rgba(110, 85, 255, 0.12);
-    stroke: #6e55ff;
-    stroke-width: 2;
-    stroke-linejoin: round;
-    stroke-linecap: round;
-  }
-}
+ .ask-ai-freeform-overlay path {
+   fill: rgba(110, 85, 255, 0.12);
+   stroke: #6e55ff;
+   stroke-width: 2;
+   stroke-linejoin: round;
+   stroke-linecap: round;
+ }
 </style>
