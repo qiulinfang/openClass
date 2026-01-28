@@ -20,6 +20,11 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
+      <img :src="textbookipIcon" alt="textbookip" class="explore-floating-icon textbookip" />
+      <!-- 探索遮罩（参考 PdfChatPanel：在 explore 模式时显示，阻止背后交互） -->
+      <div v-if="showExploreOverlay" class="explore-overlay" @click.stop="handleExploreOverlayClick">
+        <img :src="ipWordIcon" alt="ipWord" class="explore-icon ipWord" />
+      </div>
       <!-- 分屏组件包裹左侧题目列表和右侧功能区域 -->
       <q-splitter v-model="splitterModel" :limits="[20, 50]" class="splitter-container">
         <!-- 左侧题目列表 -->
@@ -73,61 +78,57 @@
                 >
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮（样式与问老师按钮一致） -->
                   <template #header-prefix v-if="isFromHomework">
-                    <button
-                      type="button"
-                      class="toolbar-btn"
+                    <Button
+                      label="返回作业"
+                      :icon="backToHomeworkIcon"
+                      size="sm"
+                      variant="ghost"
                       @click="goBack"
-                    >
-                      <img
-                        :src="backToHomeworkIcon"
-                        alt="返回作业"
-                        class="toolbar-icon"
-                      />
-                    </button>
+                    />
                   </template>
                   <!-- 会话面板关闭：仅在 header-suffix 中显示右上角会话管理按钮 -->
                   <template v-if="!aiChatViewRef?.showSessionListPanel" #header-suffix>
-                    <button
-                      type="button"
-                      class="session-toggle-btn"
+                    <Button
+                      label="会话管理"
+                      :icon="sessionManagerIcon"
+                      size="sm"
+                      variant="outline"
                       @click="toggleSessionListPanel"
-                    >
-                      <img :src="sessionManagerIcon" alt="会话管理" class="session-toggle-icon" />
-                    </button>
+                    />
                   </template>
 
                   <!-- 会话面板打开：使用 header-all 替换 ChatInput 头部整块为会话操作条 -->
                   <template v-else #header-all>
                     <div class="session-bottom-bar">
                       <!-- 返回按钮 -->
-                      <button class="session-manager-btn" @click="handleCloseSessionPanel">
-                        <img :src="goBackBlackIcon" alt="返回" class="session-manager-icon" />
-                        <span class="session-back-text">返回</span>
-                      </button>
+                      <Button
+                        label="返回"
+                        :icon="goBackBlackIcon"
+                        size="sm"
+                        variant="ghost"
+                        @click="handleCloseSessionPanel"
+                      />
                       <!-- 新建按钮 -->
-                      <button class="session-manager-btn primary" @click="handleAddSessionCard">
-                        <img :src="newSessionIcon" alt="新建" class="session-manager-icon" />
-                        <span class="session-back-text">新建</span>
-                      </button>
+                      <Button
+                        label="新建"
+                        :icon="newSessionIcon"
+                        size="sm"
+                        variant="primary"
+                        @click="handleAddSessionCard"
+                      />
                       <!-- 分享按钮 -->
                       <!-- <button class="session-manager-btn" @click="handleShareSession">
                         <img :src="shareIcon" alt="分享" class="session-manager-icon" />
                       </button> -->
                       <!-- 清除会话按钮：删除所有会话（先弹出确认对话框） -->
-                      <button
-                        class="session-manager-btn"
+                      <Button
+                        label="清除会话"
+                        :icon="deleteSessionIcon"
+                        size="sm"
+                        variant="danger"
                         :disabled="!hasAiSessions"
                         @click="handleClearAllSessionsClick"
-                      >
-                        <img :src="deleteSessionIcon" alt="清除会话" class="session-manager-icon" />
-                        <span class="session-back-text">清除会话</span>
-                      </button>
-                    </div>
-                  </template>
-                  <!-- 新增会话按钮：仅在 AI 引导答题且已选中题目时显示 -->
-                  <template #header-right v-if="currentFunction === 'chatAi' && currentQuestion">
-                    <div @click="handleAddSessionCard" class="add-session-btn">
-                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                      />
                     </div>
                   </template>
                 </ChatView>
@@ -142,17 +143,13 @@
                 >
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮 -->
                   <template #header-prefix v-if="isFromHomework">
-                    <button
-                      type="button"
-                      class="toolbar-btn"
+                    <Button
+                      label="返回作业"
+                      :icon="backToHomeworkIcon"
+                      size="sm"
+                      variant="ghost"
                       @click="goBack"
-                    >
-                      <img
-                        :src="backToHomeworkIcon"
-                        alt="返回作业"
-                        class="toolbar-icon"
-                      />
-                    </button>
+                    />
                   </template>
                 </ChatView>
                 <!-- 答案显示 -->
@@ -218,6 +215,7 @@ import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import Dialog from '../components/base/Dialog.vue'
 import Toolbar from '../components/base/Toolbar.vue'
 import CommonSelect from '../components/base/Select.vue'
+import Button from '../components/base/Button.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble, SceneType } from '../types'
 import { Subject } from '../types'
@@ -230,6 +228,8 @@ import deleteSessionIcon from '/icons/delete.svg'
 import backToHomeworkIcon from '/icons/backtohomework.svg'
 import goBackIcon from '/icons/goback.svg'
 import goBackBlackIcon from '/icons/goback_black.svg'
+import textbookipIcon from '/icons/textbookip.png'
+import ipWordIcon from '/icons/ipWord2.svg'
 
 // 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -260,6 +260,12 @@ const showGobakBtn = computed(() => {
   const scene = route.query.scene as SceneType | undefined
   return scene === 'homework' || scene === 'favorites'
 })
+
+const showExploreOverlay = ref(false)
+
+const handleExploreOverlayClick = () => {
+  showExploreOverlay.value = false
+}
 
 // 统一的 currentQuestion：根据场景选择来源
 // - 作业场景：使用 homeworkStore.currentQuestion
@@ -848,6 +854,16 @@ onMounted(async () => {
   console.log('[ExerciseSolveView] onMounted')
 
   try {
+    const key = 'exerciseSolve.exploreOverlayShown'
+    if (localStorage.getItem(key) !== 'true') {
+      showExploreOverlay.value = true
+      localStorage.setItem(key, 'true')
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  try {
     // 步骤1：初始化路由参数
     initializeRouteParams()
 
@@ -968,6 +984,50 @@ $desktop-breakpoint: 1025px;
   background-color: #f8f9fa; /* Gemini 风格的整体背景 */
   min-height: 0;
   width: 100%;
+  border-radius: 16px 16px 0 0; /* 左上角和右上角圆角 */
+  position: relative;
+}
+
+/* 探索遮罩层：参考 PdfChatPanel 的 explore-overlay，覆盖 main-content，禁止背后交互 */
+.explore-overlay {
+  position: absolute;
+  inset: 0;
+  background: #f9f9ff;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  border-radius: 16px 16px 0 0;
+}
+
+.explore-floating-icon {
+  position: absolute;
+  width: 194px;
+  height: auto;
+  z-index: 31;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-floating-icon.textbookip {
+  right: -6%;
+  bottom: 20%;
+}
+
+.explore-icon {
+  position: absolute;
+  width: 194px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-icon.ipWord {
+  right: 5%;
+  bottom: 31%;
+  width: 225px;
+  height: auto;
 }
 
 // 分屏容器样式
@@ -1208,11 +1268,6 @@ $desktop-breakpoint: 1025px;
   object-fit: contain;
 }
 
-.add-session-icon {
-  width: 32px;
-  height: 32px;
-}
-
 // 底部会话操作按钮文字（返回 / 新建 / 清除会话）
 .session-back-text {
   font-size: 14px;
@@ -1308,6 +1363,7 @@ $desktop-breakpoint: 1025px;
     flex-direction: column !important;
     flex: 1;
     min-height: 0;
+    border-radius: 16px 16px 0 0; /* 左上角和右上角圆角 */
   }
 
   .splitter-container {

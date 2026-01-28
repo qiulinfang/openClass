@@ -83,6 +83,30 @@
 
                 <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
                 <div class="question-actions" v-if="isQuestionSelected(question.bmNo)">
+                  <q-btn
+                    v-if="strategy.canSendToAi() && props.showSendToAi !== false"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    class="action-btn"
+                    @click.stop="throttledSendToAi(question)"
+                  >
+                    <img :src="askXuebanIcon" alt="问问学伴" class="action-icon" />
+                  </q-btn>
+
+                  <q-btn
+                    v-if="strategy.canOpenMiniClass()"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    class="action-btn"
+                    @click.stop="throttledOpenMiniClass(question)"
+                  >
+                    <img :src="weikeIcon" alt="微课" class="action-icon" />
+                  </q-btn>
+
                   <!-- 更多按钮 + 自定义气泡框 BubblePopup -->
                   <BubblePopup
                     v-model="showMoreMenu[question.bmNo]"
@@ -211,6 +235,9 @@ import zhidingIcon from '/icons/zhiding.svg'
 import quxiaozhidingIcon from '/icons/quxiaozhiding.svg'
 import shoucangIcon from '/icons/shoucang1.svg'
 import xingxingLightIcon from '/icons/xingxing-light.svg'
+
+const askXuebanIcon = '/icons/askXueban.svg'
+const weikeIcon = '/icons/weike.svg'
 
 const props = withDefaults(defineProps<{
   searchQuery?: string
@@ -614,20 +641,6 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
   }
 
   return [
-    {
-      key: 'send-ai',
-      label: '问问学伴',
-      icon: 'icons/Deskmate.svg',
-      visible: currentStrategy.canSendToAi() && props.showSendToAi !== false,
-      onClick: wrap(() => throttledSendToAi(question)),
-    },
-    {
-      key: 'mini-class',
-      label: '微课',
-      icon: 'icons/my_exercises1.svg',
-      visible: currentStrategy.canOpenMiniClass(),
-      onClick: wrap(() => throttledOpenMiniClass(question)),
-    },
     {
       key: 'pin',
       label: index === 0 ? '取消置顶' : '置顶',
@@ -1756,6 +1769,12 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       gap: 6px;
       flex-shrink: 0;
       height: 32px; // 固定高度，无论是否显示按钮
+
+      .action-icon {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
 
       .action-btn {
         @include button-base;
