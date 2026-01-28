@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import * as https from 'node:https'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -382,6 +383,19 @@ export default defineConfig(({ mode }) => {
           })
         }
       },
+      // 🔥 新增：图片上传接口单独代理（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
+      '/api/images/upload': {
+        target: 'https://www.imates.com.cn:8200', // Nginx 8200 端口
+        changeOrigin: true,
+        secure: false, // 允许代理到 HTTPS，即使证书不合法
+        agent: new https.Agent({ rejectUnauthorized: false }), // 强制使用 HTTPS 发起请求
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/api/images/upload')
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理图片上传请求到服务器:', req.url)
+          })
+        }
+      },
       // 🔥 新增：通用API，转发到研伴后端服务器（兜底配置）
       '/api': {
         target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
@@ -425,11 +439,13 @@ export default defineConfig(({ mode }) => {
           })
         }
       },
+      
       // 🔥 新增：匹配以 "/im/" 开头的请求，转发到IM即时通讯服务（解决CORS问题，避免影响其他路径）
       '/im/': {
         target: 'https://www.imates.com.cn', // IM服务地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: true, // 使用HTTPS协议
+        agent: new https.Agent({ rejectUnauthorized: false }), // 强制使用 HTTPS 发起请求
         // 移除CORS头配置，因为服务器已经在发送（尽管有重复的*值）
         configure: (proxy) => {
           attachBasicProxyLog(proxy, '/im/')

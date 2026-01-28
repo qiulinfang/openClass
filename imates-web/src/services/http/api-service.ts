@@ -358,7 +358,7 @@ export class ApiService {
     const formData = new FormData()
     formData.append('file', blob, `forward_image_${Date.now()}.jpg`)
 
-    const response = await fetch('/im/api/images/upload', {
+    const response = await fetch('/api/images/upload', {
       method: 'POST',
       body: formData
     })

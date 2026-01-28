@@ -273,11 +273,11 @@ export function getRouteBaseMap(): Record<string, string> {
     '/ai': apiBaseUrl,
     '/history_manage': historyManageBaseUrl,
     '/biologyTopicKnowledge': apiBaseUrl,
-    // IM服务（图片上传等）
-    '/im/api/images/upload': 'https://www.imates.com.cn',
     // 教师相关API（使用新的8201端口）- HTTP API使用teacherApiBaseUrl
     '/api/question': teacherApiBaseUrl,  // 教师聊天API
     '/api/system': teacherApiBaseUrl,    // 研伴系统API（文件上传等）
+    // 图片上传接口（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
+    '/api/images/upload': 'https://www.imates.com.cn:8200',
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
     '/homework': yanbanBaseUrl,
