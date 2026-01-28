@@ -61,7 +61,7 @@
                 <!-- AI聊天界面 -->
                 <ChatView
                   ref="aiChatViewRef"
-                  v-show="currentFunction === 'chatAi'"
+                  v-if="currentFunction === 'chatAi'"
                   type="ai-exercise"
                   :compressed-height="327"
                   :question="currentQuestion"
@@ -134,7 +134,7 @@
                 <!-- 老师聊天界面 -->
                 <ChatView
                   ref="teacherChatViewRef"
-                  v-show="currentFunction === 'teacherChat'"
+                  v-if="currentFunction === 'teacherChat'"
                   type="teacher"
                   :compressed-height="327"
                   @switch-to-teacher="handleSwitchToTeacher"
