@@ -1,40 +1,15 @@
 import { httpClient } from '../http/http-client'
 import type { FindSimilarQuestionByBmNoRequest } from '@/types'
 import { validateKnowledgeTopicAndAck2Request } from '@/stores/utils/requestValidator'
+import { normalizeSubject, SUBJECT_TO_EXERCISE_LIST_ENDPOINT, type ApiSubjectType } from '@/constants/subjects'
 
 export class QuestionSearchApi {
   public async getExerciseList(subject: string): Promise<any[]> {
-    const subjectLower = subject.toLowerCase()
-    let url: string
-
-    // 科目映射到对应的API端点
-    switch (subjectLower) {
-      case 'biology':
-      case '生物':
-        url = '/permission/selectExercises/biology'
-        break
-      case 'math':
-      case '数学':
-        url = '/permission/selectExercises/math'
-        break
-      case 'chemistry':
-      case '化学':
-        url = '/permission/selectExercises/chemistry'
-        break
-      case 'physics':
-      case '物理':
-        url = '/permission/selectExercises/physics'
-        break
-      case 'chinese':
-      case '语文':
-        url = '/permission/selectExercises/chinese'
-        break
-      case 'english':
-      case '英语':
-        url = '/permission/selectExercises/english'
-        break
-      default:
-        throw new Error(`不支持的科目类型: ${subject}`)
+    const normalized = normalizeSubject(subject)
+    const apiSubject = normalized as ApiSubjectType
+    const url = SUBJECT_TO_EXERCISE_LIST_ENDPOINT[apiSubject]
+    if (!url) {
+      throw new Error(`不支持的科目类型: ${subject}`)
     }
 
     const response = await httpClient.get<{
@@ -51,7 +26,7 @@ export class QuestionSearchApi {
   }
 
   public async deleteExercise(exerciseId: string, subject: string): Promise<boolean> {
-    const subjectLower = subject.toLowerCase()
+    const subjectLower = normalizeSubject(subject).toLowerCase()
     const url = `/permission/deleteExercises/${exerciseId}/${subjectLower}`
     const response = await httpClient.delete(url)
     return response.success
@@ -62,7 +37,7 @@ export class QuestionSearchApi {
 
     const requestBody = {
       bmNo: questionData.bmNo || questionData.id,
-      type: subject.toLowerCase(),
+      type: normalizeSubject(subject).toLowerCase(),
       exercisesId: questionData.exercisesId || '',
       title: questionData.title || questionData.question || '',
       answer: questionData.answer || '',
@@ -75,7 +50,7 @@ export class QuestionSearchApi {
   }
 
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
-    const endpoint = subject.toLowerCase() === 'biology' ? '/permission/img' : '/permission/imgMath'
+    const endpoint = normalizeSubject(subject).toLowerCase() === 'biology' ? '/permission/img' : '/permission/imgMath'
 
     const formData = new FormData()
     formData.append('imgFile', imageFile, 'default.jpg')
@@ -116,7 +91,7 @@ export class QuestionSearchApi {
   }
 
   public async searchQuestionByText(keyText: string, subject: string): Promise<any | null> {
-    const endpoint = subject.toLowerCase() === 'biology' ? '/permission/textSearch' : '/permission/textSearchMath'
+    const endpoint = normalizeSubject(subject).toLowerCase() === 'biology' ? '/permission/textSearch' : '/permission/textSearchMath'
     const url = `${endpoint}/${encodeURIComponent(keyText)}`
 
     const response = await httpClient.get<{

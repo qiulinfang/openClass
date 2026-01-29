@@ -198,7 +198,7 @@ import Dialog from './base/Dialog.vue'
 import BubblePopup from './base/Popover.vue'
 import ActionList from './ActionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
-import { SUBJECT_FILTER_MAP } from '../constants/subjects'
+import { normalizeSubject } from '../constants/subjects'
 
 // 策略模式支持
 import type { QuestionListType } from './question/strategies'
@@ -283,12 +283,11 @@ const router = useRouter()
 const currentSubjectForPhotoSearch = computed(() => {
   const current = currentQuestion.value
   if (current?.subject) {
-    // 题目的subject是小写格式，直接使用
-    return current.subject
+    return normalizeSubject(current.subject)
   }
   // 如果没有当前题目，将selectedSubjectFilter转换为小写格式
   if (selectedSubjectFilter.value) {
-    return selectedSubjectFilter.value.toLowerCase()
+    return normalizeSubject(selectedSubjectFilter.value)
   }
   return 'math'
 })
@@ -377,30 +376,8 @@ const filteredQuestions = computed(() => {
 
   // 先应用学科过滤
   if (selectedSubjectFilter.value) {
-    // selectedSubjectFilter 现在是大写枚举格式
-    const filterSubject = selectedSubjectFilter.value
-
-    // 获取过滤学科的所有可能值
-    const filterValues = SUBJECT_FILTER_MAP[filterSubject as keyof typeof SUBJECT_FILTER_MAP] || [filterSubject]
-
-    result = result.filter((question) => {
-      if (!question.subject) return false
-
-      // 获取题目学科的各种可能格式
-      const questionSubject = question.subject.trim()
-      const questionSubjectUpper = questionSubject.toUpperCase()
-
-      // 检查是否匹配过滤学科的任何一种格式
-      return filterValues.some((value) => {
-        const valueUpper = value.toUpperCase()
-        return (
-          questionSubjectUpper === valueUpper ||
-          questionSubject === value ||
-          questionSubjectUpper.includes(valueUpper) ||
-          valueUpper.includes(questionSubjectUpper)
-        )
-      })
-    })
+    const filterSubject = normalizeSubject(selectedSubjectFilter.value)
+    result = result.filter((question) => normalizeSubject((question as any).subject) === filterSubject)
   }
 
   // 再应用搜索过滤
@@ -656,11 +633,8 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
 
 // 根据题目的 subject 字段推断用于 AI 接口的学科（'MATH' 或 'BIOLOGY'）
 const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' => {
-  const rawSubject = (question.subject || '').toString().toUpperCase()
-  if (rawSubject.includes('BIOLOGY') || rawSubject.includes('生物')) {
-    return 'BIOLOGY'
-  }
-  return 'MATH'
+  const s = normalizeSubject((question as any).subject)
+  return s === 'biology' ? 'BIOLOGY' : 'MATH'
 }
 
 
@@ -931,7 +905,9 @@ const handlePullDownRefresh = async () => {
       await currentStrategy.fetchAllSubjectsQuestions(false)
     } else {
       // 单一学科：强制从服务器拉取
-      const subjectToRefresh = selectedSubject.value || 'math'
+      const subjectToRefresh = normalizeSubject(
+        (selectedSubjectFilter.value || selectedSubject.value || 'math').toString()
+      )
       await currentStrategy.fetchQuestions({ subject: subjectToRefresh, useLocalFirst: false })
     }
 

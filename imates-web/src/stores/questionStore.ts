@@ -13,6 +13,7 @@ import {
   deleteQuestionsFromIndexedDB,
 } from '../services/storage/question-storage'
 import { showMessage } from '@/utils'
+import { normalizeSubject } from '@/constants/subjects'
 
 export const useQuestionStore = defineStore('question', () => {
   // ==================== 状态定义 ====================
@@ -57,7 +58,11 @@ export const useQuestionStore = defineStore('question', () => {
       const loadedQuestions = await loadQuestionsFromIndexedDB(subject)
       
       if (loadedQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
-        questions.value = deduplicateQuestions(loadedQuestions)
+        const normalized = loadedQuestions.map((q) => ({
+          ...q,
+          subject: normalizeSubject((q as any).subject),
+        }))
+        questions.value = deduplicateQuestions(normalized)
         return true
       }
       
@@ -80,7 +85,11 @@ export const useQuestionStore = defineStore('question', () => {
       const loadedQuestions = await loadQuestionsFromIndexedDB(subject)
       
       if (loadedQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
-        const deduplicated = deduplicateQuestions(loadedQuestions)
+        const normalized = loadedQuestions.map((q) => ({
+          ...q,
+          subject: normalizeSubject((q as any).subject),
+        }))
+        const deduplicated = deduplicateQuestions(normalized)
         return deduplicated
       }
       
@@ -122,7 +131,7 @@ export const useQuestionStore = defineStore('question', () => {
               answer: (question.answer as string) || '',
               explanation: (question.explanation as string) || '',
               analysisData: (question.analysisData as string) || '',
-              subject: (question.subject as string) || subject.toLowerCase(),
+              subject: normalizeSubject((question.subject as string) || subject),
             }
           })
 
@@ -203,7 +212,7 @@ export const useQuestionStore = defineStore('question', () => {
           answer: (question.answer as string) || '',
           explanation: (question.explanation as string) || '',
           analysisData: (question.analysisData as string) || '',
-          subject: (question.subject as string) || subject.toLowerCase(),
+          subject: normalizeSubject((question.subject as string) || subject),
         }
       })
       
@@ -386,7 +395,11 @@ export const useQuestionStore = defineStore('question', () => {
    * @param subject 科目类型（可选，用于保存到 IndexedDB）
    */
   const setQuestions = async (newQuestions: ExerciseItem[], subject?: string): Promise<void> => {
-    questions.value = deduplicateQuestions(newQuestions)
+    const normalized = (newQuestions || []).map((q) => ({
+      ...q,
+      subject: normalizeSubject((q as any).subject),
+    }))
+    questions.value = deduplicateQuestions(normalized)
     // 如果提供了科目，保存到 IndexedDB
     if (subject) {
       try {

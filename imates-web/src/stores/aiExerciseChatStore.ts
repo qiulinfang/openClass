@@ -25,6 +25,7 @@ import { getUserId } from '../services'
 import { validateExerciseChatRequest } from './utils/requestValidator'
 import { getCurrentEnvConfig } from '@/config/env-config'
 import { showMessage } from '../utils'
+import { normalizeSubject } from '@/constants/subjects'
 
 /**
  * 构建AI题目聊天消息请求
@@ -77,8 +78,8 @@ const buildAiExerciseMessage = (
   }
   
   // 根据题目学科确定API路径，而不是全局用户学科设置
-  const questionSubject = currentQuestion.subject?.toLowerCase()
-  const apiUrl = questionSubject === 'math'
+  const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
+  const apiUrl = effectiveApiSubject === 'math'
     ? getCurrentEnvConfig().apiPaths.chatMath
     : getCurrentEnvConfig().apiPaths.chat
 
