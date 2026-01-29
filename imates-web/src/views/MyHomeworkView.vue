@@ -80,6 +80,7 @@ import ImageViewer from '@/components/ImageViewer.vue'
 import RubberBandList from '@/components/base/VirtualList.vue'
 import homeworkDeepIcon from '/icons/homework_deep.svg'
 import { HOMEWORK_SUBJECT_OPTIONS } from '@/constants/subjects'
+import { normalizeSubject } from '@/constants/subjects'
 
 defineOptions({
   name: 'MyHomeworkView',
@@ -127,7 +128,21 @@ const fetchTopicPackages = async (reset = false) => {
     )
     
     if (result?.records) {
-      const records = result.records
+      const records = result.records.map((record) => {
+        const rawSubject = ((record as any).subject ?? '').toString().trim()
+        const normalizedSubject = normalizeSubject(rawSubject)
+        const topicList = Array.isArray((record as any).topicList) ? (record as any).topicList : []
+        const nextTopicList = topicList.map((topic: any) => ({
+          ...topic,
+          subject: normalizeSubject(((topic as any).subject ?? normalizedSubject).toString().trim()),
+        }))
+
+        return {
+          ...(record as any),
+          subject: normalizedSubject,
+          topicList: nextTopicList,
+        }
+      })
       if (reset) {
         topicList.value = records
       } else {
@@ -177,6 +192,7 @@ const homeworkList = computed(() => {
       id: pkg.id || String(index + 1),
       bmNo: pkg.bmNo || String(index + 1),
       name: pkg.name || `作业${index + 1}`,
+      subject: (pkg as any).subject,
       // 后端 tags 为字符串，这里拆分为数组，供界面展示使用
       tags: pkg.tags ? pkg.tags.split(/\s+/).filter(Boolean) : [],
       // 日期：优先使用后端返回的更新时间字段 updateTime，若不存在则退回到当天日期占位
@@ -220,28 +236,23 @@ const goAnswer = (item: any) => {
   // 将题目列表存入 homeworkStore
   const exerciseItems: ExerciseItem[] = payload.map((topic: any, index: number) => {
     const bmNo = topic.bmNo || item.bmNo || String(index + 1)
-    const rawQuestion = topic.questionData || item.questionData || ''
+    const rawQuestion = topic.questionData || ''
     const question = rawQuestion.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
-    // 优先使用 topic 自身的解析和答案，其次才退回到套餐级字段
-    const answer = topic.answer || item.answer || ''
-    const explanation =
-      topic.explanation || topic.analysisData || item.explanation || ''
-    const rawQuestionData = topic.questionData || item.questionData || ''
+    const rawQuestionData = topic.questionData || ''
     const questionData = rawQuestionData.replace(/^[a-zA-Z0-9_]+(?:_of_[a-zA-Z0-9_]+)*:\s*/gm, '').replace(/^null\s*$/gm, '')
+    const answer = topic.answer || ''
+    const explanation = topic.explanation || topic.analysisData || ''
+    const subject = normalizeSubject((topic.subject ?? item.subject ?? '').toString().trim())
 
-    // 先展开 item，把作业级字段全部带过去，再覆盖题目级别字段
-    const merged = {
-      ...item,
+    return {
       id: topic.id,
       bmNo,
       question,
+      questionData,
       answer,
       explanation,
-      questionData,
-    }
-
-    // 通过 unknown 再断言为 ExerciseItem，避免 TS 结构不完全重合的告警
-    return merged as unknown as ExerciseItem
+      subject,
+    } as unknown as ExerciseItem
   })
   homeworkStore.setQuestions(exerciseItems)
   // 记录当前这份作业的名称，供 HomeworkAnswerView 使用

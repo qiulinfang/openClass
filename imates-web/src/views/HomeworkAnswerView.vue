@@ -89,7 +89,7 @@ import { computed, ref, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import QuestionList from '@/components/QuestionList.vue'
-import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
+import DrawingBoardNew from '@/components/drawingBoardNew.vue'
 import CommonActionButton from '@/components/base/Button.vue'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
@@ -101,6 +101,7 @@ import { showMessage } from '@/utils'
 import * as htmlToImage from 'html-to-image'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
+import { normalizeSubject } from '@/constants/subjects'
 import Dialog from '@/components/base/Dialog.vue'
 import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
@@ -490,16 +491,8 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       return
     }
 
-    // 规范化学科前缀
-    const subjectRaw =
-      (question.subject || getSubject() || 'SUBJECT_MATH').toString().toUpperCase()
-    let subjectPrefix = 'math'
-    if (subjectRaw.includes('BIOLOGY')) subjectPrefix = 'biology'
-    else if (subjectRaw.includes('MATH')) subjectPrefix = 'math'
-    else if (subjectRaw.includes('CHEMISTRY')) subjectPrefix = 'chemistry'
-    else if (subjectRaw.includes('PHYSICS')) subjectPrefix = 'physics'
-    else if (subjectRaw.includes('CHINESE')) subjectPrefix = 'chinese'
-    else if (subjectRaw.includes('ENGLISH')) subjectPrefix = 'english'
+    // 规范化学科前缀（支持数字ID/英文/中文/SUBJECT_*）
+    const subjectPrefix = normalizeSubject((question.subject || getSubject() || 'SUBJECT_MATH').toString())
 
     const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
 

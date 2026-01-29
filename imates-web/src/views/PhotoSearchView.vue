@@ -1925,7 +1925,12 @@ const handleStayInPhotoSearch = () => {
 // 点击“前往我的习题”
 const handleGoToMyExercises = () => {
   showAddToPracticeDialog.value = false
-  router.push({ name: 'exerciseSolve' })
+  router.push({
+    name: 'exerciseSolve',
+    query: {
+      subject: (selectedSubject.value || 'math').toString(),
+    },
+  })
 }
 
 // 组件挂载时初始化

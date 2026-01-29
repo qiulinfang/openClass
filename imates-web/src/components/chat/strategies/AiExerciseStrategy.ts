@@ -13,6 +13,7 @@ import { getUserInfo, getUserId, getSubject } from '../../../services'
 import { apiService } from '../../../services/http/api-service'
 import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
+import { normalizeSubject } from '@/constants/subjects'
 
 export class AiExerciseStrategy implements ChatStrategy {
   private aiExerciseStore = useAiExerciseChatStore()
@@ -43,12 +44,19 @@ export class AiExerciseStrategy implements ChatStrategy {
     const hidePrefix = content.includes('我们开始吧')
 
     try {
+      const q = currentQuestion as any
+      const s = normalizeSubject((q?.subject ?? '').toString().trim())
+      const requestSubject = s === 'math' ? 'MATH' : s === 'biology' ? 'BIOLOGY' : null
+      if (!requestSubject) {
+        throw new Error('无法确定题目学科')
+      }
+
       // 调用Store的sendMessage方法，传递所有必需参数
       await this.aiExerciseStore.sendMessage(
         content,
         currentQuestion as any,
         getUserInfo(),
-        getSubject(),
+        requestSubject,
         options.selectedModel || 'mate',
         options.imageData,
         hidePrefix,
@@ -575,7 +583,12 @@ export class AiExerciseStrategy implements ChatStrategy {
           console.log(`[转发] 单图消息: ${forwardContent}`)
 
           // 先上传图片获得URL
-          const imageUrl = await apiService.uploadImageAndGetUrl(message.imageData.base64DataUrl)
+          const base64DataUrl = message.imageData.base64DataUrl
+          if (!base64DataUrl) {
+            throw new Error('图片数据不完整，无法转发')
+          }
+
+          const imageUrl = await apiService.uploadImageAndGetUrl(base64DataUrl)
 
           const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
           const forwardMessage: ChatBubble = {

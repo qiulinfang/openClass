@@ -26,7 +26,7 @@ export type ApiSubjectType =
 
 // 学科选项（用于下拉框）
 export const SUBJECT_OPTIONS = [
-  { label: '全部学科', value: '' },
+  { label: '全部', value: '' },
   { label: '数学', value: 'math' },
   { label: '生物', value: 'biology' },
   { label: '化学', value: 'chemistry' },
@@ -61,6 +61,9 @@ export const SUBJECT_FILTER_MAP: Record<SubjectType, string[]> = {
 export const normalizeSubject = (raw?: string): AllSubjectType => {
   const str = (raw || '').toString().trim()
   if (!str) return 'math'
+
+  const idMapped = SUBJECT_ID_TO_API_SUBJECT[str]
+  if (idMapped) return idMapped as AllSubjectType
 
   const upper = str.toUpperCase()
 
@@ -141,4 +144,28 @@ export const SUBJECT_ID_TO_NAME: Record<string, string> = {
   '7': '历史',
   '8': '地理',
   '9': '政治'
+}
+
+export const SUBJECT_ID_TO_API_SUBJECT: Record<string, ApiSubjectType> = {
+  '1': 'chinese',
+  '2': 'math',
+  '3': 'english',
+  '4': 'physics',
+  '5': 'chemistry',
+  '6': 'biology',
+  '7': 'history',
+  '8': 'geography',
+  '9': 'politics',
+}
+
+export const SUBJECT_TO_EXERCISE_LIST_ENDPOINT: Record<ApiSubjectType, string> = {
+  math: '/permission/selectExercises/math',
+  biology: '/permission/selectExercises/biology',
+  chemistry: '/permission/selectExercises/chemistry',
+  physics: '/permission/selectExercises/physics',
+  chinese: '/permission/selectExercises/chinese',
+  english: '/permission/selectExercises/english',
+  geography: '/permission/selectExercises/geography',
+  history: '/permission/selectExercises/history',
+  politics: '/permission/selectExercises/politics',
 }
