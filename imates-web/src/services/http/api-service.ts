@@ -7,6 +7,8 @@ import { AndroidBridge } from '../business/android-bridge'
 
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
+import { getImBaseUrl, getTeacherBaseUrl } from '@/config/env-config'
+import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
 import { HomeworkApi } from './homework-api'
@@ -315,20 +317,16 @@ export class ApiService {
     const formData = new FormData()
     formData.append('file', blob, `yanban_image_${Date.now()}.jpg`)
 
-    const response = await fetch('/api/system/uploadImg', {
-      method: 'POST',
-      body: formData
-    })
-
-    const result = await response.json()
-    if (result.success && result.data && result.data.path) {
+    const response = await httpClient.post<any>('/api/system/uploadImg', formData)
+    const result = response.data
+    if (response.success && result && result.data && result.data.path) {
       // 研伴后端返回相对路径，构造完整的可访问URL
       // 与IM服务器调用逻辑保持一致：都返回完整的HTTP URL
       const fullUrl = `http://39.107.234.140:8201/blw-edu-yb${result.data.path}`
       console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}，完整URL: ${fullUrl}`)
       return fullUrl
     } else {
-      const errorMsg = result.message || '未知错误'
+      const errorMsg = result?.message || response.message || '未知错误'
       console.error(`[API] 研伴图片上传失败:`, errorMsg)
       throw new Error(`研伴图片上传失败: ${errorMsg}`)
     }
@@ -358,20 +356,16 @@ export class ApiService {
     const formData = new FormData()
     formData.append('file', blob, `forward_image_${Date.now()}.jpg`)
 
-    const response = await fetch('/api/images/upload', {
-      method: 'POST',
-      body: formData
-    })
-
-    const result = await response.json()
-    if (result.success && result.data && result.data.path) {
+    const response = await httpClient.post<any>('/api/images/upload', formData)
+    const result = response.data
+    if (response.success && result && result.data && result.data.path) {
       // IM服务器现在也返回相对路径，需要构造完整的可访问URL
       // 与研伴后端调用逻辑保持一致
       const fullUrl = `https://www.imates.com.cn${result.data.path}`
       console.log(`[API] 图片上传成功，相对路径: ${result.data.path}，完整URL: ${fullUrl}`)
       return fullUrl
     } else {
-      const errorMsg = result.message || '未知错误'
+      const errorMsg = result?.message || response.message || '未知错误'
       console.error(`[API] 图片上传失败:`, errorMsg)
       throw new Error(`图片上传失败: ${errorMsg}`)
     }
