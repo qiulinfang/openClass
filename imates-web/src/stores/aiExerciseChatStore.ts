@@ -41,6 +41,12 @@ const buildAiExerciseMessage = (
   sessionId?: string | null,
 ): AiChatMessageRequest => {
   
+  // 如果内容包含"我们开始吧"，只发送"我们开始吧"给后端
+  let conversationContent = content
+  if (content.includes('我们开始吧')) {
+    conversationContent = '我们开始吧'
+  }
+  
   // 获取题目ID
   const questionId = currentQuestion.bmNo || ''
   
@@ -58,7 +64,7 @@ const buildAiExerciseMessage = (
     const request: AiChatMessageRequest = {
       sessionId: finalSessionId,
       newValue: '1',
-      coversation: content,
+      coversation: conversationContent,
       question: currentQuestion.question || currentQuestion.title || '',
       answer: currentQuestion.answer || '',
       name: getUserId() || 'User',
@@ -75,35 +81,35 @@ const buildAiExerciseMessage = (
     validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
     
     return request
-  }
-  
-  // 根据题目学科确定API路径，而不是全局用户学科设置
-  const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
-  const apiUrl = effectiveApiSubject === 'math'
-    ? getCurrentEnvConfig().apiPaths.chatMath
-    : getCurrentEnvConfig().apiPaths.chat
+  } else {
+    // 根据题目学科确定API路径，而不是全局用户学科设置
+    const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
+    const apiUrl = effectiveApiSubject === 'math'
+      ? getCurrentEnvConfig().apiPaths.chatMath
+      : getCurrentEnvConfig().apiPaths.chat
 
-  // 普通文本消息
-  const request: AiChatMessageRequest = {
-    sessionId: finalSessionId,
-    newValue: '1',
-    coversation: content,
-    question: currentQuestion.question || currentQuestion.title || '',
-    answer: currentQuestion.answer || '',
-    name: getUserId() || 'User',
-    reason: 'start',
-    bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
-    isWebSearch: enableWebSearch ? '1' : '0',
-    role: selectedModel,
-    subject: subject,
-    dstUrl: apiUrl,
-    explanation: currentQuestion.explanation || '', // 添加 explanation 字段
+    // 普通文本消息
+    const request: AiChatMessageRequest = {
+      sessionId: finalSessionId,
+      newValue: '1',
+      coversation: conversationContent,
+      question: currentQuestion.question || currentQuestion.title || '',
+      answer: currentQuestion.answer || '',
+      name: getUserId() || 'User',
+      reason: 'start',
+      bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
+      isWebSearch: enableWebSearch ? '1' : '0',
+      role: selectedModel,
+      subject: subject,
+      dstUrl: apiUrl,
+      explanation: currentQuestion.explanation || '', // 添加 explanation 字段
+    }
+    
+    // 校验请求参数完整性
+    validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
+    
+    return request
   }
-  
-  // 校验请求参数完整性
-  validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
-  
-  return request
 }
 
 /**
