@@ -53,7 +53,7 @@
 import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
-import { ResourceManager } from '../../services/storage/resource-storage'
+import { resourceManager } from '../../services/storage/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/http/api-service'
 import { getUserId, getScopedStorageValue } from '../../services'
@@ -576,7 +576,6 @@ const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{ha
     
     // 从本地 IndexedDB 获取教材信息
     // 使用教材记录ID查找对应的教材
-    const resourceManager = ResourceManager.getInstance()
     const textbooks = await resourceManager.getUserLocalTextbooks()
     const textbook = textbooks.find(t => t.id === textbookRecordId)
     

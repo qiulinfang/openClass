@@ -21,10 +21,13 @@ import android.provider.MediaStore;
 import android.net.Uri;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.Base64;
+import android.view.View;
 import androidx.core.content.FileProvider;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 
 import com.cosinetech.imates.ui.webview.common.LocalStorageHelper;
 import com.cosinetech.imates.ui.activities.ExerciseSolveActivity;
@@ -159,6 +162,44 @@ public class WebAppInterface {
     }
 
     /**
+     * 控制系统级悬浮 FAB 显示/隐藏
+     * 由 Web 侧根据路由与面板状态同步给原生
+     */
+    @JavascriptInterface
+    public void setFloatingFabVisible(boolean visible) {
+        try {
+            ApplicationModelShared app = ApplicationModelShared.getInstance();
+            if (app == null) {
+                Log.w(TAG, "setFloatingFabVisible: ApplicationModelShared is null");
+                return;
+            }
+
+            // 先缓存，避免 Service 尚未启动/注册导致指令丢失
+            app.setPendingFloatingFabVisible(visible);
+
+            com.cosinetech.imates.ui.fab.FloatingFabService service = app.getFloatingFabService();
+            if (service == null) {
+                Log.w(TAG, "setFloatingFabVisible: FloatingFabService is null, try start service");
+                // 兜底：尝试启动服务，等待其 onCreate 注册后再应用 pending 状态
+                try {
+                    app.startFloatingFabService();
+                } catch (Exception e) {
+                    Log.w(TAG, "setFloatingFabVisible: startFloatingFabService failed", e);
+                }
+                return;
+            }
+
+            if (visible) {
+                service.showFab();
+            } else {
+                service.hideFab();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "setFloatingFabVisible failed", e);
+        }
+    }
+
+    /**
      * Web应用就绪通知
      * 由Web端主动调用，通知Android端应用已就绪
      * 替代Android端的轮询检测机制
@@ -172,6 +213,44 @@ public class WebAppInterface {
             Log.d(TAG, "✅ onWebAppReady回调执行完成");
         } else {
             Log.w(TAG, "⚠️ WebAppReadyCallback未设置，无法处理就绪通知");
+        }
+    }
+
+    /**
+     * 供原生侧（如 FloatingFabService）直接向 Web 派发 floating-fab-action 事件。
+     * 避免通过 startActivity 拉起/重启 MainWebViewActivity 导致 Web 端路由守卫跳转 login。
+     */
+    public void dispatchFloatingFabActionEventToWeb(String action) {
+        try {
+            if (webView == null) {
+                Log.w(TAG, "dispatchFloatingFabActionEventToWeb: webView is null");
+                return;
+            }
+            if (action == null) {
+                Log.w(TAG, "dispatchFloatingFabActionEventToWeb: action is null");
+                return;
+            }
+
+            String safeAction = action.replace("'", "\\'");
+            String jsCode = "javascript:(function() {" +
+                    "  try {" +
+                    "    var event = new CustomEvent('floating-fab-action', { detail: { action: '" + safeAction + "' } });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('📡 [Android] 触发 floating-fab-action 事件', {action: '" + safeAction + "'});" +
+                    "  } catch(e) {" +
+                    "    console.error('📡 [Android] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+
+            webView.post(() -> {
+                try {
+                    webView.evaluateJavascript(jsCode, null);
+                } catch (Exception e) {
+                    Log.e(TAG, "dispatchFloatingFabActionEventToWeb: evaluateJavascript failed", e);
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "dispatchFloatingFabActionEventToWeb failed", e);
         }
     }
 
@@ -3016,12 +3095,11 @@ public class WebAppInterface {
         try {
             Log.d(TAG, "🎯 [ANDROID] 禁用原生键盘弹出");
 
-            // 通过JavaScript设置所有输入元素的属性
+            // 通过JavaScript设置所有输入元素的属性（禁用键盘弹出，但不禁用文字选择）
             String script = "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {"
                     +
                     "  el.setAttribute('inputmode', 'none');" +
                     "  el.setAttribute('readonly', 'true');" +
-                    "  el.style.setProperty('-webkit-user-select', 'none');" +
                     "  el.style.setProperty('pointer-events', 'none');" +
                     "  console.log('🎯 [ANDROID] 禁用元素键盘:', el.tagName, el.className);" +
                     "});" +
@@ -3102,6 +3180,68 @@ public class WebAppInterface {
             sendLogToWeb("INFO", TAG, "✅ ProjectionStateListener registered");
         } catch (Exception e) {
             Log.e(TAG, "注册ProjectionStateListener失败", e);
+        }
+    }
+
+    @JavascriptInterface
+    public String takeSnapshot(String commandId) {
+        try {
+            if (webView == null) {
+                Log.e(TAG, "takeSnapshot: webView is null");
+                return "false";
+            }
+            if (!(mContext instanceof Activity)) {
+                Log.e(TAG, "takeSnapshot: context is not Activity");
+                return "false";
+            }
+            final Activity activity = (Activity) mContext;
+            activity.runOnUiThread(() -> {
+                try {
+                    View rootView = activity.getWindow().getDecorView().getRootView();
+                    int width = rootView.getWidth();
+                    int height = rootView.getHeight();
+                    if (width <= 0 || height <= 0) {
+                        width = webView.getWidth();
+                        height = webView.getHeight();
+                    }
+                    if (width <= 0 || height <= 0) {
+                        Log.e(TAG, "takeSnapshot: invalid view size");
+                        executeJavaScript("if(window.onSnapshotTaken){window.onSnapshotTaken({commandId:'" + (commandId != null ? commandId.replace("'", "\\'") : "") + "',error:'invalid_size'});}");
+                        return;
+                    }
+
+                    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                    android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+                    rootView.draw(canvas);
+
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+                    byte[] bytes = baos.toByteArray();
+                    String b64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+                    String dataUrl = "data:image/png;base64," + b64;
+
+                    JSONObject payload = new JSONObject();
+                    payload.put("commandId", commandId != null ? commandId : "");
+                    payload.put("dataUrl", dataUrl);
+                    payload.put("width", width);
+                    payload.put("height", height);
+
+                    String js = "if(window.onSnapshotTaken){window.onSnapshotTaken(" + payload.toString() + ");}";
+                    executeJavaScript(js);
+                } catch (Exception e) {
+                    Log.e(TAG, "takeSnapshot: failed", e);
+                    try {
+                        String safeCmd = commandId != null ? commandId.replace("'", "\\'") : "";
+                        String safeMsg = e.getMessage() != null ? e.getMessage().replace("'", "\\'") : "unknown";
+                        executeJavaScript("if(window.onSnapshotTaken){window.onSnapshotTaken({commandId:'" + safeCmd + "',error:'" + safeMsg + "'});}");
+                    } catch (Exception ignore) {
+                    }
+                }
+            });
+            return "true";
+        } catch (Exception e) {
+            Log.e(TAG, "takeSnapshot: exception", e);
+            return "false";
         }
     }
 

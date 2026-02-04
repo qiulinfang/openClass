@@ -29,6 +29,7 @@ export class AndroidBridge {
   private static instance: AndroidBridge
   private isAvailable: boolean = false
   private eventListeners: Map<string, Function[]> = new Map()
+  private lastFloatingFabVisible: boolean | null = null
   private constructor() {
     this.checkAvailability()
     this.setupCallbacks()
@@ -208,6 +209,19 @@ export class AndroidBridge {
         window.AndroidBridge.showToast(message)
       }
     }
+  }
+
+  /**
+   * 控制系统级悬浮 FAB 显示/隐藏
+   * 由 Web 侧根据路由与面板状态计算后同步给原生
+   */
+  public setFloatingFabVisible(visible: boolean): void {
+    this.lastFloatingFabVisible = visible
+    this.callVoid(() => (window.AndroidBridge as any)?.setFloatingFabVisible?.(visible))
+  }
+
+  public getLastFloatingFabVisible(): boolean | null {
+    return this.lastFloatingFabVisible
   }
 
   /**

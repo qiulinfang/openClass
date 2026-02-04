@@ -9,7 +9,7 @@
     :fullscreen="true"
     @toggle-fullscreen="emit('toggle-mode')"
   >
-    <div class="global-chat-content">
+    <div v-show="!props.screenshotFlowVisible" class="global-chat-content">
       <!-- 左侧聊天记录（树形结构） -->
       <div class="left-panel">
         <SessionTree
@@ -27,6 +27,7 @@
         <!-- AI聊天界面 -->
         <ChatView
           v-if="activeCategory === 'ai-general'"
+          ref="aiGeneralChatViewRef"
           type="ai-general"
           :compressed-height="325"
           @open-teacher-dialog="handleOpenTeacherDialog"
@@ -34,8 +35,13 @@
         >
           <!-- 新增会话按钮 -->
           <template #header-right>
-            <div @click="handleNewChatClick" class="add-session-btn">
-              <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+            <div class="header-right-actions">
+              <div @click="handleOpenScreenCapture" class="header-action-btn">
+                <q-icon name="crop_free" size="18px" color="#4A4B73" />
+              </div>
+              <div @click="handleNewChatClick" class="add-session-btn">
+                <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+              </div>
             </div>
           </template>
         </ChatView>
@@ -85,6 +91,7 @@ interface Props {
   modelValue: boolean
   initialTeacherSubject?: 'biology' | 'math' // 初始教师科目（用于创建新会话）
   entry?: ChatEntry
+  screenshotFlowVisible?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -96,6 +103,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
   'toggle-mode': []
+  'open-screen-capture': []
 }>()
 
 // ==================== Store ====================
@@ -104,6 +112,7 @@ const teacherChatStore = useTeacherChatStore()
 
 // SessionTree 组件引用
 const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
+const aiGeneralChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 
 // ==================== 响应式数据 ====================
 const localVisible = computed({
@@ -117,6 +126,10 @@ const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 // 老师选择对话框
 const showTeacherSelectDialog = ref(false)
 const availableTeachers = ref<Array<{ subject: 'biology' | 'math'; name: string }>>([])
+
+const handleOpenScreenCapture = () => {
+  emit('open-screen-capture')
+}
 
 // ==================== AI聊天相关方法 ====================
 
@@ -385,6 +398,17 @@ const switchToTeacherSession = async (sessionId: string) => {
 defineExpose({
   switchCategory,
   switchToTeacherSession,
+  attachImageToAiGeneral: async (imageInfo: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }) => {
+    activeCategory.value = 'ai-general'
+    await nextTick()
+    await aiGeneralChatViewRef.value?.onImageSelected?.(imageInfo)
+  },
 })
 
 // ==================== 监听器 ====================
@@ -397,6 +421,23 @@ defineExpose({
   display: flex;
   height: 100%;
   overflow: hidden;
+
+  .header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.6);
+  }
 
   .left-panel {
     width: 280px;

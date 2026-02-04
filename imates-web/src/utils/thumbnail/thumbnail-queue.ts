@@ -7,7 +7,7 @@ import { generatePdfThumbnail, isPdfFile } from './pdf-thumbnail'
 import { generateImageThumbnail, isImageFile } from './image-thumbnail'
 import { generateHtmlThumbnail, isHtmlFile } from './html-thumbnail'
 import { generateVideoThumbnail, isVideoFile } from './video-thumbnail'
-import { ResourceManager } from '../../services/storage/resource-storage'
+import { resourceManager } from '../../services/storage/resource-storage'
 
 interface ThumbnailTask {
   fileId: string
@@ -108,7 +108,6 @@ class ThumbnailQueue {
       }
       
       // 更新IndexedDB中的缩略图
-      const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateThumbnail(textbookId, fileId, thumbnail)
       
       // 如果提供了回调，执行回调通知外部
@@ -152,8 +151,6 @@ class ThumbnailQueue {
    */
   public async recoverPendingTasks(): Promise<void> {
     try {
-      const resourceManager = ResourceManager.getInstance()
-      
       // 获取所有本地教材
       const textbooks = await resourceManager.getUserLocalTextbooks()
       

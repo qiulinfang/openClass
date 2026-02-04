@@ -1,16 +1,3 @@
-<template>
-  <button
-    class="common-action-btn"
-    type="button"
-    :disabled="disabled || loading"
-    :class="[sizeClass, variantClass]"
-    @click="handleClick"
-  >
-    <span v-if="loading" class="spinner"></span>
-    <span class="label">{{ label }}</span>
-  </button>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 
@@ -20,6 +7,7 @@ const props = defineProps<{
   disabled?: boolean
   size?: 'sm' | 'mdCompact' | 'md' | 'lg'
   variant?: 'primary' | 'outline' | 'ghost' | 'danger'  // 按钮样式变体
+  icon?: string  // 图标路径，如果提供则显示图标而不是文字
 }>()
 
 const emit = defineEmits<{
@@ -45,6 +33,30 @@ const handleClick = (evt: MouseEvent) => {
 }
 </script>
 
+<template>
+  <!-- 如果有图标，直接显示图片，保持点击事件 -->
+  <div
+    v-if="icon"
+    class="icon-button"
+    :class="[sizeClass, { 'icon-button--disabled': disabled }]"
+    @click="handleClick"
+  >
+    <img :src="icon" :alt="label" class="icon-image" />
+  </div>
+  <!-- 否则显示普通按钮 -->
+  <button
+    v-else
+    class="common-action-btn"
+    type="button"
+    :disabled="disabled || loading"
+    :class="[sizeClass, variantClass]"
+    @click="handleClick"
+  >
+    <span v-if="loading" class="spinner"></span>
+    <span class="label">{{ label }}</span>
+  </button>
+</template>
+
 <style scoped>
 .common-action-btn {
   font-size: 16px;
@@ -68,7 +80,6 @@ const handleClick = (evt: MouseEvent) => {
 }
 
 .common-action-btn--sm {
-  padding: 6px 16px;
   min-width: 70px;
   min-height: 32px;
   font-size: 14px;
@@ -81,7 +92,6 @@ const handleClick = (evt: MouseEvent) => {
 
 /* 介于 sm 和默认 md 之间的紧凑尺寸 */
 .common-action-btn--mdCompact {
-  padding: 5px 14px;
   min-width: 80px;
   min-height: 36px;
   font-size: 15px;
@@ -92,7 +102,6 @@ const handleClick = (evt: MouseEvent) => {
 }
 
 .common-action-btn--lg {
-  padding: 8px 20px;
   min-width: 100px;
   min-height: 44px;
   font-size: 18px;
@@ -161,6 +170,97 @@ const handleClick = (evt: MouseEvent) => {
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #ffffff;
   animation: spin 0.8s linear infinite;
+}
+
+/* 图标按钮样式 */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  border-radius: 8px;
+}
+
+.icon-button:hover:not(.icon-button--disabled) {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.icon-button--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-button--disabled:hover {
+  opacity: 0.5;
+  transform: none;
+}
+
+.icon-image {
+  display: block;
+  object-fit: contain;
+  height: 100%;
+}
+
+/* 不同尺寸的图标按钮 */
+.icon-button.common-action-btn--sm {
+  border-radius: 6px;
+  height: 32px;
+}
+
+.icon-button.common-action-btn--md {
+  border-radius: 8px;
+  height: 44px;
+}
+
+.icon-button.common-action-btn--lg {
+  border-radius: 10px;
+  height: 56px;
+}
+
+/* 图标按钮样式 */
+.common-action-btn--icon {
+  padding: 6px;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  object-fit: contain;
+}
+
+/* 小尺寸图标按钮 */
+.common-action-btn--sm.common-action-btn--icon {
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+}
+
+.common-action-btn--sm .button-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* 大尺寸图标按钮 */
+.common-action-btn--lg.common-action-btn--icon {
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+}
+
+.common-action-btn--lg .button-icon {
+  width: 20px;
+  height: 20px;
 }
 
 @keyframes spin {

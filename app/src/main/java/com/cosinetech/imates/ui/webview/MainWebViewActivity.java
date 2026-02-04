@@ -251,6 +251,30 @@ public class MainWebViewActivity extends AppCompatActivity
         Log.d(TAG, "MainWebViewActivity onCreate 完成");
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+
+        try {
+            String action = intent != null ? intent.getStringExtra("floating_fab_action") : null;
+            if (action != null && !action.isEmpty()) {
+                Log.d(TAG, "onNewIntent 收到悬浮 FAB action: " + action);
+                floatingFabAction = action;
+
+                // 如果 WebAppInterface 已就绪，直接派发到 Web；否则等 onWebAppReady 再触发
+                ApplicationModelShared app = (ApplicationModelShared) getApplication();
+                WebAppInterface w = app != null ? app.getWebAppInterface() : null;
+                if (w != null) {
+                    w.dispatchFloatingFabActionEventToWeb(action);
+                    floatingFabAction = null;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "onNewIntent handle floating_fab_action failed", e);
+        }
+    }
+
     /**
      * 初始化应用更新检查机制
      * <p>
@@ -370,12 +394,7 @@ public class MainWebViewActivity extends AppCompatActivity
         // 启用硬件加速，提升渲染性能
         webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null);
 
-        // 禁用长按弹出右键菜单和触觉反馈
-        webView.setLongClickable(false);
-        webView.setOnLongClickListener(v -> true);
-        webView.setHapticFeedbackEnabled(false);
-
-        // 隐藏滚动条（全屏应用不需要显示滚动条）
+        // 滚动条设置（全屏应用不需要显示滚动条）
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
 

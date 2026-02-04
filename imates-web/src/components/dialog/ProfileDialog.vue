@@ -43,14 +43,22 @@
         </div>
       </div>
     </Modal>
+
+    <AvatarCropOverlay
+      v-model="cropVisible"
+      :src="cropSrc"
+      @confirm="handleCropConfirm"
+      @cancel="handleCropCancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 import Modal from '@/components/base/Modal.vue'
+import AvatarCropOverlay from '@/components/base/AvatarCropOverlay.vue'
 import avatarIcon from '/icons/avatar.svg'
 
 interface Props {
@@ -80,6 +88,9 @@ const localVisible = computed({
 
 // 响应式数据
 const { pickImage } = useImagePicker()
+
+const cropVisible = ref(false)
+const cropSrc = ref('')
 
 // 图片选择器
 
@@ -118,14 +129,21 @@ const handleAvatarClick = async () => {
       return
     }
 
-    // 通知父组件头像已更改
-    emit('avatar-changed', imageInfo.base64DataUrl)
-
-    showMessage('头像更新成功', 'success')
+    cropSrc.value = imageInfo.base64DataUrl
+    cropVisible.value = true
   } catch (error) {
     console.error('[ProfileDialog] 选择头像失败:', error)
     showMessage('头像更新失败，请重试', 'error')
   }
+}
+
+const handleCropConfirm = (croppedDataUrl: string) => {
+  emit('avatar-changed', croppedDataUrl)
+  showMessage('头像更新成功', 'success')
+}
+
+const handleCropCancel = () => {
+  cropSrc.value = ''
 }
 </script>
 

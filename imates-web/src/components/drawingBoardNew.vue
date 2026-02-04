@@ -205,6 +205,7 @@ import type { AttachedScreenshot } from '@/types'
 
 const emit = defineEmits<{
   (e: 'clear'): void
+  (e: 'save', data: { objects: any[]; history: any[]; historyIndex: number }): void
   (e: 'ask-ai-image-selected', imageInfo: {
     filePath: string
     width: number
@@ -213,12 +214,17 @@ const emit = defineEmits<{
     base64DataUrl?: string
   }): void
 }>()
-
+// 组件属性定义
 const props = defineProps({
+  // 背景图片URL
   backgroundImage: { type: String, default: '' },
+  // 是否自适应背景图片大小
   fitBackground: { type: Boolean, default: false },
+  // 是否显示网格
   showGrid: { type: Boolean, default: false },
+  // 初始缩放比例
   initialZoom: { type: Number, default: 1 },
+  // 是否启用AI问答功能
   enableAskAi: { type: Boolean, default: false },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
@@ -385,6 +391,8 @@ const activePointers = new Map()
 let activeAction = null
 const historyStep = ref(-1)
 const MAX_HISTORY = 40
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+const AUTO_SAVE_DELAY_MS = 800
 
 const camera = reactive({ x: 0, y: 0, zoom: 1 })
 const MIN_ZOOM = 0.01
@@ -488,7 +496,10 @@ let selectionRect = null
 let activeHandle = null
 
 const canUndo = computed(() => historyStep.value >= 0)
-const canRedo = computed(() => historyStep.value < history.length - 1)
+const canRedo = computed(() => {
+  const len = Array.isArray(history) ? history.length : 0
+  return historyStep.value < len - 1
+})
 
 const cursorClass = computed(() => {
   if (isSpacePressed.value || (activeAction && activeAction.type === 'pan'))
@@ -713,6 +724,9 @@ function renderHistory() {
   }
 
   // 5. 所有已完成对象
+  if (!Array.isArray(strokes)) {
+    strokes = []
+  }
   strokes.forEach((obj) => {
     drawStrokeToContext(historyCtx, obj)
   })
@@ -1071,6 +1085,8 @@ function isPointInPolygon(x, y, polygon) {
 
 // --- 历史记录 ---
 function saveState() {
+  if (!Array.isArray(strokes)) strokes = []
+  if (!Array.isArray(history)) history = []
   const snapshot = JSON.stringify(strokes)
   if (historyStep.value < history.length - 1) {
     history = history.slice(0, historyStep.value + 1)
@@ -1081,6 +1097,15 @@ function saveState() {
   }
   history.push(snapshot)
   historyStep.value++
+
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null
+    emit('save', saveData())
+  }, AUTO_SAVE_DELAY_MS)
 }
 
 function undo() {
@@ -1099,7 +1124,8 @@ function redo() {
 
 function loadState(jsonStr) {
   try {
-    strokes = JSON.parse(jsonStr)
+    const parsed = JSON.parse(jsonStr)
+    strokes = Array.isArray(parsed) ? parsed : []
     selectedIndices.clear()
     groupBounds = null
     requestRenderAll()
@@ -1486,7 +1512,10 @@ function endAction(e) {
         renderLive()
       } else if (activeAction.type === 'draw') {
         // 绘制结束：将 Live 层的临时笔画推入 strokes，重绘 History
-        strokes.push(activeAction.stroke)
+        if (!Array.isArray(strokes)) strokes = []
+        if (activeAction.stroke) {
+          strokes.push(activeAction.stroke)
+        }
         saveState()
         renderHistory()
         renderLive() // 清除 Live 层的内容
@@ -1521,6 +1550,7 @@ function endAction(e) {
               maxY: Math.max(y, y + height),
             },
           }
+          if (!Array.isArray(strokes)) strokes = []
           strokes.push(shape)
           saveState()
         }
@@ -2020,12 +2050,22 @@ onUnmounted(() => {
 })
 
 // --- 暴露给父组件的方法 ---
-const saveData = () => ({ objects: strokes, history, historyIndex: historyStep.value })
+const saveData = () => ({
+  objects: Array.isArray(strokes) ? strokes : [],
+  history: Array.isArray(history) ? history : [],
+  historyIndex: historyStep.value,
+})
 const loadData = (data) => {
-  strokes = data.objects
-  history = data.history
-  historyStep.value = data.historyIndex
-  if (Array.isArray(strokes)) strokes.forEach((s) => ensureBoundsForStroke(s))
+  strokes = Array.isArray(data?.objects) ? data.objects : []
+  history = Array.isArray(data?.history) ? data.history : []
+
+  let idx = typeof data?.historyIndex === 'number' ? data.historyIndex : history.length - 1
+  const maxIdx = history.length - 1
+  if (idx > maxIdx) idx = maxIdx
+  if (idx < -1) idx = -1
+  historyStep.value = idx
+
+  strokes.forEach((s) => ensureBoundsForStroke(s))
   requestRenderAll()
 }
 const clearAll = () => {

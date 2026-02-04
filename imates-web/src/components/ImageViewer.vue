@@ -51,7 +51,7 @@ const handleClose = () => {
   // 确保图片预览层级高于其他自定义对话框（如 Modal，遮罩层 z-index=9000）
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 999999;
 }
 
 .preview-overlay {

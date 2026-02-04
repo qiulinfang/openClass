@@ -111,6 +111,7 @@
       :confirmButtonText="'清空'"
       :cancelButtonText="'取消'"
       @confirm="handleConfirmClear"
+      @cancel="handleCancelClear"
     >
       确定要清空当前草稿内容？
     </Dialog>

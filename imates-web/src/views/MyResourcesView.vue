@@ -298,6 +298,7 @@
           :confirmButtonText="'删除'"
           :cancelButtonText="'取消'"
           @confirm="confirmDeleteTextbook"
+          @cancel="cancelDeleteTextbook"
         >
           确定要删除《{{ deleteTextbookName }}》吗？删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。
         </Dialog>
@@ -1234,6 +1235,13 @@ const confirmDeleteTextbook = async () => {
     deleteTextbookId.value = null
     deleteTextbookName.value = ''
   }
+}
+
+// 取消删除教材
+const cancelDeleteTextbook = () => {
+  deleteDialogRef.value?.closeDialog()
+  deleteTextbookId.value = null
+  deleteTextbookName.value = ''
 }
 
 // 生命周期

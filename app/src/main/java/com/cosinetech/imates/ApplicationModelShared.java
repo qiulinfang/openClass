@@ -5,10 +5,12 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -39,9 +41,13 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     private FloatingFabService floatingFabService;
     private WebAppInterface webAppInterface;
 
+    // Web 侧可能在 Service 启动/注册前就调用 setFloatingFabVisible，这里做一次兜底缓存
+    private volatile Boolean pendingFloatingFabVisible = null;
+
     public AiChatMessageRequest chatRequest;
 
     private int activityCount = 0;
+    private int resumedCount = 0;
     public boolean fakeClassMode = false;
     WifiManager.MulticastLock multicastLock = null;
     private static ApplicationModelShared appInstance = null;
@@ -87,8 +93,19 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
             // 其他生命周期方法需要空实现
             @Override public void onActivityStarted(Activity activity) {}
-            @Override public void onActivityResumed(Activity activity) {}
-            @Override public void onActivityPaused(Activity activity) {}
+            @Override
+            public void onActivityResumed(Activity activity) {
+                resumedCount++;
+            }
+
+            @Override
+            public void onActivityPaused(Activity activity) {
+                resumedCount = Math.max(0, resumedCount - 1);
+                // 当应用进入后台时，强制显示悬浮按钮，保证用户能从后台点击悬浮唤起应用
+                if (resumedCount == 0) {
+                    forceShowFloatingFabInBackground();
+                }
+            }
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
 
@@ -103,6 +120,27 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         // 确保Web应用和Vue完全初始化后再启动，避免点击功能时功能未准备好
     }
 
+    public boolean isAppInForeground() {
+        return resumedCount > 0;
+    }
+
+    private void forceShowFloatingFabInBackground() {
+        try {
+            // 进入后台时以“显示”为最终状态（即使 Web 侧同步了 hide）
+            pendingFloatingFabVisible = true;
+
+            if (floatingFabService != null) {
+                floatingFabService.showFab();
+                return;
+            }
+
+            // Service 还没启动时，尝试启动（会在 setFloatingFabService 时应用 pending 状态）
+            startFloatingFabService();
+        } catch (Exception e) {
+            Log.w("ApplicationModelShared", "forceShowFloatingFabInBackground failed", e);
+        }
+    }
+
     private void startAppMonitorService() {
         Intent serviceIntent = new Intent(this, AppMonitorService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -115,11 +153,44 @@ public class ApplicationModelShared extends Application implements ViewModelStor
      * 在Web应用就绪后启动，确保功能完全准备好
      */
     public void startFloatingFabService() {
+        Log.d("ApplicationModelShared", "startFloatingFabService called, hasInstance=" + (floatingFabService != null));
         // 检查悬浮窗权限（Android 6.0+ 需要用户手动授予）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Log.w("ApplicationModelShared", "悬浮窗权限未授予，无法启动FloatingFabService");
+            Log.w("ApplicationModelShared", "悬浮窗权限未授予，无法启动FloatingFabService, canDrawOverlays=false");
+            // 引导用户前往系统设置开启悬浮窗权限
+            try {
+                Uri packageUri = Uri.parse("package:" + getPackageName());
+
+                // 方案1：直达当前应用的“在其他应用上层显示”页面（部分 ROM 可能会退化为列表页）
+                Intent overlayIntent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri);
+                overlayIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                overlayIntent.putExtra("packageName", getPackageName());
+
+                PackageManager pm = getPackageManager();
+                if (pm != null && overlayIntent.resolveActivity(pm) != null) {
+                    startActivity(overlayIntent);
+                    Log.d("ApplicationModelShared", "已尝试跳转到悬浮窗权限设置页（直达应用）");
+                } else {
+                    throw new IllegalStateException("ACTION_MANAGE_OVERLAY_PERMISSION not resolvable");
+                }
+            } catch (Exception e) {
+                Log.w("ApplicationModelShared", "跳转悬浮窗权限设置页失败，fallback到应用详情页", e);
+                // 方案2：fallback 到本应用详情页（至少能让用户快速进入权限管理）
+                try {
+                    Intent appDetailIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    appDetailIntent.setData(Uri.parse("package:" + getPackageName()));
+                    appDetailIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(appDetailIntent);
+                    Log.d("ApplicationModelShared", "已跳转到应用详情设置页（fallback）");
+                } catch (Exception e2) {
+                    Log.w("ApplicationModelShared", "跳转应用详情设置页失败", e2);
+                }
+            }
             // 不启动服务，避免无意义的尝试
             return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Log.d("ApplicationModelShared", "startFloatingFabService: canDrawOverlays=true");
         }
 
         // 检查服务是否已启动
@@ -129,12 +200,16 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         }
 
         Intent serviceIntent = new Intent(this, FloatingFabService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+            Log.d("ApplicationModelShared", "FloatingFabService startService invoked");
+        } catch (Exception e) {
+            Log.e("ApplicationModelShared", "FloatingFabService startService failed", e);
         }
-        Log.d("ApplicationModelShared", "FloatingFabService 已启动");
     }
 
     private void onAppExit() {
@@ -189,6 +264,28 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     public void setFloatingFabService(FloatingFabService service) {
         floatingFabService = service;
+
+        // 应用 Web 侧提前同步过来的显示/隐藏状态，避免时序导致悬浮按钮一直不出现
+        try {
+            if (floatingFabService != null && pendingFloatingFabVisible != null) {
+                if (pendingFloatingFabVisible) {
+                    floatingFabService.showFab();
+                } else {
+                    floatingFabService.hideFab();
+                }
+            }
+        } catch (Exception e) {
+            Log.w("ApplicationModelShared", "apply pendingFloatingFabVisible failed: " + e.getMessage());
+        }
+    }
+
+    public void setPendingFloatingFabVisible(@Nullable Boolean visible) {
+        pendingFloatingFabVisible = visible;
+    }
+
+    @Nullable
+    public Boolean getPendingFloatingFabVisible() {
+        return pendingFloatingFabVisible;
     }
 
     public FloatingFabService getFloatingFabService() {

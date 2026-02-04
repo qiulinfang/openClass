@@ -83,7 +83,7 @@
     <Teleport to="body">
       <!-- 悬浮功能按钮（手动实现） -->
       <div
-        v-if="showFab"
+        v-if="showFab && !isAndroidEnv"
         class="floating-fab"
         :style="fabStyle"
         @mousedown="startDrag"
@@ -108,9 +108,12 @@
 
     <!-- AI统一聊天对话框 -->
     <GlobalChatDialog
+      ref="aiChatDialogRef"
       v-model="uiStore.showAIChatDialog"
       :entry="aiChatDialogEntry"
+      :screenshot-flow-visible="aiDialogScreenshotFlowVisible"
       @toggle-mode="handleToggleUnifiedChatMode"
+      @open-screen-capture="handleOpenAiDialogScreenCapture"
     />
 
     <!-- 教师统一聊天对话框 -->
@@ -137,8 +140,10 @@
       v-if="showMainChatPanel"
       ref="mainChatPanelRef"
       :entry="mainChatPanelEntry"
+      :screenshot-flow-visible="screenshotFlowVisible"
       @close="showMainChatPanel = false"
       @toggle-mode="handleToggleMainChatMode"
+      @open-screen-capture="handleOpenMainChatScreenCapture"
     />
     <!-- 草稿本对话框 -->
     <Modal
@@ -151,7 +156,7 @@
     >
       <DrawingBoardNew
         ref="drawingBoardRef"
-        :showGrid="true"
+        :showGrid="false"
         :enableAskAi="true"
         @clear="handleClearRequest"
         @ask-ai-image-selected="handleAskAiImageSelected"
@@ -163,10 +168,27 @@
         :confirmButtonText="'清空'"
         :cancelButtonText="'取消'"
         @confirm="confirmClearCanvas"
+        @cancel="cancelClearCanvas"
       >
         确定要清空画布吗？此操作不可撤销。
       </Dialog>
     </Modal>
+
+    <ScreenCaptureOverlay
+      v-model="mainChatScreenCaptureVisible"
+      @captured="handleMainChatScreenCaptured"
+      @cancel="handleMainChatScreenCaptureCancel"
+    />
+
+    <ScreenshotInputDialog
+      v-model="mainChatScreenshotDialogVisible"
+      mode="single"
+      :screenshot-data-url="mainChatScreenshotDataUrl"
+      :existing-screenshots="[]"
+      :drawing-states-from-parent="mainChatScreenshotDrawingStates"
+      @confirm="handleMainChatScreenshotConfirm"
+      @cancel="handleMainChatScreenshotCancel"
+    />
   </div>
 </template>
 
@@ -180,6 +202,8 @@ import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import FeedbackDialog from '@/components/dialog/FeedbackDialog.vue'
 import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
+import ScreenCaptureOverlay from '@/components/base/ScreenCaptureOverlay.vue'
+import ScreenshotInputDialog from '@/components/dialog/ScreenshotInputDialog.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import Modal from '@/components/base/Modal.vue'
 import DrawingBoardNew from '@/components/drawingBoardNew.vue'
@@ -196,6 +220,8 @@ import {
   type NavItemConfig,
   type NavKey,
 } from '@/config/school-app-config'
+import type { AttachedScreenshot } from '@/types'
+import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 import type { UserTextbookInfo } from '@/types'
 
 type AskAiImageInfo = {
@@ -249,6 +275,8 @@ const pdfViewerStore = usePdfViewerStore()
 const resourceStore = useResourceStore()
 const teacherStore = useTeacherChatStore()
 const userClientStore = useUserClientStore()
+
+const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
@@ -361,6 +389,13 @@ const showProfileDialog = ref(false)
 const teacherChatSubject = ref<'biology' | 'math'>('math')
 const teacherChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
 
+const aiChatDialogRef = ref<
+  | (InstanceType<typeof GlobalChatDialog> & {
+      attachImageToAiGeneral?: (imageInfo: AskAiImageInfo) => Promise<void> | void
+    })
+  | null
+>(null)
+
 // 主页右侧聊天面板显示状态
 const showMainChatPanel = ref(false)
 
@@ -374,6 +409,114 @@ const mainChatPanelRef = ref<
     })
   | null
 >(null)
+
+const mainChatScreenCaptureVisible = ref(false)
+const mainChatScreenshotDialogVisible = ref(false)
+const mainChatScreenshotDataUrl = ref('')
+const mainChatScreenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
+
+const screenshotFlowVisible = computed(() => {
+  return mainChatScreenCaptureVisible.value || mainChatScreenshotDialogVisible.value
+})
+
+const handleOpenMainChatScreenCapture = () => {
+  mainChatScreenCaptureVisible.value = true
+}
+
+const handleMainChatScreenCaptureCancel = () => {
+  mainChatScreenCaptureVisible.value = false
+}
+
+const handleMainChatScreenCaptured = ({ dataUrl }: { dataUrl: string; width: number; height: number }) => {
+  mainChatScreenshotDataUrl.value = dataUrl
+  mainChatScreenshotDialogVisible.value = true
+}
+
+const handleMainChatScreenshotCancel = () => {
+  mainChatScreenshotDialogVisible.value = false
+  mainChatScreenshotDataUrl.value = ''
+}
+
+const aiDialogScreenCaptureVisible = ref(false)
+const aiDialogScreenshotDialogVisible = ref(false)
+const aiDialogScreenshotDataUrl = ref('')
+const aiDialogScreenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
+
+const aiDialogScreenshotFlowVisible = computed(() => {
+  return aiDialogScreenCaptureVisible.value || aiDialogScreenshotDialogVisible.value
+})
+
+const handleOpenAiDialogScreenCapture = () => {
+  aiDialogScreenCaptureVisible.value = true
+}
+
+const handleAiDialogScreenCaptureCancel = () => {
+  aiDialogScreenCaptureVisible.value = false
+}
+
+const handleAiDialogScreenCaptured = ({ dataUrl }: { dataUrl: string; width: number; height: number }) => {
+  aiDialogScreenshotDataUrl.value = dataUrl
+  aiDialogScreenshotDialogVisible.value = true
+}
+
+const handleAiDialogScreenshotCancel = () => {
+  aiDialogScreenshotDialogVisible.value = false
+  aiDialogScreenshotDataUrl.value = ''
+}
+
+const handleAiDialogScreenshotConfirm = async (
+  shots: AttachedScreenshot[],
+  states: Record<string, ScreenshotDrawingState>,
+) => {
+  aiDialogScreenshotDialogVisible.value = false
+  aiDialogScreenshotDrawingStates.value = { ...states }
+
+  const first = shots?.[0]
+  if (!first?.dataUrl) {
+    aiDialogScreenshotDataUrl.value = ''
+    return
+  }
+
+  await aiChatDialogRef.value?.attachImageToAiGeneral?.({
+    filePath: '',
+    width: first.width || 0,
+    height: first.height || 0,
+    fileSize: 0,
+    base64DataUrl: first.dataUrl,
+  })
+
+  aiDialogScreenshotDataUrl.value = ''
+}
+
+const handleMainChatScreenshotConfirm = async (
+  shots: AttachedScreenshot[],
+  states: Record<string, ScreenshotDrawingState>,
+) => {
+  mainChatScreenshotDialogVisible.value = false
+  mainChatScreenshotDrawingStates.value = { ...states }
+
+  const first = shots?.[0]
+  if (!first?.dataUrl) {
+    mainChatScreenshotDataUrl.value = ''
+    return
+  }
+
+  if (!showMainChatPanel.value) {
+    mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
+    showMainChatPanel.value = true
+    await nextTick()
+  }
+
+  await mainChatPanelRef.value?.attachImageToAiGeneral?.({
+    filePath: '',
+    width: first.width || 0,
+    height: first.height || 0,
+    fileSize: 0,
+    base64DataUrl: first.dataUrl,
+  })
+
+  mainChatScreenshotDataUrl.value = ''
+}
 
 // 工具箱显示状态
 const showToolbox = ref(false)
@@ -442,7 +585,7 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer','homeworkExercise']
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer','homeworkExercise', 'photoSearch']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
@@ -452,6 +595,15 @@ const showFab = computed(() => {
   const isPdfChatOpen = name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
   return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen
 })
+
+watch(
+  () => showFab.value,
+  (visible) => {
+    if (!isAndroidEnv.value) return
+    androidBridge.setFloatingFabVisible(visible)
+  },
+  { immediate: true }
+)
 
 // 计算是否需要显示“去资源下载”悬浮引导：
 // 仅在知识图谱路由且尚未下载任何教材时显示
@@ -832,8 +984,12 @@ onMounted(async () => {
   window.addEventListener('floating-fab-action', (event: Event) => {
     const customEvent = event as CustomEvent<{ action: string }>
     const action = customEvent.detail?.action
-    if (action === 'openAIChat') {
-      handleAIChatClick()
+    if (action === 'toggleFab' || action === 'openAIChat') {
+      handleFloatingFabClick()
+      return
+    }
+    if (action === 'openDraft') {
+      handleOpenToolbox()
     }
   })
 })
@@ -995,6 +1151,10 @@ const confirmClearCanvas = () => {
     history: [[]],
     historyIndex: 0,
   })
+  clearDialogRef.value?.closeDialog()
+}
+
+const cancelClearCanvas = () => {
   clearDialogRef.value?.closeDialog()
 }
 

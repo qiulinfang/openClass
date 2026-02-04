@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <!-- 全屏遮罩：点击遮罩空白区域时关闭面板 -->
-    <div class="main-chat-overlay" @click.self="emit('close')">
+    <div v-show="!props.screenshotFlowVisible" class="main-chat-overlay" @click.self="emit('close')">
       <div class="main-chat-panel" @click.stop>
         <!-- 头部：Tab + 关闭按钮 -->
         <div class="chat-panel-header">
@@ -70,8 +70,13 @@
                 >
                   <!-- 新增会话按钮 -->
                   <template #header-right v-if="activeCategory === 'ai-general'">
-                    <div @click="handleNewChatClick" class="add-session-btn">
-                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                    <div class="header-right-actions">
+                      <div @click="handleOpenScreenCapture" class="header-action-btn">
+                        <q-icon name="crop_free" size="18px" color="#4A4B73" />
+                      </div>
+                      <div @click="handleNewChatClick" class="add-session-btn">
+                        <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                      </div>
                     </div>
                   </template>
                 </ChatView>
@@ -133,6 +138,7 @@ const teacherChatStore = useTeacherChatStore()
 
 interface Props {
   entry?: ChatEntry
+  screenshotFlowVisible?: boolean
 }
 
 const props = defineProps<Props>()
@@ -140,6 +146,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   'toggle-mode': []
+  'open-screen-capture': []
 }>()
 
 // 引用
@@ -154,7 +161,7 @@ const showTeacherSelectDialog = ref(false)
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 
 // Tab 选项
-const tabOptions = CHAT_TAB_OPTIONS
+const tabOptions = CHAT_TAB_OPTIONS as Array<{ label: string; value: 'ai-chat' | 'question-record' }>
 
 // 当前激活的分类（AI 或 老师）
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
@@ -400,6 +407,10 @@ watch(
   { immediate: true }
 )
 
+const handleOpenScreenCapture = () => {
+  emit('open-screen-capture')
+}
+
 defineExpose({
   attachImageToAiGeneral: async (imageInfo: {
     filePath: string
@@ -450,6 +461,23 @@ defineExpose({
   justify-content: center;
   align-items: flex-end;
   position: relative;
+}
+
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .connection-status {

@@ -5,6 +5,7 @@ import { initPolyfills } from './utils/common/polyfills'
 import { initQuestionStorage } from './services/storage/question-storage'
 import { initNetworkStatusListener } from './utils/network-status'
 import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
+import { AndroidBridge } from './services/business/android-bridge'
 import './styles/native-app.css'
 import './styles/mathlive-custom.css'
 import './styles/gemini-notify.css'
@@ -188,4 +189,65 @@ nextTick().then(() => {
     }
     console.log('[APP] Vue已挂载到window对象，版本:', vueVersion)
   }
+})
+
+nextTick().then(() => {
+  const notifyAndroidReady = async () => {
+    const maxRetries = 60
+    const retryDelay = 200
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        if (
+          typeof window !== 'undefined' &&
+          typeof window.AndroidBridge !== 'undefined' &&
+          typeof (window.AndroidBridge as any).notifyWebAppReady === 'function'
+        ) {
+          AndroidBridge.getInstance().notifyWebAppReady()
+          console.log('[APP] 已通知Android端Web应用就绪 (尝试 ' + (i + 1) + ')')
+          return
+        }
+
+        if (i < maxRetries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, retryDelay))
+        }
+      } catch (error) {
+        console.error('[APP] 通知Android端Web应用就绪失败 (尝试 ' + (i + 1) + '):', error)
+        if (i < maxRetries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, retryDelay))
+        }
+      }
+    }
+
+    console.warn('[APP] 经过 ' + maxRetries + ' 次尝试后，仍无法通知Android端Web应用就绪，进入后台轮询')
+
+    // 兜底：部分机型/启动阶段 AndroidBridge 注入更慢，使用更长时间的轮询继续尝试
+    let tick = 0
+    const intervalMs = 1000
+    const maxTicks = 60
+    const timer = window.setInterval(() => {
+      tick++
+      try {
+        if (
+          typeof window !== 'undefined' &&
+          typeof window.AndroidBridge !== 'undefined' &&
+          typeof (window.AndroidBridge as any).notifyWebAppReady === 'function'
+        ) {
+          AndroidBridge.getInstance().notifyWebAppReady()
+          console.log('[APP] 已通知Android端Web应用就绪 (interval 尝试 ' + tick + ')')
+          window.clearInterval(timer)
+          return
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      if (tick >= maxTicks) {
+        window.clearInterval(timer)
+        console.warn('[APP] interval 尝试超时，仍无法通知Android端Web应用就绪')
+      }
+    }, intervalMs)
+  }
+
+  Promise.resolve().then(notifyAndroidReady)
 })

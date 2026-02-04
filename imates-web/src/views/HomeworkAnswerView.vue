@@ -9,6 +9,13 @@
       <div class="answer-title">{{ displayTitle }}</div>
     </header>
     <div class="answer-body">
+      <FloatBubble
+        :items="floatMenuItems"
+        class="textbookip-float"
+        @select="handleFloatMenuSelect"
+      >
+        <img :src="textbookipIcon" alt="textbookip" />
+      </FloatBubble>
       <div class="left-panel">
         <QuestionList
           ref="questionListRef"
@@ -33,16 +40,6 @@
             :initial-zoom="70"
             @clear="handleClearRequest"
           >
-            <template #toolbar-left>
-              <CommonActionButton
-                label="学伴辅导"
-                variant="ghost"
-                size="sm"
-                :disabled="!hasSelectedQuestion"
-                @click="handleGoToXueban"
-              />
-            </template>
-
             <template #toolbar-right>
               <CommonActionButton
                 label="上传作业"
@@ -90,6 +87,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import QuestionList from '@/components/QuestionList.vue'
 import DrawingBoardNew from '@/components/drawingBoardNew.vue'
+import FloatBubble from '@/components/base/FloatBubble.vue'
 import CommonActionButton from '@/components/base/Button.vue'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
@@ -107,6 +105,9 @@ import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
 import pageAddIcon from '/icons/addPaper.svg'
 import pageNextIcon from '/icons/right.svg'
+import textbookipIcon from '/icons/exerciseip.png'
+import xuebandayiIcon from '/icons/xuebandayi_caogao.svg'
+import wodezuodaIcon from '/icons/wodezuoda_caogao.svg'
 
 defineOptions({
   name: 'HomeworkAnswerView',
@@ -148,6 +149,21 @@ const boardPageSlots = computed(() => {
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 
 const questionSearchQuery = ref('')
+
+// Float 气泡菜单配置
+const floatMenuItems = [
+  { label: '学伴辅导', icon: xuebandayiIcon },
+  { label: '我的作答', icon: wodezuodaIcon },
+]
+
+const handleFloatMenuSelect = async (item: { label: string }) => {
+  if (item.label === '学伴辅导') {
+    handleGoToXueban()
+  } else if (item.label === '我的作答') {
+    // 作业作答页本身就是“我的作答”，这里只需关闭菜单即可
+    return
+  }
+}
 
 // 是否有选中的题目（QuestionList 中选中即可，不需要渲染到 canvas）
 const hasSelectedQuestion = computed(() => {
@@ -827,7 +843,7 @@ const handleUploadConfirm = async (photos: string[]) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f5f3ff;
+  background: #0f002e;
 }
  
 .answer-header {
@@ -876,6 +892,28 @@ const handleUploadConfirm = async (photos: string[]) => {
   flex: 1;
   display: flex;
   overflow: hidden;
+  border-radius: 16px 16px 0 0; /* 左上角和右上角圆角 */
+}
+
+.textbookip-float {
+  position: fixed;
+  right: calc(-64px + env(safe-area-inset-right, 0px));
+  bottom: calc(189px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+}
+
+.textbookip-float img {
+  width: 120px;
+  height: auto;
+  pointer-events: auto;
+}
+
+.textbookip-float :deep(.bubble-menu) {
+  z-index: 1000 !important;
+}
+
+.textbookip-float :deep(.trigger-wrapper) {
+  z-index: 1001 !important;
 }
 
 .left-panel {

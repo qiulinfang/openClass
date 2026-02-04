@@ -42,7 +42,11 @@
         <!-- AI内容容器 -->
         <div class="ai-content-container">
           <!-- 使用整块 AI 气泡作为 BubblePopup 的 trigger，使菜单在气泡上方居中显示 -->
-          <BubblePopup v-model="showActionMenu" trigger="manual">
+          <BubblePopup
+            v-model="showActionMenu"
+            trigger="manual"
+            :selection-position="selectionPosition"
+          >
             <template #trigger>
               <div class="ai-message-content" :ref="(el) => setBubbleRef(el, 'ai')">
                 <!-- 语音消息 -->
@@ -166,7 +170,11 @@
             <span class="read-status-text">{{ message.isRead ? '已读' : '未读' }}</span>
           </div>
           <!-- 用户气泡 -->
-          <BubblePopup v-model="showActionMenu" trigger="manual">
+          <BubblePopup
+            v-model="showActionMenu"
+            trigger="manual"
+            :selection-position="selectionPosition"
+          >
             <!-- 引用消息区域 -->
             <template #trigger>
               <div class="user-bubble" :ref="(el) => setBubbleRef(el, 'user')">
@@ -347,7 +355,6 @@ const emit = defineEmits<{
   'toggle-selection': [messageId: string]
   'message-click': [message: ChatBubble]
   'forward-message': [message: ChatBubble]
-  'enter-multi-select': []
   'edit-message': [message: ChatBubble]
   'image-loaded': [] // 图片加载完成事件，用于刷新滚动容器
   'quote-message': [message: ChatBubble] // 引用消息
@@ -371,6 +378,9 @@ const anchor = ref<'top middle' | 'bottom middle'>('top middle')
 const self = ref<'top middle' | 'bottom middle'>('bottom middle')
 const bubbleTarget = ref<HTMLElement | null>(null)
 const currentBubbleType = ref<'ai' | 'user' | null>(null)
+
+// 选取文字位置信息，用于气泡定位
+const selectionPosition = ref<{ top: number; left: number; right: number; bottom: number } | null>(null)
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -673,8 +683,18 @@ const handleTouchStart = (event: TouchEvent) => {
       isLongPressing.value = true
       // 标记本次交互为长按，后续产生的 click 不再触发图片预览
       ignoreClickAfterLongPress.value = true
-      // 计算气泡框位置并显示
-      calculateBubblePosition(target)
+
+      // 检测是否有选取文字
+      const selPos = getSelectionPosition()
+      if (selPos) {
+        // 有选取文字，使用选取文字位置定位气泡
+        selectionPosition.value = selPos
+      } else {
+        // 无选取文字，使用气泡位置定位
+        selectionPosition.value = null
+        calculateBubblePosition(target)
+      }
+
       // 显示气泡菜单
       showActionMenu.value = true
     }
@@ -796,12 +816,6 @@ const handleQuotedMessageClick = () => {
   }
 }
 
-// 处理多选
-const handleMultiSelect = () => {
-  showActionMenu.value = false
-  emit('enter-multi-select')
-}
-
 // 处理编辑消息
 const handleEdit = () => {
   showActionMenu.value = false
@@ -825,13 +839,6 @@ const buildAiActions = () => {
       iconName: 'format_quote',
       visible: true,
       onClick: () => handleQuote(),
-    },
-    {
-      key: 'multi-select',
-      label: '多选',
-      iconSvgType: 'multi-select',
-      visible: true,
-      onClick: () => handleMultiSelect(),
     },
     {
       key: 'delete',
@@ -869,13 +876,6 @@ const buildUserActions = () => {
       icon: editIcon,
       visible: canEdit.value,
       onClick: () => handleEdit(),
-    },
-    {
-      key: 'multi-select',
-      label: '多选',
-      iconSvgType: 'multi-select',
-      visible: true,
-      onClick: () => handleMultiSelect(),
     },
     {
       key: 'delete',
@@ -1243,6 +1243,28 @@ const calculateBubblePosition = (eventTarget?: HTMLElement) => {
   }
 }
 
+// 获取选取文字的位置信息
+const getSelectionPosition = (): { top: number; left: number; right: number; bottom: number } | null => {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return null
+  }
+
+  const range = selection.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+
+  if (rect.width === 0 && rect.height === 0) {
+    return null
+  }
+
+  return {
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+  }
+}
+
 const setMessageRef = (
   el: Element | ComponentPublicInstance | null,
   lazyRef?: Ref<HTMLElement | null>,
@@ -1429,10 +1451,16 @@ onUnmounted(() => {
   padding-bottom: 20px;
   width: 100%;
   position: relative;
-  user-select: text;
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
+  
+  /* 消息气泡内部启用文字选择 */
+  .message-text,
+  .user-bubble,
+  .ai-message-content {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
 
   /* 选择模式 */
   &.message-selectable {

@@ -5,6 +5,7 @@
     confirm-button-text="确定"
     cancel-button-text="取消"
     @confirm="handleConfirm"
+    @cancel="handleCancel"
   >
     <div class="teacher-selection-content">
       <div class="teacher-list">
@@ -77,6 +78,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'confirm': [subject: 'biology' | 'math']
+  'cancel': []
 }>()
 
 const dialogRef = ref<InstanceType<typeof Dialog>>()
@@ -98,6 +100,11 @@ const handleConfirm = () => {
     emit('confirm', selectedSubject.value)
     emit('update:modelValue', false)
   }
+}
+
+const handleCancel = () => {
+  emit('cancel')
+  emit('update:modelValue', false)
 }
 
 </script>

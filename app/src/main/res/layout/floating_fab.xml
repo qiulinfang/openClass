@@ -6,87 +6,15 @@
     android:layout_height="wrap_content"
     android:padding="8dp">
 
-    <!-- 主悬浮按钮 -->
+    <!-- 主悬浮按钮 - 完全复刻 Web FAB 样式 (120dp, GIF背景) -->
     <ImageView
         android:id="@+id/lottie_animation_view"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:src="@drawable/ic_fab_icon"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
         android:scaleType="centerInside"
-        android:background="@drawable/fab_background"
+        android:background="@android:color/transparent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- 菜单容器（初始隐藏） -->
-    <LinearLayout
-        android:id="@+id/menu_container"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:visibility="gone"
-        android:gravity="end"
-        android:layout_marginBottom="120dp"
-        app:layout_constraintBottom_toBottomOf="@id/lottie_animation_view"
-        app:layout_constraintEnd_toEndOf="@id/lottie_animation_view">
-
-        <!-- 草稿本菜单项 -->
-        <LinearLayout
-            android:id="@+id/menu_item_draft"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="?attr/selectableItemBackground"
-            android:padding="12dp"
-            android:layout_marginBottom="8dp"
-            android:clickable="true"
-            android:focusable="true">
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_edit"
-                android:layout_marginEnd="8dp"
-                android:tint="@android:color/holo_purple"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="草稿本"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"/>
-
-        </LinearLayout>
-
-        <!-- AI聊天菜单项 -->
-        <LinearLayout
-            android:id="@+id/menu_item_ai_chat"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="?attr/selectableItemBackground"
-            android:padding="12dp"
-            android:clickable="true"
-            android:focusable="true">
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_send"
-                android:layout_marginEnd="8dp"
-                android:tint="@android:color/holo_orange_dark"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="与AI聊天"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"/>
-
-        </LinearLayout>
-
-    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

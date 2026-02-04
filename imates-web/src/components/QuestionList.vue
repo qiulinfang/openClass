@@ -83,6 +83,30 @@
 
                 <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
                 <div class="question-actions" v-if="isQuestionSelected(question.bmNo)">
+                  <q-btn
+                    v-if="strategy.canSendToAi() && props.showSendToAi !== false"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    class="action-btn"
+                    @click.stop="throttledSendToAi(question)"
+                  >
+                    <img :src="askXuebanIcon" alt="问问学伴" class="action-icon" />
+                  </q-btn>
+
+                  <q-btn
+                    v-if="strategy.canOpenMiniClass()"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    class="action-btn"
+                    @click.stop="throttledOpenMiniClass(question)"
+                  >
+                    <img :src="weikeIcon" alt="微课" class="action-icon" />
+                  </q-btn>
+
                   <!-- 更多按钮 + 自定义气泡框 BubblePopup -->
                   <BubblePopup
                     v-model="showMoreMenu[question.bmNo]"
@@ -157,7 +181,7 @@
     <!-- 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
 
-    <!-- 删除题目确认对话框（使用 Dialog 组件，插槽中维护删除聊天记录开关） -->
+    <!-- 删除题目确认对话框（使用 Dialog 组件，插槽中维护删除聊天记录和草稿开关） -->
     <Dialog
       v-if="showDeleteDialog"
       ref="deleteDialogRef"
@@ -167,14 +191,24 @@
       @confirm="deleteQuestion"
       @cancel="cancelDeleteDialog"
     >
-      <q-toggle
-        class="delete-dialog-toggle"
-        v-model="deleteWithChat"
-        label="同时删除该题目的对话记录"
-        dense
-        color="#6e55ff"
-        keep-color
-      />
+      <div class="delete-dialog-options">
+        <q-toggle
+          class="delete-dialog-toggle"
+          v-model="deleteWithChat"
+          label="同时删除该题目的对话记录"
+          dense
+          color="#6e55ff"
+          keep-color
+        />
+        <q-toggle
+          class="delete-dialog-toggle"
+          v-model="deleteWithDraft"
+          label="同时删除该题目的草稿"
+          dense
+          color="#6e55ff"
+          keep-color
+        />
+      </div>
     </Dialog>
   </div>
 </template>
@@ -211,6 +245,8 @@ import zhidingIcon from '/icons/zhiding.svg'
 import quxiaozhidingIcon from '/icons/quxiaozhiding.svg'
 import shoucangIcon from '/icons/shoucang1.svg'
 import xingxingLightIcon from '/icons/xingxing-light.svg'
+import askXuebanIcon from '/icons/askXueban.svg'
+import weikeIcon from '/icons/weike.svg'
 
 const props = withDefaults(defineProps<{
   searchQuery?: string
@@ -232,6 +268,7 @@ const emit = defineEmits<{
   questionSelected: [question: ExerciseItem, index: number]
   openMiniClass: [question: ExerciseItem]
   'update:searchQuery': [value: string]
+  'questionDeleted': [questionId: string]
 }>()
 
 // 创建策略实例（根据 type prop 决定使用哪个策略）
@@ -540,6 +577,7 @@ const throttledOpenMiniClass = ThrottleUtils.fast((question: ExerciseItem) => {
 const showDeleteDialog = ref(false)
 const deleteTargetQuestion = ref<ExerciseItem | null>(null)
 const deleteWithChat = ref(false)
+const deleteWithDraft = ref(false)
 
 const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
   moveQuestionToTop(questionId)
@@ -592,20 +630,6 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
 
   return [
     {
-      key: 'send-ai',
-      label: '问问学伴',
-      icon: 'icons/Deskmate.svg',
-      visible: currentStrategy.canSendToAi() && props.showSendToAi !== false,
-      onClick: wrap(() => throttledSendToAi(question)),
-    },
-    {
-      key: 'mini-class',
-      label: '微课',
-      icon: 'icons/my_exercises1.svg',
-      visible: currentStrategy.canOpenMiniClass(),
-      onClick: wrap(() => throttledOpenMiniClass(question)),
-    },
-    {
       key: 'pin',
       label: index === 0 ? '取消置顶' : '置顶',
       icon: index === 0 ? quxiaozhidingIcon : zhidingIcon,
@@ -641,6 +665,7 @@ const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' =>
 const openDeleteDialog = (question: ExerciseItem) => {
   deleteTargetQuestion.value = question
   deleteWithChat.value = false
+  deleteWithDraft.value = false
   showDeleteDialog.value = true
 
   nextTick(() => {
@@ -703,9 +728,15 @@ const deleteQuestion = async () => {
         if (localIndex !== -1) {
           questions.value.splice(localIndex, 1)
         }
+        
+        // 发出题目删除事件，通知父组件同步删除草稿数据
+        emit('questionDeleted', question.id)
+
         // 根据是否删除对话记录给出不同提示
         if (deleteWithChat.value) {
           showMessage('题目及相关对话记录已删除', 'success')
+        } else if (deleteWithDraft.value) {
+          showMessage('题目及草稿已删除', 'success')
         } else {
           showMessage('题目删除成功', 'positive')
         }
@@ -734,6 +765,7 @@ const deleteQuestion = async () => {
     showDeleteDialog.value = false
     deleteTargetQuestion.value = null
     deleteWithChat.value = false
+    deleteWithDraft.value = false
   }
 }
 
@@ -1698,6 +1730,14 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none;
       }
 
+      // 选中时题目内容颜色变为黑色
+      .question-content-area {
+        .question-content,
+        .markdown-content {
+          color: #393548;
+        }
+      }
+
       // 用 ::before 画出紫色描边，不影响布局
       &::before {
         content: '';
@@ -1706,6 +1746,11 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         border-radius: 12px;
         pointer-events: none;
         box-shadow: 0 0 0 1px #8b5cf6; // 相当于 1px 边框，但不占空间
+      }
+
+      // 选中时题目序号也变为黑色
+      .question-header .question-number {
+        color: #393548;
       }
     }
   }
@@ -1720,7 +1765,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     @include responsive-padding(8px 20px 0 20px, 8px 20px 0 20px);
 
     .question-number {
-      color: $text-primary;
+      color: #9792AC;
       font-weight: 600;
       font-size: 13px;
       flex-shrink: 0;
@@ -1732,6 +1777,12 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       gap: 6px;
       flex-shrink: 0;
       height: 32px; // 固定高度，无论是否显示按钮
+
+      .action-icon {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
 
       .action-btn {
         @include button-base;
@@ -1872,7 +1923,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 .markdown-content {
   font-size: 14px !important;
   line-height: 1.5;
-  color: $text-primary;
+  color: #9792AC;
   overflow-x: auto;
   overflow-y: hidden;
   word-wrap: break-word;
@@ -1919,12 +1970,12 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
   :deep(strong) {
     font-weight: 500;
-    color: $text-primary;
+    color: #9792AC;
   }
 
   :deep(em) {
     font-style: italic;
-    color: $text-secondary;
+    color: #9792AC;
   }
 
   :deep(code) {
@@ -1933,7 +1984,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 6px;
     font-family: 'Google Sans Mono', 'Courier New', monospace;
     font-size: 0.9em;
-    color: $text-primary;
+    color: #9792AC;
   }
 
   :deep(img) {
@@ -1970,7 +2021,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
   :deep(li) {
     margin: 4px 0;
-    color: $text-primary;
+    color: #9792AC;
   }
 
   :deep(*) {
@@ -1986,7 +2037,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   :deep(h6) {
     margin: 12px 0 8px 0;
     font-weight: 500;
-    color: $text-primary;
+    color: #9792AC;
   }
 
   :deep(table) {
@@ -2008,7 +2059,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   :deep(th) {
     background-color: $background-grey;
     font-weight: 500;
-    color: $text-primary;
+    color: #9792AC;
   }
 }
 
@@ -2044,6 +2095,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 .question-header {
   .question-number {
     font-size: 12px;
+    color: #9792AC;
   }
 
   .question-actions {
@@ -2063,6 +2115,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 .markdown-content {
   font-size: 13px !important;
+  color: #9792AC;
   overflow: visible;
 }
 
@@ -2073,6 +2126,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         .question-header {
           .question-number {
             font-size: 11px;
+            color: #9792AC;
           }
 
           .question-actions {

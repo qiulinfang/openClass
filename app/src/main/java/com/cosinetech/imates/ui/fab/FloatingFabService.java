@@ -12,22 +12,19 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
+import com.bumptech.glide.Glide;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.webview.MainWebViewActivity;
@@ -43,17 +40,13 @@ public class FloatingFabService extends Service {
     private static final String CHANNEL_ID = "floating_fab_channel";
     private static final int NOTIFICATION_ID = 2;
     private static final String ACTION_OPEN_DRAFT = "openDraft";
-    private static final String ACTION_OPEN_AI_CHAT = "openAIChat";
+    private static final String ACTION_TOGGLE_FAB = "toggleFab";
 
     private WindowManager windowManager;
     private View floatingFabView;
     private ImageView lottieAnimationView;
-    private LinearLayout menuContainer;
-    private View menuItemDraft;
-    private View menuItemAIChat;
     
     private WindowManager.LayoutParams layoutParams;
-    private boolean isMenuExpanded = false;
     private int screenWidth;
     private int screenHeight;
 
@@ -92,8 +85,21 @@ public class FloatingFabService extends Service {
 
         // 获取屏幕尺寸
         sendLogToWeb("DEBUG", TAG, "步骤3: 获取屏幕尺寸");
-        screenWidth = ScreenUtils.getScreenWidth(this);
-        screenHeight = ScreenUtils.getScreenHeight(this);
+        try {
+            WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (wm != null) {
+                DisplayMetrics dm = new DisplayMetrics();
+                wm.getDefaultDisplay().getRealMetrics(dm);
+                screenWidth = dm.widthPixels;
+                screenHeight = dm.heightPixels;
+            } else {
+                screenWidth = ScreenUtils.getScreenWidth(this);
+                screenHeight = ScreenUtils.getScreenHeight(this);
+            }
+        } catch (Exception e) {
+            screenWidth = ScreenUtils.getScreenWidth(this);
+            screenHeight = ScreenUtils.getScreenHeight(this);
+        }
         sendLogToWeb("INFO", TAG, "步骤3结果: 屏幕尺寸=" + screenWidth + "x" + screenHeight);
 
         // 注册服务到Application
@@ -124,7 +130,9 @@ public class FloatingFabService extends Service {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
         sendLogToWeb("INFO", TAG, "initFloatingFab 步骤1结果: 布局参数创建成功，类型=TYPE_APPLICATION_OVERLAY");
 
@@ -145,22 +153,32 @@ public class FloatingFabService extends Service {
         // 获取视图组件
         sendLogToWeb("DEBUG", TAG, "initFloatingFab 步骤3: 获取视图组件");
         lottieAnimationView = floatingFabView.findViewById(R.id.lottie_animation_view);
-        menuContainer = floatingFabView.findViewById(R.id.menu_container);
-        menuItemDraft = floatingFabView.findViewById(R.id.menu_item_draft);
-        menuItemAIChat = floatingFabView.findViewById(R.id.menu_item_ai_chat);
         
         if (lottieAnimationView == null) {
             sendLogToWeb("ERROR", TAG, "initFloatingFab 步骤3结果: lottieAnimationView获取失败");
+            return;
         } else {
             sendLogToWeb("INFO", TAG, "initFloatingFab 步骤3结果: 所有视图组件获取成功");
+            try {
+                // 复刻 Web FAB：使用动图 ip.gif 作为按钮背景
+                Glide.with(this)
+                        .asGif()
+                        .load(R.drawable.ip)
+                        .into(lottieAnimationView);
+            } catch (Exception e) {
+                sendLogToWeb("WARN", TAG, "initFloatingFab: 加载 ip.gif 失败 - " + e.getMessage());
+            }
         }
 
         // 初始位置：右下角
         sendLogToWeb("DEBUG", TAG, "initFloatingFab 步骤4: 设置初始位置（右下角）");
-        layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
-        layoutParams.x = 0;
-        layoutParams.y = 0;
-        sendLogToWeb("INFO", TAG, "initFloatingFab 步骤4结果: 位置设置完成，gravity=BOTTOM|END, x=0, y=0");
+        // 使用 TOP|START + 正坐标体系，跨 ROM 更稳定（避免 BOTTOM|END 下负坐标导致拖拽看起来不动）
+        layoutParams.gravity = Gravity.TOP | Gravity.START;
+        int margin = ScreenUtils.dpToPx(this, 18);
+        // 先给一个初始值，等 addView 后 width/height 可用再校准
+        layoutParams.x = Math.max(0, screenWidth - margin);
+        layoutParams.y = Math.max(0, screenHeight - margin);
+        sendLogToWeb("INFO", TAG, "initFloatingFab 步骤4结果: 位置设置完成，gravity=TOP|START");
 
         // 添加窗口
         sendLogToWeb("DEBUG", TAG, "initFloatingFab 步骤5: 添加窗口到WindowManager");
@@ -173,14 +191,21 @@ public class FloatingFabService extends Service {
             return;
         }
 
-        // 设置菜单项点击事件
-        menuItemDraft.setOnClickListener(v -> {
-            handleMenuItemClick(ACTION_OPEN_DRAFT);
-        });
-
-        menuItemAIChat.setOnClickListener(v -> {
-            handleMenuItemClick(ACTION_OPEN_AI_CHAT);
-        });
+        // addView 后再根据真实尺寸把悬浮按钮放到右下角
+        try {
+            floatingFabView.post(() -> {
+                try {
+                    int viewWidth = floatingFabView.getWidth();
+                    int viewHeight = floatingFabView.getHeight();
+                    int safeMargin = ScreenUtils.dpToPx(this, 18);
+                    layoutParams.x = Math.max(0, screenWidth - viewWidth - safeMargin);
+                    layoutParams.y = Math.max(0, screenHeight - viewHeight - safeMargin);
+                    windowManager.updateViewLayout(floatingFabView, layoutParams);
+                } catch (Exception ignore) {
+                }
+            });
+        } catch (Exception ignore) {
+        }
 
         // 设置主按钮触摸事件（拖拽和点击）
         lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
@@ -194,14 +219,16 @@ public class FloatingFabService extends Service {
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        // 添加按下缩放效果
-                        v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(100).start();
-                        // 记录按下时的坐标
+                        // 记录初始位置
                         initialX = layoutParams.x;
                         initialY = layoutParams.y;
+                        // 记录触摸点位置
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
+                        // 重置移动标记
                         hasMoved = false;
+                        // 缩小一点表示按下
+                        v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(100).start();
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
@@ -212,23 +239,19 @@ public class FloatingFabService extends Service {
                         // 如果移动距离超过阈值，认为是拖拽
                         if (Math.abs(offsetX) > 10 || Math.abs(offsetY) > 10) {
                             hasMoved = true;
-                            // 收起菜单（如果已展开）
-                            if (isMenuExpanded) {
-                                collapseMenu();
-                            }
                         }
                         
                         // 更新悬浮窗的位置（考虑边界限制）
-                        int newX = initialX - offsetX;
-                        int newY = initialY - offsetY;
+                        int newX = initialX + offsetX;
+                        int newY = initialY + offsetY;
                         
                         // 获取视图宽度和高度
                         int viewWidth = floatingFabView.getWidth();
                         int viewHeight = floatingFabView.getHeight();
                         
                         // 限制在屏幕范围内
-                        layoutParams.x = Math.max(-screenWidth + viewWidth, Math.min(newX, 0));
-                        layoutParams.y = Math.max(-screenHeight + viewHeight, Math.min(newY, 0));
+                        layoutParams.x = Math.max(0, Math.min(newX, screenWidth - viewWidth));
+                        layoutParams.y = Math.max(0, Math.min(newY, screenHeight - viewHeight));
                         windowManager.updateViewLayout(floatingFabView, layoutParams);
                         return true;
 
@@ -239,8 +262,8 @@ public class FloatingFabService extends Service {
                         float deltaX = event.getRawX() - initialTouchX;
                         float deltaY = event.getRawY() - initialTouchY;
                         if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && !hasMoved) {
-                            // 如果移动距离小于阈值，认为是点击事件
-                            toggleMenu();
+                            // 单击主按钮：复刻 Web FAB 行为（toggle 聊天面板）
+                            handleMenuItemClick(ACTION_TOGGLE_FAB);
                         }
                         return true;
 
@@ -252,72 +275,7 @@ public class FloatingFabService extends Service {
                 return false;
             }
         });
-
-        // 初始状态：菜单收起
-        sendLogToWeb("DEBUG", TAG, "initFloatingFab 步骤6: 设置初始状态（菜单收起）");
-        collapseMenu();
         sendLogToWeb("INFO", TAG, "initFloatingFab: 初始化完成");
-    }
-
-    /**
-     * 切换菜单展开/收起状态
-     */
-    private void toggleMenu() {
-        if (isMenuExpanded) {
-            collapseMenu();
-        } else {
-            expandMenu();
-        }
-    }
-
-    /**
-     * 展开菜单
-     */
-    private void expandMenu() {
-        if (isMenuExpanded) {
-            return;
-        }
-        isMenuExpanded = true;
-        
-        // 显示菜单项
-        menuContainer.setVisibility(View.VISIBLE);
-        
-        // 加载展开动画
-        Animation expandAnimation = AnimationUtils.loadAnimation(this, R.anim.fab_menu_expand);
-        menuContainer.startAnimation(expandAnimation);
-        
-        Log.d(TAG, "菜单已展开");
-    }
-
-    /**
-     * 收起菜单
-     */
-    private void collapseMenu() {
-        if (!isMenuExpanded) {
-            return;
-        }
-        isMenuExpanded = false;
-        
-        // 加载收起动画
-        Animation collapseAnimation = AnimationUtils.loadAnimation(this, R.anim.fab_menu_collapse);
-        collapseAnimation.setAnimationListener(new Animation.AnimationListener() {
-            @Override
-            public void onAnimationStart(Animation animation) {
-            }
-
-            @Override
-            public void onAnimationEnd(Animation animation) {
-                // 动画结束后隐藏菜单
-                menuContainer.setVisibility(View.GONE);
-            }
-
-            @Override
-            public void onAnimationRepeat(Animation animation) {
-            }
-        });
-        menuContainer.startAnimation(collapseAnimation);
-        
-        Log.d(TAG, "菜单已收起");
     }
 
     /**
@@ -325,14 +283,24 @@ public class FloatingFabService extends Service {
      */
     private void handleMenuItemClick(String action) {
         Log.d(TAG, "菜单项点击: " + action);
-        
-        // 收起菜单
-        collapseMenu();
-        
-        // 启动MainWebViewActivity并传递action参数
+
+        // 优先直接向当前 WebView 派发事件，避免通过 startActivity 重启/清栈导致 Web 端跳转 login
+        try {
+            ApplicationModelShared app = (ApplicationModelShared) getApplication();
+            if (app != null && app.isAppInForeground()) {
+                WebAppInterface webAppInterface = app.getWebAppInterface();
+                if (webAppInterface != null) {
+                    webAppInterface.dispatchFloatingFabActionEventToWeb(action);
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "dispatchFloatingFabActionEventToWeb failed, fallback to startActivity", e);
+        }
+
+        // fallback：应用在后台/或 WebView 不可用时，只唤起应用到前台（不派发 toggleFab，避免改变面板状态）
         Intent intent = new Intent(this, MainWebViewActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        intent.putExtra("floating_fab_action", action);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         startActivity(intent);
     }
 
@@ -340,6 +308,11 @@ public class FloatingFabService extends Service {
      * 隐藏悬浮按钮
      */
     public void hideFab() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            new Handler(Looper.getMainLooper()).post(this::hideFab);
+            return;
+        }
+
         sendLogToWeb("DEBUG", TAG, "hideFab: 隐藏悬浮按钮");
         if (floatingFabView != null) {
             floatingFabView.setVisibility(View.GONE);
@@ -353,6 +326,11 @@ public class FloatingFabService extends Service {
      * 显示悬浮按钮
      */
     public void showFab() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            new Handler(Looper.getMainLooper()).post(this::showFab);
+            return;
+        }
+
         sendLogToWeb("DEBUG", TAG, "showFab: 显示悬浮按钮");
         if (floatingFabView != null) {
             floatingFabView.setVisibility(View.VISIBLE);

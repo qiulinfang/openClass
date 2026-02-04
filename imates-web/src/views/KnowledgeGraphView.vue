@@ -162,7 +162,7 @@ defineOptions({
 import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '../services/http/api-service'
-import { resourceManager, ResourceManager } from '../services/storage/resource-storage'
+import { resourceManager } from '../services/storage/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import NewGrap from '../components/knowledge-graph/newGrap.vue'
 import RubberBandList from '../components/base/VirtualList.vue'
@@ -502,8 +502,7 @@ const checkLocalLearningPackages = async (
       return { hasPackages: false, reason: 'error' }
     }
 
-    const rm = ResourceManager.getInstance()
-    const textbooks = await rm.getUserLocalTextbooks()
+    const textbooks = await resourceManager.getUserLocalTextbooks()
     console.log('textbooks', textbooks)
     const textbook = textbooks.find((t) => t.id === textbookRecordId)
 
@@ -519,7 +518,7 @@ const checkLocalLearningPackages = async (
     const sampleFiles = textbook.localFiles.slice(0, Math.min(3, textbook.localFiles.length))
     let hasActualFileData = false
     for (const file of sampleFiles) {
-      const fileExists = await rm.hasFileData(textbook.id, file.id)
+      const fileExists = await resourceManager.hasFileData(textbook.id, file.id)
       if (fileExists) {
         hasActualFileData = true
         break

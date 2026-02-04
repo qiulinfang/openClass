@@ -40,6 +40,13 @@ type Placement = 'top' | 'bottom' | 'left' | 'right'
 
 type AutoPlacement = Placement | 'auto'
 
+type SelectionPosition = {
+  top: number
+  left: number
+  right?: number
+  bottom?: number
+}
+
 const props = defineProps<{
   /** 是否显示（支持 v-model） */
   modelValue?: boolean
@@ -51,6 +58,8 @@ const props = defineProps<{
   showArrow?: boolean
   /** 触发模式：click=内部点击触发，manual=完全由外部 v-model 控制 */
   trigger?: 'click' | 'manual'
+  /** 选取文字时的位置信息，用于自定义定位 */
+  selectionPosition?: SelectionPosition | null
 }>()
 
 const emit = defineEmits<{
@@ -113,16 +122,68 @@ const setVisible = (value: boolean) => {
 }
 
 const updatePosition = () => {
-  const triggerEl = triggerRef.value
   const popupEl = popupRef.value
-  if (!triggerEl || !popupEl) return
+  if (!popupEl) return
 
-  const triggerRect = triggerEl.getBoundingClientRect()
   const popupRect = popupEl.getBoundingClientRect()
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
-
   const offset = props.offset ?? 8
+
+  // 如果有选取位置信息，直接使用
+  if (props.selectionPosition) {
+    const sel = props.selectionPosition
+    const selectionRect = {
+      top: sel.top,
+      left: sel.left,
+      right: sel.right ?? sel.left,
+      bottom: sel.bottom ?? sel.top,
+      width: (sel.right ?? sel.left) - sel.left,
+      height: (sel.bottom ?? sel.top) - sel.top,
+    }
+
+    let placement: Placement = 'bottom'
+    const spaceBelow = viewportHeight - selectionRect.bottom
+    const spaceAbove = selectionRect.top
+
+    if (spaceBelow >= popupRect.height + offset || spaceBelow > spaceAbove) {
+      placement = 'bottom'
+    } else {
+      placement = 'top'
+    }
+
+    currentPlacement.value = placement
+
+    let top = 0
+    let left = 0
+
+    if (placement === 'bottom') {
+      top = selectionRect.bottom + offset
+      left = selectionRect.left + (selectionRect.width - popupRect.width) / 2
+    } else {
+      top = selectionRect.top - popupRect.height - offset
+      left = selectionRect.left + (selectionRect.width - popupRect.width) / 2
+    }
+
+    // 边界裁剪
+    const margin = 8
+    const maxLeft = viewportWidth - popupRect.width - margin
+    const minLeft = margin
+    left = Math.min(Math.max(left, minLeft), maxLeft)
+
+    const maxTop = viewportHeight - popupRect.height - margin
+    const minTop = margin
+    top = Math.min(Math.max(top, minTop), maxTop)
+
+    position.value = { top, left }
+    return
+  }
+
+  // 原有的 triggerRef 定位逻辑
+  const triggerEl = triggerRef.value
+  if (!triggerEl) return
+
+  const triggerRect = triggerEl.getBoundingClientRect()
 
   let placement: Placement = 'bottom'
 
@@ -144,7 +205,6 @@ const updatePosition = () => {
     } else if (spaceLeft >= popupRect.width + offset) {
       placement = 'left'
     } else {
-      // 默认放到底部，后面再做边界裁剪
       placement = 'bottom'
     }
   }
@@ -177,15 +237,15 @@ const updatePosition = () => {
     }
   }
 
-  // 边界裁剪，避免出屏幕
+  // 边界裁剪
   const margin = 8
   const maxLeft = viewportWidth - popupRect.width - margin
   const minLeft = margin
-  left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft))
+  left = Math.min(Math.max(left, minLeft), maxLeft)
 
   const maxTop = viewportHeight - popupRect.height - margin
   const minTop = margin
-  top = Math.min(Math.max(top, minTop), Math.max(minTop, maxTop))
+  top = Math.min(Math.max(top, minTop), maxTop)
 
   position.value = { top, left }
 

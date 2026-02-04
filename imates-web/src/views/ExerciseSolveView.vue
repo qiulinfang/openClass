@@ -20,6 +20,18 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
+      <!-- IP 悬浮功能 - 使用 FloatBubble 组件（整体定位） -->
+      <FloatBubble
+        :items="floatMenuItems"
+        class="textbookip-float"
+        @select="handleFloatMenuSelect"
+      >
+        <img :src="textbookipIcon" alt="textbookip" />
+      </FloatBubble>
+      <!-- 探索遮罩（参考 PdfChatPanel：在 explore 模式时显示，阻止背后交互） -->
+      <div v-if="showExploreOverlay" class="explore-overlay" @click.stop="handleExploreOverlayClick">
+        <img :src="ipWordIcon" alt="ipWord" class="explore-icon ipWord" />
+      </div>
       <!-- 分屏组件包裹左侧题目列表和右侧功能区域 -->
       <q-splitter v-model="splitterModel" :limits="[20, 50]" class="splitter-container">
         <!-- 左侧题目列表 -->
@@ -37,6 +49,7 @@
                   @question-selected="handleQuestionSelected"
                   @open-mini-class="handleOpenMiniClass"
                   @update:search-query="searchQuery = $event"
+                  @question-deleted="handleQuestionDeleted"
                 />
               </q-card-section>
             </q-card>
@@ -71,63 +84,49 @@
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
                 >
-                  <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮（样式与问老师按钮一致） -->
-                  <template #header-prefix v-if="isFromHomework">
-                    <button
-                      type="button"
-                      class="toolbar-btn"
-                      @click="goBack"
-                    >
-                      <img
-                        :src="backToHomeworkIcon"
-                        alt="返回作业"
-                        class="toolbar-icon"
-                      />
-                    </button>
-                  </template>
                   <!-- 会话面板关闭：仅在 header-suffix 中显示右上角会话管理按钮 -->
                   <template v-if="!aiChatViewRef?.showSessionListPanel" #header-suffix>
-                    <button
-                      type="button"
-                      class="session-toggle-btn"
+                    <Button
+                      label="会话管理"
+                      :icon="sessionManagerIcon"
+                      size="sm"
+                      variant="outline"
                       @click="toggleSessionListPanel"
-                    >
-                      <img :src="sessionManagerIcon" alt="会话管理" class="session-toggle-icon" />
-                    </button>
+                    />
                   </template>
 
                   <!-- 会话面板打开：使用 header-all 替换 ChatInput 头部整块为会话操作条 -->
                   <template v-else #header-all>
                     <div class="session-bottom-bar">
                       <!-- 返回按钮 -->
-                      <button class="session-manager-btn" @click="handleCloseSessionPanel">
-                        <img :src="goBackBlackIcon" alt="返回" class="session-manager-icon" />
-                        <span class="session-back-text">返回</span>
-                      </button>
+                      <Button
+                        label="返回"
+                        :icon="goBackBlackIcon"
+                        size="sm"
+                        variant="ghost"
+                        @click="handleCloseSessionPanel"
+                      />
                       <!-- 新建按钮 -->
-                      <button class="session-manager-btn primary" @click="handleAddSessionCard">
-                        <img :src="newSessionIcon" alt="新建" class="session-manager-icon" />
-                        <span class="session-back-text">新建</span>
-                      </button>
+                      <Button
+                        label="新建"
+                        :icon="newSessionIcon"
+                        size="sm"
+                        variant="primary"
+                        @click="handleAddSessionCard"
+                      />
                       <!-- 分享按钮 -->
                       <!-- <button class="session-manager-btn" @click="handleShareSession">
                         <img :src="shareIcon" alt="分享" class="session-manager-icon" />
                       </button> -->
                       <!-- 清除会话按钮：删除所有会话（先弹出确认对话框） -->
-                      <button
-                        class="session-manager-btn"
+                      <Button
+                        label="清除会话"
+                        :icon="deleteSessionIcon"
+                        size="sm"
+                        variant="danger"
                         :disabled="!hasAiSessions"
                         @click="handleClearAllSessionsClick"
-                      >
-                        <img :src="deleteSessionIcon" alt="清除会话" class="session-manager-icon" />
-                        <span class="session-back-text">清除会话</span>
-                      </button>
-                    </div>
-                  </template>
-                  <!-- 新增会话按钮：仅在 AI 引导答题且已选中题目时显示 -->
-                  <template #header-right v-if="currentFunction === 'chatAi' && currentQuestion">
-                    <div @click="handleAddSessionCard" class="add-session-btn">
-                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                      />
                     </div>
                   </template>
                 </ChatView>
@@ -141,17 +140,13 @@
                 >
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮 -->
                   <template #header-prefix v-if="isFromHomework">
-                    <button
-                      type="button"
-                      class="toolbar-btn"
+                    <Button
+                      label="返回作业"
+                      :icon="backToHomeworkIcon"
+                      size="sm"
+                      variant="ghost"
                       @click="goBack"
-                    >
-                      <img
-                        :src="backToHomeworkIcon"
-                        alt="返回作业"
-                        class="toolbar-icon"
-                      />
-                    </button>
+                    />
                   </template>
                 </ChatView>
                 <!-- 答案显示 -->
@@ -162,6 +157,17 @@
                   v-if="currentFunction === 'similarQuestion'"
                   @question-added="handleQuestionAdded"
                 />
+
+                <!-- 草稿本（通过 FloatBubble 切换，不使用 tab） -->
+                <div v-if="currentFunction === 'draft'" class="draft-board-container">
+                  <DrawingBoardNew
+                    ref="draftBoardRef"
+                    :showGrid="false"
+                    :initial-zoom="70"
+                    @save="handleDraftSave"
+                    @clear="handleDraftClearClick"
+                  />
+                </div>
               </q-card-section>
             </q-card>
           </div>
@@ -191,6 +197,17 @@
     >
       确定要清除当前题目的所有会话吗？此操作不可撤销。
     </Dialog>
+
+    <Dialog
+      ref="clearDraftDialogRef"
+      title="清除确认"
+      :confirmButtonText="'清除'"
+      :cancelButtonText="'取消'"
+      @confirm="confirmClearDraft"
+      @cancel="cancelClearDraft"
+    >
+      确定要清空当前题目的草稿吗？此操作不可撤销。
+    </Dialog>
   </div>
 </template>
 
@@ -200,7 +217,7 @@ defineOptions({
   name: 'ExerciseSolveView',
 })
 
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
  import { useRoute, useRouter } from 'vue-router'
  import { useQuestionStore } from '../stores/questionStore'
  import { useHomeworkStore } from '../stores/homeworkStore'
@@ -218,11 +235,15 @@ import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import Dialog from '../components/base/Dialog.vue'
 import Toolbar from '../components/base/Toolbar.vue'
 import CommonSelect from '../components/base/Select.vue'
+import Button from '../components/base/Button.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble, SceneType } from '../types'
 import type { ChatEntry } from '../types/chat'
 import RubberBandList from '../components/base/VirtualList.vue'
+import FloatBubble from '../components/base/FloatBubble.vue'
+import DrawingBoardNew from '../components/drawingBoardNew.vue'
 import { SUBJECT_OPTIONS, SUPPORTED_SUBJECTS, normalizeSubject } from '../constants/subjects'
+import { useDraftStore } from '../stores/draftStore'
 import addSessionIcon from '/icons/addsession.png'
 import newSessionIcon from '/icons/new.svg'
 import sessionManagerIcon from '/icons/session_manager.svg'
@@ -230,6 +251,12 @@ import deleteSessionIcon from '/icons/delete.svg'
 import backToHomeworkIcon from '/icons/backtohomework.svg'
 import goBackIcon from '/icons/goback.svg'
 import goBackBlackIcon from '/icons/goback_black.svg'
+import textbookipIcon from '/icons/exerciseip.png'
+import ipWordIcon from '/icons/ipWord2.svg'
+import qipaoIcon from '/icons/qipao_coagao.svg'
+import wodezuodaIcon from '/icons/wodezuoda_caogao.svg'
+import xuebandayiIcon from '/icons/xuebandayi_caogao.svg'
+import caogaobenIcon from '/icons/draftNotebook.svg'
 
 // 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -248,7 +275,11 @@ const { currentQuestion: exerciseCurrentQuestion, questions } = storeToRefs(ques
 const { currentQuestion: homeworkCurrentQuestion, questions: homeworkQuestions } =
   storeToRefs(homeworkStore)
 
-const currentFunction = ref<'chatAi' | 'teacherChat' | 'viewAnswer' | 'similarQuestion' | ''>('')
+const currentFunction = ref<'chatAi' | 'teacherChat' | 'viewAnswer' | 'similarQuestion' | 'draft' | ''>('')
+
+let draftAutoSaveTimer: ReturnType<typeof setTimeout> | null = null
+const DRAFT_AUTO_SAVE_DELAY_MS = 800
+const currentDraftQuestionId = ref<string | null>(null)
 
 // 是否处于作业场景：通过路由参数 scene=homework/favorites 或 homeworkExercise 路由名判断
 const isFromHomework = computed(() => {
@@ -260,6 +291,59 @@ const showGobakBtn = computed(() => {
   const scene = route.query.scene as SceneType | undefined
   return scene === 'homework' || scene === 'favorites'
 })
+
+const showExploreOverlay = ref(false)
+
+// Float 气泡菜单配置
+const floatMenuItems = computed(() => {
+  if (isFromHomework.value) {
+    return [
+      { label: '学伴辅导', icon: xuebandayiIcon },
+      { label: '我的作答', icon: wodezuodaIcon },
+    ]
+  }
+  return [
+    { label: '学伴答疑', icon: xuebandayiIcon },
+    { label: '草稿本', icon: caogaobenIcon },
+  ]
+})
+
+const switchFunction = async (
+  next: typeof currentFunction.value
+) => {
+  if (currentFunction.value === 'draft' && next !== 'draft') {
+    await flushDraftAutoSave(currentDraftQuestionId.value)
+    currentDraftQuestionId.value = null
+  }
+
+  currentFunction.value = next
+
+  if (next === 'draft') {
+    await loadCurrentDraft()
+  }
+}
+
+// 处理 Float 菜单选择
+const handleFloatMenuSelect = async (item: { label: string }) => {
+  if (item.label === '学伴答疑' || item.label === '学伴辅导') {
+    // 切换到学伴答疑
+    await switchFunction('chatAi')
+  } else if (item.label === '草稿本') {
+    // 切换到草稿本（不使用 tab，通过 FloatBubble 切换）
+    await switchFunction('draft')
+  } else if (item.label === '我的作答') {
+    if (isFromHomework.value) {
+      goBack()
+      return
+    }
+    // 切换到查看答案
+    await switchFunction('viewAnswer')
+  }
+}
+
+const handleExploreOverlayClick = () => {
+  showExploreOverlay.value = false
+}
 
 // 统一的 currentQuestion：根据场景选择来源
 // - 作业场景：使用 homeworkStore.currentQuestion
@@ -281,6 +365,11 @@ const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 // AI ChatView 组件引用（用于控制会话管理面板）
 const aiChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 
+// 草稿本组件引用
+const draftBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
+// 草稿数据存储
+const draftStore = useDraftStore()
+
 // GlobalChatDialog 组件引用
 const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
@@ -288,6 +377,9 @@ const unifiedChatEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general
 
 // 清除所有会话确认对话框
 const clearAllDialogRef = ref<InstanceType<typeof Dialog>>()
+
+// 清空草稿确认对话框
+const clearDraftDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 当前教师聊天学科（用于 GlobalChatDialog）
 // 教师聊天目前只支持 math/biology，因此这里做收敛（避免全量学科导致类型不匹配）
@@ -312,7 +404,7 @@ const selectedSubjectFilter = ref<string>('') // 空字符串表示显示所有�
 // 学科过滤变化处理
 const onSubjectFilterChange = async () => {
   // 学科过滤条件改变时，清除当前功能选择
-  currentFunction.value = 'chatAi'
+  await switchFunction('chatAi')
 
 
   // 单连接多会话架构：学科切换时不操作WebSocket连接（连接由路由守卫管理）
@@ -397,6 +489,34 @@ const confirmClearAllSessions = async () => {
 const cancelClearAllSessions = () => {
   if (clearAllDialogRef.value && typeof clearAllDialogRef.value.closeDialog === 'function') {
     clearAllDialogRef.value.closeDialog()
+  }
+}
+
+// 处理清空草稿按钮点击（来自 DrawingBoardNew 的 clear 事件）
+const handleDraftClearClick = () => {
+  if (clearDraftDialogRef.value && typeof clearDraftDialogRef.value.openDialog === 'function') {
+    clearDraftDialogRef.value.openDialog()
+  }
+}
+
+// 确认清空草稿（对话框确认按钮回调）
+const confirmClearDraft = async () => {
+  const currentQ = currentQuestion.value
+  if (currentQ?.id) {
+    await draftStore.deleteDraft(currentQ.id)
+  }
+
+  if (draftBoardRef.value && typeof (draftBoardRef.value as any).clearAll === 'function') {
+    ;(draftBoardRef.value as any).clearAll()
+  }
+
+  clearDraftDialogRef.value?.closeDialog()
+}
+
+// 取消清空草稿对话框
+const cancelClearDraft = () => {
+  if (clearDraftDialogRef.value && typeof clearDraftDialogRef.value.closeDialog === 'function') {
+    clearDraftDialogRef.value.closeDialog()
   }
 }
 
@@ -486,7 +606,7 @@ const getTeacherSessionBySubject = (): string => {
 const handleOpenTeacherDialog = async () => {
   try {
     // 切换到老师答疑功能
-    currentFunction.value = 'teacherChat'
+    await switchFunction('teacherChat')
     const targetSessionId = getTeacherSessionBySubject()
     const activated = await teacherChatStore.activateTeacherSession(targetSessionId)
     if (!activated) {
@@ -516,7 +636,7 @@ const handleSwitchToTeacher = async (forwardData?: {
     }
 
     // 切换到老师答疑功能
-    currentFunction.value = 'teacherChat'
+    await switchFunction('teacherChat')
 
     const activated = await teacherChatStore.activateTeacherSession(targetSessionId)
     if (!activated) {
@@ -531,7 +651,7 @@ const handleSwitchToTeacher = async (forwardData?: {
 
 const handleStartAiGuidance = async () => {
   // 切换到AI聊天界面
-  currentFunction.value = 'chatAi'
+  await switchFunction('chatAi')
 }
 
 const handleQuestionSelected = async () => {
@@ -541,9 +661,16 @@ const handleQuestionSelected = async () => {
     ;(aiChatViewRef.value as any).showSessionListPanel = false
   }
 
+  // 草稿本打开状态下切题：先保存旧题草稿，再加载新题草稿
+  if (currentFunction.value === 'draft') {
+    await flushDraftAutoSave(currentDraftQuestionId.value)
+    await loadCurrentDraft()
+    return
+  }
+
   // 如果当前没有任何功能被选中，自动切换到AI指导模式
   if (!currentFunction.value || !['chatAi', 'teacherChat', 'viewAnswer', 'similarQuestion'].includes(currentFunction.value)) {
-    currentFunction.value = 'chatAi'
+    await switchFunction('chatAi')
   }
 
   // 如果已选择题目，加载对应题目的聊天记录
@@ -607,6 +734,64 @@ const handleQuestionAdded = () => {
   if (questionListRef.value) {
     questionListRef.value.refreshQuestions()
   }
+}
+
+// 保存草稿数据
+const handleDraftSave = async (data: { objects: any[]; history: any[][]; historyIndex: number }) => {
+  const currentQ = currentQuestion.value
+  if (currentQ && currentQ.id) {
+    await draftStore.saveDraft(currentQ.id, {
+      objects: data.objects,
+      history: data.history,
+      historyIndex: data.historyIndex
+    })
+  }
+}
+
+const getDraftDataFromBoard = (): { objects: any[]; history: any[][]; historyIndex: number } | null => {
+  const board = draftBoardRef.value as any
+  if (!board || typeof board.saveData !== 'function') return null
+  const data = board.saveData()
+  if (!data) return null
+  return {
+    objects: Array.isArray(data.objects) ? data.objects : [],
+    history: Array.isArray(data.history) ? data.history : [],
+    historyIndex: typeof data.historyIndex === 'number' ? data.historyIndex : -1
+  }
+}
+
+const saveDraftNow = async (questionId?: string | null) => {
+  const currentQ = currentQuestion.value
+  const qid = questionId || currentDraftQuestionId.value || currentQ?.id
+  if (!qid) return
+  const data = getDraftDataFromBoard()
+  if (!data) return
+  await draftStore.saveDraft(qid, data)
+}
+
+const scheduleDraftAutoSave = () => {
+  if (draftAutoSaveTimer) {
+    clearTimeout(draftAutoSaveTimer)
+    draftAutoSaveTimer = null
+  }
+  draftAutoSaveTimer = setTimeout(() => {
+    draftAutoSaveTimer = null
+    saveDraftNow()
+  }, DRAFT_AUTO_SAVE_DELAY_MS)
+}
+
+const flushDraftAutoSave = async (questionId?: string | null) => {
+  if (draftAutoSaveTimer) {
+    clearTimeout(draftAutoSaveTimer)
+    draftAutoSaveTimer = null
+  }
+  await saveDraftNow(questionId)
+}
+
+// 处理题目删除（同步删除草稿）
+const handleQuestionDeleted = (questionId: string) => {
+  // 删除该题目的草稿数据
+  draftStore.deleteDraft(questionId)
 }
 
 // 处理打开微课
@@ -699,11 +884,11 @@ const scrollToBottom = () => {
 }
 
 // 初始化路由参数
-const initializeRouteParams = () => {
+const initializeRouteParams = async () => {
   // 从路由参数中获取 tab 参数，设置当前功能
   const tabParam = route.query.tab as string | undefined
   if (tabParam && ['chatAi', 'teacherChat', 'viewAnswer', 'similarQuestion'].includes(tabParam)) {
-    currentFunction.value = tabParam as typeof currentFunction.value
+    await switchFunction(tabParam as typeof currentFunction.value)
     console.log('[ExerciseSolveView] 从路由参数设置 tab:', tabParam)
   }
 }
@@ -828,8 +1013,18 @@ onMounted(async () => {
   console.log('[ExerciseSolveView] onMounted')
 
   try {
+    const key = 'exerciseSolve.exploreOverlayShown'
+    if (localStorage.getItem(key) !== 'true') {
+      showExploreOverlay.value = true
+      localStorage.setItem(key, 'true')
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  try {
     // 步骤1：初始化路由参数
-    initializeRouteParams()
+    await initializeRouteParams()
 
     // 步骤2：处理学科和过滤逻辑
     const subjectName = initializeSubjectAndFilters()
@@ -856,8 +1051,35 @@ onMounted(async () => {
   }
 })
 
+// 加载当前题目的草稿数据
+const loadCurrentDraft = async () => {
+  const currentQ = currentQuestion.value
+  if (!currentQ || !currentQ.id) {
+    return
+  }
+  
+  // 延迟等待草稿本组件渲染完成
+  await nextTick()
+  
+  // 检查是否有草稿数据
+  const draft = await draftStore.getDraft(currentQ.id)
+  if (draft && draftBoardRef.value) {
+    // 加载草稿数据到画板
+    draftBoardRef.value.loadData({
+      objects: draft.objects,
+      history: draft.history,
+      historyIndex: draft.historyIndex
+    })
+  }
+
+  currentDraftQuestionId.value = currentQ.id
+}
+
 // 组件卸载时清空习题场景下的当前选中题目
 onBeforeUnmount(() => {
+  if (currentFunction.value === 'draft') {
+    flushDraftAutoSave(currentDraftQuestionId.value)
+  }
   // 作业场景依赖 homeworkStore.currentQuestionIndex 来在多个页面间保持选中状态
   if (!isFromHomework.value) {
     questionStore.clearCurrentQuestion()
@@ -948,6 +1170,51 @@ $desktop-breakpoint: 1025px;
   background-color: #f8f9fa; /* Gemini 风格的整体背景 */
   min-height: 0;
   width: 100%;
+  border-radius: 16px 16px 0 0; /* 左上角和右上角圆角 */
+  position: relative;
+}
+
+/* 探索遮罩层：参考 PdfChatPanel 的 explore-overlay，覆盖 main-content，禁止背后交互 */
+.explore-overlay {
+  position: absolute;
+  inset: 0;
+  background: #f9f9ff;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  border-radius: 16px 16px 0 0;
+}
+
+// FloatBubble 组件整体定位（右侧 0，底部 30%）
+.textbookip-float {
+  position: fixed;
+  right: calc(-64px + env(safe-area-inset-right, 0px));
+  bottom: calc(189px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+}
+
+.textbookip-float img {
+  width: 120px;
+  height: auto;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.explore-icon {
+  position: absolute;
+  width: 194px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-icon.ipWord {
+  right: 5%;
+  bottom: 31%;
+  width: 225px;
+  height: auto;
 }
 
 // 分屏容器样式
@@ -1091,6 +1358,13 @@ $desktop-breakpoint: 1025px;
     background-color: $background-color;
   }
 
+  // 草稿本容器样式
+  :deep(.draft-board-container) {
+    height: 100%;
+    width: 100%;
+    background-color: #f3f4f6;
+  }
+
   :deep(.chat-input-area) {
     background-color: #ffffff;
   }
@@ -1188,11 +1462,6 @@ $desktop-breakpoint: 1025px;
   object-fit: contain;
 }
 
-.add-session-icon {
-  width: 32px;
-  height: 32px;
-}
-
 // 底部会话操作按钮文字（返回 / 新建 / 清除会话）
 .session-back-text {
   font-size: 14px;
@@ -1288,6 +1557,7 @@ $desktop-breakpoint: 1025px;
     flex-direction: column !important;
     flex: 1;
     min-height: 0;
+    border-radius: 16px 16px 0 0; /* 左上角和右上角圆角 */
   }
 
   .splitter-container {
