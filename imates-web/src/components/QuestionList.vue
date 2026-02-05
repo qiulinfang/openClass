@@ -146,6 +146,7 @@
                 <div
                   class="markdown-content question-content"
                   v-html="renderMessageContent(question?.question || question?.title || '暂无内容')"
+                  v-paste-to-draft="(dataUrl) => emit('paste-to-draft', { dataUrl, questionId: question.bmNo })"
                   :ref="(el) => handleContentRef(el, question.bmNo)"
                 ></div>
               </div>
@@ -259,6 +260,8 @@ const emit = defineEmits<{
   questionSelected: [question: ExerciseItem, index: number]
   openMiniClass: [question: ExerciseItem]
   'update:searchQuery': [value: string]
+  'questionDeleted': [payload: { questionId: string; withDraft: boolean }]
+  'paste-to-draft': [payload: { dataUrl: string; questionId: string }]
 }>()
 
 // 创建策略实例（根据 type prop 决定使用哪个策略）
@@ -663,6 +666,61 @@ const openDeleteDialog = (question: ExerciseItem) => {
   })
 }
 
+const resetDeleteState = () => {
+  showDeleteDialog.value = false
+  deleteTargetQuestion.value = null
+  deleteWithChat.value = false
+  deleteWithDraft.value = false
+}
+
+const getSubjectToDelete = (question: ExerciseItem) => {
+  const questionSubject = question.subject || selectedSubject.value
+  let subjectToDelete = selectedSubject.value
+  if (questionSubject) {
+    subjectToDelete = questionSubject.toLowerCase()
+  }
+  return subjectToDelete
+}
+
+const applyLocalRemove = (question: ExerciseItem) => {
+  const currentStrategy = strategy.value
+  const storeQuestions = currentStrategy.getQuestions()
+  const storeIndex = storeQuestions.findIndex(
+    (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo
+  )
+  if (storeIndex !== -1) {
+    storeQuestions.splice(storeIndex, 1)
+  }
+
+  const localIndex = questions.value.findIndex(
+    (q) => q.id === question.id || q.bmNo === question.bmNo
+  )
+  if (localIndex !== -1) {
+    questions.value.splice(localIndex, 1)
+  }
+}
+
+const showDeleteToast = () => {
+  if (deleteWithChat.value) {
+    showMessage('题目及相关对话记录已删除', 'success')
+    return
+  }
+  if (deleteWithDraft.value) {
+    showMessage('题目及草稿已删除', 'success')
+    return
+  }
+  showMessage('题目删除成功', 'positive')
+}
+
+const refreshAfterDelete = async (subjectToDelete: string) => {
+  const currentStrategy = strategy.value
+  if (selectedSubjectFilter.value === null) {
+    await currentStrategy.fetchAllSubjectsQuestions(false)
+    return
+  }
+  await currentStrategy.fetchQuestions({ subject: subjectToDelete, useLocalFirst: false })
+}
+
 const deleteQuestion = async () => {
   if (!deleteTargetQuestion.value) return
 
@@ -673,80 +731,34 @@ const deleteQuestion = async () => {
     return
   }
 
+  deletingIds.value.add(question.bmNo)
+  cleanupQuestionHeight(question.bmNo)
+
   try {
-    deletingIds.value.add(question.bmNo)
+    const subjectToDelete = getSubjectToDelete(question)
+    console.log(`[QuestionList] ✅ 删除题目 ${question} 的科目是 ${subjectToDelete}`)
 
-    // 清理高度缓存和观察器
-    cleanupQuestionHeight(question.bmNo)
-
-    try {
-      // 确定要删除的题目的科目
-      const questionSubject = question.subject || selectedSubject.value
-
-      // 确定科目名称
-      let subjectToDelete = selectedSubject.value
-      if (questionSubject) {
-        // 优先使用题目的subject（小写），否则转换当前选中的科目
-        subjectToDelete = questionSubject.toLowerCase()
-      }
-      console.log(`[QuestionList] ✅ 删除题目 ${question} 的科目是 ${subjectToDelete}`)
-      // 使用API服务删除题目（使用 bmNo）
-      const success = await apiService.deleteExercise(question.id, subjectToDelete)
-
-      if (success) {
-        // 删除成功后，如果勾选了同时删除对话记录，则清理对应题目的 AI 练习聊天记录
-        if (deleteWithChat.value && question.bmNo) {
-          const aiExerciseStore = useAiExerciseChatStore()
-          await aiExerciseStore.clearChatHistory(question.bmNo)
-        }
-        
-        // 通过策略从 store 中移除已删除的题目
-        const currentStrategy = strategy.value
-        const storeQuestions = currentStrategy.getQuestions()
-        const storeIndex = storeQuestions.findIndex(
-          (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo
-        )
-        if (storeIndex !== -1) {
-          storeQuestions.splice(storeIndex, 1)
-        }
-
-        const localIndex = questions.value.findIndex(
-          (q) => q.id === question.id || q.bmNo === question.bmNo
-        )
-        if (localIndex !== -1) {
-          questions.value.splice(localIndex, 1)
-        }
-        // 根据是否删除对话记录给出不同提示
-        if (deleteWithChat.value) {
-          showMessage('题目及相关对话记录已删除', 'success')
-        } else {
-          showMessage('题目删除成功', 'positive')
-        }
-
-        // 根据当前筛选条件决定刷新方式
-        if (selectedSubjectFilter.value === null) {
-          // 全部学科：刷新所有学科的题目
-          await currentStrategy.fetchAllSubjectsQuestions(false)
-        } else {
-          // 具体学科：刷新指定学科的题目
-          await currentStrategy.fetchQuestions({ subject: subjectToDelete, useLocalFirst: false })
-        }
-
-      } else {
-        showMessage('题目删除失败', 'error')
-      }
-    } catch (error) {
-      showMessage('删除题目时出错: ' + (error as Error).message, 'error')
-    } finally {
-      deletingIds.value.delete(question.bmNo)
+    const success = await apiService.deleteExercise(question.id, subjectToDelete)
+    if (!success) {
+      showMessage('题目删除失败', 'error')
+      return
     }
+
+    if (deleteWithChat.value && question.bmNo) {
+      const aiExerciseStore = useAiExerciseChatStore()
+      await aiExerciseStore.clearChatHistory(question.bmNo)
+    }
+
+    applyLocalRemove(question)
+
+    emit('questionDeleted', { questionId: question.id, withDraft: deleteWithDraft.value })
+    showDeleteToast()
+    await refreshAfterDelete(subjectToDelete)
   } catch (error) {
     showMessage('删除题目时出错: ' + (error as Error).message, 'error')
-    deletingIds.value.delete(question.bmNo)
   } finally {
-    showDeleteDialog.value = false
-    deleteTargetQuestion.value = null
-    deleteWithChat.value = false
+    deletingIds.value.delete(question.bmNo)
+    resetDeleteState()
   }
 }
 
@@ -756,9 +768,7 @@ const cancelDeleteDialog = () => {
   if (deleteDialogRef.value && typeof (deleteDialogRef.value as any).closeDialog === 'function') {
     ;(deleteDialogRef.value as any).closeDialog()
   }
-  showDeleteDialog.value = false
-  deleteTargetQuestion.value = null
-  deleteWithChat.value = false
+  resetDeleteState()
 }
 
 // 切换更多菜单显示状态
@@ -1455,6 +1465,33 @@ defineExpose({
 // ===== 变量定义 - Gemini 风格 =====
 $primary-color: #1a73e8;
 $primary-color-light: rgba(26, 115, 232, 0.08);
+
+:deep(.image-message-wrapper) {
+  position: relative;
+}
+
+:deep(.paste-to-draft-btn) {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(34, 34, 34, 0.75);
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+:deep(.paste-to-draft-btn:hover) {
+  background: rgba(34, 34, 34, 0.85);
+}
+
+:deep(.paste-to-draft-btn:active) {
+  transform: scale(0.98);
+}
 $primary-color-hover: rgba(26, 115, 232, 0.04);
 $border-color: rgba(0, 0, 0, 0.06);
 $border-color-subtle: rgba(0, 0, 0, 0.03);

@@ -21,6 +21,10 @@ import android.provider.MediaStore;
 import android.net.Uri;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.Base64;
+import android.view.View;
+import android.content.ContentValues;
+import android.os.Build;
 import androidx.core.content.FileProvider;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
@@ -2306,6 +2310,68 @@ public class WebAppInterface {
         } catch (Exception e) {
             Log.e(TAG, "转换图片文件为Base64失败: " + filePath, e);
             return createResponse(false, "转换失败: " + e.getMessage(), null);
+        }
+    }
+
+    @JavascriptInterface
+    public String saveBase64ImageToGallery(String base64DataUrl, String filename) {
+        try {
+            if (base64DataUrl == null || base64DataUrl.isEmpty()) {
+                return createResponse(false, "图片数据为空", null);
+            }
+
+            String name = (filename != null && !filename.isEmpty()) ? filename : ("IMG_" + System.currentTimeMillis() + ".png");
+
+            String data = base64DataUrl;
+            String mime = "image/png";
+
+            if (data.startsWith("data:")) {
+                int commaIndex = data.indexOf(',');
+                if (commaIndex > 0) {
+                    String header = data.substring(5, commaIndex);
+                    int semiIndex = header.indexOf(';');
+                    if (semiIndex > 0) {
+                        mime = header.substring(0, semiIndex);
+                    } else {
+                        mime = header;
+                    }
+                    data = data.substring(commaIndex + 1);
+                }
+            }
+
+            byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+            values.put(MediaStore.Images.Media.MIME_TYPE, mime);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + File.separator + "imates");
+                values.put(MediaStore.Images.Media.IS_PENDING, 1);
+            }
+
+            Uri uri = mContext.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) {
+                return createResponse(false, "保存失败", null);
+            }
+
+            try (java.io.OutputStream os = mContext.getContentResolver().openOutputStream(uri)) {
+                if (os == null) {
+                    return createResponse(false, "保存失败", null);
+                }
+                os.write(bytes);
+                os.flush();
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues pending = new ContentValues();
+                pending.put(MediaStore.Images.Media.IS_PENDING, 0);
+                mContext.getContentResolver().update(uri, pending, null, null);
+            }
+
+            return createResponse(true, "保存成功", null);
+        } catch (Exception e) {
+            Log.e(TAG, "保存图片到相册失败", e);
+            return createResponse(false, "保存失败: " + e.getMessage(), null);
         }
     }
 

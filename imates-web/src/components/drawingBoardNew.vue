@@ -18,6 +18,7 @@
           @undo="undo"
           @redo="redo"
           @clear="clearCanvas"
+          @insert-image="triggerImageSelect"
         ></UnifiedToolbar>
       </div>
 
@@ -297,6 +298,7 @@ const toolbarTools = computed(() => {
       'highlighter',
       'eraser-stroke',
       'shape',
+      'insertImage',
     ],
   }
 })
@@ -390,6 +392,19 @@ const camera = reactive({ x: 0, y: 0, zoom: 1 })
 const MIN_ZOOM = 0.01
 const MAX_ZOOM = 10.0
 
+const imageCache = new Map<string, HTMLImageElement>()
+
+function getCachedImage(dataUrl: string) {
+  if (!dataUrl) return null
+  const cached = imageCache.get(dataUrl)
+  if (cached) return cached
+  const img = new Image()
+  img.src = dataUrl
+  img.onload = () => requestRenderAll()
+  imageCache.set(dataUrl, img)
+  return img
+}
+
 function normalizeZoom(z: number) {
   let zoom = z
   if (typeof zoom !== 'number' || Number.isNaN(zoom) || zoom <= 0) zoom = 1
@@ -428,6 +443,12 @@ function ensureBoundsForStroke(obj: any) {
     obj.bounds = { minX, minY, maxX, maxY }
     return
   }
+  if (obj.type === 'image' && typeof obj.x === 'number' && typeof obj.y === 'number') {
+    const w = typeof obj.width === 'number' ? obj.width : 0
+    const h = typeof obj.height === 'number' ? obj.height : 0
+    obj.bounds = { minX: obj.x, minY: obj.y, maxX: obj.x + w, maxY: obj.y + h }
+    return
+  }
   if (obj.type === 'text' && typeof obj.x === 'number' && typeof obj.y === 'number') {
     const fontSize = typeof obj.fontSize === 'number' ? obj.fontSize : 16
     const text = (obj.text || '').toString()
@@ -441,8 +462,13 @@ const zoomPresetOptions = ZOOM_PRESET_OPTIONS
 const zoomPresetModelValue = computed(() => {
   const candidates = zoomPresetOptions
   const eps = 0.001
-  const matched = candidates.find((o) => Math.abs(o.value - camera.zoom) < eps)
-  return matched ? matched.value : null
+  const matched = candidates.find((o) => {
+    const v = typeof o?.value === 'number' ? o.value : Number(o?.value)
+    if (Number.isNaN(v)) return false
+    return Math.abs(v - camera.zoom) < eps
+  })
+  if (!matched) return null
+  return typeof matched.value === 'number' ? matched.value : Number(matched.value)
 })
 
 function handleZoomPresetChange(v: string | number | null) {
@@ -675,6 +701,18 @@ function drawStrokeToContext(targetCtx, obj) {
     targetCtx.lineTo(obj.x + obj.width, obj.y + obj.height)
     targetCtx.stroke()
     targetCtx.globalAlpha = 1
+  } else if (obj.type === 'image') {
+    const dataUrl = obj.dataUrl
+    if (!dataUrl) return
+    const img = getCachedImage(dataUrl)
+    if (!img || !img.complete) return
+    const x = typeof obj.x === 'number' ? obj.x : 0
+    const y = typeof obj.y === 'number' ? obj.y : 0
+    const w = typeof obj.width === 'number' ? obj.width : img.naturalWidth
+    const h = typeof obj.height === 'number' ? obj.height : img.naturalHeight
+    targetCtx.globalAlpha = typeof obj.opacity === 'number' ? obj.opacity : 1
+    targetCtx.drawImage(img, x, y, w, h)
+    targetCtx.globalAlpha = 1
   }
 }
 
@@ -906,6 +944,20 @@ function getHandleAtPosition(wx, wy) {
 function hitTest(wx, wy, extraRadius = 0) {
   for (let i = strokes.length - 1; i >= 0; i--) {
     const s = strokes[i]
+    if (s?.type === 'image') {
+      ensureBoundsForStroke(s)
+      if (!s.bounds) continue
+      const padding = 10 / camera.zoom + extraRadius
+      if (
+        wx >= s.bounds.minX - padding &&
+        wx <= s.bounds.maxX + padding &&
+        wy >= s.bounds.minY - padding &&
+        wy <= s.bounds.maxY + padding
+      ) {
+        return i
+      }
+      continue
+    }
     const padding =
       (s.type === 'text' ? 10 : Math.max(s.size, 5)) / camera.zoom + 5 + extraRadius
     const expand = s.type === 'text' ? 0 : s.size / 2
@@ -1323,6 +1375,13 @@ function handlePointerMove(e) {
         obj.bounds.maxX += dx
         obj.bounds.minY += dy
         obj.bounds.maxY += dy
+      } else if (obj.type === 'image') {
+        obj.x += dx
+        obj.y += dy
+        obj.bounds.minX += dx
+        obj.bounds.maxX += dx
+        obj.bounds.minY += dy
+        obj.bounds.maxY += dy
       } else {
         obj.points.forEach((p) => {
           p.x += dx
@@ -1422,6 +1481,19 @@ function handleResize(currPos) {
       target.width = original.width * scaleX
       target.height = original.height * scaleY
       target.size = original.size * Math.min(Math.abs(scaleX), Math.abs(scaleY))
+      target.bounds = {
+        minX: Math.min(target.x, target.x + target.width),
+        maxX: Math.max(target.x, target.x + target.width),
+        minY: Math.min(target.y, target.y + target.height),
+        maxY: Math.max(target.y, target.y + target.height),
+      }
+    } else if (target.type === 'image') {
+      const relX = (original.x - startBounds.minX) / startBounds.width
+      const relY = (original.y - startBounds.minY) / startBounds.height
+      target.x = newBounds.minX + relX * newBounds.width
+      target.y = newBounds.minY + relY * newBounds.height
+      target.width = original.width * scaleX
+      target.height = original.height * scaleY
       target.bounds = {
         minX: Math.min(target.x, target.x + target.width),
         maxX: Math.max(target.x, target.x + target.width),
@@ -1995,6 +2067,9 @@ onMounted(() => {
   resizeCanvas()
   camera.zoom = normalizeZoom(props.initialZoom)
   saveState()
+  containerRef.value?.addEventListener('dragover', handleDragOver)
+  containerRef.value?.addEventListener('drop', handleDrop)
+  window.addEventListener('paste', handlePaste)
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer)
     resizeTimer = setTimeout(resizeCanvas, 100)
@@ -2017,7 +2092,150 @@ onUnmounted(() => {
   window.removeEventListener('pointerout', endAction)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
+  window.removeEventListener('paste', handlePaste)
+  containerRef.value?.removeEventListener('dragover', handleDragOver)
+  containerRef.value?.removeEventListener('drop', handleDrop)
 })
+
+function triggerImageSelect() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (file) {
+      await insertImageFromFile(file)
+    }
+  }
+
+  input.click()
+}
+
+function handleDragOver(e: DragEvent) {
+  if (!e.dataTransfer) return
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'copy'
+}
+
+async function handleDrop(e: DragEvent) {
+  if (!e.dataTransfer) return
+  e.preventDefault()
+  const file = Array.from(e.dataTransfer.files || []).find((f) => f.type.startsWith('image/'))
+  if (!file) return
+  const wp = screenToWorld(e.clientX, e.clientY)
+  await insertImageFromFile(file, wp)
+}
+
+async function handlePaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items || !items.length) return
+  for (const item of Array.from(items)) {
+    if (item.type && item.type.startsWith('image/')) {
+      const blob = item.getAsFile()
+      if (!blob) continue
+      const wp = hoverPos.value || getViewCenterWorld()
+      await insertImageFromFile(blob, wp)
+      break
+    }
+  }
+}
+
+function getViewCenterWorld() {
+  const rect = liveCanvasRef.value?.getBoundingClientRect()
+  if (!rect) return { x: 0, y: 0 }
+  return screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2)
+}
+
+function fileToDataUrl(file: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImageElement(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = (err) => reject(err)
+    img.src = dataUrl
+  })
+}
+
+async function insertImageFromFile(file: Blob, pos?: { x: number; y: number }) {
+  const dataUrl = await fileToDataUrl(file)
+  const img = await loadImageElement(dataUrl)
+  imageCache.set(dataUrl, img)
+
+  const maxDisplayWidth = 420
+  const scale = img.naturalWidth > maxDisplayWidth ? maxDisplayWidth / img.naturalWidth : 1
+  const w = Math.max(1, img.naturalWidth * scale)
+  const h = Math.max(1, img.naturalHeight * scale)
+
+  const p = pos || getViewCenterWorld()
+  const x = p.x - w / 2
+  const y = p.y - h / 2
+
+  const obj: any = {
+    type: 'image',
+    x,
+    y,
+    width: w,
+    height: h,
+    dataUrl,
+    opacity: 1,
+    bounds: { minX: x, minY: y, maxX: x + w, maxY: y + h },
+  }
+
+  strokes.push(obj)
+  selectedIndices.clear()
+  selectedIndices.add(strokes.length - 1)
+  groupBounds = getGroupBounds(selectedIndices)
+  setMode('select')
+  saveState()
+  requestRenderAll()
+}
+
+async function insertImageFromDataUrl(dataUrl: string, pos?: { x: number; y: number }) {
+  if (!dataUrl) return
+
+  let img = imageCache.get(dataUrl)
+  if (!img) {
+    img = await loadImageElement(dataUrl)
+    imageCache.set(dataUrl, img)
+  }
+
+  const maxDisplayWidth = 420
+  const scale = img.naturalWidth > maxDisplayWidth ? maxDisplayWidth / img.naturalWidth : 1
+  const w = Math.max(1, img.naturalWidth * scale)
+  const h = Math.max(1, img.naturalHeight * scale)
+
+  const p = pos || getViewCenterWorld()
+  const x = p.x - w / 2
+  const y = p.y - h / 2
+
+  const obj: any = {
+    type: 'image',
+    x,
+    y,
+    width: w,
+    height: h,
+    dataUrl,
+    opacity: 1,
+    bounds: { minX: x, minY: y, maxX: x + w, maxY: y + h },
+  }
+
+  strokes.push(obj)
+  selectedIndices.clear()
+  selectedIndices.add(strokes.length - 1)
+  groupBounds = getGroupBounds(selectedIndices)
+  setMode('select')
+  saveState()
+  requestRenderAll()
+}
 
 // --- 暴露给父组件的方法 ---
 const saveData = () => ({ objects: strokes, history, historyIndex: historyStep.value })
@@ -2143,6 +2361,7 @@ defineExpose({
   getThumbnail,
   clearAll,
   exportToJpg,
+  insertImageFromDataUrl,
 })
 </script>
 
@@ -2249,6 +2468,26 @@ defineExpose({
   flex: 1;
   justify-content: center;
   min-width: 100px;
+}
+
+.insert-image-btn {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  color: #333333;
+  cursor: pointer;
+}
+
+.insert-image-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .toast {

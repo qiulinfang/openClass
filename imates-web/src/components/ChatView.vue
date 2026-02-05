@@ -124,6 +124,7 @@
             @scroll-to-message="handleScrollToMessage"
             @delete-message="handleDeleteMessage"
             @open-link="handleOpenLink"
+            @paste-to-draft="handlePasteToDraft"
           />
         </div>
       </RubberBandList>
@@ -508,6 +509,7 @@ const emit = defineEmits<{
   'send-with-screenshot': [string, import('../types').AttachedScreenshot[], string]
   'focus-input': [] // 聚焦输入框事件
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
+  'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
 }>()
 
 // ==================== 状态管理 ====================
@@ -527,6 +529,10 @@ const currentLinkUrl = ref('')
 const handleOpenLink = (url: string) => {
   currentLinkUrl.value = url
   showLinkDialog.value = true
+}
+
+const handlePasteToDraft = (payload: { dataUrl: string; messageId: string }) => {
+  emit('paste-to-draft', payload)
 }
 
 // 策略模式：创建聊天策略实例
@@ -885,7 +891,7 @@ const pendingDeleteSessionTitle = ref('')
 
 // 老师选择对话框状态
 const showTeacherSelectionDialog = ref(false)
-let teacherSelectionResolve: ((subject: 'BIOLOGY' | 'MATH') => void) | null = null
+let teacherSelectionResolve: ((subject: 'biology' | 'math') => void) | null = null
 
 // 转发成功对话框状态
 const forwardSuccessDialogRef = ref<InstanceType<typeof Dialog>>()
@@ -909,7 +915,7 @@ const handleDeleteSessionRequest = (sessionId: string) => {
 // 处理老师选择
 const handleTeacherSelected = (subject: 'BIOLOGY' | 'MATH') => {
   if (teacherSelectionResolve) {
-    teacherSelectionResolve(subject)
+    teacherSelectionResolve(subject === 'BIOLOGY' ? 'biology' : 'math')
     teacherSelectionResolve = null
   }
 }
@@ -3034,6 +3040,16 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* 会话快照：限制 Markdown 内容中的图片大小，避免撑破卡片 */
+.chat-snapshot :deep(img) {
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
 }
 
 /* 消息气泡 */

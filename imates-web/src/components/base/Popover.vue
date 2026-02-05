@@ -297,8 +297,6 @@ onBeforeUnmount(() => {
 }
 
 .bubble-popup-trigger {
-  display: inline-flex;
-  align-items: center;
 }
 
 .bubble-popup {

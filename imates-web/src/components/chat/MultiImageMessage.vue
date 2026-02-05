@@ -1,6 +1,9 @@
 <template>
   <div>
-    <div class="multi-image-grid">
+    <div
+      class="multi-image-grid"
+      v-paste-to-draft="handlePasteFromDirective"
+    >
       <div
         v-for="(img, index) in images"
         :key="index"
@@ -48,10 +51,16 @@ const props = defineProps({
 
 const emit = defineEmits<{
   (e: 'image-click', payload: { image: ImageItem; index: number }): void
+  (e: 'paste-to-draft', payload: { dataUrl: string; index: number }): void
 }>()
 
 const handleClick = (img: ImageItem, index: number) => {
   emit('image-click', { image: img, index })
+}
+
+const handlePasteFromDirective = (dataUrl: string) => {
+  if (!dataUrl) return
+  emit('paste-to-draft', { dataUrl, index: -1 })
 }
 </script>
 

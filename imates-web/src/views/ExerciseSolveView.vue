@@ -41,6 +41,7 @@
                   @start-ai-guidance="handleStartAiGuidance"
                   @question-selected="handleQuestionSelected"
                   @open-mini-class="handleOpenMiniClass"
+                  @paste-to-draft="handlePasteToDraft"
                   @update:search-query="searchQuery = $event"
                 />
               </q-card-section>
@@ -75,6 +76,7 @@
                   @send-message="handleSendSuggestion"
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
+                  @paste-to-draft="handlePasteToDraft"
                 >
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮（样式与问老师按钮一致） -->
                   <template #header-prefix v-if="isFromHomework">
@@ -159,6 +161,18 @@
                   v-if="currentFunction === 'similarQuestion'"
                   @question-added="handleQuestionAdded"
                 />
+
+                <!-- 草稿本（通过 FloatBubble 切换，不使用 tab） -->
+                <div v-if="currentFunction === 'draft'" class="draft-board-container">
+                  <DrawingBoardNew
+                    ref="draftBoardRef"
+                    :showGrid="false"
+                    :initial-zoom="70"
+                    :background-image="draftBackgroundImage"
+                    @save="handleDraftSave"
+                    @clear="handleDraftClearClick"
+                  />
+                </div>
               </q-card-section>
             </q-card>
           </div>
@@ -197,7 +211,7 @@ defineOptions({
   name: 'ExerciseSolveView',
 })
 
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, provide } from 'vue'
  import { useRoute, useRouter } from 'vue-router'
  import { useQuestionStore } from '../stores/questionStore'
  import { useHomeworkStore } from '../stores/homeworkStore'
@@ -230,6 +244,12 @@ import goBackIcon from '/icons/goback.svg'
 import goBackBlackIcon from '/icons/goback_black.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord2.svg'
+import qipaoIcon from '/icons/qipao_coagao.svg'
+import wodezuodaUnselectIcon from '/icons/wodezuoda_unselect.svg'
+import xuebandayiSelectIcon from '/icons/xuebandayi_select.svg'
+import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
+import caogaobenSelectIcon from '/icons/caogaoben_select.svg'
+import caogaobenUnselectIcon from '/icons/caogaoben_unselect.svg'
 
 // 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -242,6 +262,8 @@ const homeworkStore = useHomeworkStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherChatStore = useTeacherChatStore()
 const uiStore = useUIStore()
+
+provide('pasteToDraftEnabled', true)
 
 // 从两个 store 解构出各自的 currentQuestion（重命名避免冲突）
 const { currentQuestion: exerciseCurrentQuestion, questions } = storeToRefs(questionStore)
@@ -262,6 +284,59 @@ const showGobakBtn = computed(() => {
 })
 
 const showExploreOverlay = ref(false)
+
+// Float 气泡菜单配置
+const floatMenuItems = computed(() => {
+  if (isFromHomework.value) {
+    return [
+      { label: '学伴辅导', icon: xuebandayiSelectIcon },
+      { label: '我的作答', icon: wodezuodaUnselectIcon },
+    ]
+  }
+  return [
+    {
+      label: '学伴答疑',
+      icon: currentFunction.value === 'chatAi' ? xuebandayiSelectIcon : xuebandayiUnselectIcon,
+    },
+    {
+      label: '草稿本',
+      icon: currentFunction.value === 'draft' ? caogaobenSelectIcon : caogaobenUnselectIcon,
+    },
+  ]
+})
+
+const switchFunction = async (
+  next: typeof currentFunction.value
+) => {
+  if (currentFunction.value === 'draft' && next !== 'draft') {
+    await flushDraftAutoSave(currentDraftQuestionId.value)
+    currentDraftQuestionId.value = null
+  }
+
+  currentFunction.value = next
+
+  if (next === 'draft') {
+    await loadCurrentDraft()
+  }
+}
+
+// 处理 Float 菜单选择
+const handleFloatMenuSelect = async (item: { label: string }) => {
+  if (item.label === '学伴答疑' || item.label === '学伴辅导') {
+    // 切换到学伴答疑
+    await switchFunction('chatAi')
+  } else if (item.label === '草稿本') {
+    // 切换到草稿本（不使用 tab，通过 FloatBubble 切换）
+    await switchFunction('draft')
+  } else if (item.label === '我的作答') {
+    if (isFromHomework.value) {
+      goBack()
+      return
+    }
+    // 切换到查看答案
+    await switchFunction('viewAnswer')
+  }
+}
 
 const handleExploreOverlayClick = () => {
   showExploreOverlay.value = false
@@ -286,6 +361,12 @@ const splitterModel = ref(30)
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 // AI ChatView 组件引用（用于控制会话管理面板）
 const aiChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
+
+// 草稿本组件引用
+const draftBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
+const draftBackgroundImage = ref('')
+// 草稿数据存储
+const draftStore = useDraftStore()
 
 // GlobalChatDialog 组件引用
 const globalChatDialogRef = ref<InstanceType<typeof GlobalChatDialog> | null>(null)
@@ -612,6 +693,78 @@ const handleQuestionAdded = () => {
   // 只刷新题目列表数据，不重新加载整个列表
   if (questionListRef.value) {
     questionListRef.value.refreshQuestions()
+  }
+}
+
+// 保存草稿数据
+const handleDraftSave = async (data: { objects: any[]; history: any[][]; historyIndex: number }) => {
+  const currentQ = currentQuestion.value
+  if (currentQ && currentQ.id) {
+    await draftStore.saveDraft(currentQ.id, {
+      objects: data.objects,
+      history: data.history,
+      historyIndex: data.historyIndex
+    })
+  }
+}
+
+const getDraftDataFromBoard = (): { objects: any[]; history: any[][]; historyIndex: number } | null => {
+  const board = draftBoardRef.value as any
+  if (!board || typeof board.saveData !== 'function') return null
+  const data = board.saveData()
+  if (!data) return null
+  return {
+    objects: Array.isArray(data.objects) ? data.objects : [],
+    history: Array.isArray(data.history) ? data.history : [],
+    historyIndex: typeof data.historyIndex === 'number' ? data.historyIndex : -1
+  }
+}
+
+const saveDraftNow = async (questionId?: string | null) => {
+  const currentQ = currentQuestion.value
+  const qid = questionId || currentDraftQuestionId.value || currentQ?.id
+  if (!qid) return
+  const data = getDraftDataFromBoard()
+  if (!data) return
+  await draftStore.saveDraft(qid, data)
+}
+
+const scheduleDraftAutoSave = () => {
+  if (draftAutoSaveTimer) {
+    clearTimeout(draftAutoSaveTimer)
+    draftAutoSaveTimer = null
+  }
+  draftAutoSaveTimer = setTimeout(() => {
+    draftAutoSaveTimer = null
+    saveDraftNow()
+  }, DRAFT_AUTO_SAVE_DELAY_MS)
+}
+
+const flushDraftAutoSave = async (questionId?: string | null) => {
+  if (draftAutoSaveTimer) {
+    clearTimeout(draftAutoSaveTimer)
+    draftAutoSaveTimer = null
+  }
+  await saveDraftNow(questionId)
+}
+
+// 处理题目删除（按开关决定是否同步删除草稿）
+const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean }) => {
+  if (payload.withDraft) {
+    draftStore.deleteDraft(payload.questionId)
+  }
+}
+
+const handlePasteToDraft = async (payload: { dataUrl: string; messageId?: string; questionId?: string }) => {
+  if (!payload?.dataUrl) return
+  await switchFunction('draft')
+  await nextTick()
+
+  const board = draftBoardRef.value as any
+  if (board && typeof board.insertImageFromDataUrl === 'function') {
+    await board.insertImageFromDataUrl(payload.dataUrl)
+  } else {
+    draftBackgroundImage.value = payload.dataUrl
   }
 }
 

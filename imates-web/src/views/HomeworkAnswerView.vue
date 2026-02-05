@@ -23,6 +23,18 @@
         />
       </div>
       <div class="right-panel">
+        <div class="right-panel-options">
+          <button
+            v-for="opt in rightPanelOptions"
+            :key="opt"
+            class="option-btn"
+            :class="{ active: selectedRightPanelOption === opt }"
+            type="button"
+            @click="selectedRightPanelOption = opt"
+          >
+            {{ opt }}
+          </button>
+        </div>
         <div class="drawing-board-wrapper">
           <DrawingBoardNew
             v-for="page in boardPageSlots"
@@ -107,6 +119,9 @@ import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
 import pageAddIcon from '/icons/addPaper.svg'
 import pageNextIcon from '/icons/right.svg'
+import textbookipIcon from '/icons/textbookip.png'
+import wodezuodaSelectIcon from '/icons/wodezuoda_select.svg'
+import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
 
 defineOptions({
   name: 'HomeworkAnswerView',
@@ -148,6 +163,26 @@ const boardPageSlots = computed(() => {
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 
 const questionSearchQuery = ref('')
+
+const rightPanelOptions = ['A', 'B', 'C', 'D']
+const selectedRightPanelOption = ref<string>('B')
+
+// Float 气泡菜单配置
+const floatMenuItems = computed(() => {
+  return [
+    { label: '学伴辅导', icon: xuebandayiUnselectIcon },
+    { label: '我的作答', icon: wodezuodaSelectIcon },
+  ]
+})
+
+const handleFloatMenuSelect = async (item: { label: string }) => {
+  if (item.label === '学伴辅导') {
+    handleGoToXueban()
+  } else if (item.label === '我的作答') {
+    // 作业作答页本身就是“我的作答”，这里只需关闭菜单即可
+    return
+  }
+}
 
 // 是否有选中的题目（QuestionList 中选中即可，不需要渲染到 canvas）
 const hasSelectedQuestion = computed(() => {
@@ -821,7 +856,8 @@ const handleUploadConfirm = async (photos: string[]) => {
 }
 </script>
 
-<style scoped> 
+<style scoped>
+ 
 .homework-answer-view {
   width: 100%;
   height: 100%;
@@ -893,6 +929,47 @@ const handleUploadConfirm = async (photos: string[]) => {
   overflow: hidden;
   max-width: 100%;
   position: relative;
+}
+
+.right-panel-options {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.option-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(124, 58, 237, 0.45);
+  background: #ffffff;
+  color: rgba(124, 58, 237, 0.75);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.option-btn:hover {
+  border-color: rgba(124, 58, 237, 0.8);
+}
+
+.option-btn.active {
+  border-color: #5b21b6;
+  background: #6d28d9;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(109, 40, 217, 0.22);
 }
 
 .drawing-board-wrapper {
