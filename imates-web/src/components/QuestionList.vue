@@ -78,8 +78,12 @@
             <div class="question-block">
               <!-- 题目头部 -->
               <div class="question-header">
-                <!-- 左侧：题目序号（根据原始列表位置计算，全局连续） -->
-                <div class="question-number">题目{{ getQuestionDisplayIndex(question.bmNo) }}</div>
+                <!-- 左侧：题目序号 + 状态 -->
+                <div class="question-title-row">
+                  <div class="question-number">题目{{ getQuestionDisplayIndex(question.bmNo) }}</div>
+                  <!-- 题目状态插槽 -->
+                  <slot name="question-status" :question="question" :index="index" />
+                </div>
 
                 <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
                 <div class="question-actions" v-if="isQuestionSelected(question.bmNo)">
@@ -1827,6 +1831,15 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
           }
         }
       }
+    }
+
+    // 题目标题行（序号+状态插槽）
+    .question-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
     }
 
   }

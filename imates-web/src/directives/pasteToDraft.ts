@@ -48,14 +48,8 @@ function getBindingConfig(binding: DirectiveBinding<PasteToDraftBindingValue>) {
 
 function isDirectiveEnabled(binding: DirectiveBinding<PasteToDraftBindingValue>): boolean {
   const { enabled } = getBindingConfig(binding)
-  if (enabled === true) return true
-  if (enabled === false) return false
-
-  // 默认禁用：仅在 ExerciseSolveView 场景下通过 provide 显式开启
-  const inst = binding.instance as any
-  const provides = inst?.$?.provides
-  console.log("provides",provides)
-  return provides?.pasteToDraftEnabled === true
+  // 优先使用传入的 enabled 参数，默认不启用
+  return enabled === true
 }
 
 function scanAndEnhance(container: HTMLElement, binding: DirectiveBinding<PasteToDraftBindingValue>) {

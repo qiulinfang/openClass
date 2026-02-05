@@ -207,6 +207,8 @@
       :initial-height="600"
       :min-width="600"
       :min-height="400"
+      :z-index="13000"
+      :fullscreen="true"
     >
       <div style="width: 100%; height: 100%">
         <iframe
@@ -421,6 +423,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
+import Modal from './base/Modal.vue' //不要删除此处引用
 import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'

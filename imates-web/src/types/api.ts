@@ -152,8 +152,7 @@ export interface HomeworkQueryReq {
   name?: string
   subject?: string
   status?: string
-  createTimeStart?: string
-  createTimeEnd?: string
+  date?: string
 }
 
 /** 作业查询响应 */
@@ -180,8 +179,8 @@ export interface HomeworkInfoResp {
   updateTime: string
   releaseTime?: string
   deadline?: string
-  questions?: any[]
-  classes?: any[]
+  questions?: Record<string, unknown>[]
+  classes?: Record<string, unknown>[]
 }
 
 /** 通用ID请求 */
@@ -217,4 +216,42 @@ export interface HomeworkQuestionAnswer {
   questionId: string
   /** 回答图片列表 */
   answerList: string[]
+}
+
+/** 未完成作业列表项 */
+export interface HomeworkUndoItem {
+  /** 作业ID */
+  id: string
+  /** 作业标题 */
+  title: string
+  /** 学科名称 */
+  subject: string
+  /** 总分 */
+  totalScore: string
+  /** 发布时间 */
+  releaseTime: string
+  /** 截止时间 */
+  deadline: string
+  /** 一次性提交: 0-否 1-是 */
+  fullSubmit: string
+  /** 允许补交: 0-不允许 1-允许 */
+  lateSubmit: string
+  /** 允许重复提交: 0-不允许 1-允许 */
+  resubmit: string
+  /** 状态: 0-草稿 1-已发布 2-已撤销 3-已结束 */
+  status: string
+  /** 作业备注信息 */
+  remark: string
+}
+
+/** 作业问题详情项 */
+export interface HomeworkQuestionDetail {
+  /** 问题ID */
+  questionId: string
+  /** 问题内容 */
+  questionContent: string
+  /** 问题答案 */
+  questionAnswer?: string
+  /** 问题解析 */
+  questionAnalysis?: string
 }

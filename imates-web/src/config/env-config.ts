@@ -17,6 +17,9 @@ export interface ApiPaths {
   chatMath: string
   chats: string
   reviewExplainChatSX: string
+  homeworkUndoList: string
+  homeworkDetailList: string
+  homeworkSubmitSave: string
 }
 
 // 环境配置接口
@@ -57,6 +60,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
       chatMath: '/ai/2.0/chatMath',
       chats: '/ai/2.0/chats',
       reviewExplainChatSX: '/ai/2.0/reviewExplainChatSX',
+      // 作业相关API路径 - RELEASE环境使用原始路径
+      homeworkUndoList: '/homework/homeworkPage',
+      homeworkDetailList: '/homework/homeworkInfo',
+      homeworkSubmitSave: '/homework-submit-save',
     },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,
@@ -84,6 +91,10 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
       chatMath: '/ai/2.0/chatMath',
       chats: '/ai/2.0/chats',
       reviewExplainChatSX: '/ai/2.0/reviewExplainChatSX',
+      // 作业相关API路径 - INTERNAL_TEST环境使用带前缀的路径
+      homeworkUndoList: '/blw-edu-yb/api/app/homework-undo-list',
+      homeworkDetailList: '/blw-edu-yb/api/app/homework-detail-list',
+      homeworkSubmitSave: '/blw-edu-yb/api/app/homework-submit-save',
     },
     mqHost: 'www.imates.com.cn',
     mqPort: 5673,
@@ -234,6 +245,13 @@ export function getImBaseUrl(): string {
  */
 export function getImWebSocketUrl(): string {
   return getCurrentEnvConfig().imServiceBaseUrl
+}
+
+/**
+ * 获取 API 路径配置
+ */
+export function getApiPaths(): ApiPaths {
+  return getCurrentEnvConfig().apiPaths
 }
 
 /**

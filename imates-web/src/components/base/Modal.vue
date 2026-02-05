@@ -9,7 +9,7 @@
         @mousemove="handleDrag"
         @mouseup="stopDrag"
         @touchmove="handleDrag"
-        @touchend="stopDrag"
+        @touchend="stopDrag"  
       >
         <div class="dialog-container" :class="{ fullscreen: fullscreen }" :style="dialogStyle">
           <q-splitter
