@@ -1,5 +1,45 @@
 /// <reference types="vite/client" />
 
+declare module '/icons/goback.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/textbookip.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/wodezuoda_select.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/wodezuoda_unselect.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/xuebandayi_select.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/xuebandayi_unselect.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/caogaoben_select.svg' {
+  const src: string
+  export default src
+}
+
+declare module '/icons/caogaoben_unselect.svg' {
+  const src: string
+  export default src
+}
+
 declare module 'pdfjs-dist/build/pdf.worker?url' {
   const src: string
   export default src

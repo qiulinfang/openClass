@@ -68,6 +68,7 @@
                   :text-content="message.content"
                   :is-user="false"
                   @image-click="handleMultiImageClick"
+                  @paste-to-draft="({ dataUrl }) => handlePasteToDraft(dataUrl)"
                 />
                 <!-- 单图消息（只显示图片，文字已拆分为独立消息） -->
                 <template
@@ -77,15 +78,17 @@
                     message.imageData.base64DataUrl
                   "
                 >
-                  <!-- 显示图片 -->
-                  <ImageMessage
-                    :base64-data-url="message.imageData.base64DataUrl"
-                    :width="message.imageData.width"
-                    :height="message.imageData.height"
-                    :file-size="message.imageData.fileSize"
-                    :is-user="false"
-                    :show-info="true"
-                  />
+                  <div v-paste-to-draft="handlePasteToDraft">
+                    <!-- 显示图片 -->
+                    <ImageMessage
+                      :base64-data-url="message.imageData.base64DataUrl"
+                      :width="message.imageData.width"
+                      :height="message.imageData.height"
+                      :file-size="message.imageData.fileSize"
+                      :is-user="false"
+                      :show-info="true"
+                    />
+                  </div>
                 </template>
                 <!-- 聊天记录卡片 -->
                 <ChatRecordCard
@@ -197,6 +200,7 @@
                   :text-content="message.content"
                   :is-user="true"
                   @image-click="handleMultiImageClick"
+                  @paste-to-draft="({ dataUrl }) => handlePasteToDraft(dataUrl)"
                 />
                 <!-- 单图消息（只显示图片，文字已拆分为独立消息） -->
                 <template
@@ -206,15 +210,17 @@
                     message.imageData.base64DataUrl
                   "
                 >
-                  <!-- 显示图片 -->
-                  <ImageMessage
-                    :base64-data-url="message.imageData.base64DataUrl"
-                    :width="message.imageData.width"
-                    :height="message.imageData.height"
-                    :file-size="message.imageData.fileSize"
-                    :is-user="true"
-                    :show-info="true"
-                  />
+                  <div v-paste-to-draft="handlePasteToDraft">
+                    <!-- 显示图片 -->
+                    <ImageMessage
+                      :base64-data-url="message.imageData.base64DataUrl"
+                      :width="message.imageData.width"
+                      :height="message.imageData.height"
+                      :file-size="message.imageData.fileSize"
+                      :is-user="true"
+                      :show-info="true"
+                    />
+                  </div>
                 </template>
                 <!-- 聊天记录卡片 -->
                 <ChatRecordCard
@@ -227,7 +233,8 @@
                   v-else
                   class="message-text"
                   v-html="renderedContent"
-                  :ref="(el) => setMessageRef(el as HTMLElement, messageElementRef)"
+                  v-paste-to-draft="handlePasteToDraft"
+                  :ref="(el) => setLazyMessageRef(el as HTMLElement | null)"
                 ></div>
               </div>
             </template>
@@ -340,6 +347,11 @@ interface Props {
   showTime?: boolean // 是否显示消息时间
 }
 
+const handlePasteToDraft = (dataUrl: string) => {
+  if (!dataUrl) return
+  emit('paste-to-draft', { dataUrl, messageId: props.message.id })
+}
+
 const props = withDefaults(defineProps<Props>(), {
   isSelected: false,
   isSelectionMode: false,
@@ -361,6 +373,7 @@ const emit = defineEmits<{
   'scroll-to-message': [messageId: string] // 滚动到指定消息
   'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
   'open-link': [url: string] // 打开链接（由父组件决定展示方式）
+  'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
 }>()
 
 // 长按相关状态
@@ -507,6 +520,10 @@ const handleRetry = async () => {
   }
 }
 
+const setLazyMessageRef = (el: HTMLElement | null) => {
+  setMessageRef(el, messageElementRef)
+}
+
 // 判断是否可以转发 - 已移除，避免误发送单个消息给老师
 
 // 判断是否为第一个消息（题目消息）
@@ -612,8 +629,7 @@ const renderedContent = computed(() => {
 })
 
 // 处理复选框选择
-const handleToggleSelection = (event: Event) => {
-  event.stopPropagation()
+const handleToggleSelection = (_value: boolean) => {
   emit('toggle-selection', props.message.id)
 }
 
@@ -1267,7 +1283,7 @@ const getSelectionPosition = (): { top: number; left: number; right: number; bot
 
 const setMessageRef = (
   el: Element | ComponentPublicInstance | null,
-  lazyRef?: Ref<HTMLElement | null>,
+  lazyRef?: Ref<HTMLElement | null> | undefined,
 ) => {
   if (el && el instanceof HTMLElement) {
     // 设置懒加载引用
@@ -1278,8 +1294,6 @@ const setMessageRef = (
     // 延迟渲染 MathJax，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
-      // 处理 Markdown 渲染出的图片
-      processMarkdownImages(el)
     })
   }
 }
@@ -1294,8 +1308,6 @@ const setStreamingRef = (el: Element | ComponentPublicInstance | null) => {
         contentElement instanceof HTMLElement ? contentElement : el
       ) as HTMLElement
       MathJaxUtils.renderMath(contentContainer, true)
-      // 处理 Markdown 渲染出的图片
-      processMarkdownImages(contentContainer)
     })
   }
 }
@@ -1305,8 +1317,6 @@ const setStaticRef = (el: Element | ComponentPublicInstance | null) => {
     // 对于静态消息，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
-      // 处理 Markdown 渲染出的图片
-      processMarkdownImages(el)
     })
   }
 }
@@ -1350,46 +1360,7 @@ const handleImageClick = (event: MouseEvent) => {
   }
 }
 
-// 处理 Markdown 渲染出的图片
-const processMarkdownImages = (container: HTMLElement) => {
-  // 查找容器内所有的图片元素
-  const allImages = container.querySelectorAll('img')
-
-  allImages.forEach((img) => {
-    // 检查图片是否在 MathJax 公式容器内，如果是则跳过
-    const mathContainer = img.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
-    if (mathContainer) {
-      return
-    }
-
-    // 检查图片是否已经被处理过
-    if (img.classList.contains('markdown-image')) {
-      return
-    }
-
-    // 添加标记类名和样式类名
-    img.classList.add('markdown-image')
-
-    // 设置图片样式属性
-    const imgElement = img as HTMLImageElement
-
-    // 添加错误处理
-    imgElement.addEventListener('error', () => {
-      imgElement.classList.add('image-error')
-      imgElement.alt = '图片加载失败'
-    })
-
-    // 添加加载成功处理
-    imgElement.addEventListener('load', () => {
-      imgElement.classList.remove('image-error')
-      // 图片加载完成后，通知父组件刷新滚动容器
-      // 使用 nextTick 确保 DOM 更新完成后再刷新
-      nextTick(() => {
-        emit('image-loaded')
-      })
-    })
-  })
-}
+// 图片 DOM 增强逻辑已抽为全局指令 v-paste-to-draft
 
 // 组件卸载时清理事件监听器（当前仅有懒加载等内部逻辑，无需额外清理 BubblePopup 的监听）
 onUnmounted(() => {
@@ -1444,6 +1415,33 @@ onUnmounted(() => {
   color: #9ca3af;
   font-size: 12px;
   font-weight: 500;
+}
+
+.image-message-wrapper {
+  position: relative;
+}
+
+.paste-to-draft-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(34, 34, 34, 0.75);
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.paste-to-draft-btn:hover {
+  background: rgba(34, 34, 34, 0.85);
+}
+
+.paste-to-draft-btn:active {
+  transform: scale(0.98);
 }
 
 /* 根容器 */

@@ -13,6 +13,7 @@ import 'katex/dist/katex.min.css'
 
 import App from './App.vue'
 import mathjaxPreview from './directives/mathjaxPreview'
+import pasteToDraft from './directives/pasteToDraft'
 import router from './router'
 
 // 初始化 WebView 兼容性 polyfills
@@ -37,6 +38,7 @@ app.use(router)
 quasarUserOptions(app)
 
 app.directive('mathjax-preview', mathjaxPreview)
+app.directive('paste-to-draft', pasteToDraft)
 
 
 // 设置全局Android回调函数

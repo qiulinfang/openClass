@@ -73,6 +73,16 @@
           <label class="debug-label">Y</label>
           <input v-model.number="pos.y" class="debug-input" type="number" step="1" @input="commit" />
         </div>
+        <div class="debug-row">
+          <label class="debug-label">Rotate</label>
+          <input
+            v-model.number="local.itemRotations[index]"
+            class="debug-input"
+            type="number"
+            step="1"
+            @input="commit"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -103,6 +113,7 @@ export type FloatBubbleDebugConfig = {
   forceVisible: boolean
   disableOutsideClose: boolean
   itemPositions: { x: number; y: number }[]
+  itemRotations: number[]
 }
 
 const props = defineProps<{
@@ -115,12 +126,21 @@ const emit = defineEmits<{
   (e: 'update:debug', v: FloatBubbleDebugConfig): void
 }>()
 
-const local = reactive<FloatBubbleDebugConfig>({ ...props.debug })
+const local = reactive<FloatBubbleDebugConfig>({
+  ...props.debug,
+  itemRotations: props.debug.itemRotations ?? props.debug.itemPositions.map(() => 0),
+})
 
 watch(
   () => props.debug,
   (v) => {
     Object.assign(local, v)
+    if (!Array.isArray(local.itemRotations)) {
+      local.itemRotations = []
+    }
+    if (local.itemRotations.length < local.itemPositions.length) {
+      local.itemRotations = local.itemPositions.map((_, i) => local.itemRotations[i] ?? 0)
+    }
   },
   { deep: true },
 )

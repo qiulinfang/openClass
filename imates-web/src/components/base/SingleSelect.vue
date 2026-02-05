@@ -1,0 +1,79 @@
+<script setup lang="ts">
+const props = defineProps<{
+  modelValue: string
+  options: string[]
+  vertical?: boolean
+  className?: string
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void
+}>()
+
+const handleSelect = (opt: string) => {
+  if (opt === props.modelValue) return
+  emit('update:modelValue', opt)
+}
+</script>
+
+<template>
+  <div
+    class="single-select"
+    :class="[
+      { 'single-select--vertical': vertical },
+      className,
+    ]"
+  >
+    <button
+      v-for="opt in options"
+      :key="opt"
+      class="single-select__option"
+      :class="{ 'is-active': modelValue === opt }"
+      type="button"
+      @click="handleSelect(opt)"
+    >
+      {{ opt }}
+    </button>
+  </div>
+</template>
+
+<style scoped lang="scss">
+.single-select {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.single-select--vertical {
+  flex-direction: column;
+}
+
+.single-select__option {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(124, 58, 237, 0.45);
+  background: #ffffff;
+  color: rgba(124, 58, 237, 0.75);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.single-select__option:hover {
+  border-color: rgba(124, 58, 237, 0.8);
+}
+
+.single-select__option.is-active {
+  border-color: #5b21b6;
+  background: #6d28d9;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(109, 40, 217, 0.22);
+}
+</style>

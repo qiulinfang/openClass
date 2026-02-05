@@ -54,7 +54,14 @@
               :class="{ 'tool-disabled': toolStates[tool.value] === false }"
               @click="toolStates[tool.value] !== false && handleActionClick(tool.value)"
             >
+              <img
+                v-if="shouldUseRawIcon(tool.icon)"
+                :src="tool.icon"
+                class="tool-icon raw-icon"
+                alt=""
+              />
               <div
+                v-else
                 :style="
                   getMaskIconStyle(
                     tool.icon,
@@ -93,7 +100,6 @@
                   <div
                     v-if="tool"
                     class="tool-icon-wrapper"
-                    :class="{ 'tool-with-dropdown': tool.subTools && tool.subTools.length > 0 }"
                     @click.stop="handleToolClick(tool.value)"
                   >
                     <div
@@ -106,10 +112,6 @@
                       "
                       class="tool-icon mask-icon"
                     />
-                    <!-- 下拉箭头（对于有子工具的） -->
-                    <div v-if="tool.subTools && tool.subTools.length > 0" class="dropdown-arrow">
-                      <q-icon name="arrow_drop_down" size="14px" />
-                    </div>
                     <q-tooltip>{{ tool.label }}</q-tooltip>
                   </div>
                 </template>
@@ -260,7 +262,8 @@
             class="action-btn"
           >
             <!-- SVG 图标 -->
-            <div v-if="isImageIcon(tool.icon)" :style="getMaskIconStyle(tool.icon, 'action')" />
+            <img v-if="shouldUseRawIcon(tool.icon)" :src="tool.icon" class="action-icon raw-icon" alt="" />
+            <div v-else-if="isImageIcon(tool.icon)" :style="getMaskIconStyle(tool.icon, 'action')" />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
         </div>
@@ -308,9 +311,9 @@ import shapeConfigIcon from '/icons/shape_config.svg' // 形状配置
 import selectConfigIcon from '/icons/select_config.svg' // 选择配置
 import redoIcon from '/icons/undo.svg' // 撤销
 import undoIcon from '/icons/redo.svg' // 重做
-import dustbinIcon from '/icons/dustbin.svg' // 清空（垃圾桶）
+import dustbinIcon from '/icons/delete.svg' // 清空（垃圾桶）
 import askAiIcon from '/icons/askAI.svg' // 问问学伴
-
+import pictureIcon from '/icons/picture1.svg' // 图片
 // 工具配置接口
 interface ToolConfig {
   showColorPicker?: boolean
@@ -679,7 +682,11 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     // 子工具列表，用于下拉菜单
     subTools: ['rectangle', 'circle', 'triangle', 'line'],
   },
-
+  insertImage: {
+    value: 'insertImage',
+    label: '插入图片',
+    icon: pictureIcon,
+  },
   // 操作工具
   undo: {
     value: 'undo',
@@ -757,6 +764,7 @@ const emit = defineEmits<{
   undo: []
   redo: []
   clear: []
+  'insert-image': []
   search: []
   'hide-notes': []
   help: []
@@ -958,6 +966,10 @@ const isImageIcon = (icon: string) => {
   return icon.includes('/') || icon.includes('.') || icon.startsWith('data:image')
 }
 
+const shouldUseRawIcon = (iconPath: string) => {
+  return typeof iconPath === 'string' && iconPath.includes('/icons/delete.svg')
+}
+
 // 处理工具点击
 const handleToolClick = (toolName: string) => {
   console.log('🔧 handleToolClick:', toolName, {
@@ -1009,6 +1021,9 @@ const handleActionClick = (action: string) => {
       emit('clear')
       // 清空后切回绘画工具，便于继续写
       emit('tool-change', 'draw')
+      break
+    case 'insertImage':
+      emit('insert-image')
       break
     case 'search':
       emit('search')
@@ -1336,23 +1351,13 @@ $color-bg-selected: #e3e2fe;
 }
 
 // 带下拉菜单的工具
-.tool-with-dropdown {
-  position: relative;
-  cursor: pointer;
-
-  .dropdown-arrow {
-    position: absolute;
-    right: -5px;
-    bottom: -4px;
-    width: 12px;
-    height: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-    // 逆时针旋转90度
-    transform: rotate(-45deg);
-  }
+.config-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  // 逆时针旋转90度
+  transform: rotate(-45deg);
 }
 
 // 形状下拉菜单内容（BubblePopup 内部）
@@ -1415,6 +1420,10 @@ $color-bg-selected: #e3e2fe;
   &:active {
     transform: scale(0.96);
   }
+}
+
+.raw-icon {
+  padding: 0;
 }
 
 .unified-toolbar-browser {

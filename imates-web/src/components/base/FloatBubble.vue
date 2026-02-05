@@ -24,9 +24,6 @@
           @click="handleItemClick(item)"
         >
           <img :src="item.icon" class="icon-image" alt="" />
-          
-          <!-- 文本标签 -->
-          <span class="item-label">{{ item.label }}</span>
         </div>
       </div>
     </transition>
@@ -81,7 +78,8 @@ const debug = reactive({
   forceVisible: false,
   disableOutsideClose: false,
   // 菜单项绝对定位：[{x: number, y: number}, ...]
-  itemPositions: [{ x: 64, y: 32 }, { x: 74, y: 120 }],
+  itemPositions: [{ x: 69, y: 32 }, { x: 72, y: 120 }],
+  itemRotations: [28, -28],
 })
 
 const menuVisible = computed(() => (isDev && debug.forceVisible ? true : isVisible.value))
@@ -106,10 +104,20 @@ const bubbleMenuStyle = computed(() => {
 
 const getItemStyle = (index) => {
   const pos = debug.itemPositions[index] || { x: 50, y: 40 }
+  const item = props.items?.[index] || {}
+  const rotate =
+    typeof debug.itemRotations?.[index] === 'number'
+      ? debug.itemRotations[index]
+      : typeof item.rotate === 'number'
+        ? item.rotate
+        : typeof item.rotation === 'number'
+          ? item.rotation
+          : 0
   return {
     position: 'absolute',
     left: `${pos.x}px`,
     top: `${pos.y}px`,
+    '--item-rotate': `${rotate}deg`,
   }
 }
 
@@ -208,22 +216,16 @@ onUnmounted(() => {
   align-items: center;
   cursor: pointer;
   transition: transform 0.2s;
+  transform: rotate(var(--item-rotate, 0deg));
+  transform-origin: center;
 }
 
 .menu-item:hover {
-  transform: scale(1.05);
-}
-
-.item-label {
-  color: #939292ac;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 1px;
+  transform: rotate(var(--item-rotate, 0deg)) scale(1.05);
 }
 
 .icon-image {
   width: 50px;
-  height: 50px;
   object-fit: contain;
 }
 

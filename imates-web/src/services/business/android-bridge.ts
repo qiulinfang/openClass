@@ -22,6 +22,8 @@ import type {
   ImageCompressionResult,
 } from '@/types'
 
+import type { VoiceData, ImageData, BridgeClassroomStatus } from '@/types'
+
 // HTTP相关的接口定义已移至types/index.ts
 
 
@@ -254,7 +256,8 @@ export class AndroidBridge {
                             typeof window.AndroidBridge.notifyWebAppReady === 'function'
       
       if (isAvailableNow) {
-        window.AndroidBridge.notifyWebAppReady()
+        const bridge = window.AndroidBridge
+        bridge?.notifyWebAppReady?.()
         console.log('[AndroidBridge] 已通知Android端Web应用就绪')
         // 更新 isAvailable 状态
         this.isAvailable = true
@@ -516,7 +519,7 @@ export class AndroidBridge {
   /**
    * 停止录音
    */
-  public stopVoiceRecording(): VoiceRecordingResponse & { voiceInfo?: import('../types').VoiceData } {
+  public stopVoiceRecording(): VoiceRecordingResponse & { voiceInfo?: VoiceData } {
     const resp = this.callString(() => window.AndroidBridge?.stopVoiceRecording?.())
     const result = this.parseJSON<VoiceRecordingResponse>(resp, { 
       success: false, 
@@ -528,8 +531,8 @@ export class AndroidBridge {
     if (result.success && result.data) {
       try {
         const voiceInfo = typeof result.data === 'string' 
-          ? this.parseJSON<import('../types').VoiceData>(result.data, {} as import('../types').VoiceData)
-          : result.data as import('../types').VoiceData
+          ? this.parseJSON<VoiceData>(result.data, {} as VoiceData)
+          : result.data as VoiceData
         return { ...result, voiceInfo }
       } catch (error) {
         // 静默处理
@@ -832,10 +835,19 @@ export class AndroidBridge {
     })
   }
 
+  public saveBase64ImageToGallery(base64DataUrl: string, filename: string): ImagePickerResponse {
+    const resp = this.callString(() => window.AndroidBridge?.saveBase64ImageToGallery?.(base64DataUrl, filename))
+    return this.parseJSON<ImagePickerResponse>(resp, {
+      success: false,
+      message: '保存图片功能不可用',
+      data: null,
+    })
+  }
+
   /**
    * 获取拍照后的图片信息
    */
-  public getCapturedImageInfo(): ImagePickerResponse & { imageInfo?: import('../types').ImageData } {
+  public getCapturedImageInfo(): ImagePickerResponse & { imageInfo?: ImageData } {
     const resp = this.callString(() => window.AndroidBridge?.checkImageResult?.())
     const result = this.parseJSON<ImagePickerResponse>(resp, { 
       success: false, 
@@ -847,8 +859,8 @@ export class AndroidBridge {
     if (result.success && result.data) {
       try {
         const imageInfo = typeof result.data === 'string' 
-          ? this.parseJSON<import('../types').ImageData>(result.data, {} as import('../types').ImageData)
-          : result.data as import('../types').ImageData
+          ? this.parseJSON<ImageData>(result.data, {} as ImageData)
+          : result.data as ImageData
         return { ...result, imageInfo }
       } catch (error) {
         // 静默处理
@@ -965,14 +977,14 @@ export class AndroidBridge {
   /**
    * 监听图片选择事件
    */
-  public onImageSelect(callback: (imageInfo: import('../types').ImageData) => void): void {
+  public onImageSelect(callback: (imageInfo: ImageData) => void): void {
     this.addEventListener('imageSelected', callback)
   }
 
   /**
    * 监听拍照事件
    */
-  public onImageCapture(callback: (imageInfo: import('../types').ImageData) => void): void {
+  public onImageCapture(callback: (imageInfo: ImageData) => void): void {
     this.addEventListener('imageCaptured', callback)
   }
 
@@ -1070,7 +1082,7 @@ export class AndroidBridge {
    * 获取课堂状态
    * @returns 课堂状态信息
    */
-  public getClassroomStatus(): import('../types').BridgeClassroomStatus | null {
+  public getClassroomStatus(): BridgeClassroomStatus | null {
     try {
       if (window.AndroidBridge?.getClassroomStatus) {
         console.log('[Classroom][Bridge][Status] call')
@@ -1097,7 +1109,7 @@ export class AndroidBridge {
         if (response.success && response.data) {
           const data = response.data
           // 构造 BridgeClassroomStatus 对象（使用可选字段）
-          const status: import('../types').BridgeClassroomStatus = {
+          const status: BridgeClassroomStatus = {
             isInClass: data.isInClass ?? false,
             studentId: data.userId ?? '',
             studentName: '',
@@ -1254,7 +1266,7 @@ export class AndroidBridge {
   /**
    * 监听课堂加入事件
    */
-  public onClassroomJoined(callback: (status: import('../types').BridgeClassroomStatus) => void): void {
+  public onClassroomJoined(callback: (status: BridgeClassroomStatus) => void): void {
     this.addEventListener('classroomJoined', callback)
   }
 
@@ -1268,7 +1280,7 @@ export class AndroidBridge {
   /**
    * 监听课堂状态变化事件
    */
-  public onClassroomStatusChanged(callback: (status: import('../types').BridgeClassroomStatus) => void): void {
+  public onClassroomStatusChanged(callback: (status: BridgeClassroomStatus) => void): void {
     this.addEventListener('classroomStatusChanged', callback)
   }
 

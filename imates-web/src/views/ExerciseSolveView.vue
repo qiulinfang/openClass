@@ -48,6 +48,7 @@
                   @start-ai-guidance="handleStartAiGuidance"
                   @question-selected="handleQuestionSelected"
                   @open-mini-class="handleOpenMiniClass"
+                  @paste-to-draft="handlePasteToDraft"
                   @update:search-query="searchQuery = $event"
                   @question-deleted="handleQuestionDeleted"
                 />
@@ -83,6 +84,7 @@
                   @send-message="handleSendSuggestion"
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
+                  @paste-to-draft="handlePasteToDraft"
                 >
                   <!-- 会话面板关闭：仅在 header-suffix 中显示右上角会话管理按钮 -->
                   <template v-if="!aiChatViewRef?.showSessionListPanel" #header-suffix>
@@ -164,6 +166,7 @@
                     ref="draftBoardRef"
                     :showGrid="false"
                     :initial-zoom="70"
+                    :background-image="draftBackgroundImage"
                     @save="handleDraftSave"
                     @clear="handleDraftClearClick"
                   />
@@ -217,7 +220,7 @@ defineOptions({
   name: 'ExerciseSolveView',
 })
 
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, provide } from 'vue'
  import { useRoute, useRouter } from 'vue-router'
  import { useQuestionStore } from '../stores/questionStore'
  import { useHomeworkStore } from '../stores/homeworkStore'
@@ -251,12 +254,14 @@ import deleteSessionIcon from '/icons/delete.svg'
 import backToHomeworkIcon from '/icons/backtohomework.svg'
 import goBackIcon from '/icons/goback.svg'
 import goBackBlackIcon from '/icons/goback_black.svg'
-import textbookipIcon from '/icons/exerciseip.png'
+import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord2.svg'
 import qipaoIcon from '/icons/qipao_coagao.svg'
-import wodezuodaIcon from '/icons/wodezuoda_caogao.svg'
-import xuebandayiIcon from '/icons/xuebandayi_caogao.svg'
-import caogaobenIcon from '/icons/draftNotebook.svg'
+import wodezuodaUnselectIcon from '/icons/wodezuoda_unselect.svg'
+import xuebandayiSelectIcon from '/icons/xuebandayi_select.svg'
+import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
+import caogaobenSelectIcon from '/icons/caogaoben_select.svg'
+import caogaobenUnselectIcon from '/icons/caogaoben_unselect.svg'
 
 // 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -269,6 +274,8 @@ const homeworkStore = useHomeworkStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherChatStore = useTeacherChatStore()
 const uiStore = useUIStore()
+
+provide('pasteToDraftEnabled', true)
 
 // 从两个 store 解构出各自的 currentQuestion（重命名避免冲突）
 const { currentQuestion: exerciseCurrentQuestion, questions } = storeToRefs(questionStore)
@@ -298,13 +305,19 @@ const showExploreOverlay = ref(false)
 const floatMenuItems = computed(() => {
   if (isFromHomework.value) {
     return [
-      { label: '学伴辅导', icon: xuebandayiIcon },
-      { label: '我的作答', icon: wodezuodaIcon },
+      { label: '学伴辅导', icon: xuebandayiSelectIcon },
+      { label: '我的作答', icon: wodezuodaUnselectIcon },
     ]
   }
   return [
-    { label: '学伴答疑', icon: xuebandayiIcon },
-    { label: '草稿本', icon: caogaobenIcon },
+    {
+      label: '学伴答疑',
+      icon: currentFunction.value === 'chatAi' ? xuebandayiSelectIcon : xuebandayiUnselectIcon,
+    },
+    {
+      label: '草稿本',
+      icon: currentFunction.value === 'draft' ? caogaobenSelectIcon : caogaobenUnselectIcon,
+    },
   ]
 })
 
@@ -367,6 +380,7 @@ const aiChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 
 // 草稿本组件引用
 const draftBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
+const draftBackgroundImage = ref('')
 // 草稿数据存储
 const draftStore = useDraftStore()
 
@@ -788,10 +802,24 @@ const flushDraftAutoSave = async (questionId?: string | null) => {
   await saveDraftNow(questionId)
 }
 
-// 处理题目删除（同步删除草稿）
-const handleQuestionDeleted = (questionId: string) => {
-  // 删除该题目的草稿数据
-  draftStore.deleteDraft(questionId)
+// 处理题目删除（按开关决定是否同步删除草稿）
+const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean }) => {
+  if (payload.withDraft) {
+    draftStore.deleteDraft(payload.questionId)
+  }
+}
+
+const handlePasteToDraft = async (payload: { dataUrl: string; messageId?: string; questionId?: string }) => {
+  if (!payload?.dataUrl) return
+  await switchFunction('draft')
+  await nextTick()
+
+  const board = draftBoardRef.value as any
+  if (board && typeof board.insertImageFromDataUrl === 'function') {
+    await board.insertImageFromDataUrl(payload.dataUrl)
+  } else {
+    draftBackgroundImage.value = payload.dataUrl
+  }
 }
 
 // 处理打开微课

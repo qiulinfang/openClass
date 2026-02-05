@@ -1,6 +1,11 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="screen-capture-overlay" @click.self="handleCancel">
+    <div
+      v-if="modelValue"
+      class="screen-capture-overlay"
+      :class="{ 'is-snapshot-preparing': isSnapshotPreparing }"
+      @click.self="handleCancel"
+    >
       <div class="screen-capture-container" @click.stop>
         <canvas
           ref="canvasRef"
@@ -8,36 +13,38 @@
           :style="{ cursor: currentCursor }"
           @pointerdown.stop.prevent="startCrop"
           @pointermove.stop.prevent="handlePointerMove"
-          @pointerup.stop.prevent="endCrop"
-          @pointercancel.stop.prevent="endCrop"
+          @pointerup.stop.prevent="handlePointerUp"
+          @pointercancel.stop.prevent="handlePointerCancel"
           @pointerleave.stop.prevent="handlePointerLeave"
           @mousedown.stop.prevent="startCropMouse"
           @mousemove.stop.prevent="handleMouseMove"
-          @mouseup.stop.prevent="endCrop"
+          @mouseup.stop.prevent="handleMouseUp"
           @mouseleave.stop.prevent="handleMouseLeave"
           @touchstart.stop.prevent="startCropTouch"
           @touchmove.stop.prevent="handleTouchMove"
-          @touchend.stop.prevent="endCrop"
-          @touchcancel.stop.prevent="endCrop"
+          @touchend.stop.prevent="handleTouchEnd"
+          @touchcancel.stop.prevent="handleTouchCancel"
         ></canvas>
 
-        <div v-if="!isCropping && !cropRect" class="crop-mask crop-mask-full">
-          <div class="crop-hint-box">
-            <div class="crop-hint-rect"></div>
-            <div class="crop-hint-text">在中间区域拖动框选题目</div>
+        <template v-if="!isSnapshotPreparing">
+          <div v-if="!isCropping && !cropRect" class="crop-mask crop-mask-full">
+            <div class="crop-hint-box">
+              <div class="crop-hint-rect"></div>
+              <div class="crop-hint-text">在中间区域拖动框选题目</div>
+            </div>
           </div>
-        </div>
-        <template v-else>
-          <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
-          <div class="crop-mask crop-mask-bottom" :style="cropMaskBottomStyle"></div>
-          <div class="crop-mask crop-mask-left" :style="cropMaskLeftStyle"></div>
-          <div class="crop-mask crop-mask-right" :style="cropMaskRightStyle"></div>
-          <div class="crop-overlay" :style="cropOverlayStyle">
-            <div class="crop-corner crop-corner-nw"></div>
-            <div class="crop-corner crop-corner-ne"></div>
-            <div class="crop-corner crop-corner-sw"></div>
-            <div class="crop-corner crop-corner-se"></div>
-          </div>
+          <template v-else>
+            <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
+            <div class="crop-mask crop-mask-bottom" :style="cropMaskBottomStyle"></div>
+            <div class="crop-mask crop-mask-left" :style="cropMaskLeftStyle"></div>
+            <div class="crop-mask crop-mask-right" :style="cropMaskRightStyle"></div>
+            <div class="crop-overlay" :style="cropOverlayStyle">
+              <div class="crop-corner crop-corner-nw"></div>
+              <div class="crop-corner crop-corner-ne"></div>
+              <div class="crop-corner crop-corner-sw"></div>
+              <div class="crop-corner crop-corner-se"></div>
+            </div>
+          </template>
         </template>
 
         <div class="capture-actions">
@@ -52,7 +59,9 @@
           </button>
         </div>
 
-        <button type="button" class="capture-close-btn" @click.stop="handleCancel">×</button>
+        <q-btn flat round dense @click.stop="handleCancel" class="capture-close-btn goback-btn">
+          <img :src="goBackIcon" alt="返回" class="goback-icon" />
+        </q-btn>
       </div>
     </div>
   </Teleport>
@@ -61,6 +70,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { androidBridge } from '@/services/business/android-bridge'
+import goBackIcon from '/icons/goback.svg'
 
 type CropRect = { x: number; y: number; width: number; height: number }
 
@@ -86,18 +96,54 @@ const cropRect = ref<CropRect | null>(null)
 const isCropping = ref(false)
 const cropStartPos = ref({ x: 0, y: 0 })
 
+const isSnapshotPreparing = ref(false)
+
 const lastPointerDownAt = ref(0)
 const lastTouchStartAt = ref(0)
 
 const debugEnabled = computed(() => {
-  if (typeof window === 'undefined') return false
-  return window.localStorage?.getItem('screen_capture_debug') === '1'
+  return true
 })
 
 const debugLog = (...args: any[]) => {
-  if (!debugEnabled.value) return
   // eslint-disable-next-line no-console
   console.log('[ScreenCaptureOverlay]', ...args)
+}
+
+const logPointer = (type: string, e: PointerEvent) => {
+  debugLog(type, {
+    pointerId: e.pointerId,
+    pointerType: (e as any).pointerType,
+    button: (e as any).button,
+    buttons: (e as any).buttons,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    isCropping: isCropping.value,
+    hasCropRect: !!cropRect.value,
+  })
+}
+
+const logMouse = (type: string, e: MouseEvent) => {
+  debugLog(type, {
+    button: (e as any).button,
+    buttons: (e as any).buttons,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    isCropping: isCropping.value,
+    hasCropRect: !!cropRect.value,
+  })
+}
+
+const logTouch = (type: string, e: TouchEvent) => {
+  const t = e.touches?.[0] || e.changedTouches?.[0]
+  debugLog(type, {
+    touches: e.touches?.length ?? 0,
+    changedTouches: e.changedTouches?.length ?? 0,
+    clientX: t?.clientX,
+    clientY: t?.clientY,
+    isCropping: isCropping.value,
+    hasCropRect: !!cropRect.value,
+  })
 }
 
 const currentCursor = computed(() => {
@@ -207,8 +253,12 @@ const drawToCanvas = () => {
 const captureScreen = async () => {
   try {
     if (isAndroidSnapshotAvailable.value) {
+      isSnapshotPreparing.value = true
+      await nextTick()
+      await new Promise((r) => requestAnimationFrame(() => r(null)))
       const dataUrl = await captureScreenFromAndroid()
       await applyCapturedDataUrl(dataUrl)
+      isSnapshotPreparing.value = false
       return
     }
 
@@ -254,6 +304,7 @@ const captureScreen = async () => {
 
     await applyCapturedDataUrl(temp.toDataURL('image/png'))
   } catch (e) {
+    isSnapshotPreparing.value = false
     handleCancel()
   }
 }
@@ -355,6 +406,7 @@ watch(
   async (v) => {
     if (!v) return
     cropRect.value = null
+    isSnapshotPreparing.value = false
     await nextTick()
     await captureScreen()
   },
@@ -415,35 +467,27 @@ const updateCropAt = (pos: { x: number; y: number }) => {
   const width = Math.abs(pos.x - startX)
   const height = Math.abs(pos.y - startY)
   cropRect.value = clampRect(left, top, width, height)
-  if (debugEnabled.value) {
-    const now = performance.now()
-    ;(updateCropAt as any).__lastLogTs ??= 0
-    const last = (updateCropAt as any).__lastLogTs as number
-    if (now - last > 120) {
-      ;(updateCropAt as any).__lastLogTs = now
-      debugLog('updateCropAt', {
-        x: pos.x,
-        y: pos.y,
-        cropRect: cropRect.value,
-      })
-    }
+  const now = performance.now()
+  ;(updateCropAt as any).__lastLogTs ??= 0
+  const last = (updateCropAt as any).__lastLogTs as number
+  if (now - last > 120) {
+    ;(updateCropAt as any).__lastLogTs = now
+    debugLog('updateCropAt', {
+      x: pos.x,
+      y: pos.y,
+      cropRect: cropRect.value,
+    })
   }
 }
 
 const startCrop = (e: PointerEvent) => {
+  if (isSnapshotPreparing.value) return
   const canvas = canvasRef.value
   if (!canvas) return
 
   lastPointerDownAt.value = Date.now()
 
-  debugLog('pointerdown', {
-    pointerId: e.pointerId,
-    pointerType: (e as any).pointerType,
-    button: (e as any).button,
-    buttons: (e as any).buttons,
-    isCropping: isCropping.value,
-    hasCropRect: !!cropRect.value,
-  })
+  logPointer('pointerdown', e)
 
   // Android WebView 的 PointerEvent 在触摸场景下可能出现 button = -1 等非 0 值；
   // 这里只对 mouse 做左键校验，避免触摸无法开始框选。
@@ -463,12 +507,25 @@ const startCrop = (e: PointerEvent) => {
 }
 
 const handlePointerMove = (e: PointerEvent) => {
+  logPointer('pointermove', e)
   const pos = getRelativePos(e.clientX, e.clientY)
   if (!pos) return
   updateCropAt(pos)
 }
 
+const handlePointerUp = (e: PointerEvent) => {
+  logPointer('pointerup', e)
+  endCrop()
+}
+
+const handlePointerCancel = (e: PointerEvent) => {
+  logPointer('pointercancel', e)
+  endCrop()
+}
+
 const startCropMouse = (e: MouseEvent) => {
+  if (isSnapshotPreparing.value) return
+  logMouse('mousedown', e)
   if (Date.now() - lastTouchStartAt.value < 800) return
   if (e.button !== 0) return
   const pos = getRelativePos(e.clientX, e.clientY)
@@ -477,17 +534,29 @@ const startCropMouse = (e: MouseEvent) => {
 }
 
 const handleMouseMove = (e: MouseEvent) => {
+  logMouse('mousemove', e)
   if (Date.now() - lastTouchStartAt.value < 800) return
   const pos = getRelativePos(e.clientX, e.clientY)
   if (!pos) return
   updateCropAt(pos)
 }
 
+const handleMouseUp = (e: MouseEvent) => {
+  logMouse('mouseup', e)
+  endCrop()
+}
+
 const handleMouseLeave = () => {
+  debugLog('mouseleave', {
+    isCropping: isCropping.value,
+    hasCropRect: !!cropRect.value,
+  })
   if (isCropping.value) endCrop()
 }
 
 const startCropTouch = (e: TouchEvent) => {
+  if (isSnapshotPreparing.value) return
+  logTouch('touchstart', e)
   if (Date.now() - lastPointerDownAt.value < 500) return
   lastTouchStartAt.value = Date.now()
   const touch = e.touches?.[0]
@@ -498,12 +567,23 @@ const startCropTouch = (e: TouchEvent) => {
 }
 
 const handleTouchMove = (e: TouchEvent) => {
+  logTouch('touchmove', e)
   if (Date.now() - lastPointerDownAt.value < 500) return
   const touch = e.touches?.[0]
   if (!touch) return
   const pos = getRelativePos(touch.clientX, touch.clientY)
   if (!pos) return
   updateCropAt(pos)
+}
+
+const handleTouchEnd = (e: TouchEvent) => {
+  logTouch('touchend', e)
+  endCrop()
+}
+
+const handleTouchCancel = (e: TouchEvent) => {
+  logTouch('touchcancel', e)
+  endCrop()
 }
 
 const endCrop = () => {
@@ -519,6 +599,10 @@ const endCrop = () => {
 }
 
 const handlePointerLeave = () => {
+  debugLog('pointerleave', {
+    isCropping: isCropping.value,
+    hasCropRect: !!cropRect.value,
+  })
   if (isCropping.value) endCrop()
 }
 
@@ -571,6 +655,10 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.6);
 }
 
+.screen-capture-overlay.is-snapshot-preparing {
+  background: transparent;
+}
+
 .screen-capture-container {
   position: absolute;
   inset: 0;
@@ -586,8 +674,9 @@ onUnmounted(() => {
 
 .crop-mask {
   position: absolute;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.5);
   pointer-events: none;
+  z-index: 1;
 }
 
 .crop-mask-full {
@@ -622,43 +711,44 @@ onUnmounted(() => {
 
 .crop-overlay {
   position: absolute;
-  border: 2px solid rgba(110, 85, 255, 0.95);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+  background: transparent;
   pointer-events: none;
+  z-index: 2;
 }
 
 .crop-corner {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
 }
 
 .crop-corner-nw {
-  left: -2px;
-  top: -2px;
-  border-left: 3px solid rgba(110, 85, 255, 1);
-  border-top: 3px solid rgba(110, 85, 255, 1);
+  top: 0;
+  left: 0;
+  border-top: 4px solid white;
+  border-left: 4px solid white;
 }
 
 .crop-corner-ne {
-  right: -2px;
-  top: -2px;
-  border-right: 3px solid rgba(110, 85, 255, 1);
-  border-top: 3px solid rgba(110, 85, 255, 1);
+  top: 0;
+  right: 0;
+  border-top: 4px solid white;
+  border-right: 4px solid white;
 }
 
 .crop-corner-sw {
-  left: -2px;
-  bottom: -2px;
-  border-left: 3px solid rgba(110, 85, 255, 1);
-  border-bottom: 3px solid rgba(110, 85, 255, 1);
+  bottom: 0;
+  left: 0;
+  border-bottom: 4px solid white;
+  border-left: 4px solid white;
 }
 
 .crop-corner-se {
-  right: -2px;
-  bottom: -2px;
-  border-right: 3px solid rgba(110, 85, 255, 1);
-  border-bottom: 3px solid rgba(110, 85, 255, 1);
+  bottom: 0;
+  right: 0;
+  border-bottom: 4px solid white;
+  border-right: 4px solid white;
 }
 
 .capture-actions {
@@ -693,15 +783,16 @@ onUnmounted(() => {
   position: fixed;
   left: 18px;
   top: 18px;
-  width: 36px;
-  height: 36px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(20, 20, 20, 0.55);
-  color: #fff;
-  font-size: 20px;
-  line-height: 34px;
-  text-align: center;
   z-index: 12001;
+}
+
+.goback-btn {
+  padding: 8px;
+}
+
+.goback-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
 }
 </style>

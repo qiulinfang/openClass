@@ -113,6 +113,7 @@ declare global {
       sendVoiceMessage(filePath: string, duration: string, chatId: string): string
       getVoiceRecordingStatus(): string
       startSpeech(): string
+      stopSpeech(): string
 
       // ========== 图片相关功能 ==========
       selectImageFromGallery(): string
@@ -123,6 +124,10 @@ declare global {
       deleteImageFile(filePath: string): string
       loadImageFileToBase64(filePath: string): string
       checkImageResult(): string
+
+      saveBase64ImageToGallery(base64DataUrl: string, filename: string): string
+
+      callYanbanApi(path: string, body: string, method: string, envType: string, token: string): string
 
       // ========== 老师对话功能 ==========
       createTeacherChatSession(aiSessionId: string, aiSessionName: string, subject: string): string

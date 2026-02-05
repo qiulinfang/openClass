@@ -22,7 +22,9 @@
           </button>
         </div>
 
-        <button type="button" class="crop-close-btn" @click.stop="handleCancel">×</button>
+        <q-btn flat round dense @click.stop="handleCancel" class="crop-close-btn goback-btn">
+          <img :src="goBackIcon" alt="返回" class="goback-icon" />
+        </q-btn>
       </div>
     </div>
   </Teleport>
@@ -30,6 +32,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import goBackIcon from '/icons/goback.svg'
 
 interface Props {
   modelValue: boolean
@@ -498,15 +501,16 @@ onBeforeUnmount(() => {
   position: fixed;
   left: 18px;
   top: 18px;
-  width: 36px;
-  height: 36px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(20, 20, 20, 0.55);
-  color: #fff;
-  font-size: 20px;
-  line-height: 34px;
-  text-align: center;
   z-index: 12001;
+}
+
+.goback-btn {
+  padding: 8px;
+}
+
+.goback-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
 }
 </style>
