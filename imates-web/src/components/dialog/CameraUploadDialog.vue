@@ -51,10 +51,12 @@
       </div>
     </div>
 
-    <!-- 图片预览：直接使用 ImageViewer（内部 q-dialog 会 Teleport 到 body） -->
+    <!-- 图片预览：使用 ImageViewer 多图模式 -->
     <ImageViewer
       v-model="previewVisible"
-      :image-url="currentPreviewPhoto"
+      :images="previewImages"
+      :initial-index="previewIndex ?? 0"
+      @change="(index) => previewIndex = index"
     />
   </Modal>
 </template>
@@ -92,6 +94,14 @@ const photos = ref<string[]>([])
 // 预览状态
 const previewVisible = ref(false)
 const previewIndex = ref<number | null>(null)
+
+// 转换为 ImageViewer 需要的图片数组格式
+const previewImages = computed(() => {
+  return photos.value.map((url, index) => ({
+    url,
+    alt: `照片 ${index + 1}`
+  }))
+})
 
 const currentPreviewPhoto = computed(() => {
   if (previewIndex.value === null) return ''

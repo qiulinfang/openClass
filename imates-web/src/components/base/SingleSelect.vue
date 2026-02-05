@@ -52,9 +52,9 @@ const handleSelect = (opt: string) => {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  border: 1.5px solid rgba(124, 58, 237, 0.45);
-  background: #ffffff;
-  color: rgba(124, 58, 237, 0.75);
+  border: 1.5px solid #7e68ff;
+  background: #f6f5ff;
+  color: #6e55ff;
   font-size: 18px;
   font-weight: 600;
   line-height: 1;
@@ -67,13 +67,12 @@ const handleSelect = (opt: string) => {
 }
 
 .single-select__option:hover {
-  border-color: rgba(124, 58, 237, 0.8);
+  border-color: #6e55ff;
 }
 
 .single-select__option.is-active {
-  border-color: #5b21b6;
-  background: #6d28d9;
+  border-color: #6e55ff;
+  background: #6e55ff;
   color: #ffffff;
-  box-shadow: 0 6px 16px rgba(109, 40, 217, 0.22);
 }
 </style>

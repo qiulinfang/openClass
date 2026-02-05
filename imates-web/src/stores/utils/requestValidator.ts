@@ -81,9 +81,10 @@ export function validateExerciseChatRequest(
   }
   
   // 4. 题目场景特定格式校验
-  // bmNo 必须是数字字符串（题目ID）
-  if (!/^\d+$/.test(message.bmNo)) {
-    throw new Error(`[${context}] bmNo 必须是数字字符串，当前值: ${message.bmNo}`)
+  // bmNo 支持纯数字字符串或 UUID 格式（如 01b9a674-bc25-4804-b3cc-5faddb2ca3d1）
+  const isValidBmNo = /^\d+$/.test(message.bmNo) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(message.bmNo)
+  if (!isValidBmNo) {
+    throw new Error(`[${context}] bmNo 必须是数字字符串或 UUID 格式，当前值: ${message.bmNo}`)
   }
   
   // subject 必须是 MATH 或 BIOLOGY

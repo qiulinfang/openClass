@@ -120,6 +120,15 @@ export default defineConfig(({ mode }) => {
           attachBasicProxyLog(proxy, '/blw-edu-yb/auth')
         },
       },
+      // 匹配以 "/homework" 开头的请求，转发到研伴后端（用于作业管理接口）
+      '/homework': {
+        target: RESOURCE_FILE_BASE, // 研伴后端基础地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/homework')
+        },
+      },
       // 匹配以 "/api/v1/tickets" 开头的请求，转发到Zammad工单系统
       '/api/v1/tickets': {
         target: 'http://app.imates.com.cn:8080', // Zammad工单系统地址

@@ -263,8 +263,6 @@ const aiExerciseStore = useAiExerciseChatStore()
 const teacherChatStore = useTeacherChatStore()
 const uiStore = useUIStore()
 
-provide('pasteToDraftEnabled', true)
-
 // 从两个 store 解构出各自的 currentQuestion（重命名避免冲突）
 const { currentQuestion: exerciseCurrentQuestion, questions } = storeToRefs(questionStore)
 const { currentQuestion: homeworkCurrentQuestion, questions: homeworkQuestions } =

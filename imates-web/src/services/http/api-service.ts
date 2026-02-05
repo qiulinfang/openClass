@@ -281,7 +281,7 @@ export class ApiService {
    * 获取作业详情（问题列表）
    */
   public async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
-    return this.homeworkApi.getHomeworkDetailList(homeworkId) 
+    return this.homeworkApi.getHomeworkDetailList(homeworkId)
   }
 
   /**

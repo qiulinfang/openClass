@@ -75,7 +75,7 @@
                     message.imageData.base64DataUrl
                   "
                 >
-                  <div v-paste-to-draft="handlePasteToDraft">
+                  <div v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }">
                     <!-- 显示图片 -->
                     <ImageMessage
                       :base64-data-url="message.imageData.base64DataUrl"
@@ -116,7 +116,7 @@
                   <!-- AI 消息：始终使用 StreamingMessage 组件，支持打字机效果 -->
                   <div
                     v-else-if="message.sender === 'ai' || message.sender === 'teacher'"
-                    v-paste-to-draft="handlePasteToDraft"
+                    v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }"
                   >
                     <StreamingMessage
                       :content="message.content"
@@ -207,7 +207,7 @@
                     message.imageData.base64DataUrl
                   "
                 >
-                  <div v-paste-to-draft="handlePasteToDraft">
+                  <div v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }">
                     <!-- 显示图片 -->
                     <ImageMessage
                       :base64-data-url="message.imageData.base64DataUrl"
@@ -230,7 +230,7 @@
                   v-else
                   class="message-text"
                   v-html="renderedContent"
-                  v-paste-to-draft="handlePasteToDraft"
+                  v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }"
                   :ref="(el) => setLazyMessageRef(el as HTMLElement | null)"
                 ></div>
               </div>
@@ -349,6 +349,7 @@ const handlePasteToDraft = (dataUrl: string) => {
   emit('paste-to-draft', { dataUrl, messageId: props.message.id })
 }
 
+// 是否启用贴到草稿本功能：仅在 ai-exercise 类型下启用
 const props = withDefaults(defineProps<Props>(), {
   isSelected: false,
   isSelectionMode: false,
@@ -373,6 +374,9 @@ const emit = defineEmits<{
   'open-link': [url: string] // 打开链接（由父组件决定展示方式）
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
 }>()
+
+// 是否启用贴到草稿本功能：仅在 ai-exercise 类型下启用
+const isPasteToDraftEnabled = computed(() => props.type === 'ai-exercise')
 
 // 长按相关状态
 const showActionMenu = ref(false)
@@ -1757,6 +1761,11 @@ onUnmounted(() => {
           -moz-user-select: text;
           -ms-user-select: text;
           color: white;
+
+          :deep(img) {
+            max-width: 100%;
+            height: auto;
+          }
 
           :deep(h1),
           :deep(h2),
