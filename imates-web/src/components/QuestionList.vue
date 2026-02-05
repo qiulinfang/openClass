@@ -146,7 +146,7 @@
                 <div
                   class="markdown-content question-content"
                   v-html="renderMessageContent(question?.question || question?.title || '暂无内容')"
-                  v-paste-to-draft="(dataUrl) => emit('paste-to-draft', { dataUrl, questionId: question.bmNo })"
+                  v-paste-to-draft="makePasteToDraftHandler(question.bmNo)"
                   :ref="(el) => handleContentRef(el, question.bmNo)"
                 ></div>
               </div>
@@ -263,6 +263,10 @@ const emit = defineEmits<{
   'questionDeleted': [payload: { questionId: string; withDraft: boolean }]
   'paste-to-draft': [payload: { dataUrl: string; questionId: string }]
 }>()
+
+const makePasteToDraftHandler = (questionId: string) => {
+  return (dataUrl: string) => emit('paste-to-draft', { dataUrl, questionId })
+}
 
 // 创建策略实例（根据 type prop 决定使用哪个策略）
 const strategy = computed(() => createQuestionListStrategy(props.type || 'exercise'))
@@ -1465,33 +1469,6 @@ defineExpose({
 // ===== 变量定义 - Gemini 风格 =====
 $primary-color: #1a73e8;
 $primary-color-light: rgba(26, 115, 232, 0.08);
-
-:deep(.image-message-wrapper) {
-  position: relative;
-}
-
-:deep(.paste-to-draft-btn) {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 12px;
-  background: rgba(34, 34, 34, 0.75);
-  color: #ffffff;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-:deep(.paste-to-draft-btn:hover) {
-  background: rgba(34, 34, 34, 0.85);
-}
-
-:deep(.paste-to-draft-btn:active) {
-  transform: scale(0.98);
-}
 $primary-color-hover: rgba(26, 115, 232, 0.04);
 $border-color: rgba(0, 0, 0, 0.06);
 $border-color-subtle: rgba(0, 0, 0, 0.03);

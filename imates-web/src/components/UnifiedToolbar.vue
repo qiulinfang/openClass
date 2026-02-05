@@ -978,6 +978,12 @@ const handleToolClick = (toolName: string) => {
     activeToolPopup: activeToolPopup,
   })
 
+  if (toolName === 'insertImage') {
+    emit('insert-image')
+    activeToolPopup.value = null
+    return
+  }
+
   if (isSubToolActive(ALL_TOOLS[toolName])) {
     // 再次点击已选中的工具，切换弹出框
     const shouldOpen = activeToolPopup.value !== toolName

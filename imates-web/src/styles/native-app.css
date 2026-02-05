@@ -3,6 +3,40 @@
  * 确保Web组件与Android原生应用保持一致的视觉效果
  */
 
+/* ==================== 全局禁用文字选择（除消息气泡外） ==================== */
+/* 这个样式确保整个应用范围内默认禁用文字选择 */
+html,
+body,
+#app,
+.q-page,
+.chat-container,
+.chat-content {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+html,
+body,
+#app {
+  overflow: hidden;
+}
+
+/* ==================== 例外：消息气泡启用文字选择 ==================== */
+/* 这个样式确保消息气泡内可以正常选中文字 */
+.message-text,
+.message-text *,
+.user-bubble,
+.user-bubble *,
+.ai-message-content,
+.ai-message-content * {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
 /* ==================== 颜色主题 ==================== */
 :root {
   /* 主题色 */
