@@ -326,19 +326,4 @@ const setTypewriterContentRef = (el: any) => {
     opacity: 0;
   }
 }
-
-/* Markdown 渲染出的图片样式 */
-:deep(img.markdown-image) {
-  max-width: 100%;
-}
-
-:deep(img.markdown-image:hover) {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-:deep(img.markdown-image.image-error) {
-  opacity: 0.5;
-  filter: grayscale(100%);
-}
 </style>

@@ -91,6 +91,20 @@
         @keydown.stop="handleInputKeydown"
         @input="autoResizeInput"
       ></textarea>
+
+      <button
+        v-if="selectedImageDeleteButtonVisible"
+        class="image-delete-btn"
+        type="button"
+        :style="selectedImageDeleteButtonStyle"
+        @pointerdown.stop
+        @click.stop="handleDeleteSelectedImage"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="6" y1="6" x2="18" y2="18" />
+          <line x1="18" y1="6" x2="6" y2="18" />
+        </svg>
+      </button>
     </div>
 
     <div class="toast" :class="{ show: showToast }">已导出</div>
@@ -203,6 +217,7 @@ import CommonSelect from './base/Select.vue'
 import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
+import { useImagePicker } from '../composables/useImagePicker'
 
 const emit = defineEmits<{
   (e: 'clear'): void
@@ -229,6 +244,8 @@ const props = defineProps({
   enableAskAi: { type: Boolean, default: false },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
+
+const { pickImage } = useImagePicker()
 
 // --- 引用与状态 ---
 // 双 Canvas 引用
@@ -387,8 +404,8 @@ const inputState = reactive({
 let historyCtx: CanvasRenderingContext2D | null = null
 let liveCtx: CanvasRenderingContext2D | null = null
 
-let strokes = []
-let history = []
+let strokes: any[] = []
+let history: any[] = []
 const activePointers = new Map()
 let activeAction = null
 const historyStep = ref(-1)
@@ -543,6 +560,8 @@ const cursorClass = computed(() => {
   return 'cursor-crosshair'
 })
 
+const renderTick = ref(0)
+
 // --- 坐标系统 ---
 function screenToWorld(sx, sy) {
   if (!liveCanvasRef.value) return { x: 0, y: 0 }
@@ -557,6 +576,42 @@ function worldToScreen(wx, wy) {
   const sx = wx * camera.zoom + camera.x
   const sy = wy * camera.zoom + camera.y
   return { x: sx, y: sy }
+}
+
+const selectedImageIndex = computed(() => {
+  if (selectedIndices.size !== 1) return null
+  const idx = Array.from(selectedIndices)[0]
+  const obj = strokes[idx]
+  if (!obj || obj.type !== 'image') return null
+  return idx
+})
+
+const selectedImageDeleteButtonVisible = computed(() => {
+  return selectedImageIndex.value !== null && !!containerRef.value
+})
+
+const selectedImageDeleteButtonStyle = computed(() => {
+  renderTick.value
+  const idx = selectedImageIndex.value
+  if (idx === null) return {}
+  const obj = strokes[idx]
+  const bounds = obj?.bounds
+  if (!bounds || typeof bounds.maxX !== 'number' || typeof bounds.minY !== 'number') return {}
+  const pos = worldToScreen(bounds.maxX, bounds.minY)
+  return {
+    left: `${pos.x}px`,
+    top: `${pos.y}px`,
+  }
+})
+
+function handleDeleteSelectedImage() {
+  const idx = selectedImageIndex.value
+  if (idx === null) return
+  strokes.splice(idx, 1)
+  selectedIndices.clear()
+  groupBounds = null
+  saveState()
+  requestRenderAll()
 }
 
 function getDistance(p1, p2) {
@@ -765,8 +820,17 @@ function renderHistory() {
   if (!Array.isArray(strokes)) {
     strokes = []
   }
+  // 先绘制图片（置于最底层）
   strokes.forEach((obj) => {
-    drawStrokeToContext(historyCtx, obj)
+    if (obj.type === 'image') {
+      drawStrokeToContext(historyCtx, obj)
+    }
+  })
+  // 再绘制其他类型的笔画
+  strokes.forEach((obj) => {
+    if (obj.type !== 'image') {
+      drawStrokeToContext(historyCtx, obj)
+    }
   })
 }
 
@@ -848,6 +912,7 @@ function renderLive() {
 
 // 统一请求更新
 function requestRenderAll() {
+  renderTick.value++
   renderHistory()
   renderLive()
 }
@@ -2128,18 +2193,22 @@ onUnmounted(() => {
 })
 
 function triggerImageSelect() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/*'
+  Promise.resolve().then(async () => {
+    try {
+      const imageInfo = await pickImage()
+      if (!imageInfo) return
 
-  input.onchange = async () => {
-    const file = input.files?.[0]
-    if (file) {
-      await insertImageFromFile(file)
+      if (imageInfo.base64DataUrl) {
+        await insertImageFromDataUrl(imageInfo.base64DataUrl)
+        return
+      }
+
+      showMessage('图片选择失败，请重试', 'error')
+    } catch (error) {
+      console.error('[drawingBoardNew][triggerImageSelect] 图片选择异常:', error)
+      showMessage('图片选择失败，请重试', 'error')
     }
-  }
-
-  input.click()
+  })
 }
 
 function handleDragOver(e: DragEvent) {
@@ -2425,12 +2494,28 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+}
+
+.image-delete-btn {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 60;
+  pointer-events: auto;
+}
+
+.image-delete-btn:hover {
+  background: rgba(0, 0, 0, 0.68);
 }
 
 /* 关键样式：所有层绝对定位重叠 */

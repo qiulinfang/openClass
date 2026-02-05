@@ -17,6 +17,12 @@ body,
   user-select: none !important;
 }
 
+html,
+body,
+#app {
+  overflow: hidden;
+}
+
 /* ==================== 例外：消息气泡启用文字选择 ==================== */
 /* 这个样式确保消息气泡内可以正常选中文字 */
 .message-text,

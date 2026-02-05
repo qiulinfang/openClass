@@ -24,12 +24,13 @@
     @touchcancel="handleTouchCancel"
   >
     <!-- 选择模式下的复选框 -->
-    <div v-if="isSelectionMode" class="message-checkbox">
+    <div v-if="isSelectionMode" class="message-checkbox" @click.stop>
       <Checkbox
         :modelValue="isSelected"
         :indeterminate="false"
         size="sm"
         @update:modelValue="handleToggleSelection"
+        @click.native.stop
       />
     </div>
 
@@ -117,14 +118,18 @@
                     </div>
                   </div>
                   <!-- AI 消息：始终使用 StreamingMessage 组件，支持打字机效果 -->
-                  <StreamingMessage
+                  <div
                     v-else-if="message.sender === 'ai' || message.sender === 'teacher'"
-                    :content="message.content"
-                    :is-streaming="message.isStreaming"
-                    :typewriter-speed="30"
-                    :enable-typewriter="false"
-                    :ref="(el) => setStreamingRef(el)"
-                  />
+                    v-paste-to-draft="handlePasteToDraft"
+                  >
+                    <StreamingMessage
+                      :content="message.content"
+                      :is-streaming="message.isStreaming"
+                      :typewriter-speed="30"
+                      :enable-typewriter="false"
+                      :ref="(el) => setStreamingRef(el)"
+                    />
+                  </div>
                   <!-- 用户消息：直接渲染 -->
                   <div
                     v-else
@@ -1350,13 +1355,19 @@ const handleImageClick = (event: MouseEvent) => {
     return
   }
 
-  if (target && target.tagName === 'IMG' && target.classList.contains('markdown-image')) {
+  const imgElement = target?.closest?.('img') as HTMLImageElement | null
+  if (!imgElement) return
+
+  const mathContainer = imgElement.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
+  if (mathContainer) return
+
+  const insidePasteBtn = imgElement.closest('.paste-to-draft-btn')
+  if (insidePasteBtn) return
+
+  if (imgElement.src) {
     event.stopPropagation()
-    const imgElement = target as HTMLImageElement
-    if (imgElement.src) {
-      previewImageUrl.value = imgElement.src
-      showImagePreview.value = true
-    }
+    previewImageUrl.value = imgElement.src
+    showImagePreview.value = true
   }
 }
 
@@ -1415,33 +1426,6 @@ onUnmounted(() => {
   color: #9ca3af;
   font-size: 12px;
   font-weight: 500;
-}
-
-.image-message-wrapper {
-  position: relative;
-}
-
-.paste-to-draft-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 12px;
-  background: rgba(34, 34, 34, 0.75);
-  color: #ffffff;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.paste-to-draft-btn:hover {
-  background: rgba(34, 34, 34, 0.85);
-}
-
-.paste-to-draft-btn:active {
-  transform: scale(0.98);
 }
 
 /* 根容器 */

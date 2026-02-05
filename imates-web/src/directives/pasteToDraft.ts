@@ -16,15 +16,32 @@ type InternalState = {
 }
 
 const STATE_KEY = '__paste_to_draft_state__'
+const STYLE_ID = '__paste_to_draft_style__'
+
+function ensureDirectiveStyleInjected() {
+  if (typeof document === 'undefined') return
+  if (document.getElementById(STYLE_ID)) return
+
+  const style = document.createElement('style')
+  style.id = STYLE_ID
+  style.textContent = `
+.image-message-wrapper{position:relative;display:inline-block;max-width:100%}
+.paste-to-draft-btn{position:absolute;top:10px;right:10px;background:rgba(34,34,34,.7);color:#fff;border:none;border-radius:10px;padding:6px 10px;font-size:12px;line-height:1;cursor:pointer;z-index:2;transition:background .12s ease,transform .12s ease}
+.paste-to-draft-btn:hover{background:rgba(34,34,34,.85)}
+.paste-to-draft-btn:active{transform:scale(.98)}
+img.markdown-image{max-width:100%;height:auto;display:block}
+`
+  document.head.appendChild(style)
+}
 
 function getBindingConfig(binding: DirectiveBinding<PasteToDraftBindingValue>) {
   const v = binding.value
   if (typeof v === 'function') {
-    return { onPaste: v, label: '贴到我的作答', enabled: undefined }
+    return { onPaste: v, label: '贴到草稿本', enabled: undefined }
   }
   return {
     onPaste: v?.onPaste,
-    label: v?.label || '贴到我的作答',
+    label: v?.label || '贴到草稿本',
     enabled: typeof v?.enabled === 'boolean' ? v.enabled : undefined,
   }
 }
@@ -37,11 +54,14 @@ function isDirectiveEnabled(binding: DirectiveBinding<PasteToDraftBindingValue>)
   // 默认禁用：仅在 ExerciseSolveView 场景下通过 provide 显式开启
   const inst = binding.instance as any
   const provides = inst?.$?.provides
+  console.log("provides",provides)
   return provides?.pasteToDraftEnabled === true
 }
 
 function scanAndEnhance(container: HTMLElement, binding: DirectiveBinding<PasteToDraftBindingValue>) {
   if (!isDirectiveEnabled(binding)) return
+
+  ensureDirectiveStyleInjected()
 
   const { onPaste, label } = getBindingConfig(binding)
   if (typeof onPaste !== 'function') return
@@ -99,6 +119,7 @@ function scheduleScan(el: HTMLElement, binding: DirectiveBinding<PasteToDraftBin
 const pasteToDraft: Directive<HTMLElement, PasteToDraftBindingValue> = {
   mounted(el, binding) {
     if (!isDirectiveEnabled(binding)) return
+    ensureDirectiveStyleInjected()
     scheduleScan(el, binding)
 
     const state = ((el as any)[STATE_KEY] || ((el as any)[STATE_KEY] = {})) as InternalState
@@ -113,6 +134,7 @@ const pasteToDraft: Directive<HTMLElement, PasteToDraftBindingValue> = {
   },
   updated(el, binding) {
     if (!isDirectiveEnabled(binding)) return
+    ensureDirectiveStyleInjected()
     scheduleScan(el, binding)
   },
   unmounted(el) {
