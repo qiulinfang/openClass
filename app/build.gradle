@@ -28,16 +28,16 @@ android {
 
     signingConfigs {
         release {
-            keyAlias 'release'
-            keyPassword 'cosine@imates.com.cn@2026'
-            storeFile file('../release.jks')
-            storePassword 'cosine@imates.com.cn@2026'
+            keyAlias 'bj101'
+            keyPassword 'imates@bj101.com'
+            storeFile file('../appkey4bj101.jks')
+            storePassword 'imates.com.cn'
         }
         debug {
-            keyAlias 'debug'
-            keyPassword 'cosine@imates.com.cn@2026'
-            storeFile file('../release.jks')
-            storePassword 'cosine@imates.com.cn@2026'
+            keyAlias 'bj101'
+            keyPassword 'imates@bj101.com'
+            storeFile file('../appkey4bj101.jks')
+            storePassword 'imates.com.cn'
         }
     }
 

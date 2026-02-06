@@ -1339,7 +1339,18 @@ export class AndroidBridge {
 
       const hasBody = body !== undefined && body !== null
       const jsonBody = hasBody ? JSON.stringify(body) : ''
-      console.log('[AndroidBridge] 📤 callYanbanApi 请求:', { path, method, envType, hasToken: !!token, hasBody })
+      const safeTokenSummary = token ? `${token.slice(0, 6)}...${token.slice(-4)}` : ''
+      const bodyPreview = jsonBody.length > 500 ? `${jsonBody.slice(0, 500)}...` : jsonBody
+      console.log('[AndroidBridge] 📤 callYanbanApi 请求:', {
+        path,
+        method,
+        envType,
+        hasToken: !!token,
+        tokenPreview: safeTokenSummary,
+        hasBody,
+        bodyLength: jsonBody.length,
+        bodyPreview,
+      })
 
       // 传递环境类型和 Token 给原生，避免原生侧读 localStorage 导致死锁
       const resp = this.callString(() => window.AndroidBridge?.callYanbanApi?.(path, jsonBody, method, envType || '', token || ''))
@@ -1349,8 +1360,20 @@ export class AndroidBridge {
         return { success: false, message: '原生返回空响应' }
       }
 
+      const respPreview = resp.length > 800 ? `${resp.slice(0, 800)}...` : resp
+      console.log('[AndroidBridge] 📥 callYanbanApi 原生返回:', {
+        respLength: resp.length,
+        respPreview,
+      })
+
       const result = this.parseJSON<any>(resp, { success: false, message: '解析响应失败' })
-      console.log('[AndroidBridge] 📥 callYanbanApi 响应:', { success: result.success, hasData: !!result.data })
+      console.log('[AndroidBridge] 📥 callYanbanApi 响应:', {
+        success: result.success,
+        code: (result as any)?.code,
+        message: (result as any)?.message,
+        hasData: !!(result as any)?.data,
+        dataType: typeof (result as any)?.data,
+      })
       
       return result
     } catch (error) {
