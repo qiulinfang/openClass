@@ -310,7 +310,6 @@ const toolbarTools = computed(() => {
       'clear',
       'hand',
       'select',
-      ...(props.enableAskAi ? ['askAi'] : []),
       'draw',
       'highlighter',
       'eraser-stroke',
