@@ -34,8 +34,10 @@
         >
           <!-- 新增会话按钮 -->
           <template #header-right>
-            <div @click="handleNewChatClick" class="add-session-btn">
-              <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+            <div class="header-right-actions">
+              <div @click="handleNewChatClick" class="add-session-btn">
+                <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+              </div>
             </div>
           </template>
         </ChatView>
@@ -397,6 +399,12 @@ defineExpose({
   display: flex;
   height: 100%;
   overflow: hidden;
+
+  .header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 
   .left-panel {
     width: 280px;

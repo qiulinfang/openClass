@@ -68,10 +68,17 @@
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
                 >
+                  <template #header-prefix>
+                      <button type="button" class="pdf-toolbar-btn" @click="handleOpenScreenCapture">
+                        <img :src="screenshotIcon" alt="截图" class="pdf-toolbar-icon" />
+                      </button>
+                  </template>
                   <!-- 新增会话按钮 -->
                   <template #header-right v-if="activeCategory === 'ai-general'">
-                    <div @click="handleNewChatClick" class="add-session-btn">
-                      <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                    <div class="header-right-actions">
+                      <div @click="handleNewChatClick" class="add-session-btn">
+                        <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
+                      </div>
                     </div>
                   </template>
                 </ChatView>
@@ -130,6 +137,8 @@ import type { ChatEntry } from '../types/chat'
 
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()
+
+import screenshotIcon from '/icons/selectAndAsk.svg'
 
 interface Props {
   entry?: ChatEntry
@@ -450,6 +459,28 @@ defineExpose({
   justify-content: center;
   align-items: flex-end;
   position: relative;
+}
+
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-toolbar-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.pdf-toolbar-icon {
+  display: block;
+  height: 32px;
+  object-fit: contain;
 }
 
 .connection-status {
