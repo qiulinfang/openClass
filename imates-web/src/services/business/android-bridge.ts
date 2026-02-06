@@ -14,7 +14,7 @@ import type {
 } from '@/types'
 
 // 枚举需要普通导入才能作为值使用
-import { MessageType, ChatRole } from '@/types'
+import { MessageType } from '@/types'
 
 // 使用统一类型定义
 import type {

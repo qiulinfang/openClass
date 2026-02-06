@@ -3,7 +3,7 @@
  * 包含消息、会话、转发、组件Props等所有聊天相关类型
  */
 
-import type { MessageType, ChatRole, SessionType } from './enums'
+import type { MessageType, Sender, SessionType } from './enums'
 import type { ExerciseItem } from './exercise'
 
 // ========== 基础聊天类型 ==========
@@ -27,7 +27,7 @@ export interface ConversationRecord {
   messageType: MessageType
   sessionId: string
   timestamp: number
-  chatRole: ChatRole
+  sender: Sender
 }
 
 /** 聊天会话接口 */
@@ -46,8 +46,8 @@ export interface ChatBubble {
   id: string
   messageId?: string
   content: string
-  sender: 'user' | 'ai' | 'teacher'
-  type: 'user' | 'ai' | 'teacher'
+  sender: Sender
+  type: Sender
   timestamp: string
   messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'system' | 'time_separator' // 场景39：支持系统消息类型 + 多图消息 + 时间分隔符
   isStreaming?: boolean
@@ -89,7 +89,7 @@ export interface ChatBubble {
   quotedMessage?: {
     id: string
     content: string
-    sender: 'user' | 'ai' | 'teacher'
+    sender: Sender
   }
   originalDstUrl?: string
 }

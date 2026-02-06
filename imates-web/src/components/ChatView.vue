@@ -916,9 +916,9 @@ const handleDeleteSessionRequest = (sessionId: string) => {
 }
 
 // 处理老师选择
-const handleTeacherSelected = (subject: 'BIOLOGY' | 'MATH') => {
+const handleTeacherSelected = (subject: 'biology' | 'math') => {
   if (teacherSelectionResolve) {
-    teacherSelectionResolve(subject === 'BIOLOGY' ? 'biology' : 'math')
+    teacherSelectionResolve(subject)
     teacherSelectionResolve = null
   }
 }
