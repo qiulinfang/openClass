@@ -308,6 +308,7 @@ export class AiGeneralStrategy implements ChatStrategy {
     const result = {
       id: msg.id,
       type: messageType,
+      sender: msg.sender,
       content: messageContent,
       timestamp: '',
     }
@@ -442,9 +443,9 @@ export class AiGeneralStrategy implements ChatStrategy {
             id: messageId,
             messageId: messageId,
             content: forwardContent,
-            type: 'user',
+            type: message.sender,
             timestamp: new Date().toISOString(),
-            sender: 'user',
+            sender: message.sender,
             messageType: 'image',
             imageData: {
               ...message.imageData,
@@ -461,7 +462,7 @@ export class AiGeneralStrategy implements ChatStrategy {
             height: message.imageData.height,
             fileSize: message.imageData.fileSize,
             base64DataUrl: undefined // 不发送base64数据
-          })
+          }, message.sender)
           successCount++
 
           console.log(`[AiGeneralStrategy] ✅ 转发单图消息成功 (${successCount})`)
@@ -476,15 +477,15 @@ export class AiGeneralStrategy implements ChatStrategy {
             id: messageId,
             messageId: messageId,
             content: forwardContent,
-            type: 'user',
+            type: message.sender,
             timestamp: new Date().toISOString(),
-            sender: 'user',
+            sender: message.sender,
             messageType: 'text',
           }
 
           teacherStore.addMessage(forwardMessage)
           console.log(`[发送] 文本消息: ${forwardContent}`)
-          await teacherStore.sendMessage(forwardContent)
+          await teacherStore.sendMessage(forwardContent, undefined, message.sender)
           successCount++
 
           console.log(`[AiGeneralStrategy] ✅ 转发文本消息成功 (${successCount})`)
@@ -524,9 +525,9 @@ export class AiGeneralStrategy implements ChatStrategy {
       id: messageId,
       messageId: messageId,
       content: forwardContent,
-      type: 'user',
+      type: originalMessage.sender,
       timestamp: new Date().toISOString(),
-      sender: 'user',
+      sender: originalMessage.sender,
       messageType: 'image',
       imageData: {
         filePath: imageInfo.filePath || '',

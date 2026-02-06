@@ -216,7 +216,7 @@ export interface HomeworkQuestionAnswer {
   questionId: string
   /** 回答图片列表 */
   answerList: string[]
-  singleAnswer?: string
+  chooseList?: string[]
 }
 
 /** 未完成作业列表项 */

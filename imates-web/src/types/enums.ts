@@ -10,11 +10,11 @@ export enum MessageType {
   IMAGE = 'IMAGE'
 }
 
-/** 聊天角色枚举 */
-export enum ChatRole {
-  CHAT_ROLE_MYSELF = 'CHAT_ROLE_MYSELF',
-  CHAT_ROLE_TEACHER = 'CHAT_ROLE_TEACHER',
-  CHAT_ROLE_AI = 'CHAT_ROLE_AI'
+/** 发送者/角色枚举（用于 sender 和 type） */
+export enum Sender {
+  USER = 'user',
+  AI = 'ai',
+  TEACHER = 'teacher'
 }
 
 /** 会话类型枚举 */

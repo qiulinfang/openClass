@@ -12,7 +12,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/http/api-service'
-import { showMessage } from '../utils'
+import { showMessage } from '@/utils'
+import { Sender } from '@/types/enums'
 import { getUserInfo, getUserId } from '../services'
 import { getResourceBaseUrl } from '../config/env-config'
 import { useUnreadMessageStore } from './unreadMessageStore'
@@ -390,7 +391,11 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    * 通过WebSocket直接发送到后端
    * 等待发送确认和教师回复
    */
-  const sendMessage = async (content: string, imageData?: ChatImageData): Promise<void> => {
+  const sendMessage = async (
+    content: string,
+    imageData?: ChatImageData,
+    sender: Sender = Sender.USER
+  ): Promise<void> => {
     if (!(await validateSendMessagePreconditions(
       currentSession.value,
       getUserInfo,
@@ -443,7 +448,8 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
         userId: getUserId() || '',
         messageId: messageId,
         subject: subjectId,  // 直接传递数据库科目ID
-        timestamp: Date.now().toString()
+        timestamp: Date.now().toString(),
+        senderType: sender,
       }
 
       // 发送消息

@@ -32,8 +32,8 @@
       </div>
       <div class="right-panel">
         <div class="right-panel-options">
-          <SingleSelect
-            v-model="currentQuestionSelectedOption"
+          <MultiSelect
+            v-model="currentQuestionChooseList"
             :options="rightPanelOptions"
             vertical
           />
@@ -137,7 +137,7 @@ import pageNextIcon from '/icons/right.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import wodezuodaSelectIcon from '/icons/wodezuoda_select.svg'
 import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
-import SingleSelect from '@/components/base/SingleSelect.vue'
+import MultiSelect from '@/components/base/MultiSelect.vue'
 
 defineOptions({
   name: 'HomeworkAnswerView',
@@ -178,18 +178,18 @@ const questionSearchQuery = ref('')
 const rightPanelOptions = ['A', 'B', 'C', 'D']
 
 // 当前题目的选中选项（从缓存中获取或默认空字符串）
-const currentQuestionSelectedOption = computed({
+const currentQuestionChooseList = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return ''
+    if (!questionKey) return []
     const cache = (answerDataCache.value as Record<string, any>)[questionKey]
-    return cache?.selectedOption || ''
+    return cache?.chooseList || []
   },
-  set: (value: string) => {
+  set: (value: string[]) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
     const cache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-    cache.selectedOption = value
+    cache.chooseList = value
     ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   },
 })
@@ -270,7 +270,7 @@ onMounted(async () => {
         ;(answerDataCache.value as Record<string, any>)[questionKey] = {
           boardData: { objects: [], history: [[]], historyIndex: 0 }, // 画板状态数据
           imageData: null, // 导出的图片数据
-          selectedOption: '', // 选择的选项（A/B/C/D）
+          chooseList: [], // 选择的选项（A/B/C/D）
           timestamp: Date.now(), // 创建时间戳
         }
         console.log(`[HomeworkAnswerView] 初始化题目状态为未作答: ${questionKey}`)
@@ -339,7 +339,7 @@ const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
   if (!cache) return 'unanswered'
 
   const hasBoardData = hasBoardAnswerData(cache.boardData)
-  const hasSelectedOption = !!cache.selectedOption
+  const hasSelectedOption = Array.isArray(cache.chooseList) && cache.chooseList.length > 0
 
   // 已作答：boardData 和 selectedOption 都有
   if (hasBoardData && hasSelectedOption) return 'answered'
@@ -748,7 +748,7 @@ const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
 
 // 准备提交数据
 const prepareSubmitData = (keptQuestionIndices: number[], photos: string[]) => {
-  const questionAnswerList: Array<{ questionId: string; answerList: string[]; singleAnswer?: string }> = []
+  const questionAnswerList: Array<{ questionId: string; answerList: string[]; chooseList?: string[] }> = []
 
   // 遍历保留的图片，为对应的题目分配图片数据
   keptQuestionIndices.forEach((questionIndex, photoIndex) => {
@@ -756,12 +756,12 @@ const prepareSubmitData = (keptQuestionIndices: number[], photos: string[]) => {
     if (question && photos[photoIndex]) {
       const questionKey = getQuestionKey(question)
       const cache = questionKey ? (answerDataCache.value as Record<string, any>)[questionKey] : undefined
-      const singleAnswer = (cache?.selectedOption || '').toString()
+      const chooseList = Array.isArray(cache?.chooseList) ? cache.chooseList : []
 
       questionAnswerList.push({
         questionId: question.id || question.bmNo || '',
         answerList: [photos[photoIndex]],
-        singleAnswer: singleAnswer || undefined,
+        chooseList: chooseList.length ? chooseList : undefined,
       })
       console.log(
         `[HomeworkAnswerView] 准备提交题目答案: ${
@@ -858,7 +858,7 @@ const handleUploadConfirm = async (photos: string[]) => {
         const cache = (answerDataCache.value as Record<string, any>)[questionKey]
         if (cache) {
           const hasBoardData = hasBoardAnswerData(cache.boardData)
-          const hasSelectedOption = !!cache.selectedOption
+          const hasSelectedOption = Array.isArray(cache.chooseList) && cache.chooseList.length > 0
           if (hasBoardData && hasSelectedOption) {
             answeredQuestionIndices.push(index)
           }

@@ -416,6 +416,7 @@ export function initMockTeacherBridge(): void {
         const messages = JSON.parse(selectedMessagesData) as Array<{
           content?: string
           type?: string
+          sender?: string
         }>
         if (!Array.isArray(messages)) {
           throw new Error('消息数据格式错误')
@@ -423,18 +424,18 @@ export function initMockTeacherBridge(): void {
 
         // 将转发的消息添加到历史
         messages.forEach((msg) => {
-        const forwardedMessage = {
-          messageId: generateMessageId(),
-          sessionId: teacherSessionId,
-          content: msg.content || '',
-          type: msg.type === 'TEXT' ? 0 : msg.type === 'IMAGE' ? 1 : msg.type === 'VOICE' ? 2 : 0,
-          isSelf: true,
-          timestamp: Date.now(),
-          chatRole: 'user',
-          forwarded: true,
-        }
-        addMessageToHistory(teacherSessionId, forwardedMessage)
-      })
+          const forwardedMessage = {
+            messageId: generateMessageId(),
+            sessionId: teacherSessionId,
+            content: msg.content || '',
+            type: msg.type === 'TEXT' ? 0 : msg.type === 'IMAGE' ? 1 : msg.type === 'VOICE' ? 2 : 0,
+            isSelf: true,
+            timestamp: Date.now(),
+            chatRole: (msg.sender as string) || 'user',
+            forwarded: true,
+          }
+          addMessageToHistory(teacherSessionId, forwardedMessage)
+        })
 
       // 模拟异步响应（延迟 1-2 秒）
       const delay = 1000 + Math.random() * 1000
