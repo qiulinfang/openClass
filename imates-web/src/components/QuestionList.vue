@@ -1,5 +1,5 @@
 <template>
-  <div class="question-list" @click.stop>
+  <div class="question-list" @click.capture="handleLinkClick" @click.stop>
     <!-- 全局加载遮罩 -->
     <div
       v-if="loading || renderingQuestions"
@@ -253,6 +253,15 @@ import xingxingLightIcon from '/icons/xingxing-light.svg'
 import askXuebanIcon from '/icons/askXueban.svg'
 import weikeIcon from '/icons/weike.svg'
 
+const handleLinkClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
+  const linkElement = target?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (linkElement) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+}
+
 const props = withDefaults(defineProps<{
   searchQuery?: string
   selectedSubjectFilter?: string | null
@@ -504,6 +513,16 @@ let setQuestionCardRefImpl: (
 const attachImageClickListeners = (container: HTMLElement) => {
   const images = container.querySelectorAll('img')
   images.forEach((img) => {
+    if (!img.parentElement?.classList.contains('question-img-wrap')) {
+      const wrapper = document.createElement('span')
+      wrapper.className = 'question-img-wrap'
+      wrapper.style.display = 'inline-block'
+      wrapper.style.position = 'relative'
+      wrapper.style.lineHeight = '0'
+      img.parentNode?.insertBefore(wrapper, img)
+      wrapper.appendChild(img)
+    }
+
     // 避免重复添加监听器
     if (img.dataset.hasClickListener === 'true') {
       return
@@ -1763,6 +1782,17 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         color: #393548;
       }
     }
+
+    &:not(.question-selected) {
+      :deep(.question-img-wrap)::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 8px;
+        background-color: rgba(247, 246, 255, 0.55);
+        pointer-events: none;
+      }
+    }
   }
 
   // 题目头部
@@ -1775,8 +1805,8 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     @include responsive-padding(8px 20px 0 20px, 8px 20px 0 20px);
 
     .question-number {
-      color: #9792AC;
       font-weight: 600;
+      color: #3d394c;
       font-size: 13px;
       flex-shrink: 0;
       white-space: nowrap;
@@ -1784,13 +1814,12 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
     .question-actions {
       @include flex-center;
-      gap: 6px;
+      gap: 10px;
       flex-shrink: 0;
       height: 32px; // 固定高度，无论是否显示按钮
 
       .action-icon {
-        width: 16px;
-        height: 16px;
+        width: 25px;
         display: block;
       }
 
@@ -2014,12 +2043,21 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     display: block;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    @include card-shadow(subtle);
 
     &:hover {
       transform: scale(1.02);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
+  }
+
+  :deep(.question-img-wrap) {
+    display: inline-block;
+    position: relative;
+    border-radius: 8px;
+  }
+
+  :deep(.question-img-wrap img) {
+    margin: 8px 0;
+    display: block;
   }
 
   :deep(blockquote) {
@@ -2114,7 +2152,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 .question-header {
   .question-number {
     font-size: 12px;
-    color: #9792AC;
+    color: #3d394c;
   }
 
   .question-actions {

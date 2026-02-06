@@ -123,7 +123,6 @@
             @quote-message="handleQuoteMessage"
             @scroll-to-message="handleScrollToMessage"
             @delete-message="handleDeleteMessage"
-            @open-link="handleOpenLink"
             @paste-to-draft="handlePasteToDraft"
           />
         </div>
@@ -200,26 +199,6 @@
       </Transition>
     </div>
 
-    <Modal
-      v-model="showLinkDialog"
-      title="链接预览"
-      :initial-width="900"
-      :initial-height="600"
-      :min-width="600"
-      :min-height="400"
-      :z-index="13000"
-      :fullscreen="true"
-    >
-      <div style="width: 100%; height: 100%">
-        <iframe
-          v-if="currentLinkUrl"
-          :src="currentLinkUrl"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-          referrerpolicy="no-referrer"
-          style="border: 0; width: 100%; height: 100%"
-        ></iframe>
-      </div>
-    </Modal>
     <!-- 选择模式工具栏 - 新设计 -->
     <!-- 功能：当用户进入多选模式时显示，提供批量操作功能，替换 ChatInput 的位置 -->
     <div v-if="isSelectionMode" class="selection-toolbar">
@@ -525,14 +504,6 @@ const teacherStore = useTeacherChatStore()
 
 // Markdown + 公式渲染工具（用于会话卡片快照）
 const { renderMessageContent } = useMessageRenderer()
-
-const showLinkDialog = ref(false)
-const currentLinkUrl = ref('')
-
-const handleOpenLink = (url: string) => {
-  currentLinkUrl.value = url
-  showLinkDialog.value = true
-}
 
 const handlePasteToDraft = (payload: { dataUrl: string; messageId: string }) => {
   emit('paste-to-draft', payload)

@@ -378,7 +378,6 @@ const emit = defineEmits<{
   'quote-message': [message: ChatBubble] // 引用消息
   'scroll-to-message': [messageId: string] // 滚动到指定消息
   'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
-  'open-link': [url: string] // 打开链接（由父组件决定展示方式）
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
 }>()
 
@@ -1355,7 +1354,6 @@ const handleImageClick = (event: MouseEvent) => {
   if (linkElement && linkElement.href) {
     event.preventDefault()
     event.stopPropagation()
-    emit('open-link', linkElement.href)
     return
   }
 

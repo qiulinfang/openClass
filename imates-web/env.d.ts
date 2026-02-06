@@ -40,6 +40,11 @@ declare module '/icons/caogaoben_unselect.svg' {
   export default src
 }
 
+declare module '/icons/screenshot.svg' {
+  const src: string
+  export default src
+}
+
 declare module 'pdfjs-dist/build/pdf.worker?url' {
   const src: string
   export default src

@@ -36,9 +36,6 @@
           <!-- 新增会话按钮 -->
           <template #header-right>
             <div class="header-right-actions">
-              <div @click="handleOpenScreenCapture" class="header-action-btn">
-                <q-icon name="crop_free" size="18px" color="#4A4B73" />
-              </div>
               <div @click="handleNewChatClick" class="add-session-btn">
                 <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
               </div>
@@ -103,7 +100,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
   'toggle-mode': []
-  'open-screen-capture': []
 }>()
 
 // ==================== Store ====================
@@ -126,10 +122,6 @@ const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 // 老师选择对话框
 const showTeacherSelectDialog = ref(false)
 const availableTeachers = ref<Array<{ subject: 'biology' | 'math'; name: string }>>([])
-
-const handleOpenScreenCapture = () => {
-  emit('open-screen-capture')
-}
 
 // ==================== AI聊天相关方法 ====================
 
@@ -426,17 +418,6 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .header-action-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.6);
   }
 
   .left-panel {
