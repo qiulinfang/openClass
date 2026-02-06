@@ -748,15 +748,20 @@ const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
 
 // 准备提交数据
 const prepareSubmitData = (keptQuestionIndices: number[], photos: string[]) => {
-  const questionAnswerList: Array<{ questionId: string; answerList: string[] }> = []
+  const questionAnswerList: Array<{ questionId: string; answerList: string[]; singleAnswer?: string }> = []
 
   // 遍历保留的图片，为对应的题目分配图片数据
   keptQuestionIndices.forEach((questionIndex, photoIndex) => {
     const question = externalQuestions.value[questionIndex]
     if (question && photos[photoIndex]) {
+      const questionKey = getQuestionKey(question)
+      const cache = questionKey ? (answerDataCache.value as Record<string, any>)[questionKey] : undefined
+      const singleAnswer = (cache?.selectedOption || '').toString()
+
       questionAnswerList.push({
         questionId: question.id || question.bmNo || '',
         answerList: [photos[photoIndex]],
+        singleAnswer: singleAnswer || undefined,
       })
       console.log(
         `[HomeworkAnswerView] 准备提交题目答案: ${
