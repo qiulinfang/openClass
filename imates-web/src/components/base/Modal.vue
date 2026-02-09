@@ -4,7 +4,7 @@
       <div
         v-if="isOpen"
         class="dialog-overlay"
-        :style="{ zIndex: props.zIndex }"
+        :style="overlayStyle"
         @click.self="handleOverlayClick"
         @mousemove="handleDrag"
         @mouseup="stopDrag"
@@ -240,7 +240,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import CommonActionButton from './Button.vue'
 import switcherIcon from '/icons/Switcher.svg'
 import closeIcon from '/icons/close.svg'
@@ -316,6 +316,21 @@ const dragOffset = ref({ x: 0, y: 0 })
 const dialogSize = ref({ width: props.initialWidth, height: props.initialHeight })
 const isResizing = ref(false)
 const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
+const defaultModalZIndex = ref(9000)
+
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  const root = document.documentElement
+  const zVar = getComputedStyle(root).getPropertyValue('--z-modal-overlay') || '9000'
+  const parsed = parseInt(zVar.trim(), 10)
+  if (!Number.isNaN(parsed)) {
+    defaultModalZIndex.value = parsed
+  }
+})
+
+const overlayStyle = computed(() => ({
+  zIndex: props.zIndex ?? defaultModalZIndex.value,
+}))
 
 // 标题对齐样式类
 const titleAlignClass = computed(() => {
@@ -512,7 +527,7 @@ watch(isOpen, (newValue) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9000;
+  z-index: var(--z-modal-overlay);
 }
 
 /* 对话框进出动画 */

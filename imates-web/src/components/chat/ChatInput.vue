@@ -71,7 +71,7 @@
           <ScreenshotThumb
             :image-url="shot.dataUrl"
             :show-delete="true"
-            @click="openScreenshotPreview(shot.dataUrl)"
+            @click="handleScreenshotThumbClick(shot)"
             @remove="emit('remove-screenshot', shot.id)"
           />
         </div>
@@ -335,12 +335,13 @@ const emit = defineEmits({
   blur: () => true,
   'remove-screenshot': (_id: string) => true,
   'send-with-screenshot': (_shots: AttachedScreenshot[]) => true,
+  'edit-screenshot': (_id: string) => true,
   'remove-quote': () => true,
   // 顶部工具条相关事件，供上层接入真实行为
   'explore-click': () => true,
   'draft-click': () => true,
   'formula-click': () => true,
-  'ask-teacher-click': () => true,
+  'ask-teacher-click': (_payload?: { mode?: string }) => true,
 })
 
 // 统一的截图列表：完全由 props 决定
@@ -364,47 +365,6 @@ const screenshotsToShow = computed<AttachedScreenshot[]>(() => {
 
   return []
 })
-
-watch(
-  () => props.attachedScreenshots,
-  (val) => {
-    console.log('[ChatInput] props.attachedScreenshots changed', {
-      count: Array.isArray(val) ? val.length : 0,
-      items: (Array.isArray(val) ? val : []).map((s) => ({
-        id: s.id,
-        dataUrlHead: (s.dataUrl || '').slice(0, 40),
-      })),
-    })
-  },
-  { deep: true, immediate: true }
-)
-
-watch(
-  () => props.attachedScreenshot,
-  (val) => {
-    console.log('[ChatInput] props.attachedScreenshot changed', {
-      exists: !!val,
-      dataUrlHead: (val?.dataUrl || '').slice(0, 40),
-      width: val?.width,
-      height: val?.height,
-    })
-  },
-  { deep: true, immediate: true }
-)
-
-watch(
-  () => screenshotsToShow.value,
-  (val) => {
-    console.log('[ChatInput] screenshotsToShow changed', {
-      count: Array.isArray(val) ? val.length : 0,
-      items: (Array.isArray(val) ? val : []).map((s) => ({
-        id: s.id,
-        dataUrlHead: (s.dataUrl || '').slice(0, 40),
-      })),
-    })
-  },
-  { deep: true, immediate: true }
-)
 
 // 截断引用内容，最多显示50个字符
 const truncateQuoteContent = (content: string): string => {
@@ -440,6 +400,19 @@ const imageViewerUrl = ref('')
 const openScreenshotPreview = (url: string) => {
   imageViewerUrl.value = url
   imageViewerVisible.value = true
+}
+
+const handleScreenshotThumbClick = (shot: AttachedScreenshot) => {
+  if (!shot?.id) return
+
+  // 教材场景：点缩略图进入编辑（由上层 ChatView 统一弹 ScreenshotInputDialog 并同步 store）
+  if (props.type === 'ai-textbook') {
+    emit('edit-screenshot', shot.id)
+    return
+  }
+
+  // 其它场景：保持原有行为（预览）
+  openScreenshotPreview(shot.dataUrl)
 }
 
 // 联网搜索图标：当前只使用普通态图标

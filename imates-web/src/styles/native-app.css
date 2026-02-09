@@ -51,6 +51,16 @@ body,
   --theme-text-secondary: #5f6368;
   --theme-border: #d8d8d8;
   --theme-background: #ffffff;
+
+  /* 全局层级（z-index）配置 */
+  --z-modal-overlay: 9000;
+  --z-pdf-ink-canvas: 5;
+  --z-pdf-selection-overlay: 10;
+  --z-pdf-eraser-cursor: 30;
+  --z-pdf-loading-overlay: 90;
+  --z-main-chat-overlay: 11000;
+  --z-main-chat-toggle: 12000;
+  --z-image-viewer-overlay: 13000;
 }
 
 /* ==================== 基础尺寸规范 ==================== */

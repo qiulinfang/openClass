@@ -48,6 +48,7 @@
             (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
           "
           @remove-screenshot="(id) => emit('remove-screenshot', id)"
+          @edit-screenshot="(id) => emit('edit-screenshot', id)"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
         >
@@ -98,7 +99,7 @@ import {
 } from '@/utils/storage/screenshotSessions'
 import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
-import textbookipIcon from '/icons/textbookip.svg'
+import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord.svg'
 
 const pdfViewerStore = usePdfViewerStore()
@@ -115,6 +116,7 @@ const emit = defineEmits<{
   close: []
   'send-with-screenshot': [string, AttachedScreenshot[], string]
   'remove-screenshot': [string]
+  'edit-screenshot': [string]
 }>()
 
 // ChatView 实例引用
@@ -478,13 +480,13 @@ defineExpose({
 }
 
 .explore-icon.textbookip {
-  right: -15%;
-  bottom: 20%;
+  right: -60px;
+  bottom: 30%;
 }
 
 .explore-icon.ipWord {
   right: 13%;
-  bottom: 31%;
+  bottom: 41%;
   width: 225px;
   height: auto;
 }

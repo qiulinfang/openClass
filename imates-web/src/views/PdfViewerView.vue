@@ -60,16 +60,18 @@
             @screenshot-captured="handleScreenshotCaptured"
           />
 
-          <!-- 截图输入对话框：输出截图数组，交给 ChatInput 挂载 -->
+          <!-- 编辑已挂载截图（不在 ChatView 内弹窗，统一由 PdfViewerView 管理） -->
           <ScreenshotInputDialog
-            v-model="screenshotDialogVisible"
-            :screenshot-data-url="screenshotDataUrl"
-            :existing-screenshots="tempScreenshots"
-            :drawing-states-from-parent="tempDrawingStates"
-            @confirm="handleScreenshotConfirmShots"
-            @add-more="handleScreenshotAddMoreShots"
+            v-model="editScreenshotDialogVisible"
+            mode="multiple"
+            :screenshot-data-url="''"
+            :initial-shot-id="editingShotId"
+            :existing-screenshots="aiTextbookStore.attachedScreenshots"
+            :drawing-states-from-parent="aiTextbookStore.screenshotDrawingStates"
+            @confirm="handleEditScreenshotConfirm"
+            @add-more="handleEditScreenshotAddMore"
+            @cancel="handleEditScreenshotCancel"
             @remove-screenshot="handlePdfRemoveScreenshot"
-            @cancel="handleScreenshotCancel"
           />
 
           <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
@@ -96,6 +98,7 @@
           :attached-screenshots="aiTextbookStore.attachedScreenshots"
           @send-with-screenshot="handlePdfSendWithScreenshot"
           @remove-screenshot="handlePdfRemoveScreenshot"
+          @edit-screenshot="handleEditScreenshot"
           @select-and-ask-click="handleSelectAndAskFromChat" 
           @close="handleCloseChatPanel"
         />
@@ -370,16 +373,13 @@ const currentTool = ref<PdfToolId>('hand')
 
 // 处理工具切换：直接使用 UnifiedToolbar 的工具 ID 作为全局枚举
 const handleToolChange = (tool: string) => {
-  console.log('[工具切换] tool', tool)
   if (!pdfPageRef.value) return
-  console.log(111)
   // 仅处理我们支持的绘图相关工具
   // 兼容历史工具 ID：UnifiedToolbar 仍可能发出 draw，等价于 draw
   const normalizedTool = tool === 'draw' ? 'draw' : tool
   if (!['hand', 'select', 'highlighter', 'draw', 'eraser-draw', 'note', 'screenshot'].includes(normalizedTool)) {
     return
   }
-  console.log(222)
 
   const clickedTool = normalizedTool as PdfToolId
 
@@ -388,7 +388,6 @@ const handleToolChange = (tool: string) => {
     const t: PdfToolId = 'hand'
     currentTool.value = t
     pdfViewerStore.selectedTool = t
-    console.log('[工具切换] 再次点击相同工具，切回 hand 模式')
     pdfPageRef.value.toggleGestureMode?.()
     return
   }
@@ -643,13 +642,10 @@ const handleCloseChatPanel = () => {
   pdfViewerStore.closeChatPanel()
 }
 
-// 截图输入对话框状态
-const screenshotDialogVisible = ref(false)
-const screenshotDataUrl = ref('')
-
-// 临时截图列表（只有点击"给学伴"确认时才添加到 store）
-const tempScreenshots = ref<AttachedScreenshot[]>([])
-const tempDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
+// 编辑已挂载截图（从 ChatInput 缩略图点击进入 / 或截图捕获后自动打开）
+const editScreenshotDialogVisible = ref(false)
+const editingShotId = ref('')
+const lastCapturedShotId = ref('')
 
 // 最多允许挂载的截图数量（与 ScreenshotInputDialog 保持一致）
 const MAX_SCREENSHOTS = 3
@@ -657,8 +653,8 @@ const MAX_SCREENSHOTS = 3
 // 处理截图捕获事件：接收 PdfPage 截图 blob，转换为 base64，并弹出输入对话框
 const handleScreenshotCaptured = async (blob: Blob) => {
   try {
-    // 检查截图数量是否已达上限（临时列表 + store 中的列表）
-    const currentCount = tempScreenshots.value.length + aiTextbookStore.attachedScreenshots.length
+    // 检查截图数量是否已达上限（统一以 store 为准）
+    const currentCount = aiTextbookStore.attachedScreenshots.length
     if (currentCount >= MAX_SCREENSHOTS) {
       showMessage(`最多只能添加 ${MAX_SCREENSHOTS} 张截图`, 'warning')
       // 退出截图模式
@@ -673,81 +669,92 @@ const handleScreenshotCaptured = async (blob: Blob) => {
       reader.readAsDataURL(blob)
     })
 
-    screenshotDataUrl.value = base64DataUrl
-    screenshotDialogVisible.value = true
+    const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const shot: AttachedScreenshot = {
+      id: shotId,
+      dataUrl: base64DataUrl, // 缩略图
+      originalDataUrl: base64DataUrl, // 原图（新截图原图和缩略图相同）
+      width: 0,
+      height: 0,
+    }
+
+    // 单一数据源：立即写入 store（此时 ChatInput 缩略图会立刻出现）
+    aiTextbookStore.appendAttachedScreenshots([shot])
+    aiTextbookStore.setScreenshotDrawingStates({
+      ...aiTextbookStore.screenshotDrawingStates,
+      [shotId]: aiTextbookStore.screenshotDrawingStates[shotId] || { objects: [], history: [], historyIndex: -1 },
+    } as any)
+
+    lastCapturedShotId.value = shotId
+
+    // 打开编辑弹窗并定位到新图
+    editingShotId.value = shotId
+    editScreenshotDialogVisible.value = true
   } catch (error) {
     console.error('[PdfViewerView] 处理截图数据失败', error)
   }
 }
 
-// 处理截图输入对话框确认：将临时截图和绘图状态添加到 store，并打开对话面板
-const handleScreenshotConfirmShots = (
+// 点击 ChatInput 缩略图：打开编辑弹窗并定位到指定截图
+const handleEditScreenshot = (shotId: string) => {
+  if (!shotId) return
+  editingShotId.value = shotId
+  editScreenshotDialogVisible.value = true
+}
+
+const handleEditScreenshotConfirm = (
   shots: AttachedScreenshot[],
   states: Record<string, ScreenshotDrawingState>,
 ) => {
-  if (!shots || !shots.length) return
+  if (!shots || shots.length === 0) return
 
-  // 将当前截图添加到临时列表
-  tempScreenshots.value.push(...shots)
-  tempDrawingStates.value = { ...tempDrawingStates.value, ...states }
+  // shots 代表“弹窗内最终确认的截图列表”（包含顺序变化/删除/内容编辑等）
+  // 这里无论数量多少，都以 shots 为准全量覆盖 store，保证单一数据源一致
+  aiTextbookStore.setAttachedScreenshots(shots)
 
-  // 将所有临时截图添加到 store（此时 ChatInput 才会显示）
-  aiTextbookStore.appendAttachedScreenshots(tempScreenshots.value)
-  aiTextbookStore.setScreenshotDrawingStates(tempDrawingStates.value)
+  aiTextbookStore.setScreenshotDrawingStates({
+    ...aiTextbookStore.screenshotDrawingStates,
+    ...states,
+  } as any)
 
-  // 清空临时列表
-  tempScreenshots.value = []
-  tempDrawingStates.value = {}
+  editScreenshotDialogVisible.value = false
+  editingShotId.value = ''
 
-  // 关闭对话框
-  screenshotDialogVisible.value = false
-  screenshotDataUrl.value = ''
-
-  // 退出探索模式（重置选中工具）
-  handleToolChange('screenshot')
-
-  // 打开对话面板并切换到 AI 问答 Tab
+  // 截图确认后：退出探索模式（重置选中工具）并打开对话面板
+  handleToolChange('hand')
   pdfViewerStore.openChatPanel()
 }
 
-// 处理“继续截图”：将当前截图添加到临时列表，并重新进入截图模式
-const handleScreenshotAddMoreShots = (
-  shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>,
-) => {
-  if (shots && shots.length) {
-    // 添加到临时列表，不添加到 store
-    tempScreenshots.value.push(...shots)
-    tempDrawingStates.value = { ...tempDrawingStates.value, ...states }
-  }
-  screenshotDialogVisible.value = false
-  screenshotDataUrl.value = ''
+const handleEditScreenshotAddMore = () => {
+  editScreenshotDialogVisible.value = false
+  editingShotId.value = ''
 
-  // 检查是否已达截图上限（临时列表 + store 中的列表）
-  const currentCount = tempScreenshots.value.length + aiTextbookStore.attachedScreenshots.length
+  // 检查是否已达截图上限（统一以 store 为准）
+  const currentCount = aiTextbookStore.attachedScreenshots.length
   if (currentCount >= MAX_SCREENSHOTS) {
     showMessage(`已达到最大截图数量 ${MAX_SCREENSHOTS} 张`, 'info')
-    // 不再进入截图模式，切换回手型工具
     pdfViewerStore.selectedTool = 'hand' as any
     return
   }
 
   // 再次切换到截图工具模式
-  console.log('继续截图')
-  // 如果当前仍是 screenshot，再次调用 handleToolChange 会被视为"取消选中"，所以先重置为 hand
   if (pdfViewerStore.selectedTool === 'screenshot') {
     pdfViewerStore.selectedTool = 'hand' as any
   }
   handleToolChange('screenshot')
 }
 
-// 处理截图输入对话框取消：清空临时列表
-const handleScreenshotCancel = () => {
-  screenshotDialogVisible.value = false
-  screenshotDataUrl.value = ''
-  // 清空临时截图列表（取消时放弃所有未确认的截图）
-  tempScreenshots.value = []
-  tempDrawingStates.value = {}
+const handleEditScreenshotCancel = () => {
+  editScreenshotDialogVisible.value = false
+  const shotId = editingShotId.value
+  editingShotId.value = ''
+
+  // 如果取消的是“刚截图新建的那张”，回滚删除（保持取消=放弃本次截图语义）
+  if (shotId && lastCapturedShotId.value && shotId === lastCapturedShotId.value) {
+    aiTextbookStore.removeAttachedScreenshot(shotId)
+    aiTextbookStore.removeScreenshotDrawingState(shotId)
+    lastCapturedShotId.value = ''
+  }
 }
 
 // 从 ChatInput 发送携带截图的消息：复用原 handleScreenshotConfirm 的逻辑
@@ -766,7 +773,6 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
   const dataUrl = firstShot.dataUrl
 
   try {
-    console.log('[PdfViewerView] ChatInput send-with-screenshot', { text, shotsCount: shots.length })
     // 打开对话面板并切换到 AI 问答 Tab
     pdfViewerStore.openChatPanel()
     // 设置当前教材ID
@@ -818,7 +824,6 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
     )
 
     // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
-    console.log('[PdfViewerView] 创建会话', { sessionId })
     const newSession: AiTextbookSession = {
       sessionId,
       sessionName: text,
@@ -845,24 +850,22 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
 
 // 从 ScreenshotInputDialog 或 ChatInput 中删除截图
 const handlePdfRemoveScreenshot = (id: string) => {
-  // 特殊处理：如果是当前截图对话框里的临时截图（current-capture），需要清空对话框数据
-  if (id === 'current-capture') {
-    screenshotDataUrl.value = ''
-    // 这里只清空截图数据，不强制关闭对话框，交给用户自行选择确认或取消
-    return
-  }
+  if (!id) return
 
-  // 先尝试从临时列表中删除（如果在 ScreenshotInputDialog 中删除）
-  const tempIndex = tempScreenshots.value.findIndex(shot => shot.id === id)
-  if (tempIndex !== -1) {
-    tempScreenshots.value.splice(tempIndex, 1)
-    delete tempDrawingStates.value[id]
-    return
-  }
-
-  // 如果不在临时列表中，则从 store 中删除（如果在 ChatInput 中删除）
+  // 单一数据源：统一从 store 中删除（无 temp 状态）
   aiTextbookStore.removeAttachedScreenshot(id)
   aiTextbookStore.removeScreenshotDrawingState(id)
+
+  // 清理相关引用
+  if (lastCapturedShotId.value === id) {
+    lastCapturedShotId.value = ''
+  }
+
+  // 如果删除后没有截图了，关闭弹窗（最后一张图片一定处于编辑状态）
+  if (aiTextbookStore.attachedScreenshots.length === 0) {
+    editScreenshotDialogVisible.value = false
+    editingShotId.value = ''
+  }
 }
 
 

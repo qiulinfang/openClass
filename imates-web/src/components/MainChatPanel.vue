@@ -438,7 +438,7 @@ defineExpose({
 .main-chat-overlay {
   position: fixed;
   inset: 0;
-  z-index: 11000;
+  z-index: var(--z-main-chat-overlay);
   /* 如需半透明遮罩可打开下一行 */
   /* background: rgba(0, 0, 0, 0.1); */
 }
@@ -591,7 +591,7 @@ defineExpose({
   border: none;
   background: transparent;
   cursor: pointer;
-  z-index: 12000;
+  z-index: var(--z-main-chat-toggle);
   border-radius: 8px;
 }
 

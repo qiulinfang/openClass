@@ -316,7 +316,6 @@ const toolbarTools = computed(() => {
       'clear',
       'hand',
       'select',
-      ...(props.enableAskAi ? ['askAi'] : []),
       'draw',
       'highlighter',
       'eraser-stroke',
@@ -1338,7 +1337,7 @@ function handlePointerDown(e) {
     }
   } else if (currentMode.value === 'eraser-stroke') {
     const hitIndex = hitTest(worldPos.x, worldPos.y, currentSize.value / 2)
-    if (hitIndex !== -1) {
+    if (hitIndex !== -1 && strokes[hitIndex]?.type !== 'image') {
       strokes.splice(hitIndex, 1)
       saveState()
       renderHistory() // 历史改变
@@ -1506,7 +1505,7 @@ function handlePointerMove(e) {
   } else if (activeAction.type === 'erase') {
     // 擦除：涉及 strokes 修改，需重绘历史
     const hitIndex = hitTest(wp.x, wp.y, currentSize.value / 2)
-    if (hitIndex !== -1) {
+    if (hitIndex !== -1 && strokes[hitIndex]?.type !== 'image') {
       strokes.splice(hitIndex, 1)
       renderHistory()
     }

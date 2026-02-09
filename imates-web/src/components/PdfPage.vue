@@ -1076,6 +1076,274 @@ const handlePointerMoveForEraserCursor = (e: PointerEvent) => {
   }
 }
 
+// ==================== 指针事件处理辅助函数 ====================
+
+// 选区操作类型定义
+type SelectActionType = 'move' | 'box_select' | 'freeform_select'
+
+interface SelectActionData {
+  type: SelectActionType
+  pageIndex: number
+  lastPos: Point
+  startPos: Point
+  moved: boolean
+  beforeStrokes: Stroke[]
+}
+
+// 选区操作：创建设置移动操作
+const createSelectMoveAction = (
+  pageIndex: number,
+  pos: Point,
+  strokes?: Stroke[]
+): SelectActionData => {
+  const selected = strokes ?? getSelectedStrokesOnPage(pageIndex)
+  const before = selected.map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
+  return {
+    type: 'move',
+    pageIndex,
+    lastPos: { x: pos.x, y: pos.y },
+    startPos: { x: pos.x, y: pos.y },
+    moved: false,
+    beforeStrokes: before,
+  }
+}
+
+// 选区操作：创建框选操作
+const createBoxSelectAction = (pageIndex: number, pos: Point): SelectActionData => ({
+  type: 'box_select',
+  pageIndex,
+  lastPos: { x: pos.x, y: pos.y },
+  startPos: { x: pos.x, y: pos.y },
+  moved: false,
+  beforeStrokes: [],
+})
+
+// 选区操作：创建自由选区操作
+const createFreeformSelectAction = (pageIndex: number, pos: Point): SelectActionData => ({
+  type: 'freeform_select',
+  pageIndex,
+  lastPos: { x: pos.x, y: pos.y },
+  startPos: { x: pos.x, y: pos.y },
+  moved: false,
+  beforeStrokes: [],
+})
+
+// 选区操作：检测并处理选区命中
+const handleSelectHitTest = (pageIndex: number, pos: Point): SelectActionData | null => {
+  const hit = strokeHitTest(pageIndex, pos.x, pos.y) as Stroke | null
+  if (hit) {
+    if (!selectedStrokeIds.value.has(hit.id)) {
+      selectedStrokeIds.value = new Set<string>([hit.id])
+    }
+    return createSelectMoveAction(pageIndex, pos)
+  }
+  return null
+}
+
+// 选区操作：处理框选/自由选区初始化
+const initSelectionMode = (pageIndex: number, pos: Point) => {
+  selectedStrokeIds.value = new Set()
+  if (selectionMode.value === 'freeform') {
+    selectFreeformPath.value = [{ x: pos.x, y: pos.y }]
+    selectDragRect.value = null
+    selectAction = createFreeformSelectAction(pageIndex, pos)
+  } else {
+    selectDragRect.value = { x: pos.x, y: pos.y, w: 0, h: 0 }
+    selectFreeformPath.value = null
+    selectAction = createBoxSelectAction(pageIndex, pos)
+  }
+  renderInkLayer(pageIndex)
+}
+
+// 选区操作：检查点是否在已有选区范围内
+const isPointInExistingSelection = (pageIndex: number, pos: Point): boolean => {
+  return selectedStrokeIds.value.size > 0 && isPointInSelectionBounds(pageIndex, pos.x, pos.y)
+}
+
+// 选区移动：更新选中笔迹位置
+const moveSelectedStrokes = (pageIndex: number, lastPos: Point, newPos: Point): void => {
+  const movedDx = newPos.x - lastPos.x
+  const movedDy = newPos.y - lastPos.y
+
+  if (Math.abs(newPos.x - selectAction!.startPos.x) > 0.1 || Math.abs(newPos.y - selectAction!.startPos.y) > 0.1) {
+    selectAction!.moved = true
+  }
+
+  const ids = selectedStrokeIds.value
+  allStrokes.value.forEach((s) => {
+    if (s.pageIndex !== pageIndex || !ids.has(s.id)) return
+    s.points = s.points.map((p) => ({ x: p.x + movedDx, y: p.y + movedDy }))
+    Object.assign(s, calculateBBox(s.points, s.width))
+  })
+
+  selectAction!.lastPos = { x: newPos.x, y: newPos.y }
+  renderInkLayer(pageIndex)
+}
+
+// 选区移动：提交移动结果到历史记录
+const commitSelectionMove = (pageIdx: number): void => {
+  if (!selectAction?.moved) return
+
+  const ids = selectedStrokeIds.value
+  const after = allStrokes.value
+    .filter((s) => s.pageIndex === pageIdx && ids.has(s.id))
+    .map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
+
+  selectAction.beforeStrokes.forEach((s) => removeFromSpatialIndex(s))
+  after.forEach((s) => addToSpatialIndex(s))
+  pushUpdateHistory(selectAction.beforeStrokes, after)
+  scheduleSaveToDb(600)
+}
+
+// 选区完成：处理框选完成
+const finalizeBoxSelection = (pageIdx: number): void => {
+  const r = selectDragRect.value
+  if (!r || r.w <= 2 || r.h <= 2) {
+    selectedStrokeIds.value = new Set()
+    return
+  }
+
+  const minX = r.x, minY = r.y, maxX = r.x + r.w, maxY = r.y + r.h
+  const next = new Set<string>()
+
+  allStrokes.value.forEach((s) => {
+    if (s.pageIndex !== pageIdx) return
+    if (s.minX == null || s.maxX == null || s.minY == null || s.maxY == null) return
+    if (s.minX >= minX && s.maxX <= maxX && s.minY >= minY && s.maxY <= maxY) {
+      next.add(s.id)
+    }
+  })
+
+  selectedStrokeIds.value = next
+}
+
+// 选区完成：处理自由选区完成
+const finalizeFreeformSelection = (pageIdx: number): void => {
+  const path = selectFreeformPath.value
+  selectedStrokeIds.value = path && path.length >= 3 ? hitTestFreeform(pageIdx, path) : new Set()
+}
+
+// 选区完成：清理选区状态
+const cleanupSelectionState = (pageIdx: number): void => {
+  selectAction = null
+  selectDragRect.value = null
+  selectFreeformPath.value = null
+  finishDrawing(false)
+  if (pageIdx !== -1) renderInkLayer(pageIdx)
+}
+
+// 绘制操作：初始化笔/高光笔绘制
+const initStrokeDrawing = (pageIndex: number, mode: 'pen' | 'highlighter'): void => {
+  const start = currentDragPath.value[0]
+  if (!isDrawingStarted.value) {
+    isDrawingStarted.value = true
+    backupInkCanvas(pageIndex)
+    drawStartDot(pageIndex, start, mode)
+  }
+}
+
+// 绘制操作：更新拖动路径
+const appendDragPath = (pos: Point): void => {
+  currentDragPath.value.push({ x: pos.x, y: pos.y })
+}
+
+// 绘制完成：保存新笔迹
+const saveNewStroke = (pageIdx: number): boolean => {
+  const path = currentDragPath.value
+  if (!isDrawingStarted.value || path.length <= 1) return false
+  if (currentMode.value === 'eraser') return false
+
+  let newStroke: Stroke
+  if (currentMode.value === 'rectangle') {
+    newStroke = createStrokeObject(pageIdx, [path[0], path[path.length - 1]], 'rectangle')
+  } else {
+    newStroke = createStrokeObject(pageIdx, path, currentMode.value)
+  }
+
+  allStrokes.value = [...allStrokes.value, newStroke]
+  addToSpatialIndex(newStroke)
+  pushHistory('add', [newStroke])
+  return true
+}
+
+// 绘制完成：保存点笔迹（点击但未拖动）
+const saveDotStroke = (pageIdx: number): boolean => {
+  const path = currentDragPath.value
+  if (
+    isDrawingStarted.value ||
+    path.length === 0 ||
+    currentMode.value === 'eraser' ||
+    currentMode.value === 'rectangle' ||
+    currentMode.value === 'screenshot'
+  ) {
+    return false
+  }
+
+  const dotStroke = createStrokeObject(pageIdx, [path[0]], currentMode.value)
+  backupInkCanvas(pageIdx)
+  drawStartDot(pageIdx, path[0], currentMode.value)
+  allStrokes.value = [...allStrokes.value, dotStroke]
+  addToSpatialIndex(dotStroke)
+  pushHistory('add', [dotStroke])
+  return true
+}
+
+// 绘制完成：清理绘制状态
+const cleanupDrawingState = (): void => {
+  dragStartPage.value = -1
+  currentDragPath.value = []
+  currentDragRect.value = null
+  screenshotDragRect.value = null
+  screenshotStartPoint.value = null
+  isDrawingStarted.value = false
+}
+
+// 绘制完成：清理动画帧
+const cancelDrawingAnimationFrames = (pageIdx: number): void => {
+  if (pageIdx === -1) return
+
+  if (currentMode.value === 'pen' && penRafId != null) {
+    cancelAnimationFrame(penRafId)
+    penRafId = null
+    penPending = null
+  }
+
+  if (currentMode.value === 'highlighter' && highlighterRafId != null) {
+    cancelAnimationFrame(highlighterRafId)
+    highlighterRafId = null
+    highlighterPending = null
+  }
+
+  if (currentMode.value === 'eraser' && eraserRafId != null) {
+    cancelAnimationFrame(eraserRafId)
+    eraserRafId = null
+    eraserPending = null
+  }
+}
+
+// 截图操作：处理截图拖动
+const handleScreenshotDrag = (clientX: number, clientY: number): void => {
+  const p = getContentPoint(clientX, clientY)
+  const start = screenshotStartPoint.value
+  if (!p || !start) return
+
+  screenshotDragRect.value = {
+    x: Math.min(start.x, p.x),
+    y: Math.min(start.y, p.y),
+    w: Math.abs(p.x - start.x),
+    h: Math.abs(p.y - start.y),
+  }
+}
+
+// 平移操作：执行平移
+const applyPan = (dx: number, dy: number): void => {
+  offset.value.x += dx
+  offset.value.y += dy
+  velocity = { x: dx, y: dy }
+  clampOffset()
+}
+
+// ==================== 指针按下事件 ====================
 const onPointerDown = (e: PointerEvent) => {
   if (viewportRef.value) viewportRef.value.setPointerCapture(e.pointerId)
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -1099,73 +1367,28 @@ const onPointerDown = (e: PointerEvent) => {
       currentDragPath.value = [{ x: loc.x, y: loc.y }]
       isDrawingStarted.value = false
 
+      // 选择模式处理
       if (currentMode.value === 'select') {
-        // 1) 已有选区：允许在蓝色虚线框内部直接拖动（无需命中笔迹本体）
-        if (
-          selectedStrokeIds.value.size > 0 &&
-          isPointInSelectionBounds(loc.pageIndex, loc.x, loc.y)
-        ) {
-          const selected = getSelectedStrokesOnPage(loc.pageIndex)
-          const before = selected.map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
-          selectAction = {
-            type: 'move',
-            pageIndex: loc.pageIndex,
-            lastPos: { x: loc.x, y: loc.y },
-            startPos: { x: loc.x, y: loc.y },
-            moved: false,
-            beforeStrokes: before,
-          }
+        // 1) 已有选区：允许在蓝色虚线框内部直接拖动
+        if (isPointInExistingSelection(loc.pageIndex, loc)) {
+          selectAction = createSelectMoveAction(loc.pageIndex, loc)
           renderInkLayer(loc.pageIndex)
           return
         }
 
         // 2) 命中笔迹：进入拖动（或重选）
-        const hit = strokeHitTest(loc.pageIndex, loc.x, loc.y) as Stroke | null
-        if (hit) {
-          if (!selectedStrokeIds.value.has(hit.id)) {
-            selectedStrokeIds.value = new Set<string>([hit.id])
-          }
-          const selected = getSelectedStrokesOnPage(loc.pageIndex)
-          const before = selected.map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
-          selectAction = {
-            type: 'move',
-            pageIndex: loc.pageIndex,
-            lastPos: { x: loc.x, y: loc.y },
-            startPos: { x: loc.x, y: loc.y },
-            moved: false,
-            beforeStrokes: before,
-          }
+        const hitAction = handleSelectHitTest(loc.pageIndex, loc)
+        if (hitAction) {
+          selectAction = hitAction
           renderInkLayer(loc.pageIndex)
         } else {
-          selectedStrokeIds.value = new Set()
-          if (selectionMode.value === 'freeform') {
-            selectFreeformPath.value = [{ x: loc.x, y: loc.y }]
-            selectDragRect.value = null
-            selectAction = {
-              type: 'freeform_select',
-              pageIndex: loc.pageIndex,
-              lastPos: { x: loc.x, y: loc.y },
-              startPos: { x: loc.x, y: loc.y },
-              moved: false,
-              beforeStrokes: [],
-            }
-          } else {
-            selectDragRect.value = { x: loc.x, y: loc.y, w: 0, h: 0 }
-            selectFreeformPath.value = null
-            selectAction = {
-              type: 'box_select',
-              pageIndex: loc.pageIndex,
-              lastPos: { x: loc.x, y: loc.y },
-              startPos: { x: loc.x, y: loc.y },
-              moved: false,
-              beforeStrokes: [],
-            }
-          }
-          renderInkLayer(loc.pageIndex)
+          // 3) 未命中：进入选区模式
+          initSelectionMode(loc.pageIndex, loc)
         }
         return
       }
 
+      // 截图模式处理
       if (currentMode.value === 'screenshot') {
         const p = getContentPoint(e.clientX, e.clientY)
         if (p) {
@@ -1174,6 +1397,8 @@ const onPointerDown = (e: PointerEvent) => {
         }
         isDrawingStarted.value = true
       }
+
+      // 其他模式：仅在非 pen/highlighter 时立即渲染
       if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
         renderInkLayer(loc.pageIndex)
       }
@@ -1188,68 +1413,36 @@ const onPointerDown = (e: PointerEvent) => {
   }
 }
 
+// ==================== 指针移动事件 ====================
 const onPointerMove = (e: PointerEvent) => {
   if (!activePointers.has(e.pointerId)) return
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
   if (activePointers.size === 1) {
-    if (currentMode.value === 'pan') {
+    // 平移模式处理
+    if (currentMode.value === 'pan' || isPanningInDrawMode) {
       const dx = e.clientX - lastPointerPos.x
       const dy = e.clientY - lastPointerPos.y
-      offset.value.x += dx
-      offset.value.y += dy
-      velocity = { x: dx, y: dy }
+      applyPan(dx, dy)
       lastPointerPos = { x: e.clientX, y: e.clientY }
-      clampOffset()
-    } else if (isPanningInDrawMode) {
-      const dx = e.clientX - lastPointerPos.x
-      const dy = e.clientY - lastPointerPos.y
-      offset.value.x += dx
-      offset.value.y += dy
-      velocity = { x: dx, y: dy }
-      lastPointerPos = { x: e.clientX, y: e.clientY }
-      clampOffset()
     } else if (dragStartPage.value !== -1) {
       const loc = getPdfPoint(e.clientX, e.clientY)
       handlePointerMoveForEraserCursor(e)
+
+      // 截图模式
       if (currentMode.value === 'screenshot') {
-        const p = getContentPoint(e.clientX, e.clientY)
-        const start = screenshotStartPoint.value
-        if (p && start) {
-          screenshotDragRect.value = {
-            x: Math.min(start.x, p.x),
-            y: Math.min(start.y, p.y),
-            w: Math.abs(p.x - start.x),
-            h: Math.abs(p.y - start.y),
-          }
-        }
+        handleScreenshotDrag(e.clientX, e.clientY)
         return
       }
 
-      if (loc && loc.pageIndex === dragStartPage.value) {
-        if (currentMode.value === 'select') {
-          if (selectAction && selectAction.pageIndex === loc.pageIndex) {
-            if (selectAction.type === 'move') {
-              const movedDx = loc.x - selectAction.lastPos.x
-              const movedDy = loc.y - selectAction.lastPos.y
-              if (
-                Math.abs(loc.x - selectAction.startPos.x) > 0.1 ||
-                Math.abs(loc.y - selectAction.startPos.y) > 0.1
-              ) {
-                selectAction.moved = true
-              }
-
-              const ids = selectedStrokeIds.value
-              allStrokes.value.forEach((s) => {
-                if (s.pageIndex !== loc.pageIndex) return
-                if (!ids.has(s.id)) return
-                s.points = s.points.map((p) => ({ x: p.x + movedDx, y: p.y + movedDy }))
-                Object.assign(s, calculateBBox(s.points, s.width))
-              })
-
-              selectAction.lastPos = { x: loc.x, y: loc.y }
-              renderInkLayer(loc.pageIndex)
-            } else if (selectAction.type === 'box_select') {
+      // 选区模式
+      if (loc && loc.pageIndex === dragStartPage.value && currentMode.value === 'select') {
+        if (selectAction && selectAction.pageIndex === loc.pageIndex) {
+          switch (selectAction.type) {
+            case 'move':
+              moveSelectedStrokes(loc.pageIndex, selectAction.lastPos, loc)
+              break
+            case 'box_select':
               const sx = selectAction.startPos.x
               const sy = selectAction.startPos.y
               selectDragRect.value = {
@@ -1259,44 +1452,45 @@ const onPointerMove = (e: PointerEvent) => {
                 h: Math.abs(loc.y - sy),
               }
               renderInkLayer(loc.pageIndex)
-            } else {
+              break
+            case 'freeform_select':
               const path = selectFreeformPath.value ?? []
               const last = path.length ? path[path.length - 1] : selectAction.startPos
               const dist = Math.hypot(loc.x - last.x, loc.y - last.y)
-              // 简单降采样，减少点数
               if (dist >= 2) {
                 selectFreeformPath.value = [...path, { x: loc.x, y: loc.y }]
                 renderInkLayer(loc.pageIndex)
               }
-            }
+              break
           }
-          return
         }
+        return
+      }
 
-        if (currentMode.value === 'eraser') {
-          currentDragPath.value.push({ x: loc.x, y: loc.y })
-          scheduleEraserCheck(dragStartPage.value, loc.x, loc.y)
-        } else if (currentMode.value === 'pen') {
-          const start = currentDragPath.value[0]
-          if (!isDrawingStarted.value) {
-            isDrawingStarted.value = true
-            backupInkCanvas(dragStartPage.value)
-            drawStartDot(dragStartPage.value, start, currentMode.value)
-          }
-          currentDragPath.value.push({ x: loc.x, y: loc.y })
-          schedulePenPreviewDraw(dragStartPage.value, currentDragPath.value)
-        } else if (currentMode.value === 'highlighter') {
-          const start = currentDragPath.value[0]
-          if (!isDrawingStarted.value) {
-            isDrawingStarted.value = true
-            backupInkCanvas(dragStartPage.value)
-            drawStartDot(dragStartPage.value, start, currentMode.value)
-          }
-          currentDragPath.value.push({ x: loc.x, y: loc.y })
-          scheduleHighlighterPreviewDraw(dragStartPage.value, currentDragPath.value)
-        } else {
-          currentDragPath.value.push({ x: loc.x, y: loc.y })
-          renderInkLayer(dragStartPage.value)
+      // 绘制/擦除模式
+      if (loc && loc.pageIndex === dragStartPage.value) {
+        const pageIdx = dragStartPage.value
+        const pos = { x: loc.x, y: loc.y }
+
+        switch (currentMode.value) {
+          case 'eraser':
+            appendDragPath(pos)
+            scheduleEraserCheck(pageIdx, loc.x, loc.y)
+            break
+          case 'pen':
+            initStrokeDrawing(pageIdx, 'pen')
+            appendDragPath(pos)
+            schedulePenPreviewDraw(pageIdx, currentDragPath.value)
+            break
+          case 'highlighter':
+            initStrokeDrawing(pageIdx, 'highlighter')
+            appendDragPath(pos)
+            scheduleHighlighterPreviewDraw(pageIdx, currentDragPath.value)
+            break
+          default:
+            appendDragPath(pos)
+            renderInkLayer(pageIdx)
+            break
         }
       }
     }
@@ -1305,120 +1499,75 @@ const onPointerMove = (e: PointerEvent) => {
   }
 }
 
+// ==================== 指针松开事件 ====================
 const onPointerUp = (e: PointerEvent) => {
   activePointers.delete(e.pointerId)
+
   if (activePointers.size === 0) {
+    // 平移模式处理
     if (currentMode.value === 'pan' || isPanningInDrawMode) {
       startInertia()
-      // 在平移结束后也保存视图状态
       scheduleSaveToDb(600)
       isPanningInDrawMode = false
     } else {
+      // 选择模式处理
       if (currentMode.value === 'select') {
         const pageIdx = dragStartPage.value
         if (pageIdx !== -1 && selectAction) {
-          if (selectAction.type === 'box_select') {
-            const r = selectDragRect.value
-            if (r && r.w > 2 && r.h > 2) {
-              const minX = r.x
-              const minY = r.y
-              const maxX = r.x + r.w
-              const maxY = r.y + r.h
-              const next = new Set<string>()
-              allStrokes.value.forEach((s) => {
-                if (s.pageIndex !== pageIdx) return
-                if (s.minX == null || s.maxX == null || s.minY == null || s.maxY == null) return
-                if (s.minX >= minX && s.maxX <= maxX && s.minY >= minY && s.maxY <= maxY) {
-                  next.add(s.id)
-                }
-              })
-              selectedStrokeIds.value = next
-            } else {
-              selectedStrokeIds.value = new Set()
-            }
-          } else if (selectAction.type === 'freeform_select') {
-            const path = selectFreeformPath.value
-            if (path && path.length >= 3) {
-              selectedStrokeIds.value = hitTestFreeform(pageIdx, path)
-            } else {
-              selectedStrokeIds.value = new Set()
-            }
-          } else if (selectAction.type === 'move') {
-            if (selectAction.moved) {
-              const ids = selectedStrokeIds.value
-              const after = allStrokes.value
-                .filter((s) => s.pageIndex === pageIdx && ids.has(s.id))
-                .map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
-
-              selectAction.beforeStrokes.forEach((s) => removeFromSpatialIndex(s))
-              after.forEach((s) => addToSpatialIndex(s))
-              pushUpdateHistory(selectAction.beforeStrokes, after)
-              scheduleSaveToDb(600)
-            }
+          switch (selectAction.type) {
+            case 'box_select':
+              finalizeBoxSelection(pageIdx)
+              break
+            case 'freeform_select':
+              finalizeFreeformSelection(pageIdx)
+              break
+            case 'move':
+              commitSelectionMove(pageIdx)
+              break
           }
         }
-
-        selectAction = null
-        selectDragRect.value = null
-        selectFreeformPath.value = null
-        finishDrawing(false)
-        if (pageIdx !== -1) renderInkLayer(pageIdx)
+        cleanupSelectionState(pageIdx)
         return
       }
+
+      // 其他模式：完成绘制
       finishDrawing(true)
     }
   } else {
+    // 还有其他指针时，更新最后位置
     const pt = activePointers.values().next().value
     if (pt) lastPointerPos = { x: pt.x, y: pt.y }
   }
+
+  // 隐藏橡皮擦光标
   if (activePointers.size === 0) {
     eraserCursor.value.visible = false
   }
 }
 
+// ==================== 完成绘制处理 ====================
 const finishDrawing = (save: boolean) => {
   if (dragStartPage.value === -1) return
 
   const pageIdx = dragStartPage.value
-  const path = currentDragPath.value
   const started = isDrawingStarted.value
-  let hasChanges = false
 
-  if (save && currentMode.value === 'screenshot' && currentDragRect.value) {
-    // screenshot 已改为 content 坐标处理
-  } else if (save) {
-    if (isDrawingStarted.value && path.length > 1) {
-      if (currentMode.value !== 'eraser') {
-        let newStroke: Stroke
-        if (currentMode.value === 'rectangle') {
-          const start = path[0]
-          const end = path[path.length - 1]
-          newStroke = createStrokeObject(pageIdx, [start, end], 'rectangle')
-        } else {
-          newStroke = createStrokeObject(pageIdx, path, currentMode.value)
-        }
-        allStrokes.value = [...allStrokes.value, newStroke]
-        addToSpatialIndex(newStroke)
-        pushHistory('add', [newStroke])
-        hasChanges = true
+  // 保存绘制结果
+  if (save) {
+    if (currentMode.value === 'screenshot' && currentDragRect.value) {
+      // screenshot 已改为 content 坐标处理
+    } else {
+      // 保存拖动绘制的笔迹
+      if (saveNewStroke(pageIdx)) {
+        // 已保存
+      } else {
+        // 保存点击形成的点笔迹
+        saveDotStroke(pageIdx)
       }
-    } else if (
-      !isDrawingStarted.value &&
-      path.length > 0 &&
-      currentMode.value !== 'eraser' &&
-      currentMode.value !== 'rectangle' &&
-      currentMode.value !== 'screenshot'
-    ) {
-      const dotStroke = createStrokeObject(pageIdx, [path[0]], currentMode.value)
-      backupInkCanvas(pageIdx)
-      drawStartDot(pageIdx, path[0], currentMode.value)
-      allStrokes.value = [...allStrokes.value, dotStroke]
-      addToSpatialIndex(dotStroke)
-      pushHistory('add', [dotStroke])
-      hasChanges = true
     }
   }
 
+  // 恢复或渲染画布
   if (pageIdx !== -1) {
     if (!save && started && (currentMode.value === 'pen' || currentMode.value === 'highlighter')) {
       restoreInkCanvasBackup(pageIdx)
@@ -1427,36 +1576,23 @@ const finishDrawing = (save: boolean) => {
     }
   }
 
-  dragStartPage.value = -1
-  currentDragPath.value = []
-  currentDragRect.value = null
+  // 执行截图
   if (currentMode.value === 'screenshot' && screenshotDragRect.value) {
     takeScreenshotAcrossPages(screenshotDragRect.value)
   }
-  screenshotDragRect.value = null
-  screenshotStartPoint.value = null
-  isDrawingStarted.value = false
+
+  // 清理状态
+  cleanupDrawingState()
+  cancelDrawingAnimationFrames(pageIdx)
+
+  // 高光笔需要额外渲染
+  if (save && pageIdx !== -1 && currentMode.value === 'highlighter') {
+    renderInkLayer(pageIdx)
+  }
 
   // 保存到 DB
-  if (hasChanges) scheduleSaveToDb(600)
-
-  if (pageIdx !== -1 && currentMode.value === 'highlighter') {
-    if (highlighterRafId != null) cancelAnimationFrame(highlighterRafId)
-    highlighterRafId = null
-    highlighterPending = null
-    if (save) renderInkLayer(pageIdx)
-  }
-
-  if (pageIdx !== -1 && currentMode.value === 'pen') {
-    if (penRafId != null) cancelAnimationFrame(penRafId)
-    penRafId = null
-    penPending = null
-  }
-
-  if (pageIdx !== -1 && currentMode.value === 'eraser') {
-    if (eraserRafId != null) cancelAnimationFrame(eraserRafId)
-    eraserRafId = null
-    eraserPending = null
+  if (save && currentMode.value !== 'screenshot') {
+    scheduleSaveToDb(600)
   }
 }
 
@@ -1940,7 +2076,7 @@ canvas {
   height: 100%;
 }
 .ink-canvas {
-  z-index: 5;
+  z-index: var(--z-pdf-ink-canvas);
   pointer-events: none;
 }
 
@@ -1948,7 +2084,7 @@ canvas {
   position: absolute;
   border: 2px dashed #1890ff;
   background: rgba(24, 144, 255, 0.2);
-  z-index: 10;
+  z-index: var(--z-pdf-selection-overlay);
   pointer-events: none;
 }
 
@@ -1964,6 +2100,7 @@ canvas {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  z-index: var(--z-pdf-loading-overlay);
 }
 
 .eraser-cursor {
@@ -1973,7 +2110,7 @@ canvas {
   border-radius: 50%;
   pointer-events: none;
   box-sizing: border-box;
-  z-index: 30;
+  z-index: var(--z-pdf-eraser-cursor);
   transform: translate(-50%, -50%);
 }
 
@@ -1984,7 +2121,7 @@ canvas {
   transform: translate(-50%, -50%);
   color: #999;
   font-size: 12px;
-  z-index: 90;
+  z-index: var(--z-pdf-loading-overlay);
 }
 
 .spinner {

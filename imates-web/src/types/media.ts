@@ -35,7 +35,8 @@ export interface ImageData {
 /** 聊天输入等场景下挂载的截图缩略图数据 */
 export interface AttachedScreenshot {
   id: string
-  dataUrl: string
+  dataUrl: string // 缩略图数据（用于显示）
+  originalDataUrl?: string // 原图数据（用于编辑时作为背景）
   width: number
   height: number
 }

@@ -265,6 +265,7 @@
           @send-message="sendMessage"
           @send-with-screenshot="handleSendWithScreenshot"
           @remove-screenshot="handleRemoveScreenshot"
+          @edit-screenshot="handleEditScreenshot"
           @remove-quote="handleRemoveQuote"
           @blur="onInputBlur"
           @start-voice-input="startVoiceInput"
@@ -355,19 +356,6 @@
       {{ `确认删除「${pendingDeleteSessionTitle}」？` }}
     </Dialog>
 
-    <!-- 图片批注对话框：复用 PdfViewerView 的截图批注能力（DrawingBoard） -->
-    <ScreenshotInputDialog
-      v-model="annotateDialogVisible"
-      :mode="props.type === 'ai-general' ? 'multiple' : 'single'"
-      :screenshot-data-url="annotateSourceDataUrl"
-      :existing-screenshots="annotateExistingShots"
-      :drawing-states-from-parent="annotateDrawingStates"
-      @confirm="handleAnnotateConfirm"
-      @add-more="handleAnnotateAddMore"
-      @cancel="handleAnnotateCancel"
-      @remove-screenshot="handleAnnotateRemoveScreenshot"
-    />
-
     <!-- 老师选择对话框 -->
     <TeacherSelectionDialog v-model="showTeacherSelectionDialog" @confirm="handleTeacherSelected" />
 
@@ -403,7 +391,6 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import Modal from './base/Modal.vue' //不要删除此处引用
-import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 import CardStack from './base/CardStack.vue'
@@ -492,6 +479,7 @@ const emit = defineEmits<{
   'focus-input': [] // 聚焦输入框事件
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
+  'edit-screenshot': [id: string]
 }>()
 
 // ==================== 状态管理 ====================
@@ -579,206 +567,6 @@ const localAttachedScreenshots = ref<AttachedScreenshot[]>(
   props.attachedScreenshots ? [...props.attachedScreenshots] : []
 )
 
-// ========== 图片批注（DrawingBoard） ==========
-
-// 选图后先弹出批注对话框：确认后再走原有发送/挂载逻辑
-const annotateDialogVisible = ref(false)
-const annotateSourceDataUrl = ref('')
-const annotateExistingShots = ref<AttachedScreenshot[]>([])
-const annotatePendingImageInfo = ref<{
-  filePath: string
-  width: number
-  height: number
-  fileSize: number
-  base64DataUrl?: string
-} | null>(null)
-
-// 单图批注场景不需要跨会话保存绘图状态，但 ScreenshotInputDialog 的 props 需要该字段
-const annotateDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
-
-const shouldAnnotatePickedImage = () => {
-  // ai-textbook 场景有自己独立的"截图挂载+批注"流程（ScreenshotInputDialog 已在 PdfViewerView 中使用）
-  if (props.type === 'ai-textbook') return false
-  // user-client 和 ai-general 场景都不需要批注功能，但需要挂载缩略图让用户确认
-  if (props.type === 'user-client' || props.type === 'ai-general') return false
-  // 当前需求：MainChatPanel / UnifiedChatDialog 的输入区（ai-general）需要支持
-  // 同时为保持一致，这里也允许其它非教材场景复用批注能力
-  return true
-}
-
-const openAnnotateDialog = (imageInfo: {
-  filePath: string
-  width: number
-  height: number
-  fileSize: number
-  base64DataUrl?: string
-}) => {
-  if (!imageInfo.base64DataUrl) {
-    // 无 base64 无法进入批注
-    void onImageSelected(imageInfo)
-    return
-  }
-
-  annotatePendingImageInfo.value = { ...imageInfo }
-  annotateSourceDataUrl.value = imageInfo.base64DataUrl
-  // ai-general 多图模式下，可能来自“继续添加”，需要保留已选图片的绘图状态
-  if (props.type === 'ai-general') {
-    // 首次进入批注弹窗时，把当前输入框已挂载的图片作为 existingShots
-    if (annotateExistingShots.value.length === 0 && localAttachedScreenshots.value.length > 0) {
-      annotateExistingShots.value = [...localAttachedScreenshots.value]
-    }
-  } else {
-    annotateDrawingStates.value = {}
-    annotateExistingShots.value = []
-  }
-  annotateDialogVisible.value = true
-}
-
-const handleAnnotateConfirm = async (shots: AttachedScreenshot[]) => {
-  const pending = annotatePendingImageInfo.value
-  if (!pending) {
-    annotateDialogVisible.value = false
-    annotatePendingImageInfo.value = null
-    annotateSourceDataUrl.value = ''
-    annotateDrawingStates.value = {}
-    annotateExistingShots.value = []
-    return
-  }
-
-  // multiple 模式下：确认时返回的是“当前正在编辑的那张”导出结果
-  // 我们需要把它合并进 existingShots，然后最终取前3张作为挂载结果
-  const exported = shots && shots.length > 0 ? shots : []
-  const merged = [...annotateExistingShots.value]
-  for (const s of exported) {
-    if (s?.dataUrl) {
-      merged.push(s)
-    }
-  }
-
-  const finalShots = merged.slice(0, 3)
-
-  // ai-general：只挂载缩略图（最多3张），等待用户点击发送
-  if (props.type === 'ai-general') {
-    const uniqueFinalShots: AttachedScreenshot[] = []
-    const seen = new Set<string>()
-    for (const s of finalShots) {
-      if (!s?.id || !s?.dataUrl) continue
-      if (seen.has(s.id)) continue
-      seen.add(s.id)
-      uniqueFinalShots.push(s)
-    }
-
-    localAttachedScreenshots.value = uniqueFinalShots
-
-    annotateDialogVisible.value = false
-    annotatePendingImageInfo.value = null
-    annotateSourceDataUrl.value = ''
-    annotateDrawingStates.value = {}
-    annotateExistingShots.value = []
-    return
-  }
-
-  // 其它非教材场景：仍保持单图逻辑（取第一张导出结果）
-  const finalShot = finalShots[0] || null
-  if (!finalShot?.dataUrl) {
-    annotateDialogVisible.value = false
-    annotatePendingImageInfo.value = null
-    annotateSourceDataUrl.value = ''
-    annotateDrawingStates.value = {}
-    annotateExistingShots.value = []
-    return
-  }
-
-  // 用批注后的 dataUrl 覆盖原 base64，再走原有逻辑（挂载/发送）
-  const annotatedImageInfo = {
-    ...pending,
-    base64DataUrl: finalShot.dataUrl,
-    width: finalShot.width || pending.width,
-    height: finalShot.height || pending.height,
-  }
-
-  annotateDialogVisible.value = false
-  annotatePendingImageInfo.value = null
-  annotateSourceDataUrl.value = ''
-  annotateDrawingStates.value = {}
-  annotateExistingShots.value = []
-
-  await onImageSelected(annotatedImageInfo)
-}
-
-const handleAnnotateAddMore = async (
-  shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>
-) => {
-  // 仅 ai-general 需要支持“继续添加”（最多3张）
-  if (props.type !== 'ai-general') {
-    return
-  }
-
-  // 如果输入框已挂载到上限，直接提示并终止
-  if (localAttachedScreenshots.value.length >= 3) {
-    showMessage('最多只能添加 3 张图片', 'info')
-    annotateDialogVisible.value = false
-    annotatePendingImageInfo.value = null
-    annotateSourceDataUrl.value = ''
-    annotateDrawingStates.value = {}
-    annotateExistingShots.value = []
-    return
-  }
-
-  if (shots && shots.length > 0) {
-    const merged = [...annotateExistingShots.value]
-    for (const s of shots) {
-      if (s?.dataUrl) {
-        merged.push(s)
-      }
-    }
-    annotateExistingShots.value = merged.slice(0, 3)
-  }
-
-  // 保存最新绘图状态（由 ScreenshotInputDialog 透传回来）
-  annotateDrawingStates.value = { ...states }
-
-  annotateDialogVisible.value = false
-  annotateSourceDataUrl.value = ''
-
-  // 已达上限，不再继续
-  if (annotateExistingShots.value.length >= 3) {
-    annotatePendingImageInfo.value = null
-    return
-  }
-
-  // 继续选择下一张图片并进入批注
-  const nextImageInfo = await pickImage()
-  if (!nextImageInfo) {
-    annotatePendingImageInfo.value = null
-    return
-  }
-
-  openAnnotateDialog(nextImageInfo)
-}
-
-const handleAnnotateCancel = () => {
-  annotateDialogVisible.value = false
-  annotatePendingImageInfo.value = null
-  annotateSourceDataUrl.value = ''
-  annotateDrawingStates.value = {}
-  annotateExistingShots.value = []
-}
-
-const handleAnnotateRemoveScreenshot = (id: string) => {
-  // ai-general 多图批注：允许在弹窗内删除已添加的图片
-  if (props.type === 'ai-general') {
-    annotateExistingShots.value = annotateExistingShots.value.filter((s) => s.id !== id)
-
-    // 同步清理绘图状态（如果有）
-    const copy = { ...annotateDrawingStates.value }
-    delete copy[id]
-    annotateDrawingStates.value = copy
-    return
-  }
-}
-
 // 处理 ChatInput 发出的 send-with-screenshot 事件
 // - ai-general 和 user-client 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
 // - 其它场景（如 ai-textbook）：保持向上传递，由上层（如 PdfViewerView）处理多图截图发送
@@ -789,6 +577,56 @@ const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
   } else {
     emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
   }
+}
+
+const handleEditScreenshot = (id: string) => {
+  if (!id) return
+  emit('edit-screenshot', id)
+}
+
+const onImageSelected = async (imageData: ChatImageData) => {
+  // ChatView 不再负责截图编辑弹窗，这里仅负责“把图挂到输入框缩略图区 / 或交给上层处理”
+  if (!imageData?.base64DataUrl) return
+
+  // 教材场景的截图挂载/编辑由 PdfViewerView 统一处理
+  if (props.type === 'ai-textbook') return
+
+  // ai-general / user-client：将图片挂载到输入框缩略图区（不立即发送）
+  if (props.type === 'ai-general' || props.type === 'user-client') {
+    const maxImages = props.type === 'user-client' ? 5 : 3
+    if (localAttachedScreenshots.value.length >= maxImages) {
+      showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
+      return
+    }
+
+    const shot: AttachedScreenshot = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      dataUrl: imageData.base64DataUrl, // 缩略图
+      originalDataUrl: imageData.base64DataUrl, // 原图（新图片原图和缩略图相同）
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+    }
+
+    localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
+    return
+  }
+
+  // 其它场景：走策略的“发送图片”逻辑
+  if (!chatStrategy.value?.sendImageMessage) return
+
+  await chatStrategy.value.sendImageMessage(
+    {
+      filePath: imageData.filePath || '',
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+      fileSize: imageData.fileSize || 0,
+      base64DataUrl: imageData.base64DataUrl,
+    },
+    inputMessage.value,
+    {
+      selectedModel: selectedModel.value,
+    },
+  )
 }
 
 // 处理 ChatInput 发出的移除缩略图事件
@@ -2256,85 +2094,7 @@ const showImagePickerDialog = async () => {
   }
 
   // 处理选择的图片
-  if (shouldAnnotatePickedImage()) {
-    openAnnotateDialog(imageInfo)
-    return
-  }
-
   await onImageSelected(imageInfo)
-}
-
-// 作用：处理图片选择结果，创建图片消息并发送到后端（策略模式重构版）
-const onImageSelected = async (imageInfo: {
-  filePath: string
-  width: number
-  height: number
-  fileSize: number
-  base64DataUrl?: string
-}): Promise<void> => {
-  if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
-    // ai-general 和 user-client 场景：只挂缩略图，不立即发送，等待用户输入文字后点击发送按钮
-    if (props.type === 'ai-general' || props.type === 'user-client') {
-      // 限制最多只能挂载图片数量
-      const maxImages = props.type === 'user-client' ? 5 : 3
-      if (localAttachedScreenshots.value.length >= maxImages) {
-        showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
-        return
-      }
-
-      if (imageInfo.base64DataUrl) {
-        const id = `local_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-        const shot: AttachedScreenshot = {
-          id,
-          dataUrl: imageInfo.base64DataUrl,
-          width: imageInfo.width,
-          height: imageInfo.height,
-        }
-        localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
-      }
-      return
-    }
-
-    // 发送图片消息到后端（策略模式重构版）
-    isLoading.value = true
-    try {
-      // 使用策略模式判断是否需要文本内容
-      const messageText = chatStrategy.value?.shouldClearInputAfterImage()
-        ? inputMessage.value || ''
-        : ''
-
-      // 使用策略模式发送图片消息
-      await chatStrategy.value?.sendImageMessage(imageInfo, messageText, {
-        selectedModel: selectedModel.value,
-      })
-
-      // 使用策略模式判断是否清空输入框
-      if (chatStrategy.value?.shouldClearInputAfterImage()) {
-        inputMessage.value = ''
-      }
-
-      // 在非 ai-textbook 场景下，将选择的图片挂到输入框上方的缩略图列表
-      if (props.type !== 'ai-textbook' && imageInfo.base64DataUrl) {
-        const id = `local_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-        const shot: AttachedScreenshot = {
-          id,
-          dataUrl: imageInfo.base64DataUrl,
-          width: imageInfo.width,
-          height: imageInfo.height,
-        }
-        localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
-      }
-
-      // 计算属性会自动响应 store 变化，无需手动同步
-      await scrollToBottom()
-      emit('response')
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '发送失败'
-      showMessage(errorMessage, 'error')
-    } finally {
-      isLoading.value = false
-    }
-  }
 }
 
 // 公式输入现在直接在ChatInput中处理，不再需要这些方法
@@ -2418,8 +2178,8 @@ const handleForwardMessage = async (message: ChatBubble) => {
 
 // 处理进入多选模式
 // 作用：进入消息多选模式，允许用户选择多条消息进行批量操作
-const handleEnterMultiSelect = (params?: { mode?: 'ask-teacher' }) => {
-  selectionMode.value = params?.mode || 'normal'
+const handleEnterMultiSelect = (params?: { mode?: string }) => {
+  selectionMode.value = (params?.mode as any) || 'normal'
   enterSelectionMode()
 }
 

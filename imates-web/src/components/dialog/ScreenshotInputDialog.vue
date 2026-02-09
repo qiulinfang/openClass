@@ -24,7 +24,7 @@
           <DrawingBoard
             v-if="previewImage || screenshotDataUrl"
             ref="drawingBoardRef"
-            :background-image="previewImage || screenshotDataUrl"
+            :background-image="getOriginalImage()"
             :drawing-board-tools="['draw', 'eraser-draw', 'undo', 'redo']"
             layout-mode="fill"
             :show-zoom-control="false"
@@ -59,7 +59,7 @@
             <button
               type="button"
               class="add-more-btn"
-              :disabled="!screenshotDataUrl"
+              :disabled="!currentShotId"
               @click.stop.prevent="handleAddMore"
             >
               +
@@ -92,16 +92,13 @@ interface DrawingBoardExposed {
   // 加载指定的画板状态
   loadData: (data: ScreenshotDrawingState) => void
 }
-
 interface Props {
-  modelValue: boolean
-  screenshotDataUrl?: string
-  // 已有的截图列表（来自上层，如 PdfViewerView 中的 pdfAttachedScreenshots）
-  existingScreenshots?: AttachedScreenshot[]
-  // 截图模式：single=单截图，multiple=多截图（默认）
-  mode?: 'single' | 'multiple'
-  // 父组件传入的绘图状态 map（key: screenshotId, value: DrawingState）
-  drawingStatesFromParent?: Record<string, ScreenshotDrawingState>
+  modelValue: boolean // 是否显示对话框（由 v-model 控制）
+  mode?: 'single' | 'multiple' // 截图输入对话框工作模式，'single'=一张，'multiple'=多张(默认)
+  screenshotDataUrl?: string // 用户新截的截图（当前编辑的图，作为DrawingBoard背景）
+  initialShotId?: string // 打开时优先选中的截图（用于编辑已挂载截图）
+  existingScreenshots?: AttachedScreenshot[] // 右侧缩略图列表，支持多图切换（父组件传入）
+  drawingStatesFromParent?: Record<string, ScreenshotDrawingState> // 恢复每张图的绘图状态（标注/擦除历史，父组件传入）
 }
 
 interface Emits {
@@ -114,6 +111,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   screenshotDataUrl: '',
+  initialShotId: '',
   existingScreenshots: () => [],
   mode: 'multiple',
   drawingStatesFromParent: () => ({}),
@@ -133,13 +131,15 @@ const previewImage = ref<string>('')
 // 每张截图对应的画板状态（objects + history 等），按截图 ID 索引
 const drawingStates = ref<Record<string, ScreenshotDrawingState>>({})
 
+// 本地截图列表，管理所有截图的最新状态（包括编辑后的 dataUrl）
+const localScreenshots = ref<AttachedScreenshot[]>([])
 // 使用 v-model 的本地状态
 const localVisible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
 
-// 对话框打开时初始化预览图片和当前截图 ID，并根据需要加载对应的画板状态
+// 对话框打开时初始化本地截图列表和预览图片
 watch(
   () => props.modelValue,
   async (newValue) => {
@@ -149,13 +149,40 @@ watch(
         drawingStates.value = { ...props.drawingStatesFromParent }
       }
 
-      // 优先使用当前截图，其次使用已有截图列表中的第一张
+      // 初始化本地截图列表（从 props 复制，保持独立）
+      const list: AttachedScreenshot[] = []
       if (props.screenshotDataUrl) {
+        list.push({
+          id: 'current-capture',
+          dataUrl: props.screenshotDataUrl, // 缩略图数据
+          originalDataUrl: props.screenshotDataUrl, // 原图数据（新截图原图和缩略图相同）
+          width: 0,
+          height: 0,
+        })
+      }
+      if (Array.isArray(props.existingScreenshots) && props.existingScreenshots.length > 0) {
+        list.push(...props.existingScreenshots.map(s => ({ 
+          ...s,
+          // 确保有原图数据，如果没有则使用 dataUrl 作为原图
+          originalDataUrl: s.originalDataUrl || s.dataUrl 
+        })))
+      }
+      localScreenshots.value = list
+
+      // 优先使用 initialShotId（用于编辑已挂载截图），其次使用当前截图，再其次使用已有截图列表中的第一张
+      const canUseInitialId =
+        !!props.initialShotId &&
+        list.some((s) => s.id === props.initialShotId)
+
+      if (canUseInitialId) {
+        currentShotId.value = props.initialShotId || null
+        previewImage.value = list.find((s) => s.id === props.initialShotId)?.dataUrl || ''
+      } else if (props.screenshotDataUrl) {
         currentShotId.value = 'current-capture'
         previewImage.value = props.screenshotDataUrl
-      } else if (props.existingScreenshots && props.existingScreenshots.length > 0) {
-        currentShotId.value = props.existingScreenshots[0].id
-        previewImage.value = props.existingScreenshots[0].dataUrl
+      } else if (list.length > 0) {
+        currentShotId.value = list[0].id
+        previewImage.value = list[0].dataUrl
       } else {
         currentShotId.value = null
         previewImage.value = ''
@@ -175,25 +202,15 @@ watch(
   }
 )
 
-// 右侧缩略图数据源：当前截图 + 已有截图
-const thumbnailList = computed(() => {
-  const list: AttachedScreenshot[] = []
+// 右侧缩略图数据源：从本地截图列表获取
+const thumbnailList = computed(() => localScreenshots.value)
 
-  if (props.screenshotDataUrl) {
-    list.push({
-      id: 'current-capture',
-      dataUrl: props.screenshotDataUrl,
-      width: 0,
-      height: 0,
-    })
-  }
-
-  if (Array.isArray(props.existingScreenshots) && props.existingScreenshots.length > 0) {
-    list.push(...props.existingScreenshots)
-  }
-
-  return list
-})
+// 获取当前截图的原图数据（用于 DrawingBoard 背景）
+const getOriginalImage = () => {
+  const currentShot = localScreenshots.value.find((s) => s.id === currentShotId.value)
+  // 优先使用原图，如果没有原图则使用当前截图数据
+  return currentShot?.originalDataUrl || currentShot?.dataUrl || previewImage.value || props.screenshotDataUrl || ''
+}
 
 // 切换预览图片：点击右侧任意缩略图
 const switchPreview = async (id: string) => {
@@ -201,23 +218,37 @@ const switchPreview = async (id: string) => {
 
   const prevId = currentShotId.value
 
-  // 1. 先保存当前截图的画板状态
-  if (prevId && drawingBoardRef.value?.saveData) {
+  // 1. 先保存当前截图的画板状态并导出更新后的缩略图
+  if (prevId && drawingBoardRef.value) {
     try {
-      const data = drawingBoardRef.value.saveData()
-      drawingStates.value[prevId] = {
-        objects: data.objects,
-        history: data.history,
-        historyIndex: data.historyIndex,
+      // 导出当前编辑后的图片（原图+笔记）作为新的缩略图
+      if (drawingBoardRef.value.exportToJpg) {
+        const exportedImage = drawingBoardRef.value.exportToJpg(0.9)
+        // 更新本地截图列表中对应截图的缩略图 dataUrl（原图保持不变）
+        const prevShot = localScreenshots.value.find((s) => s.id === prevId)
+        if (prevShot && exportedImage) {
+          prevShot.dataUrl = exportedImage // 更新缩略图
+          // originalDataUrl 保持不变，确保下次编辑时仍使用原图
+        }
       }
-    } catch (e) {
-      console.error('[ScreenshotInputDialog] saveData 失败', e)
+
+      // 保存画板状态
+      if (drawingBoardRef.value.saveData) {
+        const data = drawingBoardRef.value.saveData()
+        drawingStates.value[prevId] = {
+          objects: data.objects,
+          history: data.history,
+          historyIndex: data.historyIndex,
+        }
+      }
+    } catch {
+      // 静默处理错误，不输出日志
     }
   }
 
   // 2. 更新当前截图 ID 和预览图片
   currentShotId.value = id
-  const target = thumbnailList.value.find((shot) => shot.id === id)
+  const target = localScreenshots.value.find((shot) => shot.id === id)
   previewImage.value = target?.dataUrl || ''
 
   // 3. 加载对应的画板状态，如无则清空
@@ -230,16 +261,15 @@ const switchPreview = async (id: string) => {
   }
 }
 
-// 删除右侧某个已有截图缩略图（通知上层移除）
+// 删除右侧某个已有截图缩略图
 const handleRemoveThumbnail = (id: string) => {
   if (!id) return
 
-  console.log('[ScreenshotInputDialog] remove thumbnail (before)', {
-    id,
-    currentShotId: currentShotId.value,
-    thumbnailCount: thumbnailList.value.length,
-    thumbnails: thumbnailList.value.map((s) => ({ id: s.id, dataUrlHead: (s.dataUrl || '').slice(0, 40) })),
-  })
+  // 从本地截图列表中移除
+  const idx = localScreenshots.value.findIndex((s) => s.id === id)
+  if (idx >= 0) {
+    localScreenshots.value.splice(idx, 1)
+  }
 
   // 移除本地缓存的画板状态
   if (drawingStates.value[id]) {
@@ -256,32 +286,15 @@ const handleRemoveThumbnail = (id: string) => {
   }
 
   emit('remove-screenshot', id)
-
-  console.log('[ScreenshotInputDialog] remove thumbnail (after emit)', {
-    id,
-    currentShotId: currentShotId.value,
-    previewImageHead: (previewImage.value || '').slice(0, 40),
-  })
 }
 
 // 将当前截图导出为 AttachedScreenshot 数组
 const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> => {
-  console.log('[ScreenshotInputDialog] export screenshot (start)', {
-    currentShotId: currentShotId.value,
-    previewImageHead: (previewImage.value || '').slice(0, 40),
-    screenshotDataUrlHead: (props.screenshotDataUrl || '').slice(0, 40),
-    thumbnailCount: thumbnailList.value.length,
-  })
+  // 确保画板状态/画面已渲染到最新（避免导出到旧图）
+  await nextTick()
 
   if (!previewImage.value && !props.screenshotDataUrl) {
     showMessage('截图数据丢失，请重新截图', 'error')
-
-    console.log('[ScreenshotInputDialog] export screenshot (abort: missing data)', {
-      currentShotId: currentShotId.value,
-      previewImageHead: (previewImage.value || '').slice(0, 40),
-      screenshotDataUrlHead: (props.screenshotDataUrl || '').slice(0, 40),
-    })
-
     return null
   }
 
@@ -295,9 +308,12 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
   let finalImageData = previewImage.value || props.screenshotDataUrl || ''
   if (drawingBoardRef.value?.exportToJpg) {
     const exportedImage = drawingBoardRef.value.exportToJpg(0.9)
-    if (exportedImage) {
-      finalImageData = exportedImage
+    if (!exportedImage) {
+      showMessage('导出截图失败，请稍后重试', 'error')
+      return null
     }
+
+    finalImageData = exportedImage
   }
 
   // 保存当前画板状态到本地 drawingStates
@@ -309,8 +325,8 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
         history: data.history,
         historyIndex: data.historyIndex,
       }
-    } catch (e) {
-      console.error('[ScreenshotInputDialog] saveData 失败', e)
+    } catch {
+      // 静默处理错误
     }
   }
 
@@ -328,7 +344,8 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
 
   const shot: AttachedScreenshot = {
     id: shotId,
-    dataUrl: finalImageData,
+    dataUrl: finalImageData, // 缩略图（原图+笔记）
+    originalDataUrl: getOriginalImage(), // 原图数据
     width: size.width,
     height: size.height,
   }
@@ -337,60 +354,44 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
   currentShotId.value = shotId
   previewImage.value = finalImageData
 
-  console.log('[ScreenshotInputDialog] export screenshot (done)', {
-    shotId,
-    finalImageDataHead: (finalImageData || '').slice(0, 40),
-    width: size.width,
-    height: size.height,
-  })
-
   return [shot]
 }
 
-// 确定按钮：返回当前截图数组，但不直接发送消息
+// 确定按钮：返回所有截图数组（全量回传）
 const handleConfirm = async () => {
   const shots = await exportCurrentScreenshot()
   if (!shots) return
-  emit('confirm', shots, { ...drawingStates.value })
-  localVisible.value = false
+
+  const current = shots[0]
+  const allShots = localScreenshots.value.filter((s) => s.id !== 'current-capture')
+  const idx = allShots.findIndex((s) => s.id === current.id)
+  const nextShots = idx >= 0 ? allShots.map((s) => (s.id === current.id ? current : s)) : [...allShots, current]
+
+  emit('confirm', nextShots, { ...drawingStates.value })
 }
 
-// 继续截图：返回当前截图数组并关闭对话框，交给父组件继续触发截图流程
+// 继续截图：返回所有截图数组并关闭对话框，交给父组件继续触发截图流程
 const handleAddMore = async () => {
-  console.log('[ScreenshotInputDialog] add-more (start)', {
-    currentShotId: currentShotId.value,
-    thumbnailCount: thumbnailList.value.length,
-    max: MAX_SCREENSHOTS,
-  })
-
   // 安全保护：如果当前缩略图数量已达上限，给出提示并中止
-  if (thumbnailList.value.length >= MAX_SCREENSHOTS) {
+  if (localScreenshots.value.length >= MAX_SCREENSHOTS) {
     showMessage(`最多只能添加${MAX_SCREENSHOTS}张截图`, 'warning')
-
-    console.log('[ScreenshotInputDialog] add-more (abort: reach max)', {
-      thumbnailCount: thumbnailList.value.length,
-      max: MAX_SCREENSHOTS,
-    })
-
     return
   }
 
   const shots = await exportCurrentScreenshot()
   if (!shots) return
 
-  emit('add-more', shots, { ...drawingStates.value })
-  localVisible.value = false
+  const current = shots[0]
+  const allShots = localScreenshots.value.filter((s) => s.id !== 'current-capture')
+  const idx = allShots.findIndex((s) => s.id === current.id)
+  const nextShots = idx >= 0 ? allShots.map((s) => (s.id === current.id ? current : s)) : [...allShots, current]
 
-  console.log('[ScreenshotInputDialog] add-more (emitted)', {
-    shots: shots.map((s) => ({ id: s.id, dataUrlHead: (s.dataUrl || '').slice(0, 40) })),
-    statesKeys: Object.keys(drawingStates.value || {}).length,
-  })
+  emit('add-more', nextShots, { ...drawingStates.value })
 }
 
 // 取消按钮
 const handleCancel = () => {
   emit('cancel')
-  localVisible.value = false
 }
 </script>
 
