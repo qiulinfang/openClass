@@ -24,7 +24,7 @@
         class="homework-list-wrapper"
         :enable-refresh="true"
         :enable-load-more="hasMore"
-        :is-loading-more="loading"
+        :loading="loading"
         @refresh="handleRefresh"
         @load-more="handleLoadMore"
       >
@@ -38,23 +38,53 @@
         <!-- 作业列表 -->
         <div v-else class="homework-grid">
           <div v-for="item in displayHomeworkList" :key="item.id" class="homework-card">
-            <div class="card-left">
-              <div class="card-title-row">
+            <div class="card-content">
+              <div class="card-left">
                 <div class="card-title">{{ item.name }}</div>
+
                 <div class="card-tags">
-                  <span v-for="tag in item.tags" :key="tag" class="card-tag">
-                    {{ tag }}
+                  <StatusTag
+                    v-for="tag in item.tags"
+                    :key="tag"
+                    :text="tag"
+                    type="gray"
+                    variant="text"
+                    size="sm"
+                  />
+                </div>
+
+                <div class="card-meta">
+                  <span class="meta-score">{{ item.scoreText }}</span>
+                  <span
+                    v-if="item.timeLeftText"
+                    class="meta-deadline"
+                    :class="{ 'is-expired': item.isExpired }"
+                  >
+                    {{ item.timeLeftText }}
                   </span>
+                  <span v-if="item.rangeText" class="meta-range">{{ item.rangeText }}</span>
                 </div>
               </div>
-              <div class="card-desc">
-                <div class="homework-info">{{ item.description }}</div>
-                <div v-if="item.remark" class="homework-remark">{{ item.remark }}</div>
+
+              <div class="card-right">
+                <StatusTag
+                  :text="item.statusText"
+                  :type="item.statusTagType"
+                  size="sm"
+                  dot
+                />
+                <CommonActionButton
+                  :label="item.buttonText"
+                  size="mdCompact"
+                  :variant="item.buttonVariant"
+                  :disabled="item.buttonDisabled"
+                  @click="goAnswer(item)"
+                />
               </div>
             </div>
-            <div class="card-right">
-              <div class="card-date">{{ item.date }}</div>
-              <CommonActionButton label="去作答" size="mdCompact"  @click="goAnswer(item)" />
+
+            <div v-if="item.remark" class="card-footer">
+              <div class="homework-remark">{{ item.remark }}</div>
             </div>
           </div>
         </div>
@@ -65,20 +95,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiService } from '@/services/http/api-service'
 import { useHomeworkStore } from '@/stores/homeworkStore'
+import { apiService } from '@/services/http/api-service'
 import type { HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
 import type { ExerciseItem } from '@/types'
-import { SUBJECT_ID_TO_NAME } from '@/constants/subjects'
+import { SUBJECT_ID_TO_NAME, HOMEWORK_SUBJECT_OPTIONS, normalizeSubject } from '@/constants/subjects'
+import { getHomeworkStatusText, getHomeworkStatusType, getHomeworkStatusTagType, getHomeworkTagText, getHomeworkButtonText, getHomeworkButtonVariant } from '@/constants/homework'
 import CommonActionButton from '@/components/base/Button.vue'
 import CommonDatePicker from '@/components/base/DatePicker.vue'
 import CommonSelect from '@/components/base/Select.vue'
 import RubberBandList from '@/components/base/VirtualList.vue'
+import StatusTag from '@/components/base/StatusTag.vue'
 import homeworkDeepIcon from '/icons/homework_deep.svg'
-import { HOMEWORK_SUBJECT_OPTIONS } from '@/constants/subjects'
-import { normalizeSubject } from '@/constants/subjects'
 
 defineOptions({
   name: 'MyHomeworkView',
@@ -89,13 +119,15 @@ const selectedDate = ref(today)
 
 const subjects = HOMEWORK_SUBJECT_OPTIONS
 
-const selectedSubject = ref('2')
-
+const selectedSubject = ref('')
 
 // 作业列表数据
 const homeworkList = ref<HomeworkUndoItem[]>([])
 const loading = ref(false)
 const pageNumber = ref(0)
+
+// 防抖定时器
+const debounceTimer = ref<number | null>(null)
 
 // RubberBandList 组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
@@ -116,7 +148,9 @@ const fetchHomeworkList = async () => {
       date: selectedDate.value || undefined,
     }
 
-    const result = await apiService.getHomeworkUndoList(queryReq)
+    // 使用 homeworkStore 的缓存方法
+    const result = await homeworkStore.fetchHomeworkList(queryReq)
+    
     if (pageNumber.value === 0) {
       homeworkList.value = result
     } else {
@@ -138,7 +172,20 @@ const handleRefresh = async () => {
   try {
     pageNumber.value = 0
     hasMore.value = true
-    await fetchHomeworkList()
+    
+    // 强制刷新，忽略缓存
+    const queryReq = {
+      pageNumber: pageNumber.value,
+      pageSize: pageSize.value,
+      subject: selectedSubject.value || undefined,
+      date: selectedDate.value || undefined,
+    }
+    
+    const result = await homeworkStore.fetchHomeworkList(queryReq, true)
+    homeworkList.value = result
+    hasMore.value = result.length >= pageSize.value
+  } catch (error) {
+    console.error('[MyHomeworkView] ❌ 下拉刷新失败:', error)
   } finally {
     // 通知 RubberBandList 刷新已完成，复位回弹效果
     rubberBandListRef.value?.finishRefresh()
@@ -154,15 +201,12 @@ const handleLoadMore = async () => {
 }
 
 
+// 优化后的计算属性，使用缓存减少重复计算
 const displayHomeworkList = computed(() => {
   return homeworkList.value.map((homework: HomeworkUndoItem) => {
-    // 状态转换映射
-    const statusMap: Record<string, string> = {
-      '0': '草稿',
-      '1': '进行中',
-      '2': '已撤销',
-      '3': '已结束'
-    }
+    const statusText = getHomeworkStatusText(homework.status)
+    const statusType = getHomeworkStatusType(homework.status)
+    const statusTagType = getHomeworkStatusTagType(statusType)
 
     // 生成标签数组
     const tags = []
@@ -171,20 +215,37 @@ const displayHomeworkList = computed(() => {
       const subjectName = SUBJECT_ID_TO_NAME[homework.subject as keyof typeof SUBJECT_ID_TO_NAME] || homework.subject
       tags.push(subjectName)
     }
-    if (homework.status && statusMap[homework.status]) tags.push(statusMap[homework.status])
-    if (homework.fullSubmit === '1') tags.push('一次性提交')
-    if (homework.lateSubmit === '1') tags.push('允许补交')
-    if (homework.resubmit === '1') tags.push('允许重交')
+    if (homework.fullSubmit === '1') tags.push(getHomeworkTagText('fullSubmit'))
+    if (homework.lateSubmit === '1') tags.push(getHomeworkTagText('lateSubmit'))
+    if (homework.resubmit === '1') tags.push(getHomeworkTagText('resubmit'))
 
-    // 生成内容描述
+    const releaseText = homework.releaseTime ? formatDate(homework.releaseTime) : ''
+    const deadlineText = homework.deadline ? formatDate(homework.deadline) : ''
+    const rangeText = (releaseText && deadlineText)
+      ? `${releaseText}-${deadlineText}`
+      : (releaseText || deadlineText)
+
+    const scoreText = homework.totalScore ? `总分：${homework.totalScore}分` : '总分：--'
+
+    const deadlineMs = homework.deadline ? new Date(homework.deadline).getTime() : NaN
+    const nowMs = Date.now()
+    const isExpired = Number.isFinite(deadlineMs) ? deadlineMs <= nowMs : false
+    const timeLeftText = getTimeLeftText(homework.deadline)
+
+    const canLateSubmit = homework.lateSubmit === '1'
+    const buttonDisabled = homework.status === '3' || (isExpired && !canLateSubmit)
+    const buttonText = getHomeworkButtonText(homework.status, isExpired, canLateSubmit)
+    const buttonVariant = getHomeworkButtonVariant(buttonDisabled)
+
+    // 生成内容描述 - 优化日期格式化
     const contentParts = []
     if (homework.totalScore) contentParts.push(`总分：${homework.totalScore}分`)
     if (homework.releaseTime) {
-      const releaseDate = new Date(homework.releaseTime).toISOString().slice(0, 10).replace(/-/g, '/')
+      const releaseDate = formatDate(homework.releaseTime)
       contentParts.push(`发布时间：${releaseDate}`)
     }
     if (homework.deadline) {
-      const deadlineDate = new Date(homework.deadline).toISOString().slice(0, 10).replace(/-/g, '/')
+      const deadlineDate = formatDate(homework.deadline)
       contentParts.push(`截止时间：${deadlineDate}`)
     }
 
@@ -193,9 +254,17 @@ const displayHomeworkList = computed(() => {
       id: homework.id,
       name: homework.title,
       tags: tags,
-      // 使用发布时间作为日期显示（右上角）
-      date: homework.releaseTime ? new Date(homework.releaseTime).toISOString().slice(0, 10).replace(/-/g, '/') : '暂无',
-      // 作业详细信息描述
+      statusText,
+      statusType,
+      statusTagType: statusTagType as 'green' | 'purple' | 'gray',
+      scoreText,
+      timeLeftText,
+      isExpired,
+      rangeText,
+      buttonText,
+      buttonVariant,
+      buttonDisabled,
+      date: homework.releaseTime ? formatDate(homework.releaseTime) : '暂无',
       description: contentParts.join(' · '),
       // 作业备注（如果有的话）
       remark: homework.remark || '',
@@ -205,14 +274,47 @@ const displayHomeworkList = computed(() => {
   })
 })
 
+// 日期格式化辅助函数
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toISOString().slice(0, 10).replace(/-/g, '/')
+}
 
-// 监听筛选条件变化，重新加载数据
+const getTimeLeftText = (deadline?: string) => {
+  if (!deadline) return ''
+  const deadlineMs = new Date(deadline).getTime()
+  if (!Number.isFinite(deadlineMs)) return ''
+  const diff = deadlineMs - Date.now()
+  if (diff <= 0) return '已截止'
+
+  const totalMinutes = Math.floor(diff / 60000)
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}天`)
+  if (hours > 0) parts.push(`${hours}小时`)
+  if (parts.length === 0) parts.push(`${Math.max(1, minutes)}分钟`)
+  return `还剩${parts.join('')}截止`
+}
+
+
+// 监听筛选条件变化，添加防抖优化
 watch(
   [selectedDate, selectedSubject],
-  async () => {
-    pageNumber.value = 0
-    hasMore.value = true
-    await fetchHomeworkList()
+  () => {
+    // 清除之前的防抖定时器
+    if (debounceTimer.value) {
+      clearTimeout(debounceTimer.value)
+    }
+    
+    // 设置防抖，300ms后执行
+    debounceTimer.value = window.setTimeout(async () => {
+      pageNumber.value = 0
+      hasMore.value = true
+      await fetchHomeworkList()
+      debounceTimer.value = null
+    }, 300)
   },
   { immediate: false }
 )
@@ -221,6 +323,14 @@ onMounted(async () => {
   pageNumber.value = 0
   hasMore.value = true
   await fetchHomeworkList()
+})
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (debounceTimer.value) {
+    clearTimeout(debounceTimer.value)
+    debounceTimer.value = null
+  }
 })
 
 const router = useRouter()
@@ -335,7 +445,7 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
 
 .list-footer {
   text-align: center;
-  color: #9ca3af;
+  color: #696675;
   font-size: 12px;
   padding: 8px 0 4px;
 }
@@ -347,7 +457,7 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-  color: #9ca3af;
+  color: #696675;
 }
 
 .empty-icon {
@@ -366,17 +476,25 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
 
 .empty-desc {
   font-size: 14px;
-  color: #9ca3af;
+  color: #696675;
 }
 
 .homework-card {
   background: #ffffff;
   border-radius: 16px;
-  padding: 16px 20px;
+  padding: 16px 18px;
   box-shadow: 0 6px 18px rgba(99, 102, 241, 0.08);
-  height: 131px;
+  min-height: 124px;
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
 }
 
 .card-left {
@@ -384,33 +502,23 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  width: 75%;
   position: relative;
-}
-
-.card-left::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 70px;
-  pointer-events: none;
-  background: linear-gradient(to top, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0));
-}
-
-.card-title-row {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .card-title {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-tags {
@@ -419,49 +527,55 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
   gap: 6px;
 }
 
-.card-tag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  color: #6b21a8;
-  background: #f3e8ff;
-}
-
-.card-desc {
-  /* 防止内容撑破卡片 */
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  white-space: nowrap;
   overflow: hidden;
+  font-size: 12px;
 }
 
-.homework-info {
-  font-size: 14px;
+.meta-score {
   color: #6b7280;
-  line-height: 1.5;
-  margin-bottom: 4px;
+}
+
+.meta-deadline {
+  color: #ef4444;
+}
+
+.meta-deadline.is-expired {
+  color: #6b7280;
+}
+
+.meta-range {
+  color: #696675;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .homework-remark {
-  font-size: 13px;
-  color: #9ca3af;
+  font-size: 12px;
+  color: #696675;
   line-height: 1.4;
-  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
 }
 
 .card-right {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 25%;
-  position: relative;
-}
-
-.card-date {
-  font-size: 12px;
-  color: #9ca3af;
-  position: absolute;
-  top: 0;
-  right: 0;
+  flex-shrink: 0;
+  gap: 10px;
 }
 
 

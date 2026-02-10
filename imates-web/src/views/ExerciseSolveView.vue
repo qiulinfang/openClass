@@ -667,7 +667,6 @@ const handleStartAiGuidance = async () => {
 }
 
 const handleQuestionSelected = async () => {
-  console.log('[ExerciseSolveView] handleQuestionSelected')
   // 切换题目时，关闭 AI 会话管理面板
   if (aiChatViewRef.value && 'showSessionListPanel' in aiChatViewRef.value) {
     ;(aiChatViewRef.value as any).showSessionListPanel = false
@@ -752,6 +751,11 @@ const handleQuestionAdded = () => {
 const handleDraftSave = async (data: { objects: any[]; history: any[][]; historyIndex: number }) => {
   const currentQ = currentQuestion.value
   if (currentQ && currentQ.id) {
+    // 验证当前草稿题目ID与选中题目ID是否一致
+    if (currentDraftQuestionId.value && currentDraftQuestionId.value !== currentQ.id) {
+      return
+    }
+    
     await draftStore.saveDraft(currentQ.id, {
       objects: data.objects,
       history: data.history,
@@ -775,9 +779,20 @@ const getDraftDataFromBoard = (): { objects: any[]; history: any[][]; historyInd
 const saveDraftNow = async (questionId?: string | null) => {
   const currentQ = currentQuestion.value
   const qid = questionId || currentDraftQuestionId.value || currentQ?.id
-  if (!qid) return
+  if (!qid) {
+    return
+  }
+  
+  // 验证当前题目ID与要保存的题目ID是否一致，避免保存错误题目的数据
+  if (currentQ?.id && qid !== currentQ.id) {
+    return
+  }
+  
   const data = getDraftDataFromBoard()
-  if (!data) return
+  if (!data) {
+    return
+  }
+  
   await draftStore.saveDraft(qid, data)
 }
 
@@ -786,6 +801,7 @@ const scheduleDraftAutoSave = () => {
     clearTimeout(draftAutoSaveTimer)
     draftAutoSaveTimer = null
   }
+  
   draftAutoSaveTimer = setTimeout(() => {
     draftAutoSaveTimer = null
     saveDraftNow()
@@ -1087,18 +1103,27 @@ const loadCurrentDraft = async () => {
   // 延迟等待草稿本组件渲染完成
   await nextTick()
   
-  // 检查是否有草稿数据
-  const draft = await draftStore.getDraft(currentQ.id)
-  if (draft && draftBoardRef.value) {
-    // 加载草稿数据到画板
-    draftBoardRef.value.loadData({
-      objects: draft.objects,
-      history: draft.history,
-      historyIndex: draft.historyIndex
-    })
-  }
+  try {
+    // 先清空画板，避免上一题的数据残留
+    if (draftBoardRef.value && typeof (draftBoardRef.value as any).clearAll === 'function') {
+      ;(draftBoardRef.value as any).clearAll()
+    }
+    
+    // 检查是否有草稿数据
+    const draft = await draftStore.getDraft(currentQ.id)
+    if (draft && draftBoardRef.value) {
+      // 加载草稿数据到画板
+      draftBoardRef.value.loadData({
+        objects: draft.objects,
+        history: draft.history,
+        historyIndex: draft.historyIndex
+      })
+    }
 
-  currentDraftQuestionId.value = currentQ.id
+    currentDraftQuestionId.value = currentQ.id
+  } catch (error) {
+    console.error('[ExerciseSolveView] 草稿加载失败:', error)
+  }
 }
 
 // 组件卸载时清空习题场景下的当前选中题目
@@ -1238,7 +1263,7 @@ $desktop-breakpoint: 1025px;
 
 .explore-icon.ipWord {
   right: 5%;
-  bottom: 31%;
+  bottom: 41%;
   width: 225px;
   height: auto;
 }

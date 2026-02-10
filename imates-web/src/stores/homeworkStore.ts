@@ -6,9 +6,10 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem, HomeworkUndoItem } from '../types'
 import { saveQuestionsToIndexedDB } from '../services/storage/question-storage'
 import { showMessage } from '@/utils'
+import { apiService } from '@/services/http/api-service'
 
 // 作业存储的 key 前缀（区别于习题）
 const HOMEWORK_STORAGE_PREFIX = 'homework_'
@@ -27,6 +28,9 @@ export const useHomeworkStore = defineStore('homework', () => {
 
   /** 每道题的作答数据缓存：key = 题目唯一标识，value = DrawingBoard.saveData() 返回的数据 */
   const answerDataCache = ref<Record<string, unknown>>({})
+  
+  /** 作业列表缓存：key = 查询条件，value = 作业列表数据 */
+  const homeworkListCache = ref(new Map<string, HomeworkUndoItem[]>())
   
   // ==================== 计算属性 ====================
   
@@ -105,6 +109,73 @@ export const useHomeworkStore = defineStore('homework', () => {
     currentQuestionIndex.value = -1
   }
   
+  /**
+   * 获取作业列表（带缓存）
+   * @param params 查询参数
+   * @param forceRefresh 是否强制刷新（忽略缓存）
+   * @returns 作业列表
+   */
+  const fetchHomeworkList = async (params: {
+    pageNumber: number
+    pageSize: number
+    subject?: string
+    date?: string
+  }, forceRefresh: boolean = false): Promise<HomeworkUndoItem[]> => {
+    // 生成缓存键
+    const cacheKey = `${params.date || ''}_${params.subject || ''}_${params.pageNumber}_${params.pageSize}`
+    
+    // 检查缓存（除非强制刷新）
+    if (!forceRefresh && homeworkListCache.value.has(cacheKey)) {
+      console.log('[HOMEWORK] 📦 从缓存获取作业列表', { cacheKey })
+      return homeworkListCache.value.get(cacheKey)!
+    }
+    
+    try {
+      console.log('[HOMEWORK] 🌐 请求作业列表', { params, forceRefresh })
+      const result = await apiService.getHomeworkUndoList(params)
+      
+      // 缓存结果
+      homeworkListCache.value.set(cacheKey, result)
+      console.log('[HOMEWORK] 💾 缓存作业列表', { cacheKey, count: result.length })
+      
+      return result
+    } catch (error) {
+      console.error('[HOMEWORK] ❌ 获取作业列表失败:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * 清空作业列表缓存
+   */
+  const clearHomeworkListCache = (): void => {
+    homeworkListCache.value.clear()
+    console.log('[HOMEWORK] 🗑️ 已清空作业列表缓存')
+  }
+  
+  /**
+   * 清空指定条件的作业列表缓存
+   * @param date 日期
+   * @param subject 学科
+   */
+  const clearHomeworkListCacheByCondition = (date?: string, subject?: string): void => {
+    const keysToDelete: string[] = []
+    
+    for (const key of homeworkListCache.value.keys()) {
+      const [cachedDate, cachedSubject] = key.split('_')
+      const shouldDelete = 
+        (!date || cachedDate === date) && 
+        (!subject || cachedSubject === subject)
+      
+      if (shouldDelete) {
+        keysToDelete.push(key)
+      }
+    }
+    
+    keysToDelete.forEach(key => homeworkListCache.value.delete(key))
+    console.log('[HOMEWORK] 🗑️ 已清空指定条件的缓存', { date, subject, deletedCount: keysToDelete.length })
+  }
+  
   // ==================== 返回接口 ====================
   
   return {
@@ -113,6 +184,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     currentQuestionIndex,
     homeworkName,
     answerDataCache,
+    homeworkListCache,
     
     // 计算属性
     currentQuestion,
@@ -123,6 +195,9 @@ export const useHomeworkStore = defineStore('homework', () => {
     setHomeworkName,
     setQuestions,
     deduplicateQuestions,
-    clearCurrentQuestion
+    clearCurrentQuestion,
+    fetchHomeworkList,
+    clearHomeworkListCache,
+    clearHomeworkListCacheByCondition
   }
 })

@@ -1,8 +1,9 @@
 <template>
   <span
-    :class="['status-tag', sizeClass]"
+    :class="['status-tag', sizeClass, variantClass]"
     :style="tagStyle"
   >
+    <span v-if="dot" class="status-dot" :style="dotStyle" />
     {{ text }}
   </span>
 </template>
@@ -12,12 +13,17 @@ import { computed } from 'vue'
 
 type SizeType = 'xs' | 'sm' | 'md' | 'lg'
 type ColorType = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray' | 'primary'
+type VariantType = 'solid' | 'text'
 
 interface Props {
   // 标签文字（必填）
   text: string
   // 尺寸
   size?: SizeType
+  // 是否显示左侧圆点
+  dot?: boolean
+  // 展示变体
+  variant?: VariantType
   // 预设颜色类型（可选，用于快速设置颜色）
   type?: ColorType
   // 自定义颜色（优先级高于 type）
@@ -30,10 +36,16 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   size: 'md',
+  dot: false,
+  variant: 'solid',
 })
 
 const sizeClass = computed(() => {
   return `size-${props.size}`
+})
+
+const variantClass = computed(() => {
+  return `variant-${props.variant}`
 })
 
 // 预设颜色映射
@@ -52,10 +64,27 @@ const tagStyle = computed(() => {
   // 优先使用自定义颜色，其次使用预设类型，最后默认 gray
   const colorConfig = colorMap[props.type || 'gray']
 
+  const isText = props.variant === 'text'
+
+  const finalBorderColor = props.borderColor
+    ? props.borderColor
+    : (isText ? '#e5e7eb' : colorConfig.borderColor)
+
+  const finalBgColor = props.bgColor
+    ? props.bgColor
+    : (isText ? '#ffffff' : colorConfig.bgColor)
+
   return {
     color: props.color || colorConfig.color,
-    backgroundColor: props.bgColor || colorConfig.bgColor,
-    border: `1px solid ${props.borderColor || colorConfig.borderColor}`,
+    backgroundColor: finalBgColor,
+    border: `1px solid ${finalBorderColor}`,
+  }
+})
+
+const dotStyle = computed(() => {
+  const colorConfig = colorMap[props.type || 'gray']
+  return {
+    backgroundColor: props.color || colorConfig.color,
   }
 })
 </script>
@@ -65,10 +94,18 @@ const tagStyle = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   font-weight: 500;
   border-radius: 6px;
   white-space: nowrap;
   transition: all 0.2s ease;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
 }
 
 /* Size variants */

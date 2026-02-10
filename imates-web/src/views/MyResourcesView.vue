@@ -126,52 +126,12 @@
                         </div>
 
                         <!-- 状态指示器 -->
-                        <div
-                          class="status-indicator"
-                          :class="{
-                            'status-indicator-red': textbook.downloadStatus === 0,
-                            'status-indicator-blue': textbook.downloadStatus === 1,
-                            'status-indicator-green':
-                              textbook.downloadStatus === 2 &&
-                              textbook.isDownloaded &&
-                              !textbook.hasUpdatesAvailable,
-                            'status-indicator-gray': textbook.downloadStatus === 3,
-                            'status-indicator-orange':
-                              textbook.hasUpdatesAvailable &&
-                              textbook.downloadStatus === 2 &&
-                              textbook.isDownloaded,
-                          }"
-                        >
-                          <!-- 未下载 -->
-                          <template v-if="textbook.downloadStatus === 0">
-                            <span class="status-dot status-dot-red"></span>
-                            <span class="status-text">未下载</span>
-                          </template>
-                          <!-- 下载中 -->
-                          <template v-else-if="textbook.downloadStatus === 1">
-                            <span class="status-dot status-dot-blue"></span>
-                            <span class="status-text">正在下载</span>
-                          </template>
-                          <!-- 有更新（优先显示，即使已下载完成） -->
-                          <template
-                            v-else-if="textbook.hasUpdatesAvailable && textbook.downloadStatus === 2 && textbook.isDownloaded"
-                          >
-                            <span class="status-dot status-dot-orange"></span>
-                            <span class="status-text">有更新</span>
-                          </template>
-                          <!-- 下载完成 -->
-                          <template
-                            v-else-if="textbook.downloadStatus === 2 && textbook.isDownloaded"
-                          >
-                            <span class="status-dot status-dot-green"></span>
-                            <span class="status-text">下载完成</span>
-                          </template>
-                          <!-- 暂停 -->
-                          <template v-else-if="textbook.downloadStatus === 3">
-                            <span class="status-dot status-dot-gray"></span>
-                            <span class="status-text">已暂停</span>
-                          </template>
-                        </div>
+                        <StatusTag
+                          :text="getDownloadStatusText(textbook)"
+                          :type="getDownloadStatusType(textbook)"
+                          size="sm"
+                          dot
+                        />
                       </div>
                       <!-- 右侧：操作按钮或进度条 -->
                       <div class="textbook-actions">
@@ -276,7 +236,7 @@
           <div class="text-h6 text-grey-6 q-mt-md">暂无教材数据</div>
           <div class="text-body2 text-grey-5 q-mt-sm">请检查网络连接或重新登录</div>
           <button
-            @click="loadResources"
+            @click="() => loadResources()"
             class="reload-btn"
           >
             <i class="material-icons">refresh</i>
@@ -312,6 +272,8 @@
 defineOptions({
   name: 'MyResourcesView'
 })
+
+import StatusTag from '@/components/base/StatusTag.vue'
 
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -367,6 +329,24 @@ const selectedVersion = ref<string>('')
 const selectedSubject = ref<string>('')
 // 下载状态筛选：''=全部, notDownloaded=未下载, downloaded=已下载, pendingUpdate=待更新
 const selectedStatus = ref<string>('')
+
+const getDownloadStatusText = (textbook: any): string => {
+  if (textbook.downloadStatus === 0) return '未下载'
+  if (textbook.downloadStatus === 1) return '正在下载'
+  if (textbook.hasUpdatesAvailable && textbook.downloadStatus === 2 && textbook.isDownloaded) return '有更新'
+  if (textbook.downloadStatus === 2 && textbook.isDownloaded) return '下载完成'
+  if (textbook.downloadStatus === 3) return '已暂停'
+  return '未下载'
+}
+
+const getDownloadStatusType = (textbook: any): 'red' | 'blue' | 'green' | 'orange' | 'gray' => {
+  if (textbook.downloadStatus === 0) return 'red'
+  if (textbook.downloadStatus === 1) return 'blue'
+  if (textbook.hasUpdatesAvailable && textbook.downloadStatus === 2 && textbook.isDownloaded) return 'orange'
+  if (textbook.downloadStatus === 2 && textbook.isDownloaded) return 'green'
+  if (textbook.downloadStatus === 3) return 'gray'
+  return 'red'
+}
 
 // 筛选器选项
 const gradeOptions = ref(RESOURCE_GRADE_OPTIONS)

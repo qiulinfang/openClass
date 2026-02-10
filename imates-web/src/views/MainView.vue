@@ -153,6 +153,7 @@
       :show-overlay="false"
       :initial-width="1200"
       :initial-height="800"
+      :z-index="8000"
     >
       <DrawingBoardNew
         ref="drawingBoardRef"
@@ -175,6 +176,7 @@
     </Modal>
 
     <ScreenCaptureOverlay
+      v-if="mainChatScreenCaptureVisible && !showDraftNotebook"
       v-model="mainChatScreenCaptureVisible"
       @captured="handleMainChatScreenCaptured"
       @cancel="handleMainChatScreenCaptureCancel"
