@@ -46,7 +46,7 @@ public class MediaProjectionForegroundService extends Service {
 
     private void startForegroundCompat() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.drawable.ic_notification_icon)
                 .setContentTitle("正在截图")
                 .setContentText("屏幕截图服务运行中")
                 .setOngoing(true)

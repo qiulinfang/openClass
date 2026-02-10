@@ -353,7 +353,7 @@ public class FloatingFabService extends Service {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("AI学伴悬浮按钮")
                 .setContentText("AI学伴, 伴你进步")
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_notification_icon)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
     }
