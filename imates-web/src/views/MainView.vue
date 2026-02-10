@@ -176,7 +176,7 @@
     </Modal>
 
     <ScreenCaptureOverlay
-      v-if="mainChatScreenCaptureVisible && !showDraftNotebook"
+      v-if="mainChatScreenCaptureVisible"
       v-model="mainChatScreenCaptureVisible"
       @captured="handleMainChatScreenCaptured"
       @cancel="handleMainChatScreenCaptureCancel"
@@ -421,7 +421,18 @@ const screenshotFlowVisible = computed(() => {
   return mainChatScreenCaptureVisible.value || mainChatScreenshotDialogVisible.value
 })
 
-const handleOpenMainChatScreenCapture = () => {
+const handleOpenMainChatScreenCapture = async () => {
+  // 如果草稿本打开，强制渲染 Canvas 以确保截图包含笔迹
+  if (showDraftNotebook.value && drawingBoardRef.value) {
+    try {
+      console.log('强制渲染草稿本 Canvas 以准备截图...')
+      await drawingBoardRef.value.forceRender()
+      console.log('草稿本 Canvas 强制渲染完成')
+    } catch (error) {
+      console.error('草稿本 Canvas 强制渲染失败:', error)
+    }
+  }
+  
   mainChatScreenCaptureVisible.value = true
 }
 
@@ -587,7 +598,7 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer','homeworkExercise', 'photoSearch']
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'homeworkExercise', 'photoSearch']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
@@ -599,13 +610,32 @@ const showFab = computed(() => {
 })
 
 watch(
-  () => showFab.value,
-  (visible) => {
-    if (!isAndroidEnv.value) return
+  () => [showFab.value, isAndroidEnv.value] as const,
+  ([visible, androidReady]) => {
+    if (!androidReady) return
     androidBridge.setFloatingFabVisible(visible)
   },
   { immediate: true }
 )
+
+// 兜底同步：从后台回到前台时，原生可能重置了悬浮按钮状态，这里强制按当前 showFab 再同步一次
+const syncFabToNative = () => {
+  if (!isAndroidEnv.value) return
+  androidBridge.setFloatingFabVisible(showFab.value)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      syncFabToNative()
+    }
+  })
+}
+
+// AndroidBridge 刚 ready 时也同步一次，避免首次进入路由时漏同步
+androidBridge.onReady(() => {
+  syncFabToNative()
+})
 
 // 计算是否需要显示“去资源下载”悬浮引导：
 // 仅在知识图谱路由且尚未下载任何教材时显示

@@ -2463,6 +2463,27 @@ const exportToJpg = (quality = 0.9) => {
   return tempCanvas.toDataURL('image/jpeg', quality)
 }
 
+// 强制同步渲染（用于截图等场景）
+async function forceRender() {
+  if (!historyCtx || !historyCanvasRef.value || !liveCtx || !liveCanvasRef.value) return
+  
+  // 强制触发渲染
+  renderTick.value++
+  renderHistory()
+  renderLive()
+  
+  // 等待渲染完成（等待下一帧）
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve)
+    })
+  })
+  
+  // 再次确保渲染完成
+  renderHistory()
+  renderLive()
+}
+
 defineExpose({
   saveData,
   loadData,
@@ -2470,6 +2491,7 @@ defineExpose({
   clearAll,
   exportToJpg,
   insertImageFromDataUrl,
+  forceRender,
 })
 </script>
 

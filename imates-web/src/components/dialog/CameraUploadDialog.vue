@@ -2,6 +2,7 @@
   <Modal
     v-model="localVisible"
     title="上传作业"
+    fullscreen
     :initial-width="600"
     :initial-height="500"
     :min-width="400"
@@ -13,24 +14,32 @@
     <div class="camera-upload-content">
       <!-- 照片网格区域 -->
       <div class="photo-grid-section">
-        <div class="photo-grid">
-          <!-- 已上传的照片 -->
+        <div class="question-sections">
           <div
-            v-for="(photo, index) in photos"
-            :key="index"
-            class="photo-item"
+            v-for="section in groupedPhotoSections"
+            :key="section.questionIndex"
+            class="question-section"
           >
-            <ScreenshotThumb
-              :image-url="photo"
-              :show-delete="true"
-              @click="openPreview(index)"
-              @remove="removePhoto(index)"
-            />
-          </div>
-          
-          <!-- 添加照片按钮 -->
-          <div class="add-photo-btn" @click="openCamera">
-            <q-icon name="add" size="32px" color="grey-5" />
+            <div class="question-title">第{{ section.questionNo }}题</div>
+            <div class="photo-grid">
+              <div
+                v-for="item in section.items"
+                :key="item.index"
+                class="photo-item"
+              >
+                <ScreenshotThumb
+                  :image-url="item.url"
+                  :show-delete="true"
+                  @click="openPreview(item.index)"
+                  @remove="removePhoto(item.index)"
+                />
+              </div>
+
+              <!-- 每个题目分区独立的添加照片按钮 -->
+              <div class="add-photo-btn" @click="openCamera(section.questionIndex)">
+                <q-icon name="add" size="32px" color="grey-5" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -74,11 +83,14 @@ interface Props {
   modelValue: boolean
   // 初始照片列表（用于白板上传等场景）
   initialPhotos?: string[]
+  // 每张照片对应的题目索引（与 initialPhotos/最终 photos 一一对应）
+  // 例如：第 1 张照片属于第 0 题，则这里为 0
+  questionIndexMap?: number[]
 }
 
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
-  (e: 'confirm', photos: string[]): void
+  (e: 'confirm', photos: string[], questionIndexMap?: number[]): void
   (e: 'cancel'): void
 }
 
@@ -90,6 +102,15 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // 照片列表（base64 格式）
 const photos = ref<string[]>([])
+
+// 与 photos 一一对应的题目索引映射（仅用于 UI 分区展示；不改变最终 confirm 的数据结构）
+const localQuestionIndexMap = ref<number[]>([])
+
+type GroupedPhotoSection = {
+  questionIndex: number
+  questionNo: number
+  items: { url: string; index: number }[]
+}
 
 // 预览状态
 const previewVisible = ref(false)
@@ -121,6 +142,12 @@ watch(
     if (newValue) {
       // 如果有初始照片，使用初始照片；否则清空
       photos.value = props.initialPhotos ? [...props.initialPhotos] : []
+
+      // 初始化题目索引映射：优先使用外部传入映射，否则为空（后续按添加/删除同步）
+      localQuestionIndexMap.value = Array.isArray(props.questionIndexMap)
+        ? [...props.questionIndexMap]
+        : []
+
       // 重置预览状态
       previewVisible.value = false
       previewIndex.value = null
@@ -128,11 +155,35 @@ watch(
   }
 )
 
+const groupedPhotoSections = computed<GroupedPhotoSection[]>(() => {
+  const list = photos.value
+  if (!list.length) return []
+
+  const map = localQuestionIndexMap.value
+  const mapUsable = Array.isArray(map) && map.length === list.length
+
+  const buckets = new Map<number, { url: string; index: number }[]>()
+
+  list.forEach((url, index) => {
+    const qIndex = mapUsable ? (map[index] ?? index) : index
+    if (!buckets.has(qIndex)) buckets.set(qIndex, [])
+    buckets.get(qIndex)!.push({ url, index })
+  })
+
+  return Array.from(buckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([questionIndex, items]) => ({
+      questionIndex,
+      questionNo: questionIndex + 1,
+      items,
+    }))
+})
+
 // 全局图片选择器（调起 ImagePicker 组件）
 const { pickImage } = useImagePicker()
 
 // 打开图片选择器（相册 / 拍照）
-const openCamera = async () => {
+const openCamera = async (targetQuestionIndex?: number) => {
   try {
     const imageInfo = await pickImage()
 
@@ -143,6 +194,15 @@ const openCamera = async () => {
 
     if (imageInfo.base64DataUrl) {
       photos.value.push(imageInfo.base64DataUrl)
+
+      // 新增图片归属：优先使用指定题目分区，否则默认归到最后一个题目分区
+      if (typeof targetQuestionIndex === 'number') {
+        localQuestionIndexMap.value.push(targetQuestionIndex)
+      } else {
+        const existing = localQuestionIndexMap.value
+        const lastQIndex = existing.length ? Math.max(...existing) : 0
+        localQuestionIndexMap.value.push(lastQIndex)
+      }
     } else {
       console.error('[CameraUploadDialog] ImagePicker 返回的数据缺少 base64DataUrl')
       showMessage('选择图片失败，请重试', 'error')
@@ -169,13 +229,17 @@ const closePreview = () => {
 // 移除照片
 const removePhoto = (index: number) => {
   photos.value.splice(index, 1)
+  if (localQuestionIndexMap.value.length > index) {
+    localQuestionIndexMap.value.splice(index, 1)
+  }
 }
 
 // 确定按钮
 const handleConfirm = () => {
   if (photos.value.length === 0) return
   
-  emit('confirm', [...photos.value])
+  // 保持 photos 的数据格式不变；额外携带题目索引映射用于每题多图提交
+  emit('confirm', [...photos.value], [...localQuestionIndexMap.value])
   localVisible.value = false
 }
 
@@ -201,6 +265,25 @@ const handleCancel = () => {
   background: #fafafa;
   border-radius: 8px;
   padding: 16px;
+}
+
+.question-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.question-section {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.question-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 10px;
 }
 
 .photo-grid {

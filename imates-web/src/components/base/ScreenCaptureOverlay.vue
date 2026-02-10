@@ -48,11 +48,18 @@
         </template>
 
         <div class="capture-actions">
-          <button type="button" class="capture-action-btn" @click.stop="handleRetake">重截</button>
+          <button
+            type="button"
+            class="capture-action-btn"
+            :disabled="isSnapshotPreparing"
+            @click.stop="handleRetake"
+          >
+            重截
+          </button>
           <button
             type="button"
             class="capture-action-btn primary"
-            :disabled="!cropRect"
+            :disabled="!cropRect || isSnapshotPreparing"
             @click.stop="handleConfirm"
           >
             确认
@@ -62,6 +69,12 @@
         <q-btn flat round dense @click.stop="handleCancel" class="capture-close-btn goback-btn">
           <img :src="goBackIcon" alt="返回" class="goback-icon" />
         </q-btn>
+
+        <!-- 开发环境调试面板 -->
+        <ScreenshotDebugPanel 
+          :debug-image-data="debugImageData" 
+          @close="debugImageData = null" 
+        />
       </div>
     </div>
   </Teleport>
@@ -71,6 +84,7 @@
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { androidBridge } from '@/services/business/android-bridge'
 import goBackIcon from '/icons/goback.svg'
+import ScreenshotDebugPanel from '@/components/debug/ScreenshotDebugPanel.vue'
 
 type CropRect = { x: number; y: number; width: number; height: number }
 
@@ -95,11 +109,22 @@ const isAndroidSnapshotAvailable = computed(() => {
 const cropRect = ref<CropRect | null>(null)
 const isCropping = ref(false)
 const cropStartPos = ref({ x: 0, y: 0 })
-
 const isSnapshotPreparing = ref(false)
 
 const lastPointerDownAt = ref(0)
 const lastTouchStartAt = ref(0)
+
+const isDev = ref(true) // 开发环境固定为 true，生产环境可改为 false
+const debugImageData = ref<{
+  source: string
+  format: string
+  width: number
+  height: number
+  dataLength: number
+  prefix: string
+  timestamp: number
+  dataUrl?: string
+} | null>(null)
 
 const debugEnabled = computed(() => {
   return true
@@ -160,6 +185,7 @@ const handleCancel = () => {
 }
 
 const handleRetake = async () => {
+  if (isSnapshotPreparing.value) return
   cropRect.value = null
   await captureScreen()
 }
@@ -262,6 +288,8 @@ const captureScreen = async () => {
       return
     }
 
+    isSnapshotPreparing.value = true
+
     // Web 场景：直接选择当前窗口，无需弹窗
     const stream = await navigator.mediaDevices.getDisplayMedia({ 
       video: true, 
@@ -303,6 +331,7 @@ const captureScreen = async () => {
     stream.getTracks().forEach((t) => t.stop())
 
     await applyCapturedDataUrl(temp.toDataURL('image/png'))
+    isSnapshotPreparing.value = false
   } catch (e) {
     isSnapshotPreparing.value = false
     handleCancel()
@@ -320,6 +349,30 @@ const applyCapturedDataUrl = async (dataUrl: string) => {
   })
 
   imageEl.value = img
+  
+  // 开发环境调试信息
+  if (isDev.value) {
+    const isAndroid = isAndroidSnapshotAvailable.value
+    const prefix = dataUrl.substring(0, 50)
+    const formatMatch = dataUrl.match(/^data:image\/(\w+);/)
+    const format = formatMatch ? formatMatch[1] : 'unknown'
+    
+    debugImageData.value = {
+      source: isAndroid ? 'Android原生' : 'Web DisplayMedia',
+      format,
+      width: img.width,
+      height: img.height,
+      dataLength: dataUrl.length,
+      prefix,
+      timestamp: Date.now(),
+      dataUrl
+    }
+  }
+  debugLog('applyCapturedDataUrl loaded', {
+    dataUrlLength: imageDataUrl.value?.length || 0,
+    width: img.width,
+    height: img.height,
+  })
   await nextTick()
   drawToCanvas()
 }
@@ -406,10 +459,13 @@ watch(
   async (v) => {
     if (!v) return
     cropRect.value = null
+    imageDataUrl.value = ''
+    imageEl.value = null
     isSnapshotPreparing.value = false
     await nextTick()
     await captureScreen()
   },
+  { immediate: true },
 )
 
 const clampRect = (x: number, y: number, w: number, h: number) => {
@@ -607,10 +663,34 @@ const handlePointerLeave = () => {
 }
 
 const handleConfirm = async () => {
-  const img = imageEl.value
+  if (isSnapshotPreparing.value) return
+  let img = imageEl.value
   const rect = cropRect.value
   const canvas = canvasRef.value
-  if (!img || !rect || !canvas) return
+  if (!rect || !canvas) return
+
+  if (!img && imageDataUrl.value) {
+    const fallbackImg = new Image()
+    try {
+      await new Promise<void>((resolve, reject) => {
+        fallbackImg.onload = () => resolve()
+        fallbackImg.onerror = () => reject(new Error('image load failed'))
+        fallbackImg.src = imageDataUrl.value
+      })
+      imageEl.value = fallbackImg
+      img = fallbackImg
+    } catch {
+      return
+    }
+  }
+
+  if (!img) {
+    debugLog('handleConfirm aborted: img is null', {
+      dataUrlLength: imageDataUrl.value?.length || 0,
+      hasCropRect: !!cropRect.value,
+    })
+    return
+  }
 
   const dpr = window.devicePixelRatio || 1
   const cw = Math.max(1, Math.floor(canvas.getBoundingClientRect().width))
@@ -651,7 +731,7 @@ onUnmounted(() => {
 .screen-capture-overlay {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  z-index: 20000;
   background: rgba(0, 0, 0, 0.6);
 }
 
@@ -660,16 +740,20 @@ onUnmounted(() => {
 }
 
 .screen-capture-container {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 0;
 }
 
 .capture-canvas {
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100vh;
   display: block;
   touch-action: none;
   user-select: none;
+  z-index: 0;
 }
 
 .crop-mask {
@@ -757,7 +841,8 @@ onUnmounted(() => {
   bottom: 18px;
   display: flex;
   gap: 10px;
-  z-index: 12001;
+  z-index: 20001;
+  pointer-events: auto;
 }
 
 .capture-action-btn {
@@ -783,7 +868,8 @@ onUnmounted(() => {
   position: fixed;
   left: 18px;
   top: 18px;
-  z-index: 12001;
+  z-index: 20001;
+  pointer-events: auto;
 }
 
 .goback-btn {
@@ -795,4 +881,5 @@ onUnmounted(() => {
   height: 24px;
   display: block;
 }
+
 </style>

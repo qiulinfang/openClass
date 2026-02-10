@@ -2398,6 +2398,27 @@ defineExpose({
     canvasOffset.value = { x: 0, y: 0 }
   },
   
+  // 流程：强制同步渲染（用于截图等场景）
+  forceRender: async () => {
+    if (!ctx || !historyCanvasRef.value || !liveCtx || !liveCanvasRef.value) return
+    
+    // 强制标记需要重绘
+    historyDirty = true
+    
+    // 立即执行渲染
+    render()
+    
+    // 等待渲染完成（等待下一帧）
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve)
+      })
+    })
+    
+    // 再次确保渲染完成
+    render()
+  },
+  
   // 流程：获取缩略图
   getThumbnail: (maxWidth = 200, maxHeight = 150): string => {
     // 检查canvas是否存在

@@ -77,6 +77,7 @@
     <CameraUploadDialog
       v-model="showCameraDialog"
       :initial-photos="initialUploadPhotos"
+      :question-index-map="lastUploadPageIndices"
       @confirm="handleUploadConfirm"
     />
 
@@ -745,29 +746,53 @@ const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
 }
 
 // 准备提交数据
-const prepareSubmitData = (keptQuestionIndices: number[], photos: string[]) => {
+const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], questionIndexMap?: number[]) => {
   const questionAnswerList: Array<{ questionId: string; answerList: string[]; chooseList?: string[] }> = []
 
-  // 遍历保留的图片，为对应的题目分配图片数据
-  keptQuestionIndices.forEach((questionIndex, photoIndex) => {
-    const question = externalQuestions.value[questionIndex]
-    if (question && photos[photoIndex]) {
+  const mapUsable = Array.isArray(questionIndexMap) && questionIndexMap.length === photos.length
+
+  if (mapUsable) {
+    // 每题多图：按题目索引分组
+    const buckets = new Map<number, string[]>()
+    for (let i = 0; i < photos.length; i++) {
+      const qIndex = questionIndexMap![i]
+      if (typeof qIndex !== 'number') continue
+      if (!buckets.has(qIndex)) buckets.set(qIndex, [])
+      buckets.get(qIndex)!.push(photos[i])
+    }
+
+    keptQuestionIndices.forEach((questionIndex) => {
+      const answerPhotos = buckets.get(questionIndex) || []
+      if (!answerPhotos.length) return
+      const question = externalQuestions.value[questionIndex]
+      if (!question) return
       const questionKey = getQuestionKey(question)
       const cache = questionKey ? (answerDataCache.value as Record<string, any>)[questionKey] : undefined
       const chooseList = Array.isArray(cache?.chooseList) ? cache.chooseList : []
 
       questionAnswerList.push({
         questionId: question.id || question.bmNo || '',
-        answerList: [photos[photoIndex]],
+        answerList: answerPhotos,
         chooseList: chooseList.length ? chooseList : undefined,
       })
-      console.log(
-        `[HomeworkAnswerView] 准备提交题目答案: ${
-          question.id || question.bmNo
-        }, 图片索引: ${photoIndex}`
-      )
-    }
-  })
+    })
+  } else {
+    // 兼容旧逻辑：每题一张图，按顺序映射
+    keptQuestionIndices.forEach((questionIndex, photoIndex) => {
+      const question = externalQuestions.value[questionIndex]
+      if (question && photos[photoIndex]) {
+        const questionKey = getQuestionKey(question)
+        const cache = questionKey ? (answerDataCache.value as Record<string, any>)[questionKey] : undefined
+        const chooseList = Array.isArray(cache?.chooseList) ? cache.chooseList : []
+
+        questionAnswerList.push({
+          questionId: question.id || question.bmNo || '',
+          answerList: [photos[photoIndex]],
+          chooseList: chooseList.length ? chooseList : undefined,
+        })
+      }
+    })
+  }
 
   console.log('[HomeworkAnswerView] 准备提交数据', {
     totalQuestions: externalQuestions.value.length,
@@ -822,7 +847,7 @@ const submitHomeworkAnswers = async (questionAnswerList: Array<{ questionId: str
 }
 
 // 上传确认回调
-const handleUploadConfirm = async (photos: string[]) => {
+const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]) => {
   if (!photos.length) {
     showMessage('请选择要上传的图片', 'warning')
     return
@@ -837,13 +862,16 @@ const handleUploadConfirm = async (photos: string[]) => {
 
   try {
     // 1. 计算保留的题目索引
-    const keptQuestionIndices = calculateKeptQuestionIndices(photos)
+    const mapUsable = Array.isArray(questionIndexMap) && questionIndexMap.length === photos.length
+    const keptQuestionIndices = mapUsable
+      ? Array.from(new Set(questionIndexMap as number[])).filter((n) => typeof n === 'number')
+      : calculateKeptQuestionIndices(photos)
 
     // 2. 更新缓存数据
     updateCacheWithKeptQuestions(keptQuestionIndices)
 
     // 3. 准备提交数据
-    const questionAnswerList = prepareSubmitData(keptQuestionIndices, photos)
+    const questionAnswerList = prepareSubmitData(keptQuestionIndices, photos, mapUsable ? (questionIndexMap as number[]) : undefined)
 
     // 4. 检查是否漏题（使用与 tag 相同的判断逻辑）
     const totalQuestions = externalQuestions.value.length

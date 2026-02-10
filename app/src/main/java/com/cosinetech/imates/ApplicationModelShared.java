@@ -126,9 +126,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     private void forceShowFloatingFabInBackground() {
         try {
-            // 进入后台时以“显示”为最终状态（即使 Web 侧同步了 hide）
-            pendingFloatingFabVisible = true;
-
             if (floatingFabService != null) {
                 floatingFabService.showFab();
                 return;

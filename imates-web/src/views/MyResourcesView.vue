@@ -1731,6 +1731,7 @@ onUnmounted(async () => {
           flex-direction: column;
           justify-content: space-between;
           min-width: 0;
+          align-items: flex-start;
 
           // 标题和版本
           .textbook-header {
@@ -2190,6 +2191,8 @@ onUnmounted(async () => {
           gap: 12px;
 
           .textbook-info {
+            align-items: flex-start;
+            
             .status-indicator {
               .status-text {
                 font-size: 13px;
@@ -2225,6 +2228,8 @@ onUnmounted(async () => {
         }
 
         .textbook-info {
+          align-items: flex-start;
+          
           .textbook-name {
             font-size: 14px; // Material Design 移动端字体
             margin-bottom: 4px;
