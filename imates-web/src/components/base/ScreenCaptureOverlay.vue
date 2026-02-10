@@ -435,17 +435,51 @@ const captureScreenFromAndroid = async (): Promise<string> => {
         reject(new Error('invalid snapshot payload'))
         return
       }
+      
+      // 记录截图方法
+      debugLog('截图完成', {
+        commandId,
+        method: imageData && typeof imageData === 'object' ? (imageData as any).method : 'unknown',
+        dataUrlLength: dataUrl.length
+      })
+      
       resolve(dataUrl)
     }
 
     androidBridge.addEventListener('snapshotTaken', onTaken)
 
-    const ok = androidBridge.takeSnapshot(commandId)
-    if (!ok) {
-      cleanup()
-      reject(new Error('takeSnapshot failed'))
-      return
+    // 关键：在调用原生截图前，等待当前帧完全渲染
+    const triggerNativeSnapshot = async () => {
+      // 等待当前 JavaScript 执行完成
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      // 等待浏览器渲染完成
+      await new Promise(resolve => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve)
+        })
+      })
+      
+      // 检查 MediaProjection 权限
+      if (androidBridge.hasMediaProjectionPermission()) {
+        debugLog('使用 MediaProjection 截图')
+      } else {
+        debugLog('MediaProjection 权限未授权，将使用 rootView.draw() 截图')
+        try {
+          androidBridge.requestMediaProjectionPermission()
+        } catch (e) {
+        }
+      }
+      
+      // 调用原生截图
+      const ok = androidBridge.takeSnapshot(commandId)
+      if (!ok) {
+        cleanup()
+        reject(new Error('takeSnapshot failed'))
+      }
     }
+
+    triggerNativeSnapshot()
 
     const timeoutId = window.setTimeout(() => {
       cleanup()

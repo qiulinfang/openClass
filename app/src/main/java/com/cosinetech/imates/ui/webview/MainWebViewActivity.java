@@ -6,6 +6,8 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -32,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.screenshot.MediaProjectionForegroundService;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
@@ -83,6 +86,9 @@ public class MainWebViewActivity extends AppCompatActivity
 
     /** 录音权限请求启动器，用于请求录音权限 */
     private ActivityResultLauncher<String> audioPermissionLauncher;
+
+    /** MediaProjection 权限请求启动器，用于请求屏幕录制权限 */
+    private ActivityResultLauncher<Intent> mediaProjectionLauncher;
 
     // ========== 相机相关 ==========
 
@@ -272,6 +278,66 @@ public class MainWebViewActivity extends AppCompatActivity
             }
         } catch (Exception e) {
             Log.w(TAG, "onNewIntent handle floating_fab_action failed", e);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        // 处理 MediaProjection 权限请求结果
+        if (requestCode == 1001) {
+            Log.d(TAG, "MediaProjection 权限请求结果: " + resultCode);
+            if (resultCode == RESULT_OK && data != null) {
+                try {
+                    Intent svc = new Intent(this, MediaProjectionForegroundService.class);
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(svc);
+                    } else {
+                        startService(svc);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "启动 MediaProjection 前台服务失败", e);
+                }
+
+                final Intent resultData = data;
+                final Handler handler = new Handler(Looper.getMainLooper());
+                final int[] retries = new int[] { 0 };
+
+                Runnable tryGetProjection = new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            MediaProjectionManager mediaProjectionManager =
+                                    (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                            if (mediaProjectionManager == null) {
+                                Log.e(TAG, "MediaProjectionManager 不可用");
+                                return;
+                            }
+
+                            MediaProjection mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
+                            if (webAppInterface != null) {
+                                webAppInterface.setMediaProjection(mediaProjection);
+                            }
+                            Log.d(TAG, "MediaProjection 权限已授权");
+                        } catch (SecurityException se) {
+                            retries[0]++;
+                            if (retries[0] <= 3) {
+                                Log.w(TAG, "getMediaProjection 触发 SecurityException，重试次数=" + retries[0], se);
+                                handler.postDelayed(this, 500);
+                            } else {
+                                Log.e(TAG, "getMediaProjection 重试失败", se);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "getMediaProjection 失败", e);
+                        }
+                    }
+                };
+
+                handler.postDelayed(tryGetProjection, 300);
+            } else {
+                Log.w(TAG, "MediaProjection 权限被拒绝");
+            }
         }
     }
 
@@ -630,6 +696,31 @@ public class MainWebViewActivity extends AppCompatActivity
                     // 通知WebAppInterface权限请求结果
                     if (webAppInterface != null) {
                         webAppInterface.onAudioPermissionResult(granted);
+                    }
+                });
+
+        // MediaProjection 权限请求
+        mediaProjectionLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    Log.d(TAG, "MediaProjection 权限请求结果: " + result.getResultCode());
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        // 获取 MediaProjectionManager
+                        MediaProjectionManager mediaProjectionManager = 
+                            (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                        
+                        // 获取 MediaProjection
+                        MediaProjection mediaProjection = mediaProjectionManager
+                            .getMediaProjection(result.getResultCode(), result.getData());
+                        
+                        // 设置到 WebAppInterface
+                        if (webAppInterface != null) {
+                            webAppInterface.setMediaProjection(mediaProjection);
+                        }
+                        
+                        Log.d(TAG, "MediaProjection 权限已授权");
+                    } else {
+                        Log.w(TAG, "MediaProjection 权限被拒绝");
                     }
                 });
 

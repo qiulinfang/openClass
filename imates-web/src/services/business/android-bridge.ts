@@ -502,6 +502,46 @@ export class AndroidBridge {
   }
 
 
+  // ========== MediaProjection 截图相关接口 ==========
+  
+  /**
+   * 检查是否有 MediaProjection 权限
+   */
+  public hasMediaProjectionPermission(): boolean {
+    return this.callBoolean(() => window.AndroidBridge?.hasMediaProjectionPermission?.()) || false
+  }
+  
+  /**
+   * 请求 MediaProjection 权限
+   */
+  public requestMediaProjectionPermission(): boolean {
+    const resp = this.callString(() => window.AndroidBridge?.requestMediaProjectionPermission?.(), '')
+    return resp === 'true'
+  }
+  
+  /**
+   * 释放 MediaProjection 资源
+   */
+  public releaseMediaProjection(): boolean {
+    const resp = this.callString(() => window.AndroidBridge?.releaseMediaProjection?.(), '')
+    return resp === 'true'
+  }
+  
+  /**
+   * 通用：安全调用原生方法并返回布尔值
+   */
+  private callBoolean(fn: (() => boolean | undefined) | undefined): boolean {
+    try {
+      if (this.isAvailable && fn) {
+        const result = fn()
+        return typeof result === 'boolean' ? result : false
+      }
+    } catch (err) {
+      // 静默处理
+    }
+    return false
+  }
+
   // ========== 语音录制相关接口 ==========
 
   /**

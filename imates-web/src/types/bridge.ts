@@ -152,6 +152,9 @@ declare global {
       startScreenProjection(): string
       stopScreenProjection(): string
       takeSnapshot(commandId: string): string
+      hasMediaProjectionPermission(): boolean
+      requestMediaProjectionPermission(): string
+      releaseMediaProjection(): string
       setClassroomMode(classMode: boolean): string
 
       // ========== PDF查看功能 ==========
