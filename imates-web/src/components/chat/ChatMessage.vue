@@ -16,6 +16,7 @@
     :data-message-id="message.id"
     :data-message-sender="message.sender"
     :data-message-type="message.type"
+    @click.capture="handleLinkClickCapture"
     @click="handleClick"
     @contextmenu.prevent="handleContextMenu"
     @touchstart="handleTouchStart"
@@ -682,6 +683,14 @@ const handleTouchStart = (event: TouchEvent) => {
     return
   }
 
+  // 检查是否点击在超链接上
+  const linkElement = target?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (linkElement && linkElement.href) {
+    // 如果是超链接元素，阻止事件传播，不触发长按
+    event.stopPropagation()
+    return
+  }
+
   // 确保能找到气泡元素
   ensureBubbleTarget(target)
 
@@ -756,6 +765,14 @@ const handleTouchEnd = (event: TouchEvent) => {
       target.closest('[data-mjx-texclass]'))
   ) {
     // 如果是公式元素，阻止事件传播
+    event.stopPropagation()
+    return
+  }
+
+  // 检查是否点击在超链接上
+  const linkElement = target?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (linkElement && linkElement.href) {
+    // 如果是超链接元素，阻止事件传播，不触发长按相关逻辑
     event.stopPropagation()
     return
   }
@@ -1371,6 +1388,16 @@ const handleImageClick = (event: MouseEvent) => {
     previewImageUrl.value = imgElement.src
     showImagePreview.value = true
   }
+}
+
+const handleLinkClickCapture = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
+  const linkElement = target?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (!linkElement || !linkElement.href) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  event.stopImmediatePropagation()
 }
 
 // 图片 DOM 增强逻辑已抽为全局指令 v-paste-to-draft

@@ -5,7 +5,7 @@ const props = defineProps<{
   label: string
   loading?: boolean
   disabled?: boolean
-  size?: 'sm' | 'mdCompact' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
   variant?: 'primary' | 'outline' | 'ghost' | 'danger'  // 按钮样式变体
   icon?: string  // 图标路径，如果提供则显示图标而不是文字
 }>()
@@ -77,6 +77,23 @@ const handleClick = (evt: MouseEvent) => {
   transition: background-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
   box-shadow: none;
   white-space: nowrap;
+}
+
+.common-action-btn--xs {
+  min-width: 60px;
+  min-height: 28px;
+  font-size: 12px;
+  border-radius: 6px;
+  padding: 4px 12px;
+}
+
+.common-action-btn--xs .label {
+  font-size: 12px;
+}
+
+.common-action-btn--xs .spinner {
+  width: 12px;
+  height: 12px;
 }
 
 .common-action-btn--sm {
@@ -204,6 +221,12 @@ const handleClick = (evt: MouseEvent) => {
 }
 
 /* 不同尺寸的图标按钮 */
+.icon-button.common-action-btn--xs {
+  border-radius: 4px;
+  height: 28px;
+  width: 28px;
+}
+
 .icon-button.common-action-btn--sm {
   border-radius: 6px;
   height: 32px;
@@ -238,6 +261,18 @@ const handleClick = (evt: MouseEvent) => {
 }
 
 /* 小尺寸图标按钮 */
+.common-action-btn--xs.common-action-btn--icon {
+  min-width: 24px;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+}
+
+.common-action-btn--xs .button-icon {
+  width: 12px;
+  height: 12px;
+}
+
 .common-action-btn--sm.common-action-btn--icon {
   min-width: 28px;
   width: 28px;

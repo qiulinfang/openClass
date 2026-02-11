@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
@@ -126,6 +126,7 @@ const findSimilarQuestions = async () => {
     // 等待 DOM 根据 latest similarQuestions 渲染完
     await nextTick()
   } catch (error) {
+    console.error(error)
     showMessage('查找相似题目失败', 'error')
   } finally {
     loading.value = false

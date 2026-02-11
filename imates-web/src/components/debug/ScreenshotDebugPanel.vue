@@ -104,8 +104,8 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 开发环境标识
-// const isDev = import.meta.env.DEV
-const isDev = true
+const isDev = import.meta.env.DEV
+// const isDev = true
 
 // Canvas 相关
 const canvasRef = ref<HTMLCanvasElement>()

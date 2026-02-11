@@ -104,7 +104,7 @@
                       <Button
                         label="返回"
                         :icon="goBackBlackIcon"
-                        size="sm"
+                        size="xs"
                         variant="ghost"
                         @click="handleCloseSessionPanel"
                       />
@@ -112,7 +112,7 @@
                       <Button
                         label="新建"
                         :icon="newSessionIcon"
-                        size="sm"
+                        size="xs"
                         variant="primary"
                         @click="handleAddSessionCard"
                       />
@@ -124,7 +124,7 @@
                       <Button
                         label="清除会话"
                         :icon="deleteSessionIcon"
-                        size="sm"
+                        size="xs"
                         variant="danger"
                         :disabled="!hasAiSessions"
                         @click="handleClearAllSessionsClick"
@@ -679,8 +679,8 @@ const handleQuestionSelected = async () => {
     return
   }
 
-  // 如果当前没有任何功能被选中，自动切换到AI指导模式
-  if (!currentFunction.value || !['chatAi', 'teacherChat', 'viewAnswer', 'similarQuestion'].includes(currentFunction.value)) {
+  // 如果当前没有任何功能被选中，或者处于相似题目/查看答案模式，自动切换到AI指导模式
+  if (!currentFunction.value || !['chatAi', 'teacherChat'].includes(currentFunction.value)) {
     await switchFunction('chatAi')
   }
 
