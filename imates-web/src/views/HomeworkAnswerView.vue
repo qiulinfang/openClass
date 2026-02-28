@@ -25,6 +25,7 @@
           :external-questions="externalQuestions"
           :show-photo-search="false"
           :show-send-to-ai="false"
+          :show-question-actions="false"
           @questionSelected="handleStartAnswer"
           @openMiniClass="handleOpenMiniClass"
         >
@@ -104,6 +105,17 @@
       <div class="incomplete-homework-content">
         第{{ incompleteDialogData.incompleteQuestionNumbers.join('、') }}题未完成，确定要提交吗？
       </div>
+    </Dialog>
+
+    <Dialog
+      ref="xuebanLimitDialogRef"
+      title="提示"
+      :confirmButtonText="'知道了'"
+      :cancelButtonText="'关闭'"
+      @confirm="handleXuebanLimitDialogConfirm"
+      @cancel="handleXuebanLimitDialogCancel"
+    >
+      当前作业老师只允许自己思考作答哦
     </Dialog>
   </div>
 </template>
@@ -203,11 +215,21 @@ const floatMenuItems = computed(() => {
 
 const handleFloatMenuSelect = async (item: { label: string }) => {
   if (item.label === '学伴辅导') {
-    handleGoToXueban()
+    xuebanLimitDialogRef.value?.openDialog()
   } else if (item.label === '我的作答') {
     // 作业作答页本身就是“我的作答”，这里只需关闭菜单即可
     return
   }
+}
+
+const xuebanLimitDialogRef = ref<InstanceType<typeof Dialog>>()
+
+const handleXuebanLimitDialogConfirm = () => {
+  xuebanLimitDialogRef.value?.closeDialog()
+}
+
+const handleXuebanLimitDialogCancel = () => {
+  xuebanLimitDialogRef.value?.closeDialog()
 }
 
 // 是否有选中的题目（QuestionList 中选中即可，不需要渲染到 canvas）
@@ -604,22 +626,6 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
     console.error('[HomeworkAnswerView] 打开微课失败:', error)
     showMessage('打开微课失败', 'error')
   }
-}
-
-// 去学伴按钮点击 - 跳转到作业答题专用路由
-const handleGoToXueban = () => {
-  // 1. 先保存当前题目当前页的作答数据到全局缓存，避免跳转后丢失
-  saveCurrentPage()
-
-  // 2. 获取 QuestionList 选中的题目，作为跳转参数
-  const selectedQuestion = questionListRef.value?.getSelectedQuestion?.()
-  if (!selectedQuestion) return
-
-  const questionId = selectedQuestion.bmNo || selectedQuestion.id
-  router.push({
-    name: 'homeworkExercise',
-    query: { questionId: questionId?.toString(), tab: 'chatAi', scene: 'homework' },
-  })
 }
 
 // 上传对话框显示状态

@@ -135,7 +135,7 @@ export class WebSocketService {
     try {
       const messageToSend = {
         ...message,
-        timestamp: new Date().toISOString(),
+        timestamp: message.timestamp ?? Date.now().toString(),
         from: message.from || this.userId || 'unknown',
         sessionId: message.sessionId || this.sessionId,
       }

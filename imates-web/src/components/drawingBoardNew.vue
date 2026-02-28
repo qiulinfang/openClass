@@ -319,7 +319,6 @@ const toolbarTools = computed(() => {
       'draw',
       'highlighter',
       'eraser-stroke',
-      'shape',
       'insertImage',
     ],
   }

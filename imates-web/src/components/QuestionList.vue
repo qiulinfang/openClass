@@ -61,17 +61,17 @@
       <div v-if="displayedQuestions.length > 0" class="question-cards-list">
         <div
           v-for="(question, index) in displayedQuestions"
-          :key="question.bmNo"
+          :key="getQuestionUniqueId(question)"
           class="question-item-wrapper"
           :data-index="index"
         >
           <!-- 实际题目 -->
           <div
-            ref="(el) => setQuestionCardRef(el as HTMLElement | null, question.bmNo, index)"
+            ref="(el) => setQuestionCardRef(el as HTMLElement | null, getQuestionUniqueId(question), index)"
             class="question-card"
             :class="{
-              'question-selected': isQuestionSelected(question.bmNo),
-              'question-deleting': deletingIds.has(question.bmNo),
+              'question-selected': isQuestionSelected(getQuestionUniqueId(question)),
+              'question-deleting': deletingIds.has(getQuestionUniqueId(question)),
             }"
             @click.stop="selectQuestion(question, index)"
           >
@@ -80,13 +80,13 @@
               <div class="question-header">
                 <!-- 左侧：题目序号 + 状态 -->
                 <div class="question-title-row">
-                  <div class="question-number">题目{{ getQuestionDisplayIndex(question.bmNo) }}</div>
+                  <div class="question-number">题目{{ getQuestionDisplayIndex(getQuestionUniqueId(question)) }}</div>
                   <!-- 题目状态插槽 -->
                   <slot name="question-status" :question="question" :index="index" />
                 </div>
 
                 <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
-                <div class="question-actions" v-if="isQuestionSelected(question.bmNo)">
+                <div class="question-actions" v-if="props.showQuestionActions !== false && isQuestionSelected(getQuestionUniqueId(question))">
                   <q-btn
                     v-if="strategy.canSendToAi() && props.showSendToAi !== false"
                     flat
@@ -271,6 +271,8 @@ const props = withDefaults(defineProps<{
   showPhotoSearch?: boolean
   // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
   showSendToAi?: boolean
+  // 是否显示题目辅助功能（微课、更多菜单等），默认 true；作业场景可关闭
+  showQuestionActions?: boolean
   // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
   type?: QuestionListType
 }>(), {
@@ -288,6 +290,12 @@ const emit = defineEmits<{
 
 const makePasteToDraftHandler = (questionId: string) => {
   return (dataUrl: string) => emit('paste-to-draft', { dataUrl, questionId })
+}
+
+const getQuestionUniqueId = (question: ExerciseItem | null | undefined): string => {
+  if (!question) return ''
+  const anyQ = question as any
+  return (question.bmNo || question.id || anyQ.questionId || question.title || '').toString()
 }
 
 // 创建策略实例（根据 type prop 决定使用哪个策略）
@@ -363,16 +371,15 @@ const isQuestionSelected = (questionId: string): boolean => {
   if (!currentQuestion.value) {
     return false
   }
-  return currentQuestion.value.bmNo === questionId
+  return getQuestionUniqueId(currentQuestion.value) === questionId
 }
 
 // 题目全局序号映射：根据原始 questions 列表的位置计算（从 1 开始）
 const questionIndexMap = computed(() => {
   const map = new Map<string, number>()
   questions.value.forEach((q, idx) => {
-    if (q.bmNo) {
-      map.set(q.bmNo, idx)
-    }
+    const key = getQuestionUniqueId(q)
+    if (key) map.set(key, idx)
   })
   return map
 })
@@ -523,22 +530,7 @@ const attachImageClickListeners = (container: HTMLElement) => {
       wrapper.appendChild(img)
     }
 
-    // 避免重复添加监听器
-    if (img.dataset.hasClickListener === 'true') {
-      return
-    }
-
-    img.dataset.hasClickListener = 'true'
-    img.style.cursor = 'pointer'
-
-    img.addEventListener('click', (e) => {
-      e.stopPropagation()
-      const imageUrl = img.src
-      if (imageUrl) {
-        previewImageUrl.value = imageUrl
-        showImagePreview.value = true
-      }
-    })
+    img.style.cursor = 'default'
   })
 }
 
@@ -997,8 +989,9 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
     // 通过策略选择题目
     const currentStrategy = strategy.value
     const storeQuestions = currentStrategy.getQuestions()
+    const targetId = getQuestionUniqueId(question)
     const storeIndex = storeQuestions.findIndex(
-      (q: ExerciseItem) => q.bmNo === question.bmNo
+      (q: ExerciseItem) => getQuestionUniqueId(q) === targetId
     )
 
     if (storeIndex >= 0) {
@@ -1763,6 +1756,10 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       .question-content-area {
         .question-content,
         .markdown-content {
+          color: #393548;
+        }
+
+        :deep(*) {
           color: #393548;
         }
       }
