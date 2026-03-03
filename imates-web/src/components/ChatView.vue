@@ -898,7 +898,9 @@ const displayedMessages = computed<ChatBubble[]>(() => {
     const message = messages[i]
 
     // 如果消息是图片类型，且同时包含图片和文字内容
+    // 教师对话场景下：图片消息就是图片，不拆分渲染为文字
     if (
+      props.type !== 'teacher' &&
       message.messageType === 'image' &&
       message.imageData &&
       message.imageData.base64DataUrl &&

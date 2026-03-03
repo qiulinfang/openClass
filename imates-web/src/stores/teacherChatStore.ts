@@ -15,7 +15,7 @@ import { apiService } from '../services/http/api-service'
 import { showMessage } from '@/utils'
 import { Sender } from '@/types/enums'
 import { getUserInfo, getUserId } from '../services'
-import { getResourceBaseUrl } from '../config/env-config'
+import { getResourceBaseUrl, getYanbanBaseUrl } from '../config/env-config'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import { getWebSocketService, destroyWebSocketService } from '../services/websocket/webSocketService'
 import type { WebSocketMessage } from '../services/websocket/webSocketService'
@@ -430,10 +430,30 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       const sessionId = currentSession.value!.sessionId
 
       // 通过WebSocket发送学生消息到研伴后端
+      // 图片消息改为：优先先上传，拿到 URL 再发，避免 WS 传 base64
       const msgType = imageData ? '1' : '0' // 0=文本消息, 1=图片消息
-      const msgContent = imageData ?
-        (imageData.filePath?.startsWith('http') ? imageData.filePath :
-         imageData.base64DataUrl || imageData.filePath || content) : content
+      let msgContent = content
+      if (imageData) {
+        const rawImage = imageData.filePath || imageData.base64DataUrl || ''
+
+        // 已经是 URL（例如历史消息/已上传图片），直接发送
+        if (rawImage.startsWith('http')) {
+          msgContent = rawImage
+        } else if (rawImage.startsWith('/')) {
+          // 上传接口返回的是相对路径时，WS content 只需传相对路径
+          msgContent = rawImage
+        } else {
+          const base64 = (imageData.base64DataUrl || imageData.filePath || '').toString()
+          const isBase64DataUrl = base64.startsWith('data:')
+          if (!isBase64DataUrl) {
+            showMessage('图片数据异常，请重新选择图片', 'error')
+            return
+          }
+
+          // 上传图片到研伴后端，获取可访问 URL
+          msgContent = await apiService.uploadImageToYanban(base64)
+        }
+      }
       const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
       // 从sessionId中解析科目ID（数据库ID）
@@ -542,16 +562,15 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
               }
             } else if (msg.type === 'image' && msg.content) {
               // 图片消息：msgContent是图片URL、base64或文件路径
-              const isBase64 = msg.content.startsWith('data:')
-              const isFilePath = !isBase64 && msg.content.includes('/') // 简单判断是否为文件路径
+              const isRelativePath = msg.content.startsWith('/')
+              const resolvedImageUrl = isRelativePath ? `${getYanbanBaseUrl()}${msg.content}` : ''
 
               baseMessage.imageData = {
                 filePath: msg.content,
                 width: 0,
                 height: 0,
                 fileSize: 0,
-                base64DataUrl: isBase64 ? msg.content :
-                               isFilePath ? `${getResourceBaseUrl()}/${msg.content}` : undefined,
+                base64DataUrl: resolvedImageUrl || undefined,
               }
             }
 
@@ -769,12 +788,14 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
         // 处理图片消息
         if (message.msgType === '1' && message.content) {
           teacherMessage.messageType = 'image'
+          const isRelativePath = message.content.startsWith('/')
+          const resolvedImageUrl = isRelativePath ? `${getYanbanBaseUrl()}${message.content}` : undefined
           teacherMessage.imageData = {
             filePath: message.content,
             width: 0,
             height: 0,
             fileSize: 0,
-            base64DataUrl: message.content.startsWith('data:') ? message.content : undefined,
+            base64DataUrl: resolvedImageUrl,
           }
         }
 

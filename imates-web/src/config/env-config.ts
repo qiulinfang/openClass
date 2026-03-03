@@ -79,9 +79,9 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
     yanbanBaseUrl: 'https://43.138.16.5:50013',
     // 教师服务WebSocket：使用WebSocket协议
-    teacherBaseUrl: 'ws://www.imates.com.cn:8201/blw-edu-yb/ws',
+    teacherBaseUrl: 'wss://43.138.16.5:50013/yb-teacher-ws',
     // 教师服务API：使用HTTP协议
-    teacherApiBaseUrl: 'http://www.imates.com.cn:8201/blw-edu-yb',
+    teacherApiBaseUrl: 'https://43.138.16.5:50013/yb-teacher',
     // IM即时通讯服务（直接使用端口，HTTP协议）
     imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
     historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
@@ -305,7 +305,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/api/v1': 'http://app.imates.com.cn:8080',
     // 资源服务器（根据环境动态切换）
     '/resource': resourceBaseUrl,
-    '/img': resourceBaseUrl,
+    '/img': yanbanBaseUrl,
     // 知识点查询服务
     '/knowledge': 'http://www.imates.com.cn:8090',
     // 经开二中的应用更新配置（/jinkai/update.json）

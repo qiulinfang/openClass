@@ -320,11 +320,8 @@ export class ApiService {
     const response = await httpClient.post<any>('/api/system/uploadImg', formData)
     const result = response.data
     if (response.success && result && result.data && result.data.path) {
-      // 研伴后端返回相对路径，构造完整的可访问URL
-      // 与IM服务器调用逻辑保持一致：都返回完整的HTTP URL
-      const fullUrl = `http://39.107.234.140:8201/blw-edu-yb${result.data.path}`
-      console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}，完整URL: ${fullUrl}`)
-      return fullUrl
+      console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}`)
+      return result.data.path
     } else {
       const errorMsg = result?.message || response.message || '未知错误'
       console.error(`[API] 研伴图片上传失败:`, errorMsg)

@@ -44,18 +44,19 @@ export default defineConfig(({ mode }) => {
    // 为所有代理统一附加一组精简日志，方便查看请求流向
    const attachBasicProxyLog = (proxy: any, label: string) => {
      proxy.on('proxyReq', (proxyReq: any, req: any) => {
-       console.log(`➡ [Proxy:${label}]`, req.method, req.url)
-         console.log('🔧 [Vite Env] mode =', mode, 'isTest =', isTest)
-        console.log('🔧 [Vite Env] EDU_SERVICE_BASE     =', EDU_SERVICE_BASE)
-        console.log('🔧 [Vite Env] RESOURCE_FILE_BASE  =', RESOURCE_FILE_BASE)
-        console.log('🔧 [Vite Env] APP_UPDATE_BASE     =', APP_UPDATE_BASE)
+       const protocol = proxyReq?.protocol || ''
+       const host = proxyReq?.host || ''
+       const path = proxyReq?.path || ''
+       console.log(`➡ [Proxy:${label}]`, req.method, req.url, '->', `${protocol}//${host}${path}`)
+     })
+     proxy.on('proxyReqWs', (proxyReq: any, req: any) => {
+       const protocol = proxyReq?.protocol || ''
+       const host = proxyReq?.host || ''
+       const path = proxyReq?.path || ''
+       console.log(`➡ [ProxyWS:${label}]`, req.url, '->', `${protocol}//${host}${path}`)
      })
      proxy.on('proxyRes', (proxyRes: any, req: any) => {
        console.log(`⬅ [Proxy:${label}]`, proxyRes.statusCode, req.url)
-       console.log('🔧 [Vite Env] mode =', mode, 'isTest =', isTest)
-        console.log('🔧 [Vite Env] EDU_SERVICE_BASE     =', EDU_SERVICE_BASE)
-        console.log('🔧 [Vite Env] RESOURCE_FILE_BASE  =', RESOURCE_FILE_BASE)
-        console.log('🔧 [Vite Env] APP_UPDATE_BASE     =', APP_UPDATE_BASE)
      })
      proxy.on('error', (err: any, req: any) => {
        console.error(`⛔ [Proxy:${label}]`, req.url, err.message)
@@ -91,6 +92,17 @@ export default defineConfig(({ mode }) => {
     },
     // 添加中间件来设置 WASM 文件的正确 MIME 类型
     configureServer(server: any) {
+      server.middlewares.use((req: Connect.IncomingMessage, res: any, next: Connect.NextFunction) => {
+        const start = Date.now()
+        const url = req.url || ''
+        console.log(`➡ [Vite]`, req.method, url)
+        res.on('finish', () => {
+          const cost = Date.now() - start
+          console.log(`⬅ [Vite]`, res.statusCode, url, `${cost}ms`)
+        })
+        next()
+      })
+
       server.middlewares.use((req: Connect.IncomingMessage, res: any, next: Connect.NextFunction) => {
         // 如果是 WASM 文件请求，设置正确的 MIME 类型
         if (req.url?.endsWith('.wasm')) {
@@ -308,7 +320,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：匹配以 "/resource" 开头的请求，转发到资源服务器（解决CORS问题）
       '/img': {
-        target: RESOURCE_FILE_BASE, // 资源服务器地址（按环境切换）
+        target: isTest ? 'https://43.138.16.5:50013' : RESOURCE_FILE_BASE, // test 环境图片走 50013，避免 /img 相对路径找不到
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         // 添加CORS头信息
@@ -352,7 +364,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：教师聊天API，转发到研伴后端服务器（优先级最高）
       '/api/question': {
-        target: 'http://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
+        target: isTest ? 'https://43.138.16.5:50013/yb-teacher' : 'http://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 添加CORS头信息
@@ -373,7 +385,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：系统API（包括文件上传），转发到研伴后端服务器
       '/api/system': {
-        target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
+        target: isTest ? 'https://43.138.16.5:50013/blw-edu-yb' : 'http://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 添加CORS头信息
@@ -407,7 +419,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：通用API，转发到研伴后端服务器（兜底配置）
       '/api': {
-        target: 'https://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
+        target: isTest ? 'https://43.138.16.5:50013/blw-edu-yb' : 'http://www.imates.com.cn:8201/blw-edu-yb', // 研伴后端服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 添加CORS头信息
@@ -428,7 +440,7 @@ export default defineConfig(({ mode }) => {
       },
       // 🔥 新增：教师WebSocket代理，转发到研伴后端WebSocket服务器
       '/blw-edu-yb/ws': {
-        target: 'ws://www.imates.com.cn:8201', // 研伴后端WebSocket服务器地址
+        target: isTest ? 'wss://43.138.16.5:50013' : 'ws://www.imates.com.cn:8201', // 研伴后端WebSocket服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         ws: true, // 启用WebSocket代理
         secure: false, // 使用WS协议
@@ -448,7 +460,28 @@ export default defineConfig(({ mode }) => {
           })
         }
       },
-      
+      // 🔥 新增：测试环境教师WebSocket代理（/yb-teacher-ws）
+      '/yb-teacher-ws': {
+        target: isTest ? 'wss://43.138.16.5:50013/yb-teacher-ws' : 'ws://www.imates.com.cn:8201',
+        changeOrigin: true,
+        ws: true,
+        secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/yb-teacher-ws')
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理教师WebSocket请求到服务器:', req.url)
+          })
+          proxy.on('proxyRes', (proxyRes, req) => {
+            console.log('教师WebSocket响应:', req.url, proxyRes.statusCode)
+          })
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ [教师WebSocket代理失败]:', {
+              url: req.url,
+              error: err.message
+            })
+          })
+        }
+      },
       // 🔥 新增：匹配以 "/im/" 开头的请求，转发到IM即时通讯服务（解决CORS问题，避免影响其他路径）
       '/im/': {
         target: 'https://www.imates.com.cn', // IM服务地址
