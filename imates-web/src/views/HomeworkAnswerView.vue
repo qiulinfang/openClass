@@ -216,6 +216,7 @@ const floatMenuItems = computed(() => {
 const handleFloatMenuSelect = async (item: { label: string }) => {
   if (item.label === '学伴辅导') {
     xuebanLimitDialogRef.value?.openDialog()
+    // handleGoToXueban();
   } else if (item.label === '我的作答') {
     // 作业作答页本身就是“我的作答”，这里只需关闭菜单即可
     return
@@ -231,6 +232,23 @@ const handleXuebanLimitDialogConfirm = () => {
 const handleXuebanLimitDialogCancel = () => {
   xuebanLimitDialogRef.value?.closeDialog()
 }
+
+// 去学伴按钮点击 - 跳转到作业答题专用路由
+const handleGoToXueban = () => {
+  // 1. 先保存当前题目当前页的作答数据到全局缓存，避免跳转后丢失
+  saveCurrentPage()
+
+  // 2. 获取 QuestionList 选中的题目，作为跳转参数
+  const selectedQuestion = questionListRef.value?.getSelectedQuestion?.()
+  if (!selectedQuestion) return
+
+  const questionId = selectedQuestion.bmNo || selectedQuestion.id
+  router.push({
+    name: 'homeworkExercise',
+    query: { questionId: questionId?.toString(), tab: 'chatAi', scene: 'homework' },
+  })
+}
+
 
 // 是否有选中的题目（QuestionList 中选中即可，不需要渲染到 canvas）
 const hasSelectedQuestion = computed(() => {

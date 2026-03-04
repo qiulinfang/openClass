@@ -452,12 +452,14 @@ const canUseSimilarQuestion = computed(
   () => hasSelectedQuestion.value && aiExerciseStore.canViewAnswer
 )
 
+const canUseDraft = computed(() => hasSelectedQuestion.value)
+
 // 导航项配置
 const navItems = computed(() => [
   {
-    key: 'chatAi',
-    label: '学伴答疑',
-    disabled: !canUseChatAi.value
+    key: currentFunction.value === 'draft' ? 'draft' : 'chatAi',
+    label: currentFunction.value === 'draft' ? '草稿本' : '学伴答疑',
+    disabled: currentFunction.value === 'draft' ? !canUseDraft.value : !canUseChatAi.value
   },
   {
     key: 'teacherChat',
