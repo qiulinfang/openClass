@@ -102,7 +102,17 @@ export class TeacherChatApi {
       console.log('[TeacherChatApi] API响应:', response)
 
       // 处理可能的多种数据结构：直接数组、或者对象中的各种字段
-      let messageArray: Array<{ id: string; messageId: string; msgContent: string; msgType: string; createTime: string; msgSendId: string }> = []
+      // senderType: 后端可能返回 ai/user/teacher 等，用于判断消息方向
+      let messageArray: Array<{
+        id: string
+        messageId: string
+        msgContent: string
+        msgType: string
+        createTime: string
+        msgSendId: string
+        account?: string
+        senderType?: string
+      }> = []
       if (response.success && response.data) {
         const dataObj = response.data as { data?: unknown }
         if (dataObj.data && Array.isArray(dataObj.data)) {
@@ -119,13 +129,20 @@ export class TeacherChatApi {
         webSocket.setSessionId(sessionId)
 
         // 转换数据格式以匹配现有代码的期望
-        return messageArray.map((msg: { id: string; messageId: string; msgContent: string; msgType: string; createTime: string; msgSendId: string; account?: string }): TeacherHistoryMessage => ({
-          messageId: msg.messageId, // 使用前端生成的消息ID
-          content: msg.msgContent,
-          type: convertMessageType(msg.msgType), // 转换消息类型
-          timestamp: parseCreateTime(msg.createTime), // 解析后端日期格式
-          isSelf: msg.account === currentUserId // 如果发送者ID等于当前用户ID，则是自己发送的消息
-        }))
+        return messageArray.map((msg): TeacherHistoryMessage => {
+          const normalizedSenderType = (msg.senderType || '').toLowerCase()
+          const isSelf = normalizedSenderType
+            ? normalizedSenderType === 'user'
+            : msg.account === currentUserId
+
+          return {
+            messageId: msg.messageId,
+            content: msg.msgContent,
+            type: convertMessageType(msg.msgType),
+            timestamp: parseCreateTime(msg.createTime),
+            isSelf,
+          }
+        })
       }
 
       return []
