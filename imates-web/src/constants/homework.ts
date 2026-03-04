@@ -46,7 +46,15 @@ export const HOMEWORK_BUTTON_VARIANT_MAP = {
 }
 
 // 获取作业状态文本
-export const getHomeworkStatusText = (status: string): string => {
+export const getHomeworkStatusText = (status: string, deadline?: string): string => {
+  // 如果提供了截止日期且当前日期已超过截止日期，强制设置为已结束
+  if (deadline) {
+    const deadlineDate = new Date(deadline)
+    const currentDate = new Date()
+    if (currentDate > deadlineDate) {
+      return HOMEWORK_STATUS_MAP['3'] // 已结束
+    }
+  }
   return HOMEWORK_STATUS_MAP[status] || '进行中'
 }
 
@@ -56,7 +64,15 @@ export const getHomeworkStatusType = (status: string): string => {
 }
 
 // 获取作业状态标签颜色类型
-export const getHomeworkStatusTagType = (statusType: string): 'green' | 'purple' | 'gray' => {
+export const getHomeworkStatusTagType = (statusType: string, deadline?: string): 'green' | 'purple' | 'gray' => {
+  // 如果提供了截止日期且当前日期已超过截止日期，强制设置为灰色
+  if (deadline) {
+    const deadlineDate = new Date(deadline)
+    const currentDate = new Date()
+    if (currentDate > deadlineDate) {
+      return 'gray'
+    }
+  }
   return HOMEWORK_STATUS_TAG_TYPE_MAP[statusType] || 'green'
 }
 

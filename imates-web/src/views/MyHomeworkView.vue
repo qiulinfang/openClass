@@ -204,9 +204,9 @@ const handleLoadMore = async () => {
 // 优化后的计算属性，使用缓存减少重复计算
 const displayHomeworkList = computed(() => {
   return homeworkList.value.map((homework: HomeworkUndoItem) => {
-    const statusText = getHomeworkStatusText(homework.status)
+    const statusText = getHomeworkStatusText(homework.status, homework.deadline)
     const statusType = getHomeworkStatusType(homework.status)
-    const statusTagType = getHomeworkStatusTagType(statusType)
+    const statusTagType = getHomeworkStatusTagType(statusType, homework.deadline)
 
     // 生成标签数组
     const tags = []
