@@ -318,6 +318,9 @@ public class MainWebViewActivity extends AppCompatActivity
                             MediaProjection mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
                             if (webAppInterface != null) {
                                 webAppInterface.setMediaProjection(mediaProjection);
+                                webAppInterface.executeJavaScript(
+                                        "try{if(window.onMediaProjectionPermissionResult){window.onMediaProjectionPermissionResult(true);}}catch(e){}"
+                                );
                             }
                             Log.d(TAG, "MediaProjection 权限已授权");
                         } catch (SecurityException se) {
@@ -337,6 +340,15 @@ public class MainWebViewActivity extends AppCompatActivity
                 handler.postDelayed(tryGetProjection, 300);
             } else {
                 Log.w(TAG, "MediaProjection 权限被拒绝");
+                try {
+                    if (webAppInterface != null) {
+                        webAppInterface.executeJavaScript(
+                                "try{if(window.onMediaProjectionPermissionResult){window.onMediaProjectionPermissionResult(false);}}catch(e){}"
+                        );
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "回传 MediaProjection 授权结果到 Web 失败", e);
+                }
             }
         }
     }

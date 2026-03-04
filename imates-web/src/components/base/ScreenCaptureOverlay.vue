@@ -421,11 +421,12 @@ const captureScreenFromAndroid = async (): Promise<string> => {
     const commandId = `snapshot_${Date.now()}_${Math.random().toString(16).slice(2)}`
 
     let done = false
+    let timeoutId: number | undefined
     const cleanup = () => {
       if (done) return
       done = true
       androidBridge.removeEventListener('snapshotTaken', onTaken)
-      window.clearTimeout(timeoutId)
+      if (timeoutId != null) window.clearTimeout(timeoutId)
     }
 
     const onTaken = (imageData: unknown) => {
@@ -459,32 +460,93 @@ const captureScreenFromAndroid = async (): Promise<string> => {
           requestAnimationFrame(resolve)
         })
       })
+
+      const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+      const waitForMediaProjectionPermissionResult = (timeoutMs = 12000) => {
+        return new Promise<boolean | null>((resolve) => {
+          const onResult = (granted: boolean) => {
+            window.clearTimeout(tid)
+            androidBridge.removeEventListener('mediaProjectionPermissionResult', onResult)
+            resolve(granted)
+          }
+
+          const tid = window.setTimeout(() => {
+            androidBridge.removeEventListener('mediaProjectionPermissionResult', onResult)
+            resolve(null)
+          }, timeoutMs)
+
+          androidBridge.addEventListener('mediaProjectionPermissionResult', onResult)
+        })
+      }
+
+      const waitForMediaProjectionPermission = async (timeoutMs = 12000, intervalMs = 250) => {
+        const start = Date.now()
+        while (Date.now() - start < timeoutMs) {
+          if (done) return false
+          if (androidBridge.hasMediaProjectionPermission()) return true
+          await sleep(intervalMs)
+        }
+        return false
+      }
       
       // 检查 MediaProjection 权限
       if (androidBridge.hasMediaProjectionPermission()) {
         debugLog('使用 MediaProjection 截图')
       } else {
         debugLog('MediaProjection 权限未授权，将使用 rootView.draw() 截图')
+        let permissionRequestStarted = false
         try {
-          androidBridge.requestMediaProjectionPermission()
-        } catch (e) {
+          permissionRequestStarted = androidBridge.requestMediaProjectionPermission()
+        } catch {
+          permissionRequestStarted = false
         }
+
+        if (!permissionRequestStarted) {
+          cleanup()
+          reject(new Error('MediaProjection permission request rejected'))
+          return
+        }
+
+        debugLog('开始等待 MediaProjection 权限授权...')
+        const permissionResult = await waitForMediaProjectionPermissionResult()
+        if (permissionResult === false) {
+          debugLog('MediaProjection 权限被拒绝，清理资源')
+          cleanup()
+          reject(new Error('MediaProjection permission denied'))
+          return
+        }
+
+        const granted =
+          permissionResult === true ? true : await waitForMediaProjectionPermission()
+        debugLog('MediaProjection 权限授权结果:', granted)
+        if (!granted) {
+          debugLog('MediaProjection 权限授权失败，清理资源')
+          cleanup()
+          reject(new Error('MediaProjection permission not granted'))
+          return
+        }
+
+        debugLog('MediaProjection 权限已授权，准备调用原生截图')
       }
       
-      // 调用原生截图
+      debugLog('调用原生截图方法，commandId:', commandId)
+      timeoutId = window.setTimeout(() => {
+        debugLog('截图超时，清理资源')
+        cleanup()
+        reject(new Error('takeSnapshot timeout'))
+      }, 12000)
       const ok = androidBridge.takeSnapshot(commandId)
+      debugLog('原生截图方法调用结果:', ok)
       if (!ok) {
+        debugLog('原生截图调用失败，清理资源')
         cleanup()
         reject(new Error('takeSnapshot failed'))
       }
     }
 
+    debugLog('开始执行 triggerNativeSnapshot')
     triggerNativeSnapshot()
-
-    const timeoutId = window.setTimeout(() => {
-      cleanup()
-      reject(new Error('takeSnapshot timeout'))
-    }, 12000)
   })
 }
 

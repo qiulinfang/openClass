@@ -981,6 +981,13 @@ export class AndroidBridge {
       }
     }
 
+    // MediaProjection 授权结果回调（允许/拒绝）
+    if (!window.onMediaProjectionPermissionResult) {
+      window.onMediaProjectionPermissionResult = (granted: boolean) => {
+        this.emit('mediaProjectionPermissionResult', granted)
+      }
+    }
+
     // 课堂错误回调
     if (!window.onClassroomError) {
       window.onClassroomError = (error: string) => {
@@ -1026,6 +1033,10 @@ export class AndroidBridge {
    */
   public onImageCapture(callback: (imageInfo: ImageData) => void): void {
     this.addEventListener('imageCaptured', callback)
+  }
+
+  public onMediaProjectionPermissionResult(callback: (granted: boolean) => void): void {
+    this.addEventListener('mediaProjectionPermissionResult', callback)
   }
 
 

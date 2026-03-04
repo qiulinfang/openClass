@@ -53,6 +53,13 @@ export class TextbookDownloadApi {
     return arr.slice(0, max)
   }
 
+  private createEmptyLearningPackagesError(textbookId: string): Error {
+    const err = new Error('EMPTY_LEARNING_PACKAGES')
+    err.name = 'EmptyLearningPackages'
+    ;(err as any).textbookId = textbookId
+    return err
+  }
+
   private async reconcileExtraLocalFiles(
     serverPackages: LearningPackage[],
     textbook: UserTextbookInfo,
@@ -373,7 +380,7 @@ export class TextbookDownloadApi {
       }
 
       if (!serverPackages || serverPackages.length === 0) {
-        return true
+        throw this.createEmptyLearningPackagesError(textbook.textbookId)
       }
 
       // 增量文件筛选（收集需要更新的文件）
@@ -429,6 +436,11 @@ export class TextbookDownloadApi {
       })
 
       if (error instanceof Error && error.name === 'AbortError') {
+        this.downloadControllers.delete(textbook.textbookId)
+        throw error
+      }
+
+      if (error instanceof Error && error.name === 'EmptyLearningPackages') {
         this.downloadControllers.delete(textbook.textbookId)
         throw error
       }
@@ -875,6 +887,15 @@ export class TextbookDownloadApi {
 
       // 获取本地学习包
       let localPackages = localTextbook.learningPackages || []
+
+      // 策略：如果服务端确实没有学习包数据，且本地也没有学习包数据，则认为“无可更新内容”，不标记更新。
+      if (!Array.isArray(serverPackages) || serverPackages.length === 0) {
+        if (!localPackages || localPackages.length === 0) {
+          return false
+        }
+        // 服务端为空但本地不为空：可能为服务端删除/异常，按需要更新处理
+        return true
+      }
 
       // 按需求：仅使用 localTextbook.learningPackages 作为本地学习包来源。
       // 如果为空，则视为本地无学习包数据，需要更新。

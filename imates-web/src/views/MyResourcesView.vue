@@ -1124,6 +1124,17 @@ const downloadTextbook = async (textbook: UserTextbookInfo, forceRefreshPackages
         isDownloaded: false,
         downloadedFiles: textbook.downloadedFiles, // 🔥 保存已下载的文件数量
       })
+    } else if (error instanceof Error && error.name === 'EmptyLearningPackages') {
+      // 资源为空：不进入下载流程，恢复状态并提示
+      textbook.downloadStatus = 0
+      textbook.isDownloaded = false
+
+      await resourceManager.updateTextbookInfo(textbook, {
+        downloadStatus: 0,
+        isDownloaded: false,
+      })
+
+      showMessage(`《${textbook.textbookName}》暂无可用的学习资源`, 'warning')
     } else {
       // 真正的下载失败
       textbook.downloadStatus = 0 // 下载失败
