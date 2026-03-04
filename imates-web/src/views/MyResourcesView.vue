@@ -723,6 +723,39 @@ const loadResources = async (isPullDownRefresh = false) => {
       // 从服务器获取当前账号下的所有在线教材列表
       const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
 
+      // 保护：服务端返回空列表且本地仍有数据时，不进行“策略A清理”，避免接口异常导致误删
+      // 在这种情况下，保留本地数据作为兜底展示
+      if (localTextbooks.length > 0 && serverTextbooks.length === 0) {
+        textbooks.value = localTextbooks
+        updateSubjectChips()
+        await nextTick()
+        return
+      }
+
+      // 策略A：若服务器侧已删除教材，则本地也视为不可用并清理（仅在服务器返回非空列表时执行）
+      if (serverTextbooks.length > 0 && localTextbooks.length > 0) {
+        const serverTextbookIdSet = new Set(serverTextbooks.map(t => t.textbookId))
+        const deletedLocalTextbooks = localTextbooks.filter(local => !serverTextbookIdSet.has(local.textbookId))
+
+        if (deletedLocalTextbooks.length > 0) {
+          await Promise.all(
+            deletedLocalTextbooks.map(async (textbook) => {
+              // 如果正在下载或暂停，先取消下载任务（忽略错误，保证清理尽可能继续）
+              if (textbook.downloadStatus === 1 || textbook.downloadStatus === 3) {
+                try {
+                  await apiService.cancelDownload(textbook.textbookId)
+                } catch {
+                  // 忽略取消下载的错误
+                }
+              }
+
+              // 删除教材及其所有相关数据
+              await resourceManager.deleteTextbook(textbook.id)
+            }),
+          )
+        }
+      }
+
       // 将服务器数据与本地数据按 textbookId 维度进行合并
       // 既保留本地下载状态等信息，又更新服务器最新元数据
       const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
@@ -893,7 +926,7 @@ const checkForUpdates = async () => {
 }
 
 // 下载教材 - 直接使用ApiService，移除不必要的中介方法
-const downloadTextbook = async (textbook: UserTextbookInfo) => {
+const downloadTextbook = async (textbook: UserTextbookInfo, forceRefreshPackages = false) => {
   // 🔒 防重复下载：检查是否已在下载中
   if (textbook.downloadStatus === 1) {
     showMessage(`《${textbook.textbookName}》正在下载中，请勿重复操作`, 'warning')
@@ -906,7 +939,8 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
   }
 
   // ✅ 检查学习资源包，如果没有则按需获取
-  if (!textbook.learningPackages || textbook.learningPackages.length === 0) {
+  // 更新场景下需要强制刷新 learningPackages，避免学习方案变更后仍使用旧缓存
+  if (forceRefreshPackages || !textbook.learningPackages || textbook.learningPackages.length === 0) {
     try {
       const packages = await apiService.getLearningResources(textbook.id, false)
       if (packages && packages.length > 0) {
@@ -945,9 +979,11 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
       // 下载成功 - 需要从 IndexedDB 获取完整数据（包含 fileData）后再更新状态
       // 因为当前的 textbook 对象中的 localFiles 可能不包含 fileData（被瘦身处理了）
       // 使用三层降级策略查询：id主键 -> textbookId索引 -> getAll（兼容旧数据库无索引的情况）
+      // ⚠️ 更新/下载完成后，必须按教材版本主键 id 精确取回记录。
+      // 不允许按 textbookId 回退，否则同 textbookId 多版本时可能取到旧记录，导致 localFiles 等数据被回滚写回。
       const fullTextbook = await resourceManager.getTextbookByIdOrTextbookIdWithFallback(
         textbook.id,
-        textbook.textbookId,
+        undefined,
         '下载',
       )
 
@@ -1113,7 +1149,7 @@ const updateTextbook = (textbook: UserTextbookInfo) => {
   // 注意：不要提前设置downloadStatus=1，让downloadTextbook函数来设置，避免状态检查冲突
 
   // 开始下载更新（downloadTextbook会自动设置downloadStatus=1）
-  downloadTextbook(textbook)
+  downloadTextbook(textbook, true)
 }
 
 // 处理暂停下载 - 用户主动暂停单个教材

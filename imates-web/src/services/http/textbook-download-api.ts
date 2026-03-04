@@ -1,6 +1,5 @@
 import { httpClient } from '../http/http-client'
 import { getYanbanToken } from './auth-service'
-import { saveLearningPackagesToDB, loadLearningPackagesFromDB } from '../storage/learning-packages-storage'
 import { resourceManager, ResourceManager } from '../storage/resource-storage'
 import { AndroidBridge } from '../business/android-bridge'
 import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
@@ -47,6 +46,72 @@ export class TextbookDownloadApi {
 
   constructor(androidBridge: AndroidBridge) {
     this.androidBridge = androidBridge
+  }
+
+  private safeArraySample<T>(arr: T[] | undefined | null, max: number = 5): T[] {
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return []
+    return arr.slice(0, max)
+  }
+
+  private async reconcileExtraLocalFiles(
+    serverPackages: LearningPackage[],
+    textbook: UserTextbookInfo,
+    context?: { textbookId?: string; serverId?: string; textbookName?: string },
+  ): Promise<void> {
+    try {
+      if (!textbook.localFiles || !Array.isArray(textbook.localFiles) || textbook.localFiles.length === 0) {
+        return
+      }
+
+      const serverFileIdSet = new Set<string>()
+      let serverFilesCount = 0
+      for (const pkg of serverPackages || []) {
+        const list = (pkg as any)?.resourceList as ResourceFile[] | undefined
+        if (Array.isArray(list) && list.length > 0) {
+          serverFilesCount += list.length
+          for (const f of list) {
+            if (f?.id) serverFileIdSet.add(f.id)
+          }
+        }
+      }
+
+      const extraLocalFiles = (textbook.localFiles || []).filter(f => f?.id && !serverFileIdSet.has(f.id))
+      if (extraLocalFiles.length === 0) {
+        return
+      }
+
+      console.warn('[TextbookDownloadApi.reconcileExtraLocalFiles] 严格对账：检查更新时发现本地多余文件，开始自动清理', {
+        ...context,
+        localTextbookRecordId: (textbook as any).id,
+        serverFilesCount,
+        localFilesCount: (textbook.localFiles || []).length,
+        extraCount: extraLocalFiles.length,
+        extraFileIds: extraLocalFiles.map(f => f.id).slice(0, 5),
+        extraFileNames: extraLocalFiles.map(f => (f as any).fileName).slice(0, 5),
+      })
+
+      try {
+        const deletePromises = extraLocalFiles.map(f => resourceManager.indexedDB.delete('textbook_files', f.id))
+        await Promise.allSettled(deletePromises)
+      } catch {
+      }
+
+      const extraIdSet = new Set(extraLocalFiles.map(f => f.id))
+      const prunedLocalFiles = (textbook.localFiles || []).filter(f => f?.id && !extraIdSet.has(f.id))
+      textbook.localFiles = prunedLocalFiles
+      textbook.downloadedFiles = Math.min(textbook.downloadedFiles || 0, serverFilesCount)
+
+      await resourceManager.updateTextbookInfo(textbook, {
+        localFiles: prunedLocalFiles,
+        downloadedFiles: textbook.downloadedFiles,
+      })
+    } catch (error) {
+      console.warn('[TextbookDownloadApi.reconcileExtraLocalFiles] 严格对账清理失败', {
+        ...context,
+        localTextbookRecordId: (textbook as any).id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   /**
@@ -180,28 +245,11 @@ export class TextbookDownloadApi {
           resourceList: (pkg as any).resourceList || [],
         }))
 
-        if (useCache) {
-          try {
-            await saveLearningPackagesToDB(id, packages)
-          } catch {
-          }
-        }
-
         return packages
       }
 
       return []
     } catch {
-      if (useCache) {
-        try {
-          const cached = await loadLearningPackagesFromDB(id)
-          if (cached && Array.isArray(cached)) {
-            return cached
-          }
-        } catch {
-        }
-      }
-
       return []
     }
   }
@@ -418,14 +466,28 @@ export class TextbookDownloadApi {
     const localLearningPackages = textbook.learningPackages || []
 
     const rm = ResourceManager.getInstance()
-    let latestTextbook = await rm.getTextbookByIdOrTextbookIdWithFallback(
-      textbook.id,
-      textbook.textbookId,
-      'TextbookDownloadApi.collectFilesToUpdate',
-    )
+    // 更新/下载阶段严格按教材版本 id 对账（不使用 textbookId 回退），避免多版本/历史残留时清理写回到错误记录。
+    let latestTextbook: UserTextbookInfo | null = null
+    try {
+      latestTextbook = await rm.getTextbookInfoById(textbook.id)
+    } catch {
+      latestTextbook = null
+    }
 
     if (!latestTextbook) {
+      console.warn('[TextbookDownloadApi.collectFilesToUpdate] 未在本地按教材版本id找到教材记录，将使用传入对象进行对账/清理（可能无法持久化）', {
+        textbookId: textbook.textbookId,
+        localTextbookRecordId: textbook.id,
+        textbookName: textbook.textbookName,
+      })
       latestTextbook = textbook
+    } else if (latestTextbook.id !== textbook.id) {
+      console.warn('[TextbookDownloadApi.collectFilesToUpdate] 本地教材记录id与传入教材id不一致（可能导致对账/清理不生效）', {
+        textbookId: textbook.textbookId,
+        passedInId: textbook.id,
+        loadedLocalId: latestTextbook.id,
+        textbookName: textbook.textbookName,
+      })
     }
 
     const localFiles = latestTextbook.localFiles || []
@@ -434,9 +496,22 @@ export class TextbookDownloadApi {
       localFileMap.set(file.id, file)
     }
 
+    // 严格对账：如果本地存在服务端已经移除的文件，需要同步清理本地数据，避免一直提示“有更新”。
+    // 清理策略：
+    // 1) 删除 textbook_files 表中的 fileData（key 为文件 id）
+    // 2) 从 textbooks.localFiles 元数据中移除该文件
+    // 说明：这里的“服务端文件全集”来自 serverPackages 的 resourceList 合并。
+    const serverFileIdSet = new Set<string>()
+
     for (const serverPackage of serverPackages) {
       if (serverPackage.resourceList && serverPackage.resourceList.length > 0) {
         totalServerFiles += serverPackage.resourceList.length
+
+        for (const resource of serverPackage.resourceList) {
+          if (resource?.id) {
+            serverFileIdSet.add(resource.id)
+          }
+        }
 
         const localLearningPackage = localLearningPackages.find(p => p.packageId === serverPackage.packageId)
         if (!localLearningPackage) {
@@ -469,6 +544,47 @@ export class TextbookDownloadApi {
             }
           }
         }
+      }
+    }
+
+    const extraLocalFiles = localFiles.filter(f => f?.id && !serverFileIdSet.has(f.id))
+    if (extraLocalFiles.length > 0) {
+      console.warn('[TextbookDownloadApi.collectFilesToUpdate] 严格对账：发现本地存在服务端已移除的文件，开始清理', {
+        textbookId: latestTextbook.textbookId,
+        localTextbookRecordId: latestTextbook.id,
+        extraCount: extraLocalFiles.length,
+        extraFileIds: extraLocalFiles.map(f => f.id).slice(0, 5),
+        extraFileNames: extraLocalFiles.map(f => f.fileName).slice(0, 5),
+      })
+
+      try {
+        const deletePromises = extraLocalFiles.map(f => rm.indexedDB.delete('textbook_files', f.id))
+        await Promise.allSettled(deletePromises)
+
+        const extraIdSet = new Set(extraLocalFiles.map(f => f.id))
+        const prunedLocalFiles = localFiles.filter(f => f?.id && !extraIdSet.has(f.id))
+
+        latestTextbook.localFiles = prunedLocalFiles
+        // downloadedFiles 代表“服务端清单中的已下载数量”，清理掉服务端不存在文件后需要夹逼。
+        latestTextbook.downloadedFiles = Math.min(latestTextbook.downloadedFiles || 0, totalServerFiles)
+
+        // 同步更新传入的 textbook 对象，避免后续 updateTextbookInfo(textbook, undefined)
+        // 将旧 localFiles 再次写回 IndexedDB 导致清理被回滚。
+        if (textbook && textbook.id === latestTextbook.id) {
+          textbook.localFiles = prunedLocalFiles
+          textbook.downloadedFiles = latestTextbook.downloadedFiles
+        }
+
+        await rm.updateTextbookInfo(latestTextbook, {
+          localFiles: prunedLocalFiles,
+          downloadedFiles: latestTextbook.downloadedFiles,
+        })
+      } catch (error) {
+        console.warn('[TextbookDownloadApi.collectFilesToUpdate] 严格对账：清理本地多余文件失败（将继续按需要更新处理）', {
+          textbookId: latestTextbook.textbookId,
+          localTextbookRecordId: latestTextbook.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
     }
 
@@ -673,12 +789,27 @@ export class TextbookDownloadApi {
       const updatedTextbooks: TextbookVersion[] = []
 
       for (const serverTextbook of serverTextbooks) {
-        const localTextbook = localTextbooks.find((t: UserTextbookInfo) => t.textbookId === serverTextbook.textbookId)
+        // 三级对比：本地教材必须按“教材版本id（serverTextbook.id）”匹配
+        // 不使用 textbookId，避免同 textbookId 多版本时拿错本地记录导致误判。
+        const localTextbook = localTextbooks.find((t: UserTextbookInfo) => t.id === serverTextbook.id)
+
+        if (!localTextbook) {
+          console.warn('[TextbookDownloadApi.checkForUpdates] 本地未找到对应教材版本记录（按 serverId 匹配失败）', {
+            textbookId: serverTextbook.textbookId,
+            serverId: serverTextbook.id,
+            textbookName: serverTextbook.textbookName,
+          })
+        }
 
         // 检查是否需要更新
         const needsUpdate = await this.checkTextbookUpdate(serverTextbook, localTextbook)
 
         if (needsUpdate) {
+          console.warn('[TextbookDownloadApi.checkForUpdates] 教材需要更新', {
+            textbookId: serverTextbook.textbookId,
+            serverId: serverTextbook.id,
+            textbookName: serverTextbook.textbookName,
+          })
           updatedTextbooks.push(serverTextbook)
         }
       }
@@ -697,6 +828,11 @@ export class TextbookDownloadApi {
     try {
       // 第一级：教材级别检查
       if (!localTextbook) {
+        console.warn('[TextbookDownloadApi.checkTextbookUpdate] 需要更新：本地无教材记录', {
+          textbookId: serverTextbook.textbookId,
+          serverId: serverTextbook.id,
+          textbookName: serverTextbook.textbookName,
+        })
         return true
       }
 
@@ -704,6 +840,13 @@ export class TextbookDownloadApi {
       const textbookUpdated = this.isNewer(serverTextbook.textbookUpdateTime, localTextbook.textbookUpdateTime)
 
       if (textbookUpdated) {
+        console.warn('[TextbookDownloadApi.checkTextbookUpdate] 需要更新：教材更新时间变更', {
+          textbookId: serverTextbook.textbookId,
+          serverId: serverTextbook.id,
+          textbookName: serverTextbook.textbookName,
+          serverTextbookUpdateTime: serverTextbook.textbookUpdateTime,
+          localTextbookUpdateTime: localTextbook.textbookUpdateTime,
+        })
         return true
       }
 
@@ -731,22 +874,88 @@ export class TextbookDownloadApi {
       const serverPackages = await this.getLearningResources(serverTextbook.id)
 
       // 获取本地学习包
-      const localPackages = localTextbook.learningPackages || []
+      let localPackages = localTextbook.learningPackages || []
+
+      // 按需求：仅使用 localTextbook.learningPackages 作为本地学习包来源。
+      // 如果为空，则视为本地无学习包数据，需要更新。
+      if (!localPackages || localPackages.length === 0) {
+        // 自愈：如果服务端已经返回了学习包（非空），说明“本地无学习包”只是未持久化/历史数据缺失。
+        // 这种情况不应当长期导致“需要更新”，因此在检查更新时将服务端学习包写回教材表。
+        if (Array.isArray(serverPackages) && serverPackages.length > 0) {
+          // 先用服务端数据作为本次对比口径，避免因写回失败导致误判需要更新
+          localPackages = serverPackages
+          try {
+            localTextbook.learningPackages = serverPackages
+            await resourceManager.updateTextbookInfo(localTextbook, {
+              learningPackages: serverPackages,
+            })
+
+            console.warn('[TextbookDownloadApi.checkLearningPackageUpdates] 本地无学习包但服务端返回非空，已写回教材表用于后续对账', {
+              textbookId: serverTextbook.textbookId,
+              serverId: serverTextbook.id,
+              textbookName: serverTextbook.textbookName,
+              localTextbookRecordId: (localTextbook as any).id,
+              serverPackagesCount: serverPackages.length,
+            })
+
+            localPackages = serverPackages
+          } catch (error) {
+            console.warn('[TextbookDownloadApi.checkLearningPackageUpdates] 写回教材表learningPackages失败，仍按需要更新处理', {
+              textbookId: serverTextbook.textbookId,
+              serverId: serverTextbook.id,
+              textbookName: serverTextbook.textbookName,
+              localTextbookRecordId: (localTextbook as any).id,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
+
+        // 如果自愈写回失败或服务端返回空，则仍认为需要更新
+        if (!localPackages || localPackages.length === 0) {
+          console.warn('[TextbookDownloadApi.checkLearningPackageUpdates] 需要更新：本地无学习包缓存', {
+            textbookId: serverTextbook.textbookId,
+            serverId: serverTextbook.id,
+            textbookName: serverTextbook.textbookName,
+            localTextbookRecordId: (localTextbook as any).id,
+            localTextbookIdMatchesServerId: (localTextbook as any).id === serverTextbook.id,
+            serverPackagesCount: Array.isArray(serverPackages) ? serverPackages.length : 0,
+          })
+          return true
+        }
+      }
 
       for (const serverPackage of serverPackages) {
         const localPackage = localPackages.find(p => p.id === serverPackage.id)
 
         if (!localPackage) {
+          console.warn('[TextbookDownloadApi.checkLearningPackageUpdates] 需要更新：发现新学习包/本地缺包', {
+            textbookId: serverTextbook.textbookId,
+            serverId: serverTextbook.id,
+            textbookName: serverTextbook.textbookName,
+            serverPackageId: (serverPackage as any).id,
+          })
           return true
         }
 
         // 包更新时间比较
         if (this.isNewer(serverPackage.updateTime, localPackage.updateTime)) {
+          console.warn('[TextbookDownloadApi.checkLearningPackageUpdates] 需要更新：学习包更新时间变更', {
+            textbookId: serverTextbook.textbookId,
+            serverId: serverTextbook.id,
+            textbookName: serverTextbook.textbookName,
+            packageId: (serverPackage as any).id,
+            serverUpdateTime: (serverPackage as any).updateTime,
+            localUpdateTime: (localPackage as any).updateTime,
+          })
           return true
         }
 
         // 第三级：文件级别检查
-        const fileUpdated = this.hasFileUpdates(serverPackages, localTextbook)
+        const fileUpdated = this.hasFileUpdates(serverPackages, localTextbook, {
+          textbookId: serverTextbook.textbookId,
+          serverId: serverTextbook.id,
+          textbookName: serverTextbook.textbookName,
+        })
 
         if (fileUpdated) {
           return true
@@ -757,6 +966,12 @@ export class TextbookDownloadApi {
       for (const localPackage of localPackages) {
         const foundOnServer = serverPackages.some(p => p.id === localPackage.id)
         if (!foundOnServer) {
+          console.warn('[TextbookDownloadApi.checkLearningPackageUpdates] 需要更新：本地学习包在服务端已删除', {
+            textbookId: serverTextbook.textbookId,
+            serverId: serverTextbook.id,
+            textbookName: serverTextbook.textbookName,
+            localPackageId: (localPackage as any).id,
+          })
           return true
         }
       }
@@ -772,10 +987,18 @@ export class TextbookDownloadApi {
    * 对应Android LearnResourceManager.hasFileUpdates
    * 检查整个教材的所有文件，而不是单个包的文件
    */
-  private hasFileUpdates(serverPackages: LearningPackage[], textbook: UserTextbookInfo): boolean {
+  private hasFileUpdates(
+    serverPackages: LearningPackage[],
+    textbook: UserTextbookInfo,
+    context?: { textbookId?: string; serverId?: string; textbookName?: string },
+  ): boolean {
     try {
       // 如果教材没有localFiles属性，说明还没有下载过，需要更新
       if (!textbook.localFiles || !Array.isArray(textbook.localFiles)) {
+        console.warn('[TextbookDownloadApi.hasFileUpdates] 需要更新：本地无localFiles', {
+          ...context,
+          localTextbookRecordId: (textbook as any).id,
+        })
         return true
       }
 
@@ -787,16 +1010,38 @@ export class TextbookDownloadApi {
         }
       }
 
+      const serverFileIdSet = new Set(allServerFiles.map(f => f.id))
+      const localFileIdSet = new Set((textbook.localFiles || []).map(f => f.id))
+
       // 检查服务器文件
       for (const serverFile of allServerFiles) {
         const localFile = textbook.localFiles.find(f => f.id === serverFile.id)
 
         if (!localFile) {
+          console.warn('[TextbookDownloadApi.hasFileUpdates] 需要更新：本地缺文件', {
+            ...context,
+            localTextbookRecordId: (textbook as any).id,
+            serverFileId: (serverFile as any).id,
+            serverFileName: (serverFile as any).fileName,
+            serverPackagesCount: Array.isArray(serverPackages) ? serverPackages.length : 0,
+            serverFilesCount: allServerFiles.length,
+            localFilesCount: (textbook.localFiles || []).length,
+            sampleServerPackageIds: this.safeArraySample(serverPackages, 3).map(p => (p as any).id),
+          })
           return true
         }
 
         // 文件校验和比较
         if (serverFile.checksum !== localFile.checksum) {
+          console.warn('[TextbookDownloadApi.hasFileUpdates] 需要更新：文件checksum变化', {
+            ...context,
+            localTextbookRecordId: (textbook as any).id,
+            fileId: (serverFile as any).id,
+            serverChecksum: (serverFile as any).checksum,
+            localChecksum: (localFile as any).checksum,
+            serverFilesCount: allServerFiles.length,
+            localFilesCount: (textbook.localFiles || []).length,
+          })
           return true
         }
       }
@@ -805,6 +1050,25 @@ export class TextbookDownloadApi {
       for (const localFile of textbook.localFiles) {
         const foundOnServer = allServerFiles.some(f => f.id === localFile.id)
         if (!foundOnServer) {
+          const sampleExtraLocalFileIds: string[] = []
+          for (const id of localFileIdSet) {
+            if (!serverFileIdSet.has(id)) {
+              sampleExtraLocalFileIds.push(id)
+              if (sampleExtraLocalFileIds.length >= 5) break
+            }
+          }
+          console.warn('[TextbookDownloadApi.hasFileUpdates] 需要更新：本地文件在服务端已删除', {
+            ...context,
+            localTextbookRecordId: (textbook as any).id,
+            localFileId: (localFile as any).id,
+            localFileName: (localFile as any).fileName,
+            serverPackagesCount: Array.isArray(serverPackages) ? serverPackages.length : 0,
+            serverFilesCount: allServerFiles.length,
+            localFilesCount: (textbook.localFiles || []).length,
+            serverReturnedNoFiles: allServerFiles.length === 0,
+            sampleServerPackageIds: this.safeArraySample(serverPackages, 3).map(p => (p as any).id),
+            sampleExtraLocalFileIds,
+          })
           return true
         }
       }
