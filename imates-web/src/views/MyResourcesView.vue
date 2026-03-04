@@ -558,15 +558,19 @@ const mergeServerAndLocalData = (
         ...localTextbook,
         // 再解构服务器数据，更新服务器的最新信息（会覆盖本地的旧信息）
         ...serverTextbook,
-        // 确保使用服务器的id字段作为主键
-        id: serverTextbook.id || serverTextbook.textbookId,
-        // 🔥 显式保留本地的localFiles字段（包含fileData），防止被服务器数据覆盖
+        // 🔥 合并后写回 IndexedDB 时必须保留本地记录主键，否则会写成“新记录”导致看起来本地数据被清空
+        id: localTextbook.id || serverTextbook.id || serverTextbook.textbookId,
+        // 🔥 显式保留本地下载相关字段，避免下拉刷新时被服务端空字段覆盖并写回数据库
         localFiles: localTextbook.localFiles || [],
-        // 🔥 保留本地的下载状态字段
+        structure: localTextbook.structure || [],
+        learningPackages: localTextbook.learningPackages || [],
+        totalFiles: localTextbook.totalFiles || 0,
         downloadStatus: localTextbook.downloadStatus,
         downloadedFiles: localTextbook.downloadedFiles,
         isDownloaded: localTextbook.isDownloaded,
+        downloadPath: localTextbook.downloadPath,
         lastDownloadTime: localTextbook.lastDownloadTime,
+        hasUpdatesAvailable: localTextbook.hasUpdatesAvailable,
         // 保留方法（如果存在）
         updateStructure: localTextbook.updateStructure || (() => {}),
         updatePackages: localTextbook.updatePackages || (() => {}),
