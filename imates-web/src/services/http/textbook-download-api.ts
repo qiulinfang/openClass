@@ -1,8 +1,6 @@
 import { httpClient } from '../http/http-client'
-import { getYanbanToken } from './auth-service'
 import { resourceManager, ResourceManager } from '../storage/resource-storage'
 import { AndroidBridge } from '../business/android-bridge'
-import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
 import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '@/utils/business/chapter-utils'
 import type {
   ApiResponse,
@@ -167,22 +165,7 @@ export class TextbookDownloadApi {
   }
 
   private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
-    const envType = getCurrentEnvType()
-
-    if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
-      const apiPath = url.replace('/blw-edu-yb', '')
-      const yanbanToken = getYanbanToken() || ''
-      const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
-
-      return {
-        success: (result as any)?.success ?? false,
-        data: ((result as any)?.data ?? result) as T,
-        code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
-        message: (result as any)?.message,
-      }
-    }
-
-    return await httpClient.post<T>(url, body)
+    return httpClient.post<T>(url, body)
   }
 
   public async getTextbookVersions(): Promise<TextbookVersion[]> {
@@ -295,27 +278,11 @@ export class TextbookDownloadApi {
     }
 
     const endpoint = '/blw-edu-yb/api/app/topic-package-answer'
-    const envType = getCurrentEnvType()
-
-    const response = await (async () => {
-      if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
-        const apiPath = endpoint.replace('/blw-edu-yb', '')
-        const yanbanToken = getYanbanToken() || ''
-        const result = await this.androidBridge.callYanbanApi(apiPath, requestBody, 'POST', envType, yanbanToken)
-        return {
-          success: (result as any)?.success ?? false,
-          data: ((result as any)?.data ?? result) as any,
-          code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
-          message: (result as any)?.message,
-        }
-      }
-
-      return httpClient.post<{
-        code?: number
-        data?: unknown
-        message?: string
-      }>(endpoint, requestBody)
-    })()
+    const response = await httpClient.post<{
+      code?: number
+      data?: unknown
+      message?: string
+    }>(endpoint, requestBody)
 
     return !!(response.success && (response as any).data?.code === 200)
   }
@@ -328,23 +295,7 @@ export class TextbookDownloadApi {
   ): Promise<TopicPackagePageResponse | null> {
     const endpoint = '/blw-edu-yb/api/app/topic-package-page'
     const requestBody = { pageNumber, pageSize, updateTime, subject }
-    const envType = getCurrentEnvType()
-
-    const response = await (async () => {
-      if (envType === AppEnvType.INTERNAL_TEST && this.androidBridge.isAndroidBridgeAvailable()) {
-        const apiPath = endpoint.replace('/blw-edu-yb', '')
-        const yanbanToken = getYanbanToken() || ''
-        const result = await this.androidBridge.callYanbanApi(apiPath, requestBody, 'POST', envType, yanbanToken)
-        return {
-          success: (result as any)?.success ?? false,
-          data: ((result as any)?.data ?? result) as any,
-          code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
-          message: (result as any)?.message,
-        }
-      }
-
-      return httpClient.post<any>(endpoint, requestBody)
-    })()
+    const response = await httpClient.post<any>(endpoint, requestBody)
 
     const respData = (response as any).data
     const pageData = respData?.data || respData

@@ -8,6 +8,7 @@
  */
 
 import type { ChatBubble } from '../../types'
+import { Sender } from '../../types/enums'
 
 /**
  * 简化的图片数据接口（用于聊天）
@@ -30,7 +31,7 @@ export interface ChatImageData {
 export interface ChatQuotedMessage {
   id: string
   content: string
-  sender: 'user' | 'ai' | 'teacher'
+  sender: Sender
 }
 
 /**
@@ -68,9 +69,9 @@ export function createUserMessage(
   return {
     id: Date.now().toString(),
     content: displayContent,
-    type: 'user',
+    type: Sender.USER,
     timestamp: new Date().toISOString(),
-    sender: 'user',
+    sender: Sender.USER,
     messageType: isImageMessage ? 'image' : 'text',  // 设置消息类型，以便ChatMessage组件正确识别
     imageData: standardImageData,
     sessionId,
@@ -89,9 +90,9 @@ export function createTempAiReplyMessage(
   const tempReplyMessage: ChatBubble = {
     id: tempReplyId,
     content: '',
-    type: 'ai',
+    type: Sender.AI,
     timestamp: new Date().toISOString(),
-    sender: 'ai',
+    sender: Sender.AI,
     // 初始不处于流式状态，避免在还未收到任何服务端帧时就展示骨架屏
     isStreaming: false,
     selectedModel: selectedModel || 'mate', // 保存当前模式
@@ -109,9 +110,9 @@ export function createTempTeacherReplyMessage(): { message: ChatBubble; id: stri
   const tempReplyMessage: ChatBubble = {
     id: tempReplyId,
     content: '',
-    type: 'teacher',
+    type: Sender.TEACHER,
     timestamp: new Date().toISOString(),
-    sender: 'teacher',
+    sender: Sender.TEACHER,
     // 同样初始为非流式状态
     isStreaming: false,
   }

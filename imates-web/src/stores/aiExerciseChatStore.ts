@@ -19,13 +19,12 @@ import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/h
 import { useChatPersistence } from '@/composables/useChatPersistence'
 import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
-// 注意：此 store 不再直接依赖 questionStore/homeworkStore
-// 所有题目信息通过方法参数传入，由调用方决定使用哪个 store
-import { getUserId } from '../services'
 import { validateExerciseChatRequest } from './utils/requestValidator'
-import { getCurrentEnvConfig } from '@/config/env-config'
+import { getApiPaths } from '@/config/env-config'
 import { showMessage } from '../utils'
 import { normalizeSubject } from '@/constants/subjects'
+import { getUserId } from '../services'
+import { Sender } from '@/types/enums'
 
 /**
  * 构建AI题目聊天消息请求
@@ -73,7 +72,7 @@ const buildAiExerciseMessage = (
       isWebSearch: enableWebSearch ? '1' : '0',
       role: selectedModel,
       subject: subject,
-      dstUrl: getCurrentEnvConfig().apiPaths.previewPictureQA,
+      dstUrl: '/ai/2.0/previewPictureQA',
       explanation: currentQuestion.explanation || '',
     }
     
@@ -84,9 +83,7 @@ const buildAiExerciseMessage = (
   } else {
     // 根据题目学科确定API路径，而不是全局用户学科设置
     const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
-    const apiUrl = effectiveApiSubject === 'math'
-      ? getCurrentEnvConfig().apiPaths.chatMath
-      : getCurrentEnvConfig().apiPaths.chat
+    const apiUrl = effectiveApiSubject === 'math' ? '/ai/2.0/chatMath' : '/ai/2.0/chat'
 
     // 普通文本消息
     const request: AiChatMessageRequest = {
@@ -299,9 +296,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     const tempReply: ChatBubble = {
       id: tempReplyId,
       content: '',
-      type: 'ai',
+      type: Sender.AI,
       timestamp: new Date().toISOString(),
-      sender: 'ai',
+      sender: Sender.AI,
       // 题目聊天场景不需要骨架屏，这里不标记为流式中，避免触发 StreamingMessage 的 skeleton-card
       isStreaming: false,
       selectedModel: selectedModel || 'mate' // 保存当前模式

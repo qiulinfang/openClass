@@ -217,11 +217,6 @@ import { getUserId } from '@/services'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
 import type { ChatEntry } from '../types/chat'
-import {
-  getCurrentSchoolAppConfig,
-  type NavItemConfig,
-  type NavKey,
-} from '@/config/school-app-config'
 import type { AttachedScreenshot } from '@/types'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 import type { UserTextbookInfo } from '@/types'
@@ -284,8 +279,80 @@ const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
 const activeNavItem = ref(props.activeNavItem)
 const isInClass = ref(false)
 
-// 当前学校应用配置（通过 VITE_SCHOOL_ID 区分不同学校版本）
-const currentSchoolAppConfig = getCurrentSchoolAppConfig()
+type NavKey =
+  | 'toolbox'
+  | 'knowledge'
+  | 'exercises'
+  | 'homework'
+  | 'resources'
+  | 'photoQa'
+  | 'logout'
+
+interface NavItemConfig {
+  key: NavKey
+  label: string
+  iconType: NavKey
+  position: 'main' | 'bottom'
+  routeName?: string
+}
+
+interface SchoolNavConfig {
+  main: NavItemConfig[]
+  bottom: NavItemConfig[]
+}
+
+interface SchoolAppConfig {
+  schoolId: string
+  nav: SchoolNavConfig
+  appUpdatePath?: string
+}
+
+const currentSchoolAppConfig: SchoolAppConfig = {
+  schoolId: 'jinshanyuanyang',
+  nav: {
+    main: [
+      { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
+      {
+        key: 'knowledge',
+        label: '知识图谱',
+        iconType: 'knowledge',
+        position: 'main',
+        routeName: 'knowledgeGraph',
+      },
+      {
+        key: 'exercises',
+        label: '我的习题',
+        iconType: 'exercises',
+        position: 'main',
+        routeName: 'exerciseSolve',
+      },
+      {
+        key: 'homework',
+        label: '我的作业',
+        iconType: 'homework',
+        position: 'main',
+        routeName: 'myHomework',
+      },
+      {
+        key: 'photoQa',
+        label: '拍照答疑',
+        iconType: 'photoQa',
+        position: 'main',
+        routeName: 'photoSearch',
+      },
+    ],
+    bottom: [
+      {
+        key: 'resources',
+        label: '资源下载',
+        iconType: 'resources',
+        position: 'bottom',
+        routeName: 'myResources',
+      },
+    ],
+  },
+  appUpdatePath: '/bj101/appupdate.json',
+}
 
 // 根据学校配置拆分主菜单和底部菜单
 const navMainItems = computed(() => currentSchoolAppConfig.nav.main)

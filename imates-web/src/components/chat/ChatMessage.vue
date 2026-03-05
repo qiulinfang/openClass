@@ -308,7 +308,7 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
-import { getCurrentEnvConfig } from '@/config/env-config'
+import { getApiPaths } from '@/config/env-config'
 import { useQuestionStore } from '../../stores/questionStore'
 import { useHomeworkStore } from '../../stores/homeworkStore'
 import { useUserClientStore } from '../../stores/userClientStore'
@@ -1018,8 +1018,8 @@ const handleRefresh = async () => {
     return
   }
   // 方案A：刷新严格跟随原接口
-  // 仅当当前 AI 消息最初是通过 /permission/previewPictureQA 生成时，刷新才携带截图信息；
-  // 如果最初走的是 /permission/chats，则刷新也保持走文本接口，不再从历史中补图。
+  // 仅当当前 AI 消息最初是通过 /ai/2.0/previewPictureQA 生成时，刷新才携带截图信息；
+  // 如果最初走的是 /ai/2.0/chats，则刷新也保持走文本接口，不再从历史中补图。
   let textbookImageData = undefined as ChatBubble['imageData'] | undefined
   let textbookImageList = undefined as ChatBubble['imageList'] | undefined
   let shouldUseScreenshotOnRefresh = false
@@ -1027,14 +1027,13 @@ const handleRefresh = async () => {
   // ai-textbook / ai-general 场景：根据 originalDstUrl 判断是否使用截图接口
   if (props.type === 'ai-textbook' || props.type === 'ai-general') {
     const originalDstUrl = props.message.originalDstUrl
-    const screenshotUrl = getCurrentEnvConfig().apiPaths.previewPictureQA
-    shouldUseScreenshotOnRefresh =
-      originalDstUrl === screenshotUrl || originalDstUrl === '/permission/previewPictureQA'
+    const screenshotUrl = '/ai/2.0/previewPictureQA'
+    shouldUseScreenshotOnRefresh = originalDstUrl === screenshotUrl
 
     if (props.type === 'ai-textbook' && shouldUseScreenshotOnRefresh) {
       // 对于 ai-textbook 场景，可能存在「一条纯图片 + 一条纯文字」的组合：
       // 此时 userMessage 往往是纯文字，需要向前再找一条带图片的用户消息，
-      // 以确保刷新时仍然走 /permission/previewPictureQA。
+      // 以确保刷新时仍然走 /ai/2.0/previewPictureQA。
       textbookImageData = userMessage.imageData
       textbookImageList = userMessage.imageList
 

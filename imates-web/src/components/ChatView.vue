@@ -403,6 +403,7 @@ import Button from './base/Button.vue'
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
 import type { ChatImageData } from '../stores/utils/chatStoreUtils'
+import { Sender } from '../types/enums'
 
 interface ScreenshotDrawingState {
   objects: unknown
@@ -481,6 +482,12 @@ const emit = defineEmits<{
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
   'edit-screenshot': [id: string]
 }>()
+
+const toSenderEnum = (sender: 'ai' | 'teacher' | 'user'): Sender => {
+  if (sender === 'teacher') return Sender.TEACHER
+  if (sender === 'user') return Sender.USER
+  return Sender.AI
+}
 
 // ==================== 状态管理 ====================
 // 全局状态管理
@@ -1481,17 +1488,17 @@ const sendMessage = async (attachedFile?: File) => {
     const userMessage: ChatBubble = {
       id: Date.now().toString(),
       content: inputMessage.value || (attachedFile ? '[图片消息]' : ''),
-      type: 'user',
+      type: Sender.USER,
       timestamp: '',
-      sender: 'user',
+      sender: Sender.USER,
     }
 
     const botReply: ChatBubble = {
       id: 'welcome_' + (Date.now() + 1).toString(),
       content: chatStrategy.value.getWelcomeMessage(),
-      type: chatStrategy.value.getMessageType(),
+      type: toSenderEnum(chatStrategy.value.getMessageType()),
       timestamp: '',
-      sender: chatStrategy.value.getSenderType(),
+      sender: toSenderEnum(chatStrategy.value.getSenderType()),
     }
 
     await addMessagesToStore([userMessage, botReply])
@@ -1510,9 +1517,9 @@ const sendMessage = async (attachedFile?: File) => {
       const userMessage: ChatBubble = {
         id: Date.now().toString(),
         content: messageContent,
-        type: 'user',
+        type: Sender.USER,
         timestamp: new Date().toISOString(),
-        sender: 'user',
+        sender: Sender.USER,
         messageType: 'text',
       }
       await addMessageToStore(userMessage)
@@ -1575,7 +1582,7 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     if (quotedMessage.value) {
-      const isUser = quotedMessage.value.sender === 'user'
+      const isUser = quotedMessage.value.sender === Sender.USER
       const isSingleImageBubble = quotedMessage.value.messageType === 'image'
       const hasBase64 = !!quotedMessage.value.imageData?.base64DataUrl
       const isMultiImageBubble = quotedMessage.value.messageType === 'multi_image'
@@ -1642,9 +1649,9 @@ const sendMessage = async (attachedFile?: File) => {
     const errorMessage: ChatBubble = {
       id: (Date.now() + 1).toString(),
       content: '抱歉，消息发送失败，请稍后重试。',
-      type: chatStrategy.value?.getMessageType() || 'ai',
+      type: toSenderEnum(chatStrategy.value?.getMessageType() || 'ai'),
       timestamp: '',
-      sender: chatStrategy.value?.getSenderType() || 'ai',
+      sender: toSenderEnum(chatStrategy.value?.getSenderType() || 'ai'),
     }
 
     await addMessageToStore(errorMessage)
@@ -2035,9 +2042,9 @@ const sendVoiceMessage = async (voiceInfo: {
   const voiceMessage: ChatBubble = {
     id: Date.now().toString(),
     content: '', // 语音消息不显示文字内容
-    type: 'user',
+    type: Sender.USER,
     timestamp: '',
-    sender: 'user',
+    sender: Sender.USER,
     messageType: 'voice',
     voiceData: voiceInfo,
   }
@@ -2355,9 +2362,9 @@ const updateEditedMessage = async (newContent: string) => {
         const botReply: ChatBubble = {
           id: 'welcome_' + (Date.now() + 1).toString(),
           content: chatStrategy.value.getWelcomeMessage(),
-          type: chatStrategy.value.getMessageType(),
+          type: toSenderEnum(chatStrategy.value.getMessageType()),
           timestamp: '',
-          sender: chatStrategy.value.getSenderType(),
+          sender: toSenderEnum(chatStrategy.value.getSenderType()),
         }
 
         await addMessagesToStore([botReply])

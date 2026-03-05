@@ -277,6 +277,7 @@ const props = withDefaults(defineProps<{
   type?: QuestionListType
 }>(), {
   showSendToAi: true,
+  showQuestionActions: true,
 })
 
 const emit = defineEmits<{

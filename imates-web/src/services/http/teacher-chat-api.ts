@@ -1,6 +1,7 @@
 import { httpClient } from '../http/http-client'
 import { getUserId } from './auth-service'
 import { getWebSocketService } from '../websocket/webSocketService'
+import { getApiPaths } from '@/config/env-config'
 
 /**
  * 解析后端返回的日期时间格式
@@ -98,7 +99,7 @@ export class TeacherChatApi {
         requestBody.pageSize = pageSize
       }
 
-      const response = await httpClient.post('/api/question/historyList', requestBody)
+      const response = await httpClient.post(getApiPaths().teacher.historyList, requestBody)
       console.log('[TeacherChatApi] API响应:', response)
 
       // 处理可能的多种数据结构：直接数组、或者对象中的各种字段

@@ -7,7 +7,7 @@ import { AndroidBridge } from '../business/android-bridge'
 
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
-import { getImBaseUrl, getTeacherBaseUrl } from '@/config/env-config'
+import { getApiPaths, getImBaseUrl, getTeacherBaseUrl } from '@/config/env-config'
 import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
@@ -317,7 +317,7 @@ export class ApiService {
     const formData = new FormData()
     formData.append('file', blob, `yanban_image_${Date.now()}.jpg`)
 
-    const response = await httpClient.post<any>('/api/system/uploadImg', formData)
+    const response = await httpClient.post<any>(getApiPaths().teacher.uploadImg, formData)
     const result = response.data
     if (response.success && result && result.data && result.data.path) {
       console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}`)

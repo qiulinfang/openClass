@@ -3,7 +3,6 @@
  * 对齐 Android AppEnvConfig 的环境切换逻辑
  */
 
-import { getCurrentSchoolAppUpdatePath } from './school-app-config'
 
 // 环境类型枚举
 export enum AppEnvType {
@@ -12,96 +11,35 @@ export enum AppEnvType {
 }
 
 export interface ApiPaths {
-  previewPictureQA: string
-  chat: string
-  chatMath: string
-  chats: string
-  reviewExplainChatSX: string
-  homeworkUndoList: string
-  homeworkDetailList: string
-  homeworkSubmitSave: string
+  teacher: TeacherApiPaths
+  homework: {
+    undoList: string
+    detailList: string
+    submitSave: string
+  }
 }
 
-// 环境配置接口
-interface EnvConfig {
-  baseUrl: string
-  resourceBaseUrl: string
-  yanbanBaseUrl: string
-  teacherBaseUrl: string  // WebSocket连接用教师服务URL
-  teacherApiBaseUrl: string  // HTTP API请求用教师服务URL
-  historyManageBaseUrl: string
-  imServiceBaseUrl: string
-  apiPaths: ApiPaths
-  mqHost: string
-  mqPort: number
-  appUpdateUrl: string
-  displayName: string
+export interface TeacherApiPaths {
+  historyList: string
+  uploadImg: string
+  wsPath: string
 }
 
-// 环境配置映射
-const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
-  [AppEnvType.RELEASE]: {
-    baseUrl: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-    // 资源服务器：与 VITE_RESOURCE_FILE_BASE 保持一致，使用 9099 端口
-    resourceBaseUrl: 'https://www.imates.com.cn:9099',
-    // 研伴正式环境：使用 HTTPS 访问 9099 端口
-    // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    // 教师服务WebSocket：使用WebSocket协议
-    teacherBaseUrl: 'ws://www.imates.com.cn:8201/blw-edu-yb/ws',
-    // 教师服务API：使用HTTP协议
-    teacherApiBaseUrl: 'http://www.imates.com.cn:8201/blw-edu-yb',
-    // IM即时通讯服务（直接使用端口，HTTP协议）
-    imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
-    historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
-    apiPaths: {
-      previewPictureQA: '/ai/2.0/previewPictureQA',
-      chat: '/ai/2.0/chat',
-      chatMath: '/ai/2.0/chatMath',
-      chats: '/ai/2.0/chats',
-      reviewExplainChatSX: '/ai/2.0/reviewExplainChatSX',
-      // 作业相关API路径 - RELEASE环境使用原始路径
-      homeworkUndoList: '/homework/homeworkPage',
-      homeworkDetailList: '/homework/homeworkInfo',
-      homeworkSubmitSave: '/homework-submit-save',
-    },
-    mqHost: 'www.imates.com.cn',
-    mqPort: 5673,
-    // 这里只存一个默认路径，实际返回由 getAppUpdateUrl 结合 SCHOOL_UPDATE_CONFIGS 计算
-    appUpdateUrl: '/bj101/appupdate.json',
-    displayName: '',
-  },
-  [AppEnvType.INTERNAL_TEST]: {
-    baseUrl: 'http://www.imates.com.cn:58443/blw-edu-service-alc',
-    // 测试环境资源服务器同样通过 9099 提供 /resource 路径
-    resourceBaseUrl: 'https://www.imates.com.cn:9099',
-    // 研伴测试环境：使用 HTTPS 访问 50013 端口
-    // yanbanBaseUrl: 'https://www.imates.com.cn:9099',
-    yanbanBaseUrl: 'https://43.138.16.5:50013',
-    // 教师服务WebSocket：使用WebSocket协议
-    teacherBaseUrl: 'wss://43.138.16.5:50013/yb-teacher-ws',
-    // 教师服务API：使用HTTP协议
-    teacherApiBaseUrl: 'https://43.138.16.5:50013/yb-teacher',
-    // IM即时通讯服务（直接使用端口，HTTP协议）
-    imServiceBaseUrl: 'wss://www.imates.com.cn:8200/ws/im',
-    historyManageBaseUrl: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
-    apiPaths: {
-      previewPictureQA: '/ai/2.0/previewPictureQA',
-      chat: '/ai/2.0/chat',
-      chatMath: '/ai/2.0/chatMath',
-      chats: '/ai/2.0/chats',
-      reviewExplainChatSX: '/ai/2.0/reviewExplainChatSX',
-      // 作业相关API路径 - INTERNAL_TEST环境使用带前缀的路径
-      homeworkUndoList: '/blw-edu-yb/api/app/homework-undo-list',
-      homeworkDetailList: '/blw-edu-yb/api/app/homework-detail-list',
-      homeworkSubmitSave: '/blw-edu-yb/api/app/homework-submit-save',
-    },
-    mqHost: 'www.imates.com.cn',
-    mqPort: 5673,
-    appUpdateUrl: '/appupdate_test.json',
-    displayName: 'Joined Testflight',
-  },
-}
+export const ADDRESS_CATALOG = {
+  IMATES_HTTP: 'https://www.imates.com.cn',
+  CLIENT_HTTP: 'https://www.imates.com.cn:8200',
+  CLIENT_WS: 'wss://www.imates.com.cn:8200/ws/im',
+  XUEBAN_RELEASE: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+  XUEBAN_TEST: 'http://www.imates.com.cn:58443/blw-edu-service-alc',
+  YANBAN_RELEASE: 'https://www.imates.com.cn:9099',
+  YANBAN_TEST: 'https://www.imates.com.cn/yb-test',
+  TEACHER_WS_RELEASE: 'ws://www.imates.com.cn:8201',
+  TEACHER_WS_TEST: 'wss://www.imates.com.cn',
+  TEACHER_API_RELEASE: 'http://www.imates.com.cn:8201',
+  HISTORY_MANAGE: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
+  ZAMMAD_API: 'http://app.imates.com.cn:8080',
+  KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
+} as const
 
 // localStorage 键名
 const STORAGE_KEY = 'app_env_type'
@@ -127,10 +65,7 @@ export function getCurrentEnvType(): AppEnvType {
 /**
  * 获取当前环境配置
  */
-export function getCurrentEnvConfig(): EnvConfig {
-  const envType = getCurrentEnvType()
-  return ENV_CONFIGS[envType]
-}
+export const getIsInternalTest = (): boolean => getCurrentEnvType() === AppEnvType.INTERNAL_TEST
 
 /**
  * 强制设置环境类型（绕过密码验证）
@@ -165,28 +100,28 @@ export function trySwitchEnv(targetEnv: AppEnvType, password?: string): boolean 
  * 获取环境显示名称
  */
 export function getEnvDisplayName(): string {
-  return getCurrentEnvConfig().displayName
+  return getIsInternalTest() ? 'Joined Testflight' : ''
 }
 
 /**
  * 获取 API Base URL
  */
 export function getApiBaseUrl(): string {
-  return getCurrentEnvConfig().baseUrl
+  return getIsInternalTest() ? ADDRESS_CATALOG.XUEBAN_TEST : ADDRESS_CATALOG.XUEBAN_RELEASE
 }
 
 /**
  * 获取资源 Base URL
  */
 export function getResourceBaseUrl(): string {
-  return getCurrentEnvConfig().resourceBaseUrl
+  return getIsInternalTest() ? ADDRESS_CATALOG.YANBAN_TEST : ADDRESS_CATALOG.YANBAN_RELEASE
 }
 
 /**
  * 获取研伴/题包服务 Base URL
  */
 export function getYanbanBaseUrl(): string {
-  return getCurrentEnvConfig().yanbanBaseUrl
+  return getIsInternalTest() ? ADDRESS_CATALOG.YANBAN_TEST : ADDRESS_CATALOG.YANBAN_RELEASE
 }
 
 /**
@@ -194,7 +129,10 @@ export function getYanbanBaseUrl(): string {
  * 注意：直接返回完整的WebSocket URL (wss://)
  */
 export function getTeacherBaseUrl(): string {
-  return getCurrentEnvConfig().teacherBaseUrl
+  if (getIsInternalTest()) {
+    return ADDRESS_CATALOG.TEACHER_WS_TEST
+  }
+  return ADDRESS_CATALOG.TEACHER_WS_RELEASE
 }
 
 /**
@@ -202,56 +140,79 @@ export function getTeacherBaseUrl(): string {
  * 注意：返回HTTP协议的URL，用于API请求
  */
 export function getTeacherApiBaseUrl(): string {
-  return getCurrentEnvConfig().teacherApiBaseUrl
+  if (getIsInternalTest()) {
+    return ADDRESS_CATALOG.YANBAN_TEST
+  }
+  return ADDRESS_CATALOG.TEACHER_API_RELEASE
+}
+
+export function getTeacherImageBaseUrl(): string {
+  return ADDRESS_CATALOG.IMATES_HTTP
+}
+
+export function resolveTeacherImageUrl(pathOrUrl: string): string {
+  // 测试环境：/img/... => /imgtest/...
+  if (getIsInternalTest() && pathOrUrl.startsWith('/img')) {
+    const rewritten = pathOrUrl.replace(/^\/img(\/|$)/, '/imgtest$1')
+    return `${getTeacherImageBaseUrl()}${rewritten}`
+  }
+
+  // 正式环境：保持原路径（例如 /img/...）
+  return `${getTeacherImageBaseUrl()}${pathOrUrl}`
 }
 
 /**
  * 获取对话记忆管理服务 Base URL
  */
 export function getHistoryManageBaseUrl(): string {
-  return getCurrentEnvConfig().historyManageBaseUrl
-}
-
-/**
- * 获取 MQ Host
- */
-export function getMqHost(): string {
-  return getCurrentEnvConfig().mqHost
-}
-
-/**
- * 获取 MQ Port
- */
-export function getMqPort(): number {
-  return getCurrentEnvConfig().mqPort
+  return ADDRESS_CATALOG.HISTORY_MANAGE
 }
 
 /**
  * 获取 IM 服务完整基础URL（包含协议和域名，用于认证接口）
  */
 export function getImBaseUrl(): string {
-  const wsUrl = getCurrentEnvConfig().imServiceBaseUrl
-  // 从 WebSocket URL 转换为 HTTP URL 用于认证
-  if (wsUrl.startsWith('wss://')) {
-    return 'https://' + wsUrl.substring(6).replace('/ws/im', '')
-  } else if (wsUrl.startsWith('ws://')) {
-    return 'http://' + wsUrl.substring(5).replace('/ws/im', '')
-  }
-  return wsUrl // fallback
+  return ADDRESS_CATALOG.CLIENT_HTTP
 }
 
 /**
  * 获取 IM WebSocket URL（直接返回配置的 WebSocket URL）
  */
 export function getImWebSocketUrl(): string {
-  return getCurrentEnvConfig().imServiceBaseUrl
+  return ADDRESS_CATALOG.CLIENT_WS
 }
 
 /**
  * 获取 API 路径配置
+ * 只包含需要环境分流的路径，相同路径直接写死在调用处
  */
 export function getApiPaths(): ApiPaths {
-  return getCurrentEnvConfig().apiPaths
+  if (getIsInternalTest()) {
+    return {
+      homework: {
+        undoList: '/blw-edu-yb/api/app/homework-undo-list',
+        detailList: '/blw-edu-yb/api/app/homework-detail-list',
+        submitSave: '/blw-edu-yb/api/app/homework-submit-save',
+      },
+      teacher: {
+        historyList: '/yb-teacher/api/question/historyList',
+        uploadImg: '/yb-teacher/api/system/uploadImg',
+        wsPath: '/yb-teacher-ws',
+      },
+    }
+  }
+  return {
+    homework: {
+      undoList: '/homework/homeworkPage',
+      detailList: '/homework/homeworkInfo',
+      submitSave: '/homework-submit-save',
+    },
+    teacher: {
+      historyList: '/api/question/historyList',
+      uploadImg: '/api/system/uploadImg',
+      wsPath: '/blw-edu-yb/ws',
+    },
+  }
 }
 
 /**
@@ -259,15 +220,12 @@ export function getApiPaths(): ApiPaths {
  */
 export function getAppUpdateUrl(): string {
   const envType = getCurrentEnvType()
-  const envConfig = ENV_CONFIGS[envType]
 
   // 测试环境：仍然使用固定的 /appupdate_test.json，由 http-client 路由到 https://www.imates.com.cn
-  if (envType === AppEnvType.INTERNAL_TEST) {
-    return envConfig.appUpdateUrl
-  }
+  if (envType === AppEnvType.INTERNAL_TEST) return '/appupdate_test.json'
 
-  // 其它环境：根据当前学校配置获取 appupdate.json 路径（由 school-app-config 统一维护）
-  return getCurrentSchoolAppUpdatePath() || envConfig.appUpdateUrl
+  // 其它环境：当前仅保留 jinshanyuanyang 配置
+  return '/bj101/appupdate.json'
 }
 
 /**
@@ -284,7 +242,7 @@ export function getRouteBaseMap(): Record<string, string> {
 
   return {
     // 应用更新配置（/bj101/appupdate.json）永远走学班服务
-    '/bj101': 'https://www.imates.com.cn',
+    '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
     // 学班服务（根据环境动态切换）
     '/admin': apiBaseUrl,
     '/permission': apiBaseUrl,
@@ -294,22 +252,22 @@ export function getRouteBaseMap(): Record<string, string> {
     // 教师相关API（使用新的8201端口）- HTTP API使用teacherApiBaseUrl
     '/api/question': teacherApiBaseUrl,  // 教师聊天API
     '/api/system': teacherApiBaseUrl,    // 研伴系统API（文件上传等）
+    // 测试环境教师 API 代理前缀：由 Nginx 将 /yb-teacher/... 转发到教师测试后端
+    '/yb-teacher': teacherApiBaseUrl,
     // 图片上传接口（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
-    '/api/images/upload': 'https://www.imates.com.cn:8200',
+    '/api/images/upload': ADDRESS_CATALOG.CLIENT_HTTP,
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
     '/homework': yanbanBaseUrl,
     // 研伴/教材等走资源服务器
     '/blw-edu-yb': yanbanBaseUrl,
     // Zammad 示例
-    '/api/v1': 'http://app.imates.com.cn:8080',
+    '/api/v1': ADDRESS_CATALOG.ZAMMAD_API,
     // 资源服务器（根据环境动态切换）
     '/resource': resourceBaseUrl,
     '/img': yanbanBaseUrl,
     // 知识点查询服务
-    '/knowledge': 'http://www.imates.com.cn:8090',
-    // 经开二中的应用更新配置（/jinkai/update.json）
-    '/jinkai': resourceBaseUrl,
-    '/appupdate_test.json': 'https://www.imates.com.cn',
+    '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,
+    '/appupdate_test.json': ADDRESS_CATALOG.IMATES_HTTP,
   }
 }

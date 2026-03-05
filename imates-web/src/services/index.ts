@@ -32,8 +32,3 @@ export {
   getCurrentYanbanUserId,
   isYanbanLoggedIn
 } from './http/auth-service'
-
-// 环境配置（统一出口）
-export { getMqHost, getMqPort } from '@/config/env-config'
-
-// 请求配置类型已移至 types/index.ts

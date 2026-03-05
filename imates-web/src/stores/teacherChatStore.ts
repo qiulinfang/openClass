@@ -15,7 +15,7 @@ import { apiService } from '../services/http/api-service'
 import { showMessage } from '@/utils'
 import { Sender } from '@/types/enums'
 import { getUserInfo, getUserId } from '../services'
-import { getResourceBaseUrl, getYanbanBaseUrl } from '../config/env-config'
+import { getResourceBaseUrl, resolveTeacherImageUrl } from '../config/env-config'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import { getWebSocketService, destroyWebSocketService } from '../services/websocket/webSocketService'
 import type { WebSocketMessage } from '../services/websocket/webSocketService'
@@ -546,9 +546,9 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
               id: msg.messageId,
               messageId: msg.messageId,
               content: msg.content || '',
-              type: msg.isSelf ? 'user' : 'ai', // 根据isSelf判断消息类型
+              type: msg.isSelf ? Sender.USER : Sender.AI, // 根据isSelf判断消息类型
               timestamp: new Date(msg.timestamp).toISOString(),
-              sender: msg.isSelf ? 'user' : 'ai',
+              sender: msg.isSelf ? Sender.USER : Sender.AI,
               messageType: msg.type, // 直接使用已转换的消息类型
             }
 
@@ -562,8 +562,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
               }
             } else if (msg.type === 'image' && msg.content) {
               // 图片消息：msgContent是图片URL、base64或文件路径
-              const isRelativePath = msg.content.startsWith('/')
-              const resolvedImageUrl = isRelativePath ? `${getYanbanBaseUrl()}${msg.content}` : ''
+              const resolvedImageUrl = resolveTeacherImageUrl(msg.content)
 
               baseMessage.imageData = {
                 filePath: msg.content,
@@ -779,17 +778,16 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
           id: message.messageId,
           messageId: message.messageId,
           content: message.content,
-          type: 'teacher',
+          type: Sender.TEACHER,
           timestamp: new Date(validatedTimestamp).toISOString(),
-          sender: 'teacher',
+          sender: Sender.TEACHER,
           messageType: message.msgType === '1' ? 'image' : 'text', // 0=文本, 1=图片
         }
 
         // 处理图片消息
         if (message.msgType === '1' && message.content) {
           teacherMessage.messageType = 'image'
-          const isRelativePath = message.content.startsWith('/')
-          const resolvedImageUrl = isRelativePath ? `${getYanbanBaseUrl()}${message.content}` : undefined
+          const resolvedImageUrl = resolveTeacherImageUrl(message.content) || undefined
           teacherMessage.imageData = {
             filePath: message.content,
             width: 0,

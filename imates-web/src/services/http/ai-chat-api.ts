@@ -7,7 +7,7 @@ import type {
   ManageConversationMemoryRequest,
   SSEPayload,
 } from '@/types'
-import { getCurrentEnvConfig } from '@/config/env-config'
+import { getApiPaths } from '@/config/env-config'
 
 export class AiChatApi {
   private readonly androidBridge: AndroidBridge
@@ -198,7 +198,7 @@ export class AiChatApi {
     }
 
     // 非流式（单帧）结束：教材截图接口
-    if (message.dstUrl === getCurrentEnvConfig().apiPaths.previewPictureQA && !raw.includes('data:')) {
+    if (message.dstUrl === '/ai/2.0/previewPictureQA' && !raw.includes('data:')) {
       // 尝试提取拼接的 JSON 消息（例如：{...}{...}）
       const normalizedChunk = this.extractMessageFromConcatenatedJson(raw) ?? raw
 

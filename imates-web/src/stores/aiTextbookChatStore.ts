@@ -34,7 +34,8 @@ import {
 import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
 import { validateTextbookChatRequest } from './utils/requestValidator'
-import { getCurrentEnvConfig } from '@/config/env-config'
+import { getApiPaths } from '@/config/env-config'
+import { Sender } from '@/types/enums'
 
 interface TextbookChatHistoryData {
   questionId: string
@@ -133,9 +134,8 @@ const buildAiTextbookMessage = ({
       subject,
       sectionName: sectionName || undefined,
       chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
-      dstUrl: getCurrentEnvConfig().apiPaths.previewPictureQA,
+      dstUrl: '/ai/2.0/previewPictureQA',
       explanation: '', // 教材场景占位
-      // 图片列表：直接将 imageList 传给后端（可以是单图或多图）
       imageList,
     }
     
@@ -145,8 +145,7 @@ const buildAiTextbookMessage = ({
     return request
   }
 
-  const apiPaths = getCurrentEnvConfig().apiPaths
-  const dstUrl = useScreenshotApi ? apiPaths.previewPictureQA : apiPaths.chats
+  const dstUrl = useScreenshotApi ? '/ai/2.0/previewPictureQA' : '/ai/2.0/chats'
 
   const request: AiChatMessageRequest = {
     sessionId,
@@ -259,7 +258,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     }
 
     const result: ChatBubble[] = history.map((m) => {
-      const sender: 'user' | 'ai' = m.type === 'human' ? 'user' : 'ai'
+      const sender: Sender = m.type === 'human' ? Sender.USER : Sender.AI
 
       // 从旧消息中查找，保留前端独有字段
       const oldMsg = oldMessagesMap.get(m.id)
@@ -282,7 +281,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         canRetry: oldMsg?.canRetry,
         // AI 消息需要 selectedModel 来显示正确的头像
         // 优先从旧消息取，否则默认 'mate'
-        selectedModel: sender === 'ai' ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
+        selectedModel: sender === Sender.AI ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
         originalDstUrl: oldMsg?.originalDstUrl,
       }
 
@@ -378,9 +377,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       let startIndex = index
       const target = messages.value[index]
 
-      if (target.sender === 'ai') {
+      if (target.sender === Sender.AI) {
         for (let i = index - 1; i >= 0; i--) {
-          if (messages.value[i].sender === 'user') {
+          if (messages.value[i].sender === Sender.USER) {
             startIndex = i
             break
           }
@@ -565,7 +564,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     imageData?: ChatImageData,
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
-    quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' }, // 引用消息信息（用于消息气泡展示）
+    quotedMessage?: { id: string; content: string; sender: Sender }, // 引用消息信息（用于消息气泡展示）
     imageList?: ChatImageData[], // 多图数据列表（用于截图多图场景）
   ): Promise<void> => {
     // 创建并添加用户消息（可选）
@@ -589,9 +588,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         const imageMessage: ChatBubble = {
           id: now.toString(),
           content: '', // 图片消息不包含文字
-          type: 'user',
+          type: Sender.USER,
           timestamp: new Date().toISOString(),
-          sender: 'user',
+          sender: Sender.USER,
           messageType: 'multi_image',
           imageList: standardImageList,
           sessionId: currentSessionId.value || undefined,
@@ -604,9 +603,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           const textMessage: ChatBubble = {
             id: (now + 1).toString(), // 确保 id 不重复
             content,
-            type: 'user',
+            type: Sender.USER,
             timestamp: new Date().toISOString(),
-            sender: 'user',
+            sender: Sender.USER,
             messageType: 'text',
             sessionId: currentSessionId.value || undefined,
           }
@@ -669,7 +668,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         currentSessionId.value = newSessionId
         isNewSession.value = true
       }
-      // 只要有单图或多图中的任意一种，就应走截图接口 /permission/previewPictureQA
+      // 只要有单图或多图中的任意一种，就应走截图接口 /ai/2.0/previewPictureQA
       const shouldUseScreenshotApi = !!builderImageData || !!(builderImageList && builderImageList.length > 0)
 
       const aiMessage = buildAiTextbookMessage({

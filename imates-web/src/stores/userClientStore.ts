@@ -11,6 +11,7 @@ import { getImBaseUrl, getImWebSocketUrl } from '@/config/env-config'
 import { getUserId } from '../services'
 import { generateUniqueId } from './utils/chatStoreUtils'
 import { apiService } from '@/services/http/api-service'
+import { Sender } from '@/types/enums'
 
 // WebSocket消息类型定义
 interface WebSocketMessage {
@@ -96,7 +97,7 @@ export const useUserClientStore = defineStore('userClient', () => {
         return
       }
       const conversationId = `user-client-session-${userId}`
-      const apiUrl = `${getImBaseUrl().replace('/ws/im', '')}/api/conversations/${conversationId}/messages?page=1&pageSize=${pageSize.value}`
+      const apiUrl = `${getImBaseUrl()}/api/conversations/${conversationId}/messages?page=1&pageSize=${pageSize.value}`
 
       console.log(`[历史记录] 调用API: ${apiUrl}`)
 
@@ -125,8 +126,8 @@ export const useUserClientStore = defineStore('userClient', () => {
               // 客服对话只处理 multi_image 和 text 消息
               content: serverMsg.content || '', // multi_image消息保留文本内容用于显示
               timestamp: serverMsg.createdAt ? new Date(serverMsg.createdAt).toISOString() : new Date().toISOString(),
-              sender: serverMsg.fromId === userId ? 'user' : 'teacher', // 客服消息当作teacher类型
-              type: serverMsg.fromId === userId ? 'user' : 'teacher',
+              sender: serverMsg.fromId === userId ? Sender.USER : Sender.TEACHER, // 客服消息当作teacher类型
+              type: serverMsg.fromId === userId ? Sender.USER : Sender.TEACHER,
               // 简化的消息类型判断
               messageType: serverMsg.msgType === 'multi_image' ? 'multi_image' : 'text',
               isRead: serverMsg.read !== undefined ? serverMsg.read : false,
@@ -236,8 +237,8 @@ export const useUserClientStore = defineStore('userClient', () => {
                 // 客服对话只处理 multi_image 和 text 消息
                 content: serverMsg.content || '', // multi_image消息保留文本内容用于显示
                 timestamp: serverMsg.createdAt ? new Date(serverMsg.createdAt).toISOString() : new Date().toISOString(),
-                sender: serverMsg.fromId === userId ? 'user' : 'teacher',
-                type: serverMsg.fromId === userId ? 'user' : 'teacher',
+                sender: serverMsg.fromId === userId ? Sender.USER : Sender.TEACHER,
+                type: serverMsg.fromId === userId ? Sender.USER : Sender.TEACHER,
                 // 简化的消息类型判断
                 messageType: serverMsg.msgType === 'multi_image' ? 'multi_image' : 'text',
                 isRead: serverMsg.read !== undefined ? serverMsg.read : false,
@@ -303,7 +304,7 @@ export const useUserClientStore = defineStore('userClient', () => {
             'Content-Type': 'application/x-www-form-urlencoded'
           }
 
-          const authUrl = `${getImBaseUrl().replace('/ws/im', '')}/api/auth/user-login`
+          const authUrl = `${getImBaseUrl()}/api/auth/user-login`
           console.log('[IM连接] 认证请求URL:', authUrl)
 
           const authResponse = await fetch(authUrl, {
@@ -520,8 +521,8 @@ export const useUserClientStore = defineStore('userClient', () => {
     // 本地插入多图消息气泡
     const chatBubble: ChatBubble = {
       id: generateUniqueId(),
-      sender: 'user',
-      type: 'user',
+      sender: Sender.USER,
+      type: Sender.USER,
       content: textContent || '',
       timestamp: new Date().toISOString(),
       sessionId: `user-client-session-${now}`,
@@ -622,8 +623,8 @@ export const useUserClientStore = defineStore('userClient', () => {
     // 本地插入图片气泡（sessionId 带时间戳以保证唯一）
     const chatBubble: ChatBubble = {
       id: generateUniqueId(),
-      sender: 'user',
-      type: 'user',
+      sender: Sender.USER,
+      type: Sender.USER,
       content: textContent || '',
       timestamp: new Date().toISOString(),
       sessionId: `user-client-session-${now}`,
@@ -793,8 +794,8 @@ export const useUserClientStore = defineStore('userClient', () => {
       const timeSeparator: ChatBubble = {
         id: `time_separator_${messageTimestamp}_${Date.now()}`,
         content: '',
-        sender: 'ai',
-        type: 'ai',
+        sender: Sender.AI,
+        type: Sender.AI,
         timestamp: new Date(new Date(messageTimestamp).getTime() - 1).toISOString(), // 比消息时间戳早1毫秒，确保排序在消息之前
         messageType: 'time_separator',
         isSystemMessage: false, // 这个要保存到历史记录中
@@ -813,8 +814,8 @@ export const useUserClientStore = defineStore('userClient', () => {
 
     const chatBubble: ChatBubble = {
       id: generateUniqueId(),
-      sender: 'user',
-      type: 'user',
+      sender: Sender.USER,
+      type: Sender.USER,
       content: message.content || '',
       timestamp: messageTimestamp,
       sessionId: 'user-client-session',
@@ -832,8 +833,8 @@ export const useUserClientStore = defineStore('userClient', () => {
 
     const chatBubble: ChatBubble = {
       id: generateUniqueId(),
-      sender: message.from === getUserId() ? 'user' : 'teacher', // 根据from字段判断发送者
-      type: message.from === getUserId() ? 'user' : 'teacher',
+      sender: message.from === getUserId() ? Sender.USER : Sender.TEACHER, // 根据from字段判断发送者
+      type: message.from === getUserId() ? Sender.USER : Sender.TEACHER,
       // 客服对话只处理 multi_image 和 text 消息
       content: message.content || '', // multi_image消息保留文本内容用于显示
       timestamp: messageTimestamp,
@@ -866,8 +867,8 @@ export const useUserClientStore = defineStore('userClient', () => {
   const addSystemMessage = (content: string) => {
     const chatBubble: ChatBubble = {
       id: generateUniqueId(),
-      sender: 'ai',
-      type: 'ai',
+      sender: Sender.AI,
+      type: Sender.AI,
       content: content,
       timestamp: new Date().toISOString(),
       messageType: 'system',
@@ -880,8 +881,8 @@ export const useUserClientStore = defineStore('userClient', () => {
   const addErrorMessage = (content: string) => {
     const chatBubble: ChatBubble = {
       id: generateUniqueId(),
-      sender: 'ai',
-      type: 'ai',
+      sender: Sender.AI,
+      type: Sender.AI,
       content: content,
       timestamp: new Date().toISOString(),
       isError: true,
@@ -893,7 +894,7 @@ export const useUserClientStore = defineStore('userClient', () => {
   /** 标记单个客服消息为已读 */
   const markMessageAsRead = (messageId: string) => {
     const message = messages.value.find(msg => msg.id === messageId)
-    if (message && message.sender === 'ai' && !message.isRead) {
+    if (message && message.sender === Sender.AI && !message.isRead) {
       message.isRead = true
       console.log(`客服消息已读: ${messageId}`)
     }

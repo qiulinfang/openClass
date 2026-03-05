@@ -24,7 +24,8 @@ import { useChatSessions } from '@/composables/useChatSessions'
 import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
 import { validateGeneralChatRequest } from './utils/requestValidator'
-import { getCurrentEnvConfig } from '@/config/env-config'
+import { getApiPaths } from '@/config/env-config'
+import { Sender } from '@/types/enums'
 
 /**
  * 构建 AI 通用聊天消息请求
@@ -53,8 +54,7 @@ const buildAiGeneralMessage = (
     }
   }
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
-  const apiPaths = getCurrentEnvConfig().apiPaths
-  const dstUrl = useScreenshotApi ? apiPaths.previewPictureQA : apiPaths.chats
+  const dstUrl = useScreenshotApi ? '/ai/2.0/previewPictureQA' : '/ai/2.0/chats'
   
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
@@ -176,7 +176,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     for (let i = 0; i < prefixLen; i++) {
       const old = oldMessages[i]
       const h = history[i]
-      const sender: 'user' | 'ai' = h.type === 'human' ? 'user' : 'ai'
+      const sender: Sender = h.type === 'human' ? Sender.USER : Sender.AI
       const roleFromHistory = (h as any)?.additional_kwargs?.role as string | undefined
 
       // 以 history 为准覆盖核心字段（content / sender / selectedModel），保留旧消息的 UI 独有字段
@@ -188,14 +188,14 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         sender,
         type: sender,
         isStreaming: false,
-        selectedModel: sender === 'ai' ? (roleFromHistory || old.selectedModel || 'mate') : undefined,
+        selectedModel: sender === Sender.AI ? (roleFromHistory || old.selectedModel || 'mate') : undefined,
       })
     }
 
     // 2.2 从 prefixLen 开始，对新增 history 做映射（必要时 merge 旧字段）
     for (let i = prefixLen; i < history.length; i++) {
       const m = history[i]
-      const sender: 'user' | 'ai' = m.type === 'human' ? 'user' : 'ai'
+      const sender: Sender = m.type === 'human' ? Sender.USER : Sender.AI
 
       const oldMsg = oldMessagesMap.get(m.id)
 
@@ -217,7 +217,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         canRetry: oldMsg?.canRetry,
         // AI 消息需要 selectedModel 来显示正确的头像
         // 优先从旧消息取，否则默认 'mate'
-        selectedModel: sender === 'ai' ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
+        selectedModel: sender === Sender.AI ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
         originalDstUrl: oldMsg?.originalDstUrl,
       }
 
@@ -235,9 +235,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     return {
       id: Date.now().toString(),
       content,
-      type: 'user',
+      type: Sender.USER,
       timestamp: new Date().toISOString(),
-      sender: 'user',
+      sender: Sender.USER,
       messageType: 'text',
       sessionId,
       quotedMessage,
@@ -252,9 +252,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     const tempReplyMessage: ChatBubble = {
       id: tempReplyId,
       content: '',
-      type: 'ai',
+      type: Sender.AI,
       timestamp: new Date().toISOString(),
-      sender: 'ai',
+      sender: Sender.AI,
       // 初始不处于流式状态，避免在还未收到任何服务端帧时就展示骨架屏
       isStreaming: false,
       selectedModel: selectedModel || 'mate' // 保存当前模式
@@ -324,9 +324,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         const imageMessage: ChatBubble = {
           id: now.toString(),
           content: '',
-          type: 'user',
+          type: Sender.USER,
           timestamp: new Date().toISOString(),
-          sender: 'user',
+          sender: Sender.USER,
           messageType: 'multi_image',
           imageList: standardImageList,
           sessionId: currentSession.value?.sessionId,
@@ -337,9 +337,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         const imageMessage: ChatBubble = {
           id: now.toString(),
           content: '',
-          type: 'user',
+          type: Sender.USER,
           timestamp: new Date().toISOString(),
-          sender: 'user',
+          sender: Sender.USER,
           messageType: 'image',
           imageData: {
             filePath: imageData.filePath || '',
@@ -359,9 +359,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         const textMessage: ChatBubble = {
           id: (now + 1).toString(),
           content,
-          type: 'user',
+          type: Sender.USER,
           timestamp: new Date().toISOString(),
-          sender: 'user',
+          sender: Sender.USER,
           messageType: 'text',
           sessionId: currentSession.value?.sessionId,
         }
@@ -374,7 +374,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     messages.value.push(tempReply)
     
     // 构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
-    // 当存在图片数据时，使用截图接口 /permission/previewPictureQA，并附带 imageList
+    // 当存在图片数据时，使用截图接口 /ai/2.0/previewPictureQA，并附带 imageList
     const hasMultiImages = !!(imageList && imageList.length > 0)
     const hasSingleImage = !!(imageData && imageData.base64DataUrl)
     const useScreenshotApi = hasMultiImages || hasSingleImage
@@ -762,10 +762,10 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       let startIndex = index
       const target = messages.value[index]
 
-      if (target.sender === 'ai') {
+      if (target.sender === Sender.AI) {
         // 向前查找最近一条 user 消息
         for (let i = index - 1; i >= 0; i--) {
-          if (messages.value[i].sender === 'user') {
+          if (messages.value[i].sender === Sender.USER) {
             startIndex = i
             break
           }
@@ -842,9 +842,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 获取前6条消息（3轮对话）
       const firstMessages = messages.value.slice(0, 6)
-        .filter(m => m.sender === 'user' || m.sender === 'ai')
+        .filter(m => m.sender === Sender.USER || m.sender === Sender.AI)
         .map(m => ({
-          role: m.sender === 'user' ? '用户' : 'AI',
+          role: m.sender === Sender.USER ? '用户' : 'AI',
           content: m.content
         }))
       
