@@ -7,7 +7,7 @@ import { AndroidBridge } from '../business/android-bridge'
 
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
-import { getApiPaths, getImBaseUrl, getTeacherBaseUrl } from '@/config/env-config'
+import { getApiPaths, getImBaseUrl, getTeacherWsUrl } from '@/config/env-config'
 import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'

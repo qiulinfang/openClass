@@ -5,7 +5,7 @@
 
 import { ref, readonly } from 'vue'
 import { getUserId, getCurrentYanbanUserId } from '../http/auth-service'
-import { getYanbanBaseUrl, getTeacherBaseUrl, getApiPaths } from '@/config/env-config'
+import { getYanbanBaseUrl, getTeacherWsUrl, getApiPaths } from '@/config/env-config'
 
 export interface WebSocketMessage {
   type: string
@@ -422,7 +422,7 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
     // 研伴后端WebSocket端点为 /ws，支持双向消息传输
     // 单连接多会话：sessionId通过消息体传递，不再在URL中指定
     // teacherBaseUrl 为 WS origin（不包含路径），路径统一从 getApiPaths().teacher.wsPath 获取
-    const teacherBaseUrl = `${getTeacherBaseUrl()}${getApiPaths().teacher.wsPath}`
+    const teacherBaseUrl = `${getTeacherWsUrl()}${getApiPaths().teacher.wsPath}`
     
     // 优先使用研伴用户ID，如果没有则使用学班用户ID
     let userId = getCurrentYanbanUserId() || getUserId() || 'guest045'

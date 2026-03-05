@@ -15,6 +15,7 @@ export default defineConfig(() => {
   const RESOURCE_FILE_BASE = ADDRESS_CATALOG.YANBAN_RELEASE
   const APP_UPDATE_BASE = ADDRESS_CATALOG.IMATES_HTTP
   const HISTORY_MANAGE_BASE = ADDRESS_CATALOG.HISTORY_MANAGE
+  const TEACHER_API_BASE = ADDRESS_CATALOG.TEACHER_API_RELEASE
 
 
   // 为所有代理统一附加一组精简日志，方便查看请求流向
@@ -97,29 +98,28 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/yb-test')
           },
         },
-        '/yb-teacher': {
-          target: 'https://www.imates.com.cn',
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/yb-teacher')
-          },
-        },
-        '/yb-teacher-ws': {
-          target: 'wss://www.imates.com.cn',
-          ws: true,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/yb-teacher-ws')
-          },
-        },
         '/blw-edu-yb/api': {
           target: RESOURCE_FILE_BASE,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
             attachBasicProxyLog(proxy, '/blw-edu-yb/api')
+          },
+        },
+        '/blw-edu-yb/api/question': {
+          target: 'http://www.imates.com.cn:8201',
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/blw-edu-yb/api/question')
+          },
+        },
+        '/blw-edu-yb/api/system': {
+          target: 'http://www.imates.com.cn:8201',
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/blw-edu-yb/api/system')
           },
         },
         '/blw-edu-yb/auth': {

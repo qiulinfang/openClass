@@ -1,5 +1,6 @@
 import CryptoJS from 'crypto-js'
 import { httpClient } from './http-client'
+import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
 import { AndroidBridge } from '../business/android-bridge'
 import { showMessage } from '@/utils'
 import type {
@@ -267,6 +268,22 @@ export class AuthService {
    * - 其他环境直接通过 httpClient 调用 Web 接口
    */
   private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
+    const envType = getCurrentEnvType()
+    const bridgeAvailable = this.androidBridge.isAndroidBridgeAvailable()
+
+    if (envType === AppEnvType.INTERNAL_TEST && bridgeAvailable) {
+      const apiPath = url.replace('/blw-edu-yb', '')
+      const yanbanToken = getYanbanToken() || ''
+      const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
+
+      return {
+        success: (result as any)?.success ?? false,
+        data: ((result as any)?.data ?? result) as T,
+        code: (result as any)?.code ?? ((result as any)?.success ? 200 : 0),
+        message: (result as any)?.message,
+      }
+    }
+
     return httpClient.post<T>(url, body)
   }
 

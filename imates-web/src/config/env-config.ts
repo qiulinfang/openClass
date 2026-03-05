@@ -12,11 +12,20 @@ export enum AppEnvType {
 
 export interface ApiPaths {
   teacher: TeacherApiPaths
+  textbook: TextbookApiPaths
   homework: {
     undoList: string
     detailList: string
     submitSave: string
   }
+}
+
+export interface TextbookApiPaths {
+  teacherTextbook: string
+  teacherTextbookSectionTree: string
+  teacherTextbookLearningPackage: string
+  topicPackageAnswer: string
+  topicPackagePage: string
 }
 
 export interface TeacherApiPaths {
@@ -32,7 +41,6 @@ export const ADDRESS_CATALOG = {
   XUEBAN_RELEASE: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
   XUEBAN_TEST: 'http://www.imates.com.cn:58443/blw-edu-service-alc',
   YANBAN_RELEASE: 'https://www.imates.com.cn:9099',
-  YANBAN_TEST: 'https://www.imates.com.cn/yb-test',
   TEACHER_WS_RELEASE: 'ws://www.imates.com.cn:8201',
   TEACHER_WS_TEST: 'wss://www.imates.com.cn',
   TEACHER_API_RELEASE: 'http://www.imates.com.cn:8201',
@@ -114,21 +122,21 @@ export function getApiBaseUrl(): string {
  * 获取资源 Base URL
  */
 export function getResourceBaseUrl(): string {
-  return getIsInternalTest() ? ADDRESS_CATALOG.YANBAN_TEST : ADDRESS_CATALOG.YANBAN_RELEASE
+  return getIsInternalTest() ? ADDRESS_CATALOG.IMATES_HTTP : ADDRESS_CATALOG.YANBAN_RELEASE
 }
 
 /**
  * 获取研伴/题包服务 Base URL
  */
 export function getYanbanBaseUrl(): string {
-  return getIsInternalTest() ? ADDRESS_CATALOG.YANBAN_TEST : ADDRESS_CATALOG.YANBAN_RELEASE
+  return getIsInternalTest() ? ADDRESS_CATALOG.IMATES_HTTP : ADDRESS_CATALOG.YANBAN_RELEASE
 }
 
 /**
  * 获取教师服务 WebSocket URL
  * 注意：直接返回完整的WebSocket URL (wss://)
  */
-export function getTeacherBaseUrl(): string {
+export function getTeacherWsUrl(): string {
   if (getIsInternalTest()) {
     return ADDRESS_CATALOG.TEACHER_WS_TEST
   }
@@ -141,7 +149,7 @@ export function getTeacherBaseUrl(): string {
  */
 export function getTeacherApiBaseUrl(): string {
   if (getIsInternalTest()) {
-    return ADDRESS_CATALOG.YANBAN_TEST
+    return ADDRESS_CATALOG.IMATES_HTTP
   }
   return ADDRESS_CATALOG.TEACHER_API_RELEASE
 }
@@ -190,14 +198,21 @@ export function getApiPaths(): ApiPaths {
   if (getIsInternalTest()) {
     return {
       homework: {
-        undoList: '/blw-edu-yb/api/app/homework-undo-list',
-        detailList: '/blw-edu-yb/api/app/homework-detail-list',
-        submitSave: '/blw-edu-yb/api/app/homework-submit-save',
+        undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
+        detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
+        submitSave: '/yb-test/blw-edu-yb/api/app/homework-submit-save',
       },
       teacher: {
-        historyList: '/yb-teacher/api/question/historyList',
-        uploadImg: '/yb-teacher/api/system/uploadImg',
+        historyList: '/yb-test/yb-teacher/api/question/historyList',
+        uploadImg: '/yb-test/yb-teacher/api/system/uploadImg',
         wsPath: '/yb-teacher-ws',
+      },
+      textbook: {
+        teacherTextbook: '/yb-test/blw-edu-yb/api/app/teacher-textbook',
+        teacherTextbookSectionTree: '/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree',
+        teacherTextbookLearningPackage: '/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package',
+        topicPackageAnswer: '/yb-test/blw-edu-yb/api/app/topic-package-answer',
+        topicPackagePage: '/yb-test/blw-edu-yb/api/app/topic-package-page',
       },
     }
   }
@@ -208,9 +223,16 @@ export function getApiPaths(): ApiPaths {
       submitSave: '/homework-submit-save',
     },
     teacher: {
-      historyList: '/api/question/historyList',
-      uploadImg: '/api/system/uploadImg',
+      historyList: '/blw-edu-yb/api/question/historyList',
+      uploadImg: '/blw-edu-yb/api/system/uploadImg',
       wsPath: '/blw-edu-yb/ws',
+    },
+    textbook: {
+      teacherTextbook: '/blw-edu-yb/api/app/teacher-textbook',
+      teacherTextbookSectionTree: '/blw-edu-yb/api/app/teacher-textbook-section-tree',
+      teacherTextbookLearningPackage: '/blw-edu-yb/api/app/teacher-textbook-learning-package',
+      topicPackageAnswer: '/blw-edu-yb/api/app/topic-package-answer',
+      topicPackagePage: '/blw-edu-yb/api/app/topic-package-page',
     },
   }
 }
@@ -236,7 +258,7 @@ export function getRouteBaseMap(): Record<string, string> {
   const apiBaseUrl = getApiBaseUrl()
   const resourceBaseUrl = getResourceBaseUrl()
   const yanbanBaseUrl = getYanbanBaseUrl()
-  const teacherBaseUrl = getTeacherBaseUrl()
+  const teacherWsUrl = getTeacherWsUrl()
   const teacherApiBaseUrl = getTeacherApiBaseUrl()
   const historyManageBaseUrl = getHistoryManageBaseUrl()
 
@@ -249,16 +271,18 @@ export function getRouteBaseMap(): Record<string, string> {
     '/ai': apiBaseUrl,
     '/history_manage': historyManageBaseUrl,
     '/biologyTopicKnowledge': apiBaseUrl,
-    // 教师相关API（使用新的8201端口）- HTTP API使用teacherApiBaseUrl
-    '/api/question': teacherApiBaseUrl,  // 教师聊天API
-    '/api/system': teacherApiBaseUrl,    // 研伴系统API（文件上传等）
-    // 测试环境教师 API 代理前缀：由 Nginx 将 /yb-teacher/... 转发到教师测试后端
-    '/yb-teacher': teacherApiBaseUrl,
     // 图片上传接口（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
     '/api/images/upload': ADDRESS_CATALOG.CLIENT_HTTP,
     // 研伴API服务（根据环境动态切换）
     '/api': yanbanBaseUrl,
     '/homework': yanbanBaseUrl,
+    '/blw-edu-yb/api/question': teacherApiBaseUrl,
+    '/blw-edu-yb/api/system': teacherApiBaseUrl,
+    // 测试环境教师 API 路径映射
+    '/yb-test/yb-teacher/api/question': teacherApiBaseUrl,
+    '/yb-test/yb-teacher/api/system': teacherApiBaseUrl,
+    // 测试环境研伴/教材路径映射（统一 /yb-test 前缀）
+    '/yb-test/blw-edu-yb': yanbanBaseUrl,
     // 研伴/教材等走资源服务器
     '/blw-edu-yb': yanbanBaseUrl,
     // Zammad 示例
