@@ -864,9 +864,9 @@ const submitHomeworkAnswers = async (questionAnswerList: Array<{ questionId: str
     questionAnswerList: questionAnswerList,
   }
 
-  const success = await apiService.homeworkSubmitSave(submitReq)
-  if (!success) {
-    throw new Error('提交失败')
+  const result = await apiService.homeworkSubmitSave(submitReq)
+  if (!result?.success) {
+    throw new Error(result?.message || '提交失败')
   }
 }
 

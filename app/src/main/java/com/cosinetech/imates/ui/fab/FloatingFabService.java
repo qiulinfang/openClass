@@ -282,7 +282,7 @@ public class FloatingFabService extends Service {
      * 处理菜单项点击
      */
     private void handleMenuItemClick(String action) {
-        Log.d(TAG, "菜单项点击: " + action);
+        Log.d(TAG, "handleMenuItemClick: action=" + action + ", thread=" + Thread.currentThread().getName());
 
         // 优先直接向当前 WebView 派发事件，避免通过 startActivity 重启/清栈导致 Web 端跳转 login
         try {
@@ -290,6 +290,7 @@ public class FloatingFabService extends Service {
             if (app != null && app.isAppInForeground()) {
                 WebAppInterface webAppInterface = app.getWebAppInterface();
                 if (webAppInterface != null) {
+                    Log.d(TAG, "handleMenuItemClick: dispatchFloatingFabActionEventToWeb to WebView, action=" + action);
                     webAppInterface.dispatchFloatingFabActionEventToWeb(action);
                     return;
                 }
@@ -299,6 +300,7 @@ public class FloatingFabService extends Service {
         }
 
         // fallback：应用在后台/或 WebView 不可用时，只唤起应用到前台（不派发 toggleFab，避免改变面板状态）
+        Log.d(TAG, "handleMenuItemClick: fallback to startActivity, action=" + action);
         Intent intent = new Intent(this, MainWebViewActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         startActivity(intent);
@@ -309,15 +311,19 @@ public class FloatingFabService extends Service {
      */
     public void hideFab() {
         if (Looper.myLooper() != Looper.getMainLooper()) {
+            Log.d(TAG, "hideFab: switching to main thread");
             new Handler(Looper.getMainLooper()).post(this::hideFab);
             return;
         }
 
+        Log.d(TAG, "hideFab: start, thread=" + Thread.currentThread().getName());
         sendLogToWeb("DEBUG", TAG, "hideFab: 隐藏悬浮按钮");
         if (floatingFabView != null) {
             floatingFabView.setVisibility(View.GONE);
+            Log.d(TAG, "hideFab: setVisibility(GONE) completed");
             sendLogToWeb("INFO", TAG, "hideFab: 悬浮按钮已隐藏");
         } else {
+            Log.w(TAG, "hideFab: floatingFabView is null");
             sendLogToWeb("WARN", TAG, "hideFab: floatingFabView为null，无法隐藏");
         }
     }
@@ -327,15 +333,19 @@ public class FloatingFabService extends Service {
      */
     public void showFab() {
         if (Looper.myLooper() != Looper.getMainLooper()) {
+            Log.d(TAG, "showFab: switching to main thread");
             new Handler(Looper.getMainLooper()).post(this::showFab);
             return;
         }
 
+        Log.d(TAG, "showFab: start, thread=" + Thread.currentThread().getName());
         sendLogToWeb("DEBUG", TAG, "showFab: 显示悬浮按钮");
         if (floatingFabView != null) {
             floatingFabView.setVisibility(View.VISIBLE);
+            Log.d(TAG, "showFab: setVisibility(VISIBLE) completed");
             sendLogToWeb("INFO", TAG, "showFab: 悬浮按钮已显示");
         } else {
+            Log.w(TAG, "showFab: floatingFabView is null");
             sendLogToWeb("WARN", TAG, "showFab: floatingFabView为null，无法显示");
         }
     }

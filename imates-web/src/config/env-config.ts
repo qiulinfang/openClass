@@ -11,6 +11,8 @@ export enum AppEnvType {
 }
 
 export interface ApiPaths {
+  auth: AuthApiPaths
+  resource: ResourceApiPaths
   teacher: TeacherApiPaths
   textbook: TextbookApiPaths
   homework: {
@@ -18,6 +20,14 @@ export interface ApiPaths {
     detailList: string
     submitSave: string
   }
+}
+
+export interface AuthApiPaths {
+  loginStudent: string
+}
+
+export interface ResourceApiPaths {
+  base: string
 }
 
 export interface TextbookApiPaths {
@@ -197,6 +207,12 @@ export function getImWebSocketUrl(): string {
 export function getApiPaths(): ApiPaths {
   if (getIsInternalTest()) {
     return {
+      auth: {
+        loginStudent: '/yb-test/blw-edu-yb/auth/login-student',
+      },
+      resource: {
+        base: '/yb-test/resource',
+      },
       homework: {
         undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
         detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
@@ -217,10 +233,16 @@ export function getApiPaths(): ApiPaths {
     }
   }
   return {
+    auth: {
+      loginStudent: '/blw-edu-yb/auth/login-student',
+    },
+    resource: {
+      base: '/resource',
+    },
     homework: {
-      undoList: '/homework/homeworkPage',
-      detailList: '/homework/homeworkInfo',
-      submitSave: '/homework-submit-save',
+      undoList: '/blw-edu-yb/homework/homeworkPage',
+      detailList: '/blw-edu-yb/homework/homeworkInfo',
+      submitSave: '/blw-edu-yb/homework-submit-save',
     },
     teacher: {
       historyList: '/blw-edu-yb/api/question/historyList',
@@ -289,6 +311,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/api/v1': ADDRESS_CATALOG.ZAMMAD_API,
     // 资源服务器（根据环境动态切换）
     '/resource': resourceBaseUrl,
+    '/yb-test/resource': resourceBaseUrl,
     '/img': yanbanBaseUrl,
     // 知识点查询服务
     '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,

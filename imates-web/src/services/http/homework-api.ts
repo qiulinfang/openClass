@@ -5,8 +5,14 @@
 
 import { httpClient } from './http-client'
 import type { ApiResponse } from '@/types'
+import { getApiPaths } from '@/config/env-config'
 
 import type { IdReq, HomeworkSubmitSaveReq, HomeworkUndoItem, HomeworkQuestionDetail, HomeworkQueryReq } from '@/types'
+
+export interface HomeworkSubmitSaveResult {
+  success: boolean
+  message?: string
+}
 
 export class HomeworkApi {
   constructor() {
@@ -16,7 +22,7 @@ export class HomeworkApi {
    * 获取未完成作业列表
    */
   public async getHomeworkUndoList(queryReq?: HomeworkQueryReq): Promise<HomeworkUndoItem[]> {
-    const endpoint = '/blw-edu-yb/api/app/homework-undo-list'
+    const endpoint = getApiPaths().homework.undoList
     try {
       const response = await httpClient.post<{
         code?: number
@@ -38,7 +44,7 @@ export class HomeworkApi {
    * 获取作业详情（问题列表）
    */
   public async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
-    const endpoint = '/blw-edu-yb/api/app/homework-detail-list'
+    const endpoint = getApiPaths().homework.detailList
     const requestBody: IdReq = { id: homeworkId }
     try {
       const response = await httpClient.post<{
@@ -60,19 +66,24 @@ export class HomeworkApi {
   /**
    * 提交作业答案
    */
-  public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<boolean> {
-    const endpoint = '/blw-edu-yb/api/app/homework-submit-save'
+  public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<HomeworkSubmitSaveResult> {
+    const endpoint = getApiPaths().homework.submitSave
     try {
       const response = await httpClient.post<{
         code?: number
         data?: Record<string, unknown>
         message?: string
+        success?: boolean
       }>(endpoint, homeworkSubmitReq)
 
-      return !!(response.success && response.data?.code === 200)
+      const data: any = (response as any).data
+      const ok = !!data?.success
+      const backendMessage: string | undefined = data?.message || response.message
+
+      return ok ? { success: true } : { success: false, message: backendMessage || '提交失败' }
     } catch (error) {
       console.error('[HomeworkApi] homeworkSubmitSave error:', error)
-      return false
+      return { success: false, message: error instanceof Error ? error.message : '提交失败' }
     }
   }
 }

@@ -170,7 +170,7 @@ import CommonSelect from '@/components/base/Select.vue'
 import LearningView from './LearningView.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import { getUserId, getScopedStorageValue, isYanbanLoggedIn } from '../services'
+import { getUserId, getScopedStorageKey, getScopedStorageValue, isYanbanLoggedIn } from '../services'
 import { showMessage } from '../utils'
 import { KNOWLEDGE_GRAPH_SUBJECT_OPTIONS, type ApiSubjectType } from '../constants/subjects'
 import {
@@ -471,23 +471,18 @@ const lastLearnedNodeId = ref<string | null>(null)
 const learnedNodeIds = ref<Set<string>>(new Set())
 
 const getLastLearnedNodeKey = () => {
-  const userId = getUserId()
-  return `${userId}_LAST_LEARNED_NODE_ID`
+  return getScopedStorageKey('LAST_LEARNED_NODE_ID')
 }
 
 const getLearnedNodesKey = () => {
-  const userId = getUserId()
-  return `${userId}_LEARNED_NODES`
+  return getScopedStorageKey('LEARNED_NODES')
 }
 
 
 const loadLastLearnedNodeId = () => {
   try {
-    const key = getLastLearnedNodeKey()
-    const saved = localStorage.getItem(key)
-    if (saved) {
-      lastLearnedNodeId.value = saved
-    }
+    const saved = getScopedStorageValue('LAST_LEARNED_NODE_ID')
+    lastLearnedNodeId.value = saved || null
   } catch (error) {
     console.error('加载最后学习的节点ID失败:', error)
   }
@@ -495,12 +490,13 @@ const loadLastLearnedNodeId = () => {
 
 const loadLearnedNodeIds = () => {
   try {
-    const key = getLearnedNodesKey()
-    const saved = localStorage.getItem(key)
+    const saved = getScopedStorageValue('LEARNED_NODES')
     if (saved) {
       const ids = JSON.parse(saved) as string[]
       learnedNodeIds.value = new Set(ids)
+      return
     }
+    learnedNodeIds.value = new Set()
   } catch (error) {
     console.error('加载已学习的节点ID列表失败:', error)
     learnedNodeIds.value = new Set()

@@ -2,6 +2,7 @@ import { httpClient } from '../http/http-client'
 import { resourceManager, ResourceManager } from '../storage/resource-storage'
 import { AndroidBridge } from '../business/android-bridge'
 import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '@/utils/business/chapter-utils'
+import { getApiPaths, getIsInternalTest } from '@/config/env-config'
 import type {
   ApiResponse,
   ChapterNode,
@@ -56,6 +57,17 @@ export class TextbookDownloadApi {
     err.name = 'EmptyLearningPackages'
     ;(err as any).textbookId = textbookId
     return err
+  }
+
+  private rewriteResourceFileUrl(fileUrl: string | undefined | null): string | undefined | null {
+    if (!fileUrl) return fileUrl
+
+    // 测试环境：后端返回的 /resource/... 需要加 /yb-test 前缀
+    if (getIsInternalTest()) {
+      if (fileUrl.startsWith('/resource')) return `/yb-test${fileUrl}`
+    }
+
+    return fileUrl
   }
 
   private async reconcileExtraLocalFiles(
@@ -164,14 +176,10 @@ export class TextbookDownloadApi {
     return this.downloadControllers.has(textbookId)
   }
 
-  private async callYanban<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
-    return httpClient.post<T>(url, body)
-  }
-
   public async getTextbookVersions(): Promise<TextbookVersion[]> {
-    const endpoint = '/blw-edu-yb/api/app/teacher-textbook'
+    const endpoint = getApiPaths().textbook.teacherTextbook
 
-    const response = await this.callYanban<{
+    const response = await httpClient.post<{
       code: number
       success: boolean
       message: string
@@ -188,10 +196,10 @@ export class TextbookDownloadApi {
   }
 
   public async getTextbookStructure(id: string): Promise<ChapterNode[]> {
-    const endpoint = '/blw-edu-yb/api/app/teacher-textbook-section-tree'
+    const endpoint = getApiPaths().textbook.teacherTextbookSectionTree
     const request: TextbookStructureRequest = { id }
 
-    const response = await this.callYanban<{
+    const response = await httpClient.post<{
       code: number
       success: boolean
       message: string
@@ -209,11 +217,11 @@ export class TextbookDownloadApi {
   }
 
   public async getLearningResources(id: string, useCache: boolean = true): Promise<LearningPackage[]> {
-    const endpoint = '/blw-edu-yb/api/app/teacher-textbook-learning-package'
+    const endpoint = getApiPaths().textbook.teacherTextbookLearningPackage
     const request: LearningResourcesRequest = { id }
 
     try {
-      const response = await this.callYanban<{ data: LearningPackage[] }>(endpoint, request)
+      const response = await httpClient.post<{ data: LearningPackage[] }>(endpoint, request)
 
       const respData = response.data as any
       const packagesData = respData?.data || respData
@@ -232,7 +240,12 @@ export class TextbookDownloadApi {
           visibility: (pkg as any).visibility || 0,
           authors: (pkg as any).authors || '{}',
           tags: (pkg as any).tags || '{}',
-          resourceList: (pkg as any).resourceList || [],
+          resourceList: Array.isArray((pkg as any).resourceList)
+            ? ((pkg as any).resourceList as ResourceFile[]).map((r: ResourceFile) => {
+                const rewritten = this.rewriteResourceFileUrl((r as any).fileUrl)
+                return { ...(r as any), fileUrl: rewritten } as ResourceFile
+              })
+            : [],
         }))
 
         return packages
@@ -245,9 +258,9 @@ export class TextbookDownloadApi {
   }
 
   public async fetchUserAllOnlineTextbooks(): Promise<UserTextbookInfo[]> {
-    const endpoint = '/blw-edu-yb/api/app/teacher-textbook'
+    const endpoint = getApiPaths().textbook.teacherTextbook
 
-    const response = await this.callYanban<{
+    const response = await httpClient.post<{
       code: number
       success: boolean
       message: string
@@ -277,7 +290,7 @@ export class TextbookDownloadApi {
       answerContent,
     }
 
-    const endpoint = '/blw-edu-yb/api/app/topic-package-answer'
+    const endpoint = getApiPaths().textbook.topicPackageAnswer
     const response = await httpClient.post<{
       code?: number
       data?: unknown
@@ -293,7 +306,7 @@ export class TextbookDownloadApi {
     updateTime?: string,
     subject?: string,
   ): Promise<TopicPackagePageResponse | null> {
-    const endpoint = '/blw-edu-yb/api/app/topic-package-page'
+    const endpoint = getApiPaths().textbook.topicPackagePage
     const requestBody = { pageNumber, pageSize, updateTime, subject }
     const response = await httpClient.post<any>(endpoint, requestBody)
 

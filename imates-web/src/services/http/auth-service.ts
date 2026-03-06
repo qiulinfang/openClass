@@ -1,6 +1,6 @@
 import CryptoJS from 'crypto-js'
 import { httpClient } from './http-client'
-import { getCurrentEnvType, AppEnvType } from '@/config/env-config'
+import { getApiPaths, getCurrentEnvType, AppEnvType } from '@/config/env-config'
 import { AndroidBridge } from '../business/android-bridge'
 import { showMessage } from '@/utils'
 import type {
@@ -69,11 +69,25 @@ export const getCurrentYanbanAuth = (): { token: string; username: string } | nu
 // 获取作用域存储键
 export const getScopedStorageKey = (suffix: string): string => {
   const userId = getUserId() || 'default'
-  return `${userId}_${suffix}`
+  const envType = getCurrentEnvType() || AppEnvType.RELEASE
+
+  // 正式环境沿用旧 key，复用历史数据；测试环境增加环境维度做隔离
+  if (envType === AppEnvType.RELEASE) {
+    return `${userId}_${suffix}`
+  }
+
+  return `${userId}_${envType}_${suffix}`
 }
 // 获取作用域存储值
 export const getScopedStorageValue = (suffix: string): string | null => {
-  return sanitize(localStorage.getItem(getScopedStorageKey(suffix)))
+  const newKey = getScopedStorageKey(suffix)
+  const v = sanitize(localStorage.getItem(newKey))
+  if (v !== null) return v
+
+  // 兼容旧版本：历史 key 未包含环境维度
+  const userId = getUserId() || 'default'
+  const legacyKey = `${userId}_${suffix}`
+  return sanitize(localStorage.getItem(legacyKey))
 }
 // 获取学科
 export const getSubject = (): 'MATH' | 'BIOLOGY' => {
@@ -179,7 +193,7 @@ export class AuthService {
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // 学班管理员相关接口：清除 XUEBAN_TOKEN
       setXuebanToken(null)
-    } else if (url.startsWith('/blw-edu-yb')) {
+    } else if (url.startsWith('/blw-edu-yb') || url.startsWith('/yb-test/blw-edu-yb')) {
       // 研伴相关接口：清除 YANBAN_TOKEN
       setYanbanToken(null)
     }
@@ -201,7 +215,7 @@ export class AuthService {
         return false
       }
 
-      if (url.startsWith('/blw-edu-yb')) {
+      if (url.startsWith('/blw-edu-yb') || url.startsWith('/yb-test/blw-edu-yb')) {
         // 研伴相关接口：使用研伴登录
         const loginResult = await this.loginYanban(userId, password)
 
@@ -272,7 +286,9 @@ export class AuthService {
     const bridgeAvailable = this.androidBridge.isAndroidBridgeAvailable()
 
     if (envType === AppEnvType.INTERNAL_TEST && bridgeAvailable) {
-      const apiPath = url.replace('/blw-edu-yb', '')
+      const apiPath = url
+        .replace('/yb-test/blw-edu-yb', '')
+        .replace('/blw-edu-yb', '')
       const yanbanToken = getYanbanToken() || ''
       const result = await this.androidBridge.callYanbanApi(apiPath, body, 'POST', envType, yanbanToken)
 
@@ -396,12 +412,14 @@ export class AuthService {
         password: md5Password,
       }
 
+      const endpoint = getApiPaths().auth.loginStudent
+
       const response = await this.callYanban<{
         code: number
         success: boolean
         message: string
         data: LoginData
-      }>('/blw-edu-yb/auth/login-student', loginRequest)
+      }>(endpoint, loginRequest)
 
       const respData = response.data as any
       const tokenData = respData?.data || respData

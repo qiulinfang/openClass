@@ -227,6 +227,15 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/resource')
           }
         },
+        // 测试环境资源服务器（统一走 /yb-test 前缀）
+        '/yb-test/resource': {
+          target: APP_UPDATE_BASE,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/yb-test/resource')
+          }
+        },
         // 图片资源
         '/img': {
           target: RESOURCE_FILE_BASE,

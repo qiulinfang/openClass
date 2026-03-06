@@ -175,6 +175,7 @@ public class WebAppInterface {
     @JavascriptInterface
     public void setFloatingFabVisible(boolean visible) {
         try {
+            Log.d(TAG, "setFloatingFabVisible: visible=" + visible + ", thread=" + Thread.currentThread().getName());
             ApplicationModelShared app = ApplicationModelShared.getInstance();
             if (app == null) {
                 Log.w(TAG, "setFloatingFabVisible: ApplicationModelShared is null");
@@ -196,6 +197,7 @@ public class WebAppInterface {
                 return;
             }
 
+            Log.d(TAG, "setFloatingFabVisible: calling service." + (visible ? "showFab" : "hideFab"));
             if (visible) {
                 service.showFab();
             } else {
@@ -238,12 +240,17 @@ public class WebAppInterface {
                 return;
             }
 
+            final String traceId = "fab-" + System.currentTimeMillis();
+
             String safeAction = action.replace("'", "\\'");
+            Log.d(TAG, "dispatchFloatingFabActionEventToWeb: traceId=" + traceId + ", action=" + action + ", thread=" + Thread.currentThread().getName());
+
             String jsCode = "javascript:(function() {" +
                     "  try {" +
-                    "    var event = new CustomEvent('floating-fab-action', { detail: { action: '" + safeAction + "' } });" +
+                    "    var detail = { action: '" + safeAction + "', traceId: '" + traceId + "', ts: Date.now() };" +
+                    "    var event = new CustomEvent('floating-fab-action', { detail: detail });" +
                     "    window.dispatchEvent(event);" +
-                    "    console.log('📡 [Android] 触发 floating-fab-action 事件', {action: '" + safeAction + "'});" +
+                    "    console.log('📡 [Android] 触发 floating-fab-action 事件', detail);" +
                     "  } catch(e) {" +
                     "    console.error('📡 [Android] 触发事件失败:', e);" +
                     "  }" +
@@ -251,6 +258,7 @@ public class WebAppInterface {
 
             webView.post(() -> {
                 try {
+                    Log.d(TAG, "dispatchFloatingFabActionEventToWeb: post evaluateJavascript traceId=" + traceId + ", action=" + action);
                     webView.evaluateJavascript(jsCode, null);
                 } catch (Exception e) {
                     Log.e(TAG, "dispatchFloatingFabActionEventToWeb: evaluateJavascript failed", e);

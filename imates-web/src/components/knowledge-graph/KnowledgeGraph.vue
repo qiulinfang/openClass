@@ -56,7 +56,7 @@ import GraphNode from './GraphNode.vue'
 import { resourceManager } from '../../services/storage/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/http/api-service'
-import { getUserId, getScopedStorageValue } from '../../services'
+import { getScopedStorageKey, getScopedStorageValue } from '../../services'
 import { normalizeSubject } from '../../constants/subjects'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
@@ -127,13 +127,11 @@ const activeNodeId = ref<string | null>(null)
 
 // 获取带用户ID前缀的存储key
 const getLastLearnedNodeKey = () => {
-  const userId = getUserId()
-  return `${userId}_LAST_LEARNED_NODE_ID`
+  return getScopedStorageKey('LAST_LEARNED_NODE_ID')
 }
 
 const getLearnedNodesKey = () => {
-  const userId = getUserId()
-  return `${userId}_LEARNED_NODES`
+  return getScopedStorageKey('LEARNED_NODES')
 }
 
 // 最后点击去学习的圆周节点ID（用于显示学习标签）
@@ -145,11 +143,8 @@ const learnedNodeIds = ref<Set<string>>(new Set())
 // 从localStorage加载最后学习的节点ID
 const loadLastLearnedNodeId = () => {
   try {
-    const key = getLastLearnedNodeKey()
-    const saved = localStorage.getItem(key)
-    if (saved) {
-      lastLearnedNodeId.value = saved
-    }
+    const saved = getScopedStorageValue('LAST_LEARNED_NODE_ID')
+    lastLearnedNodeId.value = saved || null
   } catch (error) {
     console.error('加载最后学习的节点ID失败:', error)
   }
@@ -169,12 +164,13 @@ const saveLastLearnedNodeId = (nodeId: string) => {
 // 从localStorage加载已学习的节点ID列表
 const loadLearnedNodeIds = () => {
   try {
-    const key = getLearnedNodesKey()
-    const saved = localStorage.getItem(key)
+    const saved = getScopedStorageValue('LEARNED_NODES')
     if (saved) {
       const ids = JSON.parse(saved) as string[]
       learnedNodeIds.value = new Set(ids)
+      return
     }
+    learnedNodeIds.value = new Set()
   } catch (error) {
     console.error('加载已学习的节点ID列表失败:', error)
     learnedNodeIds.value = new Set()

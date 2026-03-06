@@ -7,6 +7,7 @@ import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '@/utils'
 import { getUserId, isYanbanLoggedIn, getCurrentYanbanAuth } from '../http/auth-service'
+import { AppEnvType, getCurrentEnvType } from '@/config/env-config'
 // 注释掉缩略图相关导入以提升性能
 // import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 // import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -21,6 +22,7 @@ import type {
 export class ResourceManager {
   private static instance: ResourceManager | null = null
   private static currentUserId: string | null = null
+  private static currentEnvType: string | null = null
   private currentToken: string | null = null
   private currentUsername: string | null = null
   private indexedDBInstance: IndexedDBService
@@ -40,7 +42,9 @@ export class ResourceManager {
     // 初始化IndexedDB配置 - 分离存储架构：元数据和二进制数据分离
     // 使用用户ID作为数据库名称前缀，实现账号隔离
     const userId = getUserId()
-    const dbName = `TextbookStorage_${userId}`
+    const envType = getCurrentEnvType()
+    const dbName =
+      envType === AppEnvType.RELEASE ? `TextbookStorage_${userId}` : `TextbookStorage_${userId}_${envType}`
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
       // 升级版本号，新增 knowledge_graph_chapter_structure 表用于缓存知识图谱章节结构
@@ -137,7 +141,12 @@ export class ResourceManager {
   public static getInstance(): ResourceManager {
     // 检查用户是否切换，如果切换则重新创建实例
     const userId = getUserId()
-    if (!ResourceManager.instance || ResourceManager.currentUserId !== userId) {
+    const envType = getCurrentEnvType()
+    if (
+      !ResourceManager.instance ||
+      ResourceManager.currentUserId !== userId ||
+      ResourceManager.currentEnvType !== envType
+    ) {
       // 如果已有实例，先关闭旧的数据库连接
       if (ResourceManager.instance) {
         ResourceManager.instance.indexedDB.close()
@@ -145,6 +154,7 @@ export class ResourceManager {
       // 创建新实例
       ResourceManager.instance = new ResourceManager()
       ResourceManager.currentUserId = userId
+      ResourceManager.currentEnvType = envType
     }
     return ResourceManager.instance
   }

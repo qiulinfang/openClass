@@ -11,7 +11,7 @@ import { getApiPaths, getImBaseUrl, getTeacherWsUrl } from '@/config/env-config'
 import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
-import { HomeworkApi } from './homework-api'
+import { HomeworkApi, type HomeworkSubmitSaveResult } from './homework-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 使用统一类型定义
@@ -287,7 +287,7 @@ export class ApiService {
   /**
    * 提交作业答案
    */
-  public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<boolean> {
+  public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<HomeworkSubmitSaveResult> {
     return this.homeworkApi.homeworkSubmitSave(homeworkSubmitReq)
   }
 

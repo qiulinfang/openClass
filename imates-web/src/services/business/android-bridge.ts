@@ -218,6 +218,12 @@ export class AndroidBridge {
    * 由 Web 侧根据路由与面板状态计算后同步给原生
    */
   public setFloatingFabVisible(visible: boolean): void {
+    console.log('[AndroidBridge][Web->Native] setFloatingFabVisible', {
+      visible,
+      isAvailable: this.isAvailable,
+      hasAndroidBridge: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined',
+      hasMethod: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined' && typeof (window.AndroidBridge as any).setFloatingFabVisible === 'function'
+    })
     this.lastFloatingFabVisible = visible
     this.callVoid(() => (window.AndroidBridge as any)?.setFloatingFabVisible?.(visible))
   }

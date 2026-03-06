@@ -76,7 +76,13 @@ export class HttpClient {
     if (url.startsWith('/permission') || url.startsWith('/ai') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
       selectedToken = sanitize(localStorage.getItem('XUEBAN_TOKEN'))
-    } else if (url.startsWith('/blw-edu-yb') || url.startsWith('/api/question') || url.startsWith('/yb-teacher')) {
+    } else if (
+      url.startsWith('/blw-edu-yb') ||
+      url.startsWith('/yb-test/blw-edu-yb') ||
+      url.startsWith('/api/question') ||
+      url.startsWith('/yb-teacher') ||
+      url.startsWith('/yb-test/yb-teacher')
+    ) {
       // /blw-edu-yb、/api/question、/yb-teacher 开头的请求使用 YANBAN_TOKEN（研伴相关/教师代理）
       selectedToken = sanitize(localStorage.getItem('YANBAN_TOKEN'))
     }

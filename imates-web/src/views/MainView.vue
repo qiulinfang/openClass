@@ -189,13 +189,12 @@
       :existing-screenshots="[]"
       :drawing-states-from-parent="mainChatScreenshotDrawingStates"
       @confirm="handleMainChatScreenshotConfirm"
-      @cancel="handleMainChatScreenshotCancel"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, nextTick, provide } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
@@ -679,6 +678,13 @@ const showFab = computed(() => {
 watch(
   () => [showFab.value, isAndroidEnv.value] as const,
   ([visible, androidReady]) => {
+    console.log('[FloatingFab][Web->Android] setFloatingFabVisible', {
+      visible,
+      androidReady,
+      routeName: route.name,
+      showMainChatPanel: showMainChatPanel.value,
+      pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
+    })
     if (!androidReady) return
     androidBridge.setFloatingFabVisible(visible)
   },
@@ -771,11 +777,18 @@ const navBackgroundStyle = computed(() => mainViewStyle.value)
 // - 如果当前在 PDF 查看页（pdfViewer），则打开/关闭 PDF 页右侧对话面板
 // - 否则，切换主页右侧统一聊天面板
 const handleFloatingFabClick = () => {
+  console.log('[FloatingFab][Web] handleFloatingFabClick', {
+    routeName: route.name,
+    showMainChatPanel: showMainChatPanel.value,
+    pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
+  })
   if (route.name === 'pdfViewer') {
     pdfViewerStore.chatPanelVisible = !pdfViewerStore.chatPanelVisible
+    console.log('[FloatingFab][Web] pdfViewer toggle chatPanelVisible ->', pdfViewerStore.chatPanelVisible)
   } else {
     mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
     showMainChatPanel.value = !showMainChatPanel.value
+    console.log('[FloatingFab][Web] main toggle showMainChatPanel ->', showMainChatPanel.value)
   }
 }
 
@@ -1079,18 +1092,76 @@ onMounted(async () => {
     }
   }
 
-  // 监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
-  window.addEventListener('floating-fab-action', (event: Event) => {
-    const customEvent = event as CustomEvent<{ action: string }>
-    const action = customEvent.detail?.action
-    if (action === 'toggleFab' || action === 'openAIChat') {
-      handleFloatingFabClick()
-      return
+  if (typeof window !== 'undefined') {
+    const w = window as any
+
+    if (!w.__floatingFabActionListenerRefCount) {
+      w.__floatingFabActionListenerRefCount = 0
     }
-    if (action === 'openDraft') {
-      handleOpenToolbox()
+    if (!w.__floatingFabActionLastTime) {
+      w.__floatingFabActionLastTime = 0
     }
-  })
+    if (!w.__floatingFabActionLastTraceId) {
+      w.__floatingFabActionLastTraceId = ''
+    }
+
+    if (!w.__floatingFabActionListenerHandler) {
+      w.__floatingFabActionListenerHandler = (event: Event) => {
+        const customEvent = event as CustomEvent<{ action: string; traceId?: string }>
+        const action = customEvent.detail?.action
+        const traceId = customEvent.detail?.traceId
+        const now = Date.now()
+
+        console.log('[FloatingFab][Web] floating-fab-action received', {
+          action,
+          detail: customEvent.detail,
+          routeName: route.name,
+          isAndroidEnv: isAndroidEnv.value,
+        })
+
+        if (traceId === w.__floatingFabActionLastTraceId || now - w.__floatingFabActionLastTime < 200) {
+          console.warn('[FloatingFab][Web] 重复事件被忽略', {
+            traceId,
+            lastTraceId: w.__floatingFabActionLastTraceId,
+            timeDiff: now - w.__floatingFabActionLastTime,
+          })
+          return
+        }
+
+        w.__floatingFabActionLastTime = now
+        w.__floatingFabActionLastTraceId = traceId || ''
+
+        if (action === 'toggleFab' || action === 'openAIChat') {
+          handleFloatingFabClick()
+          return
+        }
+        if (action === 'openDraft') {
+          handleOpenToolbox()
+        }
+      }
+    }
+
+    if (w.__floatingFabActionListenerRefCount === 0) {
+      window.addEventListener('floating-fab-action', w.__floatingFabActionListenerHandler)
+      console.log('[FloatingFab][Web] floating-fab-action listener registered')
+    }
+    w.__floatingFabActionListenerRefCount += 1
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof window === 'undefined') return
+  const w = window as any
+  if (!w.__floatingFabActionListenerRefCount) return
+
+  w.__floatingFabActionListenerRefCount -= 1
+  if (w.__floatingFabActionListenerRefCount <= 0) {
+    if (w.__floatingFabActionListenerHandler) {
+      window.removeEventListener('floating-fab-action', w.__floatingFabActionListenerHandler)
+      console.log('[FloatingFab][Web] floating-fab-action listener removed')
+    }
+    w.__floatingFabActionListenerRefCount = 0
+  }
 })
 
 // 跳转到资源下载页
