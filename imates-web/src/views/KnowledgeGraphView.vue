@@ -5,7 +5,6 @@
       <!-- 科目和版本信息 -->
       <div class="subject-header">
         <img :src="bookIcon" class="subject-icon" />
-        {{ selectedSubject }}
         <CommonSelect
           v-model="selectedSubject"
           :options="subjectOptions"
@@ -160,7 +159,7 @@
 defineOptions({
   name: 'knowledgeGraph',
 })
-import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
+import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '../services/http/api-service'
 import { resourceManager } from '../services/storage/resource-storage'
@@ -214,6 +213,92 @@ const loadLastLearnedNodeId = () => {
     }
   } catch (error) {
     console.error('加载最后学习的节点ID失败:', error)
+  }
+}
+
+const resetTextbookAndChapters = () => {
+  textbookOptions.value = []
+  selectedTextbook.value = ''
+  chapterStructure.value = []
+  chapters.value = []
+  selectedChapterDetails.value = null
+}
+
+const getSubjectLabelByValue = (subjectValue: string): string => {
+  const subjectMap: { [key: string]: string } = {
+    math: '数学',
+    chinese: '语文',
+    english: '英语',
+    physics: '物理',
+    chemistry: '化学',
+    biology: '生物',
+    geography: '地理',
+    history: '历史',
+    politics: '政治',
+  }
+  return subjectMap[subjectValue] || '数学'
+}
+
+const refreshTextbookOptionsBySubject = async (
+  subjectValue: string,
+  preferTextbookValue?: string
+): Promise<TextbookOption[]> => {
+  const localOptions = await loadTextbookDataFromIndexedDB()
+  const subjectLabel = getSubjectLabelByValue(subjectValue)
+  const filteredOptions = localOptions.filter((option) => option.subject === subjectLabel)
+
+  textbookOptions.value = filteredOptions
+
+  const keepable = filteredOptions.find((opt) => opt.value === (preferTextbookValue || selectedTextbook.value))
+  if (keepable) {
+    selectedTextbook.value = keepable.value
+  } else {
+    selectedTextbook.value = filteredOptions[0]?.value || ''
+  }
+
+  return filteredOptions
+}
+
+const pickTargetTextbookOption = (
+  options: TextbookOption[],
+  preferredTextbookId?: string
+): TextbookOption | undefined => {
+  if (!options.length) return undefined
+
+  if (preferredTextbookId) {
+    const matched = options.find(
+      (opt) => opt.textbookId === preferredTextbookId || opt.value.includes(preferredTextbookId)
+    )
+    if (matched) return matched
+  }
+
+  return options[0]
+}
+
+const loadChaptersBySelectedTextbook = async (options?: TextbookOption[]) => {
+  const opts = options || textbookOptions.value
+  const selectedOption = opts.find((opt) => opt.value === selectedTextbook.value)
+  if (!selectedOption) {
+    chapterStructure.value = []
+    chapters.value = []
+    selectedChapterDetails.value = null
+    return
+  }
+
+  if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
+    setCurrentTextbook(selectedOption.textbookId)
+    await loadChapterStructure(selectedOption.textbookId)
+    if (chapterStructure.value.length > 0) {
+      const storedIndex = getCurrentChapter()
+      setCurrentChapter(storedIndex)
+      selectedChapterDetails.value = chapterStructure.value[storedIndex]
+    } else {
+      selectedChapterDetails.value = null
+    }
+  } else {
+    chapterStructure.value = []
+    chapters.value = []
+    selectedChapterDetails.value = null
   }
 }
 
@@ -1020,7 +1105,7 @@ const loadChapterStructureFromDB = async (textbookId: string): Promise<ChapterNo
   try {
     await ensureKGStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = getUserId()
+    const userId = getUserId() || ''
     const record = await db.get<KnowledgeGraphChapterStructureRecord>(
       'knowledge_graph_chapter_structure',
       buildKGRecordId(userId, textbookId)
@@ -1049,7 +1134,7 @@ const saveChapterStructureToDB = async (
   try {
     await ensureKGStoreInitialized()
     const db = resourceManager.indexedDB
-    const userId = getUserId()
+    const userId = getUserId() || ''
     const record: KnowledgeGraphChapterStructureRecord = {
       id: buildKGRecordId(userId, textbookId),
       userId,
@@ -1112,6 +1197,8 @@ const getCacheStatus = () => {
 // 从IndexedDB获取教材数据并转换为textbookOptions（仅包含已下载完成的教材）
 const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
   try {
+    await resourceManager.forceFlushPendingUpdates()
+
     // 从IndexedDB获取所有教材
     const textbooks = await resourceManager.getUserLocalTextbooks()
 
@@ -1155,11 +1242,9 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
 const loadTextbookDataBySubject = async (subjectValue: string) => {
   try {
     // 只从 IndexedDB 加载本地教材（内部已过滤为已下载完成）
-    const localOptions = await loadTextbookDataFromIndexedDB()
+    const filteredOptions = await refreshTextbookOptionsBySubject(subjectValue)
 
-    // 本地没有任何已下载教材：不展示教材，不加载章节
-    if (localOptions.length === 0) {
-      textbookOptions.value = []
+    if (filteredOptions.length === 0) {
       selectedTextbook.value = ''
       chapterStructure.value = []
       chapters.value = []
@@ -1167,50 +1252,8 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       return
     }
 
-    // 根据学科筛选教材选项
-    const subjectMap: { [key: string]: string } = {
-      math: '数学',
-      chinese: '语文',
-      english: '英语',
-      physics: '物理',
-      chemistry: '化学',
-      biology: '生物',
-      geography: '地理',
-      history: '历史',
-      politics: '政治',
-    }
-
-    const subjectLabel = subjectMap[subjectValue] || '数学'
-
-    textbookOptions.value = localOptions.filter((option) => option.subject === subjectLabel)
-
-    // 如果当前学科下没有任何已下载教材，则清空章节
-    if (textbookOptions.value.length === 0) {
-      selectedTextbook.value = ''
-      chapterStructure.value = []
-      chapters.value = []
-      selectedChapterDetails.value = null
-      return
-    }
-
-    // 设置默认选中的教材为该学科下的第一个已下载教材
-    selectedTextbook.value = textbookOptions.value[0].value
-
-    // 加载默认教材的章节结构
-    const defaultOption = textbookOptions.value[0]
-    if (defaultOption.textbookId) {
-      await loadChapterStructure(defaultOption.textbookId)
-
-      // 设置默认选中的章节
-      if (chapterStructure.value.length > 0) {
-        setCurrentChapter(0)
-        selectedChapterDetails.value = chapterStructure.value[0]
-      }
-    } else {
-      chapterStructure.value = []
-      chapters.value = []
-      selectedChapterDetails.value = null
-    }
+    selectedTextbook.value = filteredOptions[0].value
+    await loadChaptersBySelectedTextbook(filteredOptions)
   } catch (error) {
     console.error('[流程2] 加载教材列表出错:', error)
     textbookOptions.value = []
@@ -1337,23 +1380,25 @@ const handleStateRestoration = async (): Promise<boolean> => {
     return false
   }
 
-  // 🔧 修复：如果章节结构为空但有选中的教材，尝试加载章节结构
-  if (chapterStructure.value.length === 0 && selectedTextbook.value) {
-    const selectedOption = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
-    if (selectedOption?.textbookId && selectedOption.textbookId !== 'default') {
-      console.log(`[KnowledgeGraph] 状态恢复后发现章节为空，尝试加载: ${selectedOption.textbookId}`)
-      await loadChapterStructure(selectedOption.textbookId)
+  try {
+    const subjectValue = (selectedSubject.value || 'math') as string
+    const prevSelectedTextbook = selectedTextbook.value
 
-      if (chapterStructure.value.length > 0) {
-        console.log(`[KnowledgeGraph] 章节加载成功，设置默认章节`)
-        setCurrentChapter(0)
-        selectedChapterDetails.value = chapterStructure.value[0]
-      } else {
-        console.warn(`[KnowledgeGraph] 章节加载失败`)
-      }
+    const filteredOptions = await refreshTextbookOptionsBySubject(subjectValue, prevSelectedTextbook)
+
+    // 当前学科没有任何教材：清空章节
+    if (!selectedTextbook.value) {
+      chapterStructure.value = []
+      chapters.value = []
+      selectedChapterDetails.value = null
+      await nextTick()
+      return true
     }
-  }
 
+    await loadChaptersBySelectedTextbook(filteredOptions)
+  } catch {
+    // 刷新失败时不影响后续兜底逻辑
+  }
   await nextTick()
   return true
 }
@@ -1372,32 +1417,9 @@ const handleDefaultInitialization = async (): Promise<void> => {
 
   // 如果有教材数据，选择目标教材：优先 Store，否则使用第一个教材
   if (textbookOptions.value.length > 0) {
-    let targetTextbook: TextbookOption | undefined
-
-    if (storeTextbookId) {
-      targetTextbook = textbookOptions.value.find(
-        (opt) => opt.textbookId === storeTextbookId || opt.value.includes(storeTextbookId)
-      )
-    }
-
-    // 如果没有找到，使用第一个教材
-    if (!targetTextbook) {
-      targetTextbook = textbookOptions.value[0]
-    }
-
-    selectedTextbook.value = targetTextbook.value
-
-    // 加载选中教材的章节结构
-    if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
-      await loadChapterStructure(targetTextbook.textbookId)
-
-      // 自动选择第一个章节
-      if (chapterStructure.value.length > 0) {
-        setCurrentChapter(0)
-        selectedChapterDetails.value = chapterStructure.value[0]
-        await nextTick()
-      }
-    }
+    const targetTextbook = pickTargetTextbookOption(textbookOptions.value, storeTextbookId || undefined)
+    selectedTextbook.value = targetTextbook?.value || ''
+    await loadChaptersBySelectedTextbook()
   }
 
   await nextTick()
@@ -1436,29 +1458,15 @@ const initGraph = async () => {
 // 学科切换
 const onSubjectChange = async (subjectValue: string) => {
   try {
-    // 先清空旧的教材和章节数据
-    textbookOptions.value = []
-    selectedTextbook.value = ''
-    chapterStructure.value = []
-    chapters.value = []
-    selectedChapterDetails.value = null
-
-    // 根据学科筛选教材选项（内部会自动加载第一个教材的章节结构）
-    await loadTextbookDataBySubject(subjectValue)
-
-    // 如果有教材数据，确保章节数据已加载并自动选择第一个章节
-    if (textbookOptions.value.length > 0 && chapterStructure.value.length > 0) {
-      // 自动选择第一个章节
-      setCurrentChapter(0)
-      selectedChapterDetails.value = chapterStructure.value[0]
+    resetTextbookAndChapters()
+    const filteredOptions = await refreshTextbookOptionsBySubject(subjectValue)
+    if (filteredOptions.length > 0) {
+      selectedTextbook.value = filteredOptions[0].value
+      await loadChaptersBySelectedTextbook(filteredOptions)
     }
   } catch {
     // 出错时也要清空数据
-    textbookOptions.value = []
-    selectedTextbook.value = ''
-    chapterStructure.value = []
-    chapters.value = []
-    selectedChapterDetails.value = null
+    resetTextbookAndChapters()
   }
 }
 
