@@ -5,6 +5,7 @@
       <!-- 科目和版本信息 -->
       <div class="subject-header">
         <img :src="bookIcon" class="subject-icon" />
+        {{ selectedSubject }}
         <CommonSelect
           v-model="selectedSubject"
           :options="subjectOptions"
@@ -1185,29 +1186,6 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
 
     // 如果当前学科下没有任何已下载教材，则清空章节
     if (textbookOptions.value.length === 0) {
-      // 兜底：如果其他学科有教材，自动切到第一个可用学科，避免误导用户“未下载任何教材”
-      if (localOptions.length > 0) {
-        const firstAvailableSubjectLabel = localOptions[0].subject
-        const reverseSubjectMap: { [key: string]: string } = {
-          数学: 'math',
-          语文: 'chinese',
-          英语: 'english',
-          物理: 'physics',
-          化学: 'chemistry',
-          生物: 'biology',
-          地理: 'geography',
-          历史: 'history',
-          政治: 'politics',
-        }
-
-        const nextSubjectValue = reverseSubjectMap[firstAvailableSubjectLabel]
-        if (nextSubjectValue && nextSubjectValue !== subjectValue) {
-          selectedSubject.value = nextSubjectValue as any
-          await loadTextbookDataBySubject(nextSubjectValue)
-          return
-        }
-      }
-
       selectedTextbook.value = ''
       chapterStructure.value = []
       chapters.value = []
