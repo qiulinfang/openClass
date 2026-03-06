@@ -282,25 +282,30 @@ public class FloatingFabService extends Service {
      * 处理菜单项点击
      */
     private void handleMenuItemClick(String action) {
-        Log.d(TAG, "handleMenuItemClick: action=" + action + ", thread=" + Thread.currentThread().getName());
+        final String clickTraceId = "fab-click-" + System.currentTimeMillis();
+        Log.d(TAG, "handleMenuItemClick: clickTraceId=" + clickTraceId + ", action=" + action + ", thread=" + Thread.currentThread().getName());
 
         // 优先直接向当前 WebView 派发事件，避免通过 startActivity 重启/清栈导致 Web 端跳转 login
         try {
             ApplicationModelShared app = (ApplicationModelShared) getApplication();
-            if (app != null && app.isAppInForeground()) {
+            boolean isForeground = app != null && app.isAppInForeground();
+            Log.d(TAG, "handleMenuItemClick: clickTraceId=" + clickTraceId + ", isForeground=" + isForeground);
+            if (isForeground) {
                 WebAppInterface webAppInterface = app.getWebAppInterface();
                 if (webAppInterface != null) {
-                    Log.d(TAG, "handleMenuItemClick: dispatchFloatingFabActionEventToWeb to WebView, action=" + action);
+                    Log.d(TAG, "handleMenuItemClick: clickTraceId=" + clickTraceId + ", dispatchFloatingFabActionEventToWeb to WebView, action=" + action);
                     webAppInterface.dispatchFloatingFabActionEventToWeb(action);
                     return;
+                } else {
+                    Log.w(TAG, "handleMenuItemClick: clickTraceId=" + clickTraceId + ", webAppInterface is null");
                 }
             }
         } catch (Exception e) {
-            Log.w(TAG, "dispatchFloatingFabActionEventToWeb failed, fallback to startActivity", e);
+            Log.w(TAG, "handleMenuItemClick: clickTraceId=" + clickTraceId + ", dispatchFloatingFabActionEventToWeb failed, fallback to startActivity", e);
         }
 
         // fallback：应用在后台/或 WebView 不可用时，只唤起应用到前台（不派发 toggleFab，避免改变面板状态）
-        Log.d(TAG, "handleMenuItemClick: fallback to startActivity, action=" + action);
+        Log.d(TAG, "handleMenuItemClick: clickTraceId=" + clickTraceId + ", fallback to startActivity, action=" + action);
         Intent intent = new Intent(this, MainWebViewActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         startActivity(intent);
@@ -320,7 +325,7 @@ public class FloatingFabService extends Service {
         sendLogToWeb("DEBUG", TAG, "hideFab: 隐藏悬浮按钮");
         if (floatingFabView != null) {
             floatingFabView.setVisibility(View.GONE);
-            Log.d(TAG, "hideFab: setVisibility(GONE) completed");
+            Log.d(TAG, "hideFab: setVisibility(GONE) completed, view=" + floatingFabView);
             sendLogToWeb("INFO", TAG, "hideFab: 悬浮按钮已隐藏");
         } else {
             Log.w(TAG, "hideFab: floatingFabView is null");
@@ -342,7 +347,7 @@ public class FloatingFabService extends Service {
         sendLogToWeb("DEBUG", TAG, "showFab: 显示悬浮按钮");
         if (floatingFabView != null) {
             floatingFabView.setVisibility(View.VISIBLE);
-            Log.d(TAG, "showFab: setVisibility(VISIBLE) completed");
+            Log.d(TAG, "showFab: setVisibility(VISIBLE) completed, view=" + floatingFabView);
             sendLogToWeb("INFO", TAG, "showFab: 悬浮按钮已显示");
         } else {
             Log.w(TAG, "showFab: floatingFabView is null");

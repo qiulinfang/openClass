@@ -174,37 +174,40 @@ public class WebAppInterface {
      */
     @JavascriptInterface
     public void setFloatingFabVisible(boolean visible) {
+        final String traceId = "fab-visible-" + System.currentTimeMillis();
         try {
-            Log.d(TAG, "setFloatingFabVisible: visible=" + visible + ", thread=" + Thread.currentThread().getName());
+            Log.d(TAG, "setFloatingFabVisible: traceId=" + traceId + ", visible=" + visible + ", thread=" + Thread.currentThread().getName());
             ApplicationModelShared app = ApplicationModelShared.getInstance();
             if (app == null) {
-                Log.w(TAG, "setFloatingFabVisible: ApplicationModelShared is null");
+                Log.w(TAG, "setFloatingFabVisible: traceId=" + traceId + ", ApplicationModelShared is null");
                 return;
             }
 
             // 先缓存，避免 Service 尚未启动/注册导致指令丢失
             app.setPendingFloatingFabVisible(visible);
+            Log.d(TAG, "setFloatingFabVisible: traceId=" + traceId + ", pendingFloatingFabVisible=" + visible);
 
             com.cosinetech.imates.ui.fab.FloatingFabService service = app.getFloatingFabService();
             if (service == null) {
-                Log.w(TAG, "setFloatingFabVisible: FloatingFabService is null, try start service");
+                Log.w(TAG, "setFloatingFabVisible: traceId=" + traceId + ", FloatingFabService is null, try start service");
                 // 兜底：尝试启动服务，等待其 onCreate 注册后再应用 pending 状态
                 try {
                     app.startFloatingFabService();
+                    Log.d(TAG, "setFloatingFabVisible: traceId=" + traceId + ", startFloatingFabService invoked");
                 } catch (Exception e) {
-                    Log.w(TAG, "setFloatingFabVisible: startFloatingFabService failed", e);
+                    Log.w(TAG, "setFloatingFabVisible: traceId=" + traceId + ", startFloatingFabService failed", e);
                 }
                 return;
             }
 
-            Log.d(TAG, "setFloatingFabVisible: calling service." + (visible ? "showFab" : "hideFab"));
+            Log.d(TAG, "setFloatingFabVisible: traceId=" + traceId + ", calling service." + (visible ? "showFab" : "hideFab"));
             if (visible) {
                 service.showFab();
             } else {
                 service.hideFab();
             }
         } catch (Exception e) {
-            Log.e(TAG, "setFloatingFabVisible failed", e);
+            Log.e(TAG, "setFloatingFabVisible failed: traceId=" + traceId + ", visible=" + visible, e);
         }
     }
 
@@ -230,17 +233,16 @@ public class WebAppInterface {
      * 避免通过 startActivity 拉起/重启 MainWebViewActivity 导致 Web 端路由守卫跳转 login。
      */
     public void dispatchFloatingFabActionEventToWeb(String action) {
+        final String traceId = "fab-dispatch-" + System.currentTimeMillis();
         try {
             if (webView == null) {
-                Log.w(TAG, "dispatchFloatingFabActionEventToWeb: webView is null");
+                Log.w(TAG, "dispatchFloatingFabActionEventToWeb: traceId=" + traceId + ", webView is null");
                 return;
             }
             if (action == null) {
-                Log.w(TAG, "dispatchFloatingFabActionEventToWeb: action is null");
+                Log.w(TAG, "dispatchFloatingFabActionEventToWeb: traceId=" + traceId + ", action is null");
                 return;
             }
-
-            final String traceId = "fab-" + System.currentTimeMillis();
 
             String safeAction = action.replace("'", "\\'");
             Log.d(TAG, "dispatchFloatingFabActionEventToWeb: traceId=" + traceId + ", action=" + action + ", thread=" + Thread.currentThread().getName());

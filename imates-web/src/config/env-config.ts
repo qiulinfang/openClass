@@ -280,7 +280,6 @@ export function getRouteBaseMap(): Record<string, string> {
   const apiBaseUrl = getApiBaseUrl()
   const resourceBaseUrl = getResourceBaseUrl()
   const yanbanBaseUrl = getYanbanBaseUrl()
-  const teacherWsUrl = getTeacherWsUrl()
   const teacherApiBaseUrl = getTeacherApiBaseUrl()
   const historyManageBaseUrl = getHistoryManageBaseUrl()
 
@@ -300,15 +299,12 @@ export function getRouteBaseMap(): Record<string, string> {
     '/homework': yanbanBaseUrl,
     '/blw-edu-yb/api/question': teacherApiBaseUrl,
     '/blw-edu-yb/api/system': teacherApiBaseUrl,
-    // 测试环境教师 API 路径映射
     '/yb-test/yb-teacher/api/question': teacherApiBaseUrl,
     '/yb-test/yb-teacher/api/system': teacherApiBaseUrl,
     // 测试环境研伴/教材路径映射（统一 /yb-test 前缀）
     '/yb-test/blw-edu-yb': yanbanBaseUrl,
     // 研伴/教材等走资源服务器
     '/blw-edu-yb': yanbanBaseUrl,
-    // Zammad 示例
-    '/api/v1': ADDRESS_CATALOG.ZAMMAD_API,
     // 资源服务器（根据环境动态切换）
     '/resource': resourceBaseUrl,
     '/yb-test/resource': resourceBaseUrl,

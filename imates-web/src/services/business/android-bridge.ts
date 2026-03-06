@@ -32,6 +32,11 @@ export class AndroidBridge {
   private isAvailable: boolean = false
   private eventListeners: Map<string, Function[]> = new Map()
   private lastFloatingFabVisible: boolean | null = null
+
+  private createFabTraceId(prefix: string): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+  }
+
   private constructor() {
     this.checkAvailability()
     this.setupCallbacks()
@@ -218,14 +223,30 @@ export class AndroidBridge {
    * 由 Web 侧根据路由与面板状态计算后同步给原生
    */
   public setFloatingFabVisible(visible: boolean): void {
+    const traceId = this.createFabTraceId('fab-native')
+    const hasAndroidBridge = typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined'
+    const hasMethod =
+      typeof window !== 'undefined' &&
+      typeof window.AndroidBridge !== 'undefined' &&
+      typeof (window.AndroidBridge as any).setFloatingFabVisible === 'function'
+
     console.log('[AndroidBridge][Web->Native] setFloatingFabVisible', {
+      traceId,
       visible,
       isAvailable: this.isAvailable,
-      hasAndroidBridge: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined',
-      hasMethod: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined' && typeof (window.AndroidBridge as any).setFloatingFabVisible === 'function'
+      hasAndroidBridge,
+      hasMethod,
     })
+
     this.lastFloatingFabVisible = visible
-    this.callVoid(() => (window.AndroidBridge as any)?.setFloatingFabVisible?.(visible))
+
+    try {
+      if (!hasAndroidBridge || !hasMethod) return
+      this.callVoid(() => (window.AndroidBridge as any)?.setFloatingFabVisible?.(visible))
+      console.log('[AndroidBridge][Web->Native] setFloatingFabVisible done', { traceId, visible })
+    } catch (error) {
+      console.error('[AndroidBridge][Web->Native] setFloatingFabVisible failed', { traceId, visible }, error)
+    }
   }
 
   public getLastFloatingFabVisible(): boolean | null {

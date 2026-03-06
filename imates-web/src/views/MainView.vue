@@ -189,12 +189,13 @@
       :existing-screenshots="[]"
       :drawing-states-from-parent="mainChatScreenshotDrawingStates"
       @confirm="handleMainChatScreenshotConfirm"
+      @cancel="handleMainChatScreenshotCancel"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick, provide } from 'vue'
+import { ref, watch, computed, onMounted, nextTick, provide, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
@@ -273,6 +274,10 @@ const teacherStore = useTeacherChatStore()
 const userClientStore = useUserClientStore()
 
 const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
+
+const createFabTraceId = (prefix: string) => {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
@@ -678,7 +683,9 @@ const showFab = computed(() => {
 watch(
   () => [showFab.value, isAndroidEnv.value] as const,
   ([visible, androidReady]) => {
-    console.log('[FloatingFab][Web->Android] setFloatingFabVisible', {
+    const traceId = createFabTraceId('fab-sync')
+    console.log('[FloatingFab][Web] sync->native (watch)', {
+      traceId,
       visible,
       androidReady,
       routeName: route.name,
@@ -694,6 +701,14 @@ watch(
 // 兜底同步：从后台回到前台时，原生可能重置了悬浮按钮状态，这里强制按当前 showFab 再同步一次
 const syncFabToNative = () => {
   if (!isAndroidEnv.value) return
+  const traceId = createFabTraceId('fab-resync')
+  console.log('[FloatingFab][Web] sync->native (resync)', {
+    traceId,
+    visible: showFab.value,
+    routeName: route.name,
+    showMainChatPanel: showMainChatPanel.value,
+    pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
+  })
   androidBridge.setFloatingFabVisible(showFab.value)
 }
 
@@ -777,19 +792,37 @@ const navBackgroundStyle = computed(() => mainViewStyle.value)
 // - 如果当前在 PDF 查看页（pdfViewer），则打开/关闭 PDF 页右侧对话面板
 // - 否则，切换主页右侧统一聊天面板
 const handleFloatingFabClick = () => {
-  console.log('[FloatingFab][Web] handleFloatingFabClick', {
+  const traceId = createFabTraceId('fab-click')
+  console.log('[FloatingFab][Web] handleFloatingFabClick (before)', {
+    traceId,
     routeName: route.name,
     showMainChatPanel: showMainChatPanel.value,
     pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
+    showFab: showFab.value,
+    isAndroidEnv: isAndroidEnv.value,
   })
   if (route.name === 'pdfViewer') {
     pdfViewerStore.chatPanelVisible = !pdfViewerStore.chatPanelVisible
-    console.log('[FloatingFab][Web] pdfViewer toggle chatPanelVisible ->', pdfViewerStore.chatPanelVisible)
+    console.log('[FloatingFab][Web] pdfViewer toggle chatPanelVisible ->', {
+      traceId,
+      chatPanelVisible: pdfViewerStore.chatPanelVisible,
+    })
   } else {
     mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
     showMainChatPanel.value = !showMainChatPanel.value
-    console.log('[FloatingFab][Web] main toggle showMainChatPanel ->', showMainChatPanel.value)
+    console.log('[FloatingFab][Web] toggle showMainChatPanel ->', {
+      traceId,
+      showMainChatPanel: showMainChatPanel.value,
+    })
   }
+
+  console.log('[FloatingFab][Web] handleFloatingFabClick (after)', {
+    traceId,
+    routeName: route.name,
+    showMainChatPanel: showMainChatPanel.value,
+    pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
+    showFab: showFab.value,
+  })
 }
 
 const handleFabActivate = () => {
@@ -803,6 +836,8 @@ const handleFabTouchEnd = (e: TouchEvent) => {
   e.preventDefault()
   handleFloatingFabClick()
 }
+
+let floatingFabActionListener: ((event: Event) => void) | null = null
 
 // 根据选中状态计算当前应该显示的图标
 // 工具箱图标仅由工具箱展开状态决定，与当前路由高亮无关
@@ -1076,10 +1111,15 @@ onMounted(async () => {
     // 在MainView中打印日志
     const logMessage = `[Android-${tag}] ${message}`
 
-    switch (level.toUpperCase()) {
+    const upper = level.toUpperCase()
+    const shouldPrintInfoDebug = tag === 'FloatingFabService' || tag === 'WebAppInterface'
+
+    switch (upper) {
       case 'DEBUG':
+        if (shouldPrintInfoDebug) console.log(`[MainView] ${logMessage}`)
         break
       case 'INFO':
+        if (shouldPrintInfoDebug) console.log(`[MainView] ${logMessage}`)
         break
       case 'WARN':
         console.warn(`[MainView] ⚠️ ${logMessage}`)
@@ -1092,75 +1132,36 @@ onMounted(async () => {
     }
   }
 
-  if (typeof window !== 'undefined') {
-    const w = window as any
-
-    if (!w.__floatingFabActionListenerRefCount) {
-      w.__floatingFabActionListenerRefCount = 0
+  // 监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
+  floatingFabActionListener = (event: Event) => {
+    const traceId = createFabTraceId('fab-event')
+    const customEvent = event as CustomEvent<{ action: string; traceId?: string; ts?: number }>
+    const action = customEvent.detail?.action
+    console.log('[FloatingFab][Web] floating-fab-action received', {
+      traceId,
+      action,
+      detail: customEvent.detail,
+      routeName: route.name,
+      isAndroidEnv: isAndroidEnv.value,
+    })
+    if (action === 'toggleFab' || action === 'openAIChat') {
+      handleFloatingFabClick()
+      return
     }
-    if (!w.__floatingFabActionLastTime) {
-      w.__floatingFabActionLastTime = 0
+    if (action === 'openDraft') {
+      handleOpenToolbox()
     }
-    if (!w.__floatingFabActionLastTraceId) {
-      w.__floatingFabActionLastTraceId = ''
-    }
-
-    if (!w.__floatingFabActionListenerHandler) {
-      w.__floatingFabActionListenerHandler = (event: Event) => {
-        const customEvent = event as CustomEvent<{ action: string; traceId?: string }>
-        const action = customEvent.detail?.action
-        const traceId = customEvent.detail?.traceId
-        const now = Date.now()
-
-        console.log('[FloatingFab][Web] floating-fab-action received', {
-          action,
-          detail: customEvent.detail,
-          routeName: route.name,
-          isAndroidEnv: isAndroidEnv.value,
-        })
-
-        if (traceId === w.__floatingFabActionLastTraceId || now - w.__floatingFabActionLastTime < 200) {
-          console.warn('[FloatingFab][Web] 重复事件被忽略', {
-            traceId,
-            lastTraceId: w.__floatingFabActionLastTraceId,
-            timeDiff: now - w.__floatingFabActionLastTime,
-          })
-          return
-        }
-
-        w.__floatingFabActionLastTime = now
-        w.__floatingFabActionLastTraceId = traceId || ''
-
-        if (action === 'toggleFab' || action === 'openAIChat') {
-          handleFloatingFabClick()
-          return
-        }
-        if (action === 'openDraft') {
-          handleOpenToolbox()
-        }
-      }
-    }
-
-    if (w.__floatingFabActionListenerRefCount === 0) {
-      window.addEventListener('floating-fab-action', w.__floatingFabActionListenerHandler)
-      console.log('[FloatingFab][Web] floating-fab-action listener registered')
-    }
-    w.__floatingFabActionListenerRefCount += 1
   }
+  window.addEventListener('floating-fab-action', floatingFabActionListener)
 })
 
 onBeforeUnmount(() => {
-  if (typeof window === 'undefined') return
-  const w = window as any
-  if (!w.__floatingFabActionListenerRefCount) return
-
-  w.__floatingFabActionListenerRefCount -= 1
-  if (w.__floatingFabActionListenerRefCount <= 0) {
-    if (w.__floatingFabActionListenerHandler) {
-      window.removeEventListener('floating-fab-action', w.__floatingFabActionListenerHandler)
-      console.log('[FloatingFab][Web] floating-fab-action listener removed')
+  try {
+    if (floatingFabActionListener) {
+      window.removeEventListener('floating-fab-action', floatingFabActionListener)
     }
-    w.__floatingFabActionListenerRefCount = 0
+  } finally {
+    floatingFabActionListener = null
   }
 })
 
