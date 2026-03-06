@@ -37,14 +37,6 @@
           />
           <q-btn
             outline
-            color="warning"
-            icon="cleaning_services"
-            label="清理过期数据"
-            @click="cleanupExpiredData"
-            size="sm"
-          />
-          <q-btn
-            outline
             color="secondary"
             icon="download"
             label="导出教材数据"
@@ -462,16 +454,6 @@ const calculateStorageSize = async () => {
   } catch (error) {
     console.error('计算存储大小失败:', error)
     storageSize.value = '未知'
-  }
-}
-
-// 清理过期数据
-const cleanupExpiredData = async () => {
-  try {
-    await resourceManager.cleanupExpiredData()
-    await refreshData()
-  } catch (error) {
-    console.error('清理失败:', error)
   }
 }
 

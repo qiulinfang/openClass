@@ -231,7 +231,30 @@ export class ResourceManager {
     try {
       // 如果提供了更新数据，则合并到教材信息中
       if (updates) {
+        const oldId = (textbook as any)?.id
         Object.assign(textbook, updates)
+
+        const newId = (textbook as any)?.id
+        if (
+          oldId != null &&
+          newId != null &&
+          String(oldId) !== String(newId)
+        ) {
+          const anyUpdates = updates as any
+          console.warn('[ResourceStorage][TextbookIdChanged]', {
+            scene: 'updateTextbookInfo:Object.assign',
+            oldId: String(oldId),
+            newId: String(newId),
+            textbookId: (textbook as any)?.textbookId,
+            textbookName: (textbook as any)?.textbookName,
+            updatesId: anyUpdates?.id,
+            updatesTextbookId: anyUpdates?.textbookId,
+            source: anyUpdates?.__source,
+            reason: anyUpdates?.__reason,
+            keys: Object.keys(updates).slice(0, 50),
+            ts: Date.now(),
+          })
+        }
       }
       
       // 立即更新到IndexedDB（自动序列化）
@@ -480,31 +503,6 @@ export class ResourceManager {
       }
     } catch (error) {
       console.warn(`更新缩略图失败 (textbookId: ${textbookId}, fileId: ${fileId}):`, error)
-    }
-  }
-
-  /**
-   * 清理过期数据 - 简化版本
-   * 清理30天未下载的教材数据
-   */
-  public async cleanupExpiredData(): Promise<void> {
-    try {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      
-      // 获取所有教材数据
-      const allTextbooks = await this.indexedDBInstance.getAll('textbooks')
-      
-      for (const textbook of allTextbooks) {
-        const textbookData = textbook as UserTextbookInfo
-        const lastDownloadTime = new Date(textbookData.lastDownloadTime)
-        if (lastDownloadTime < thirtyDaysAgo && !textbookData.isDownloaded) {
-          await this.cleanupTextbookRelatedData(textbookData.textbookId)
-          await this.indexedDBInstance.delete('textbooks', textbookData.textbookId)
-        }
-      }
-    } catch {
-      // 清理过期数据失败
     }
   }
 
@@ -847,10 +845,6 @@ class ResourceManagerProxy {
   
   async updateThumbnail(textbookId: string, fileId: string, thumbnail: string): Promise<void> {
     return this.instance.updateThumbnail(textbookId, fileId, thumbnail)
-  }
-  
-  async cleanupExpiredData(): Promise<void> {
-    return this.instance.cleanupExpiredData()
   }
   
   async getUserLocalTextbooks(): Promise<UserTextbookInfo[]> {
