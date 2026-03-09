@@ -409,7 +409,61 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     try {
       // 发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
-      const response = await apiService.sendChatMessage(aiRequest, onComplete, onStream, onHistoryUpdate)
+
+      let isHtmlMode = false
+
+      const wrappedOnHistoryUpdate = (history: any, agentStatus?: string) => {
+        if (agentStatus === 'general_html') {
+          isHtmlMode = true
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index >= 0) {
+            messages.value[index] = {
+              ...messages.value[index],
+              messageType: 'html',
+              isStreaming: true,
+            }
+          }
+        }
+
+        ;(onHistoryUpdate as any)?.(history, agentStatus)
+      }
+
+      const wrappedOnStream = (chunk: string, isComplete: boolean) => {
+        if (isComplete) {
+          onStream?.(chunk, isComplete)
+          return
+        }
+
+        if (!chunk) {
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index >= 0) {
+            messages.value[index] = {
+              ...messages.value[index],
+              isStreaming: true,
+            }
+          }
+          return
+        }
+
+        if (isHtmlMode) {
+          const index = messages.value.findIndex((m) => m.id === tempReplyId)
+          if (index >= 0) {
+            messages.value[index] = {
+              ...messages.value[index],
+              messageType: 'html',
+            }
+          }
+        }
+
+        onStream?.(chunk, isComplete)
+      }
+
+      const response = await apiService.sendChatMessage(
+        aiRequest,
+        onComplete,
+        wrappedOnStream,
+        wrappedOnHistoryUpdate as any,
+      )
       
       // 保存聊天历史
       await saveChatHistory()

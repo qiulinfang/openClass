@@ -3,7 +3,7 @@
     <div class="message-content">
       <!-- 绘图中骨架屏：当处于流式状态且暂时没有文本内容时，展示深色渐变卡片 -->
       <div
-        v-if="props.isStreaming && !props.content"
+        v-if="props.isStreaming && (props.messageType === 'html' || !props.content)"
         class="skeleton-card"
         :style="{ backgroundImage: `url(${generateImgGif})` }"
       ></div>
@@ -16,10 +16,40 @@
       >
         <span v-html="displayedContent"></span><span v-if="props.enableTypewriter" class="typing-cursor">|</span>
       </div>
+      <div
+        v-else-if="props.messageType === 'html'"
+        class="html-card"
+        role="button"
+        tabindex="0"
+        @click.stop="openHtmlDialog"
+      >
+        <div class="html-card-title">HTML</div>
+      </div>
       <div v-else class="typewriter-content" :ref="(el) => setTypewriterContentRef(el)">
         <span v-html="displayedContent"></span><span v-if="isTyping" class="typing-cursor">|</span>
       </div>
     </div>
+
+    <Dialog
+      v-if="props.messageType === 'html'"
+      ref="htmlDialogRef"
+      title="HTML 预览"
+      :confirmButtonText="'关闭'"
+      :cancelButtonText="'关闭'"
+      @confirm="closeHtmlDialog"
+      @cancel="closeHtmlDialog"
+    >
+      <div class="html-dialog-body">
+        <iframe
+          class="html-dialog-iframe"
+          :src="props.content"
+          title="html"
+          loading="lazy"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          referrerpolicy="no-referrer"
+        ></iframe>
+      </div>
+    </Dialog>
   </div>
 </template>
 
@@ -29,6 +59,7 @@ import { streamingManager } from '../../config/streaming'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 import generateImgGif from '/icons/generateImg.gif'
+import Dialog from '../base/Dialog.vue'
 
 // 导入类型定义
 import type { StreamingMessageProps } from '../../types'
@@ -59,8 +90,18 @@ let typingTimer: ReturnType<typeof setTimeout> | null = null
 const streamingContentRef = ref<HTMLElement>()
 const typewriterContentRef = ref<HTMLElement>()
 
+const htmlDialogRef = ref<InstanceType<typeof Dialog>>()
+
 // 使用公共的 markdown 渲染器
 const { renderMessageContent } = useMessageRenderer()
+
+const openHtmlDialog = () => {
+  htmlDialogRef.value?.openDialog()
+}
+
+const closeHtmlDialog = () => {
+  htmlDialogRef.value?.closeDialog()
+}
 
 // 计算显示的内容（用于打字机效果，流式与非流式统一使用 displayedLength 控制）
 const displayedContent = computed(() => {
@@ -305,6 +346,43 @@ const setTypewriterContentRef = (el: any) => {
   background-size: cover;
   position: relative;
   overflow: hidden;
+}
+
+.html-card {
+  width: 128px;
+  height: 128px;
+  border-radius: 12px;
+  background: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.html-card-title {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.html-card:hover {
+  filter: brightness(1.05);
+}
+
+.html-dialog-body {
+  width: 80vw;
+  max-width: 1000px;
+  height: 70vh;
+  max-height: 720px;
+}
+
+.html-dialog-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
 }
 
 

@@ -702,7 +702,21 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 在 sendMessage 作用域内维护一份本地累积内容，仅用于 UI 展示
       let accumulatedContent = ''
 
+      let isHtmlMode = false
+
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
+
+      const wrappedOnHistoryUpdate = (history: any, agentStatus?: string) => {
+        if (agentStatus === 'general_html') {
+          isHtmlMode = true
+          updateMessage(tempReplyId, {
+            messageType: 'html',
+            isStreaming: true,
+          })
+        }
+
+        ;(onHistoryUpdate as any)?.(history, agentStatus)
+      }
 
       const wrappedOnStream = (chunk: string, isComplete: boolean) => {
         if (isComplete) {
@@ -714,6 +728,10 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         if (!chunk) {
           updateMessage(tempReplyId, { isStreaming: true })
           return
+        }
+
+        if (isHtmlMode) {
+          updateMessage(tempReplyId, { messageType: 'html' })
         }
 
         accumulatedContent += chunk
@@ -732,7 +750,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
       }
 
-      const response = await apiService.sendChatMessage(aiMessage, wrappedOnComplete, wrappedOnStream, onHistoryUpdate)
+      const response = await apiService.sendChatMessage(
+        aiMessage,
+        wrappedOnComplete,
+        wrappedOnStream,
+        wrappedOnHistoryUpdate as any,
+      )
       
       // 处理响应（如果轮询已完成，这里response已经是最终结果）
       // 注意：由于使用了回调，这里主要是确保没有错误

@@ -49,6 +49,7 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
         const old = messages.value[index]
         messages.value[index] = {
           ...tempReply,
+          messageType: old.messageType,
           content: finalResponse?.reply || accumulatedContent || '回复失败',
           isStreaming: false,
           messageId: finalResponse?.messageId,

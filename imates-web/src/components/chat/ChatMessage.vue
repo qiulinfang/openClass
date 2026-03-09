@@ -118,7 +118,7 @@
                       </div>
                     </div>
                   </div>
-                  <!-- AI 消息：始终使用 StreamingMessage 组件，支持打字机效果 -->
+                  <!-- AI 消息：始终使用 StreamingMessage 组件，内部根据 messageType 决定渲染模式 -->
                   <div
                     v-else-if="message.sender === 'ai' || message.sender === 'teacher'"
                     v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }"
@@ -126,6 +126,7 @@
                     <StreamingMessage
                       :content="message.content"
                       :is-streaming="message.isStreaming"
+                      :message-type="message.messageType === 'html' ? 'html' : 'text'"
                       :typewriter-speed="30"
                       :enable-typewriter="false"
                       :ref="(el) => setStreamingRef(el)"
@@ -234,13 +235,26 @@
                   :messages="message.chatRecordData.messages"
                   :additional-message="message.chatRecordData.additionalMessage"
                 />
+                <div
+                  v-else-if="message.messageType === 'html'"
+                  v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }"
+                >
+                  <StreamingMessage
+                    :content="message.content"
+                    :is-streaming="message.isStreaming"
+                    :message-type="'html'"
+                    :typewriter-speed="30"
+                    :enable-typewriter="false"
+                    :ref="(el) => setStreamingRef(el)"
+                  />
+                </div>
                 <!-- 文本消息 -->
                 <div
                   v-else
                   class="message-text"
                   v-html="renderedContent"
                   v-paste-to-draft="{ onPaste: handlePasteToDraft, enabled: isPasteToDraftEnabled }"
-                  :ref="(el) => setLazyMessageRef(el as HTMLElement | null)"
+                  :ref="(el) => setLazyMessageRef(el)"
                 ></div>
               </div>
             </template>
@@ -529,8 +543,9 @@ const handleRetry = async () => {
   }
 }
 
-const setLazyMessageRef = (el: HTMLElement | null) => {
-  setMessageRef(el, messageElementRef)
+const setLazyMessageRef = (el: unknown) => {
+  const safeEl = el instanceof HTMLElement ? el : null
+  setMessageRef(safeEl, messageElementRef)
 }
 
 // 判断是否可以转发 - 已移除，避免误发送单个消息给老师
