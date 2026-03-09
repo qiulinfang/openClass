@@ -769,15 +769,12 @@ export class TextbookDownloadApi {
         // 不使用 textbookId，避免同 textbookId 多版本时拿错本地记录导致误判。
         const localTextbook = localTextbooks.find((t: UserTextbookInfo) => t.id === serverTextbook.id)
 
-        if (!localTextbook) {
-          console.warn('[TextbookDownloadApi.checkForUpdates] 本地未找到对应教材版本记录（按 serverId 匹配失败）', {
-            textbookId: serverTextbook.textbookId,
-            serverId: serverTextbook.id,
-            textbookName: serverTextbook.textbookName,
-          })
+        // 只对已下载的教材进行更新检查
+        if (!localTextbook || !localTextbook.isDownloaded) {
+          continue
         }
 
-        // 检查是否需要更新
+        // 检查是否需要更新（仅对已下载的教材）
         const needsUpdate = await this.checkTextbookUpdate(serverTextbook, localTextbook)
 
         if (needsUpdate) {

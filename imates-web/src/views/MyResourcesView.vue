@@ -508,35 +508,6 @@ const getDownloadProgress = (downloadedFiles: number, totalFiles: number): numbe
   return Math.round((downloadedFiles / totalFiles) * 100)
 }
 
-const logTextbookIdChange = (
-  scene: string,
-  payload: {
-    oldId: unknown
-    newId: unknown
-    source: string
-    reason: string
-    textbookId?: unknown
-    textbookName?: unknown
-    localId?: unknown
-    serverId?: unknown
-  }
-) => {
-  const oldId = payload.oldId == null ? '' : String(payload.oldId)
-  const newId = payload.newId == null ? '' : String(payload.newId)
-  if (oldId === newId) return
-  console.warn('[MyResourcesView][TextbookIdChanged]', {
-    scene,
-    oldId,
-    newId,
-    source: payload.source,
-    reason: payload.reason,
-    textbookId: payload.textbookId,
-    textbookName: payload.textbookName,
-    localId: payload.localId,
-    serverId: payload.serverId,
-    ts: Date.now(),
-  })
-}
 
 // 处理筛选变化：目前所有筛选逻辑都在 filteredTextbooks 的 computed 中，这里留作扩展占位
 const handleFilterChange = () => {
@@ -569,34 +540,19 @@ const mergeServerAndLocalData = (
 
   // 1. 先添加所有去重后的服务器教材
   uniqueServerTextbooks.forEach((serverTextbook) => {
-    // 查找对应的本地教材（通过textbookId匹配）
+    // 查找对应的本地教材
     const localTextbook = localTextbooks.find(
-      (local) => local.textbookId === serverTextbook.textbookId
+      (local) => local.id === serverTextbook.id
     )
 
     if (localTextbook) {
-      const mergedId = localTextbook.id || serverTextbook.id || serverTextbook.textbookId
-      logTextbookIdChange('mergeServerAndLocalData.localExists', {
-        oldId: localTextbook.id,
-        newId: mergedId,
-        source: 'mergeServerAndLocalData',
-        reason:
-          '合并服务器数据与本地数据时，为确保写回IndexedDB仍使用本地记录主键，按 local.id -> server.id -> textbookId 兜底选择',
-        textbookId: serverTextbook.textbookId,
-        textbookName: serverTextbook.textbookName,
-        localId: localTextbook.id,
-        serverId: serverTextbook.id,
-      })
-
-      // 🔥 优化：先解构本地数据，再解构服务器数据，避免属性丢失
+      // 优化：先解构本地数据，再解构服务器数据，避免属性丢失
       const mergedTextbook: UserTextbookInfo = {
         // 先解构本地数据，保留本地状态和进度信息
         ...localTextbook,
         // 再解构服务器数据，更新服务器的最新信息（会覆盖本地的旧信息）
         ...serverTextbook,
-        // 🔥 合并后写回 IndexedDB 时必须保留本地记录主键，否则会写成“新记录”导致看起来本地数据被清空
-        id: mergedId,
-        // 🔥 显式保留本地下载相关字段，避免下拉刷新时被服务端空字段覆盖并写回数据库
+        // 显式保留本地下载相关字段，避免下拉刷新时被服务端空字段覆盖并写回数据库
         localFiles: localTextbook.localFiles || [],
         structure: localTextbook.structure || [],
         learningPackages: localTextbook.learningPackages || [],
@@ -615,16 +571,6 @@ const mergeServerAndLocalData = (
       mergedTextbooks.push(mergedTextbook)
     } else {
       const mergedId = serverTextbook.id || serverTextbook.textbookId
-      logTextbookIdChange('mergeServerAndLocalData.serverOnly', {
-        oldId: undefined,
-        newId: mergedId,
-        source: 'mergeServerAndLocalData',
-        reason:
-          '服务器新教材添加到本地列表时，为确保可作为主键使用，按 server.id -> textbookId 兜底设置',
-        textbookId: serverTextbook.textbookId,
-        textbookName: serverTextbook.textbookName,
-        serverId: serverTextbook.id,
-      })
 
       // 服务器新教材，添加到列表
       mergedTextbooks.push({
@@ -958,15 +904,6 @@ const assignReactive = (
     getLocalResourceFileName: textbook.getLocalResourceFileName,
   })
 
-  logTextbookIdChange(scene, {
-    oldId,
-    newId: (textbook as any)?.id,
-    source,
-    reason,
-    textbookId: (textbook as any)?.textbookId,
-    textbookName: (textbook as any)?.textbookName,
-    serverId: (record as any)?.id,
-  })
 }
 
 const cacheChapterStructure = async (
