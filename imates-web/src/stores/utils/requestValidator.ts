@@ -53,7 +53,7 @@ export function validateExerciseChatRequest(
   validateCommonFields(message, context)
   
   // 2. 判断是否是截图场景
-  const screenshotUrl = '/ai/2.0/previewPictureQA'
+  const screenshotUrl = getApiPaths().xueban.ai.previewPictureQA
   const isScreenshotApi = message.dstUrl === screenshotUrl
   
   // 3. 校验题目场景特有的必填字段
@@ -140,7 +140,7 @@ export function validateTextbookChatRequest(
   validateCommonFields(message, context)
   
   // 2. 判断是否是截图场景
-  const screenshotUrl = '/ai/2.0/previewPictureQA'
+  const screenshotUrl = getApiPaths().xueban.ai.previewPictureQA
   const isScreenshotApi = message.dstUrl === screenshotUrl
   
   // 3. 教材场景特有字段（相对宽松）
@@ -179,7 +179,7 @@ export function validateGeneralChatRequest(
   validateCommonFields(message, context)
   
   // 2. 判断是否是截图场景
-  const screenshotUrl = '/ai/2.0/previewPictureQA'
+  const screenshotUrl = getApiPaths().xueban.ai.previewPictureQA
   const isScreenshotApi = message.dstUrl === screenshotUrl
   
   // 3. 通用对话场景特有字段

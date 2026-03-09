@@ -54,7 +54,7 @@ const buildAiGeneralMessage = (
     }
   }
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
-  const dstUrl = useScreenshotApi ? '/ai/2.0/previewPictureQA' : '/ai/2.0/chats'
+  const dstUrl = useScreenshotApi ? getApiPaths().xueban.ai.previewPictureQA : getApiPaths().xueban.ai.chats
   
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,

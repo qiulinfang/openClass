@@ -190,7 +190,11 @@ export class AuthService {
    * 根据接口路径清除对应的 token
    */
   private async clearTokenByPath(url: string): Promise<void> {
-    if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
+    if (
+      url.startsWith(getApiPaths().xueban.permission.base) ||
+      url.startsWith(getApiPaths().xueban.admin.info) ||
+      url.startsWith(getApiPaths().xueban.biologyTopicKnowledge.base)
+    ) {
       // 学班管理员相关接口：清除 XUEBAN_TOKEN
       setXuebanToken(null)
     } else if (url.startsWith('/blw-edu-yb') || url.startsWith('/yb-test/blw-edu-yb')) {
@@ -233,9 +237,9 @@ export class AuthService {
 
         return success
       } else if (
-        url.startsWith('/permission') ||
-        url.startsWith('/admin/info') ||
-        url.startsWith('/biologyTopicKnowledge')
+        url.startsWith(getApiPaths().xueban.permission.base) ||
+        url.startsWith(getApiPaths().xueban.admin.info) ||
+        url.startsWith(getApiPaths().xueban.biologyTopicKnowledge.base)
       ) {
         // 学班管理员相关接口：使用学班登录
         try {
@@ -310,7 +314,7 @@ export class AuthService {
    * @returns Promise<string> 返回token
    */
   public async loginXueban(account: string, password: string): Promise<string> {
-    const response = await httpClient.post<XuebanLoginResponse>('/admin/login', {
+    const response = await httpClient.post<XuebanLoginResponse>(getApiPaths().xueban.admin.login, {
       account,
       password,
     })
@@ -349,7 +353,7 @@ export class AuthService {
       success: boolean
       message: string
       data: UserInfo
-    }>(`/admin/info?token=${token}`)
+    }>(`${getApiPaths().xueban.admin.info}?token=${token}`)
 
     if (!response.success || !response.data) {
       throw new Error(response.message || '获取用户信息失败')

@@ -134,7 +134,7 @@ const buildAiTextbookMessage = ({
       subject,
       sectionName: sectionName || undefined,
       chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
-      dstUrl: '/ai/2.0/previewPictureQA',
+      dstUrl: getApiPaths().xueban.ai.previewPictureQA,
       explanation: '', // 教材场景占位
       imageList,
     }
@@ -145,7 +145,7 @@ const buildAiTextbookMessage = ({
     return request
   }
 
-  const dstUrl = useScreenshotApi ? '/ai/2.0/previewPictureQA' : '/ai/2.0/chats'
+  const dstUrl = useScreenshotApi ? getApiPaths().xueban.ai.previewPictureQA : getApiPaths().xueban.ai.chats
 
   const request: AiChatMessageRequest = {
     sessionId,

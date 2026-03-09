@@ -15,10 +15,42 @@ export interface ApiPaths {
   resource: ResourceApiPaths
   teacher: TeacherApiPaths
   textbook: TextbookApiPaths
+  xueban: XuebanApiPaths
   homework: {
     undoList: string
     detailList: string
     submitSave: string
+  }
+}
+
+export interface XuebanApiPaths {
+  admin: {
+    base: string
+    login: string
+    info: string
+  }
+  permission: {
+    base: string
+    deleteExercisesBase: string
+    exercises: string
+    img: string
+    imgMath: string
+    textSearchBase: string
+    textSearchMathBase: string
+    topicAndAck: string
+    selectExercisesBase: string
+  }
+  ai: {
+    base: string
+    chats: string
+    previewPictureQA: string
+    chatMath: string
+    chat: string
+  }
+  biologyTopicKnowledge: {
+    base: string
+    knowledgeTopicAndAck: string
+    knowledgeTopicAndAck2: string
   }
 }
 
@@ -213,6 +245,36 @@ export function getApiPaths(): ApiPaths {
       resource: {
         base: '/yb-test/resource',
       },
+      xueban: {
+        admin: {
+          base: '/xb-test/admin',
+          login: '/xb-test/admin/login',
+          info: '/xb-test/admin/info',
+        },
+        permission: {
+          base: '/xb-test/permission',
+          deleteExercisesBase: '/xb-test/permission/deleteExercises',
+          exercises: '/xb-test/permission/exercises',
+          img: '/xb-test/permission/img',
+          imgMath: '/xb-test/permission/imgMath',
+          textSearchBase: '/xb-test/permission/textSearch',
+          textSearchMathBase: '/xb-test/permission/textSearchMath',
+          topicAndAck: '/xb-test/permission/topicAndAck',
+          selectExercisesBase: '/xb-test/permission/selectExercises',
+        },
+        ai: {
+          base: '/xb-test/ai',
+          chats: '/xb-test/ai/2.0/chats',
+          previewPictureQA: '/xb-test/ai/2.0/previewPictureQA',
+          chatMath: '/xb-test/ai/2.0/chatMath',
+          chat: '/xb-test/ai/2.0/chat',
+        },
+        biologyTopicKnowledge: {
+          base: '/xb-test/biologyTopicKnowledge',
+          knowledgeTopicAndAck: '/xb-test/biologyTopicKnowledge/knowledgeTopicAndAck',
+          knowledgeTopicAndAck2: '/xb-test/biologyTopicKnowledge/knowledgeTopicAndAck2',
+        },
+      },
       homework: {
         undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
         detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
@@ -238,6 +300,36 @@ export function getApiPaths(): ApiPaths {
     },
     resource: {
       base: '/resource',
+    },
+    xueban: {
+      admin: {
+        base: '/admin',
+        login: '/admin/login',
+        info: '/admin/info',
+      },
+      permission: {
+        base: '/permission',
+        deleteExercisesBase: '/permission/deleteExercises',
+        exercises: '/permission/exercises',
+        img: '/permission/img',
+        imgMath: '/permission/imgMath',
+        textSearchBase: '/permission/textSearch',
+        textSearchMathBase: '/permission/textSearchMath',
+        topicAndAck: '/permission/topicAndAck',
+        selectExercisesBase: '/permission/selectExercises',
+      },
+      ai: {
+        base: '/ai',
+        chats: '/ai/2.0/chats',
+        previewPictureQA: '/ai/2.0/previewPictureQA',
+        chatMath: '/ai/2.0/chatMath',
+        chat: '/ai/2.0/chat',
+      },
+      biologyTopicKnowledge: {
+        base: '/biologyTopicKnowledge',
+        knowledgeTopicAndAck: '/biologyTopicKnowledge/knowledgeTopicAndAck',
+        knowledgeTopicAndAck2: '/biologyTopicKnowledge/knowledgeTopicAndAck2',
+      },
     },
     homework: {
       undoList: '/blw-edu-yb/homework/homeworkPage',
@@ -309,6 +401,8 @@ export function getRouteBaseMap(): Record<string, string> {
     '/resource': resourceBaseUrl,
     '/yb-test/resource': resourceBaseUrl,
     '/img': yanbanBaseUrl,
+    // 学班测试环境 Nginx 前缀（/xb-test/...）
+    '/xb-test': ADDRESS_CATALOG.IMATES_HTTP,
     // 知识点查询服务
     '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,
     '/appupdate_test.json': ADDRESS_CATALOG.IMATES_HTTP,

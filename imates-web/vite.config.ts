@@ -98,6 +98,14 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/yb-test')
           },
         },
+        '/xb-test': {
+          target: 'https://www.imates.com.cn',
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/xb-test')
+          },
+        },
         '/blw-edu-yb/api': {
           target: RESOURCE_FILE_BASE,
           changeOrigin: true,

@@ -2,6 +2,8 @@
  * 科目相关常量定义
  */
 
+import { getApiPaths } from '@/config/env-config'
+
 // 支持的学科列表
 export const SUPPORTED_SUBJECTS = ['math', 'biology', 'chemistry', 'physics', 'chinese', 'english'] as const
 
@@ -159,13 +161,13 @@ export const SUBJECT_ID_TO_API_SUBJECT: Record<string, ApiSubjectType> = {
 }
 
 export const SUBJECT_TO_EXERCISE_LIST_ENDPOINT: Record<ApiSubjectType, string> = {
-  math: '/permission/selectExercises/math',
-  biology: '/permission/selectExercises/biology',
-  chemistry: '/permission/selectExercises/chemistry',
-  physics: '/permission/selectExercises/physics',
-  chinese: '/permission/selectExercises/chinese',
-  english: '/permission/selectExercises/english',
-  geography: '/permission/selectExercises/geography',
-  history: '/permission/selectExercises/history',
-  politics: '/permission/selectExercises/politics',
+  math: `${getApiPaths().xueban.permission.selectExercisesBase}/math`,
+  biology: `${getApiPaths().xueban.permission.selectExercisesBase}/biology`,
+  chemistry: `${getApiPaths().xueban.permission.selectExercisesBase}/chemistry`,
+  physics: `${getApiPaths().xueban.permission.selectExercisesBase}/physics`,
+  chinese: `${getApiPaths().xueban.permission.selectExercisesBase}/chinese`,
+  english: `${getApiPaths().xueban.permission.selectExercisesBase}/english`,
+  geography: `${getApiPaths().xueban.permission.selectExercisesBase}/geography`,
+  history: `${getApiPaths().xueban.permission.selectExercisesBase}/history`,
+  politics: `${getApiPaths().xueban.permission.selectExercisesBase}/politics`,
 }

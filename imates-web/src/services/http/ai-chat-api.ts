@@ -198,7 +198,7 @@ export class AiChatApi {
     }
 
     // 非流式（单帧）结束：教材截图接口
-    if (message.dstUrl === '/ai/2.0/previewPictureQA' && !raw.includes('data:')) {
+    if (message.dstUrl === getApiPaths().xueban.ai.previewPictureQA && !raw.includes('data:')) {
       // 尝试提取拼接的 JSON 消息（例如：{...}{...}）
       const normalizedChunk = this.extractMessageFromConcatenatedJson(raw) ?? raw
 

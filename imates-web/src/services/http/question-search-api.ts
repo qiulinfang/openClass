@@ -2,6 +2,7 @@ import { httpClient } from '../http/http-client'
 import type { FindSimilarQuestionByBmNoRequest } from '@/types'
 import { validateKnowledgeTopicAndAck2Request } from '@/stores/utils/requestValidator'
 import { normalizeSubject, SUBJECT_TO_EXERCISE_LIST_ENDPOINT, type ApiSubjectType } from '@/constants/subjects'
+import { getApiPaths } from '@/config/env-config'
 
 export class QuestionSearchApi {
   public async getExerciseList(subject: string): Promise<any[]> {
@@ -27,13 +28,13 @@ export class QuestionSearchApi {
 
   public async deleteExercise(exerciseId: string, subject: string): Promise<boolean> {
     const subjectLower = normalizeSubject(subject).toLowerCase()
-    const url = `/permission/deleteExercises/${exerciseId}/${subjectLower}`
+    const url = `${getApiPaths().xueban.permission.deleteExercisesBase}/${exerciseId}/${subjectLower}`
     const response = await httpClient.delete(url)
     return response.success
   }
 
   public async addQuestionToList(questionData: any, subject: string): Promise<boolean> {
-    const url = '/permission/exercises'
+    const url = getApiPaths().xueban.permission.exercises
 
     const requestBody = {
       bmNo: questionData.bmNo || questionData.id,
@@ -50,7 +51,10 @@ export class QuestionSearchApi {
   }
 
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
-    const endpoint = normalizeSubject(subject).toLowerCase() === 'biology' ? '/permission/img' : '/permission/imgMath'
+    const endpoint =
+      normalizeSubject(subject).toLowerCase() === 'biology'
+        ? getApiPaths().xueban.permission.img
+        : getApiPaths().xueban.permission.imgMath
 
     const formData = new FormData()
     formData.append('imgFile', imageFile, 'default.jpg')
@@ -91,8 +95,11 @@ export class QuestionSearchApi {
   }
 
   public async searchQuestionByText(keyText: string, subject: string): Promise<any | null> {
-    const endpoint = normalizeSubject(subject).toLowerCase() === 'biology' ? '/permission/textSearch' : '/permission/textSearchMath'
-    const url = `${endpoint}/${encodeURIComponent(keyText)}`
+    const endpointBase =
+      normalizeSubject(subject).toLowerCase() === 'biology'
+        ? getApiPaths().xueban.permission.textSearchBase
+        : getApiPaths().xueban.permission.textSearchMathBase
+    const url = `${endpointBase}/${encodeURIComponent(keyText)}`
 
     const response = await httpClient.get<{
       success: boolean
@@ -130,7 +137,7 @@ export class QuestionSearchApi {
   }
 
   public async findSimilarQuestions(questionData: any, subject: string): Promise<any[]> {
-    const url = '/permission/topicAndAck'
+    const url = getApiPaths().xueban.permission.topicAndAck
 
     const requestBody = {
       bmNo: questionData.bmNo || questionData.id,
@@ -201,7 +208,7 @@ export class QuestionSearchApi {
     currentPage: number
     pageSize: number
   }> {
-    const url = '/biologyTopicKnowledge/knowledgeTopicAndAck'
+    const url = getApiPaths().xueban.biologyTopicKnowledge.knowledgeTopicAndAck
 
     const response = await httpClient.post<{
       success: boolean
@@ -237,7 +244,7 @@ export class QuestionSearchApi {
     currentPage: number
     pageSize: number
   }> {
-    const url = '/biologyTopicKnowledge/knowledgeTopicAndAck2'
+    const url = getApiPaths().xueban.biologyTopicKnowledge.knowledgeTopicAndAck2
 
     // 后端入参 TopicVO：目前核心只需要 bmNoList（必填）+ exercisesId（字段存在但实现里可能未使用）
     const requestBody: any = {

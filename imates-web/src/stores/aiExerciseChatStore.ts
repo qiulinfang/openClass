@@ -72,7 +72,7 @@ const buildAiExerciseMessage = (
       isWebSearch: enableWebSearch ? '1' : '0',
       role: selectedModel,
       subject: subject,
-      dstUrl: '/ai/2.0/previewPictureQA',
+      dstUrl: getApiPaths().xueban.ai.previewPictureQA,
       explanation: currentQuestion.explanation || '',
     }
     
@@ -83,7 +83,8 @@ const buildAiExerciseMessage = (
   } else {
     // 根据题目学科确定API路径，而不是全局用户学科设置
     const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
-    const apiUrl = effectiveApiSubject === 'math' ? '/ai/2.0/chatMath' : '/ai/2.0/chat'
+    const apiUrl =
+      effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
 
     // 普通文本消息
     const request: AiChatMessageRequest = {

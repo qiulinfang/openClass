@@ -1,8 +1,33 @@
 <template>
   <Teleport to="body">
     <!-- 全屏遮罩：点击遮罩空白区域时关闭面板 -->
-    <div v-show="!props.screenshotFlowVisible" class="main-chat-overlay" @click.self="emit('close')">
-      <div class="main-chat-panel" @click.stop>
+    <div 
+      v-show="!props.screenshotFlowVisible" 
+      class="main-chat-overlay" 
+      @click.self="emit('close')"
+      @pointermove="handleResize"
+      @pointerup="stopResize"
+      @pointercancel="stopResize"
+      @mousemove="handleResizeMouse"
+      @mouseup="stopResizeMouse"
+      @touchmove="handleResizeTouch"
+      @touchend="stopResizeTouch"
+      @touchcancel="stopResizeTouch"
+    >
+      <div
+        class="main-chat-panel"
+        :class="{ resizing: isResizing }"
+        @click.stop
+        :style="{ width: panelWidth + 'px' }"
+      >
+        <!-- 拖拽手柄 -->
+        <div 
+          class="resize-handle"
+          @pointerdown="startResize"
+          @mousedown.prevent="startResizeMouse"
+          @touchstart.prevent="startResizeTouch"
+          :class="{ 'resizing': isResizing }"
+        ></div>
         <!-- 头部：Tab + 关闭按钮 -->
         <div class="chat-panel-header">
           <!-- Tab -->
@@ -122,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -174,6 +199,206 @@ const entry = computed(() => props.entry)
 
 // 是否为开发模式
 const isDev = computed(() => import.meta.env.DEV)
+
+// 拖拽调整宽度相关状态
+const panelWidth = ref(460) // 初始宽度（像素）
+const isResizing = ref(false)
+const startX = ref(0)
+const startWidth = ref(0)
+const resizingPointerId = ref<number | null>(null)
+
+const rafId = ref<number | null>(null)
+const pendingWidth = ref<number | null>(null)
+
+const clampWidth = (w: number) => Math.max(300, Math.min(800, w))
+
+const scheduleWidthUpdate = (nextWidth: number) => {
+  pendingWidth.value = clampWidth(nextWidth)
+  if (rafId.value !== null) return
+
+  rafId.value = window.requestAnimationFrame(() => {
+    rafId.value = null
+    if (pendingWidth.value === null) return
+    panelWidth.value = pendingWidth.value
+    pendingWidth.value = null
+  })
+}
+
+const startResizeMouse = (e: MouseEvent) => {
+  // 避免右键等触发
+  if (e.button !== 0) return
+
+  isResizing.value = true
+  resizingPointerId.value = null
+  startX.value = e.clientX
+  startWidth.value = panelWidth.value
+
+  console.log('[MainChatPanel][Resize] mousedown start', {
+    startX: startX.value,
+    startWidth: startWidth.value,
+  })
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+// 触摸事件开始
+const startResizeTouch = (e: TouchEvent) => {
+  if (!e.touches || e.touches.length === 0) return
+  
+  isResizing.value = true
+  resizingPointerId.value = null
+  startX.value = e.touches[0].clientX
+  startWidth.value = panelWidth.value
+
+  console.log('[MainChatPanel][Resize] touchstart start', {
+    startX: startX.value,
+    startWidth: startWidth.value,
+    touchCount: e.touches.length,
+  })
+  
+  // 防止页面滚动
+  e.preventDefault()
+}
+
+// 拖拽开始
+const startResize = (e: PointerEvent) => {
+  // 只响应主按键（鼠标左键），触摸/触控板会忽略 button 限制
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+
+  isResizing.value = true
+  resizingPointerId.value = e.pointerId
+  startX.value = e.clientX
+  startWidth.value = panelWidth.value
+
+  console.log('[MainChatPanel][Resize] pointerdown start', {
+    pointerType: e.pointerType,
+    pointerId: e.pointerId,
+    startX: startX.value,
+    startWidth: startWidth.value,
+  })
+
+  // 捕获指针，避免拖拽过程中指针移出手柄后事件丢失（部分 WebView/触摸场景会出现）
+  try {
+    ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
+  } catch {
+    // ignore
+  }
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  e.preventDefault()
+}
+
+// 拖拽中
+const handleResize = (e: PointerEvent) => {
+  if (!isResizing.value) return
+  if (resizingPointerId.value !== null && e.pointerId !== resizingPointerId.value) return
+  
+  const deltaX = startX.value - e.clientX // 向左拖动为正值，增加宽度
+  const newWidth = startWidth.value + deltaX
+  scheduleWidthUpdate(newWidth)
+}
+
+const handleResizeMouse = (e: MouseEvent) => {
+  if (!isResizing.value) return
+  const deltaX = startX.value - e.clientX // 向左拖动为正值，增加宽度
+  const newWidth = startWidth.value + deltaX
+  scheduleWidthUpdate(newWidth)
+}
+
+// 触摸拖拽中
+const handleResizeTouch = (e: TouchEvent) => {
+  if (!isResizing.value || !e.touches || e.touches.length === 0) return
+  
+  const deltaX = startX.value - e.touches[0].clientX // 向左拖动为正值，增加宽度
+  const newWidth = startWidth.value + deltaX
+  scheduleWidthUpdate(newWidth)
+  
+  // 防止页面滚动
+  e.preventDefault()
+}
+
+// 拖拽结束
+const stopResize = (e?: PointerEvent) => {
+  if (e && resizingPointerId.value !== null && e.pointerId !== resizingPointerId.value) return
+
+  isResizing.value = false
+  resizingPointerId.value = null
+
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+
+  if (rafId.value !== null) {
+    window.cancelAnimationFrame(rafId.value)
+    rafId.value = null
+  }
+
+  if (pendingWidth.value !== null) {
+    panelWidth.value = pendingWidth.value
+    pendingWidth.value = null
+  }
+  
+  // 保存宽度到 localStorage
+  localStorage.setItem('main-chat-panel-width', panelWidth.value.toString())
+}
+
+const stopResizeMouse = () => {
+  isResizing.value = false
+
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+
+  if (rafId.value !== null) {
+    window.cancelAnimationFrame(rafId.value)
+    rafId.value = null
+  }
+
+  if (pendingWidth.value !== null) {
+    panelWidth.value = pendingWidth.value
+    pendingWidth.value = null
+  }
+
+  localStorage.setItem('main-chat-panel-width', panelWidth.value.toString())
+}
+
+// 触摸拖拽结束
+const stopResizeTouch = () => {
+  isResizing.value = false
+
+  if (rafId.value !== null) {
+    window.cancelAnimationFrame(rafId.value)
+    rafId.value = null
+  }
+
+  if (pendingWidth.value !== null) {
+    panelWidth.value = pendingWidth.value
+    pendingWidth.value = null
+  }
+
+  localStorage.setItem('main-chat-panel-width', panelWidth.value.toString())
+}
+
+// 组件卸载时清理事件监听
+onBeforeUnmount(() => {
+  if (rafId.value !== null) {
+    window.cancelAnimationFrame(rafId.value)
+    rafId.value = null
+  }
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+})
+
+// 组件挂载时恢复保存的宽度
+onMounted(() => {
+  const savedWidth = localStorage.getItem('main-chat-panel-width')
+  if (savedWidth) {
+    const width = parseInt(savedWidth, 10)
+    if (width >= 300 && width <= 800) {
+      panelWidth.value = width
+    }
+  }
+})
 
 // 同步逻辑：当需要切换到老师分类时，若还没有当前老师会话，则默认选中第一个老师会话
 const ensureTeacherSessionSelected = () => {
@@ -448,13 +673,59 @@ defineExpose({
   right: 0;
   top: 0;
   height: 100vh;
-  width: 460px;
+  width: 460px; /* 默认宽度，会被动态覆盖 */
   background-color: #ffffff;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
+  transition: width 0.1s ease-out; /* 非拖拽时保留平滑过渡 */
   /* 为绝对定位的形态切换按钮提供定位上下文 */
   overflow: visible;
+}
+
+/* 在主面板上绘制 seekbar 效果 */
+.main-chat-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 100%;
+  pointer-events: none;
+  transform: translateX(-5px);
+  background-image: url('/icons/seekbar.svg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.main-chat-panel:hover::before {
+  opacity: 1;
+  transform: translateX(-5px) scale(1.1);
+}
+
+.main-chat-panel.resizing::before {
+  opacity: 1;
+  transform: translateX(-5px) scale(1.2);
+}
+
+.main-chat-panel.resizing {
+  transition: none;
+}
+
+.resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  touch-action: none;
+  pointer-events: auto;
 }
 
 .chat-panel-header {

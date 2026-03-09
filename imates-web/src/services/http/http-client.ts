@@ -73,7 +73,16 @@ export class HttpClient {
       return value
     }
 
-    if (url.startsWith('/permission') || url.startsWith('/ai') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
+    if (
+      url.startsWith('/permission') ||
+      url.startsWith('/ai') ||
+      url.startsWith('/admin/info') ||
+      url.startsWith('/biologyTopicKnowledge') ||
+      url.startsWith('/xb-test/permission') ||
+      url.startsWith('/xb-test/ai') ||
+      url.startsWith('/xb-test/admin/info') ||
+      url.startsWith('/xb-test/biologyTopicKnowledge')
+    ) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
       selectedToken = sanitize(localStorage.getItem('XUEBAN_TOKEN'))
     } else if (
