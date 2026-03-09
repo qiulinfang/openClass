@@ -27,10 +27,9 @@
       
       <!-- 加载状态 -->
       <div v-if="isLoading" class="loading-overlay">
-        <div class="loading-state text-center q-pa-xl">
-          <q-spinner-dots size="50px" color="primary" />
-          <div class="q-mt-md">正在加载视频...</div>
-          <div class="q-mt-sm text-caption">请稍候</div>
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <span>正在加载...</span>
         </div>
       </div>
       
@@ -74,6 +73,33 @@ const error = ref<string | null>(null)
 const videoUrl = ref<string | null>(null)
 const fileName = ref('')
 const videoPlayer = ref<HTMLVideoElement | null>(null)
+
+let isDisposed = false
+
+const cleanupVideoResources = () => {
+  const el = videoPlayer.value
+  try {
+    if (el) {
+      // 停止解码/下载，释放媒体管线资源
+      el.pause()
+      el.removeAttribute('src')
+      // 触发浏览器丢弃当前媒体资源
+      el.load()
+    }
+  } catch (e) {
+    console.warn('[VideoViewer] cleanup video element failed', e)
+  }
+
+  if (videoUrl.value) {
+    const oldUrl = videoUrl.value
+    videoUrl.value = null
+    try {
+      URL.revokeObjectURL(oldUrl)
+    } catch (e) {
+      console.warn('[VideoViewer] revokeObjectURL failed', e)
+    }
+  }
+}
 
 // 处理返回
 const handleGoBack = () => {
@@ -209,7 +235,14 @@ const loadFileFromRoute = async () => {
     }
 
     // 4. 将 Uint8Array 转换为 Blob URL
-    const blob = new Blob([fileData.buffer as ArrayBuffer], { type: 'video/mp4' })
+    // 注意：
+    // - 不要直接用 fileData.buffer（可能包含更大底层 buffer，带来额外内存压力）
+    // - 也不要直接把 Uint8Array 传给 Blob（在部分 TS 配置下会因为 ArrayBufferLike/SharedArrayBuffer 报类型错误）
+    // 这里取有效字节范围的 ArrayBuffer 切片。
+    const sliced = fileData.buffer.slice(fileData.byteOffset, fileData.byteOffset + fileData.byteLength)
+    const slicedArrayBuffer =
+      sliced instanceof ArrayBuffer ? sliced : new Uint8Array(sliced).slice().buffer
+    const blob = new Blob([slicedArrayBuffer], { type: 'video/mp4' })
     console.log('[VideoViewer] create Blob', {
       blobType: blob.type,
       blobSize: blob.size,
@@ -233,17 +266,14 @@ const retry = async () => {
   error.value = null
   console.log('[VideoViewer] retry')
   
-  // 清理旧的URL
-  if (videoUrl.value) {
-    console.log('[VideoViewer] revokeObjectURL before retry', {
-      videoUrl: videoUrl.value,
-    })
-    URL.revokeObjectURL(videoUrl.value)
-    videoUrl.value = null
-  }
+  cleanupVideoResources()
   
   try {
     const url = await loadFileFromRoute()
+    if (isDisposed) {
+      URL.revokeObjectURL(url)
+      return
+    }
     videoUrl.value = url
     console.log('[VideoViewer] retry success set videoUrl', {
       videoUrl: url,
@@ -263,6 +293,10 @@ onMounted(async () => {
   
   try {
     const url = await loadFileFromRoute()
+    if (isDisposed) {
+      URL.revokeObjectURL(url)
+      return
+    }
     videoUrl.value = url
     console.log('[VideoViewer] mounted set videoUrl', {
       videoUrl: url,
@@ -282,12 +316,9 @@ onMounted(async () => {
 
 // 清理资源
 onBeforeUnmount(() => {
-  if (videoUrl.value) {
-    console.log('[VideoViewer] before unmount revokeObjectURL', {
-      videoUrl: videoUrl.value,
-    })
-    URL.revokeObjectURL(videoUrl.value)
-  }
+  isDisposed = true
+  console.log('[VideoViewer] before unmount cleanup')
+  cleanupVideoResources()
 })
 </script>
 
@@ -360,6 +391,32 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   max-width: 400px;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  color: #999;
+  font-size: 12px;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #fff;
+  border-top-color: rgba(0, 0, 0, 0.25);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-state {

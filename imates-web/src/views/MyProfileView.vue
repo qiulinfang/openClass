@@ -58,46 +58,9 @@
         </div>
       </div>
 
-      <!-- 加入课堂场景：展示教室选择 UI -->
       <div class="join-classroom-content" v-else>
         <div class="join-classroom-body">
-          <div v-if="isLoadingClassrooms" class="status-text">正在加载教室列表...</div>
-          <div v-else-if="classroomLoadError" class="status-text error">
-            {{ classroomLoadError }}
-          </div>
-          <div v-else-if="!classroomTree || cityOptions.length === 0" class="status-text">
-            暂无可用教室，请稍后重试
-          </div>
-          <div v-else class="selector-grid">
-            <div class="selector-column">
-              <div class="label">城市</div>
-              <CommonSelect
-                v-model="selectedCity"
-                :options="cityOptions.map((city) => ({ label: city, value: city }))"
-                placeholder="请选择城市"
-              />
-            </div>
-
-            <div class="selector-column" :class="{ disabled: !selectedCity }">
-              <div class="label">学校</div>
-              <CommonSelect
-                v-model="selectedSchool"
-                :options="schoolOptions.map((school) => ({ label: school, value: school }))"
-                :placeholder="selectedCity ? '请选择学校' : '请先选择城市'"
-              />
-            </div>
-
-            <div class="selector-column" :class="{ disabled: !selectedSchool }">
-              <div class="label">教室</div>
-              <CommonSelect
-                v-model="selectedClassroom"
-                :options="
-                  classroomOptions.map((room) => ({ label: roomLabel(room), value: roomKey(room) }))
-                "
-                :placeholder="selectedSchool ? '请选择教室' : '请先选择学校'"
-              />
-            </div>
-          </div>
+          <div class="status-text">确认加入课堂？</div>
         </div>
       </div>
     </Dialog>
@@ -133,7 +96,6 @@ import {
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import RubberBandList from '@/components/base/VirtualList.vue'
 import Dialog from '@/components/base/Dialog.vue'
-import CommonSelect from '@/components/base/Select.vue'
 
 // 导入 SVG 图标
 import drawIcon from '/icons/draw.svg'
@@ -158,94 +120,6 @@ const isProjecting = ref(false)
 const isLoggingOut = ref(false)
 const logoutDialogRef = ref<InstanceType<typeof Dialog>>()
 const joinClassDialogRef = ref<InstanceType<typeof Dialog>>()
-
-// 教室选择相关状态
-const classroomTree = ref<any | null>(null)
-const isLoadingClassrooms = ref(false)
-const classroomLoadError = ref<string | null>(null)
-const selectedCity = ref('')
-const selectedSchool = ref('')
-const selectedClassroom = ref('')
-
-// 教室选择下拉选项
-const cityOptions = computed<string[]>(() => {
-  if (!classroomTree.value) return []
-
-  // 优先使用后端直接提供的 cities 列表
-  if (Array.isArray((classroomTree.value as any).cities)) {
-    return (classroomTree.value as any).cities as string[]
-  }
-
-  // 回退：将顶层 key 视为城市
-  return Object.keys(classroomTree.value)
-})
-
-const schoolOptions = computed<string[]>(() => {
-  if (!classroomTree.value || !selectedCity.value) return []
-
-  const tree: any = classroomTree.value
-
-  // 常见结构1：schoolsMap[city] 为学校列表
-  if (tree.schoolsMap && Array.isArray(tree.schoolsMap[selectedCity.value])) {
-    return tree.schoolsMap[selectedCity.value] as string[]
-  }
-
-  // 常见结构2：schools[city] 为学校列表
-  if (tree.schools && Array.isArray(tree.schools[selectedCity.value])) {
-    return tree.schools[selectedCity.value] as string[]
-  }
-
-  // 回退：假设 classroomTree[city] 是一个以学校为 key 的对象
-  const cityNode = tree[selectedCity.value]
-  if (cityNode && typeof cityNode === 'object') {
-    return Object.keys(cityNode)
-  }
-
-  return []
-})
-
-const canConfirmJoinClass = computed(() => {
-  if (isInClass.value) return true
-  if (isLoadingClassrooms.value) return false
-  if (classroomLoadError.value) return false
-  if (!classroomTree.value) return false
-  return !!selectedCity.value && !!selectedSchool.value && !!selectedClassroom.value
-})
-
-const classroomOptions = computed<any[]>(() => {
-  if (!classroomTree.value || !selectedCity.value || !selectedSchool.value) return []
-
-  const tree: any = classroomTree.value
-
-  // 常见结构1：classroomsMap[city][school] 为教室数组
-  if (
-    tree.classroomsMap &&
-    tree.classroomsMap[selectedCity.value] &&
-    Array.isArray(tree.classroomsMap[selectedCity.value][selectedSchool.value])
-  ) {
-    return tree.classroomsMap[selectedCity.value][selectedSchool.value] as any[]
-  }
-
-  // 常见结构2：以城市、学校为 key 的嵌套对象
-  const cityNode = tree[selectedCity.value]
-  const schoolNode = cityNode && cityNode[selectedSchool.value]
-  if (Array.isArray(schoolNode)) {
-    return schoolNode as any[]
-  }
-
-  return []
-})
-
-// 教室选项 key 与显示文案
-const roomKey = (room: any): string => {
-  if (!room) return ''
-  return room.id || room.classroomId || room.name || String(room)
-}
-
-const roomLabel = (room: any): string => {
-  if (!room) return ''
-  return room.name || room.displayName || roomKey(room)
-}
 
 // 用户端未读消息数
 const userClientUnreadCount = computed(() => userClientStore.unreadCount)
@@ -358,74 +232,8 @@ const loadUserInfo = async () => {
   }
 }
 
-// 加载教室树数据
-const loadClassroomTree = () => {
-  if (!androidBridge.isAndroidBridgeAvailable()) {
-    console.warn('[Classroom][Tree] AndroidBridge unavailable, use mock classroom tree in web')
-    classroomLoadError.value = null
-    isLoadingClassrooms.value = false
-    classroomTree.value = {
-      cities: ['北京', '上海'],
-      schoolsMap: {
-        北京: ['第一中学', '第二中学'],
-        上海: ['实验中学'],
-      },
-      classroomsMap: {
-        北京: {
-          第一中学: [
-            { id: 'BJ-1-101', name: '高一(1)班' },
-            { id: 'BJ-1-102', name: '高一(2)班' },
-          ],
-          第二中学: [{ id: 'BJ-2-201', name: '初二(1)班' }],
-        },
-        上海: {
-          实验中学: [{ id: 'SH-EX-301', name: '高二(3)班' }],
-        },
-      },
-    }
-    return
-  }
-
-  isLoadingClassrooms.value = true
-  classroomLoadError.value = null
-
-  try {
-    const traceId = `CT_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
-    console.log('[Classroom][Tree] start', { traceId })
-    const data = androidBridge.fetchClassroomTree()
-    console.log('[Classroom][Tree] native =', {
-      traceId,
-      type: typeof data,
-      isArray: Array.isArray(data),
-    })
-
-    const isEmptyObject =
-      data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 0
-
-    if (!data || isEmptyObject) {
-      classroomTree.value = null
-      classroomLoadError.value = '获取教室列表失败，请稍后重试'
-      console.warn('[Classroom][Tree] empty', { traceId })
-    } else {
-      classroomTree.value = data
-      console.log('[Classroom][Tree] ok', { traceId, keys: Object.keys(data || {}).length })
-    }
-  } catch (error) {
-    console.error('[Classroom][Tree] error:', error)
-    classroomTree.value = null
-    classroomLoadError.value = '获取教室列表异常，请稍后重试'
-  } finally {
-    isLoadingClassrooms.value = false
-  }
-}
-
 // 切换加入课堂状态
 const toggleJoinClass = () => {
-  // 进入加入课堂弹窗时，如果还未加载过教室列表，则尝试加载
-  if (!isInClass.value && !classroomTree.value && !isLoadingClassrooms.value) {
-    loadClassroomTree()
-  }
-
   joinClassDialogRef.value?.openDialog()
 }
 
@@ -437,11 +245,6 @@ const handleJoinClassDialogCancel = () => {
 
 // 确认加入/退出课堂
 const confirmJoinClass = () => {
-  // 检查是否可以执行操作（仅在加入课堂时需要检查）
-  if (!isInClass.value && !canConfirmJoinClass.value) {
-    return
-  }
-
   // 流程：关闭确认弹窗 -> 分支(在课堂/不在课堂) -> 调用原生接口 -> 根据结果同步状态与提示
   joinClassDialogRef.value?.closeDialog()
 
@@ -467,16 +270,6 @@ const confirmJoinClass = () => {
       console.error('[Classroom][Exit] failed', { traceId })
       showMessage('退出课堂失败', 'error')
     }
-    return
-  }
-
-  // 加入课堂前校验教室选择
-  if (!classroomTree.value) {
-    showMessage('教室列表未加载完成，请稍后重试', 'error')
-    return
-  }
-  if (!selectedCity.value || !selectedSchool.value || !selectedClassroom.value) {
-    showMessage('请先选择城市、学校和教室', 'error')
     return
   }
 
@@ -558,6 +351,10 @@ const openTeacherQADialog = () => {
 // 处理退出登录
 const handleLogout = () => {
   logoutDialogRef.value?.openDialog()
+}
+
+const cancelLogout = () => {
+  logoutDialogRef.value?.closeDialog()
 }
 
 // 确认退出登录
