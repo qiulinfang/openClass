@@ -18,7 +18,7 @@
         </q-card>
 
         <!-- 解析内容 -->
-        <q-card flat bordered class="explanation-card q-mb-md" v-if="explanation">
+        <!-- <q-card flat bordered class="explanation-card q-mb-md" v-if="explanation">
           <q-card-section>
             <div class="text-subtitle2 text-info q-mb-sm">
               <q-icon name="lightbulb" class="q-mr-xs" />
@@ -30,7 +30,7 @@
               :ref="(el) => setExplanationContentRef(el)"
             ></div>
           </q-card-section>
-        </q-card>
+        </q-card> -->
 
         <!-- 空状态：只根据答案是否存在判断 -->
         <div v-if="!answer" class="native-empty-state text-center q-pa-xl">
