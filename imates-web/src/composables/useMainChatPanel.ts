@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
 // MainChatPanel 显示状态
-const isMainChatPanelVisible = ref(true)
+const isMainChatPanelVisible = ref(false)
 
 // 控制 MainChatPanel 的显示/隐藏
 export const useMainChatPanel = () => {

@@ -49,6 +49,10 @@
   </div>
 </template>
 
+<script lang="ts">
+export default {}
+</script>
+
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 

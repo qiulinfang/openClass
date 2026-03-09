@@ -339,8 +339,6 @@ const stopResize = (e?: PointerEvent) => {
     pendingWidth.value = null
   }
   
-  // 保存宽度到 localStorage
-  localStorage.setItem('main-chat-panel-width', panelWidth.value.toString())
 }
 
 const stopResizeMouse = () => {
@@ -358,8 +356,6 @@ const stopResizeMouse = () => {
     panelWidth.value = pendingWidth.value
     pendingWidth.value = null
   }
-
-  localStorage.setItem('main-chat-panel-width', panelWidth.value.toString())
 }
 
 // 触摸拖拽结束
@@ -375,8 +371,6 @@ const stopResizeTouch = () => {
     panelWidth.value = pendingWidth.value
     pendingWidth.value = null
   }
-
-  localStorage.setItem('main-chat-panel-width', panelWidth.value.toString())
 }
 
 // 组件卸载时清理事件监听
@@ -389,16 +383,6 @@ onBeforeUnmount(() => {
   document.body.style.userSelect = ''
 })
 
-// 组件挂载时恢复保存的宽度
-onMounted(() => {
-  const savedWidth = localStorage.getItem('main-chat-panel-width')
-  if (savedWidth) {
-    const width = parseInt(savedWidth, 10)
-    if (width >= 300 && width <= 800) {
-      panelWidth.value = width
-    }
-  }
-})
 
 // 同步逻辑：当需要切换到老师分类时，若还没有当前老师会话，则默认选中第一个老师会话
 const ensureTeacherSessionSelected = () => {
