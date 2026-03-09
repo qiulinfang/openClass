@@ -234,63 +234,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
   
-  // ==================== 消息管理 ====================
-  
-  /**
-   * 将后端 history_messages 映射为教材场景下的 ChatBubble 列表
-   * 约定：
-   * - history_messages 为当前会话的全量快照
-   * - human -> user，ai -> ai
-   * - id 同时作为 ChatBubble.id 和 ChatBubble.messageId
-   * - 根据 agentStatus 标记最后一条 ai 消息的 isStreaming
-   * - 保留前端独有字段（quotedMessage、imageData 等），后端不存储这些
-   */
-  const mapHistoryToChatBubbles = (
-    history: BackendHistoryMessage[],
-    agentStatus?: string,
-  ): ChatBubble[] => {
-    // 构建旧消息的 id -> ChatBubble 映射，用于保留前端独有字段
-    const oldMessagesMap = new Map<string, ChatBubble>()
-    for (const msg of messages.value) {
-      if (msg.id) {
-        oldMessagesMap.set(msg.id, msg)
-      }
-    }
-
-    const result: ChatBubble[] = history.map((m) => {
-      const sender: Sender = m.type === 'human' ? Sender.USER : Sender.AI
-
-      // 从旧消息中查找，保留前端独有字段
-      const oldMsg = oldMessagesMap.get(m.id)
-
-      const roleFromHistory = (m as any)?.additional_kwargs?.role as string | undefined
-
-      const bubble: ChatBubble = {
-        id: m.id,
-        messageId: m.id,
-        content: oldMsg?.content || '',
-        sender,
-        type: sender,
-        timestamp: oldMsg?.timestamp || new Date().toISOString(),
-        messageType: oldMsg?.messageType || 'text',
-        isStreaming: false,
-        // 保留前端独有字段（后端不存储）
-        quotedMessage: oldMsg?.quotedMessage,
-        imageData: oldMsg?.imageData,
-        originalMessage: oldMsg?.originalMessage,
-        canRetry: oldMsg?.canRetry,
-        // AI 消息需要 selectedModel 来显示正确的头像
-        // 优先从旧消息取，否则默认 'mate'
-        selectedModel: sender === Sender.AI ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
-        originalDstUrl: oldMsg?.originalDstUrl,
-      }
-
-      return bubble
-    })
-
-    return result
-  }
-  
   /**
    * 添加消息到列表
    */
@@ -685,40 +628,11 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         isNewSession: isNewSession.value,
         imageList: builderImageList,
       })
-
-      // 调试日志：验证本次请求将走哪个接口，以及是否携带图片/多图
-
-      // 记录本次 AI 回复对应的后端接口地址，供后续刷新(handleRefresh) 严格跟随原接口
       updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
 
       useScreenshotApi.value = shouldUseScreenshotApi
       isNewSession.value = false
-
-      // 调用API发送消息
-      // 对于截图接口和文本接口，统一使用 onStream 累积内容：
-      // - drawing 控制帧：chunk 为空字符串，只打开 isStreaming（用于骨架屏）；
-      // - talking/内容帧：chunk 为非空字符串，立即追加到 accumulatedContent 并更新 content。
-
-      // 在 sendMessage 作用域内维护一份本地累积内容，仅用于 UI 展示
-      let accumulatedContent = ''
-
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
-
-      const wrappedOnStream = (chunk: string, isComplete: boolean) => {
-        if (isComplete) {
-          onStream?.(chunk, isComplete)
-          return
-        }
-
-        // drawing 控制帧：chunk 为空字符串，仅标记为流式中，供骨架屏使用
-        if (!chunk) {
-          updateMessage(tempReplyId, { isStreaming: true })
-          return
-        }
-
-        accumulatedContent += chunk
-        onStream?.(chunk, isComplete)
-      }
 
       const wrappedOnComplete = (finalResponse: any) => {
         onComplete?.(finalResponse)
@@ -727,12 +641,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           chatResponseTimes.value++
           saveChatHistory()
         }
-
-        // 确保 originalDstUrl 不被覆盖（包括失败态）
-        updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
       }
 
-      const response = await apiService.sendChatMessage(aiMessage, wrappedOnComplete, wrappedOnStream, onHistoryUpdate)
+      const response = await apiService.sendChatMessage(
+        aiMessage,
+        wrappedOnComplete,
+        onStream,
+        onHistoryUpdate,
+      )
       
       // 处理响应（如果轮询已完成，这里response已经是最终结果）
       // 注意：由于使用了回调，这里主要是确保没有错误

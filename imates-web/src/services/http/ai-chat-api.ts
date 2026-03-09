@@ -257,7 +257,11 @@ export class AiChatApi {
       }
     }
 
-    if (parsed.agentStatus === 'drawing' && !parsed.textChunk && (!parsed.latestHistory || parsed.latestHistory.length === 0)) {
+    if (
+      (parsed.agentStatus === 'drawing' || parsed.agentStatus === 'general_html') &&
+      !parsed.textChunk &&
+      (!parsed.latestHistory || parsed.latestHistory.length === 0)
+    ) {
       if (onStream) {
         try {
           onStream('', false)

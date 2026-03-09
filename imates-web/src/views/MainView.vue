@@ -141,7 +141,7 @@
       ref="mainChatPanelRef"
       :entry="mainChatPanelEntry"
       :screenshot-flow-visible="screenshotFlowVisible"
-      @close="showMainChatPanel = false"
+      @close="hideMainChatPanel"
       @toggle-mode="handleToggleMainChatMode"
       @open-screen-capture="handleOpenMainChatScreenCapture"
     />
@@ -200,6 +200,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useResourceStore } from '@/stores/resourceStore'
+import { useMainChatPanel } from '@/composables/useMainChatPanel'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import FeedbackDialog from '@/components/dialog/FeedbackDialog.vue'
 import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
@@ -469,8 +470,8 @@ const aiChatDialogRef = ref<
   | null
 >(null)
 
-// 主页右侧聊天面板显示状态
-const showMainChatPanel = ref(false)
+// 使用全局的 MainChatPanel 状态管理
+const { isMainChatPanelVisible: showMainChatPanel, hideMainChatPanel, showMainChatPanel: showPanel } = useMainChatPanel()
 
 const mainChatPanelEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
 const aiChatDialogEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
@@ -587,7 +588,7 @@ const handleMainChatScreenshotConfirm = async (
 
   if (!showMainChatPanel.value) {
     mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
-    showMainChatPanel.value = true
+    showPanel()
     await nextTick()
   }
 
@@ -659,7 +660,7 @@ const fabStyle = computed(() => ({
 }))
 
 // 需要隐藏左侧导航菜单的路由
-const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer']
+const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer','htmlPreview']
 
 // 是否隐藏左侧导航菜单
 // 在作业作答 / 作业答题等专注场景隐藏，避免干扰
@@ -809,7 +810,11 @@ const handleFloatingFabClick = () => {
     })
   } else {
     mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
-    showMainChatPanel.value = !showMainChatPanel.value
+    if (showMainChatPanel.value) {
+      hideMainChatPanel()
+    } else {
+      showPanel()
+    }
     console.log('[FloatingFab][Web] toggle showMainChatPanel ->', {
       traceId,
       showMainChatPanel: showMainChatPanel.value,
@@ -1183,7 +1188,7 @@ const handleToggleUnifiedChatMode = () => {
   uiStore.showAIChatDialog = false
   // 打开主页右侧聊天面板
   mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
-  showMainChatPanel.value = true
+  showPanel()
 }
 
 // 处理打开工具箱事件
@@ -1291,19 +1296,19 @@ const getTeacherChatDialogRef = () => {
 
 // 在右侧 panel 和统一 AI 聊天对话框之间切换
 const handleToggleMainChatMode = () => {
-  showMainChatPanel.value = false
+  hideMainChatPanel()
   aiChatDialogEntry.value = { mode: 'default', category: 'ai-general' }
   uiStore.openAIChatDialog()
 }
 
 const openMainChatPanel = () => {
   mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
-  showMainChatPanel.value = true
+  showPanel()
 }
 
 const openMainChatPanelWithEntry = (entry: ChatEntry) => {
   mainChatPanelEntry.value = entry
-  showMainChatPanel.value = true
+  showPanel()
 }
 
 const handleAskAiImageSelected = async (imageInfo: AskAiImageInfo) => {

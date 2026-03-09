@@ -181,45 +181,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     lastHistorySignatureRef: lastHistorySignature,
   })
 
-  /**
-   * 将后端 history_messages（最新快照，最多20条）映射为前端 ChatBubble[]
-   * 约定：
-   * - history_messages 为当前会话的快照（后端只返回最新20条）
-   * - human -> user，ai -> ai
-   * - id 同时作为 ChatBubble.id 和 ChatBubble.messageId
-   * - 尽量保留前端独有字段（quotedMessage、imageData 等）
-   */
-  const mapHistoryToChatBubbles = (history: BackendHistoryMessage[]): ChatBubble[] => {
-    const oldMessagesMap = new Map<string, ChatBubble>()
-    for (const msg of messages.value) {
-      const key = msg.messageId || msg.id
-      if (key) oldMessagesMap.set(key, msg)
-    }
-
-    return history.map((m) => {
-      const sender: 'user' | 'ai' = m.type === 'human' ? 'user' : 'ai'
-      const oldMsg = oldMessagesMap.get(m.id)
-
-      const roleFromHistory = (m as any)?.additional_kwargs?.role as string | undefined
-      return {
-        id: m.id,
-        messageId: m.id,
-        content: oldMsg?.content,
-        sender,
-        type: sender,
-        timestamp: oldMsg?.timestamp || new Date().toISOString(),
-        messageType: oldMsg?.messageType || 'text',
-        isStreaming: false,
-        quotedMessage: oldMsg?.quotedMessage,
-        imageData: oldMsg?.imageData,
-        originalMessage: oldMsg?.originalMessage,
-        canRetry: oldMsg?.canRetry,
-        selectedModel: sender === 'ai' ? (roleFromHistory || oldMsg?.selectedModel || 'mate') : undefined,
-        originalDstUrl: oldMsg?.originalDstUrl,
-      } as ChatBubble
-    })
-  }
-  
   // ==================== 公开方法 ====================
   
   /**
@@ -310,28 +271,12 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       // 发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
 
-      const wrappedOnStream = (chunk: string, isComplete: boolean) => {
-        if (isComplete) {
-          onStream?.(chunk, isComplete)
-          return
-        }
-
-        // drawing 控制帧：chunk 为空字符串，仅标记流式中以展示骨架
-        if (!chunk) {
-          const index = messages.value.findIndex((m) => m.id === tempReplyId)
-          if (index >= 0) {
-            messages.value[index] = {
-              ...messages.value[index],
-              isStreaming: true,
-            }
-          }
-          return
-        }
-
-        onStream?.(chunk, isComplete)
-      }
-
-      const response = await apiService.sendChatMessage(aiRequest, onComplete, wrappedOnStream, onHistoryUpdate)
+      const response = await apiService.sendChatMessage(
+        aiRequest,
+        onComplete,
+        onStream,
+        onHistoryUpdate,
+      )
 
       // 更新回复次数
       chatResponseTimes.value++

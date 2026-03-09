@@ -47,9 +47,18 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
       const index = messages.value.findIndex((m) => m.id === tempReplyId)
       if (index >= 0) {
         const old = messages.value[index]
+        const finalContent = finalResponse?.reply || accumulatedContent || '回复失败'
+        
+        // 检测 HTML 内容并自动设置 messageType
+        let messageType = old.messageType
+        if (finalContent.includes('kelvin-cosin.cloud') && finalContent.includes('.html')) {
+          messageType = 'html'
+        }
+        
         messages.value[index] = {
           ...tempReply,
-          content: finalResponse?.reply || accumulatedContent || '回复失败',
+          messageType,
+          content: finalContent,
           isStreaming: false,
           messageId: finalResponse?.messageId,
           selectedModel: old.selectedModel || tempReply.selectedModel,
@@ -78,7 +87,8 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
       }
     }
 
-    const onHistoryUpdate = (history: BackendHistoryMessage[]) => {
+    const onHistoryUpdate = (history: BackendHistoryMessage[], agentStatus?: string) => {
+      // 只处理历史消息同步，messageType 设置由 onComplete 统一处理
       applyHistoryUpdate(history).catch(() => {
         // ignore
       })

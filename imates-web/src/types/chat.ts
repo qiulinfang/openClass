@@ -49,7 +49,7 @@ export interface ChatBubble {
   sender: Sender
   type: Sender
   timestamp: string
-  messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'system' | 'time_separator' // 场景39：支持系统消息类型 + 多图消息 + 时间分隔符
+  messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'html' | 'system' | 'time_separator' // 场景39：支持系统消息类型 + 多图消息 + 时间分隔符
   isStreaming?: boolean
   isError?: boolean // 标记是否为错误消息
   canRetry?: boolean // 标记是否可以重发
@@ -161,6 +161,7 @@ export interface ChatMessageProps {
 export interface StreamingMessageProps {
   content: string
   isStreaming?: boolean
+  messageType?: 'text' | 'html'
   typewriterSpeed?: number // 打字机速度（毫秒）
   enableTypewriter?: boolean // 是否启用打字机效果
 }

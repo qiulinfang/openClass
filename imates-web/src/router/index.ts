@@ -6,6 +6,7 @@ import KnowledgeGraphView from '@/views/KnowledgeGraphView.vue'
 import MyResourcesView from '@/views/MyResourcesView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
 import HtmlViewerView from '@/views/HtmlViewerView.vue'
+import HtmlPreviewView from '@/views/HtmlPreviewView.vue'
 import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
@@ -68,6 +69,12 @@ const router = createRouter({
           path: 'html-viewer',
           name: 'htmlViewer',
           component: HtmlViewerView
+        },
+        // HTML预览器路由（用于URL预览）
+        {
+          path: 'html-preview',
+          name: 'htmlPreview',
+          component: HtmlPreviewView
         },
         // 视频查看器路由
         {
