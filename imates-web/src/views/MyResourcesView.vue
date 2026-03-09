@@ -89,7 +89,6 @@
                       paused: textbook.downloadStatus === 3,
                     }"
                   >
-                    {{ textbook.id }}
                     <!-- 删除按钮（右上角） -->
                     <button
                       @click.stop="handleDeleteTextbook(textbook)"
