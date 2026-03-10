@@ -90,6 +90,15 @@ export default defineConfig(() => {
       },
       proxy: {
         // 统一走 www.imates.com.cn 的 Nginx 前缀代理（仅本地开发需要）
+        '/requests': {
+          target: ADDRESS_CATALOG.IMATES_HTTP,
+          changeOrigin: true,
+          secure: false,
+          agent: new https.Agent({ rejectUnauthorized: false }),
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/requests')
+          },
+        },
         '/yb-test': {
           target: 'https://www.imates.com.cn',
           changeOrigin: true,

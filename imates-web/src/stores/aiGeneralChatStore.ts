@@ -131,6 +131,131 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     lastHistorySignatureRef: lastHistorySignature,
     onAfterHistorySync: () => saveChatHistory(),
   })
+
+  const enhanceResponsiveHtml = (html: string): string => {
+    if (!html) return html
+
+    let enhancedHtml = html
+
+    // 仅展示绘图区：强制关闭 GeoGebra Classic 的非绘图 UI
+    // 仅做替换（不插入新字段），避免破坏源 HTML
+    const forceFalseKeys = [
+      'showToolBar',
+      'showAlgebraInput',
+      'showMenuBar',
+      'allowStyleBar',
+      'showFullscreenButton',
+      'enableLabelDrags',
+      'enableRightClick',
+      'errorDialogsActive',
+    ]
+    for (const key of forceFalseKeys) {
+      const reg = new RegExp(`(["']?${key}["']?\\s*:\\s*)true`, 'gi')
+      enhancedHtml = enhancedHtml.replace(reg, `$1false`)
+    }
+
+    // Classic 模式下强制仅几何视图：perspective 设为 "G"（不含 Algebra）
+    // 仅替换已存在的 perspective 字段，避免对非 GeoGebra HTML 产生副作用
+    enhancedHtml = enhancedHtml.replace(
+      /(["']?perspective["']?\s*:\s*)["'][^"']*["']/gi,
+      `$1"G"`,
+    )
+
+    // 如果没有 perspective 字段，主动插入 perspective: "G"
+    // 查找 parameters 对象并在其中插入 perspective 配置
+    if (!enhancedHtml.includes('perspective')) {
+      enhancedHtml = enhancedHtml.replace(
+        /(\bparameters\s*=\s*\{[^}]*)}/gi,
+        (match, beforeBrace) => {
+          // 如果 parameters 对象为空或已结束，在其末尾插入 perspective
+          if (beforeBrace.trim().endsWith('{') || beforeBrace.trim().endsWith(',')) {
+            return `${beforeBrace} perspective: "G" }`
+          } else {
+            return `${beforeBrace}, perspective: "G" }`
+          }
+        }
+      )
+    }
+
+    enhancedHtml = enhancedHtml.replace(
+      /"width": window\.innerWidth/g,
+      `"width": document.getElementById('ggb-container').parentElement.clientWidth`,
+    )
+    enhancedHtml = enhancedHtml.replace(
+      /"height": window\.innerHeight/g,
+      `"height": document.getElementById('ggb-container').parentElement.clientHeight`,
+    )
+
+    // 已经注入过 ResizeObserver 则不重复注入，但仍保留上面的参数/尺寸替换
+    if (!enhancedHtml.includes('ResizeObserver')) {
+      const resizeScript = `
+        <script>
+          // 添加 ResizeObserver 监听容器变化
+          if (typeof ResizeObserver !== 'undefined') {
+            const resizeObserver = new ResizeObserver(entries => {
+              for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                const ggbApplet = window.ggbApplet || document.querySelector('#ggb-container')?.ggbApplet;
+                if (ggbApplet && ggbApplet.setSize) {
+                  ggbApplet.setSize(width, height);
+                }
+              }
+            });
+            
+            // 监听 ggb-container 容器
+            const ggbContainer = document.getElementById('ggb-container');
+            if (ggbContainer) {
+              resizeObserver.observe(ggbContainer.parentElement);
+            }
+          }
+        <\/script>
+      `
+
+      enhancedHtml = enhancedHtml.replace('</body>', resizeScript + '</body>')
+    }
+    return enhancedHtml
+  }
+
+  const ensureHtmlRawMapForMessage = async (message: ChatBubble): Promise<boolean> => {
+    if (message.messageType !== 'html') return false
+
+    const urlMatches = message.content
+      ? message.content.match(/(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/gi)
+      : null
+    const urls = urlMatches || []
+    if (urls.length === 0) return false
+
+    if (!message.rawHtmlMap) {
+      message.rawHtmlMap = {}
+    }
+
+    let changed = false
+
+    for (const url of urls) {
+      try {
+        let html = message.rawHtmlMap[url]
+
+        if (!html) {
+          const htmlData = await apiService.fetchHtmlSource(url)
+          if (htmlData && (htmlData.html || htmlData.raw_html)) {
+            html = htmlData.html || htmlData.raw_html
+          }
+        }
+
+        if (html) {
+          const enhanced = enhanceResponsiveHtml(html)
+          if (message.rawHtmlMap[url] !== enhanced) {
+            message.rawHtmlMap[url] = enhanced
+            changed = true
+          }
+        }
+      } catch (error) {
+        console.warn(`[AI_GENERAL] 获取 rawHtml 失败:`, url, error)
+      }
+    }
+
+    return changed
+  }
   
   
   /**
@@ -316,6 +441,17 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       // 发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
       const response = await apiService.sendChatMessage(aiRequest, onComplete, onStream, onHistoryUpdate)
+
+      // 统一入口：新消息完成后由 store 补齐/增强 rawHtmlMap
+      const aiIndex = messages.value.findIndex((m) => m.id === tempReplyId)
+      if (aiIndex >= 0) {
+        const msg = messages.value[aiIndex]
+        const changed = await ensureHtmlRawMapForMessage(msg)
+        if (changed) {
+          messages.value[aiIndex] = { ...msg }
+          await saveChatHistory()  // 持久化增强后的 rawHtmlMap
+        }
+      }
       
       // 保存聊天历史
       await saveChatHistory()
@@ -506,7 +642,23 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       const historyData = await chatPersistence.load(`ai-general-${sessionId}`)
       
       if (historyData) {
-        messages.value = historyData.messages || []
+        // 🎯 统一入口：增强历史消息中的 rawHtmlMap（支持同一条消息多个链接）
+        const enhancedMessages = await Promise.all(
+          historyData.messages.map(async (message) => {
+            await ensureHtmlRawMapForMessage(message)
+            return message
+          }),
+        )
+        
+        messages.value = enhancedMessages
+
+        
+        // 🔄 保存增强后的历史消息（一次性升级）
+        if (enhancedMessages.some((msg) => msg.messageType === 'html' && !!msg.rawHtmlMap)) {
+          const enhancedHistoryData = { ...historyData, messages: enhancedMessages }
+          await chatPersistence.save(`ai-general-${sessionId}`, enhancedHistoryData)
+          console.log(`🔄 [AI_GENERAL] 历史消息 rawHtml 已增强并保存`)
+        }
       } else {
         // 无历史记录，清空状态
         messages.value = []

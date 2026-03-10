@@ -367,6 +367,16 @@ export class ApiService {
       throw new Error(`图片上传失败: ${errorMsg}`)
     }
   }
+
+  public async fetchHtmlSource(url: string): Promise<any | null> {
+    const response = await httpClient.get<any>(`/requests/fetch?url=${encodeURIComponent(url)}`)
+    if (response.success && response.data && (response.data as any).data) {
+      const result = (response.data as any).data
+      return result
+    } else {
+      return null
+    }
+  }
 }
 
 // 习题分页接口响应类型（作业套餐 + 套餐内题目列表）

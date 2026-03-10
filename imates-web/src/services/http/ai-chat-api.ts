@@ -32,7 +32,7 @@ export class AiChatApi {
 
   public async sendChatMessage(
     message: AiChatMessageRequest,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void,
   ): Promise<any> {
@@ -57,7 +57,7 @@ export class AiChatApi {
       }
 
       if (onComplete) {
-        onComplete(errorResult)
+        await Promise.resolve(onComplete(errorResult))
       }
 
       return errorResult
@@ -67,7 +67,7 @@ export class AiChatApi {
   private async pollChatMessage(
     message: AiChatMessageRequest,
     url: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
@@ -106,7 +106,7 @@ export class AiChatApi {
     response: any,
     message: AiChatMessageRequest,
     url: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
@@ -174,7 +174,7 @@ export class AiChatApi {
     response: any
     accumulatedContent: string
     messageId: string
-    onComplete?: (response: any) => void
+    onComplete?: (response: any) => void | Promise<void>
     onStream?: (chunk: string, isComplete: boolean) => void
     onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void
     url: string
@@ -528,12 +528,12 @@ export class AiChatApi {
     return messages.join('\n')
   }
 
-  private handlePollingEnd(
+  private async handlePollingEnd(
     messageId: string,
     accumulatedContent: string,
     responseSessionId: string,
     messageSessionId: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
   ) {
     if (onStream) {
@@ -549,7 +549,7 @@ export class AiChatApi {
     }
 
     if (onComplete) {
-      onComplete(finalResult)
+      await Promise.resolve(onComplete(finalResult))
     }
 
     return finalResult
@@ -559,7 +559,7 @@ export class AiChatApi {
     chunk: string,
     message: AiChatMessageRequest,
     url: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
@@ -593,7 +593,7 @@ export class AiChatApi {
   private async handleEmptyContent(
     message: AiChatMessageRequest,
     url: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
     messageId: string = generateUniqueId('ai'),
@@ -614,7 +614,7 @@ export class AiChatApi {
     error: any,
     messageId: string,
     accumulatedContent: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
   ) {
     console.error('[AiChatApi] 处理聊天错误:', {
@@ -632,7 +632,7 @@ export class AiChatApi {
   private createErrorResult(
     messageId: string,
     errorMessage: string,
-    onComplete?: (response: any) => void,
+    onComplete?: (response: any) => void | Promise<void>,
     onStream?: (chunk: string, isComplete: boolean) => void,
   ) {
     const errorResult = {
@@ -647,7 +647,10 @@ export class AiChatApi {
     }
 
     if (onComplete) {
-      onComplete(errorResult)
+      // 注意：此处不 await，保持 createErrorResult 为同步方法；竞态主要发生在成功结束 handlePollingEnd。
+      Promise.resolve(onComplete(errorResult)).catch(() => {
+        // ignore
+      })
     }
 
     return errorResult

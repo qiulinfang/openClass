@@ -4,6 +4,11 @@ declare module '*.vue' {
   export default component
 }
 
+declare module '*.gif' {
+  const src: string
+  export default src
+}
+
 declare global {
   interface Window {
     onMediaProjectionPermissionResult?: (granted: boolean) => void

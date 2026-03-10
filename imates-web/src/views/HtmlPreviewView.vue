@@ -2,13 +2,9 @@
   <div class="html-preview-container">
     <!-- 顶部工具栏 -->
     <div class="toolbar">
-      <button class="back-button" @click="handleGoBack">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        返回
-      </button>
-      <div class="toolbar-title">HTML 预览</div>
+      <q-btn flat round dense @click="handleGoBack" class="goback-btn">
+        <img :src="goBackIcon" alt="返回" class="goback-icon" />
+      </q-btn>
       <div class="toolbar-spacer"></div>
     </div>
     <!-- HTML 内容区域 -->
@@ -49,6 +45,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMainChatPanel } from '@/composables/useMainChatPanel'
+import goBackIcon from '/icons/goback.svg'
 
 // 使用路由
 const route = useRoute()
@@ -123,29 +120,17 @@ onMounted(() => {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  background: #fff;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #0A0020;
   border-bottom: 1px solid #e0e0e0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #fff;
-  border: 1px solid #d0d0d0;
-  border-radius: 8px;
-  color: #333;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.back-button:hover {
-  background: #f5f5f5;
-  border-color: #b0b0b0;
+.goback-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
 }
 
 .toolbar-title {
@@ -153,7 +138,7 @@ onMounted(() => {
   text-align: center;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: #ffffff;
 }
 
 .toolbar-spacer {

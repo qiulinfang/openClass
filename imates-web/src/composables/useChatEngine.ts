@@ -10,7 +10,7 @@ export interface UseChatEngineOptions {
 }
 
 export interface SendChatCoreCallbacks {
-  onComplete?: (finalResponse: any) => void
+  onComplete?: (finalResponse: any) => void | Promise<void>
   onStream?: (chunk: string, isComplete: boolean) => void
   onHistoryUpdate?: (history: BackendHistoryMessage[], agentStatus?: string) => void
 }
@@ -43,7 +43,7 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
   ): SendChatCoreCallbacks => {
     let accumulatedContent = ''
 
-    const onComplete = (finalResponse: any) => {
+    const onComplete = async (finalResponse: any) => {
       const index = messages.value.findIndex((m) => m.id === tempReplyId)
       if (index >= 0) {
         const old = messages.value[index]
@@ -55,7 +55,7 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
           messageType = 'html'
         }
         
-        messages.value[index] = {
+        const nextMessage: ChatBubble = {
           ...tempReply,
           messageType,
           content: finalContent,
@@ -64,6 +64,8 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
           selectedModel: old.selectedModel || tempReply.selectedModel,
           originalDstUrl: old.originalDstUrl,
         }
+
+        messages.value[index] = nextMessage
       }
     }
 

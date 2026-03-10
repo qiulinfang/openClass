@@ -127,9 +127,10 @@
                       :content="message.content"
                       :is-streaming="message.isStreaming"
                       :message-type="message.messageType === 'html' ? 'html' : 'text'"
+                      :raw-html-map="message.rawHtmlMap"
                       :typewriter-speed="30"
                       :enable-typewriter="false"
-                      :ref="(el) => setStreamingRef(el)"
+                      :ref="setStreamingRef"
                     />
                   </div>
                   <!-- 用户消息：直接渲染 -->

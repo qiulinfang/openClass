@@ -50,6 +50,8 @@ export interface ChatBubble {
   type: Sender
   timestamp: string
   messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'html' | 'system' | 'time_separator' // 场景39：支持系统消息类型 + 多图消息 + 时间分隔符
+  rawHtml?: string
+  rawHtmlMap?: Record<string, string>
   isStreaming?: boolean
   isError?: boolean // 标记是否为错误消息
   canRetry?: boolean // 标记是否可以重发
@@ -155,15 +157,6 @@ export interface ChatMessageProps {
   isLastMessage?: boolean // 是否是最后一条消息
   showReadStatus?: boolean // 是否显示已读状态
   showTime?: boolean // 是否显示消息时间
-}
-
-/** StreamingMessage Props接口 */
-export interface StreamingMessageProps {
-  content: string
-  isStreaming?: boolean
-  messageType?: 'text' | 'html'
-  typewriterSpeed?: number // 打字机速度（毫秒）
-  enableTypewriter?: boolean // 是否启用打字机效果
 }
 
 /** ChatView Props接口 */

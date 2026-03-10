@@ -232,6 +232,10 @@ export function getImWebSocketUrl(): string {
   return ADDRESS_CATALOG.CLIENT_WS
 }
 
+export function getRequestsProxyBaseUrl(): string {
+  return ADDRESS_CATALOG.IMATES_HTTP
+}
+
 /**
  * 获取 API 路径配置
  * 只包含需要环境分流的路径，相同路径直接写死在调用处
@@ -374,6 +378,7 @@ export function getRouteBaseMap(): Record<string, string> {
   const yanbanBaseUrl = getYanbanBaseUrl()
   const teacherApiBaseUrl = getTeacherApiBaseUrl()
   const historyManageBaseUrl = getHistoryManageBaseUrl()
+  const requestsProxyBaseUrl = getRequestsProxyBaseUrl()
 
   return {
     // 应用更新配置（/bj101/appupdate.json）永远走学班服务
@@ -406,5 +411,7 @@ export function getRouteBaseMap(): Record<string, string> {
     // 知识点查询服务
     '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,
     '/appupdate_test.json': ADDRESS_CATALOG.IMATES_HTTP,
+    // requests 代理服务（Nginx 转发到自建代理服务）
+    '/requests': requestsProxyBaseUrl,
   }
 }

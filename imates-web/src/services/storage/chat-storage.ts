@@ -141,6 +141,8 @@ export class ChatStorageService {
         timestamp: msg.timestamp,
         messageId: msg.messageId,
         messageType: msg.messageType,
+        rawHtml: msg.rawHtml,
+        rawHtmlMap: msg.rawHtmlMap,
         isRead: msg.isRead, // 序列化已读状态
         isStreaming: msg.isStreaming || false,
         // 完整序列化 imageData，包括 base64DataUrl（用于UI显示）
@@ -176,6 +178,7 @@ export class ChatStorageService {
         chatRecordData: msg.chatRecordData,
         selectedModel: msg.selectedModel, // 保存模式信息（mate/mentor/researcher）
         sessionId: msg.sessionId,
+        originalDstUrl: msg.originalDstUrl,
       })),
       chatResponseTimes: data.chatResponseTimes,
       lastUpdated: data.lastUpdated
