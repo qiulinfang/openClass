@@ -1,30 +1,32 @@
 <template>
   <div class="streaming-message">
     <div class="message-content">
-      <!-- 绘图中骨架屏：当处于流式状态且暂时没有文本内容时，展示深色渐变卡片 -->
+      <!-- 骨架屏 -->
       <div
         v-if="props.isStreaming && (props.messageType === 'html' || !props.content)"
         class="skeleton-card"
         :style="{ backgroundImage: `url(${generateImgGif})` }"
       ></div>
 
-      <!-- 流式模式 & 非流式模式统一使用打字机效果，区别仅在于流式模式下内容会持续追加 -->
+      <!-- 流式文本 -->
       <div
         v-else-if="props.isStreaming"
         class="streaming-content"
         :ref="(el) => setStreamingContentRef(el)"
       >
-        <span v-html="displayedContent"></span><span v-if="props.enableTypewriter" class="typing-cursor">|</span>
+        <span v-html="displayedContent"></span>
       </div>
+      <!-- HTML 卡片 -->
       <div
         v-else-if="props.messageType === 'html'"
         class="html-message-container"
       >
         <div v-for="seg in htmlSegments" :key="seg.key" class="html-segment-wrapper">
+          <!-- 文本 -->
           <div v-if="seg.type === 'text'" class="html-text-segment">
             <span v-html="seg.rendered"></span>
-            <span v-if="isTyping" class="typing-cursor">|</span>
           </div>
+          <!-- 网页 -->
           <div
             v-else
             class="html-card"
@@ -32,8 +34,6 @@
             tabindex="0"
             @click.stop="openHtmlDialog(seg.url)"
           >
-            <div class="html-card-header"></div>
-
             <div class="html-card-content" :ref="setIframeContainerRef">
               <iframe
                 v-if="seg.rawHtml"
@@ -59,8 +59,9 @@
           </div>
         </div>
       </div>
+      <!-- 普通文本 -->
       <div v-else class="typewriter-content" :ref="(el) => setTypewriterContentRef(el)">
-        <span v-html="displayedContent"></span><span v-if="isTyping" class="typing-cursor">|</span>
+        <span v-html="displayedContent"></span>
       </div>
     </div>
   </div>
@@ -83,27 +84,12 @@ interface Props{
   isStreaming?: boolean
   messageType?: 'text' | 'html'
   rawHtmlMap?: Record<string, string>
-  typewriterSpeed?: number // 打字机速度（毫秒）
-  enableTypewriter?: boolean // 是否启用打字机效果
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isStreaming: false,
-  typewriterSpeed: streamingManager.getConfig().typewriterSpeed,
-  enableTypewriter: true,
   rawHtmlMap: () => ({}),
 })
-
-const emit = defineEmits<{
-  complete: []
-  progress: [progress: number]
-}>()
-
-const displayedLength = ref(0)
-const isTyping = ref(false)
-// 记录上一次完整内容长度，用于计算新增内容长度
-const lastContentLength = ref(0)
-let typingTimer: ReturnType<typeof setTimeout> | null = null
 
 // 添加ref引用
 const streamingContentRef = ref<HTMLElement>()
@@ -157,7 +143,7 @@ const iframeStyle = computed(() => {
 const router = useRouter()
 
 // 使用 MainChatPanel 控制
-const { hideMainChatPanel, showMainChatPanel } = useMainChatPanel()
+const { hideMainChatPanel} = useMainChatPanel()
 
 // 使用公共的 markdown 渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -176,26 +162,9 @@ const openHtmlDialog = (urlArg?: string) => {
   }
 }
 
-const shareHtmlContent = () => {
-  // 分享功能：从 props.content 中提取 URL
-  const urlMatch = props.content.match(/(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/i)
-  const url = urlMatch ? urlMatch[1] : ''
-  
-  if (url) {
-    // 可以复制链接到剪贴板或调用系统分享
-    navigator.clipboard?.writeText(url).then(() => {
-      // 可以显示提示
-      console.log('链接已复制到剪贴板')
-    }).catch(() => {
-      console.log('复制失败')
-    })
-  }
-}
-
 // 计算显示的内容（用于打字机效果，流式与非流式统一使用 displayedLength 控制）
 const displayedContent = computed(() => {
-  const safeLength = Math.min(displayedLength.value, props.content.length)
-  const content = props.content.substring(0, safeLength)
+  const content = props.content
   
   // 对于 HTML 消息，过滤掉 HTML URL，只显示文字描述
   if (props.messageType === 'html') {
@@ -210,8 +179,7 @@ const displayedContent = computed(() => {
 const htmlSegments = computed(() => {
   if (props.messageType !== 'html') return [] as { key: string; type: 'text' | 'link'; rendered?: string; url?: string; rawHtml?: string }[]
 
-  const safeLength = Math.min(displayedLength.value, props.content.length)
-  const content = props.content.substring(0, safeLength)
+  const content = props.content
   const regex = /(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/gi
   const segments: { key: string; type: 'text' | 'link'; rendered?: string; url?: string; rawHtml?: string }[] = []
 
@@ -255,120 +223,6 @@ const htmlSegments = computed(() => {
   return segments
 })
 
-// 开始或继续打字机效果（支持流式 & 非流式）
-const startTypewriter = () => {
-  // 关闭打字机模式时，直接展示完整内容
-  if (!props.enableTypewriter) {
-    displayedLength.value = props.content.length
-    isTyping.value = false
-    return
-  }
-
-  if (props.content.length === 0) {
-    return
-  }
-
-  // 如果当前已全部显示，则无需继续
-  if (displayedLength.value >= props.content.length) {
-    isTyping.value = false
-    return
-  }
-
-  isTyping.value = true
-
-  const typeNextChar = () => {
-    if (displayedLength.value < props.content.length) {
-      displayedLength.value++
-
-      const progress = (displayedLength.value / props.content.length) * 100
-      emit('progress', progress)
-
-      typingTimer = setTimeout(typeNextChar, props.typewriterSpeed)
-    } else {
-      isTyping.value = false
-      typingTimer = null
-      emit('complete')
-    }
-  }
-
-  if (!typingTimer) {
-    typeNextChar()
-  }
-}
-
-// 调试：在骨架屏渲染时输出一次日志
-const logSkeleton = () => {
-  console.log('[StreamingMessage][Skeleton]', {
-    isStreaming: props.isStreaming,
-    contentLength: props.content?.length ?? 0,
-  })
-  return ''
-}
-
-// 停止打字机效果，并直接展示全部内容
-const stopTypewriter = () => {
-  if (typingTimer) {
-    clearTimeout(typingTimer)
-    typingTimer = null
-  }
-  isTyping.value = false
-  displayedLength.value = props.content.length
-  lastContentLength.value = props.content.length
-}
-
-// 监听内容变化：只要内容长度增加，就对新增部分做打字机效果
-watch(
-  () => props.content,
-  (newContent, oldContent = '') => {
-    const newLen = newContent.length
-    const oldLen = oldContent.length
-
-    // 关闭打字机：任何时候内容变化都直接展示完整内容
-    if (!props.enableTypewriter) {
-      displayedLength.value = newLen
-      lastContentLength.value = newLen
-      isTyping.value = false
-      return
-    }
-
-    // 内容被整体替换为更短（例如错误态），直接展示完整内容
-    if (newLen <= oldLen) {
-      displayedLength.value = newLen
-      lastContentLength.value = newLen
-      return
-    }
-
-    // 内容有新增部分：从当前 displayedLength 继续打字
-    if (typingTimer) {
-      // 已有打字任务在跑，更新 lastContentLength 即可
-      lastContentLength.value = newLen
-    } else {
-      // 没有打字任务，启动新的打字任务
-      startTypewriter()
-    }
-  },
-  { immediate: true },
-)
-
-// 监听流式状态变化：结束流式时，如果还有未显示完的内容，继续打字直到完成
-watch(() => props.isStreaming, (streaming) => {
-  if (!streaming && props.content) {
-    // 关闭打字机时，直接展示完整内容
-    if (!props.enableTypewriter) {
-      displayedLength.value = props.content.length
-      isTyping.value = false
-      return
-    }
-
-    // 流式结束，如有剩余内容未展示，继续打字直至完成
-    if (displayedLength.value < props.content.length) {
-      startTypewriter()
-    } else {
-      isTyping.value = false
-    }
-  }
-})
-
 // 处理 Markdown 渲染出的图片
 const processMarkdownImages = (container: HTMLElement) => {
   // 查找容器内所有的图片元素
@@ -390,74 +244,6 @@ const processMarkdownImages = (container: HTMLElement) => {
     img.classList.add('markdown-image')
   })
 }
-
-
-// 监听内容变化，重新渲染MathJax和处理图片（防抖处理）
-let mathJaxRenderTimeout: ReturnType<typeof setTimeout> | null = null
-watch(() => props.content, () => {
-  // 防抖处理，避免频繁渲染MathJax和处理图片
-  if (mathJaxRenderTimeout) {
-    clearTimeout(mathJaxRenderTimeout)
-  }
-    mathJaxRenderTimeout = setTimeout(() => {
-      nextTick(() => {
-        // 重新渲染MathJax，使用懒加载模式
-        if (streamingContentRef.value) {
-          MathJaxUtils.renderMath(streamingContentRef.value, true)
-          // 处理图片
-          processMarkdownImages(streamingContentRef.value)
-        }
-        if (typewriterContentRef.value) {
-          MathJaxUtils.renderMath(typewriterContentRef.value, true)
-          // 处理图片
-          processMarkdownImages(typewriterContentRef.value)
-        }
-      })
-    }, 300) // 300ms防抖
-})
-
-onMounted(() => {
-  if (props.content) {
-    // 初次挂载时：如果关闭打字机，直接展示完整内容
-    if (!props.enableTypewriter) {
-      displayedLength.value = props.content.length
-      lastContentLength.value = props.content.length
-      isTyping.value = false
-    } else {
-      // 初次挂载时，如果有内容，从头开始打字
-      displayedLength.value = 0
-      lastContentLength.value = props.content.length
-      startTypewriter()
-    }
-  }
-
-  nextTick(() => {
-    setupIframeResizeObserver()
-  })
-})
-
-// rawHtmlMap / messageType 变化时（新消息补齐 rawHtmlMap、或从 text 切到 html），确保重新计算缩放
-watch(
-  () => [props.messageType, props.rawHtmlMap],
-  () => {
-    nextTick(() => {
-      setupIframeResizeObserver()
-    })
-  },
-  { deep: true },
-)
-
-onUnmounted(() => {
-  if (typingTimer) {
-    clearTimeout(typingTimer)
-  }
-  if (mathJaxRenderTimeout) {
-    clearTimeout(mathJaxRenderTimeout)
-  }
-
-  iframeResizeObserver?.disconnect()
-  iframeResizeObserver = null
-})
 
 // MathJax渲染处理
 const setStreamingContentRef = (el: any) => {
@@ -483,6 +269,65 @@ const setTypewriterContentRef = (el: any) => {
     })
   }
 }
+
+const refreshMathAndImages = () => {
+  nextTick(() => {
+    if (streamingContentRef.value) {
+      MathJaxUtils.renderMath(streamingContentRef.value, true)
+      processMarkdownImages(streamingContentRef.value)
+    }
+    if (typewriterContentRef.value) {
+      MathJaxUtils.renderMath(typewriterContentRef.value, true)
+      processMarkdownImages(typewriterContentRef.value)
+    }
+  })
+}
+
+let mathJaxRenderTimeout: ReturnType<typeof setTimeout> | null = null
+
+const scheduleMathAndImageRefresh = () => {
+  // 防抖处理，避免频繁渲染MathJax和处理图片
+  if (mathJaxRenderTimeout) {
+    clearTimeout(mathJaxRenderTimeout)
+  }
+  mathJaxRenderTimeout = setTimeout(() => {
+    refreshMathAndImages()
+  }, 300) // 300ms防抖
+}
+
+// 监听内容变化：只要内容长度增加，就对新增部分做打字机效果
+watch(
+  () => props.content,
+  () => {
+    scheduleMathAndImageRefresh()
+  },
+  { immediate: true },
+)
+
+// rawHtmlMap / messageType 变化时（新消息补齐 rawHtmlMap、或从 text 切到 html），确保重新计算缩放
+watch(
+  () => [props.messageType, props.rawHtmlMap],
+  () => {
+    nextTick(() => {
+      setupIframeResizeObserver()
+    })
+  },
+  { deep: true },
+)
+
+onMounted(() => {
+  setupIframeResizeObserver()
+  refreshMathAndImages()
+})
+
+onUnmounted(() => {
+  if (mathJaxRenderTimeout) {
+    clearTimeout(mathJaxRenderTimeout)
+  }
+
+  iframeResizeObserver?.disconnect()
+  iframeResizeObserver = null
+})
 </script>
 
 <style scoped>

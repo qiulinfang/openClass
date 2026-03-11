@@ -119,6 +119,45 @@ export class ChatStorageService {
    * @returns 序列化后的数据
    */
   private serializeChatData(data: ChatHistoryData): ChatHistoryData {
+    const toPlainRecord = (input: unknown): Record<string, any> | undefined => {
+      if (!input || typeof input !== 'object') return undefined
+      try {
+        return { ...(input as Record<string, any>) }
+      } catch {
+        return undefined
+      }
+    }
+
+    const serializeChatRecordData = (input: ChatBubble['chatRecordData']) => {
+      if (!input) return undefined
+      const messages = Array.isArray(input.messages)
+        ? input.messages.map((m) => ({
+            id: m.id,
+            messageId: m.messageId,
+            content: m.content,
+            sender: m.sender,
+            type: m.type,
+            timestamp: m.timestamp,
+            messageType: m.messageType,
+            rawHtml: m.rawHtml,
+            rawHtmlMap: toPlainRecord(m.rawHtmlMap),
+            isStreaming: m.isStreaming || false,
+            isError: m.isError,
+            canRetry: m.canRetry,
+            retryCount: m.retryCount,
+            originalMessage: m.originalMessage,
+            selectedModel: m.selectedModel,
+            sessionId: m.sessionId,
+            originalDstUrl: m.originalDstUrl,
+          }))
+        : []
+
+      return {
+        messages,
+        additionalMessage: input.additionalMessage,
+      }
+    }
+
     // messages 必须是数组格式
     if (!Array.isArray(data.messages)) {
       console.warn('⚠️ messages 必须是数组格式，但收到了非数组类型，已转换为空数组')
@@ -142,7 +181,7 @@ export class ChatStorageService {
         messageId: msg.messageId,
         messageType: msg.messageType,
         rawHtml: msg.rawHtml,
-        rawHtmlMap: msg.rawHtmlMap,
+        rawHtmlMap: toPlainRecord(msg.rawHtmlMap),
         isRead: msg.isRead, // 序列化已读状态
         isStreaming: msg.isStreaming || false,
         // 完整序列化 imageData，包括 base64DataUrl（用于UI显示）
@@ -175,7 +214,7 @@ export class ChatStorageService {
         canRetry: msg.canRetry,
         retryCount: msg.retryCount,
         originalMessage: msg.originalMessage,
-        chatRecordData: msg.chatRecordData,
+        chatRecordData: serializeChatRecordData(msg.chatRecordData),
         selectedModel: msg.selectedModel, // 保存模式信息（mate/mentor/researcher）
         sessionId: msg.sessionId,
         originalDstUrl: msg.originalDstUrl,
