@@ -58,6 +58,40 @@
       </div>
     </div>
 
+    <div class="debug-section">
+      <div class="debug-section-title">Single Item</div>
+      <div class="debug-grid">
+        <div class="debug-row">
+          <label class="debug-label">sWidth</label>
+          <input v-model.number="local.singleWidth" class="debug-input" type="number" min="40" step="1" @input="commit" />
+        </div>
+        <div class="debug-row">
+          <label class="debug-label">sHeight</label>
+          <input v-model.number="local.singleHeight" class="debug-input" type="number" min="40" step="1" @input="commit" />
+        </div>
+        <div class="debug-row">
+          <label class="debug-label">sOffX</label>
+          <input v-model.number="local.singleOffsetX" class="debug-input" type="number" step="1" @input="commit" />
+        </div>
+        <div class="debug-row">
+          <label class="debug-label">sOffY</label>
+          <input v-model.number="local.singleOffsetY" class="debug-input" type="number" step="1" @input="commit" />
+        </div>
+        <div class="debug-row">
+          <label class="debug-label">sIcon</label>
+          <input v-model.number="local.singleIconSize" class="debug-input" type="number" min="12" step="1" @input="commit" />
+        </div>
+        <div class="debug-row">
+          <label class="debug-label">sFont</label>
+          <input v-model.number="local.singleFontSize" class="debug-input" type="number" min="8" step="1" @input="commit" />
+        </div>
+        <div class="debug-row">
+          <label class="debug-label">sGap</label>
+          <input v-model.number="local.singleLabelGap" class="debug-input" type="number" min="0" step="1" @input="commit" />
+        </div>
+      </div>
+    </div>
+
     <!-- 菜单项位置调节 -->
     <div class="debug-section">
       <div class="debug-section-title">Item Positions</div>
@@ -110,6 +144,13 @@ export type FloatBubbleDebugConfig = {
   offsetX: number
   offsetY: number
   zIndex: number
+  singleWidth: number
+  singleHeight: number
+  singleOffsetX: number
+  singleOffsetY: number
+  singleIconSize: number
+  singleFontSize: number
+  singleLabelGap: number
   forceVisible: boolean
   disableOutsideClose: boolean
   itemPositions: { x: number; y: number }[]

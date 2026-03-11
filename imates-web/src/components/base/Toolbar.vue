@@ -16,7 +16,7 @@
             :class="{ active: navItem.key === props.modelValue, disabled: navItem.disabled }"
             @click="!navItem.disabled && handleNavClick(navItem.key)"
           >
-            <img v-if="navItem.icon" :src="navItem.icon" :alt="navItem.label" class="nav-icon" />
+            <img v-if="navItem.icon && navItem.key === props.modelValue" :src="navItem.icon" :alt="navItem.label" class="nav-icon" />
             <span>{{ navItem.label }}</span>
           </div>
         </div>
@@ -222,6 +222,7 @@ $desktop-breakpoint: 1025px;
     }
     .nav-icon {
       filter: none;
+      width: 20px;
     }
   }
 

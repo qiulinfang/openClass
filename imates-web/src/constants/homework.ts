@@ -35,13 +35,13 @@ export const HOMEWORK_TAG_MAP: Record<string, string> = {
 export const HOMEWORK_BUTTON_TEXT_MAP = {
   ended: '去作答',
   expiredCanLateSubmit: '去补交',
-  expiredNoLateSubmit: '已截止',
+  expiredNoLateSubmit: '去作答',
   normal: '去作答'
 }
 
 // 按钮变体映射表
 export const HOMEWORK_BUTTON_VARIANT_MAP = {
-  disabled: 'ghost' as const,
+  disabled: 'expired' as const,
   enabled: 'primary' as const
 }
 
@@ -96,6 +96,6 @@ export const getHomeworkButtonText = (status: string, isExpired: boolean, canLat
 }
 
 // 获取按钮变体
-export const getHomeworkButtonVariant = (disabled: boolean): 'ghost' | 'primary' => {
+export const getHomeworkButtonVariant = (disabled: boolean): 'primary' | 'expired' => {
   return disabled ? HOMEWORK_BUTTON_VARIANT_MAP.disabled : HOMEWORK_BUTTON_VARIANT_MAP.enabled
 }

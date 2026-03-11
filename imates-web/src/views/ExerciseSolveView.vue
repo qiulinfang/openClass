@@ -1,7 +1,7 @@
 <template>
   <div class="exercise-solve-container">
     <!-- 顶部工具栏 -->
-    <Toolbar :nav-items="navItems" v-model="currentFunction">
+    <Toolbar :nav-items="navItems" v-model="toolbarFunction">
       <template #left>
         <div class="back-btn" @click="goBack">
           <img :src="goBackIcon" alt="返回" class="back-icon" />
@@ -160,8 +160,8 @@
                   @question-added="handleQuestionAdded"
                 />
 
-                <!-- 草稿本（通过 FloatBubble 切换，不使用 tab） -->
-                <div v-if="currentFunction === 'draft'" class="draft-board-container">
+                <!-- 草稿本（通过顶部 tab 切换） -->
+                <div v-if="currentFunction === 'myDraft'" class="draft-board-container">
                   <DrawingBoardNew
                     ref="draftBoardRef"
                     :showGrid="false"
@@ -260,8 +260,12 @@ import qipaoIcon from '/icons/qipao_coagao.svg'
 import wodezuodaUnselectIcon from '/icons/wodezuoda_unselect.svg'
 import xuebandayiSelectIcon from '/icons/xuebandayi_select.svg'
 import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
-import caogaobenSelectIcon from '/icons/caogaoben_select.svg'
-import caogaobenUnselectIcon from '/icons/caogaoben_unselect.svg'
+import questionSearchIcon from '/icons/questionSearch.svg'
+import myanswerIcon from '/icons/myanswer.svg'
+import onetothreeIcon from '/icons/onetothree.svg'
+import seeAnswerIcon from '/icons/seeAnswer.svg'
+import teacheraskIcon from '/icons/teacherask.svg'
+import xuebanaskIcon from '/icons/xuebanask.svg'
 
 // 判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -280,7 +284,7 @@ const { currentQuestion: exerciseCurrentQuestion, questions } = storeToRefs(ques
 const { currentQuestion: homeworkCurrentQuestion, questions: homeworkQuestions } =
   storeToRefs(homeworkStore)
 
-const currentFunction = ref<'chatAi' | 'teacherChat' | 'viewAnswer' | 'similarQuestion' | 'draft' | ''>('')
+const currentFunction = ref<'chatAi' | 'teacherChat' | 'viewAnswer' | 'similarQuestion' | 'myDraft' | ''>('')
 
 let draftAutoSaveTimer: ReturnType<typeof setTimeout> | null = null
 const DRAFT_AUTO_SAVE_DELAY_MS = 800
@@ -299,22 +303,30 @@ const showGobakBtn = computed(() => {
 
 const showExploreOverlay = ref(false)
 
+// 当前科目（用于拍照搜题跳转）
+const currentSubjectForPhotoSearch = computed(() => {
+  const current = currentQuestion.value
+  if (current?.subject) {
+    return normalizeSubject(current.subject)
+  }
+  if (selectedSubjectFilter.value) {
+    return normalizeSubject(selectedSubjectFilter.value)
+  }
+  return 'math'
+})
+
 // Float 气泡菜单配置
 const floatMenuItems = computed(() => {
   if (isFromHomework.value) {
     return [
-      { label: '学伴辅导', icon: xuebandayiSelectIcon },
+      { label: '学伴答疑', icon: xuebandayiSelectIcon },
       { label: '我的作答', icon: wodezuodaUnselectIcon },
     ]
   }
   return [
     {
-      label: '学伴答疑',
-      icon: currentFunction.value === 'chatAi' ? xuebandayiSelectIcon : xuebandayiUnselectIcon,
-    },
-    {
-      label: '草稿本',
-      icon: currentFunction.value === 'draft' ? caogaobenSelectIcon : caogaobenUnselectIcon,
+      label: '拍照搜题',
+      icon: questionSearchIcon,
     },
   ]
 })
@@ -322,33 +334,41 @@ const floatMenuItems = computed(() => {
 const switchFunction = async (
   next: typeof currentFunction.value
 ) => {
-  if (currentFunction.value === 'draft' && next !== 'draft') {
+  if (currentFunction.value === 'myDraft' && next !== 'myDraft') {
     await flushDraftAutoSave(currentDraftQuestionId.value)
     currentDraftQuestionId.value = null
   }
 
   currentFunction.value = next
 
-  if (next === 'draft') {
+  if (next === 'myDraft') {
     await loadCurrentDraft()
   }
 }
 
+const toolbarFunction = computed({
+  get: () => currentFunction.value,
+  set: (next) => {
+    void switchFunction(next)
+  },
+})
+
 // 处理 Float 菜单选择
 const handleFloatMenuSelect = async (item: { label: string }) => {
-  if (item.label === '学伴答疑' || item.label === '学伴辅导') {
+  if (item.label === '学伴答疑') {
     // 切换到学伴答疑
     await switchFunction('chatAi')
-  } else if (item.label === '草稿本') {
-    // 切换到草稿本（不使用 tab，通过 FloatBubble 切换）
-    await switchFunction('draft')
+  } else if (item.label === '拍照搜题') {
+    const subject = currentSubjectForPhotoSearch.value || 'math'
+    router.push({
+      path: '/photo-search',
+      query: { subject },
+    })
   } else if (item.label === '我的作答') {
     if (isFromHomework.value) {
       goBack()
       return
     }
-    // 切换到查看答案
-    await switchFunction('viewAnswer')
   }
 }
 
@@ -457,24 +477,34 @@ const canUseDraft = computed(() => hasSelectedQuestion.value)
 // 导航项配置
 const navItems = computed(() => [
   {
-    key: currentFunction.value === 'draft' ? 'draft' : 'chatAi',
-    label: currentFunction.value === 'draft' ? '草稿本' : '学伴答疑',
-    disabled: currentFunction.value === 'draft' ? !canUseDraft.value : !canUseChatAi.value
+    key: 'chatAi',
+    label: '学伴答疑',
+    icon: xuebanaskIcon,
+    disabled: !canUseChatAi.value
   },
   {
     key: 'teacherChat',
     label: '老师答疑',
+    icon: teacheraskIcon,
     disabled: !canUseTeacherChat.value
   },
   {
     key: 'viewAnswer',
     label: '查看答案',
+    icon: seeAnswerIcon,
     disabled: isFromHomework.value || !canUseViewAnswer.value
   },
   {
     key: 'similarQuestion',
     label: '举一反三',
+    icon: onetothreeIcon,
     disabled: isFromHomework.value || !canUseSimilarQuestion.value
+  },
+  {
+    key: 'myDraft',
+    label: '我的作答',
+    icon: myanswerIcon,
+    disabled: isFromHomework.value || !canUseDraft.value
   }
 ])
 
@@ -675,7 +705,7 @@ const handleQuestionSelected = async () => {
   }
 
   // 草稿本打开状态下切题：先保存旧题草稿，再加载新题草稿
-  if (currentFunction.value === 'draft') {
+  if (currentFunction.value === 'myDraft') {
     await flushDraftAutoSave(currentDraftQuestionId.value)
     await loadCurrentDraft()
     return
@@ -827,7 +857,7 @@ const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean
 
 const handlePasteToDraft = async (payload: { dataUrl: string; messageId?: string; questionId?: string }) => {
   if (!payload?.dataUrl) return
-  await switchFunction('draft')
+  await switchFunction('myDraft')
   await nextTick()
 
   const board = draftBoardRef.value as any
@@ -1130,7 +1160,7 @@ const loadCurrentDraft = async () => {
 
 // 组件卸载时清空习题场景下的当前选中题目
 onBeforeUnmount(() => {
-  if (currentFunction.value === 'draft') {
+  if (currentFunction.value === 'myDraft') {
     flushDraftAutoSave(currentDraftQuestionId.value)
   }
   // 作业场景依赖 homeworkStore.currentQuestionIndex 来在多个页面间保持选中状态

@@ -6,7 +6,7 @@ const props = defineProps<{
   loading?: boolean
   disabled?: boolean
   size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
-  variant?: 'primary' | 'outline' | 'ghost' | 'danger'  // 按钮样式变体
+  variant?: 'primary' | 'outline' | 'ghost' | 'danger' | 'expired'  // 按钮样式变体
   icon?: string  // 图标路径，如果提供则显示图标而不是文字
 }>()
 
@@ -175,9 +175,25 @@ const handleClick = (evt: MouseEvent) => {
   background-color: #ee5a5a;
 }
 
+.common-action-btn--expired {
+  background-color: #d1d5db;
+  color: #ffffff;
+  border: none;
+  box-shadow: none;
+  border-radius: 12px;
+}
+
+.common-action-btn--expired:hover:not(:disabled) {
+  background-color: #c5cbd3;
+}
+
 .common-action-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.common-action-btn--expired:disabled {
+  opacity: 1;
 }
 
 .spinner {

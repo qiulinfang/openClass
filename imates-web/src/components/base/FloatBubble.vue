@@ -10,8 +10,20 @@
 
     <!-- 气泡菜单 -->
     <transition name="bubble-pop">
-      <div 
-        v-show="menuVisible" 
+      <div
+        v-if="isSingleItem"
+        v-show="menuVisible"
+        class="bubble-menu-single"
+        :class="bubbleSideClass"
+        :style="bubbleMenuSingleStyle"
+        @click="handleItemClick(items[0])"
+      >
+        <img :src="items[0].icon" class="single-icon" :style="singleIconStyle" alt="" />
+        <span class="single-label" :style="singleLabelStyle">{{ items[0].label }}</span>
+      </div>
+      <div
+        v-else
+        v-show="menuVisible"
         class="bubble-menu"
         :class="bubbleSideClass"
         :style="bubbleMenuStyle"
@@ -58,6 +70,9 @@ const props = defineProps({
   }
 })
 
+const items = computed(() => props.items || [])
+const isSingleItem = computed(() => items.value.length === 1)
+
 const emit = defineEmits(['select'])
 const isVisible = ref(false)
 const isPressed = ref(false)
@@ -75,6 +90,13 @@ const debug = reactive({
   offsetX: 56,
   offsetY: -18,
   zIndex: 10,
+  singleWidth: 76,
+  singleHeight: 76,
+  singleOffsetX: 0,
+  singleOffsetY: -18,
+  singleIconSize: 32,
+  singleFontSize: 12,
+  singleLabelGap: 6,
   forceVisible: false,
   disableOutsideClose: false,
   // 菜单项绝对定位：[{x: number, y: number}, ...]
@@ -99,6 +121,30 @@ const bubbleMenuStyle = computed(() => {
     '--bubble-offset-x': `${debug.offsetX}px`,
     '--bubble-offset-y': `${debug.offsetY}px`,
     '--bubble-enter-x': debug.side === 'right' ? '-100px' : '100px',
+  }
+})
+
+const bubbleMenuSingleStyle = computed(() => {
+  return {
+    width: `${debug.singleWidth}px`,
+    height: `${debug.singleHeight}px`,
+    zIndex: String(debug.zIndex),
+    '--bubble-offset-x': `${debug.singleOffsetX}px`,
+    '--bubble-offset-y': `${debug.singleOffsetY}px`,
+    '--bubble-enter-x': debug.side === 'right' ? '-100px' : '100px',
+  }
+})
+
+const singleIconStyle = computed(() => {
+  return {
+    width: `${debug.singleIconSize}px`,
+  }
+})
+
+const singleLabelStyle = computed(() => {
+  return {
+    marginTop: `${debug.singleLabelGap}px`,
+    fontSize: `${debug.singleFontSize}px`,
   }
 })
 
@@ -197,13 +243,44 @@ onUnmounted(() => {
   z-index: 10;
 }
 
+.bubble-menu-single {
+  position: absolute;
+  top: 50%;
+  --bubble-offset-x: 0px;
+  --bubble-offset-y: 0px;
+  --bubble-enter-x: 100px;
+  transform: translateY(-50%) translate(var(--bubble-offset-x), var(--bubble-offset-y));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-image: none;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0;
+  gap: 0;
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
 /* 左侧布局 */
 .bubble-menu.left {
   right: 100%;
   transform-origin: center right;
 }
 
+.bubble-menu-single.left {
+  right: 100%;
+  transform-origin: center right;
+}
+
 .bubble-menu.right {
+  left: 100%;
+  transform-origin: center left;
+}
+
+.bubble-menu-single.right {
   left: 100%;
   transform-origin: center left;
 }
@@ -220,13 +297,26 @@ onUnmounted(() => {
   transform-origin: center;
 }
 
-.menu-item:hover {
+.menu-item:hover:not(.single) {
   transform: rotate(var(--item-rotate, 0deg)) scale(1.05);
 }
 
 .icon-image {
   width: 50px;
   object-fit: contain;
+}
+
+.single-icon {
+  width: 32px;
+  object-fit: contain;
+}
+
+.single-label {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(124, 92, 255, 0.95);
 }
 
 /* --- 动画 --- */

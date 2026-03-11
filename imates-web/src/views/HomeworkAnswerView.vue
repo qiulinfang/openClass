@@ -208,13 +208,13 @@ const currentQuestionChooseList = computed({
 // Float 气泡菜单配置
 const floatMenuItems = computed(() => {
   return [
-    { label: '学伴辅导', icon: xuebandayiUnselectIcon },
+    { label: '学伴答疑', icon: xuebandayiUnselectIcon },
     { label: '我的作答', icon: wodezuodaSelectIcon },
   ]
 })
 
 const handleFloatMenuSelect = async (item: { label: string }) => {
-  if (item.label === '学伴辅导') {
+  if (item.label === '学伴答疑') {
     xuebanLimitDialogRef.value?.openDialog()
     // handleGoToXueban();
   } else if (item.label === '我的作答') {
