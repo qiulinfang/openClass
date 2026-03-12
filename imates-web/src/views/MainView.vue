@@ -612,8 +612,7 @@ const showDraftNotebook = ref(false)
 const drawingBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
 const clearDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 
-// 资源通知状态
-const hasResourceNotification = ref(false)
+const hasResourceNotification = computed(() => resourceStore.hasResourceNotification)
 
 // 用户端未读消息数
 const userClientUnreadCount = computed(() => userClientStore.unreadCount)
@@ -991,39 +990,17 @@ const isNavItemActive = (key: NavKey | string) => {
   return activeNavItem.value === key
 }
 
-// 检查教材更新状态和未下载状态
+// 检查教材更新状态和未下载状态（纯读逻辑，不写 IndexedDB）
 const checkResourceUpdates = async () => {
   try {
     // 获取所有本地教材
-    let textbooks = await resourceManager.getUserLocalTextbooks()
+    const textbooks = await resourceManager.getUserLocalTextbooks()
 
-    // 如果本地没有数据，从服务器获取
+    // 如果本地没有数据，不显示红点（由 MyResourcesView 负责写操作）
     if (textbooks.length === 0) {
-      try {
-        // 检查登录状态
-        if (!resourceManager.isLoggedIn()) {
-          // 会话无效，跳转到登录页
-          console.warn('❌ [MainView] 登录状态无效，跳转到登录页')
-          await router.push({ name: 'login' })
-          return
-        }
-
-        // 从服务器获取教材数据
-        const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
-
-        if (serverTextbooks && serverTextbooks.length > 0) {
-          // 将服务器数据保存到本地
-          for (const textbook of serverTextbooks) {
-            await resourceManager.updateTextbookInfo(textbook)
-          }
-
-          // 使用服务器数据进行检查
-          textbooks = serverTextbooks
-        }
-      } catch (error) {
-        // 获取服务器数据失败，使用本地数据（可能为空）
-        console.warn('获取服务器教材数据失败:', error)
-      }
+      resourceStore.setHasResourceNotification(false)
+      hasAnyDownloadedTextbook.value = null
+      return
     }
 
     // 检查是否有教材需要更新
@@ -1031,46 +1008,19 @@ const checkResourceUpdates = async () => {
       return textbook.hasUpdatesAvailable === true
     })
 
-    // 检查是否有教材未下载或未完全下载
-    const hasUndownloaded = textbooks.some((textbook: UserTextbookInfo) => {
-      // 判断条件：未下载或未完全下载
-      // - isDownloaded === false 表示未下载
-      // - downloadedFiles < totalFiles 表示未完全下载（部分下载也算未完成）
-      // - downloadStatus === 0 表示未下载/下载失败
-      if (textbook.totalFiles === 0) {
-        // 如果总文件数为0，检查 isDownloaded 状态
-        return !textbook.isDownloaded || textbook.downloadStatus === 0
-      } else {
-        // 如果总文件数大于0，检查下载进度
-        return (
-          !textbook.isDownloaded ||
-          textbook.downloadedFiles < textbook.totalFiles ||
-          textbook.downloadStatus === 0
-        )
-      }
-    })
+    // 更新通知状态（仅当有更新时显示小红点）
+    resourceStore.setHasResourceNotification(hasUpdates)
 
-    // 更新通知状态（有更新或未下载都显示小红点）
-    hasResourceNotification.value = hasUpdates || hasUndownloaded
-
-    // 更新“是否已下载任意教材”状态：仅当存在 downloadStatus === 2 且 isDownloaded 为 true 的教材时为 true
+    // 更新"是否已下载任意教材"状态：仅当存在 downloadStatus === 2 且 isDownloaded 为 true 的教材时为 true
     hasAnyDownloadedTextbook.value = textbooks.some((textbook: UserTextbookInfo) => {
       return textbook.isDownloaded === true && textbook.downloadStatus === 2
     })
   } catch {
     // 检查失败时，不显示通知且不显示引导
-    hasResourceNotification.value = false
+    resourceStore.setHasResourceNotification(false)
     hasAnyDownloadedTextbook.value = null
   }
 }
-
-// 监听 store 的 notificationTrigger 变化，触发通知检查
-watch(
-  () => resourceStore.notificationTrigger,
-  () => {
-    checkResourceUpdates()
-  }
-)
 
 // 初始化按钮位置
 onMounted(async () => {
@@ -1100,8 +1050,6 @@ onMounted(async () => {
   // 等待 Vue 渲染完成
   await nextTick()
 
-  // 确保 IndexedDB 已初始化，然后检查教材更新状态
-  // getUserLocalTextbooks 内部会检查并初始化 IndexedDB，所以直接调用即可
   await checkResourceUpdates()
 
   // 监听Android原生日志

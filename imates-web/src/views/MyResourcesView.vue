@@ -824,6 +824,7 @@ const markUpdatesFromCheckResult = async (
   await Promise.all(promises)
 
   updateCount.value = updatedTextbooks.length
+  resourceStore.setHasResourceNotification(updatedTextbooks.length > 0)
   if (showNotification) {
     if (updatedTextbooks.length > 0) {
       showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
@@ -888,23 +889,6 @@ const finalizeRecord = async (record: UserTextbookInfo) => {
   })
 }
 
-const assignReactive = (
-  textbook: UserTextbookInfo,
-  record: UserTextbookInfo,
-  scene: string,
-  source: string,
-  reason: string
-) => {
-  const oldId = (textbook as any)?.id
-
-  Object.assign(textbook, {
-    ...record,
-    updateStructure: textbook.updateStructure,
-    updatePackages: textbook.updatePackages,
-    getLocalResourceFileName: textbook.getLocalResourceFileName,
-  })
-
-}
 
 const cacheChapterStructure = async (
   textbook: UserTextbookInfo,
@@ -993,17 +977,12 @@ const downloadTextbook = async (textbook: UserTextbookInfo, forceRefreshPackages
     if (fullTextbook) {
       await finalizeRecord(fullTextbook)
 
-      assignReactive(
-        textbook,
-        fullTextbook,
-        'downloadTextbook.assignFromFullTextbook',
-        'IndexedDB:getTextbookByIdOrTextbookIdWithFallback',
-        '下载成功后用 IndexedDB 完整记录覆盖当前响应式对象（包含 fileData），Object.assign 可能导致 id 被覆盖'
-      )
+      Object.assign(textbook, fullTextbook)
 
       await cacheChapterStructure(textbook, fullTextbook)
 
       resourceStore.markTextbookUpdated()
+      resourceStore.setHasResourceNotification(textbooks.value.some((t) => t.hasUpdatesAvailable))
       showMessage(`《${textbook.textbookName}》下载完成`, 'success')
       return
     }
@@ -1012,14 +991,9 @@ const downloadTextbook = async (textbook: UserTextbookInfo, forceRefreshPackages
     if (foundTextbook) {
       await finalizeRecord(foundTextbook)
 
-      assignReactive(
-        textbook,
-        foundTextbook,
-        'downloadTextbook.assignFromFallbackFound',
-        'IndexedDB:getAll + find/reduce',
-        '主键/索引查询失败时降级 getAll 手动选择记录并覆盖当前对象，Object.assign 可能导致 id 被覆盖'
-      )
+      Object.assign(textbook, foundTextbook)
 
+      resourceStore.setHasResourceNotification(textbooks.value.some((t) => t.hasUpdatesAvailable))
       showMessage(`《${textbook.textbookName}》下载完成`, 'success')
       return
     }
@@ -1039,6 +1013,7 @@ const downloadTextbook = async (textbook: UserTextbookInfo, forceRefreshPackages
     })
 
     window.dispatchEvent(new CustomEvent('textbook-updated'))
+    resourceStore.setHasResourceNotification(textbooks.value.some((t) => t.hasUpdatesAvailable))
     showMessage(`《${textbook.textbookName}》下载完成`, 'success')
   } catch (error) {
     // 修复：区分用户主动暂停和真正的下载失败

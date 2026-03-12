@@ -231,30 +231,7 @@ export class ResourceManager {
     try {
       // 如果提供了更新数据，则合并到教材信息中
       if (updates) {
-        const oldId = (textbook as any)?.id
         Object.assign(textbook, updates)
-
-        const newId = (textbook as any)?.id
-        if (
-          oldId != null &&
-          newId != null &&
-          String(oldId) !== String(newId)
-        ) {
-          const anyUpdates = updates as any
-          console.warn('[ResourceStorage][TextbookIdChanged]', {
-            scene: 'updateTextbookInfo:Object.assign',
-            oldId: String(oldId),
-            newId: String(newId),
-            textbookId: (textbook as any)?.textbookId,
-            textbookName: (textbook as any)?.textbookName,
-            updatesId: anyUpdates?.id,
-            updatesTextbookId: anyUpdates?.textbookId,
-            source: anyUpdates?.__source,
-            reason: anyUpdates?.__reason,
-            keys: Object.keys(updates).slice(0, 50),
-            ts: Date.now(),
-          })
-        }
       }
       
       // 立即更新到IndexedDB（自动序列化）
@@ -502,7 +479,6 @@ export class ResourceManager {
         }
       }
     } catch (error) {
-      console.warn(`更新缩略图失败 (textbookId: ${textbookId}, fileId: ${fileId}):`, error)
     }
   }
 
@@ -768,7 +744,6 @@ export class ResourceManager {
       
       return true
     } catch (error) {
-      console.error('删除教材失败:', error)
       return false
     }
   }

@@ -99,6 +99,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { apiService } from '@/services/http/api-service'
+import { showMessage } from '@/utils'
 import type { HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
 import type { ExerciseItem } from '@/types'
 import { SUBJECT_ID_TO_NAME, HOMEWORK_SUBJECT_OPTIONS, normalizeSubject } from '@/constants/subjects'
@@ -221,9 +222,12 @@ const displayHomeworkList = computed(() => {
 
     const releaseText = homework.releaseTime ? formatDate(homework.releaseTime) : ''
     const deadlineText = homework.deadline ? formatDate(homework.deadline) : ''
-    const rangeText = (releaseText && deadlineText)
-      ? `${releaseText}-${deadlineText}`
-      : (releaseText || deadlineText)
+    const releaseDateKey = homework.releaseTime ? new Date(homework.releaseTime).toISOString().slice(0, 10) : ''
+    const rangeText = releaseDateKey && releaseDateKey === selectedDate.value
+      ? '今天'
+      : ((releaseText && deadlineText)
+        ? `${releaseText}-${deadlineText}`
+        : (releaseText || deadlineText))
 
     const scoreText = homework.totalScore ? `总分：${homework.totalScore}分` : '总分：--'
 
@@ -251,25 +255,23 @@ const displayHomeworkList = computed(() => {
 
     // 格式化为前端需要的显示格式
     return {
-      id: homework.id,
-      name: homework.title,
-      tags: tags,
-      statusText,
-      statusType,
-      statusTagType: statusTagType as 'green' | 'purple' | 'gray',
-      scoreText,
-      timeLeftText,
-      isExpired,
-      rangeText,
-      buttonText,
-      buttonVariant,
-      buttonDisabled,
-      date: homework.releaseTime ? formatDate(homework.releaseTime) : '暂无',
-      description: contentParts.join(' · '),
-      // 作业备注（如果有的话）
-      remark: homework.remark || '',
-      // 保留原始作业数据，供跳转答题时使用
-      homework: homework,
+      id: homework.id, // 作业唯一标识
+      name: homework.title, // 作业标题（显示名称）
+      tags: tags, // 作业标签数组（学科、提交类型等）
+      statusText, // 状态文本（已提交、未提交等）
+      statusType, // 状态类型（用于样式判断）
+      statusTagType: statusTagType as 'green' | 'purple' | 'gray', // 状态标签颜色类型
+      scoreText, // 分数文本（总分：XX分）
+      timeLeftText, // 剩余时间文本（还剩X天X小时截止）
+      isExpired, // 是否已过期
+      rangeText, // 时间范围文本（今天 或 发布-截止日期）
+      buttonText, // 按钮文本（去作答、已提交等）
+      buttonVariant, // 按钮样式变体
+      buttonDisabled, // 按钮是否禁用
+      date: homework.releaseTime ? formatDate(homework.releaseTime) : '暂无', // 发布日期（用于排序或显示）
+      description: contentParts.join(' · '), // 作业描述（总分、发布时间、截止时间等组合）
+      remark: homework.remark || '', // 作业备注（教师添加的额外说明）
+      homework: homework, // 保留原始作业数据，供跳转答题时使用
     }
   })
 })
@@ -375,11 +377,12 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
       })
     } else {
       console.error('[MyHomeworkView] 获取作业详情失败或无题目数据:', questionDetails)
-      // 可以显示错误提示给用户
+      showMessage('作业题目为空，无法进入作答', 'warning')
+      return
     }
   } catch (error) {
     console.error('[MyHomeworkView] 获取作业详情异常:', error)
-    // 可以显示错误提示给用户
+    showMessage('获取作业详情失败，请稍后重试', 'error')
   }
 }
 </script>

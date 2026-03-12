@@ -10,9 +10,12 @@ export const useResourceStore = defineStore('resource', () => {
   // 资源更新检查状态
   const lastUpdateCheckTime = ref<number | null>(null)
   const lastUpdateTime = ref<number | null>(null)
-  
-  // 通知状态（用于触发通知检查）
-  const notificationTrigger = ref(0)
+
+  const hasResourceNotification = ref(false)
+
+  const setHasResourceNotification = (value: boolean) => {
+    hasResourceNotification.value = value
+  }
   
   /**
    * 标记更新检查完成
@@ -20,8 +23,6 @@ export const useResourceStore = defineStore('resource', () => {
    */
   const markUpdateCheckCompleted = () => {
     lastUpdateCheckTime.value = Date.now()
-    // 触发通知检查
-    notificationTrigger.value++
   }
   
   /**
@@ -30,25 +31,15 @@ export const useResourceStore = defineStore('resource', () => {
    */
   const markTextbookUpdated = () => {
     lastUpdateTime.value = Date.now()
-    // 触发通知检查
-    notificationTrigger.value++
-  }
-  
-  /**
-   * 手动触发通知检查
-   * 用于窗口焦点等场景
-   */
-  const triggerNotificationCheck = () => {
-    notificationTrigger.value++
   }
   
   return {
     lastUpdateCheckTime,
     lastUpdateTime,
-    notificationTrigger,
+    hasResourceNotification,
+    setHasResourceNotification,
     markUpdateCheckCompleted,
     markTextbookUpdated,
-    triggerNotificationCheck
   }
 })
 
