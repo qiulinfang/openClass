@@ -59,7 +59,7 @@
                 variant="primary"
                 size="sm"
                 :disabled="!currentAnswerQuestion"
-                @click="handleUploadHomework"
+                @click="handleBoardUpload"
               />
             </template>
           </DrawingBoardNew>
@@ -183,11 +183,10 @@ const setDrawingBoardRef = (el: InstanceType<typeof DrawingBoardNew> | null, pag
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
-
+// 用于绑定题目列表搜索关键字
 const questionSearchQuery = ref('')
-
+// 用于多选题右面板的选项集，绑定到多选控件
 const rightPanelOptions = ['A', 'B', 'C', 'D']
-
 // 当前题目的选中选项（从缓存中获取或默认空字符串）
 const currentQuestionChooseList = computed({
   get: () => {
@@ -204,7 +203,6 @@ const currentQuestionChooseList = computed({
     ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   },
 })
-
 // Float 气泡菜单配置
 const floatMenuItems = computed(() => {
   return [
@@ -212,7 +210,7 @@ const floatMenuItems = computed(() => {
     { label: '我的作答', icon: wodezuodaSelectIcon },
   ]
 })
-
+// 处理 FloatBubble 菜单项选择，控制学伴对话弹窗显示
 const handleFloatMenuSelect = async (item: { label: string }) => {
   if (item.label === '学伴答疑') {
     xuebanLimitDialogRef.value?.openDialog()
@@ -222,17 +220,16 @@ const handleFloatMenuSelect = async (item: { label: string }) => {
     return
   }
 }
-
+// 负责引用并操作“学伴限时对话”对话框组件实例
 const xuebanLimitDialogRef = ref<InstanceType<typeof Dialog>>()
-
+// 在作业答题页确认学伴限制弹窗时关闭该弹窗
 const handleXuebanLimitDialogConfirm = () => {
   xuebanLimitDialogRef.value?.closeDialog()
 }
-
+// 关闭作业页的“学伴限时对话”弹窗
 const handleXuebanLimitDialogCancel = () => {
   xuebanLimitDialogRef.value?.closeDialog()
 }
-
 // 去学伴按钮点击 - 跳转到作业答题专用路由
 const handleGoToXueban = () => {
   // 1. 先保存当前题目当前页的作答数据到全局缓存，避免跳转后丢失
@@ -249,41 +246,20 @@ const handleGoToXueban = () => {
   })
 }
 
-
-// 是否有选中的题目（QuestionList 中选中即可，不需要渲染到 canvas）
-const hasSelectedQuestion = computed(() => {
-  return (
-    questionListRef.value?.selectedQuestionIndex !== undefined &&
-    questionListRef.value.selectedQuestionIndex >= 0
-  )
-})
-
-// Markdown + 公式渲染工具
-const { renderMessageContent } = useMessageRenderer()
-
 // 当前题目的 HTML（用于截图）
-const questionHtml = computed(() => {
-  if (!currentAnswerQuestion.value) return ''
-  const q = currentAnswerQuestion.value
-  const raw = (q.question || q.title || '').toString()
-  return renderMessageContent(raw)
-})
+const questionHtml = ref('')
 
 // 截图用隐藏容器
 const questionRenderRef = ref<HTMLElement | null>(null)
-
 // 生成的题目截图 dataURL，传给 DrawingBoard 作为背景图
 const questionBgImage = ref<string>('')
-
 // 题目截图缓存：key = 题目唯一标识（优先 bmNo，其次 id）
 const questionImageCache = new Map<string, string>()
-
-// 当前题目的白板页索引和总页数（UI 显示用，真实数据存储在 answerDataCache 中）
-
-// 最近一次白板上传导出的图片与白板页索引映射：
-// lastUploadPageIndices[i] = 对应 initialUploadPhotos[i] 的白板页索引
+// 用于标记题目背景截图的序列号，防止重复截图冲突
+const questionBgCaptureSeq = ref(0)
+// 保存上传图片对应的题目索引的响应式数组
 const lastUploadPageIndices = ref<number[]>([])
-
+// 在 HomeworkAnswerView.vue 中返回作业页面的标题
 const title = computed(() => {
   const homeworkId = route.params.homeworkId as string | undefined
   return homeworkId ? `作业作答 - ${homeworkId}` : '作业作答'
@@ -294,82 +270,22 @@ const displayTitle = computed(() => {
   return (homeworkName.value && homeworkName.value.trim()) || title.value
 })
 
-// 题目列表已从 homeworkStore 获取，根据 currentQuestionIndex 恢复当前选中题目
-onMounted(async () => {
-  if (!externalQuestions.value.length) return
-
-  // 初始化所有题目状态为未作答
-  externalQuestions.value.forEach((question) => {
-    const questionKey = getQuestionKey(question)
-    if (questionKey) {
-      const cache = (answerDataCache.value as Record<string, any>)[questionKey]
-      if (!cache) {
-        // 初始化未作答状态
-        // 初始化题目的缓存数据结构
-        ;(answerDataCache.value as Record<string, any>)[questionKey] = {
-          boardData: { objects: [], history: [[]], historyIndex: 0 }, // 画板状态数据
-          imageData: null, // 导出的图片数据
-          chooseList: [], // 选择的选项（A/B/C/D）
-          timestamp: Date.now(), // 创建时间戳
-        }
-        console.log(`[HomeworkAnswerView] 初始化题目状态为未作答: ${questionKey}`)
-      }
-    }
-  })
-
-  // 优先使用 store 中记录的选中索引
-  let targetIndex = currentQuestionIndex.value ?? -1
-
-  // 如果没有选中或索引越界，则默认选中第一题
-  if (targetIndex < 0 || targetIndex >= externalQuestions.value.length) {
-    targetIndex = 0
-  }
-
-  // 等待 QuestionList 渲染完成后再调用滚动
-  await nextTick()
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  if (
-    questionListRef.value &&
-    typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
-  ) {
-    questionListRef.value.scrollToQuestionAndSelect(targetIndex)
-  }
-
-  // 同步到右侧作答区域
-  const targetQuestion = externalQuestions.value[targetIndex]
-  handleStartAnswer(targetQuestion)
-})
-
 // 获取题目唯一标识
 const getQuestionKey = (question: ExerciseItem | null): string => {
   if (!question) return ''
   return (question.bmNo || question.id || '').toString()
 }
 
-// 获取指定题目的白板缓存结构（简化版，单页）
-const getBoardCache = (questionKey: string): { pages: Record<string, unknown>[] } => {
-  const raw = (answerDataCache.value as Record<string, any>)[questionKey]
-
-  if (raw) {
-    return {
-      pages: [raw],
-    }
-  }
-
-  return {
-    pages: [],
-  }
-}
-
 // 获取题目状态
 type QuestionStatus = 'unanswered' | 'answered'
 
+// 判断白板数据是否包含绘制对象
 const hasBoardAnswerData = (boardData: any): boolean => {
   const objects = boardData?.objects
   return Array.isArray(objects) && objects.length > 0
 }
 
+// 在 HomeworkAnswerView.vue 中判断题目是否已作答
 const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
   const questionKey = getQuestionKey(question)
   if (!questionKey) return 'unanswered'
@@ -406,6 +322,8 @@ const getQuestionStatusType = (question: ExerciseItem): 'yellow' | 'green' => {
   }
   return typeMap[status]
 }
+
+// 将当前题目的画板数据与导出图片缓存到全局缓存中
 const saveCurrentPage = () => {
   if (!currentAnswerQuestion.value) return
   const board = drawingBoardRefs.value[0] // 只有一个页面，使用索引0
@@ -432,10 +350,17 @@ const saveCurrentPage = () => {
   })
 }
 
+// 在当前题目的画布执行清空请求并打开确认对话框
 const handleClearRequest = () => {
   clearDialogRef.value?.openDialog()
 }
 
+// 关闭清空确认对话框
+const cancelClearCanvas = () => {
+  clearDialogRef.value?.closeDialog()
+}
+
+// 在当前题目的画布执行清空并同步缓存数据的操作
 const confirmClearCanvas = () => {
   const board = drawingBoardRefs.value[0] // 只有一个页面，使用索引0
   if (!board) {
@@ -468,8 +393,109 @@ const confirmClearCanvas = () => {
   clearDialogRef.value?.closeDialog()
 }
 
-const cancelClearCanvas = () => {
-  clearDialogRef.value?.closeDialog()
+
+// Markdown + 公式渲染工具
+const { renderMessageContent } = useMessageRenderer()
+
+// QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
+const handleStartAnswer = async (question: ExerciseItem) => {
+  // 保存当前题目当前页的作答数据（如果有）
+  saveCurrentPage()
+
+  // 切换到新题目
+  currentAnswerQuestion.value = question
+  previousQuestionKey.value =  getQuestionKey(question)
+
+  // 新题目的渲染后 HTML，用于截图
+  const raw = ( currentAnswerQuestion.value.question ||  currentAnswerQuestion.value.title || '').toString()
+  questionHtml.value = renderMessageContent(raw)
+
+  // 确保 v-html 内容已渲染到 DOM
+  await nextTick()
+
+  // 新题目 HTML 变化时：等待 DOM 更新后截图
+  const seq = ++questionBgCaptureSeq.value
+  // 生成新题目背景截图并缓存
+  await updateQuestionBackgroundImage(seq)
+
+  // 从全局缓存恢复或清空新题目的绘图板数据
+  restoreCurrentPage(question)
+}
+
+// 题目 HTML 变化时：等待 DOM 更新后截图
+const updateQuestionBackgroundImage = async (seq: number) => {
+  const isStale = () => seq !== questionBgCaptureSeq.value
+
+  // 如果没有当前题目，清空背景图
+  if (!currentAnswerQuestion.value) {
+    console.warn('[HomeworkAnswerView] 没有当前题目，清空背景图')
+    questionBgImage.value = ''
+    return
+  }
+
+  // 如果已有缓存，直接复用避免重复截图
+  const val = currentAnswerQuestion.value
+  const key = (val.bmNo || val.id || '').toString()
+  if (key && questionImageCache.has(key)) {
+    questionBgImage.value = questionImageCache.get(key) || ''
+    return
+  }
+
+  // 如果没有题目 HTML 内容，清空背景图并返回
+  const html = questionHtml.value
+  if (!html) {
+    console.warn('[HomeworkAnswerView] 题目 HTML 内容为空，清空背景图')
+    questionBgImage.value = ''
+    return
+  }
+
+  // 获取题目渲染容器的DOM引用
+  const el = questionRenderRef.value
+  if (!el) {
+    console.warn('[HomeworkAnswerView] questionRenderRef 为空，放弃本次题目截图')
+    return
+  }
+
+  // 检查容器内容是否已渲染完成，如果为空则等待一段时间
+  if (!el.innerHTML || el.innerHTML.trim() === '') {
+    console.warn('[HomeworkAnswerView] 隐藏容器内容为空，等待渲染...')
+    await nextTick()
+    if (isStale()) return
+  }
+
+  try {
+    // el渲染数学公式
+    await MathJaxUtils.renderMathAndWait(el)
+    if (isStale()) return
+
+    // el规范图像
+    const imgs = el.querySelectorAll('img')
+    imgs.forEach((img) => {
+      img.removeAttribute('width')
+      img.removeAttribute('height')
+      ;(img as HTMLImageElement).style.width = 'auto'
+      ;(img as HTMLImageElement).style.height = 'auto'
+      ;(img as HTMLImageElement).style.maxWidth = '100%'
+    })
+
+    // el转换为图片
+    const dataUrl = await htmlToImage.toPng(el, {
+      backgroundColor: '#ffffff',
+      pixelRatio: 1.5,
+      cacheBust: true,
+    })
+    if (isStale()) return
+    questionBgImage.value = dataUrl
+
+    // 写入缓存
+    if (key) {
+      questionImageCache.set(key, dataUrl)
+    }
+  } catch (e) {
+    console.error('[HomeworkAnswerView] 使用 html-to-image 生成题目截图失败:', e)
+    if (isStale()) return
+    questionBgImage.value = ''
+  }
 }
 
 // 根据缓存恢复当前题目的画布数据
@@ -493,128 +519,7 @@ const restoreCurrentPage = (question: ExerciseItem | null) => {
   }
 }
 
-// QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
-const handleStartAnswer = (question: ExerciseItem) => {
-  // 1. 保存当前题目当前页的作答数据（如果有）
-  saveCurrentPage()
-
-  // 2. 切换到新题目
-  currentAnswerQuestion.value = question
-  const newKey = getQuestionKey(question)
-  previousQuestionKey.value = newKey
-
-  // 3. 恢复新题目的当前页作答数据（如果有缓存）
-  nextTick(() => {
-    restoreCurrentPage(question)
-  })
-}
-
-// 题目 HTML 变化时：等待 DOM 更新后截图
-watch(
-  questionHtml,
-  async (html) => {
-    if (!html || !currentAnswerQuestion.value) {
-      questionBgImage.value = ''
-      return
-    }
-
-    const val = currentAnswerQuestion.value
-    const key = (val.bmNo || val.id || '').toString()
-    // 如果已有缓存，直接复用，避免重复截图
-    if (key && questionImageCache.has(key)) {
-      questionBgImage.value = questionImageCache.get(key) || ''
-      return
-    }
-
-    // 等待 v-html 渲染到 DOM（关键：等待两次 nextTick 确保 DOM 更新完成）
-    await nextTick()
-    await nextTick()
-
-    // 额外等待一小段时间确保渲染完成
-    await new Promise((resolve) => setTimeout(resolve, 50))
-
-    const el = questionRenderRef.value
-    if (!el) {
-      console.warn('[HomeworkAnswerView] questionRenderRef 为空，放弃本次题目截图')
-      return
-    }
-
-    // 确保 v-html 内容已渲染到 DOM
-    if (!el.innerHTML || el.innerHTML.trim() === '') {
-      console.warn('[HomeworkAnswerView] 隐藏容器内容为空，等待渲染...')
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      await nextTick()
-    }
-
-    try {
-      // 先清除上一题在该容器上的 MathJax 渲染状态，然后再渲染当前题目的公式
-      // await MathJaxUtils.clearMath(el)
-      // 对于截图场景，需要等待 MathJax 完全排版完成后再生成 PNG
-      await MathJaxUtils.renderMathAndWait(el)
-
-      // 统一规范题目内图片的布局：清理自身宽高属性，限制最大宽度为容器宽度
-      const imgs = el.querySelectorAll('img')
-      imgs.forEach((img) => {
-        img.removeAttribute('width')
-        img.removeAttribute('height')
-        ;(img as HTMLImageElement).style.width = 'auto'
-        ;(img as HTMLImageElement).style.height = 'auto'
-        ;(img as HTMLImageElement).style.maxWidth = '100%'
-      })
-
-      // 开发环境：将题目 DOM 中 src 指向 imates.com.cn/temporaryImg 的 <img>
-      // 改写为相对路径 /temporaryImg/...，方便通过 Vite devServer 代理解决 CORS；
-      // 生产环境：直接使用接口返回的完整路径，不做重写，由后端部署决定访问方式。
-      if (import.meta.env.DEV) {
-        imgs.forEach((img) => {
-          const src = img.getAttribute('src') || ''
-          if (!src) return
-
-          let newSrc = src
-          const httpPrefix = 'http://imates.com.cn/temporaryImg/'
-          const httpsPrefix = 'https://imates.com.cn/temporaryImg/'
-
-          if (src.startsWith(httpPrefix)) {
-            newSrc = '/temporaryImg/' + src.substring(httpPrefix.length)
-          } else if (src.startsWith(httpsPrefix)) {
-            newSrc = '/temporaryImg/' + src.substring(httpsPrefix.length)
-          }
-
-          if (newSrc !== src) {
-            console.log('[HomeworkAnswerView] 重写题目图片 URL(dev):', src, '=>', newSrc)
-            img.setAttribute('src', newSrc)
-            ;(img as HTMLImageElement).crossOrigin = 'anonymous'
-          }
-        })
-      }
-
-      // 使用 html-to-image 将题目 DOM 转为图片（基于 SVG foreignObject，性能优于 html2canvas）
-      const dataUrl = await htmlToImage.toPng(el, {
-        backgroundColor: '#ffffff',
-        pixelRatio: 1.5,
-        cacheBust: true,
-      })
-      console.log('[HomeworkAnswerView] 截图成功，dataUrl 长度 =', dataUrl?.length)
-      questionBgImage.value = dataUrl
-
-      // 写入缓存，后续再次作答同一题目时直接复用
-      if (key) {
-        questionImageCache.set(key, dataUrl)
-      }
-
-      console.log('[HomeworkAnswerView] questionBgImage updated', {
-        questionKey: key,
-        dataUrlLength: dataUrl?.length || 0,
-        hasCurrentQuestion: !!currentAnswerQuestion.value,
-      })
-    } catch (e) {
-      console.error('[HomeworkAnswerView] 使用 html-to-image 生成题目截图失败:', e)
-      questionBgImage.value = ''
-    }
-  },
-  { immediate: false }
-)
-
+// 返回作业列表页面
 const goBack = () => {
   router.push({ name: 'myHomework' })   
 }
@@ -650,21 +555,17 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
 const showCameraDialog = ref(false)
 // 初始照片列表（白板上传时使用）
 const initialUploadPhotos = ref<string[]>([])
-
+// 清空画布确认对话框的引用
 const clearDialogRef = ref<InstanceType<typeof Dialog>>()
+// 漏题确认对话框的引用
 const incompleteHomeworkDialogRef = ref<InstanceType<typeof Dialog>>()
+// 漏题确认对话框的数据
 const incompleteDialogData = ref({
   totalQuestions: 0,
   submittedQuestions: 0,
   incompleteQuestionNumbers: [] as number[]
 })
 let incompleteHomeworkResolve: (value: boolean) => void
-
-// 上传作业按钮点击：先执行白板导出逻辑（handleBoardUpload）
-// handleBoardUpload 内部会根据现有白板页导出图片并打开上传对话框
-const handleUploadHomework = async () => {
-  await handleBoardUpload()
-}
 
 // 白板上传按钮点击 - 收集所有题目的图片并打开对话框
 const handleBoardUpload = async () => {
@@ -944,6 +845,55 @@ const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]
     showMessage(error instanceof Error ? error.message : '提交失败，请重试', 'error')
   }
 }
+
+
+
+// 题目列表已从 homeworkStore 获取，根据 currentQuestionIndex 恢复当前选中题目
+onMounted(async () => {
+  if (!externalQuestions.value.length) return
+
+  // 初始化所有题目状态为未作答
+  externalQuestions.value.forEach((question) => {
+    const questionKey = getQuestionKey(question)
+    if (questionKey) {
+      const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+      if (!cache) {
+        // 初始化未作答状态
+        // 初始化题目的缓存数据结构
+        ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+          boardData: { objects: [], history: [[]], historyIndex: 0 }, // 画板状态数据
+          imageData: null, // 导出的图片数据
+          chooseList: [], // 选择的选项（A/B/C/D）
+          timestamp: Date.now(), // 创建时间戳
+        }
+        console.log(`[HomeworkAnswerView] 初始化题目状态为未作答: ${questionKey}`)
+      }
+    }
+  })
+
+  // 优先使用 store 中记录的选中索引
+  let targetIndex = currentQuestionIndex.value ?? -1
+
+  // 如果没有选中或索引越界，则默认选中第一题
+  if (targetIndex < 0 || targetIndex >= externalQuestions.value.length) {
+    targetIndex = 0
+  }
+
+  // 等待 QuestionList 渲染完成后再调用滚动
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 300))
+
+  if (
+    questionListRef.value &&
+    typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
+  ) {
+    questionListRef.value.scrollToQuestionAndSelect(targetIndex)
+  }
+
+  // 同步到右侧作答区域
+  const targetQuestion = externalQuestions.value[targetIndex]
+  await handleStartAnswer(targetQuestion)
+})
 </script>
 
 <style scoped>
