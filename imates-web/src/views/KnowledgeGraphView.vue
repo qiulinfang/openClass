@@ -1797,7 +1797,6 @@ onUnmounted(() => {
 
   .scroll-wrapper.chapter-list {
     flex: 1;
-    overflow: hidden;
     margin-top: 16px;
 
     .scroll-content {

@@ -76,7 +76,7 @@ import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMainChatPanel } from '../../composables/useMainChatPanel'
 import Button from '../base/Button.vue'
 import fullScreenIcon from '/icons/fullScreen.svg'
-import generateImgGif from '/icons/generateImg.gif'
+import generateImgGif from '/icons/generateImg.webp'
 
 // 定义Props
 interface Props{

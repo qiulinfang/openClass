@@ -131,7 +131,7 @@ const debugEnabled = computed(() => {
 })
 
 const debugLog = (...args: any[]) => {
-  // eslint-disable-next-line no-console
+   
   console.log('[ScreenCaptureOverlay]', ...args)
 }
 

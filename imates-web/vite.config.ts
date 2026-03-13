@@ -102,7 +102,7 @@ export default defineConfig(() => {
           },
         },
         '/yb-release': {
-          target: ADDRESS_CATALOG.YANBAN_RELEASE,
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
@@ -110,7 +110,7 @@ export default defineConfig(() => {
           },
         },
         '/xb-test': {
-          target: ADDRESS_CATALOG.XUEBAN_TEST,
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
@@ -134,7 +134,7 @@ export default defineConfig(() => {
           },
         },
         '/yb-teacher-release': {
-          target: ADDRESS_CATALOG.TEACHER_API_RELEASE,
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {

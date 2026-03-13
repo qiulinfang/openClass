@@ -7,31 +7,7 @@ import type { QuestionRecord, AiGeneralSession, AiTextbookSession } from '@/type
 import type { ExerciseItem } from '@/types/exercise'
 import { getUserId } from '../../services'
 
-// localStorage key 常量（带用户ID前缀）
-const getFavoritesStorageKey = (): string => {
-  const userId = getUserId()
-  return `${userId}_favorites`
-}
-
-// 辅助函数：获取会话ID（兼容 id 和 sessionId）
-const getSessionId = (record: QuestionRecord | AiTextbookSession): string => {
-  if ('sessionId' in record && record.sessionId) {
-    return record.sessionId
-  }
-  if ('id' in record && record.id) {
-    return record.id
-  }
-  return ''
-}
-
 // 收藏数据类型
-export interface FavoriteQa {
-  id: string
-  type: 'qa'
-  record: QuestionRecord | AiTextbookSession  // 支持 QuestionRecord 和 AiTextbookSession
-  timestamp: number
-}
-
 export interface FavoriteExercise {
   id: string
   type: 'exercise'
@@ -46,19 +22,36 @@ export interface FavoriteSession {
   timestamp: number
 }
 
-export type Favorite = FavoriteQa | FavoriteExercise | FavoriteSession
+export type Favorite = FavoriteExercise | FavoriteSession
 
-/**
- * 获取所有收藏的会话
- */
-export function getFavoriteQas(): FavoriteQa[] {
-  try {
-    const favorites: Favorite[] = getAllFavorites()
-    return favorites.filter((f): f is FavoriteQa => f.type === 'qa')
-  } catch (error) {
-    console.error('获取收藏会话失败:', error)
-    return []
+// localStorage key 常量（带用户ID前缀）
+const getFavoritesStorageKey = (): string => {
+  const userId = getUserId()
+  return `${userId}_favorites`
+}
+
+// 题目收藏ID归一化（兼容新旧格式）
+const normalizeExerciseId = (id: string): string => {
+  if (!id) return ''
+  // 旧格式：exercise_{itemId}_{timestamp}
+  if (id.startsWith('exercise_')) {
+    const parts = id.split('_')
+    return parts.length >= 2 ? parts[1] : id
   }
+  // 新格式：直接是bmNo或id
+  return id
+}
+
+// 会话收藏ID归一化（兼容新旧格式）
+const normalizeSessionId = (id: string): string => {
+  if (!id) return ''
+  // 旧格式：session_{sessionId}_{timestamp}
+  if (id.startsWith('session_')) {
+    const parts = id.split('_')
+    return parts.length >= 2 ? parts[1] : id
+  }
+  // 新格式：直接是sessionId
+  return id
 }
 
 /**
@@ -88,6 +81,22 @@ export function getFavoriteSessions(): FavoriteSession[] {
 }
 
 /**
+ * 过滤有效的收藏记录（移除无效类型）
+ */
+function filterValidFavorites(raw: any[]): { cleaned: Favorite[], removedCount: number } {
+  const cleaned = raw.filter((f) => {
+    if (!f || typeof f !== 'object') return false
+    if (f.type === 'exercise' || f.type === 'session') return true
+    return false
+  }) as Favorite[]
+  
+  return {
+    cleaned,
+    removedCount: raw.length - cleaned.length
+  }
+}
+
+/**
  * 获取所有收藏
  */
 export function getAllFavorites(): Favorite[] {
@@ -95,27 +104,29 @@ export function getAllFavorites(): Favorite[] {
     const key = getFavoritesStorageKey()
     const data = localStorage.getItem(key)
     if (!data) return []
-    return JSON.parse(data) as Favorite[]
+    const raw = JSON.parse(data) as any[]
+    if (!Array.isArray(raw)) return []
+    
+    const { cleaned } = filterValidFavorites(raw)
+    
+    if (cleaned.length !== raw.length) {
+      localStorage.setItem(key, JSON.stringify(cleaned))
+    }
+    return cleaned
   } catch (error) {
     console.error('获取收藏列表失败:', error)
     return []
   }
 }
 
-/**
- * 检查会话是否已收藏
- */
-export function isQaFavorite(recordId: string): boolean {
-  const favorites = getFavoriteQas()
-  return favorites.some(f => getSessionId(f.record) === recordId)
-}
 
 /**
  * 检查题目是否已收藏
  */
 export function isExerciseFavorite(itemId: string): boolean {
   const favorites = getFavoriteExercises()
-  return favorites.some(f => (f.item.id === itemId) || (f.item.bmNo === itemId))
+  const normalized = normalizeExerciseId(itemId)
+  return favorites.some(f => normalizeExerciseId(f.id) === normalized)
 }
 
 /**
@@ -123,35 +134,8 @@ export function isExerciseFavorite(itemId: string): boolean {
  */
 export function isSessionFavorite(sessionId: string): boolean {
   const favorites = getFavoriteSessions()
-  return favorites.some(f => f.session.sessionId === sessionId)
-}
-
-/**
- * 收藏会话
- */
-export function addQaFavorite(record: QuestionRecord | AiTextbookSession): boolean {
-  try {
-    const recordId = getSessionId(record)
-    if (isQaFavorite(recordId)) {
-      return false // 已收藏
-    }
-
-    const favorite: FavoriteQa = {
-      id: `qa_${recordId}_${Date.now()}`,
-      type: 'qa',
-      record,
-      timestamp: Date.now()
-    }
-
-    const favorites = getAllFavorites()
-    favorites.push(favorite)
-    const key = getFavoritesStorageKey()
-    localStorage.setItem(key, JSON.stringify(favorites))
-    return true
-  } catch (error) {
-    console.error('收藏会话失败:', error)
-    return false
-  }
+  const normalized = normalizeSessionId(sessionId)
+  return favorites.some(f => normalizeSessionId(f.id) === normalized || normalizeSessionId(f.session.sessionId) === normalized)
 }
 
 /**
@@ -164,7 +148,7 @@ export function addExerciseFavorite(item: ExerciseItem): boolean {
     }
 
     const favorite: FavoriteExercise = {
-      id: `exercise_${item.id || item.bmNo}_${Date.now()}`,
+      id: item.bmNo || item.id, // 优先使用bmNo，其次使用id
       type: 'exercise',
       item,
       timestamp: Date.now()
@@ -182,36 +166,15 @@ export function addExerciseFavorite(item: ExerciseItem): boolean {
 }
 
 /**
- * 取消收藏会话
- */
-export function removeQaFavorite(recordId: string): boolean {
-  try {
-    const favorites = getAllFavorites()
-    const filtered = favorites.filter(f => {
-      if (f.type === 'qa') {
-        return getSessionId(f.record) !== recordId
-      }
-      return true
-    })
-    const key = getFavoritesStorageKey()
-    localStorage.setItem(key, JSON.stringify(filtered))
-    return favorites.length !== filtered.length
-  } catch (error) {
-    console.error('取消收藏会话失败:', error)
-    return false
-  }
-}
-
-/**
  * 取消收藏题目
  */
 export function removeExerciseFavorite(itemId: string): boolean {
   try {
     const favorites = getAllFavorites()
+    const normalized = normalizeExerciseId(itemId)
     const filtered = favorites.filter(f => {
       if (f.type === 'exercise') {
-        // 同时检查 id 和 bmNo
-        return (f.item.id !== itemId) && (f.item.bmNo !== itemId)
+        return normalizeExerciseId(f.id) !== normalized
       }
       return true
     })
@@ -225,28 +188,17 @@ export function removeExerciseFavorite(itemId: string): boolean {
 }
 
 /**
- * 切换会话收藏状态
- */
-export function toggleQaFavorite(record: QuestionRecord | AiTextbookSession): boolean {
-  const recordId = getSessionId(record)
-  if (isQaFavorite(recordId)) {
-    return removeQaFavorite(recordId)
-  } else {
-    return addQaFavorite(record)
-  }
-}
-
-/**
  * 收藏会话
  */
 export function addSessionFavorite(session: AiGeneralSession): boolean {
   try {
-    if (isSessionFavorite(session.sessionId)) {
+    const normalized = normalizeSessionId(session.sessionId)
+    if (isSessionFavorite(normalized)) {
       return false // 已收藏
     }
 
     const favorite: FavoriteSession = {
-      id: `session_${session.sessionId}_${Date.now()}`,
+      id: normalized,
       type: 'session',
       session,
       timestamp: Date.now()
@@ -269,9 +221,12 @@ export function addSessionFavorite(session: AiGeneralSession): boolean {
 export function removeSessionFavorite(sessionId: string): boolean {
   try {
     const favorites = getAllFavorites()
+    const normalized = normalizeSessionId(sessionId)
     const filtered = favorites.filter(f => {
       if (f.type === 'session') {
-        return f.session.sessionId !== sessionId
+        const favSessionId = normalizeSessionId(f.session.sessionId)
+        const favId = normalizeSessionId(f.id)
+        return favSessionId !== normalized && favId !== normalized
       }
       return true
     })
@@ -299,8 +254,9 @@ export function toggleSessionFavorite(session: AiGeneralSession): boolean {
  * 切换题目收藏状态
  */
 export function toggleExerciseFavorite(item: ExerciseItem): boolean {
-  if (isExerciseFavorite(item.id || item.bmNo)) {
-    return removeExerciseFavorite(item.id || item.bmNo)
+  const itemId = item.bmNo || item.id
+  if (isExerciseFavorite(itemId)) {
+    return removeExerciseFavorite(itemId)
   } else {
     return addExerciseFavorite(item)
   }

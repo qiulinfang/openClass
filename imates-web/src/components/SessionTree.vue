@@ -739,7 +739,7 @@ const formatTime = (timestamp: number): string => {
 // 如果选中的是一级分类节点，返回该分类
 // 如果选中的是二级会话节点，返回该会话的分类
 const getSelectedCategory = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
 ):
   | 'ai'
   | 'CHINESE'

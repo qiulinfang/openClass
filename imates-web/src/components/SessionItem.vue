@@ -58,13 +58,6 @@
     </div>
     <!-- 状态图标（收藏和置顶，始终显示） -->
     <div class="session-status-icons">
-      <!-- 收藏图标 -->
-      <img
-        v-if="showFavorite && isFavorite"
-        :src="starIcon"
-        alt="已收藏"
-        class="status-icon star-icon"
-      />
       <!-- 置顶图标 -->
       <img v-if="record.pinned" :src="pinIcon" alt="已置顶" class="status-icon pin-icon" />
     </div>
@@ -83,16 +76,6 @@
         </div>
 
         <!-- 收藏 -->
-        <div
-          v-if="showFavorite"
-          class="more-menu-item-row"
-          @click="closeMenuAndExecute(handleFavorite)"
-        >
-          <img :src="isFavorite ? starIcon : starBorderIcon" alt="收藏" width="18" height="18" />
-          <div>{{ isFavorite ? '取消收藏' : '收藏' }}</div>
-        </div>
-
-        <!-- 分割线 -->
         <div class="session-more-menu-divider"></div>
 
         <!-- 删除 -->
@@ -111,19 +94,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { AiTextbookSession, AiGeneralSession } from '@/types'
+import { computed, ref } from 'vue'
+import type { AiTextbookSession } from '@/types'
 import ImageViewer from './ImageViewer.vue'
 import BubblePopup from './base/Popover.vue'
-import {
-  isQaFavorite,
-  toggleQaFavorite,
-  isSessionFavorite,
-  toggleSessionFavorite,
-} from '@/utils/storage/favorites'
-import { showMessage } from '@/utils'
-import starIcon from '/icons/xingxing-light.svg'
-import starBorderIcon from '/icons/shoucang1.svg'
 import pinIcon from '/icons/zhiding.svg'
 import pinOutlinedIcon from '/icons/quxiaozhiding.svg'
 import deleteIcon from '/icons/delete.svg'
@@ -150,7 +124,6 @@ interface Props {
   selectedRecordId?: string
   isSelectionMode: boolean
   selectedRecordIds?: Set<string> | string[] // 传入选中的记录ID集合
-  showFavorite: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -206,106 +179,6 @@ const isChecked = computed(() => {
   }
   return false
 })
-
-// 收藏状态
-const isFavorite = ref(false)
-const favoriteType = ref<'qa' | 'session' | null>(null) // 记录收藏类型
-
-// 初始化收藏状态
-const initFavoriteStatus = () => {
-  if (!props.showFavorite) {
-    isFavorite.value = false
-    favoriteType.value = null
-    return
-  }
-
-  const recordIdValue = recordId.value
-  const isQa = isQaFavorite(recordIdValue)
-  const isSession = isSessionFavorite(recordIdValue)
-
-  // 优先显示会话收藏状态（如果存在）
-  if (isSession) {
-    isFavorite.value = true
-    favoriteType.value = 'session'
-  } else if (isQa) {
-    isFavorite.value = true
-    favoriteType.value = 'qa'
-  } else {
-    isFavorite.value = false
-    favoriteType.value = null
-  }
-}
-
-// 监听 record 变化，更新收藏状态
-watch(
-  () => props.record,
-  () => {
-    initFavoriteStatus()
-  },
-  { immediate: true }
-)
-
-// 处理收藏/取消收藏
-const handleFavorite = () => {
-  if (!props.showFavorite) return
-
-  const wasFavorite = isFavorite.value
-
-  let success = false
-
-  if (favoriteType.value === 'session') {
-    // 如果是会话收藏，切换会话收藏状态
-    // 需要将 AiTextbookSession 转换为 AiGeneralSession
-    const session: AiGeneralSession = {
-      sessionId: props.record.sessionId,
-      sessionName: props.record.sessionName,
-      createTime: props.record.createTime,
-      updateTime: props.record.updateTime,
-      msgCount: props.record.msgCount,
-      pinned: props.record.pinned,
-    }
-    success = toggleSessionFavorite(session)
-  } else if (favoriteType.value === 'qa') {
-    // 如果是问答收藏，切换问答收藏状态
-    success = toggleQaFavorite(props.record)
-  } else {
-    // 如果都没有收藏，优先添加会话收藏（因为我们在会话收藏标签页中使用）
-    // 但为了向后兼容，先尝试添加问答收藏
-    // 如果 record 有 sessionId，说明可能是会话，尝试添加会话收藏
-    if (props.record.sessionId && !props.record.resourceId) {
-      // 可能是 AI 通用会话，尝试添加会话收藏
-      const session: AiGeneralSession = {
-        sessionId: props.record.sessionId,
-        sessionName: props.record.sessionName,
-        createTime: props.record.createTime,
-        updateTime: props.record.updateTime,
-        msgCount: props.record.msgCount,
-        pinned: props.record.pinned,
-      }
-      success = toggleSessionFavorite(session)
-      if (success) {
-        favoriteType.value = 'session'
-      }
-    }
-
-    // 如果会话收藏失败，尝试问答收藏（向后兼容）
-    if (!success) {
-      success = toggleQaFavorite(props.record)
-      if (success) {
-        favoriteType.value = 'qa'
-      }
-    }
-  }
-
-  if (success) {
-    isFavorite.value = !wasFavorite
-    // 重新检查收藏状态
-    initFavoriteStatus()
-    showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
-  } else {
-    showMessage('操作失败，请重试', 'error')
-  }
-}
 </script>
 
 <style lang="scss" scoped>
@@ -365,6 +238,7 @@ const handleFavorite = () => {
     justify-content: center;
     align-items: flex-start;
     overflow: hidden;
+    padding-left: 10px;
   }
 
   .session-thumbnail {

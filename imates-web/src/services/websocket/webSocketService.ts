@@ -425,7 +425,7 @@ export function getWebSocketService(type: 'teacher' | 'client' | string): WebSoc
     const teacherBaseUrl = `${getTeacherWsUrl()}${getApiPaths().yanban.teacher.wsPath}`
     
     // 优先使用研伴用户ID，如果没有则使用学伴用户ID
-    let userId = getCurrentYanbanUserId() || getUserId() || 'guest045'
+    const userId = getCurrentYanbanUserId() || getUserId() || 'guest045'
     
     // 获取YANBAN_TOKEN用于WebSocket认证
     let token = ''

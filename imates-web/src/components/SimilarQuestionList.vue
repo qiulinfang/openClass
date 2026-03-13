@@ -3,23 +3,14 @@
     <!-- 相似题目列表 -->
     <RubberBandList
       ref="rubberBandRef"
-      class="scroll-wrapper"
       :enable-refresh="true"
-      :enable-load-more="true"
-      :loading="loading"
       @refresh="handleRefresh"
-      @loadMore="handleLoadMore"
     >
       <div class="scroll-content">
         <div class="q-pa-md">
-        <!-- 加载状态 -->
-        <div v-if="loading" class="native-loading-container">
-          <q-spinner-dots size="50px" color="primary" />
-          <div class="text-h6 q-mt-md native-text-xl">正在查找相似题目...</div>
-        </div>
 
         <!-- 空状态 -->
-        <div v-else-if="similarQuestions.length === 0" class="native-empty-state">
+        <div v-if="!loading && similarQuestions.length === 0" class="native-empty-state">
           <q-icon name="search_off" size="80px" color="grey-5" />
           <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">未找到相似题目</div>
           <div class="text-body2 text-grey-6 q-mt-sm native-text-md">
@@ -37,7 +28,7 @@
         </div>
 
         <!-- 相似题目项 - 与 QuestionList 保持一致的卡片布局 -->
-        <div v-else class="similar-questions-container">
+        <div v-if="!loading && similarQuestions.length > 0" class="similar-questions-container">
           <div
             v-for="(question, index) in similarQuestions"
             :key="question.bmNo || index"
@@ -307,12 +298,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   display: flex;
   flex-direction: column;
   background-color: $background-light;
-}
-
-.scroll-wrapper {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
 }
 
 .scroll-content {
@@ -598,7 +583,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 // ===== 加载和空状态样式 - 与 QuestionList 保持一致 =====
-.native-loading-container,
 .native-empty-state {
   @include flex-center;
   flex-direction: column;

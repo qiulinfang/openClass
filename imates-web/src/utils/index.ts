@@ -77,13 +77,12 @@ export {
 
 // 收藏功能工具
 export {
-  toggleQaFavorite,
-  removeQaFavorite,
-  getFavoriteQas,
   toggleExerciseFavorite,
   removeExerciseFavorite,
   getFavoriteExercises,
-  type FavoriteQa,
+  toggleSessionFavorite,
+  removeSessionFavorite,
+  getFavoriteSessions,
   type FavoriteExercise
 } from './storage/favorites'
 
