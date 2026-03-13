@@ -2582,7 +2582,7 @@ defineExpose({
     0 0 0 1px rgba(0, 0, 0, 0.02),
     0 2px 8px rgba(0, 0, 0, 0.04),
     0 1px 3px rgba(0, 0, 0, 0.06);
-  background-color: #ffffff;
+  background-color: #f7f6ff;
   cursor: crosshair;
   transition: box-shadow 0.2s ease;
   will-change: transform;

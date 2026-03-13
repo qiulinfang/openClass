@@ -1,7 +1,15 @@
 <template>
   <div class="similar-question-list">
     <!-- 相似题目列表 -->
-    <RubberBandList class="scroll-wrapper">
+    <RubberBandList
+      ref="rubberBandRef"
+      class="scroll-wrapper"
+      :enable-refresh="true"
+      :enable-load-more="true"
+      :loading="loading"
+      @refresh="handleRefresh"
+      @loadMore="handleLoadMore"
+    >
       <div class="scroll-content">
         <div class="q-pa-md">
         <!-- 加载状态 -->
@@ -91,6 +99,8 @@ import ImageViewer from './ImageViewer.vue'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)
 
+const rubberBandRef = ref<{ finishRefresh?: () => void } | null>(null)
+
 // 定义事件
 const emit = defineEmits<{
   questionAdded: []
@@ -131,6 +141,18 @@ const findSimilarQuestions = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleRefresh = async () => {
+  try {
+    await findSimilarQuestions()
+  } finally {
+    rubberBandRef.value?.finishRefresh?.()
+  }
+}
+
+const handleLoadMore = async () => {
+  await findSimilarQuestions()
 }
 
 // 添加题目到题目列表

@@ -82,24 +82,27 @@ interface TeacherHistoryMessage {
  */
 export class TeacherChatApi {
   /**
-   * 获取教师聊天历史（支持分页）
+   * 获取历史会话列表
    */
-  public async getTeacherChatHistory(sessionId: string, page?: number, pageSize?: number): Promise<TeacherHistoryMessage[]> {
-    console.log('[TeacherChatApi] getTeacherChatHistory 被调用，sessionId:', sessionId, '调用栈:', new Error().stack?.split('\n').slice(2, 5).join('\n'))
+  public async getTeacherChatHistory(
+    sessionId: string,
+    pageNum: number,
+    pageSize: number,
+  ): Promise<TeacherHistoryMessage[]> {
     try {
       // 使用研伴后端的API路径
       console.log('[TeacherChatApi] 发送API请求到 /api/question/historyList')
       const requestBody: TeacherHistoryRequest = {
-        sessionId: sessionId
+        sessionId,
       }
 
       // 添加分页参数（如果提供）
-      if (page !== undefined && pageSize !== undefined) {
-        requestBody.page = page
+      if (pageNum !== undefined && pageSize !== undefined) {
+        requestBody.page = pageNum
         requestBody.pageSize = pageSize
       }
 
-      const response = await httpClient.post(getApiPaths().teacher.historyList, requestBody)
+      const response = await httpClient.post(getApiPaths().yanban.teacher.historyList, requestBody)
       console.log('[TeacherChatApi] API响应:', response)
 
       // 处理可能的多种数据结构：直接数组、或者对象中的各种字段

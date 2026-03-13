@@ -59,7 +59,7 @@ export class HttpClient {
     const authConfig: Record<string, string> = {}
     
     // 登录接口不需要认证头
-    if (url === '/admin/login') {
+    if (url === '/xb-test/admin/login' || url === '/xb-release/admin/login') {
       return authConfig
     }
     
@@ -74,23 +74,24 @@ export class HttpClient {
     }
 
     if (
-      url.startsWith('/permission') ||
-      url.startsWith('/ai') ||
-      url.startsWith('/admin/info') ||
-      url.startsWith('/biologyTopicKnowledge') ||
       url.startsWith('/xb-test/permission') ||
       url.startsWith('/xb-test/ai') ||
       url.startsWith('/xb-test/admin/info') ||
-      url.startsWith('/xb-test/biologyTopicKnowledge')
+      url.startsWith('/xb-test/biologyTopicKnowledge') ||
+      url.startsWith('/xb-release/permission') ||
+      url.startsWith('/xb-release/ai') ||
+      url.startsWith('/xb-release/admin/info') ||
+      url.startsWith('/xb-release/biologyTopicKnowledge')
     ) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
       selectedToken = sanitize(localStorage.getItem('XUEBAN_TOKEN'))
     } else if (
-      url.startsWith('/blw-edu-yb') ||
       url.startsWith('/yb-test/blw-edu-yb') ||
-      url.startsWith('/api/question') ||
-      url.startsWith('/yb-teacher') ||
-      url.startsWith('/yb-test/yb-teacher')
+      url.startsWith('/yb-release/blw-edu-yb') ||
+      url.startsWith('/yb-test/yb-teacher') ||
+      url.startsWith('/yb-release/yb-teacher') ||
+      url.startsWith('/yb-teacher-test') ||
+      url.startsWith('/yb-teacher-release')
     ) {
       // /blw-edu-yb、/api/question、/yb-teacher 开头的请求使用 YANBAN_TOKEN（研伴相关/教师代理）
       selectedToken = sanitize(localStorage.getItem('YANBAN_TOKEN'))

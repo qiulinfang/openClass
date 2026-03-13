@@ -25,20 +25,20 @@ const sanitize = (value: string | null | undefined): string | null => {
   }
   return value
 }
-// 学班用户ID
+// 学伴用户ID
 export const getUserId = (): string | null => sanitize(localStorage.getItem('xuebanuserid'))
-// 学班用户密码
+// 学伴用户密码
 export const getPassword = (): string | null => sanitize(localStorage.getItem('userPassword'))
 // 研伴用户Token
 export const getYanbanToken = (): string | null => sanitize(localStorage.getItem('YANBAN_TOKEN'))
-// 学班用户Token
+// 学伴用户Token
 export const getXuebanToken = (): string | null => sanitize(localStorage.getItem('XUEBAN_TOKEN'))
 // 设置研伴用户Token
 export const setYanbanToken = (token: string | null): void => {
   if (token === null) localStorage.removeItem('YANBAN_TOKEN')
   else localStorage.setItem('YANBAN_TOKEN', token)
 }
-// 设置学班用户Token
+// 设置学伴用户Token
 export const setXuebanToken = (token: string | null): void => {
   if (token === null) localStorage.removeItem('XUEBAN_TOKEN')
   else localStorage.setItem('XUEBAN_TOKEN', token)
@@ -195,7 +195,7 @@ export class AuthService {
       url.startsWith(getApiPaths().xueban.admin.info) ||
       url.startsWith(getApiPaths().xueban.biologyTopicKnowledge.base)
     ) {
-      // 学班管理员相关接口：清除 XUEBAN_TOKEN
+      // 学伴管理员相关接口：清除 XUEBAN_TOKEN
       setXuebanToken(null)
     } else if (url.startsWith('/blw-edu-yb') || url.startsWith('/yb-test/blw-edu-yb')) {
       // 研伴相关接口：清除 YANBAN_TOKEN
@@ -206,7 +206,7 @@ export class AuthService {
   /**
    * 尝试自动重新登录
    * - 从统一存储读取 userId / password
-   * - 按路径选择学班或研伴登录
+   * - 按路径选择学伴或研伴登录
    * - 直接调用本类的登录方法刷新 token
    */
   private async tryAutoRelogin(url: string): Promise<boolean> {
@@ -241,7 +241,7 @@ export class AuthService {
         url.startsWith(getApiPaths().xueban.admin.info) ||
         url.startsWith(getApiPaths().xueban.biologyTopicKnowledge.base)
       ) {
-        // 学班管理员相关接口：使用学班登录
+        // 学伴管理员相关接口：使用学伴登录
         try {
           const token = await this.loginXueban(userId, password)
           return !!token
@@ -416,7 +416,7 @@ export class AuthService {
         password: md5Password,
       }
 
-      const endpoint = getApiPaths().auth.loginStudent
+      const endpoint = getApiPaths().yanban.auth.loginStudent
 
       const response = await this.callYanban<{
         code: number

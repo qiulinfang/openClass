@@ -11,16 +11,20 @@ export enum AppEnvType {
 }
 
 export interface ApiPaths {
+  xueban: XuebanApiPaths
+  yanban: YanbanApiPaths
+}
+
+export interface YanbanApiPaths {
   auth: AuthApiPaths
   resource: ResourceApiPaths
-  teacher: TeacherApiPaths
-  textbook: TextbookApiPaths
-  xueban: XuebanApiPaths
   homework: {
     undoList: string
     detailList: string
     submitSave: string
   }
+  teacher: TeacherApiPaths
+  textbook: TextbookApiPaths
 }
 
 export interface XuebanApiPaths {
@@ -83,7 +87,7 @@ export const ADDRESS_CATALOG = {
   XUEBAN_RELEASE: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
   XUEBAN_TEST: 'http://www.imates.com.cn:58443/blw-edu-service-alc',
   YANBAN_RELEASE: 'https://www.imates.com.cn:9099',
-  TEACHER_WS_RELEASE: 'ws://www.imates.com.cn:8201',
+  TEACHER_WS_RELEASE: 'wss://www.imates.com.cn',
   TEACHER_WS_TEST: 'wss://www.imates.com.cn',
   TEACHER_API_RELEASE: 'http://www.imates.com.cn:8201',
   HISTORY_MANAGE: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
@@ -243,12 +247,6 @@ export function getRequestsProxyBaseUrl(): string {
 export function getApiPaths(): ApiPaths {
   if (getIsInternalTest()) {
     return {
-      auth: {
-        loginStudent: '/yb-test/blw-edu-yb/auth/login-student',
-      },
-      resource: {
-        base: '/yb-test/resource',
-      },
       xueban: {
         admin: {
           base: '/xb-test/admin',
@@ -279,78 +277,88 @@ export function getApiPaths(): ApiPaths {
           knowledgeTopicAndAck2: '/xb-test/biologyTopicKnowledge/knowledgeTopicAndAck2',
         },
       },
-      homework: {
-        undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
-        detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
-        submitSave: '/yb-test/blw-edu-yb/api/app/homework-submit-save',
-      },
-      teacher: {
-        historyList: '/yb-test/yb-teacher/api/question/historyList',
-        uploadImg: '/yb-test/yb-teacher/api/system/uploadImg',
-        wsPath: '/yb-teacher-ws',
-      },
-      textbook: {
-        teacherTextbook: '/yb-test/blw-edu-yb/api/app/teacher-textbook',
-        teacherTextbookSectionTree: '/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree',
-        teacherTextbookLearningPackage: '/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package',
-        topicPackageAnswer: '/yb-test/blw-edu-yb/api/app/topic-package-answer',
-        topicPackagePage: '/yb-test/blw-edu-yb/api/app/topic-package-page',
+      yanban: {
+        auth: {
+          loginStudent: '/yb-test/blw-edu-yb/auth/login-student',
+        },
+        resource: {
+          base: '/yb-test/resource',
+        },
+        homework: {
+          undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
+          detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
+          submitSave: '/yb-test/blw-edu-yb/api/app/homework-submit-save',
+        },
+        teacher: {
+          historyList: '/yb-teacher-test/yb-teacher/api/question/historyList',
+          uploadImg: '/yb-teacher-test/yb-teacher/api/system/uploadImg',
+          wsPath: '/teacher-ws-test/yb-teacher-ws',
+        },
+        textbook: {
+          teacherTextbook: '/yb-test/blw-edu-yb/api/app/teacher-textbook',
+          teacherTextbookSectionTree: '/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree',
+          teacherTextbookLearningPackage: '/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package',
+          topicPackageAnswer: '/yb-test/blw-edu-yb/api/app/topic-package-answer',
+          topicPackagePage: '/yb-test/blw-edu-yb/api/app/topic-package-page',
+        },
       },
     }
   }
   return {
-    auth: {
-      loginStudent: '/blw-edu-yb/auth/login-student',
-    },
-    resource: {
-      base: '/resource',
-    },
     xueban: {
       admin: {
-        base: '/admin',
-        login: '/admin/login',
-        info: '/admin/info',
+        base: '/xb-release/admin',
+        login: '/xb-release/admin/login',
+        info: '/xb-release/admin/info',
       },
       permission: {
-        base: '/permission',
-        deleteExercisesBase: '/permission/deleteExercises',
-        exercises: '/permission/exercises',
-        img: '/permission/img',
-        imgMath: '/permission/imgMath',
-        textSearchBase: '/permission/textSearch',
-        textSearchMathBase: '/permission/textSearchMath',
-        topicAndAck: '/permission/topicAndAck',
-        selectExercisesBase: '/permission/selectExercises',
+        base: '/xb-release/permission',
+        deleteExercisesBase: '/xb-release/permission/deleteExercises',
+        exercises: '/xb-release/permission/exercises',
+        img: '/xb-release/permission/img',
+        imgMath: '/xb-release/permission/imgMath',
+        textSearchBase: '/xb-release/permission/textSearch',
+        textSearchMathBase: '/xb-release/permission/textSearchMath',
+        topicAndAck: '/xb-release/permission/topicAndAck',
+        selectExercisesBase: '/xb-release/permission/selectExercises',
       },
       ai: {
-        base: '/ai',
-        chats: '/ai/2.0/chats',
-        previewPictureQA: '/ai/2.0/previewPictureQA',
-        chatMath: '/ai/2.0/chatMath',
-        chat: '/ai/2.0/chat',
+        base: '/xb-release/ai',
+        chats: '/xb-release/ai/2.0/chats',
+        previewPictureQA: '/xb-release/ai/2.0/previewPictureQA',
+        chatMath: '/xb-release/ai/2.0/chatMath',
+        chat: '/xb-release/ai/2.0/chat',
       },
       biologyTopicKnowledge: {
-        base: '/biologyTopicKnowledge',
-        knowledgeTopicAndAck: '/biologyTopicKnowledge/knowledgeTopicAndAck',
-        knowledgeTopicAndAck2: '/biologyTopicKnowledge/knowledgeTopicAndAck2',
+        base: '/xb-release/biologyTopicKnowledge',
+        knowledgeTopicAndAck: '/xb-release/biologyTopicKnowledge/knowledgeTopicAndAck',
+        knowledgeTopicAndAck2: '/xb-release/biologyTopicKnowledge/knowledgeTopicAndAck2',
       },
     },
-    homework: {
-      undoList: '/blw-edu-yb/homework/homeworkPage',
-      detailList: '/blw-edu-yb/homework/homeworkInfo',
-      submitSave: '/blw-edu-yb/homework-submit-save',
-    },
-    teacher: {
-      historyList: '/blw-edu-yb/api/question/historyList',
-      uploadImg: '/blw-edu-yb/api/system/uploadImg',
-      wsPath: '/blw-edu-yb/ws',
-    },
-    textbook: {
-      teacherTextbook: '/blw-edu-yb/api/app/teacher-textbook',
-      teacherTextbookSectionTree: '/blw-edu-yb/api/app/teacher-textbook-section-tree',
-      teacherTextbookLearningPackage: '/blw-edu-yb/api/app/teacher-textbook-learning-package',
-      topicPackageAnswer: '/blw-edu-yb/api/app/topic-package-answer',
-      topicPackagePage: '/blw-edu-yb/api/app/topic-package-page',
+    yanban: {
+      auth: {
+        loginStudent: '/yb-release/blw-edu-yb/auth/login-student',
+      },
+      resource: {
+        base: '/yb-release/resource',
+      },
+      homework: {
+        undoList: '/yb-release/blw-edu-yb/api/app/homework-undo-list',
+        detailList: '/yb-release/blw-edu-yb/api/app/homework-detail-list',
+        submitSave: '/yb-release/blw-edu-yb/api/app/homework-submit-save',
+      },
+      teacher: {
+        historyList: '/yb-teacher-release/blw-edu-yb/api/question/historyList',
+        uploadImg: '/yb-teacher-release/blw-edu-yb/api/system/uploadImg',
+        wsPath: '/teacher-ws-release/blw-edu-yb/ws',
+      },
+      textbook: {
+        teacherTextbook: '/yb-release/blw-edu-yb/api/app/teacher-textbook',
+        teacherTextbookSectionTree: '/yb-release/blw-edu-yb/api/app/teacher-textbook-section-tree',
+        teacherTextbookLearningPackage: '/yb-release/blw-edu-yb/api/app/teacher-textbook-learning-package',
+        topicPackageAnswer: '/yb-release/blw-edu-yb/api/app/topic-package-answer',
+        topicPackagePage: '/yb-release/blw-edu-yb/api/app/topic-package-page',
+      },
     },
   }
 }
@@ -373,45 +381,33 @@ export function getAppUpdateUrl(): string {
  * 动态获取，根据当前环境返回不同的 Base URL
  */
 export function getRouteBaseMap(): Record<string, string> {
-  const apiBaseUrl = getApiBaseUrl()
-  const resourceBaseUrl = getResourceBaseUrl()
   const yanbanBaseUrl = getYanbanBaseUrl()
-  const teacherApiBaseUrl = getTeacherApiBaseUrl()
-  const historyManageBaseUrl = getHistoryManageBaseUrl()
   const requestsProxyBaseUrl = getRequestsProxyBaseUrl()
 
   return {
-    // 应用更新配置（/bj101/appupdate.json）永远走学班服务
-    '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
-    // 学班服务（根据环境动态切换）
-    '/admin': apiBaseUrl,
-    '/permission': apiBaseUrl,
-    '/ai': apiBaseUrl,
-    '/history_manage': historyManageBaseUrl,
-    '/biologyTopicKnowledge': apiBaseUrl,
-    // 图片上传接口（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
-    '/api/images/upload': ADDRESS_CATALOG.CLIENT_HTTP,
-    // 研伴API服务（根据环境动态切换）
-    '/api': yanbanBaseUrl,
-    '/homework': yanbanBaseUrl,
-    '/blw-edu-yb/api/question': teacherApiBaseUrl,
-    '/blw-edu-yb/api/system': teacherApiBaseUrl,
-    '/yb-test/yb-teacher/api/question': teacherApiBaseUrl,
-    '/yb-test/yb-teacher/api/system': teacherApiBaseUrl,
-    // 测试环境研伴/教材路径映射（统一 /yb-test 前缀）
-    '/yb-test/blw-edu-yb': yanbanBaseUrl,
-    // 研伴/教材等走资源服务器
-    '/blw-edu-yb': yanbanBaseUrl,
-    // 资源服务器（根据环境动态切换）
-    '/resource': resourceBaseUrl,
-    '/yb-test/resource': resourceBaseUrl,
-    '/img': yanbanBaseUrl,
-    // 学班测试环境 Nginx 前缀（/xb-test/...）
+    // 学伴测试环境 Nginx 前缀（/xb-test/...）
     '/xb-test': ADDRESS_CATALOG.IMATES_HTTP,
+    // 学伴生产环境 Nginx 前缀（/xb-release/...）
+    '/xb-release': ADDRESS_CATALOG.XUEBAN_RELEASE,
+    // 研伴测试环境 Nginx 前缀（/yb-test/...）
+    '/yb-test': ADDRESS_CATALOG.IMATES_HTTP,
+    // 研伴生产环境 Nginx 前缀（/yb-release/...）
+    '/yb-release': ADDRESS_CATALOG.YANBAN_RELEASE,
+        // 研伴测试环境 Nginx 前缀（/yb-test/...）
+    '/yb-teacher-test': ADDRESS_CATALOG.IMATES_HTTP,
+    // 研伴生产环境 Nginx 前缀（/yb-release/...）
+    '/yb-teacher-release': ADDRESS_CATALOG.TEACHER_API_RELEASE,
     // 知识点查询服务
     '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,
-    '/appupdate_test.json': ADDRESS_CATALOG.IMATES_HTTP,
     // requests 代理服务（Nginx 转发到自建代理服务）
     '/requests': requestsProxyBaseUrl,
+    // 应用更新配置（/bj101/appupdate.json）永远走学伴服务
+    '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
+    // 学伴服务（根据环境动态切换）
+    '/history_manage': ADDRESS_CATALOG.HISTORY_MANAGE,
+    // 资源服务器（根据环境动态切换）
+    '/img': yanbanBaseUrl,
+    // 图片上传接口（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
+    '/api/images/upload': ADDRESS_CATALOG.CLIENT_HTTP,
   }
 }

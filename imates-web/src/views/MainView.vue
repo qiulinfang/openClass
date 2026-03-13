@@ -239,7 +239,7 @@ import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import homeworkIcon from '/icons/homework.png'
 import photoQaIcon from '/icons/paizhaodayi.svg'
-import ipGif from '/icons/ip.gif'
+import ipGif from '/icons/ip_new.webp'
 
 // 导入选中状态图标
 import toolBoxSelectIcon from '/icons/toolBox_select.svg'

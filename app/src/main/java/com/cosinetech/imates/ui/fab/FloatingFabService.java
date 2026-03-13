@@ -6,7 +6,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.ImageDecoder;
 import android.graphics.PixelFormat;
+import android.graphics.drawable.Animatable;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -160,13 +163,23 @@ public class FloatingFabService extends Service {
         } else {
             sendLogToWeb("INFO", TAG, "initFloatingFab 步骤3结果: 所有视图组件获取成功");
             try {
-                // 复刻 Web FAB：使用动图 ip.gif 作为按钮背景
-                Glide.with(this)
-                        .asGif()
-                        .load(R.drawable.ip)
-                        .into(lottieAnimationView);
+                // 复刻 Web FAB：使用动图 ip.webp 作为按钮背景
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    Drawable drawable = ImageDecoder.decodeDrawable(
+                            ImageDecoder.createSource(getResources(), R.drawable.ip_new)
+                    );
+                    lottieAnimationView.setImageDrawable(drawable);
+                    if (drawable instanceof Animatable) {
+                        ((Animatable) drawable).start();
+                    }
+                } else {
+                    // 低版本系统对 Animated WebP 支持不稳定：先显示首帧（如需动图，需要接入 Glide Animated WebP 解码器）
+                    Glide.with(this)
+                            .load(R.drawable.ip_new)
+                            .into(lottieAnimationView);
+                }
             } catch (Exception e) {
-                sendLogToWeb("WARN", TAG, "initFloatingFab: 加载 ip.gif 失败 - " + e.getMessage());
+                sendLogToWeb("WARN", TAG, "initFloatingFab: 加载 ip_new.webp 失败 - " + e.getMessage());
             }
         }
 

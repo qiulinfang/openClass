@@ -22,12 +22,12 @@ export class HomeworkApi {
    * 获取未完成作业列表
    */
   public async getHomeworkUndoList(queryReq?: HomeworkQueryReq): Promise<HomeworkUndoItem[]> {
-    const endpoint = getApiPaths().homework.undoList
+    const endpoint = getApiPaths().yanban.homework.undoList
     try {
       const response = await httpClient.post<{
         code?: number
         data?: HomeworkUndoItem[]
-        message?: string
+        msg?: string
       }>(endpoint, queryReq || {})
 
       if (response.success && response.data?.code === 200) {
@@ -44,7 +44,7 @@ export class HomeworkApi {
    * 获取作业详情（问题列表）
    */
   public async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
-    const endpoint = getApiPaths().homework.detailList
+    const endpoint = getApiPaths().yanban.homework.detailList
     const requestBody: IdReq = { id: homeworkId }
     try {
       const response = await httpClient.post<{
@@ -67,12 +67,12 @@ export class HomeworkApi {
    * 提交作业答案
    */
   public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<HomeworkSubmitSaveResult> {
-    const endpoint = getApiPaths().homework.submitSave
+    const endpoint = getApiPaths().yanban.homework.submitSave
     try {
       const response = await httpClient.post<{
         code?: number
-        data?: Record<string, unknown>
-        message?: string
+        data?: HomeworkSubmitSaveResult
+        msg?: string
         success?: boolean
       }>(endpoint, homeworkSubmitReq)
 

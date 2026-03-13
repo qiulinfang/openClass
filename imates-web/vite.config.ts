@@ -11,12 +11,6 @@ import { ADDRESS_CATALOG } from './src/config/env-config'
 
 // https://vite.dev/config/
 export default defineConfig(() => {
-  const EDU_SERVICE_BASE = ADDRESS_CATALOG.XUEBAN_RELEASE
-  const RESOURCE_FILE_BASE = ADDRESS_CATALOG.YANBAN_RELEASE
-  const APP_UPDATE_BASE = ADDRESS_CATALOG.IMATES_HTTP
-  const HISTORY_MANAGE_BASE = ADDRESS_CATALOG.HISTORY_MANAGE
-  const TEACHER_API_BASE = ADDRESS_CATALOG.TEACHER_API_RELEASE
-
 
   // 为所有代理统一附加一组精简日志，方便查看请求流向
   const attachBasicProxyLog = (proxy: any, label: string) => {
@@ -89,7 +83,7 @@ export default defineConfig(() => {
         })
       },
       proxy: {
-        // 统一走 www.imates.com.cn 的 Nginx 前缀代理（仅本地开发需要）
+        // 统一走 Nginx/后端前缀代理（仅本地开发需要），与 getRouteBaseMap 保持一致
         '/requests': {
           target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
@@ -100,162 +94,72 @@ export default defineConfig(() => {
           },
         },
         '/yb-test': {
-          target: 'https://www.imates.com.cn',
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
             attachBasicProxyLog(proxy, '/yb-test')
           },
         },
+        '/yb-release': {
+          target: ADDRESS_CATALOG.YANBAN_RELEASE,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/yb-release')
+          },
+        },
         '/xb-test': {
-          target: 'https://www.imates.com.cn',
+          target: ADDRESS_CATALOG.XUEBAN_TEST,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
             attachBasicProxyLog(proxy, '/xb-test')
           },
         },
-        '/blw-edu-yb/api': {
-          target: RESOURCE_FILE_BASE,
+        '/xb-release': {
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/blw-edu-yb/api')
+            attachBasicProxyLog(proxy, '/xb-release')
           },
         },
-        '/blw-edu-yb/api/question': {
-          target: 'http://www.imates.com.cn:8201',
+        '/yb-teacher-test': {
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/blw-edu-yb/api/question')
+            attachBasicProxyLog(proxy, '/yb-teacher-test')
           },
         },
-        '/blw-edu-yb/api/system': {
-          target: 'http://www.imates.com.cn:8201',
+        '/yb-teacher-release': {
+          target: ADDRESS_CATALOG.TEACHER_API_RELEASE,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/blw-edu-yb/api/system')
+            attachBasicProxyLog(proxy, '/yb-teacher-release')
           },
-        },
-        '/blw-edu-yb/auth': {
-          target: RESOURCE_FILE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/blw-edu-yb/auth')
-          },
-        },
-        '/homework': {
-          target: RESOURCE_FILE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/homework')
-          },
-        },
-        '/api/v1/tickets': {
-          target: 'http://app.imates.com.cn:8080',
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/api/v1/tickets')
-          }
-        },
-        '/temporaryImg': {
-          target: 'http://imates.com.cn',
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/temporaryImg')
-          },
-        },
-        '/admin': {
-          target: EDU_SERVICE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/admin')
-          }
         },
         '/bj101': {
-          target: APP_UPDATE_BASE,
+          target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
             attachBasicProxyLog(proxy, '/bj101')
           },
         },
-        '/jinkai': {
-          target: APP_UPDATE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/jinkai')
-          },
-        },
-        '/appupdate_test.json': {
-          target: APP_UPDATE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/appupdate_test.json')
-          },
-        },
-        '/ai': {
-          target: EDU_SERVICE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/ai')
-          },
-        },
-        '/permission': {
-          target: EDU_SERVICE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy, options) => {
-            attachBasicProxyLog(proxy, '/permission')
-          }
-        },
         '/history_manage': {
-          target: HISTORY_MANAGE_BASE,
+          target: ADDRESS_CATALOG.HISTORY_MANAGE,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
             attachBasicProxyLog(proxy, '/history_manage')
           },
         },
-        '/biologyTopicKnowledge': {
-          target: EDU_SERVICE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/biologyTopicKnowledge')
-          }
-        },
-        // 资源服务器
-        '/resource': {
-          target: RESOURCE_FILE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/resource')
-          }
-        },
-        // 测试环境资源服务器（统一走 /yb-test 前缀）
-        '/yb-test/resource': {
-          target: APP_UPDATE_BASE,
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/yb-test/resource')
-          }
-        },
         // 图片资源
         '/img': {
-          target: RESOURCE_FILE_BASE,
+          target: ADDRESS_CATALOG.YANBAN_RELEASE,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
@@ -271,27 +175,9 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/knowledge')
           }
         },
-        // 教师聊天API
-        '/api/question': {
-          target: 'http://www.imates.com.cn:8201/blw-edu-yb',
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/api/question')
-          }
-        },
-        // 系统API（文件上传等）
-        '/api/system': {
-          target: 'http://www.imates.com.cn:8201/blw-edu-yb',
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/api/system')
-          }
-        },
         // 图片上传接口：走 Nginx 8200 端口
         '/api/images/upload': {
-          target: 'https://www.imates.com.cn:8200',
+          target: ADDRESS_CATALOG.CLIENT_HTTP,
           changeOrigin: true,
           secure: false,
           agent: new https.Agent({ rejectUnauthorized: false }),
@@ -299,36 +185,6 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/api/images/upload')
           }
         },
-        // 通用API：兜底配置
-        '/api': {
-          target: 'http://www.imates.com.cn:8201/blw-edu-yb',
-          changeOrigin: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/api')
-          }
-        },
-        // 教师WebSocket
-        '/blw-edu-yb/ws': {
-          target: 'ws://www.imates.com.cn:8201',
-          changeOrigin: true,
-          ws: true,
-          secure: false,
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/blw-edu-yb/ws')
-          }
-        },
-        // IM即时通讯服务
-        '/im/': {
-          target: 'https://www.imates.com.cn',
-          changeOrigin: true,
-          secure: true,
-          agent: new https.Agent({ rejectUnauthorized: false }),
-          configure: (proxy) => {
-            attachBasicProxyLog(proxy, '/im/')
-          }
-        },
-
       },
     },
     // 为Android WebView优化构建配置

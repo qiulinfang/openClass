@@ -59,12 +59,13 @@ export class TextbookDownloadApi {
     return err
   }
 
-  private rewriteResourceFileUrl(fileUrl: string | undefined | null): string | undefined | null {
+  private normalizeFileUrl(fileUrl: string): string {
     if (!fileUrl) return fileUrl
 
-    // 测试环境：后端返回的 /resource/... 需要加 /yb-test 前缀
-    if (getIsInternalTest()) {
-      if (fileUrl.startsWith('/resource')) return `/yb-test${fileUrl}`
+    const resourceBase = getApiPaths().yanban.resource.base
+
+    if (fileUrl.startsWith('/resource/')) {
+      return `${resourceBase}${fileUrl.substring('/resource'.length)}`
     }
 
     return fileUrl
@@ -177,7 +178,7 @@ export class TextbookDownloadApi {
   }
 
   public async getTextbookVersions(): Promise<TextbookVersion[]> {
-    const endpoint = getApiPaths().textbook.teacherTextbook
+    const endpoint = getApiPaths().yanban.textbook.teacherTextbook
 
     const response = await httpClient.post<{
       code: number
@@ -196,7 +197,7 @@ export class TextbookDownloadApi {
   }
 
   public async getTextbookStructure(id: string): Promise<ChapterNode[]> {
-    const endpoint = getApiPaths().textbook.teacherTextbookSectionTree
+    const endpoint = getApiPaths().yanban.textbook.teacherTextbookSectionTree
     const request: TextbookStructureRequest = { id }
 
     const response = await httpClient.post<{
@@ -217,7 +218,7 @@ export class TextbookDownloadApi {
   }
 
   public async getLearningResources(id: string, useCache: boolean = true): Promise<LearningPackage[]> {
-    const endpoint = getApiPaths().textbook.teacherTextbookLearningPackage
+    const endpoint = getApiPaths().yanban.textbook.teacherTextbookLearningPackage
     const request: LearningResourcesRequest = { id }
 
     try {
@@ -242,7 +243,7 @@ export class TextbookDownloadApi {
           tags: (pkg as any).tags || '{}',
           resourceList: Array.isArray((pkg as any).resourceList)
             ? ((pkg as any).resourceList as ResourceFile[]).map((r: ResourceFile) => {
-                const rewritten = this.rewriteResourceFileUrl((r as any).fileUrl)
+                const rewritten = this.normalizeFileUrl((r as any).fileUrl)
                 return { ...(r as any), fileUrl: rewritten } as ResourceFile
               })
             : [],
@@ -258,7 +259,7 @@ export class TextbookDownloadApi {
   }
 
   public async fetchUserAllOnlineTextbooks(): Promise<UserTextbookInfo[]> {
-    const endpoint = getApiPaths().textbook.teacherTextbook
+    const endpoint = getApiPaths().yanban.textbook.teacherTextbook
 
     const response = await httpClient.post<{
       code: number
@@ -290,7 +291,7 @@ export class TextbookDownloadApi {
       answerContent,
     }
 
-    const endpoint = getApiPaths().textbook.topicPackageAnswer
+    const endpoint = getApiPaths().yanban.textbook.topicPackageAnswer
     const response = await httpClient.post<{
       code?: number
       data?: unknown
@@ -306,7 +307,7 @@ export class TextbookDownloadApi {
     updateTime?: string,
     subject?: string,
   ): Promise<TopicPackagePageResponse | null> {
-    const endpoint = getApiPaths().textbook.topicPackagePage
+    const endpoint = getApiPaths().yanban.textbook.topicPackagePage
     const requestBody = { pageNumber, pageSize, updateTime, subject }
     const response = await httpClient.post<any>(endpoint, requestBody)
 
