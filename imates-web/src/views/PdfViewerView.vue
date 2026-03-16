@@ -117,7 +117,7 @@ export default {
 import { onMounted, onBeforeUnmount, computed, ref, nextTick, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
-import { useAiTextbookChatStore, type ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
+import { useAiTextbookChatStore, type ScreenshotDrawingState, getMiniClassConfig } from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { showMessage } from '@/utils'
@@ -182,22 +182,10 @@ const showMiniClassDialog = computed({
 const miniClassUrl = computed(() => uiStore.miniClassUrl)
 const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
-const REQUIRED_CHAPTER_INFO = {
-  grade: '初一',
-  subject: '数学',
-  textbook: '探究型公开课',
-  chapter_title: '最短路径的基本原理',
-} as const
-
 const shouldShowMiniClassFab = computed(() => {
   const info = aiTextbookStore.chapterInfo
   if (!info) return false
-  return (
-    info.grade === REQUIRED_CHAPTER_INFO.grade &&
-    info.subject === REQUIRED_CHAPTER_INFO.subject &&
-    info.textbook === REQUIRED_CHAPTER_INFO.textbook &&
-    info.chapter_title === REQUIRED_CHAPTER_INFO.chapter_title
-  )
+  return !!getMiniClassConfig(info)
 })
 
 const miniClassFabPos = ref({ x: 0, y: 0 })
@@ -297,10 +285,12 @@ const onMiniClassFabClick = () => {
   if (Date.now() - lastMiniClassFabDragEndAt.value < 200) {
     return
   }
+  const matched = getMiniClassConfig(aiTextbookStore.chapterInfo)
+  if (!matched) return
   try {
-    uiStore.openMiniClassDialog('https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html', '微课')
+    uiStore.openMiniClassDialog(matched.url, matched.title)
   } catch {
-    uiStore.openMiniClassDialog('https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html', '微课')
+    uiStore.openMiniClassDialog(matched.url, matched.title)
   }
 }
 
@@ -524,14 +514,6 @@ const handleRedo = () => {
   pdfPageRef.value?.redoLastStroke()
 }
 
-const handleOpenMiniClass = () => {
-  try {
-    uiStore.openMiniClassDialog('https://www.imates.com.cn:9099/demo/demo1.html', '微课')
-  } catch (error) {
-    console.error('[PdfViewerView] 打开微课失败', error)
-    showMessage('打开微课失败', 'error')
-  }
-}
 
 // 从路由参数加载文件
 const loadFileFromRoute = async () => {

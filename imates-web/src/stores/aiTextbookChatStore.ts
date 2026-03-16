@@ -75,26 +75,84 @@ interface BuildTextbookMessageParams {
   imageList?: TextbookChatImageData[] // 多图数据列表（用于截图多图场景）
 }
 
-const REQUIRED_CHAPTER_INFO = {
-  grade: '初一',
-  subject: '数学',
-  textbook: '探究型公开课',
-  chapter_title: '最短路径的基本原理',
-} as const
+export const REQUIRED_CHAPTER_INFO_LIST = [
+  {
+    grade: '初一',
+    subject: '数学',
+    textbook: '探究型公开课',
+    chapter_title: '最短路径的基本原理',
+  },
+  {
+    grade: '三年级',
+    subject: '数学',
+    textbook: '三年级下册数学公开课',
+    chapter_title: '能移回去吗',
+  },
+  {
+    grade: '五年级',
+    subject: '数学',
+    textbook: '五年级上册数学公开课',
+    chapter_title: '平行四边形的面积',
+  },
+] as const
+
+export const MINI_CLASS_CHAPTER_URL_MAP = [
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[0],
+    title: '微课',
+    url: 'https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html',
+  },
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[1],
+    title: '微课',
+    url: 'https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html',
+  },
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[2],
+    title: '微课',
+    url: 'https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html',
+  },
+] as const
+
+export const getMiniClassConfig = (info: BuildTextbookMessageParams['chapterInfo']) => {
+  if (!info) return undefined
+  return MINI_CLASS_CHAPTER_URL_MAP.find((item) => {
+    const required = item.chapterInfo
+    return (
+      info.grade === required.grade &&
+      info.subject === required.subject &&
+      info.textbook === required.textbook &&
+      info.chapter_title === required.chapter_title
+    )
+  })
+}
+
+const getMatchedChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']) => {
+  const matched = getMiniClassConfig(info)
+  return matched?.chapterInfo
+}
 
 const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']): boolean => {
-  if (!info) return false
-  const keys = Object.keys(info)
-  if (keys.length !== 4) return false
-  if (!keys.every((k) => k === 'grade' || k === 'subject' || k === 'textbook' || k === 'chapter_title')) {
+  if (!info) {
+    console.log('[shouldSendChapterInfo] 章节信息为空，不发送')
     return false
   }
-  return (
-    info.grade === REQUIRED_CHAPTER_INFO.grade &&
-    info.subject === REQUIRED_CHAPTER_INFO.subject &&
-    info.textbook === REQUIRED_CHAPTER_INFO.textbook &&
-    info.chapter_title === REQUIRED_CHAPTER_INFO.chapter_title
-  )
+  const keys = Object.keys(info)
+  if (keys.length !== 4) {
+    console.log('[shouldSendChapterInfo] 章节信息字段数量不正确:', keys.length)
+    return false
+  }
+  if (!keys.every((k) => k === 'grade' || k === 'subject' || k === 'textbook' || k === 'chapter_title')) {
+    console.log('[shouldSendChapterInfo] 章节信息字段名不正确:', keys)
+    return false
+  }
+  const matched = getMatchedChapterInfo(info)
+  if (!matched) {
+    console.log('[shouldSendChapterInfo] 未找到匹配的章节配置:', info)
+    return false
+  }
+  console.log('[shouldSendChapterInfo] 章节信息验证通过，将发送:', info)
+  return true
 }
 
 const buildAiTextbookMessage = ({
@@ -133,7 +191,7 @@ const buildAiTextbookMessage = ({
       role: chatRole,
       subject,
       sectionName: sectionName || undefined,
-      chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
+      chapter_info: shouldSendChapterInfo(chapterInfo) ? getMatchedChapterInfo(chapterInfo) : undefined,
       dstUrl: getApiPaths().xueban.ai.previewPictureQA,
       explanation: '', // 教材场景占位
       imageList,
@@ -151,7 +209,7 @@ const buildAiTextbookMessage = ({
     sessionId,
     newValue: isNewSession ? '1' : '0',
     coversation: content,
-    question: '',
+    question: content,
     answer: sectionName || '',
     name: userId,
     reason: 'start',
@@ -160,7 +218,7 @@ const buildAiTextbookMessage = ({
     role: chatRole,
     subject,
     sectionName: sectionName || undefined,
-    chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
+    chapter_info: shouldSendChapterInfo(chapterInfo) ? getMatchedChapterInfo(chapterInfo) : undefined,
     dstUrl,
     explanation: '', // 教材场景占位
     imageList,
