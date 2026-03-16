@@ -76,16 +76,23 @@
 
           <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
 
-          <CommonActionButton
-            v-if="shouldShowMiniClassFab"
+          <div
+            v-if="shouldShowMiniClassFab && miniClassFabReady"
             class="mini-class-fab"
-            :style="{ left: `${miniClassFabPos.x}px`, top: `${miniClassFabPos.y}px` }"
-            label="微课"
-            size="lg"
-            icon="/icons/xiaogongju.svg"
-            @pointerdown="onMiniClassFabPointerDown"
-            @click="onMiniClassFabClick"
-          />
+            :class="{
+              'mini-class-fab--active': isPressingMiniClassFab,
+              'mini-class-fab--dragging': isDraggingMiniClassFab,
+            }"
+            :style="{ '--fab-x': `${miniClassFabPos.x}px`, '--fab-y': `${miniClassFabPos.y}px` }"
+          >
+            <CommonActionButton
+              label="微课"
+              size="md"
+              :icon="xiaogongjuIcon"
+              @pointerdown="onMiniClassFabPointerDown"
+              @click="onMiniClassFabClick"
+            />
+          </div>
         </div>
       </template>
 
@@ -130,6 +137,7 @@ import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import CommonActionButton from '@/components/base/Button.vue'
 import goBackIcon from '/icons/goback.svg'
+import xiaogongjuIcon from '/icons/xiaogongju.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
 
@@ -188,7 +196,9 @@ const shouldShowMiniClassFab = computed(() => {
 })
 
 const miniClassFabPos = ref({ x: 0, y: 0 })
+const miniClassFabReady = ref(false)
 const isDraggingMiniClassFab = ref(false)
+const isPressingMiniClassFab = ref(false)
 const miniClassFabPointerId = ref<number | null>(null)
 const miniClassFabStart = ref({
   pointerX: 0,
@@ -238,6 +248,7 @@ const onMiniClassFabPointerUp = (e: PointerEvent) => {
 
   miniClassFabPointerId.value = null
   isDraggingMiniClassFab.value = false
+  isPressingMiniClassFab.value = false
   if (miniClassFabMoved.value) {
     lastMiniClassFabDragEndAt.value = Date.now()
   }
@@ -247,6 +258,7 @@ const onMiniClassFabPointerDown = (e: PointerEvent) => {
   if (miniClassFabPointerId.value !== null) return
   miniClassFabPointerId.value = e.pointerId
   miniClassFabMoved.value = false
+  isPressingMiniClassFab.value = true
 
   const container = document.querySelector('.pdf-viewer-container') as HTMLElement | null
   if (!container) return
@@ -879,6 +891,8 @@ onMounted(async () => {
       }
     }
   }
+
+  miniClassFabReady.value = true
 })
 
 // 页面卸载前清理
@@ -910,6 +924,13 @@ onBeforeUnmount(() => {
   z-index: 5;
   touch-action: none;
   user-select: none;
+  will-change: transform;
+  transform: translate3d(var(--fab-x, 0px), var(--fab-y, 0px), 0) scale(var(--fab-scale, 1));
+  transition: transform 0.12s ease;
+}
+
+.mini-class-fab--active {
+  --fab-scale: 0.95;
 }
 
 .mini-class-fab--dragging,
