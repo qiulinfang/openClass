@@ -24,9 +24,9 @@
           }"
         >
           <!-- PDF 内容层 -->
-          <canvas :ref="el => pdfRefs[index] = el as HTMLCanvasElement"></canvas>
+          <canvas :ref="(el) => setPdfCanvasRef(el, index)"></canvas>
           <!-- 涂鸦/形状层 -->
-          <canvas :ref="el => inkRefs[index] = el as HTMLCanvasElement" class="ink-canvas"></canvas>
+          <canvas :ref="(el) => setInkCanvasRef(el, index)" class="ink-canvas"></canvas>
         </div>
 
         <div
@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, toRaw, nextTick, watch, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, toRaw, nextTick, watch, onUnmounted, type ComponentPublicInstance } from 'vue'
 import * as mupdf from 'mupdf'
 import { IndexedDBService } from '@/services/storage/indexeddb-service'
 import { resourceManager } from '../services/storage/resource-storage'
@@ -446,6 +446,14 @@ const inkRefs = ref<HTMLCanvasElement[]>([])
 const containerRef = ref<HTMLDivElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
 
+const setPdfCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
+  pdfRefs.value[index] = el as HTMLCanvasElement
+}
+
+const setInkCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
+  inkRefs.value[index] = el as HTMLCanvasElement
+}
+
 // 写字模式下在非 PDF 区域拖动时，降级为平移
 let isPanningInDrawMode = false
 
@@ -667,17 +675,25 @@ const renderPdfPages = async () => {
 
   try {
     const baseDpr = window.devicePixelRatio || 1
-    // 提高清晰度：提高渲染像素密度（同时会增加内存/耗时）
-    const renderDpr = Math.min(baseDpr * 2, 3)
-    renderDprRef.value = renderDpr
 
-    const renderPromises = pageList.value.map(async (pageLayout, i) => {
+    // 根据文件大小/页数决定是否降级渲染（避免 WebView 崩溃）
+    const shouldUseLowRenderMode = (() => {
+      const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
+      return fileSizeMB > 3
+    })()
+
+    const renderDpr = shouldUseLowRenderMode ? 1 : Math.min(baseDpr * 2, 3)
+
+    renderDprRef.value = renderDpr
+    console.log('[PdfPage] renderDpr:', renderDpr, 'sizeMB:', (props.file?.size || 0) / 1024 / 1024, 'pages:', pageList.value.length, 'lowMode:', shouldUseLowRenderMode)
+
+    const renderOnePage = async (i: number) => {
+      const pageLayout = pageList.value[i]
       try {
         const canvas = pdfRefs.value[i]
         const inkCanvas = inkRefs.value[i]
         if (!canvas || !inkCanvas) return
 
-        // 页面尺寸来自预取布局（单位：CSS px）
         const cssW = pageLayout.viewWidth
         const cssH = pageLayout.viewHeight
 
@@ -725,8 +741,9 @@ const renderPdfPages = async () => {
       } catch (e) {
         console.error('[PdfPage] render page failed:', { pageIndex: i, error: e })
       }
-    })
+    }
 
+    const renderPromises = pageList.value.map((_, i) => renderOnePage(i))
     await Promise.all(renderPromises)
   } finally {
     isRendering.value = false
