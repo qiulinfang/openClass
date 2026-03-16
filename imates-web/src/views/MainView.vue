@@ -324,27 +324,27 @@ const currentSchoolAppConfig: SchoolAppConfig = {
         position: 'main',
         routeName: 'knowledgeGraph',
       },
-      {
-        key: 'exercises',
-        label: '我的习题',
-        iconType: 'exercises',
-        position: 'main',
-        routeName: 'exerciseSolve',
-      },
-      {
-        key: 'homework',
-        label: '我的作业',
-        iconType: 'homework',
-        position: 'main',
-        routeName: 'myHomework',
-      },
-      {
-        key: 'photoQa',
-        label: '拍照答疑',
-        iconType: 'photoQa',
-        position: 'main',
-        routeName: 'photoSearch',
-      },
+      // {
+      //   key: 'exercises',
+      //   label: '我的习题',
+      //   iconType: 'exercises',
+      //   position: 'main',
+      //   routeName: 'exerciseSolve',
+      // },
+      // {
+      //   key: 'homework',
+      //   label: '我的作业',
+      //   iconType: 'homework',
+      //   position: 'main',
+      //   routeName: 'myHomework',
+      // },
+      // {
+      //   key: 'photoQa',
+      //   label: '拍照答疑',
+      //   iconType: 'photoQa',
+      //   position: 'main',
+      //   routeName: 'photoSearch',
+      // },
     ],
     bottom: [
       {

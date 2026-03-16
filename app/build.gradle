@@ -15,8 +15,8 @@ android {
         applicationId "com.cosinetech.imates.bj101"
         minSdk 24
         targetSdk 34
-        versionCode 79
-        versionName "1.0.79"
+        versionCode 1
+        versionName "1.0.10"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -28,16 +28,16 @@ android {
 
     signingConfigs {
         release {
-            keyAlias 'bj101'
-            keyPassword 'imates@bj101.com'
-            storeFile file('../appkey4bj101.jks')
-            storePassword 'imates.com.cn'
+            keyAlias 'release'
+            keyPassword 'cosine@imates.com.cn@2026'
+            storeFile file('D:\\Project\\xueban-qianduan\\release.jks')
+            storePassword 'cosine@imates.com.cn@2026'
         }
         debug {
-            keyAlias 'bj101'
-            keyPassword 'imates@bj101.com'
-            storeFile file('../appkey4bj101.jks')
-            storePassword 'imates.com.cn'
+            keyAlias 'release'
+            keyPassword 'cosine@imates.com.cn@2026'
+            storeFile file('D:\\Project\\xueban-qianduan\\release.jks')
+            storePassword 'cosine@imates.com.cn@2026'
         }
     }
 
@@ -71,6 +71,8 @@ android {
             signingConfig signingConfigs.release
         }
         debug {
+            signingConfig signingConfigs.debug
+
             // Debug版本自动使用dev flavor，避免覆盖release版本
             // applicationIdSuffix 已由productFlavors的dev处理
         }

@@ -161,9 +161,9 @@ public class MainWebViewActivity extends AppCompatActivity
         if ("jingkaierzhong".equals(SCHOOL_ID)) {
             return "https://www.imates.com.cn/jinkai/appupdate.json";
         } else if ("jinshanyuanyang".equals(SCHOOL_ID)) {
-            return "https://www.imates.com.cn/bj101/appupdate.json";
+            return "https://www.imates.com.cn/bj101/appupdate-primary.json";
         } else {
-            return "https://www.imates.com.cn/bj101/appupdate.json";
+            return "https://www.imates.com.cn/bj101/appupdate-primary.json";
         }
     }
 

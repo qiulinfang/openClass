@@ -1,28 +1,5 @@
 <template>
   <div class="knowledge-graph-container" ref="containerRef">
-    <!-- 气泡菜单 -->
-    <div 
-      class="manual-bubble-menu"
-      :class="{ 'manual-bubble-menu--visible': bubbleState.visible }"
-      :style="{ left: bubbleState.x + 'px', top: bubbleState.y + 'px' }"
-      @mousedown.stop
-      @touchstart.stop
-    >
-      <div class="bubble-menu-container">
-        <button 
-          class="bubble-menu-button bubble-menu-button--learn"
-          @click="handleAction('learn')"
-        >
-          探索模式
-        </button>
-        <button 
-          class="bubble-menu-button bubble-menu-button--practice"
-          @click="handleAction('practice')"
-        >
-          练习模式
-        </button>
-      </div>
-    </div>
     <!-- 画布 -->
     <canvas ref="canvasRef" class="space-canvas"></canvas>
 
@@ -110,17 +87,7 @@ const indicatorContainerRef = ref(null); // 指示器容器
 const isIndicatorDragging = ref(false);
 const indicatorCurrentIndex = ref(null);
 
-// 气泡状态 (仅 UI 部分响应式)
-const bubbleState = reactive({
-  visible: false,
-  x: 0,
-  y: 0,
-  title: '',
-  activeType: null, // 'moon' | 'satellite'
-  moonIndex: -1,
-  satIndex: -1,
-  data: null
-});
+const activeNodeData = ref(null);
 
 // --- Non-Reactive State (核心性能优化: 动画变量不放入响应式系统) ---
 let ctx = null; // Canvas 上下文
@@ -230,8 +197,7 @@ const state = reactive({ // 物理状态
   lastX: 0, // 上一次 X
   interactionMode: null, // 交互模式
   activeObject: null, // 激活对象
-  forceRotation: false, // 是否强制旋转（不走最短路径）
-  autoShowBubbleAfterRotation: false // 是否在旋转停止后自动显示气泡菜单
+  forceRotation: false // 是否强制旋转（不走最短路径）
 });
 
 // --- 实体类 (Classes) ---
@@ -540,14 +506,6 @@ function init() {
 
   focusOnIndex(initialFocusIndex, true);
 
-  // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
-  const focusedMoon = state.moons[initialFocusIndex];
-  if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
-    showBubble('satellite', initialFocusIndex, 0); // 弹出第一个卫星框
-  } else {
-    showBubble('moon', initialFocusIndex); // 弹出月球框
-  }
-
   if (!animationFrameId) loop();
 }
 
@@ -585,57 +543,11 @@ function update() {
       state.globalAngle = state.targetGlobalAngle;  // 角度差
       state.isAutoRotating = false; // 自动旋转
       state.forceRotation = false;
-
-      // 旋转停止后自动显示气泡菜单
-      if (state.autoShowBubbleAfterRotation) {
-        state.autoShowBubbleAfterRotation = false; // 重置标记
-        // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
-        const focusedMoon = state.moons[state.focusedIndex];
-        if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
-          showBubble('satellite', state.focusedIndex, 0); // 弹出第一个卫星框
-        } else {
-          showBubble('moon', state.focusedIndex); // 弹出月球框
-        }
-      }
     } else {
       state.globalAngle += diff * config.rotationSpeed; // 角度差 
     }
   }
   state.moons.forEach(m => m.update());   
-
-  if (bubbleState.visible) {
-    updateBubblePosition();
-  }
-}
-
-// 更新气泡位置
-function updateBubblePosition() {
-  let targetX, targetY;
-  const { activeType, moonIndex, satIndex } = bubbleState;    
-  
-  if (moonIndex === -1 || !state.moons[moonIndex]) {
-    hideBubble(); // 隐藏气泡
-    return;
-  }
-  
-  const moon = state.moons[moonIndex];
-
-  if (activeType === 'moon') {
-    if (moonIndex !== state.focusedIndex) {
-      hideBubble(); return; // 隐藏气泡   
-    }
-    targetX = moon.x; targetY = moon.y;
-  } else if (activeType === 'satellite') {
-    if (moonIndex !== state.focusedIndex) {
-      hideBubble(); return; // 隐藏气泡
-    }
-    const sat = moon.satellites[satIndex];
-    targetX = sat.x; targetY = sat.y;
-  }
-
-  // 更新 DOM (Logical Pixels)
-  bubbleState.x = targetX;  // X坐标
-  bubbleState.y = targetY - 20; // Y坐标
 }
 
 // 绘制
@@ -796,7 +708,6 @@ function loop() {
 // 聚焦到指定索引
 function focusOnIndex(index, instant = false) {
   if (index < 0 || index >= state.moons.length) return; // 检查索引 
-  hideBubble(); // 隐藏气泡
   state.focusedIndex = index; // 焦点
   const targetMoon = state.moons[index]; // 目标月球
 
@@ -813,7 +724,6 @@ function focusOnIndex(index, instant = false) {
     state.moons.forEach(m => m.scale = m.targetScale); // 目标缩放
   } else {
     state.isAutoRotating = true; // 自动旋转
-    state.autoShowBubbleAfterRotation = true; // 标记需要在旋转停止后显示气泡
   }
 }
 
@@ -826,45 +736,10 @@ function focusOnNodeId(nodeId, instant = false) {
   }
 }
 
-// 显示气泡
-function showBubble(type, moonIndex, satIndex = -1) {
-  let titleText = "";
-  const moon = state.moons[moonIndex]; // 目标月球
-  let nodeData = null;
-
-  if (type === 'moon') {
-    titleText = moon.data.label;  // 标题 
-    nodeData = moon.data; // 节点数据
-  } else if (type === 'satellite') {
-    const sat = moon.satellites[satIndex];  // 目标卫星
-    titleText = sat.data.name; // 标题
-    nodeData = sat.data; // 节点数据
-  }
-
-  bubbleState.title = titleText; // 标题
-  bubbleState.activeType = type; // 激活类型
-  bubbleState.moonIndex = moonIndex; // 月球索引
-  bubbleState.satIndex = satIndex; // 卫星索引
-  bubbleState.data = nodeData; // 节点数据
-  bubbleState.visible = true; // 可见
-  
-  updateBubblePosition();
-  
-  // 触发节点点击事件
-  emit('node-click', nodeData);
-}
-
-// 隐藏气泡
-function hideBubble() {
-  bubbleState.visible = false; // 可见
-  bubbleState.activeType = null; // 激活类型
-  bubbleState.moonIndex = -1; // 月球索引
-}
-
 // 处理动作
 function handleAction(actionType) {
-  console.log('handleAction', actionType, bubbleState.data);
-  emit('action', { type: actionType, data: bubbleState.data }); // 触发事件
+  console.log('handleAction', actionType, activeNodeData.value);
+  emit('action', { type: actionType, data: activeNodeData.value }); // 触发事件
 }
 
 // 统一的点击处理
@@ -883,7 +758,9 @@ function handleClick(x, y) {
       const sat = currentMoon.satellites[j];
       const hitR = 30;
       if ((x - sat.x)**2 + (y - sat.y)**2 < hitR**2) {
-        showBubble('satellite', state.focusedIndex, j);
+        activeNodeData.value = sat.data;
+        emit('node-click', sat.data);
+        handleAction('learn');
         satelliteHit = true;
         break;
       }
@@ -908,18 +785,19 @@ function handleClick(x, y) {
   if (closestIndex !== -1) {
     console.log('closestIndex  state.focusedIndex', closestIndex, state.focusedIndex);
     if (closestIndex === state.focusedIndex) {
-      // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
       const focusedMoon = state.moons[closestIndex];
-      if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
-        showBubble('satellite', closestIndex, 0); // 弹出第一个卫星框
-      } else {
-        showBubble('moon', closestIndex); // 弹出月球框
-      }
+      activeNodeData.value = focusedMoon?.data || null;
+      emit('node-click', activeNodeData.value);
+      handleAction('learn');
     } else {
+      const focusedMoon = state.moons[closestIndex];
+      activeNodeData.value = focusedMoon?.data || null;
+      emit('node-click', activeNodeData.value);
+      handleAction('learn');
       focusOnIndex(closestIndex); // 聚焦月球
     }
   } else {
-    hideBubble(); // 隐藏气泡
+    activeNodeData.value = null;
   }
 }
 
@@ -1142,60 +1020,6 @@ defineExpose({
   cursor: grabbing;
 }
 
-/* 气泡弹窗样式，复用 GraphNode 的视觉风格 */
-.manual-bubble-menu {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translate(-50%, -130%);
-  z-index: 100;
-  pointer-events: auto;
-  opacity: 0;
-  display: none;
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.manual-bubble-menu--visible {
-  display: block;
-  opacity: 1;
-}
-
-.bubble-menu-container {
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 10px 10px 12px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  border: none;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  min-width: 120px;
-}
-
-
-.bubble-menu-button {
-  width: 100%;
-  border: none;
-  border-radius: 999px;
-  padding: 10px 0;
-  font-size: 14px;
-  cursor: pointer;
-  color: #fff;
-  margin-top: 8px;
-  font-weight: 500;
-  transition: transform 0.1s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-}
-
-.bubble-menu-button--learn {
-  background: #6a5cff;
-  box-shadow: 0 2px 8px rgba(106, 92, 255, 0.5);
-}
-
-.bubble-menu-button--practice {
-  background: #ff9b59;
-  box-shadow: 0 2px 8px rgba(255, 155, 89, 0.5);
-}
-
 /* 右侧指示器样式 (从老版移植) */
 .right-border-indicator {
   position: absolute;
@@ -1264,11 +1088,6 @@ defineExpose({
     min-width: 24px;
     min-height: 24px;
   }
-}
-
-.bubble-menu-button:active {
-  transform: scale(0.96);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 .debug-toggle-btn {
   position: fixed;

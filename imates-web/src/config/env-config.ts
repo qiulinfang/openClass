@@ -367,13 +367,7 @@ export function getApiPaths(): ApiPaths {
  * 获取应用更新接口 URL
  */
 export function getAppUpdateUrl(): string {
-  const envType = getCurrentEnvType()
-
-  // 测试环境：仍然使用固定的 /appupdate_test.json，由 http-client 路由到 https://www.imates.com.cn
-  if (envType === AppEnvType.INTERNAL_TEST) return '/appupdate_test.json'
-
-  // 其它环境：当前仅保留 jinshanyuanyang 配置
-  return '/bj101/appupdate.json'
+  return '/bj101/appupdate-primary.json'
 }
 
 /**
