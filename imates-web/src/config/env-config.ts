@@ -382,19 +382,19 @@ export function getRouteBaseMap(): Record<string, string> {
     // 学伴测试环境 Nginx 前缀（/xb-test/...）
     '/xb-test': ADDRESS_CATALOG.IMATES_HTTP,
     // 学伴生产环境 Nginx 前缀（/xb-release/...）
-    '/xb-release': ADDRESS_CATALOG.XUEBAN_RELEASE,
+    '/xb-release': ADDRESS_CATALOG.IMATES_HTTP,
     // 研伴测试环境 Nginx 前缀（/yb-test/...）
     '/yb-test': ADDRESS_CATALOG.IMATES_HTTP,
     // 研伴生产环境 Nginx 前缀（/yb-release/...）
-    '/yb-release': ADDRESS_CATALOG.YANBAN_RELEASE,
+    '/yb-release': ADDRESS_CATALOG.IMATES_HTTP,
         // 研伴测试环境 Nginx 前缀（/yb-test/...）
     '/yb-teacher-test': ADDRESS_CATALOG.IMATES_HTTP,
     // 研伴生产环境 Nginx 前缀（/yb-release/...）
-    '/yb-teacher-release': ADDRESS_CATALOG.TEACHER_API_RELEASE,
+    '/yb-teacher-release': ADDRESS_CATALOG.IMATES_HTTP,
     // 知识点查询服务
     '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,
     // requests 代理服务（Nginx 转发到自建代理服务）
-    '/requests': requestsProxyBaseUrl,
+    '/requests': ADDRESS_CATALOG.IMATES_HTTP,
     // 应用更新配置（/bj101/appupdate.json）永远走学伴服务
     '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
     // 学伴服务（根据环境动态切换）
