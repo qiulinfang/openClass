@@ -154,17 +154,7 @@ public class MainWebViewActivity extends AppCompatActivity
     };
 
     private String getUpdateUrl() {
-        if (IS_INTERNAL_TEST) {
-            return "https://www.imates.com.cn/appupdate_test.json";
-        }
-
-        if ("jingkaierzhong".equals(SCHOOL_ID)) {
-            return "https://www.imates.com.cn/jinkai/appupdate.json";
-        } else if ("jinshanyuanyang".equals(SCHOOL_ID)) {
-            return "https://www.imates.com.cn/bj101/appupdate-primary.json";
-        } else {
-            return "https://www.imates.com.cn/bj101/appupdate-primary.json";
-        }
+        return "https://www.imates.com.cn/bj101/appupdate-primary.json";
     }
 
     /**

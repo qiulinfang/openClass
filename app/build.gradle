@@ -12,11 +12,11 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.cosinetech.imates.bj101"
+        applicationId "com.cosinetech.imates.primary"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0.10"
+        versionCode 2
+        versionName "1.0.20"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -26,6 +26,7 @@ android {
         }
     }
 
+    // 签名配置
     signingConfigs {
         release {
             keyAlias 'release'
@@ -41,40 +42,25 @@ android {
         }
     }
 
-    // 产品变体配置 - 用于区分不同发布渠道，避免覆盖已安装的应用
     flavorDimensions "version"
+    // 产品变体配置
     productFlavors {
-        // 正式发布版本（默认）
         production {
             dimension "version"
-            applicationId "com.cosinetech.imates.bj101"
+            applicationId "com.cosinetech.imates.primary"
             versionNameSuffix ""
         }
-        // 测试版本 - 不会覆盖正式版
-        staging {
-            dimension "version"
-            applicationId "com.cosinetech.imates.bj101.staging"
-            versionNameSuffix "-staging"
-        }
-        // 开发版本 - 不会覆盖正式版和测试版
-        dev {
-            dimension "version"
-            applicationId "com.cosinetech.imates.bj101.dev"
-            versionNameSuffix "-dev"
-        }
     }
-
+    // 构建类型配置
     buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
-        }
-        debug {
-            signingConfig signingConfigs.debug
-
-            // Debug版本自动使用dev flavor，避免覆盖release版本
-            // applicationIdSuffix 已由productFlavors的dev处理
         }
     }
 

@@ -83,15 +83,15 @@ export const REQUIRED_CHAPTER_INFO_LIST = [
     chapter_title: '最短路径的基本原理',
   },
   {
-    grade: '三年级',
+    grade: '初一',
     subject: '数学',
-    textbook: '三年级下册数学公开课',
+    textbook: '探究型公开课',
     chapter_title: '能移回去吗',
   },
   {
-    grade: '五年级',
+    grade: '初一',
     subject: '数学',
-    textbook: '五年级上册数学公开课',
+    textbook: '探究型公开课',
     chapter_title: '平行四边形的面积',
   },
 ] as const
@@ -146,7 +146,16 @@ const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']):
     console.log('[shouldSendChapterInfo] 章节信息字段名不正确:', keys)
     return false
   }
-  const matched = getMatchedChapterInfo(info)
+  console.log('[shouldSendChapterInfo] :', REQUIRED_CHAPTER_INFO_LIST)
+  console.log('[shouldSendChapterInfo] :', info)
+  const matched = REQUIRED_CHAPTER_INFO_LIST.find((required) => {
+    return (
+      info.grade === required.grade &&
+      info.subject === required.subject &&
+      info.textbook === required.textbook &&
+      info.chapter_title === required.chapter_title
+    )
+  })
   if (!matched) {
     console.log('[shouldSendChapterInfo] 未找到匹配的章节配置:', info)
     return false
