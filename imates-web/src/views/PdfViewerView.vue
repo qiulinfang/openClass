@@ -76,18 +76,16 @@
 
           <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
 
-          <q-btn
+          <CommonActionButton
             v-if="shouldShowMiniClassFab"
             class="mini-class-fab"
-            round
-            unelevated
-            color="primary"
+            :style="{ left: `${miniClassFabPos.x}px`, top: `${miniClassFabPos.y}px` }"
+            label="微课"
+            size="lg"
+            icon="/icons/xiaogongju.svg"
             @pointerdown="onMiniClassFabPointerDown"
             @click="onMiniClassFabClick"
-          >
-            <q-icon name="ondemand_video" color="white" size="22px" />
-            <q-tooltip>微课</q-tooltip>
-          </q-btn>
+          />
         </div>
       </template>
 
@@ -130,6 +128,7 @@ import PdfPage from '@/components/PdfPage.vue'
 import ScreenshotInputDialog from '@/components/dialog/ScreenshotInputDialog.vue'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
+import CommonActionButton from '@/components/base/Button.vue'
 import goBackIcon from '/icons/goback.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
@@ -867,6 +866,19 @@ onMounted(async () => {
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
+
+  await nextTick()
+  if (miniClassFabPos.value.x === 0 && miniClassFabPos.value.y === 0) {
+    const container = document.querySelector('.pdf-viewer-container') as HTMLElement | null
+    if (container) {
+      const rect = container.getBoundingClientRect()
+      const btnSize = 56
+      miniClassFabPos.value = {
+        x: clamp(16, 8, rect.width - btnSize - 8),
+        y: clamp(Math.round(rect.height * 0.5 - btnSize), 8, rect.height - btnSize - 8),
+      }
+    }
+  }
 })
 
 // 页面卸载前清理
@@ -893,12 +905,17 @@ onBeforeUnmount(() => {
 
 .mini-class-fab {
   position: absolute;
-  left: 16px;
-  bottom: 50%;
+  left: 0;
+  top: 0;
   z-index: 5;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   touch-action: none;
   user-select: none;
+}
+
+.mini-class-fab--dragging,
+.mini-class-fab--dragging:deep(*) {
+  transition: none !important;
+  animation: none !important;
 }
 
 

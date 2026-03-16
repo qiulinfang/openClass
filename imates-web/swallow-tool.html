@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互动</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #ffffff;
+        }
+        /* 彻底移除图标边缘黑线/轮廓 */
+        #swallow img {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+    </style>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .piece-move {
+                transition: all 0.15s ease;
+            }
+            .swallow-base {
+                transform: scale(1.1);
+            }
+            .dragging {
+                cursor: grabbing;
+                transition: none !important;
+                transform: scale(1.15);
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); /* 弱化阴影避免视觉误判为黑线 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="relative w-[min(90vw,855px)] aspect-[855/425]">
+    <!-- 背景图 -->
+    <img id="bg-image"
+         src="https://p3-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/0569897435564a26a01aa299153fcea7.png~tplv-a9rns2rl98-24:720:720.png?lk3s=8e244e95&rcl=202603111656425F26991D2AD82DDFEAF8&rrcfp=8a172a1a&x-expires=1773824202&x-signature=jSn5jsJfrLGrVM2ZPu7zsRY9FeU%3D"
+         class="absolute inset-0 w-full h-full object-cover">
+
+    <!-- 可移动燕子（更小尺寸，无黑线） -->
+    <div id="swallow"
+         class="absolute z-10 overflow-hidden piece-move swallow-base flex items-center justify-center cursor-grab select-none touch-none"
+         draggable="false">
+        <img src="https://p26-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/543347d01a1d4e9ba0ff689d46ba8b19.png~tplv-a9rns2rl98-24:720:720.png?lk3s=8e244e95&rcl=2026031116511077E30CAEF80A562B26AA&rrcfp=8a172a1a&x-expires=1773823871&x-signature=z2T%2BNWpnCdKB2kE%2Bn8yYVQDZFyg%3D"
+             alt="燕子"
+             class="w-full h-full object-contain">
+    </div>
+</div>
+
+<div class="fixed right-2 bottom-2 z-20 w-[min(90vw,190px)] rounded-lg border border-slate-200 bg-white/70 p-2 shadow-md backdrop-blur">
+    <div class="mb-1.5 flex items-center justify-between">
+        <h2 class="text-xs font-semibold text-slate-800">移动记录</h2>
+        <button id="reset-btn"
+                type="button"
+                class="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-slate-700">
+            复位
+        </button>
+    </div>
+    <div class="grid grid-cols-2 gap-1 text-[11px] text-slate-700">
+        <div class="rounded-md bg-slate-100/70 px-2 py-1">上移：<span id="count-up">0</span> 格</div>
+        <div class="rounded-md bg-slate-100/70 px-2 py-1">下移：<span id="count-down">0</span> 格</div>
+        <div class="rounded-md bg-slate-100/70 px-2 py-1">左移：<span id="count-left">0</span> 格</div>
+        <div class="rounded-md bg-slate-100/70 px-2 py-1">右移：<span id="count-right">0</span> 格</div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const swallow = document.getElementById('swallow');
+    const bgImage = document.getElementById('bg-image');
+    const resetBtn = document.getElementById('reset-btn');
+    const countElements = {
+        up: document.getElementById('count-up'),
+        down: document.getElementById('count-down'),
+        left: document.getElementById('count-left'),
+        right: document.getElementById('count-right')
+    };
+
+    const gridCols = 10;
+    const gridRows = 5;
+    const initialRow = gridRows - 1;
+    const initialCol = 0;
+    let currentRow = initialRow;
+    let currentCol = initialCol;
+    let moveCounts = {
+        up: 0,
+        down: 0,
+        left: 0,
+        right: 0
+    };
+
+    let isDragging = false;
+    let startX, startY;
+    let cellWidth, cellHeight, pieceSize;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    function calculateGridSizes() {
+        const w = bgImage.offsetWidth;
+        const h = bgImage.offsetHeight;
+        cellWidth = w / gridCols;
+        cellHeight = h / gridRows;
+        pieceSize = Math.min(cellWidth, cellHeight) * 0.92;
+        swallow.style.width = pieceSize + 'px';
+        swallow.style.height = pieceSize + 'px';
+    }
+
+    function updatePosition() {
+        const leftPos = currentCol * cellWidth + (cellWidth - pieceSize) / 2;
+        const topPos = currentRow * cellHeight + (cellHeight - pieceSize) / 2;
+        swallow.style.left = leftPos + 'px';
+        swallow.style.top = topPos + 'px';
+    }
+
+    function renderMoveCounts() {
+        Object.entries(countElements).forEach(([direction, element]) => {
+            element.textContent = moveCounts[direction];
+        });
+    }
+
+    function move(direction) {
+        let r = currentRow;
+        let c = currentCol;
+        switch (direction) {
+            case 'up': r = Math.max(0, r - 1); break;
+            case 'down': r = Math.min(gridRows - 1, r + 1); break;
+            case 'left': c = Math.max(0, c - 1); break;
+            case 'right': c = Math.min(gridCols - 1, c + 1); break;
+        }
+
+        if (r === currentRow && c === currentCol) {
+            return;
+        }
+
+        currentRow = r;
+        currentCol = c;
+        moveCounts[direction] += 1;
+        renderMoveCounts();
+        updatePosition();
+    }
+
+    function resetSwallow() {
+        currentRow = initialRow;
+        currentCol = initialCol;
+        moveCounts = {
+            up: 0,
+            down: 0,
+            left: 0,
+            right: 0
+        };
+        renderMoveCounts();
+        updatePosition();
+    }
+
+    function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+    }
+
+    function updateMoveCountsFromGrid() {
+        const dRow = currentRow - initialRow;
+        const dCol = currentCol - initialCol;
+        moveCounts = {
+            up: Math.max(0, -dRow),
+            down: Math.max(0, dRow),
+            left: Math.max(0, -dCol),
+            right: Math.max(0, dCol)
+        };
+        renderMoveCounts();
+    }
+
+    function snapToGridFromPixels() {
+        const left = parseFloat(swallow.style.left) || 0;
+        const top = parseFloat(swallow.style.top) || 0;
+
+        const col = clamp(Math.round((left - (cellWidth - pieceSize) / 2) / cellWidth), 0, gridCols - 1);
+        const row = clamp(Math.round((top - (cellHeight - pieceSize) / 2) / cellHeight), 0, gridRows - 1);
+
+        currentCol = col;
+        currentRow = row;
+        updateMoveCountsFromGrid();
+        updatePosition();
+    }
+
+    // 拖拽
+    swallow.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        swallow.classList.add('dragging');
+        swallow.setPointerCapture(e.pointerId);
+
+        const swallowRect = swallow.getBoundingClientRect();
+        dragOffsetX = e.clientX - swallowRect.left;
+        dragOffsetY = e.clientY - swallowRect.top;
+        startX = e.clientX;
+        startY = e.clientY;
+        e.preventDefault();
+    });
+
+    swallow.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+
+        const container = bgImage.parentElement;
+        const containerRect = container.getBoundingClientRect();
+
+        const desiredLeft = e.clientX - containerRect.left - dragOffsetX;
+        const desiredTop = e.clientY - containerRect.top - dragOffsetY;
+
+        const maxLeft = containerRect.width - pieceSize;
+        const maxTop = containerRect.height - pieceSize;
+
+        const left = clamp(desiredLeft, 0, maxLeft);
+        const top = clamp(desiredTop, 0, maxTop);
+
+        swallow.style.left = left + 'px';
+        swallow.style.top = top + 'px';
+
+        startX = e.clientX;
+        startY = e.clientY;
+        e.preventDefault();
+    });
+
+    swallow.addEventListener('pointerup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        swallow.classList.remove('dragging');
+        snapToGridFromPixels();
+    });
+
+    swallow.addEventListener('pointercancel', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        swallow.classList.remove('dragging');
+        snapToGridFromPixels();
+    });
+
+    resetBtn.addEventListener('click', () => {
+        resetSwallow();
+    });
+
+    // 键盘
+    document.addEventListener('keydown', (e) => {
+        switch (e.key) {
+            case 'ArrowUp': move('up'); e.preventDefault(); break;
+            case 'ArrowDown': move('down'); e.preventDefault(); break;
+            case 'ArrowLeft': move('left'); e.preventDefault(); break;
+            case 'ArrowRight': move('right'); e.preventDefault(); break;
+        }
+    });
+
+    bgImage.onload = () => {
+        calculateGridSizes();
+        updatePosition();
+    };
+
+    window.addEventListener('resize', () => {
+        calculateGridSizes();
+        updatePosition();
+    });
+
+    calculateGridSizes();
+    renderMoveCounts();
+    updatePosition();
+});
+</script>
+
+</body>
+</html>
