@@ -77,19 +77,19 @@ interface BuildTextbookMessageParams {
 
 export const REQUIRED_CHAPTER_INFO_LIST = [
   {
-    grade: '初一',
+    // grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '最短路径的基本原理',
   },
   {
-    grade: '初一',
+    // grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '能移回去吗',
   },
   {
-    grade: '初一',
+    // grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '平行四边形的面积',
@@ -110,8 +110,7 @@ export const MINI_CLASS_CHAPTER_URL_MAP = [
   {
     chapterInfo: REQUIRED_CHAPTER_INFO_LIST[2],
     title: '微课',
-    // url: 'https://www.imates.com.cn:9099/wk/math/long-page-test.html',
-    url: 'https://www.imates.com.cn:9099/wk/math/classtool2.html',
+    url: 'https://www.imates.com.cn:9099/wk/math/classtool1.html',
   },
 ] as const
 
@@ -588,62 +587,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       console.error('[AI_TEXTBOOK] 保存资源会话映射失败:', error)
     }
   }
-
-
-  /**
-   * 确保存在一个可用的后端会话ID（同步版本，用于没有资源ID的情况）
-   * 优先级：
-   * 1. 使用 aiGeneral 顶部会话ID
-   * 2. 使用已维护的 backendSessionId
-   * 3. 创建新的会话ID并保存到 backendSessionId
-   */
-  const ensureTopGeneralSessionSync = (): string => {
-    const currentUserId = getUserId() || ''
-
-    // 切换账号后，必须丢弃旧的 backendSessionId（以及不要复用旧的 ai-general session）
-    if (backendSessionId.value && backendSessionOwnerUserId.value !== null && backendSessionOwnerUserId.value !== currentUserId) {
-      console.warn('[AI_TEXTBOOK] userId 变化，丢弃旧 backendSessionId，避免串会话', {
-        oldUserId: backendSessionOwnerUserId.value,
-        newUserId: currentUserId,
-        oldBackendSessionId: backendSessionId.value,
-      })
-      backendSessionId.value = null
-      backendSessionOwnerUserId.value = null
-    }
-
-    // 1. 优先使用 ai-general 顶部会话ID
-    if (aiGeneralStore.sessions.length > 0) {
-      const topSession = aiGeneralStore.sessions[0]
-      // 如果已经绑定过 userId，且当前 userId 与绑定不一致，则不能复用 ai-general 的旧会话（避免跨账号串线）
-      if (backendSessionOwnerUserId.value !== null && backendSessionOwnerUserId.value !== currentUserId) {
-        console.warn('[AI_TEXTBOOK] userId 与已绑定 backendSessionOwnerUserId 不一致，忽略 ai-general 顶部会话，重新生成', {
-          boundUserId: backendSessionOwnerUserId.value,
-          currentUserId,
-          topGeneralSessionId: topSession.sessionId,
-        })
-      } else {
-        // 同步更新 backendSessionId
-        backendSessionId.value = topSession.sessionId
-        backendSessionOwnerUserId.value = currentUserId
-        return topSession.sessionId
-      }
-    }
-
-    // 2. 如果没有 sessions，但有 backendSessionId，使用它
-    if (backendSessionId.value) {
-      if (backendSessionOwnerUserId.value === null) {
-        backendSessionOwnerUserId.value = currentUserId
-      }
-      return backendSessionId.value
-    }
-
-    // 3. 都没有，创建新的会话ID并保存
-    const newSessionId = `${currentUserId ? currentUserId + '-' : ''}textbook-session-${Date.now()}`
-    backendSessionId.value = newSessionId
-    backendSessionOwnerUserId.value = currentUserId
-    return newSessionId
-  }
-
   /**
    * 确保存在一个可用的后端会话ID
    * 优先级：
@@ -652,40 +595,28 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    * 3. 创建新的会话ID并保存到 backendSessionId
    */
   const ensureTopGeneralSession = (): string => {
-    // 直接使用基于资源的会话ID
     const currentUserId = getUserId() || ''
 
+    // 1. 优先使用 ai-general 顶部会话ID
+    if (aiGeneralStore.sessions.length > 0) {
+      const topSession = aiGeneralStore.sessions[0]
+      backendSessionId.value = topSession.sessionId
+      backendSessionOwnerUserId.value = currentUserId
+      return topSession.sessionId
+    }
+
+    // 2. ai-general 没有会话时：如果有资源ID，则新建 `${userId}_${resourceId}_textbook`
     if (resourceId.value) {
-      // 有资源ID，使用基于资源的会话ID
-      const resourceSessionMap = getResourceSessionMap()
-      const mapKey = `${currentUserId}_${resourceId.value}`
+      const newSessionId = `${currentUserId}_${resourceId.value}_textbook`
+      console.log('[AI_TEXTBOOK] 创建新的资源会话ID:', {
+        resourceId,
+        sessionId: newSessionId,
+        userId: currentUserId,
+      })
+      return newSessionId
+    }
 
-      if (resourceSessionMap[mapKey]) {
-        // 已存在，直接复用
-        console.log('[AI_TEXTBOOK] 复用资源会话ID:', {
-          resourceId,
-          sessionId: resourceSessionMap[mapKey],
-          userId: currentUserId
-        })
-        return resourceSessionMap[mapKey]
-      } else {
-        // 不存在，创建新的并持久化
-        const newSessionId = `${currentUserId}_${resourceId.value}_textbook`
-        resourceSessionMap[mapKey] = newSessionId
-        saveResourceSessionMap(resourceSessionMap)
-
-        console.log('[AI_TEXTBOOK] 创建新的资源会话ID:', {
-          resourceId,
-          sessionId: newSessionId,
-          userId: currentUserId
-        })
-
-        return newSessionId
-      }
-    } else {
-      // 没有资源ID，使用原有逻辑（向后兼容）
-      return ensureTopGeneralSessionSync()
-    } 
+    throw new Error('[AI_TEXTBOOK] resourceId 为空，无法生成教材会话ID')
   }
   /**
    * 发送聊天消息
@@ -778,7 +709,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       
       // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
       const sessionIdForBackend = ensureTopGeneralSession()
-      
+      console.log("sessionIdForBackend",sessionIdForBackend)
       // 构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
       const builderImageData = imageData?.base64DataUrl
