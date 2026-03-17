@@ -13,19 +13,19 @@
             <slot name="header-prefix"></slot>
             <!-- 默认中间工具条（公式 + 问老师） -->
             <slot name="header-middle">
-              <!-- 公式 -->
-              <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
+              <!-- 公式 小学不展示 -->
+              <!-- <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
                 <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
-              </button>
-              <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏，作业场景也隐藏 -->
-              <button
+              </button> -->
+              <!-- 问老师  小学不展示 -->
+              <!-- <button
                 v-if="props.type !== 'teacher' && !props.hideAskTeacherIcon"
                 type="button"
                 class="toolbar-btn"
                 @click="handleAskTeacherClick"
               >
                 <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
-              </button>
+              </button> -->
             </slot>
 
             <!-- 后置插槽：工具条下方追加内容（说明文字等） -->
@@ -167,7 +167,7 @@
 
           <!-- 图片上传 - 在 ai-general 和 user-client 场景下显示 -->
           <button
-            v-if="props.type === 'ai-general' || props.type === 'user-client' || props.type === 'teacher'"
+            v-if="props.type === 'ai-general' || props.type === 'user-client' || props.type === 'teacher' || props.type === 'ai-textbook'"
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"

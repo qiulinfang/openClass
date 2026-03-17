@@ -64,7 +64,7 @@ interface BuildTextbookMessageParams {
   resourceId?: string | null
   sectionName?: string | null
   chapterInfo?: {
-    grade: string
+    grade?: string
     subject: string
     textbook: string
     chapter_title: string
@@ -77,19 +77,19 @@ interface BuildTextbookMessageParams {
 
 export const REQUIRED_CHAPTER_INFO_LIST = [
   {
-    // grade: '初一',
+    grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '最短路径的基本原理',
   },
   {
-    // grade: '初一',
+    grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '能移回去吗',
   },
   {
-    // grade: '初一',
+    grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '平行四边形的面积',
@@ -119,7 +119,6 @@ export const getMiniClassConfig = (info: BuildTextbookMessageParams['chapterInfo
   return MINI_CLASS_CHAPTER_URL_MAP.find((item) => {
     const required = item.chapterInfo
     return (
-      info.grade === required.grade &&
       info.subject === required.subject &&
       info.textbook === required.textbook &&
       info.chapter_title === required.chapter_title
@@ -138,7 +137,7 @@ const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']):
     return false
   }
   const keys = Object.keys(info)
-  if (keys.length !== 4) {
+  if (keys.length !== 3 && keys.length !== 4) {
     console.log('[shouldSendChapterInfo] 章节信息字段数量不正确:', keys.length)
     return false
   }
@@ -146,11 +145,14 @@ const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']):
     console.log('[shouldSendChapterInfo] 章节信息字段名不正确:', keys)
     return false
   }
+  if (!('subject' in info) || !('textbook' in info) || !('chapter_title' in info)) {
+    console.log('[shouldSendChapterInfo] 章节信息必填字段缺失')
+    return false
+  }
   console.log('[shouldSendChapterInfo] :', REQUIRED_CHAPTER_INFO_LIST)
   console.log('[shouldSendChapterInfo] :', info)
   const matched = REQUIRED_CHAPTER_INFO_LIST.find((required) => {
     return (
-      info.grade === required.grade &&
       info.subject === required.subject &&
       info.textbook === required.textbook &&
       info.chapter_title === required.chapter_title
