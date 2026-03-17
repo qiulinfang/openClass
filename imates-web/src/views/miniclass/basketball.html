@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>篮球拼图复位游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+            border: 1px solid #e2e8f0;
+            background-color: #fff;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+        .grid-cell.hovered {
+            background-color: #f1f5f9;
+        }
+        .grid-cell.valid-move {
+            background-color: #fef3c7;
+        }
+        .piece {
+            cursor: grab;
+            transition: transform 0.2s;
+            user-select: none;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            padding: 2px;
+        }
+        .piece:active {
+            cursor: grabbing;
+        }
+        .piece.dragging {
+            opacity: 0.4;
+        }
+        .piece img {
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        /* 辅助坐标提示 - 已隐藏 */
+        .grid-cell::before {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-12 px-4">
+
+    <div class="max-w-4xl w-full">
+
+        <!-- 游戏主区域：左右布局 -->
+        <div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex gap-4">
+                </div>
+                <button id="reset-btn" class="bg-gray-800 hover:bg-black text-white px-8 py-2 rounded-lg transition-all font-medium shadow-md">
+                    重置位置
+                </button>
+            </div>
+
+            <!-- 左右布局容器 -->
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- 左侧：参照图 -->
+                <div class="lg:w-1/5">
+                    <div class="bg-gray-50 p-2 rounded-lg border border-gray-200">
+                        <img src="https://www.imates.com.cn/xuebanImg/basketball-full.webp" 
+                             alt="篮球完整参照图" 
+                             class="w-full h-auto rounded-lg shadow-md"
+                             style="max-height: 150px; object-fit: contain;">
+                    </div>
+                </div>
+
+                <!-- 右侧：6x4 交互网格和历史记录 -->
+                <div class="lg:w-4/5 flex flex-col lg:flex-row gap-4">
+                    <!-- 游戏区域 -->
+                    <div class="flex-1">
+                        <div id="game-board" class="grid grid-cols-6 gap-1 bg-gray-200 p-1 border-2 border-gray-300 rounded-lg">
+                            <!-- 24个格子由脚本生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 历史记录 -->
+                    <div class="lg:w-48">
+                        <div id="move-history" class="bg-gray-50 p-2 rounded-lg border border-gray-200 h-48 overflow-y-auto">
+                            <div class="text-xs text-gray-400 text-center">暂无移动记录</div>
+                        </div>
+                        <button id="clear-history" class="mt-1 w-full bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors">
+                            清空历史
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="win-message" class="hidden mt-8 bg-green-500 text-white p-4 rounded-xl text-center font-bold text-xl animate-pulse">
+                所有碎片已正确归位
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 定义碎片数据
+        const piecesData = {
+            'A': { id: 'A', src: "https://www.imates.com.cn/xuebanImg/basketball-piece1.webp" },
+            'B': { id: 'B', src: "https://www.imates.com.cn/xuebanImg/basketball-piece2.webp" },
+            'C': { id: 'C', src: "https://www.imates.com.cn/xuebanImg/basketball-piece3.webp" },
+            'D': { id: 'D', src: "https://www.imates.com.cn/xuebanImg/basketball-piece4.webp" }
+        };
+
+        // 定义目标/初始索引位置 (6列计)
+        // A (R1,C2) -> 1
+        // B (R2,C6) -> 11
+        // C (R3,C1) -> 12
+        // D (R4,C3) -> 20
+        const initialSetup = {
+            1: 'A',
+            11: 'B',
+            12: 'C',
+            20: 'D'
+        };
+
+        const board = document.getElementById('game-board');
+        const winMessage = document.getElementById('win-message');
+        const resetBtn = document.getElementById('reset-btn');
+        const moveHistory = document.getElementById('move-history');
+        const clearHistoryBtn = document.getElementById('clear-history');
+
+        let draggedPiece = null;
+        let moveHistoryList = [];
+        let moveCounter = 0;
+
+        // 计算移动方向和距离
+        function calculateMove(fromPos, toPos) {
+            const fromRow = Math.floor(fromPos / 6);
+            const fromCol = fromPos % 6;
+            const toRow = Math.floor(toPos / 6);
+            const toCol = toPos % 6;
+            
+            const rowDiff = toRow - fromRow;
+            const colDiff = toCol - fromCol;
+            
+            let direction = '';
+            let distance = 0;
+            
+            // 只允许横向或纵向移动，不允许斜向移动
+            if (rowDiff === 0 && colDiff > 0) {
+                direction = '右';
+                distance = colDiff;
+            } else if (rowDiff === 0 && colDiff < 0) {
+                direction = '左';
+                distance = Math.abs(colDiff);
+            } else if (colDiff === 0 && rowDiff > 0) {
+                direction = '下';
+                distance = rowDiff;
+            } else if (colDiff === 0 && rowDiff < 0) {
+                direction = '上';
+                distance = Math.abs(rowDiff);
+            } else {
+                // 斜向移动，返回无效
+                return { direction: '', distance: 0, valid: false };
+            }
+            
+            return { direction, distance, valid: true };
+        }
+
+        // 添加移动记录
+        function addMoveHistory(pieceType, fromPos, toPos) {
+            moveCounter++;
+            const move = calculateMove(fromPos, toPos);
+            const historyItem = {
+                id: moveCounter,
+                piece: pieceType,
+                from: fromPos,
+                to: toPos,
+                direction: move.direction,
+                distance: move.distance,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            moveHistoryList.unshift(historyItem);
+            updateHistoryDisplay();
+        }
+
+        // 更新历史记录显示
+        function updateHistoryDisplay() {
+            if (moveHistoryList.length === 0) {
+                moveHistory.innerHTML = '<div class="text-sm text-gray-400 text-center">暂无移动记录</div>';
+                return;
+            }
+            
+            const historyHTML = moveHistoryList.reverse().map(item => {
+                return `
+                    <div class="mb-2 p-2 bg-white rounded border border-gray-200 text-sm">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold text-gray-700">碎片 ${item.piece}</span>
+                            <span class="text-blue-600">向${item.direction}移动${item.distance}格</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            moveHistory.innerHTML = historyHTML;
+        }
+
+        // 清空历史记录
+        function clearHistory() {
+            moveHistoryList = [];
+            moveCounter = 0;
+            updateHistoryDisplay();
+        }
+
+        // 高亮显示可移动的位置
+        function highlightValidMoves(fromPos) {
+            const cells = board.querySelectorAll('.grid-cell');
+            
+            cells.forEach((cell, index) => {
+                // 跳过当前位置和已占用的位置
+                if (index === fromPos || cell.hasChildNodes()) {
+                    return;
+                }
+                
+                // 检查是否为有效移动
+                const move = calculateMove(fromPos, index);
+                if (move.valid) {
+                    cell.classList.add('valid-move');
+                }
+            });
+        }
+
+        // 清除所有高亮
+        function clearHighlights() {
+            const cells = board.querySelectorAll('.grid-cell');
+            cells.forEach(cell => {
+                cell.classList.remove('valid-move');
+            });
+        }
+
+        function createPiece(type) {
+            const data = piecesData[type];
+            const piece = document.createElement('div');
+            piece.className = 'piece';
+            piece.draggable = true;
+            piece.dataset.type = type;
+            
+            const img = document.createElement('img');
+            img.src = data.src;
+            img.alt = type;
+            piece.appendChild(img);
+
+            piece.addEventListener('dragstart', (e) => {
+                draggedPiece = piece;
+                piece.classList.add('dragging');
+                // 记录拖动开始的位置
+                const parentCell = piece.parentElement;
+                draggedPiece.dataset.fromIndex = parentCell.dataset.index;
+                
+                // 高亮显示可移动的位置
+                highlightValidMoves(parseInt(parentCell.dataset.index));
+                
+                // 解决某些浏览器下的拖拽显示问题
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            piece.addEventListener('dragend', () => {
+                piece.classList.remove('dragging');
+                draggedPiece = null;
+                // 清除所有高亮
+                clearHighlights();
+            });
+
+            return piece;
+        }
+
+        function initGame() {
+            board.innerHTML = '';
+            winMessage.classList.add('hidden');
+
+            for (let i = 0; i < 24; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.index = i;
+
+                // 如果该位置初始有图片
+                if (initialSetup[i]) {
+                    const piece = createPiece(initialSetup[i]);
+                    cell.appendChild(piece);
+                }
+
+                // 注册拖放事件
+                cell.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    // 仅当单元格为空时显示悬停效果
+                    if (!cell.hasChildNodes()) {
+                        cell.classList.add('hovered');
+                    }
+                });
+
+                cell.addEventListener('dragleave', () => {
+                    cell.classList.remove('hovered');
+                });
+
+                cell.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    cell.classList.remove('hovered');
+                    
+                    // 限制：一个网格只能容纳一张图片
+                    if (draggedPiece && !cell.hasChildNodes()) {
+                        // 记录移动历史
+                        const fromIndex = parseInt(draggedPiece.dataset.fromIndex);
+                        const toIndex = parseInt(cell.dataset.index);
+                        const pieceType = draggedPiece.dataset.type;
+                        
+                        // 验证移动是否有效（只允许横向或纵向移动）
+                        const move = calculateMove(fromIndex, toIndex);
+                        if (!move.valid) {
+                            // 无效移动，不允许放置
+                            return;
+                        }
+                        
+                        // 只有当位置真正发生变化时才记录
+                        if (fromIndex !== toIndex) {
+                            addMoveHistory(pieceType, fromIndex, toIndex);
+                        }
+                        
+                        cell.appendChild(draggedPiece);
+                        checkWin();
+                    }
+                });
+
+                board.appendChild(cell);
+            }
+        }
+
+        function checkWin() {
+            const cells = board.querySelectorAll('.grid-cell');
+            
+            // 查找所有包含碎片的单元格
+            const piecePositions = {};
+            for (let i = 0; i < cells.length; i++) {
+                const piece = cells[i].firstChild;
+                if (piece) {
+                    const type = piece.dataset.type;
+                    piecePositions[type] = i;
+                }
+            }
+            
+            console.log('=== 拼图检查 ===');
+            console.log('碎片位置:', piecePositions);
+            
+            // 检查是否所有碎片都已放置
+            if (Object.keys(piecePositions).length !== 4) {
+                console.log('未放置所有碎片，当前数量:', Object.keys(piecePositions).length);
+                winMessage.classList.add('hidden');
+                return;
+            }
+            
+            // 获取ABCD的位置
+            const posA = piecePositions['A'];
+            const posB = piecePositions['B'];
+            const posC = piecePositions['C'];
+            const posD = piecePositions['D'];
+            
+            console.log('位置详情:');
+            console.log('A位置:', posA, '行:', Math.floor(posA / 6), '列:', posA % 6);
+            console.log('B位置:', posB, '行:', Math.floor(posB / 6), '列:', posB % 6);
+            console.log('C位置:', posC, '行:', Math.floor(posC / 6), '列:', posC % 6);
+            console.log('D位置:', posD, '行:', Math.floor(posD / 6), '列:', posD % 6);
+            
+            // 检查是否形成2x2的正方形
+            // A在左上，B在右上，C在左下，D在右下
+            // 网格是6列的，所以：
+            // B应该在A的右边 (posB = posA + 1)
+            // C应该在A的下边 (posC = posA + 6)
+            // D应该在C的右边 (posD = posC + 1) 或者在B的下边 (posD = posB + 6)
+            
+            const isAUpperRow = Math.floor(posA / 6) < Math.floor(posC / 6);
+            const isBRightOfA = posB === posA + 1;
+            const isCBelowA = posC === posA + 6;
+            const isDRightOfC = posD === posC + 1;
+            const isDBelowB = posD === posB + 6;
+            
+            // 额外检查：确保A和B在同一行，C和D在同一行
+            const isAAndBSameRow = Math.floor(posA / 6) === Math.floor(posB / 6);
+            const isCAndDSameRow = Math.floor(posC / 6) === Math.floor(posD / 6);
+            
+            // 额外检查：确保A和C在同一列，B和D在同一列
+            const isAAndCSameCol = posA % 6 === posC % 6;
+            const isBAndDSameCol = posB % 6 === posD % 6;
+            
+            console.log('=== 判断条件检查 ===');
+            console.log('A在B的上方:', isAUpperRow);
+            console.log('B在A的右边 (posB === posA + 1):', isBRightOfA, '预期:', posA + 1, '实际:', posB);
+            console.log('C在A的下边 (posC === posA + 6):', isCBelowA, '预期:', posA + 6, '实际:', posC);
+            console.log('D在C的右边 (posD === posC + 1):', isDRightOfC, '预期:', posC + 1, '实际:', posD);
+            console.log('D在B的下边 (posD === posB + 6):', isDBelowB, '预期:', posB + 6, '实际:', posD);
+            console.log('A和B同一行:', isAAndBSameRow);
+            console.log('C和D同一行:', isCAndDSameRow);
+            console.log('A和C同一列:', isAAndCSameCol);
+            console.log('B和D同一列:', isBAndDSameCol);
+            
+            const isWin = isAAndBSameRow && isCAndDSameRow && isAAndCSameCol && isBAndDSameCol &&
+                         isBRightOfA && isCBelowA && (isDRightOfC || isDBelowB);
+            
+            console.log('最终结果:', isWin ? '✅ 拼图完成！' : '❌ 拼图未完成');
+            console.log('==================');
+
+            if (isWin) {
+                winMessage.classList.remove('hidden');
+                winMessage.textContent = '恭喜！拼图已完成！';
+            } else {
+                winMessage.classList.add('hidden');
+            }
+        }
+
+        resetBtn.addEventListener('click', () => {
+            clearHistory();
+            initGame();
+        });
+        clearHistoryBtn.addEventListener('click', clearHistory);
+
+        // 页面加载完成后初始化
+        window.onload = initGame;
+    </script>
+</body>
+</html>

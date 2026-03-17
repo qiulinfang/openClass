@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>互动</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      height: 100%;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 h-full">
+  <div class="mx-auto flex h-full max-w-6xl flex-col px-4 py-4">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <button
+          id="btn-basket"
+          type="button"
+          class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+        >
+          篮球拼图
+        </button>
+        <button
+          id="btn-swallow"
+          type="button"
+          class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50"
+        >
+          燕子互动
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-500">
+        提示：切换页面会保留各自页面内部状态（因为 iframe 不会销毁）。
+      </div>
+    </div>
+
+    <div class="relative flex-1 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <iframe
+        id="frame-basket"
+        class="absolute inset-0 h-full w-full"
+        src="https://www.imates.com.cn:9099/wk/math/basketball.html"
+        title="篮球拼图"
+        frameborder="0" 
+      ></iframe>
+      <iframe
+        id="frame-swallow"
+        class="absolute inset-0 h-full w-full hidden"
+        src="https://www.imates.com.cn:9099/wk/math/swallow-tool.html"
+        title="燕子互动"
+        frameborder="0"
+      ></iframe>
+    </div>
+  </div>
+
+  <script>
+    const btnBasket = document.getElementById('btn-basket');
+    const btnSwallow = document.getElementById('btn-swallow');
+    const frameBasket = document.getElementById('frame-basket');
+    const frameSwallow = document.getElementById('frame-swallow');
+
+    function setActive(active) {
+      const isBasket = active === 'basket';
+
+      frameBasket.classList.toggle('hidden', !isBasket);
+      frameSwallow.classList.toggle('hidden', isBasket);
+
+      btnBasket.className = isBasket
+        ? 'rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800'
+        : 'rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50';
+
+      btnSwallow.className = !isBasket
+        ? 'rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800'
+        : 'rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50';
+    }
+
+    btnBasket.addEventListener('click', () => setActive('basket'));
+    btnSwallow.addEventListener('click', () => setActive('swallow'));
+
+    setActive('basket');
+  </script>
+</body>
+</html>
