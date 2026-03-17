@@ -110,7 +110,8 @@ export const MINI_CLASS_CHAPTER_URL_MAP = [
   {
     chapterInfo: REQUIRED_CHAPTER_INFO_LIST[2],
     title: '微课',
-    url: 'https://www.imates.com.cn:9099/wk/math/classtool1.html',
+    // url: 'https://www.imates.com.cn:9099/wk/math/long-page-test.html',
+    url: 'https://www.imates.com.cn:9099/wk/math/classtool2.html',
   },
 ] as const
 

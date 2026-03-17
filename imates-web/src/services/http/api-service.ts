@@ -368,15 +368,44 @@ export class ApiService {
     }
   }
 
-  public async fetchHtmlSource(url: string): Promise<any | null> {
-    const response = await httpClient.get<any>(`/requests/fetch?url=${encodeURIComponent(url)}`)
-    if (response.success && response.data && (response.data as any).data) {
-      const result = (response.data as any).data
-      return result
-    } else {
-      return null
+  public async fetchHtmlSource(url: string): Promise<HtmlSourceData | null> {
+    const response = await httpClient.get<FetchHtmlResponse>(
+      `/requests/fetch?url=${encodeURIComponent(url)}`,
+    )
+
+    if (response.success && response.data && response.data.data) {
+      return response.data.data
     }
+
+    return null
   }
+}
+
+// /requests/fetch 接口返回类型
+export interface HtmlSourceData {
+  raw_html: string
+  html: string
+  title: string
+  url: string
+  content_length: number
+  encoding: string
+  status_code: number
+  cached: boolean
+  timestamp: string
+  headers: Record<string, string>
+  scripts_count: number
+  styles: string[]
+  meta_info?: {
+    viewport?: string
+  }
+  geogebra_scripts?: unknown[]
+}
+
+export interface FetchHtmlResponse {
+  success: boolean
+  cached?: boolean
+  data: HtmlSourceData
+  fetch_time: number
 }
 
 // 习题分页接口响应类型（作业套餐 + 套餐内题目列表）

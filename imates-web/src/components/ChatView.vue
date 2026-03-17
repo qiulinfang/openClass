@@ -1802,23 +1802,24 @@ const handleFormulaKeyboardToggle = (event: Event) => {
   const customEvent = event as CustomEvent
   const { visible } = customEvent.detail
 
-  // 步骤2：更新公式键盘状态标记
-  isFormulaKeyboardVisible.value = visible
-
-  // 步骤3：根据键盘显示状态执行相应逻辑
-  if (visible) {
-    // 3.1 显示公式键盘：只滚动到底部，不压缩页面
-    scrollToBottom()
-  } else {
-    // 3.2 隐藏公式键盘：检查焦点状态避免误隐藏
+  // 步骤2：隐藏时做额外保护，避免 WebView/焦点抖动导致的误隐藏
+  if (!visible) {
     const isEditorFocused = document.activeElement?.closest('.tiptap-editor-container')
     const isMathFieldFocused = document.activeElement?.tagName === 'MATH-FIELD'
-
     if (isEditorFocused || isMathFieldFocused) {
       // 编辑器或公式编辑器获得焦点时跳过隐藏，避免误操作
       return
     }
+  }
 
+  // 步骤3：更新公式键盘状态标记
+  isFormulaKeyboardVisible.value = visible
+
+  // 步骤4：根据键盘显示状态执行相应逻辑
+  if (visible) {
+    // 3.1 显示公式键盘：只滚动到底部，不压缩页面
+    scrollToBottom()
+  } else {
     // 修复：公式键盘隐藏时，确保状态正确更新，为后续原生键盘处理做准备
   }
 }
@@ -1851,6 +1852,14 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
     isKeyboardVisible: isKeyboardVisible.value,
     isFormulaKeyboardVisible: isFormulaKeyboardVisible.value,
   })
+  // 额外保护：WebView 下 MathLive 的 <math-field> 获得焦点时，Android 仍可能上报“原生键盘显示”
+  // 如果这里继续走原生键盘逻辑，会触发对其它 input 的 focus，从而把 math-field 顶掉，导致公式键盘立刻隐藏
+  const activeTagName = document.activeElement?.tagName
+  if (activeTagName === 'MATH-FIELD') {
+    console.log('[ChatView][Keyboard] handleKeyboardShown skipped because activeElement is MATH-FIELD')
+    return
+  }
+
   // 步骤1：检查公式键盘状态 - 如果公式键盘正在显示，跳过原生键盘处理
   if (isFormulaKeyboardVisible.value) {
     console.log('[ChatView][Keyboard] handleKeyboardShown skipped because formula keyboard visible')
