@@ -17,11 +17,6 @@
               <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
                 <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
               </button>
-              <!-- 草稿本（暂时注释保留）
-              <button type="button" class="toolbar-btn" @click="handleDraftClick">
-                <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
-              </button>
-              -->
               <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏，作业场景也隐藏 -->
               <button
                 v-if="props.type !== 'teacher' && !props.hideAskTeacherIcon"
@@ -87,9 +82,27 @@
           @focus="handleEditorFocus"
           @blur="handleEditorBlur"
           @keydown="handleEditorKeydown"
+          @edit-formula="handleEditFormulaFromEditor"
           @update:modelValue="handleEditorUpdate"
         />
       </div>
+
+      <Modal
+        v-model="showFormulaModal"
+        title="公式编辑"
+        :showFooter="true"
+        confirmText="插入"
+        cancelText="取消"
+        :initialWidth="980"
+        :initialHeight="680"
+        :minWidth="400"
+        :minHeight="300"
+        :zIndex="111111"
+        @confirm="handleInsertFormulaFromDialog"
+        @cancel="handleCancelFormulaDialog"
+      >
+        <HighSchoolMathEditor v-model="formulaDialogValue" />
+      </Modal>
 
       <!-- 控制栏 -->
       <div class="control-bar">
@@ -211,6 +224,8 @@ import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { AI_ROLE_OPTIONS } from '../../constants/options'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
+import HighSchoolMathEditor from '../HighSchoolMathEditor.vue'
+import Modal from '../base/Modal.vue'
 import ImageViewer from '../ImageViewer.vue'
 import ScreenshotThumb from '../ScreenshotThumb.vue'
 import BubblePopup from '../base/Popover.vue'
@@ -223,10 +238,8 @@ import GuruIcon from '/icons/Guru.svg'
 // 顶部工具条图标
 import onlineSearchIcon from '/icons/onlineSearch.svg' // 搜索
 import selectAndAskIcon from '/icons/selectAndAsk.svg' // 选中并问
-import draftIcon from '/icons/draftNotebook.svg' // 笔记
 import formulaIcon from '/icons/formula.svg' // 公式
 import askTeacherIcon from '/icons/askTeacher.svg' // 问老师
-import draftIconSelected from '/icons/draftNotebook_select.svg' // 笔记选中
 import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索选中
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
@@ -339,7 +352,6 @@ const emit = defineEmits({
   'remove-quote': () => true,
   // 顶部工具条相关事件，供上层接入真实行为
   'explore-click': () => true,
-  'draft-click': () => true,
   'formula-click': () => true,
   'ask-teacher-click': (_payload?: { mode?: string }) => true,
 })
@@ -384,12 +396,15 @@ const editorContent = ref<string>('')
 const isEditorFocused = ref(false)
 const mathEditorRef = ref<InstanceType<typeof MathFormulaEditor>>()
 
+const showFormulaModal = ref(false)
+const formulaDialogValue = ref('')
+const editingFormulaIndex = ref<number | null>(null)
+
 // 响应式宽度
 const isNarrow = ref(false)
 
 // 顶部工具条本地选中状态
 const isOnlineSearchSelected = ref(false)
-const isDraftSelected = ref(false)
 const isFormulaSelected = ref(false)
 const isAskTeacherSelected = ref(false)
 
@@ -419,8 +434,6 @@ const handleScreenshotThumbClick = (shot: AttachedScreenshot) => {
 const onlineSearchIconToUse = computed(() =>
   isOnlineSearchSelected.value ? onlineSearchIconSelected : onlineSearchIcon
 )
-// 笔记图标：当前只使用普通态图标
-const draftIconToUse = computed(() => (isDraftSelected.value ? draftIconSelected : draftIcon))
 // 公式图标：当前只使用普通态图标
 const formulaIconToUse = computed(() =>
   isFormulaSelected.value ? formulaIconSelected : formulaIcon
@@ -561,16 +574,75 @@ const handleToggleWebSearch = () => {
   emit('toggle-web-search')
 }
 
-const handleDraftClick = () => {
-  isDraftSelected.value = !isDraftSelected.value
-  emit('draft-click')
-}
 
 // 顶部“公式”按钮：沿用原有插入公式逻辑，并发事件
 const handleFormulaTopClick = () => {
   isFormulaSelected.value = !isFormulaSelected.value
-  handleInsertMathFormula()
+  formulaDialogValue.value = ''
+  editingFormulaIndex.value = null
+  showFormulaModal.value = true
   emit('formula-click')
+}
+
+const handleEditFormulaFromEditor = (payload: { latex: string; index: number | null }) => {
+  formulaDialogValue.value = (payload?.latex || '').trim()
+  editingFormulaIndex.value = typeof payload?.index === 'number' ? payload.index : null
+  showFormulaModal.value = true
+}
+
+const handleInsertFormulaFromDialog = async () => {
+  // 等待一个 tick，确保 HighSchoolMathEditor 的 emit 已经同步
+  await nextTick()
+  
+  const latex = (formulaDialogValue.value || '').trim()
+  console.log('[ChatInput] 确认插入公式，当前 formulaDialogValue:', latex)
+  
+  if (!latex) {
+    console.log('[ChatInput] LaTeX 为空，关闭弹窗')
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    return
+  }
+  if (!mathEditorRef.value) {
+    console.log('[ChatInput] mathEditorRef 不存在')
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    return
+  }
+  const editorAny = mathEditorRef.value as any
+
+  // 若来自"点击已有公式"，则原位替换
+  if (editingFormulaIndex.value !== null && typeof editorAny.replaceMathFieldAt === 'function') {
+    console.log('[ChatInput] 替换公式，索引:', editingFormulaIndex.value, 'LaTeX:', latex)
+    editorAny.replaceMathFieldAt(editingFormulaIndex.value, latex)
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    emit('scroll-to-bottom')
+    return
+  }
+
+  if (typeof editorAny.insertMathField !== 'function') {
+    console.log('[ChatInput] insertMathField 方法不存在')
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    return
+  }
+  try {
+    console.log('[ChatInput] 插入新公式，LaTeX:', latex)
+    editorAny.insertMathField(latex)
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    emit('scroll-to-bottom')
+  } catch (error) {
+    console.error('[ChatInput] 插入数学公式失败:', error)
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+  }
+}
+
+const handleCancelFormulaDialog = () => {
+  editingFormulaIndex.value = null
+  showFormulaModal.value = false
 }
 
 const handleAskTeacherClick = () => {
@@ -700,48 +772,6 @@ const cleanupAllMathLiveInstances = () => {
   // 2. 清空引用映射
   mathfields.value.clear()
   formulaRefs.value.clear()
-}
-
-// 防抖定时器
-let insertFormulaDebounceTimer: ReturnType<typeof setTimeout> | null = null
-
-// 插入数学公式处理
-const handleInsertMathFormula = async () => {
-  // 确保关闭模式选择弹出框（如果已打开）
-  if (showModeSelectorMenu.value) {
-    showModeSelectorMenu.value = false
-  }
-
-  // 防抖保护：清除之前的定时器
-  if (insertFormulaDebounceTimer) {
-    clearTimeout(insertFormulaDebounceTimer)
-  }
-
-  // 设置新的防抖定时器
-  insertFormulaDebounceTimer = setTimeout(async () => {
-    // 检查 MathFormulaEditor 组件是否已经正确初始化
-    if (!mathEditorRef.value) {
-      console.warn('[ChatInput] MathFormulaEditor 组件未初始化')
-      return
-    }
-
-    // 检查 insertMathField 方法是否存在
-    if (typeof mathEditorRef.value.insertMathField !== 'function') {
-      console.warn('[ChatInput] insertMathField 方法不存在')
-      return
-    }
-
-    try {
-      mathEditorRef.value.insertMathField()
-      // 插入公式后触发滚动到底部事件
-      emit('scroll-to-bottom')
-    } catch (error) {
-      console.error('[ChatInput] 插入数学公式失败:', error)
-    }
-
-    // 清除定时器引用
-    insertFormulaDebounceTimer = null
-  }, 300) // 300ms防抖延迟
 }
 
 // 发送消息标志，防止键盘关闭事件干扰发送

@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
 import { computed, defineEmits, defineProps, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 type Placement = 'top' | 'bottom' | 'left' | 'right'
@@ -60,6 +61,18 @@ const props = defineProps<{
   trigger?: 'click' | 'manual'
   /** 选取文字时的位置信息，用于自定义定位 */
   selectionPosition?: SelectionPosition | null
+  /** 气泡的 z-index 层级 */
+  zIndex?: number
+  /** 气泡宽度（number 会自动转 px） */
+  width?: number | string
+  /** 气泡最小宽度（number 会自动转 px） */
+  minWidth?: number | string
+  /** 气泡最大宽度（number 会自动转 px），可覆盖默认 CSS 的 max-width: 280px */
+  maxWidth?: number | string
+  /** 气泡最大高度（number 会自动转 px） */
+  maxHeight?: number | string
+  /** 额外样式（直接作用在气泡容器上，会覆盖同名属性） */
+  popupStyle?: CSSProperties
 }>()
 
 const emit = defineEmits<{
@@ -79,10 +92,22 @@ const triggerMode = computed(() => props.trigger ?? 'click')
 
 const currentPlacement = ref<Placement>('bottom')
 
+const normalizeSize = (value: number | string | undefined) => {
+  if (value === undefined || value === null) return undefined
+  return typeof value === 'number' ? `${value}px` : value
+}
+
 const popupStyle = computed(() => {
+  const zIndexValue = props.zIndex ?? 100050
   return {
     top: `${position.value.top}px`,
     left: `${position.value.left}px`,
+    zIndex: zIndexValue,
+    width: normalizeSize(props.width),
+    minWidth: normalizeSize(props.minWidth),
+    maxWidth: normalizeSize(props.maxWidth),
+    maxHeight: normalizeSize(props.maxHeight),
+    ...props.popupStyle,
   }
 })
 
