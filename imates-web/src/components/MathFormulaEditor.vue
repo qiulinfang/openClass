@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import Quill from 'quill'
+import katex from 'katex'
 
 // Props 定义
 const props = defineProps({
@@ -50,7 +51,13 @@ const props = defineProps({
 })
 
 // Emits 定义
-const emit = defineEmits(['update:modelValue', 'focus', 'blur', 'keydown'])
+const emit = defineEmits([
+  'update:modelValue',
+  'focus',
+  'blur',
+  'keydown',
+  'edit-formula',
+])
 
 // 响应式数据
 const editorRef = ref<HTMLElement | null>(null)
@@ -62,7 +69,7 @@ const editorId = computed(() => `math-editor-${Math.random().toString(36).substr
 // 全局变量
 let quill: Quill | null = null
 
-// 自定义MathLive Blot for Quill
+// 自定义公式 Blot（静态渲染，不使用 MathLive 内嵌键盘）
 const Embed = Quill.import("blots/embed") as any
 
 class MathBlot extends Embed {
@@ -74,107 +81,23 @@ class MathBlot extends Embed {
     node.style.display = "inline-block"
     node.style.verticalAlign = "baseline"
 
-    // 创建MathLive元素
-    const mathField = document.createElement("math-field") as any
-    mathField.value = value || ""
+    const latex = (value && typeof value === 'object' && 'math' in value) ? (value.math || '') : (value || '')
+    node.setAttribute('data-value', latex)
+    node.setAttribute('data-math', latex)
 
-    // 配置MathLive选项
     try {
-      mathField.setOptions({
-        virtualKeyboardMode: "onfocus",
-        virtualKeyboards: "roman numeric functions symbols greek",
-        smartMode: true,
-        smartFence: true,
-        smartSuperscript: true,
-        removeExtraneousParentheses: true,
-        mathModeSpace: "\\:",
-        plonkSound: null,
-        keypressSound: null,
+      node.innerHTML = katex.renderToString(latex, {
+        throwOnError: false,
+        output: 'html',
       })
-    } catch (e) {
-      console.warn("MathLive options setting failed:", e)
-    }
-
-    // 监听输入事件
-    mathField.addEventListener("input", () => {
-      const currentValue = mathField.value
-      node.setAttribute("data-value", currentValue)
-      mathField.setAttribute("data-value", currentValue)
-    })
-
-    // 监听焦点事件
-    mathField.addEventListener("focus", () => {
-      // 焦点获得时不需要提示
-      // 触发虚拟键盘事件，确保滚动到底部
-      if (typeof window !== 'undefined') {
-        const customEvent = new CustomEvent('formula-keyboard-toggle', {
-          detail: { visible: true }
-        })
-        window.dispatchEvent(customEvent)
-      }
-    })
-
-    mathField.addEventListener("blur", () => {
-      const currentValue = mathField.value
-      node.setAttribute("data-value", currentValue)
-      mathField.setAttribute("data-value", currentValue)
-      
-      // 失焦时清理HTML结构，确保没有多余的br和p标签
-      if (quill) {
-        setTimeout(() => {
-          cleanInitialHTMLStructure()
-        }, 10)
-      }
-      
-      // 修复：失焦时同步更新全局公式键盘状态
-      if (typeof window !== 'undefined') {
-        const customEvent = new CustomEvent('formula-keyboard-toggle', {
-          detail: { visible: false }
-        })
-        window.dispatchEvent(customEvent)
-      }
-    })
-
-    // 监听虚拟键盘事件
-    mathField.addEventListener("virtual-keyboard-toggle", (event: any) => {
-      const { visible } = event.detail || {}
-      
-      // 触发全局公式键盘事件，让 ChatView 处理滚动
-      if (typeof window !== 'undefined') {
-        const customEvent = new CustomEvent('formula-keyboard-toggle', {
-          detail: { visible }
-        })
-        window.dispatchEvent(customEvent)
-      }
-    })
-
-    // 点击编辑
-    mathField.addEventListener("dblclick", () => {
-      mathField.focus()
-    })
-
-    node.appendChild(mathField)
-    node.setAttribute("data-value", value || "")
-
-    if (value) {
-      mathField.value = value
-      mathField.setAttribute("data-value", value)
+    } catch {
+      node.textContent = latex
     }
 
     return node
   }
 
   static value(node: any) {
-    const mathField = node.querySelector("math-field")
-    if (mathField) {
-      const value = mathField.value ||
-        mathField.getAttribute("value") ||
-        mathField.getAttribute("data-value") ||
-        node.getAttribute("data-value") ||
-        ""
-      // 关键修复：返回对象格式而不是字符串
-      return { math: value }  
-    }
     const dataValue = node.getAttribute("data-value") || ""
     return { math: dataValue }
   }
@@ -184,16 +107,6 @@ class MathBlot extends Embed {
   }
 
   value() {
-    const mathField = (this as any).domNode.querySelector("math-field")
-    if (mathField) {
-      const value = mathField.value ||
-        mathField.getAttribute("value") ||
-        mathField.getAttribute("data-value") ||
-        (this as any).domNode.getAttribute("data-value") ||
-        ""
-      // 关键修复：返回对象格式而不是字符串
-      return { math: value }
-    }
     const dataValue = (this as any).domNode.getAttribute("data-value") || ""
     return { math: dataValue }
   }
@@ -209,9 +122,6 @@ Quill.register(MathBlot)
 // 初始化编辑器
 const initializeEditor = async () => {
   try {
-    // 动态导入MathLive
-    await import("mathlive")
-    
     // 配置Quill编辑器
     const editorConfig = {
       theme: "snow",
@@ -271,6 +181,23 @@ const initializeEditor = async () => {
     if (editorContainer) {
       editorContainer.addEventListener("keydown", (e) => {
         emit('keydown', e)
+      })
+
+      // 点击已渲染公式：回传 latex + 位置，交给上层弹窗编辑
+      editorContainer.addEventListener('click', (e: Event) => {
+        if (!quill) return
+        const target = e.target as HTMLElement | null
+        const embedEl = target?.closest?.('.ql-math-embed') as HTMLElement | null
+        if (!embedEl) return
+
+        const latex = embedEl.getAttribute('data-value') || ''
+        try {
+          const blot = Quill.find(embedEl) as any
+          const index = quill.getIndex(blot)
+          ;(emit as any)('edit-formula', { latex, index })
+        } catch {
+          ;(emit as any)('edit-formula', { latex, index: null })
+        }
       })
       
       // 兼容Android WebView虚拟键盘Backspace删除公式块
@@ -374,21 +301,22 @@ const insertMathField = (latex = "") => {
     }
   }, 50)
   
-  // 聚焦到新插入的公式编辑器
-  const focusNewMathField = (attempt = 1) => {
-    const [blot] = quill?.getLeaf(range.index) || []
-    if (blot && (blot as any).domNode && typeof (blot as any).domNode.querySelector === 'function') {
-      const mathField = (blot as any).domNode.querySelector("math-field")
-      if (mathField) {
-        mathField.focus()
-        return
-      }
-    }
-    if (attempt < 3) {
-      setTimeout(() => focusNewMathField(attempt + 1), 100)
-    }
+  // 不自动 focus，避免触发内嵌公式键盘（公式由外部弹窗编辑）
+}
+
+// 替换指定位置的数学公式字段
+const replaceMathFieldAt = (index: number, latex = "") => {
+  if (!quill) return
+  if (typeof index !== 'number' || Number.isNaN(index)) return
+  const safeIndex = Math.max(0, Math.min(index, quill.getLength()))
+
+  try {
+    quill.deleteText(safeIndex, 1, 'user')
+    quill.insertEmbed(safeIndex, 'math', { math: latex }, 'user')
+    quill.setSelection(safeIndex + 1, 0, 'silent')
+  } catch (e) {
+    console.error('[MathFormulaEditor] replaceMathFieldAt failed:', e)
   }
-  setTimeout(() => focusNewMathField(), 120)
 }
 
 // 获取 Markdown 内容
@@ -454,10 +382,9 @@ const getMarkdownContent = () => {
   // 如果从Delta没有获取到内容，尝试从DOM获取数学公式
   if (!markdown || markdown.trim() === '') {
     const editorElement = document.getElementById(editorId.value)
-    const mathFields = editorElement?.querySelectorAll('math-field') || []
-    
-    mathFields.forEach((mathField: any) => {
-      const latex = mathField.value || ''
+    const mathEmbeds = editorElement?.querySelectorAll('.ql-math-embed') || []
+    mathEmbeds.forEach((el: Element) => {
+      const latex = (el as HTMLElement).getAttribute('data-value') || ''
       if (latex.trim()) {
         markdown += `$${latex}$`
       }
@@ -623,8 +550,8 @@ const cleanInitialHTMLStructure = () => {
     return op.insert && op.insert.math
   })
   
-  // 检查DOM中是否有数学公式字段
-  const hasMathFields = quillEditor.querySelectorAll('math-field').length > 0
+  // 检查DOM中是否有数学公式块
+  const hasMathFields = quillEditor.querySelectorAll('.ql-math-embed').length > 0
   
   // 如果没有实际内容且没有数学公式字段，完全清空
   if (!hasRealContent && !hasMathFields) {
@@ -727,6 +654,7 @@ onUnmounted(() => {
 // 暴露方法给父组件
 defineExpose({
   insertMathField,
+  replaceMathFieldAt,
   getMarkdownContent,
   setContent,
   clearContent,
@@ -898,7 +826,7 @@ defineExpose({
 </style>
 
 <style>
-/* 全局样式 - 用于Quill和MathLive */
+/* 全局样式 - 用于Quill */
 .ql-toolbar {
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
@@ -949,29 +877,16 @@ defineExpose({
   border: none !important;
 }
 
-/* MathLive在Quill中的样式 */
-.ql-editor math-field {
+/* 公式块在 Quill 中的样式 */
+.ql-editor .ql-math-embed {
   display: inline-block;
   margin: 2px 4px;
   padding: 4px 8px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
   background: #f8f9ff;
-  min-width: 60px;
-  font-size: 16px;
-  transition: all 0.3s ease;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  min-height: 32px;
   vertical-align: baseline;
-}
-
-.ql-editor math-field:focus {
-  border-color: #e0e0e0;
-  background: #f8f9ff;
-  box-shadow: none;
-}
-
-.ql-editor math-field:hover {
-  border-color: #e0e0e0;
-  background: #f8f9ff;
 }
 
 /* 确保公式容器也是行内元素 */
@@ -1034,16 +949,7 @@ defineExpose({
 }
 
 
-/* MathLive 虚拟键盘自定义样式 */
-.ML__keyboard {
-  border-radius: 12px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
-}
-
-.ML__keyboard .ML__keycap {
-  border-radius: 6px !important;
-}
-
+ 
 .ql-math-readonly {
   user-select: none;
 }
