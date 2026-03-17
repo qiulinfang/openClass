@@ -893,8 +893,6 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       return
     }
 
-    // 直接打开微课链接，由 MiniClass 组件内部处理加载错误
-    // 移除 Image 检测逻辑，避免 ERR_BLOCKED_BY_ORB 错误
     const questionTitle = question.title || question.question?.substring(0, 50) || ''
     uiStore.openMiniClassDialog(classUrl, questionTitle)
   } catch (error) {

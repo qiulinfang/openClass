@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>平行四边形面积交互工具</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f7eed6;
+        --panel: rgba(255, 252, 244, 0.94);
+        --ink: #2f2a22;
+        --muted: #6f6657;
+        --line: rgba(63, 45, 14, 0.12);
+        --orange: #f28c28;
+        --sea: #1f6ea8;
+        --sky-soft: #e8f4ff;
+        --shadow: 0 18px 40px rgba(95, 67, 15, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Noto Sans SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 18% 38%, rgba(255, 214, 174, 0.52), transparent 22%),
+          radial-gradient(circle at 62% 42%, rgba(164, 148, 255, 0.22), transparent 20%),
+          radial-gradient(circle at 70% 58%, rgba(125, 87, 255, 0.18), transparent 16%),
+          linear-gradient(180deg, #f7f7ff 0%, #f2f4ff 100%);
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 52% 34%, rgba(255, 255, 255, 0.9), transparent 11%),
+          radial-gradient(circle at 49% 63%, rgba(145, 105, 255, 0.16), transparent 12%),
+          radial-gradient(circle at 60% 66%, rgba(125, 87, 255, 0.22), transparent 7%);
+        filter: blur(2px);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      button {
+        font-family: "Baloo 2", sans-serif;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      p {
+        margin-top: 0;
+      }
+
+      .page {
+        width: min(1280px, calc(100vw - 40px));
+        margin: 28px auto;
+        position: relative;
+      }
+
+      .page::before {
+        content: "";
+        position: absolute;
+        right: 17%;
+        top: 52px;
+        width: min(420px, 34vw);
+        aspect-ratio: 0.92;
+        border-radius: 42% 42% 38% 38%;
+        background:
+          radial-gradient(circle at 50% 26%, rgba(255, 255, 255, 0.96), transparent 26%),
+          radial-gradient(circle at 50% 47%, rgba(180, 156, 255, 0.38), transparent 18%),
+          radial-gradient(circle at 25% 50%, rgba(255, 176, 204, 0.36), transparent 7%),
+          radial-gradient(circle at 75% 50%, rgba(255, 176, 204, 0.36), transparent 7%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(184, 164, 255, 0.9) 100%);
+        box-shadow:
+          0 34px 60px rgba(121, 87, 255, 0.18),
+          0 0 120px rgba(255, 213, 169, 0.28);
+        opacity: 0.85;
+        z-index: 0;
+        filter: blur(0.2px);
+      }
+
+      .shell {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        border-radius: 32px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+        backdrop-filter: blur(18px);
+      }
+
+      .eyebrow {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .panel {
+        padding: 18px;
+        border-radius: 24px;
+        background:
+          radial-gradient(circle at top right, rgba(117, 183, 255, 0.18), transparent 28%),
+          linear-gradient(180deg, #fffefa 0%, #fff5dd 100%);
+        border: 1px solid rgba(63, 45, 14, 0.06);
+      }
+
+      .exploration-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .sheet-badge {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: var(--sky-soft);
+        color: var(--sea);
+        font-weight: 700;
+      }
+
+      .exploration-tabs {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+      }
+
+      .exploration-tab {
+        padding: 12px 18px;
+        border: 1px solid rgba(63, 45, 14, 0.08);
+        border-radius: 999px;
+        background: white;
+        cursor: pointer;
+      }
+
+      .exploration-tab.is-active {
+        background: linear-gradient(135deg, var(--sea), #5ab8d1);
+        color: white;
+        border-color: transparent;
+      }
+
+      .exploration-mode {
+        display: none;
+      }
+
+      .exploration-mode.is-active {
+        display: block;
+      }
+
+      .exploration-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .exploration-canvas-card {
+        padding: 14px;
+        border-radius: 26px;
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(63, 45, 14, 0.06);
+      }
+
+      .exploration-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        touch-action: none;
+      }
+
+      .exploration-grid-bg {
+        fill: #fffdf8;
+        stroke: rgba(63, 45, 14, 0.06);
+      }
+
+      .grid-line {
+        stroke: rgba(63, 45, 14, 0.08);
+        stroke-width: 1;
+      }
+
+      .parallelogram-shape {
+        fill: rgba(117, 183, 255, 0.38);
+        stroke: #1f6ea8;
+        stroke-width: 3;
+      }
+
+      .base-guide,
+      .height-guide,
+      .split-guide,
+      .top-guide {
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+      }
+
+      .base-guide,
+      .height-guide {
+        stroke: #1f6ea8;
+        marker-end: url(#arrowhead);
+      }
+
+      .top-guide,
+      .split-guide {
+        stroke: rgba(63, 45, 14, 0.38);
+        stroke-dasharray: 8 8;
+      }
+
+      .drag-handle {
+        fill: var(--sea);
+        stroke: white;
+        stroke-width: 4;
+        cursor: ew-resize;
+      }
+
+      .drag-handle.alt {
+        fill: var(--orange);
+        cursor: ns-resize;
+      }
+
+      .measure-label {
+        fill: var(--ink);
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .exploration-side {
+        display: grid;
+        gap: 14px;
+      }
+
+      .insight-card,
+      .hint-strip,
+      .metric-item {
+        padding: 16px 18px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid rgba(63, 45, 14, 0.06);
+      }
+
+      .insight-card p:last-child,
+      .hint-strip p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .metric-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .metric-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .metric-item span {
+        color: var(--muted);
+      }
+
+      .metric-item.highlight {
+        background: linear-gradient(180deg, #effaf5 0%, #e3f7ee 100%);
+      }
+
+      .hint-strip {
+        display: grid;
+        gap: 8px;
+      }
+
+      .hint-chip {
+        justify-self: start;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #fff1d0;
+        color: #9c6300;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .secondary-action,
+      .primary-action {
+        cursor: pointer;
+        border: 0;
+        border-radius: 22px;
+      }
+
+      .secondary-action {
+        padding: 12px 16px;
+        background: white;
+        color: var(--ink);
+        border: 1px solid rgba(63, 45, 14, 0.08);
+      }
+
+      .primary-action {
+        padding: 12px 18px;
+        background: linear-gradient(135deg, var(--orange), #ffbb52);
+        color: white;
+        box-shadow: 0 12px 24px rgba(242, 140, 40, 0.18);
+      }
+
+      .exploration-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .target-rect {
+        fill: rgba(31, 110, 168, 0.08);
+        stroke: rgba(31, 110, 168, 0.34);
+        stroke-width: 3;
+        stroke-dasharray: 8 8;
+      }
+
+      .cut-main-shape {
+        fill: rgba(242, 140, 40, 0.2);
+        stroke: #d67b18;
+        stroke-width: 3;
+      }
+
+      .cut-piece {
+        fill: rgba(117, 183, 255, 0.82);
+        stroke: #1f6ea8;
+        stroke-width: 3;
+        cursor: grab;
+        transition: transform 180ms ease, opacity 180ms ease;
+      }
+
+      .cut-piece.is-placed {
+        fill: rgba(121, 197, 126, 0.82);
+        stroke: #4c9b52;
+      }
+
+      @media (max-width: 980px) {
+        .exploration-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .page {
+          width: calc(100vw - 20px);
+          margin: 10px auto;
+        }
+
+        .header,
+        .exploration-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .exploration-tabs,
+        .exploration-actions {
+          flex-direction: column;
+        }
+
+        .primary-action,
+        .secondary-action {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="shell">
+        <div class="content">
+          <div class="panel">
+            <div class="exploration-head">
+              <div>
+                <p class="eyebrow">学伴小工具</p>
+                <h3>平行四边形面积</h3>
+              </div>
+            </div>
+
+            <div class="exploration-tabs" id="exploration-tabs" role="tablist" aria-label="探究模式">
+              <button class="exploration-tab is-active" data-mode="measure" role="tab" aria-selected="true">
+                动态观察
+              </button>
+              <button class="exploration-tab" data-mode="cut" role="tab" aria-selected="false">
+                割补探究
+              </button>
+            </div>
+
+            <div class="exploration-mode is-active" data-mode-panel="measure">
+              <div class="exploration-layout">
+                <div class="exploration-canvas-card">
+                  <svg
+                    id="measure-svg"
+                    class="exploration-svg"
+                    viewBox="0 0 520 320"
+                    aria-label="可拖动观察平行四边形面积"
+                  >
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto">
+                        <polygon points="0 0, 7 3.5, 0 7" fill="#1f6ea8"></polygon>
+                      </marker>
+                    </defs>
+                    <rect x="26" y="20" width="468" height="274" rx="28" class="exploration-grid-bg"></rect>
+                    <g id="measure-grid"></g>
+                    <polygon id="measure-parallelogram" class="parallelogram-shape"></polygon>
+                    <line id="measure-height-line" class="height-guide"></line>
+                    <line id="measure-base-line" class="base-guide"></line>
+                    <line id="measure-top-dash" class="top-guide"></line>
+                    <circle id="base-handle" class="drag-handle" r="13" tabindex="0" role="slider"></circle>
+                    <circle id="height-handle" class="drag-handle alt" r="13" tabindex="0" role="slider"></circle>
+                    <text id="measure-base-text" class="measure-label"></text>
+                    <text id="measure-height-text" class="measure-label"></text>
+                  </svg>
+                </div>
+
+                <div class="exploration-side">
+                  <div class="insight-card">
+                    <p class="eyebrow">拖一拖</p>
+                    <p>拖动蓝色点改变底，拖动橙色点改变高，观察面积怎么跟着变化。</p>
+                  </div>
+                  <div class="metric-list">
+                    <div class="metric-item">
+                      <span>底</span>
+                      <strong id="metric-base">6 格</strong>
+                    </div>
+                    <div class="metric-item">
+                      <span>高</span>
+                      <strong id="metric-height">4 格</strong>
+                    </div>
+                    <div class="metric-item highlight">
+                      <span>面积占格</span>
+                      <strong id="metric-area">24 格</strong>
+                    </div>
+                  </div>
+                  <div class="hint-strip">
+                    <span class="hint-chip">观察</span>
+                    <p id="measure-hint">拖动底和高，说一说图形发生了什么变化。</p>
+                  </div>
+                  <button class="secondary-action" id="reset-exploration">回到初始图形</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="exploration-mode" data-mode-panel="cut">
+              <div class="exploration-layout">
+                <div class="exploration-canvas-card">
+                  <svg
+                    id="cut-svg"
+                    class="exploration-svg"
+                    viewBox="0 0 520 320"
+                    aria-label="通过割补探究平行四边形面积"
+                  >
+                    <rect x="26" y="20" width="468" height="274" rx="28" class="exploration-grid-bg"></rect>
+                    <g id="cut-grid"></g>
+                    <rect id="target-rect" class="target-rect"></rect>
+                    <polygon id="cut-main-shape" class="cut-main-shape"></polygon>
+                    <polygon id="cut-piece" class="cut-piece" tabindex="0"></polygon>
+                    <line id="cut-split-line" class="split-guide"></line>
+                    <text id="cut-tip-text" class="measure-label"></text>
+                  </svg>
+                </div>
+
+                <div class="exploration-side">
+                  <div class="insight-card">
+                    <p class="eyebrow">试一试割补</p>
+                    <p>把左边剪下来的三角形拖到右边，拼成长方形，看看面积有没有变。</p>
+                  </div>
+                  <div class="metric-list">
+                    <div class="metric-item">
+                      <span>拼成的长方形底</span>
+                      <strong id="cut-base">6 格</strong>
+                    </div>
+                    <div class="metric-item">
+                      <span>长方形高</span>
+                      <strong id="cut-height">4 格</strong>
+                    </div>
+                  </div>
+                  <div class="hint-strip">
+                    <span class="hint-chip">想一想</span>
+                    <p id="cut-hint">拼一拼，再比较拼前和拼后的图形有什么联系。</p>
+                  </div>
+                  <div class="exploration-actions">
+                    <button class="secondary-action" id="reset-cut-piece">重放割补</button>
+                    <button class="primary-action" id="snap-cut-piece">一键拼补</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const explorationTabs = [...document.querySelectorAll(".exploration-tab")];
+      const explorationPanels = [...document.querySelectorAll("[data-mode-panel]")];
+
+      const state = {
+        minBase: 3,
+        maxBase: 8,
+        minHeight: 2,
+        maxHeight: 5,
+        base: 6,
+        height: 4,
+        initialBase: 6,
+        initialHeight: 4,
+        unit: 42,
+        slant: 84,
+        originX: 92,
+        baseY: 244,
+        activeHandle: null,
+        cutTranslateX: 0,
+        cutTranslateY: 0,
+        cutPlaced: false,
+        cutDragging: false,
+        dragPointerId: null,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragOriginX: 0,
+        dragOriginY: 0,
+      };
+
+      const measureSvg = document.getElementById("measure-svg");
+      const cutSvg = document.getElementById("cut-svg");
+
+      function gridPoints() {
+        const { base, height, unit, slant, originX, baseY } = state;
+        const basePx = base * unit;
+        const heightPx = height * unit;
+
+        return {
+          basePx,
+          heightPx,
+          leftBottom: { x: originX, y: baseY },
+          rightBottom: { x: originX + basePx, y: baseY },
+          topLeft: { x: originX + slant, y: baseY - heightPx },
+          topRight: { x: originX + slant + basePx, y: baseY - heightPx },
+          heightFoot: { x: originX + slant, y: baseY },
+        };
+      }
+
+      function formatPoints(points) {
+        return points.map((point) => `${point.x},${point.y}`).join(" ");
+      }
+
+      function renderGrid(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+
+        for (let x = 50; x <= 470; x += 42) {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", x);
+          line.setAttribute("y1", 34);
+          line.setAttribute("x2", x);
+          line.setAttribute("y2", 280);
+          line.setAttribute("class", "grid-line");
+          container.appendChild(line);
+        }
+
+        for (let y = 34; y <= 280; y += 42) {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", 50);
+          line.setAttribute("y1", y);
+          line.setAttribute("x2", 470);
+          line.setAttribute("y2", y);
+          line.setAttribute("class", "grid-line");
+          container.appendChild(line);
+        }
+      }
+
+      function updateMeasureHint() {
+        const { base, height, initialBase, initialHeight } = state;
+        const hint = document.getElementById("measure-hint");
+
+        if (base === initialBase && height === initialHeight) {
+          hint.textContent = "拖动底和高，说一说图形发生了什么变化。";
+          return;
+        }
+
+        if (base !== initialBase && height === initialHeight) {
+          hint.textContent = "你改变了底，高保持不变，可以继续观察图形的大小变化。";
+          return;
+        }
+
+        if (height !== initialHeight && base === initialBase) {
+          hint.textContent = "你改变了高，底保持不变，可以继续观察图形的大小变化。";
+          return;
+        }
+
+        hint.textContent = "底和高都在变化，试着描述图形大小和形状的变化。";
+      }
+
+      function renderMeasureExplorer() {
+        const { base, height } = state;
+        const area = base * height;
+        const { basePx, heightPx, leftBottom, rightBottom, topLeft, topRight, heightFoot } = gridPoints();
+
+        document.getElementById("measure-parallelogram").setAttribute(
+          "points",
+          formatPoints([leftBottom, rightBottom, topRight, topLeft]),
+        );
+
+        const heightLine = document.getElementById("measure-height-line");
+        heightLine.setAttribute("x1", heightFoot.x);
+        heightLine.setAttribute("y1", heightFoot.y);
+        heightLine.setAttribute("x2", heightFoot.x);
+        heightLine.setAttribute("y2", topLeft.y);
+
+        const baseLine = document.getElementById("measure-base-line");
+        baseLine.setAttribute("x1", leftBottom.x);
+        baseLine.setAttribute("y1", leftBottom.y + 24);
+        baseLine.setAttribute("x2", rightBottom.x);
+        baseLine.setAttribute("y2", rightBottom.y + 24);
+
+        const topDash = document.getElementById("measure-top-dash");
+        topDash.setAttribute("x1", leftBottom.x);
+        topDash.setAttribute("y1", topLeft.y);
+        topDash.setAttribute("x2", topLeft.x);
+        topDash.setAttribute("y2", topLeft.y);
+
+        const baseHandle = document.getElementById("base-handle");
+        baseHandle.setAttribute("cx", rightBottom.x);
+        baseHandle.setAttribute("cy", rightBottom.y);
+        baseHandle.setAttribute("aria-valuemin", state.minBase);
+        baseHandle.setAttribute("aria-valuemax", state.maxBase);
+        baseHandle.setAttribute("aria-valuenow", base);
+
+        const heightHandle = document.getElementById("height-handle");
+        heightHandle.setAttribute("cx", heightFoot.x);
+        heightHandle.setAttribute("cy", topLeft.y);
+        heightHandle.setAttribute("aria-valuemin", state.minHeight);
+        heightHandle.setAttribute("aria-valuemax", state.maxHeight);
+        heightHandle.setAttribute("aria-valuenow", height);
+
+        const baseText = document.getElementById("measure-base-text");
+        baseText.setAttribute("x", leftBottom.x + basePx / 2 - 16);
+        baseText.setAttribute("y", leftBottom.y + 18);
+        baseText.textContent = `底 ${base}`;
+
+        const heightText = document.getElementById("measure-height-text");
+        heightText.setAttribute("x", heightFoot.x + 14);
+        heightText.setAttribute("y", topLeft.y + heightPx / 2 + 6);
+        heightText.textContent = `高 ${height}`;
+
+        document.getElementById("metric-base").textContent = `${base} 格`;
+        document.getElementById("metric-height").textContent = `${height} 格`;
+        document.getElementById("metric-area").textContent = `${area} 格`;
+        updateMeasureHint();
+      }
+
+      function renderCutExplorer() {
+        const { base, height, cutTranslateX, cutTranslateY, cutPlaced } = state;
+        const { basePx, heightPx, leftBottom, rightBottom, topLeft, topRight, heightFoot } = gridPoints();
+
+        document.getElementById("target-rect").setAttribute("x", topLeft.x);
+        document.getElementById("target-rect").setAttribute("y", topLeft.y);
+        document.getElementById("target-rect").setAttribute("width", basePx);
+        document.getElementById("target-rect").setAttribute("height", heightPx);
+
+        document.getElementById("cut-main-shape").setAttribute(
+          "points",
+          formatPoints([heightFoot, topLeft, topRight, rightBottom]),
+        );
+
+        document.getElementById("cut-split-line").setAttribute("x1", heightFoot.x);
+        document.getElementById("cut-split-line").setAttribute("y1", heightFoot.y);
+        document.getElementById("cut-split-line").setAttribute("x2", topLeft.x);
+        document.getElementById("cut-split-line").setAttribute("y2", topLeft.y);
+
+        const cutPiece = document.getElementById("cut-piece");
+        cutPiece.setAttribute("points", formatPoints([leftBottom, topLeft, heightFoot]));
+        cutPiece.setAttribute("transform", `translate(${cutTranslateX} ${cutTranslateY})`);
+        cutPiece.classList.toggle("is-placed", cutPlaced);
+
+        const cutTipText = document.getElementById("cut-tip-text");
+        cutTipText.setAttribute("x", 62);
+        cutTipText.setAttribute("y", 58);
+        cutTipText.textContent = cutPlaced ? "已经拼成长方形了" : "拖动蓝色三角形到右边";
+
+        document.getElementById("cut-base").textContent = `${base} 格`;
+        document.getElementById("cut-height").textContent = `${height} 格`;
+        document.getElementById("cut-hint").textContent = cutPlaced
+          ? "现在已经拼成新的图形了，试着比较拼前和拼后的关系。"
+          : "把左边剪下来的部分拖到右边，观察能拼成什么图形。";
+      }
+
+      function renderExploration() {
+        renderMeasureExplorer();
+        renderCutExplorer();
+      }
+
+      function resetCutPiece() {
+        state.cutTranslateX = 0;
+        state.cutTranslateY = 0;
+        state.cutPlaced = false;
+        renderCutExplorer();
+      }
+
+      function resetExploration() {
+        state.base = state.initialBase;
+        state.height = state.initialHeight;
+        resetCutPiece();
+        renderExploration();
+      }
+
+      function snapCutPiece() {
+        const { basePx } = gridPoints();
+        state.cutTranslateX = basePx;
+        state.cutTranslateY = 0;
+        state.cutPlaced = true;
+        renderCutExplorer();
+      }
+
+      function updateBaseFromClientX(clientX) {
+        const rect = measureSvg.getBoundingClientRect();
+        const svgX = ((clientX - rect.left) / rect.width) * 520;
+        const nextBase = Math.round((svgX - state.originX) / state.unit);
+        state.base = Math.max(state.minBase, Math.min(state.maxBase, nextBase));
+        resetCutPiece();
+        renderExploration();
+      }
+
+      function updateHeightFromClientY(clientY) {
+        const rect = measureSvg.getBoundingClientRect();
+        const svgY = ((clientY - rect.top) / rect.height) * 320;
+        const nextHeight = Math.round((state.baseY - svgY) / state.unit);
+        state.height = Math.max(state.minHeight, Math.min(state.maxHeight, nextHeight));
+        resetCutPiece();
+        renderExploration();
+      }
+
+      function onMeasurePointerMove(event) {
+        if (state.activeHandle === "base") {
+          updateBaseFromClientX(event.clientX);
+        } else if (state.activeHandle === "height") {
+          updateHeightFromClientY(event.clientY);
+        }
+      }
+
+      function endMeasureDrag() {
+        state.activeHandle = null;
+      }
+
+      function setExplorationMode(mode) {
+        explorationTabs.forEach((tab) => {
+          const active = tab.dataset.mode === mode;
+          tab.classList.toggle("is-active", active);
+          tab.setAttribute("aria-selected", String(active));
+        });
+
+        explorationPanels.forEach((panel) => {
+          panel.classList.toggle("is-active", panel.dataset.modePanel === mode);
+        });
+      }
+
+      function maybeSnapCutPiece() {
+        const { basePx } = gridPoints();
+        const distance = Math.hypot(state.cutTranslateX - basePx, state.cutTranslateY);
+
+        if (distance < 36) {
+          snapCutPiece();
+          return;
+        }
+
+        state.cutPlaced = false;
+        renderCutExplorer();
+      }
+
+      function startCutDrag(event) {
+        state.cutDragging = true;
+        state.dragPointerId = event.pointerId;
+        state.dragStartX = event.clientX;
+        state.dragStartY = event.clientY;
+        state.dragOriginX = state.cutTranslateX;
+        state.dragOriginY = state.cutTranslateY;
+        event.target.setPointerCapture(event.pointerId);
+      }
+
+      function onCutPointerMove(event) {
+        if (!state.cutDragging || event.pointerId !== state.dragPointerId) {
+          return;
+        }
+
+        const rect = cutSvg.getBoundingClientRect();
+        const scaleX = 520 / rect.width;
+        const scaleY = 320 / rect.height;
+
+        state.cutTranslateX = state.dragOriginX + (event.clientX - state.dragStartX) * scaleX;
+        state.cutTranslateY = state.dragOriginY + (event.clientY - state.dragStartY) * scaleY;
+        state.cutPlaced = false;
+        renderCutExplorer();
+      }
+
+      function endCutDrag(event) {
+        if (!state.cutDragging || event.pointerId !== state.dragPointerId) {
+          return;
+        }
+
+        state.cutDragging = false;
+        maybeSnapCutPiece();
+      }
+
+      explorationTabs.forEach((tab) => {
+        tab.addEventListener("click", () => setExplorationMode(tab.dataset.mode));
+      });
+
+      document.getElementById("base-handle").addEventListener("pointerdown", (event) => {
+        state.activeHandle = "base";
+        event.target.setPointerCapture(event.pointerId);
+      });
+
+      document.getElementById("height-handle").addEventListener("pointerdown", (event) => {
+        state.activeHandle = "height";
+        event.target.setPointerCapture(event.pointerId);
+      });
+
+      measureSvg.addEventListener("pointermove", onMeasurePointerMove);
+      measureSvg.addEventListener("pointerup", endMeasureDrag);
+      measureSvg.addEventListener("pointercancel", endMeasureDrag);
+
+      document.getElementById("base-handle").addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight") state.base = Math.min(state.maxBase, state.base + 1);
+        if (event.key === "ArrowLeft") state.base = Math.max(state.minBase, state.base - 1);
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          resetCutPiece();
+          renderExploration();
+        }
+      });
+
+      document.getElementById("height-handle").addEventListener("keydown", (event) => {
+        if (event.key === "ArrowUp") state.height = Math.min(state.maxHeight, state.height + 1);
+        if (event.key === "ArrowDown") state.height = Math.max(state.minHeight, state.height - 1);
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.preventDefault();
+          resetCutPiece();
+          renderExploration();
+        }
+      });
+
+      document.getElementById("cut-piece").addEventListener("pointerdown", startCutDrag);
+      cutSvg.addEventListener("pointermove", onCutPointerMove);
+      cutSvg.addEventListener("pointerup", endCutDrag);
+      cutSvg.addEventListener("pointercancel", endCutDrag);
+
+      document.getElementById("cut-piece").addEventListener("keydown", (event) => {
+        const step = event.shiftKey ? 18 : 10;
+
+        if (event.key === "ArrowRight") state.cutTranslateX += step;
+        if (event.key === "ArrowLeft") state.cutTranslateX -= step;
+        if (event.key === "ArrowUp") state.cutTranslateY -= step;
+        if (event.key === "ArrowDown") state.cutTranslateY += step;
+
+        if (event.key.startsWith("Arrow")) {
+          event.preventDefault();
+          state.cutPlaced = false;
+          renderCutExplorer();
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          maybeSnapCutPiece();
+        }
+      });
+
+      document.getElementById("reset-exploration").addEventListener("click", resetExploration);
+      document.getElementById("reset-cut-piece").addEventListener("click", resetCutPiece);
+      document.getElementById("snap-cut-piece").addEventListener("click", snapCutPiece);
+
+      renderGrid("measure-grid");
+      renderGrid("cut-grid");
+      renderExploration();
+    </script>
+  </body>
+</html>

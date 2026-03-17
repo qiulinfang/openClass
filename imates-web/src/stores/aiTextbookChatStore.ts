@@ -75,12 +75,63 @@ interface BuildTextbookMessageParams {
   imageList?: TextbookChatImageData[] // 多图数据列表（用于截图多图场景）
 }
 
-const REQUIRED_CHAPTER_INFO = {
-  grade: '初一',
-  subject: '数学',
-  textbook: '探究型公开课',
-  chapter_title: '最短路径的基本原理',
-} as const
+export const REQUIRED_CHAPTER_INFO_LIST = [
+  {
+    grade: '初一',
+    subject: '数学',
+    textbook: '探究型公开课',
+    chapter_title: '最短路径的基本原理',
+  },
+  {
+    grade: '初一',
+    subject: '数学',
+    textbook: '探究型公开课',
+    chapter_title: '能移回去吗',
+  },
+  {
+    grade: '初一',
+    subject: '数学',
+    textbook: '探究型公开课',
+    chapter_title: '平行四边形的面积',
+  },
+] as const
+
+export const MINI_CLASS_CHAPTER_URL_MAP = [
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[0],
+    title: '微课',
+    url: 'https://www.imates.com.cn:9099/wk/math/steiner-lab-tablet.html',
+  },
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[1],
+    title: '微课',
+    url: 'https://www.imates.com.cn:9099/wk/math/swallow-tool.html',
+  },
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[2],
+    title: '微课',
+    // url: 'https://www.imates.com.cn:9099/wk/math/long-page-test.html',
+    url: 'https://www.imates.com.cn:9099/wk/math/classtool2.html',
+  },
+] as const
+
+export const getMiniClassConfig = (info: BuildTextbookMessageParams['chapterInfo']) => {
+  if (!info) return undefined
+  return MINI_CLASS_CHAPTER_URL_MAP.find((item) => {
+    const required = item.chapterInfo
+    return (
+      info.grade === required.grade &&
+      info.subject === required.subject &&
+      info.textbook === required.textbook &&
+      info.chapter_title === required.chapter_title
+    )
+  })
+}
+
+const getMatchedChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']) => {
+  const matched = getMiniClassConfig(info)
+  return matched?.chapterInfo
+}
 
 const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']): boolean => {
   if (!info) return false
