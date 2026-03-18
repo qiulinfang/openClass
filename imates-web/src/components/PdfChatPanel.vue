@@ -7,7 +7,7 @@
     </div>
     <!-- 遮罩层上的按钮（独立于遮罩层，避免被覆盖） -->
     <button
-      v-if="isExploring"
+      v-if="isExploring && overlayButtonReady"
       type="button"
       class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
       :class="{ 'explore-icon-large': hasAttachedScreenshots }"
@@ -126,7 +126,7 @@ const chatViewRef = ref<ComponentPublicInstance | null>(null)
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 
 // Tab 选项
-const tabOptions = CHAT_TAB_OPTIONS
+const tabOptions = CHAT_TAB_OPTIONS as Array<{ label: string; value: 'ai-chat' | 'question-record' }>
 
 // 会话数据
 const sessions = ref<AiTextbookSession[]>([])
@@ -156,6 +156,8 @@ const selectAndAskIconToUse = computed(() =>
 const hasAttachedScreenshots = computed(() => {
   return aiTextbookStore.attachedScreenshots.length > 0
 })
+
+const attachedScreenshotCount = computed(() => aiTextbookStore.attachedScreenshots.length)
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getSessionId = (session: AiTextbookSession): string => {
@@ -275,8 +277,11 @@ const overlayButtonStyle = ref<Record<string, string>>({
   zIndex: '35'
 })
 
+const overlayButtonReady = ref(false)
+
 // 计算并更新遮罩层按钮位置，确保覆盖实际按钮
 const updateOverlayButtonPosition = async () => {
+  overlayButtonReady.value = false
   await nextTick()
 
   try {
@@ -300,6 +305,8 @@ const updateOverlayButtonPosition = async () => {
       zIndex: '35'
     }
 
+    overlayButtonReady.value = true
+
     console.log('[PdfChatPanel] 遮罩层按钮位置已更新:', overlayButtonStyle.value)
   } catch (error) {
     console.error('[PdfChatPanel] 计算按钮位置失败:', error)
@@ -307,11 +314,13 @@ const updateOverlayButtonPosition = async () => {
 }
 
 // 监听相关状态变化，更新遮罩层按钮位置
-watch([isExploring, activeTab], async (newValues) => {
+watch([isExploring, activeTab, attachedScreenshotCount], async (newValues) => {
   const [exploring, tab] = newValues
   if (exploring && tab === 'ai-chat') {
     // 延迟执行，确保DOM已更新
     setTimeout(updateOverlayButtonPosition, 100)
+  } else {
+    overlayButtonReady.value = false
   }
 }, { immediate: false })
 
