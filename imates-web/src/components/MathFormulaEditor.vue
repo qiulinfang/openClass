@@ -75,7 +75,7 @@ const Embed = Quill.import("blots/embed") as any
 class MathBlot extends Embed {
   static create(value: any) {
     const node = super.create()
-    node.setAttribute("contenteditable", true)
+    node.setAttribute("contenteditable", 'false')
     node.setAttribute("tabindex", "-1")
     node.classList.add("ql-math-embed", "ql-math-readonly")
     node.style.display = "inline-block"
@@ -109,6 +109,28 @@ class MathBlot extends Embed {
   value() {
     const dataValue = (this as any).domNode.getAttribute("data-value") || ""
     return { math: dataValue }
+  }
+}
+
+// 删除指定位置的数学公式字段
+const deleteMathFieldAt = (index: number) => {
+  if (!quill) return
+  if (typeof index !== 'number' || Number.isNaN(index)) return
+  const safeIndex = Math.max(0, Math.min(index, quill.getLength()))
+
+  try {
+    // 先删除 embed 本身（长度为 1）
+    quill.deleteText(safeIndex, 1, 'user')
+
+    // 如果后面紧跟我们插入的零宽字符，则一并删掉，避免残留不可见字符
+    const after = quill.getText(safeIndex, 1)
+    if (after === '\u200B') {
+      quill.deleteText(safeIndex, 1, 'silent')
+    }
+
+    quill.setSelection(Math.min(safeIndex, quill.getLength()), 0, 'silent')
+  } catch (e) {
+    console.error('[MathFormulaEditor] deleteMathFieldAt failed:', e)
   }
 }
 
@@ -270,8 +292,12 @@ const insertMathField = (latex = "") => {
     range.index = editorLength
   }
   
-  // 直接插入数学公式，Quill会自动处理位置
-  quill.insertEmbed(range.index, "math", { math: latex })
+  // 直接插入数学公式（embed 长度为 1）
+  quill.insertEmbed(range.index, 'math', { math: latex }, 'user')
+
+  // 在公式后面插入一个“可落点”，避免光标落入 embed 或点击末尾无光标
+  quill.insertText(range.index + 1, '\u200B', 'silent')
+  quill.setSelection(range.index + 2, 0, 'silent')
   
   // 插入后延迟清理HTML结构，确保数学公式已经正确插入
   setTimeout(() => {
@@ -313,7 +339,8 @@ const replaceMathFieldAt = (index: number, latex = "") => {
   try {
     quill.deleteText(safeIndex, 1, 'user')
     quill.insertEmbed(safeIndex, 'math', { math: latex }, 'user')
-    quill.setSelection(safeIndex + 1, 0, 'silent')
+    quill.insertText(safeIndex + 1, '\u200B', 'silent')
+    quill.setSelection(safeIndex + 2, 0, 'silent')
   } catch (e) {
     console.error('[MathFormulaEditor] replaceMathFieldAt failed:', e)
   }
@@ -338,6 +365,8 @@ const getMarkdownContent = () => {
     contentToProcess.ops.forEach((op: any) => {
       if (op.insert) {
         if (typeof op.insert === 'string') {
+          // 过滤零宽字符（用于光标落点）
+          const text = op.insert.replace(/\u200B/g, '')
           // 检查是否有attributes，如果有且看起来像数学公式，则处理为公式
           if (op.attributes && Object.keys(op.attributes).length > 0) {
             // 从attributes中重构完整的数学公式
@@ -358,7 +387,7 @@ const getMarkdownContent = () => {
             }
           } else {
             // 处理普通文本
-            markdown += op.insert
+            markdown += text
           }
         } else if (op.insert.math) {
           // 处理数学公式
@@ -655,6 +684,7 @@ onUnmounted(() => {
 defineExpose({
   insertMathField,
   replaceMathFieldAt,
+  deleteMathFieldAt,
   getMarkdownContent,
   setContent,
   clearContent,

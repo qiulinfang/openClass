@@ -15,7 +15,7 @@
             <slot name="header-middle">
               <!-- 公式 -->
               <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
-                <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
+                <img :src="formulaIcon" alt="公式" class="toolbar-icon" />
               </button>
               <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏，作业场景也隐藏 -->
               <button
@@ -434,10 +434,6 @@ const handleScreenshotThumbClick = (shot: AttachedScreenshot) => {
 const onlineSearchIconToUse = computed(() =>
   isOnlineSearchSelected.value ? onlineSearchIconSelected : onlineSearchIcon
 )
-// 公式图标：当前只使用普通态图标
-const formulaIconToUse = computed(() =>
-  isFormulaSelected.value ? formulaIconSelected : formulaIcon
-)
 // 问老师图标：当前只使用普通态图标
 const askTeacherIconToUse = computed(() =>
   isAskTeacherSelected.value ? askTeacherIconSelected : askTeacherIcon
@@ -597,12 +593,6 @@ const handleInsertFormulaFromDialog = async () => {
   const latex = (formulaDialogValue.value || '').trim()
   console.log('[ChatInput] 确认插入公式，当前 formulaDialogValue:', latex)
   
-  if (!latex) {
-    console.log('[ChatInput] LaTeX 为空，关闭弹窗')
-    editingFormulaIndex.value = null
-    showFormulaModal.value = false
-    return
-  }
   if (!mathEditorRef.value) {
     console.log('[ChatInput] mathEditorRef 不存在')
     editingFormulaIndex.value = null
@@ -610,6 +600,29 @@ const handleInsertFormulaFromDialog = async () => {
     return
   }
   const editorAny = mathEditorRef.value as any
+
+  // 编辑已有公式时：若 latex 为空，视为删除该公式块
+  if (!latex && editingFormulaIndex.value !== null) {
+    console.log('[ChatInput] LaTeX 为空，删除公式块，索引:', editingFormulaIndex.value)
+    if (typeof editorAny.deleteMathFieldAt === 'function') {
+      editorAny.deleteMathFieldAt(editingFormulaIndex.value)
+    } else if (typeof editorAny.replaceMathFieldAt === 'function') {
+      // 兜底：若没有删除方法，则退化为不操作
+      console.warn('[ChatInput] deleteMathFieldAt 不存在，无法删除公式块')
+    }
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    emit('scroll-to-bottom')
+    return
+  }
+
+  // 插入新公式时：latex 为空则直接关闭
+  if (!latex) {
+    console.log('[ChatInput] LaTeX 为空，关闭弹窗')
+    editingFormulaIndex.value = null
+    showFormulaModal.value = false
+    return
+  }
 
   // 若来自"点击已有公式"，则原位替换
   if (editingFormulaIndex.value !== null && typeof editorAny.replaceMathFieldAt === 'function') {

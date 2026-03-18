@@ -47,7 +47,6 @@
           <BubblePopup
             v-model="showActionMenu"
             trigger="manual"
-            :selection-position="selectionPosition"
           >
             <template #trigger>
               <div class="ai-message-content" :ref="(el) => setBubbleRef(el, 'ai')">
@@ -182,7 +181,6 @@
           <BubblePopup
             v-model="showActionMenu"
             trigger="manual"
-            :selection-position="selectionPosition"
           >
             <!-- 引用消息区域 -->
             <template #trigger>
@@ -400,9 +398,6 @@ const anchor = ref<'top middle' | 'bottom middle'>('top middle')
 const self = ref<'top middle' | 'bottom middle'>('bottom middle')
 const bubbleTarget = ref<HTMLElement | null>(null)
 const currentBubbleType = ref<'ai' | 'user' | null>(null)
-
-// 选取文字位置信息，用于气泡定位
-const selectionPosition = ref<{ top: number; left: number; right: number; bottom: number } | null>(null)
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -718,16 +713,8 @@ const handleTouchStart = (event: TouchEvent) => {
       // 标记本次交互为长按，后续产生的 click 不再触发图片预览
       ignoreClickAfterLongPress.value = true
 
-      // 检测是否有选取文字
-      const selPos = getSelectionPosition()
-      if (selPos) {
-        // 有选取文字，使用选取文字位置定位气泡
-        selectionPosition.value = selPos
-      } else {
-        // 无选取文字，使用气泡位置定位
-        selectionPosition.value = null
-        calculateBubblePosition(target)
-      }
+      // 使用气泡位置定位
+      calculateBubblePosition(target)
 
       // 显示气泡菜单
       showActionMenu.value = true
@@ -1281,28 +1268,6 @@ const calculateBubblePosition = (eventTarget?: HTMLElement) => {
     // 在上方显示
     anchor.value = 'bottom middle'
     self.value = 'top middle'
-  }
-}
-
-// 获取选取文字的位置信息
-const getSelectionPosition = (): { top: number; left: number; right: number; bottom: number } | null => {
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-    return null
-  }
-
-  const range = selection.getRangeAt(0)
-  const rect = range.getBoundingClientRect()
-
-  if (rect.width === 0 && rect.height === 0) {
-    return null
-  }
-
-  return {
-    top: rect.top,
-    left: rect.left,
-    right: rect.right,
-    bottom: rect.bottom,
   }
 }
 
