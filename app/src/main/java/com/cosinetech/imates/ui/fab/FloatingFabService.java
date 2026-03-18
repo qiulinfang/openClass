@@ -166,7 +166,7 @@ public class FloatingFabService extends Service {
                 // 复刻 Web FAB：使用动图 ip.webp 作为按钮背景
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     Drawable drawable = ImageDecoder.decodeDrawable(
-                            ImageDecoder.createSource(getResources(), R.drawable.ip_new)
+                            ImageDecoder.createSource(getResources(), R.drawable.ip_temp)
                     );
                     lottieAnimationView.setImageDrawable(drawable);
                     if (drawable instanceof Animatable) {
@@ -175,7 +175,7 @@ public class FloatingFabService extends Service {
                 } else {
                     // 低版本系统对 Animated WebP 支持不稳定：先显示首帧（如需动图，需要接入 Glide Animated WebP 解码器）
                     Glide.with(this)
-                            .load(R.drawable.ip_new)
+                            .load(R.drawable.ip_temp)
                             .into(lottieAnimationView);
                 }
             } catch (Exception e) {

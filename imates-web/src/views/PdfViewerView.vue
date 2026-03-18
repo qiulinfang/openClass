@@ -74,7 +74,7 @@
             @remove-screenshot="handlePdfRemoveScreenshot"
           />
 
-          <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
+          <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" />
 
           <div
             v-if="shouldShowMiniClassFab && miniClassFabReady"

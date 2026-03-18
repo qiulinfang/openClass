@@ -1,7 +1,7 @@
 ﻿<template>
   <Modal 
     v-model="localVisible" 
-    title="微课"
+    :title="props.questionTitle || '微课'"
     :initial-width="1200"
     :initial-height="700"
     :min-width="800"

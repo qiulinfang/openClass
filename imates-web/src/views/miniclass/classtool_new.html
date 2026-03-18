@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>平行四边形面积探索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start min-h-screen pt-3 px-4 pb-4 overflow-y-auto">
+
+    <div class="max-w-4xl w-full flex flex-col gap-6 pt-0 pb-8">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-slate-800">动手拉一拉，看看什么变了，什么没变，平行四边形面积到底跟什么有关呢？</h1>
+        </div>
+
+        <div class="relative">
+            <canvas id="gameCanvas" class="w-full h-[500px] border border-slate-200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const UNIT = 60; 
+        const BASE_UNITS = 5; 
+        const SLANT_UNITS = 3; 
+
+        let width, height;
+        let baseLen = BASE_UNITS * UNIT;
+        let slantLen = SLANT_UNITS * UNIT;
+        let slantAngle = -Math.PI / 3; 
+        let pivot = { x: 0, y: 0 }; 
+        const handIcon = new Image();
+        let handIconLoaded = false;
+        const handSvg = `<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg t="1773829540439" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6713" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="300"><path d="M870.4 204.8c-18.6368 0-36.1472 5.0176-51.2 13.7728V153.6a102.5024 102.5024 0 0 0-159.3856-85.0432C645.7856 28.672 607.7952 0 563.2 0S480.5632 28.672 466.5856 68.5568A102.5024 102.5024 0 0 0 307.2 153.6v377.4976L238.2848 411.648a99.6864 99.6864 0 0 0-61.3888-48.7936 95.5392 95.5392 0 0 0-74.8544 10.3424c-46.4384 27.8528-64.1536 90.8288-39.424 140.3904 1.536 3.1232 34.2016 70.0416 136.192 273.92 48.0256 96 100.7104 164.6592 156.6208 203.9808 43.8784 30.8736 74.1888 32.4608 79.8208 32.4608h256c43.5712 0 84.0704-14.1824 120.4224-42.0864 34.1504-26.2656 63.7952-64.256 88.064-112.8448 47.8208-95.6416 73.1136-227.9424 73.1136-382.6688v-179.2c0-56.4736-45.9264-102.4-102.4-102.4z m51.2 281.6c0 146.7904-23.3984 271.1552-67.6864 359.7312C825.0368 903.8848 773.3248 972.8 691.2 972.8H435.712c-1.9968-0.1536-23.552-2.56-56.064-26.88-32.4096-24.2688-82.176-75.3664-135.0656-181.248-103.7824-207.5648-135.68-272.9472-135.9872-273.5616l-0.1024-0.2048c-12.8512-25.7536-3.7376-59.4944 19.9168-73.6768a44.8512 44.8512 0 0 1 35.072-4.864 48.9472 48.9472 0 0 1 30.0544 24.1664l0.3072 0.512 79.9232 138.496c16.3328 29.8496 34.7136 42.3936 54.6304 37.3248 19.968-5.0688 30.0544-25.0368 30.0544-59.2384V153.6c0-28.2112 22.9888-51.2 51.2-51.2s51.2 22.9888 51.2 51.2v332.8a25.6 25.6 0 0 0 51.2 0V102.4c0-28.2112 22.9888-51.2 51.2-51.2s51.2 22.9888 51.2 51.2v384a25.6 25.6 0 0 0 51.2 0V153.6c0-28.2112 22.9888-51.2 51.2-51.2s51.2 22.9888 51.2 51.2v384a25.6 25.6 0 0 0 51.2 0V307.2c0-28.2112 22.9888-51.2 51.2-51.2s51.2 22.9888 51.2 51.2v179.2z" fill="#5950e6" p-id="6714"></path></svg>`;
+        const handIconWhite = new Image();
+        let handIconWhiteLoaded = false;
+        const handSvgWhite = handSvg.replace('#5950e6', '#ffffff');
+
+        handIcon.onload = () => {
+            handIconLoaded = true;
+            draw();
+        };
+        handIconWhite.onload = () => {
+            handIconWhiteLoaded = true;
+            draw();
+        };
+        handIcon.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(handSvg);
+        handIconWhite.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(handSvgWhite);
+        
+        let points = []; 
+        let draggingPoint = null;
+        let hoveredPoint = null; 
+
+        function init() {
+            resize();
+            slantAngle = -Math.PI / 3; 
+            const targetCenterX = width / 2;
+            const targetCenterY = height / 2;
+            // 居中计算
+            const initialX = Math.round((targetCenterX - baseLen/2 - (slantLen * Math.cos(slantAngle))/2) / UNIT) * UNIT + UNIT;
+            const initialY = Math.round((targetCenterY - (slantLen * Math.sin(slantAngle))/2) / UNIT) * UNIT;
+            pivot = { x: initialX, y: initialY };
+            updatePoints();
+            draw();
+        }
+
+        function resize() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            width = rect.width;
+            height = rect.height;
+        }
+
+        function updatePoints() {
+            const A = pivot;
+            const B = { x: A.x + baseLen, y: A.y };
+            const D = { 
+                x: A.x + slantLen * Math.cos(slantAngle), 
+                y: A.y + slantLen * Math.sin(slantAngle) 
+            };
+            const C = { 
+                x: B.x + (D.x - A.x), 
+                y: B.y + (D.y - A.y) 
+            };
+            points = [A, B, C, D];
+        }
+
+        function drawGrid() {
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = '#dbeafe';
+            ctx.lineWidth = 1.25;
+            const offsetX = pivot.x % UNIT;
+            const offsetY = pivot.y % UNIT;
+            for(let x = offsetX; x < width; x += UNIT) {
+                ctx.moveTo(x, 0); ctx.lineTo(x, height);
+            }
+            for(let y = offsetY; y < height; y += UNIT) {
+                ctx.moveTo(0, y); ctx.lineTo(width, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function draw() {
+            if (!width || !height) return;
+            if (!points || points.length < 4) return;
+            ctx.clearRect(0, 0, width, height);
+            drawGrid();
+            
+            const [A, B, C, D] = points;
+
+            ctx.beginPath();
+            ctx.moveTo(A.x, A.y);
+            ctx.lineTo(B.x, B.y);
+            ctx.lineTo(C.x, C.y);
+            ctx.lineTo(D.x, D.y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(79, 70, 229, 0.1)';
+            ctx.fill();
+            ctx.strokeStyle = '#4f46e5';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // 可拖拽控制点：C(2) 改变倾斜角
+            ;[2].forEach((i) => {
+                const p = points[i];
+                const isInteracting = draggingPoint === i || hoveredPoint === i;
+                const size = isInteracting ? 34 : 30;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, size / 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#5950e6';
+                ctx.fill();
+
+                if (handIconWhiteLoaded) {
+                    const iconSize = isInteracting ? 22 : 20;
+                    ctx.drawImage(handIconWhite, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
+                } else if (handIconLoaded) {
+                    const iconSize = isInteracting ? 22 : 20;
+                    ctx.drawImage(handIcon, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
+                }
+            });
+        }
+
+        function checkPointHover(mx, my) {
+            let found = null;
+            [2].forEach((i) => {
+                const p = points[i];
+                if (Math.sqrt((mx - p.x)**2 + (my - p.y)**2) < 28) {
+                    found = i;
+                }
+            });
+            return found;
+        }
+
+        function handleDrag(mx, my) {
+            if (draggingPoint === null) return;
+            if (draggingPoint === 2) {
+                const B = points[1];
+                let angle = Math.atan2(my - B.y, mx - B.x);
+                if (angle > 0) angle = mx > B.x ? 0 : -Math.PI;
+                slantAngle = angle;
+            }
+            updatePoints();
+            
+            hoveredPoint = checkPointHover(mx, my);
+            draw();
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            const hp = checkPointHover(mx, my);
+            if (hp !== null) draggingPoint = hp;
+            draw();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handleDrag(e.clientX - rect.left, e.clientY - rect.top);
+        });
+
+        window.addEventListener('mouseup', () => {
+            draggingPoint = null;
+            draw();
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const mx = touch.clientX - rect.left;
+            const my = touch.clientY - rect.top;
+
+            const hp = checkPointHover(mx, my);
+            hoveredPoint = hp;
+            draggingPoint = hp;
+            if (draggingPoint !== null) {
+                e.preventDefault();
+            }
+            draw();
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (draggingPoint === null) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            handleDrag(touch.clientX - rect.left, touch.clientY - rect.top);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            draggingPoint = null;
+            draw();
+        });
+
+        canvas.addEventListener('touchcancel', () => {
+            draggingPoint = null;
+            draw();
+        });
+
+        window.onload = init;
+        window.onresize = () => {
+            resize();
+            draw();
+        };
+    </script>
+</body>
+</html>
