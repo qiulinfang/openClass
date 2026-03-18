@@ -68,50 +68,14 @@
       ></video>
 
       <!-- 已选择的图片预览（框选模式） -->
-      <div v-if="showCropView" class="crop-container">
-        <canvas
-          ref="cropCanvas"
-          :class="[
-            'crop-canvas',
-            { 'is-dragging': isDragging, 'is-drawing': isCropping, 'is-resizing': isResizing },
-          ]"
-          :style="{ cursor: currentCursor }"
-          @mousedown="startCrop"
-          @mousemove="handleMouseMove"
-          @mouseup="endCrop"
-          @mouseleave="handleMouseLeave"
-          @touchstart="handleTouchStart"
-          @touchmove="handleTouchMove"
-          @touchend="handleTouchEnd"
-        ></canvas>
-        <!-- 灰色蒙版层：
-             - 未开始框选时：整张图片一层灰色蒙版，并在中间给出框选提示
-             - 已有 cropRect 时：使用四个遮罩层覆盖框选区域外的部分 -->
-        <div v-if="!cropRect" class="crop-mask crop-mask-full">
-          <div class="crop-hint-box">
-            <div class="crop-hint-rect"></div>
-            <div class="crop-hint-text">在中间区域拖动框选题目</div>
-          </div>
-        </div>
-        <template v-else>
-          <!-- 顶部遮罩 -->
-          <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
-          <!-- 底部遮罩 -->
-          <div class="crop-mask crop-mask-bottom" :style="cropMaskBottomStyle"></div>
-          <!-- 左侧遮罩 -->
-          <div class="crop-mask crop-mask-left" :style="cropMaskLeftStyle"></div>
-          <!-- 右侧遮罩 -->
-          <div class="crop-mask crop-mask-right" :style="cropMaskRightStyle"></div>
-        </template>
-        <!-- 框选遮罩（中间透明显示清晰图片） -->
-        <div v-if="cropRect" class="crop-overlay" :style="cropOverlayStyle">
-          <!-- 四个角的 L 形标记 -->
-          <div class="crop-corner crop-corner-nw"></div>
-          <div class="crop-corner crop-corner-ne"></div>
-          <div class="crop-corner crop-corner-sw"></div>
-          <div class="crop-corner crop-corner-se"></div>
-        </div>
-      </div>
+      <ImageCropOverlay
+        v-model="showCropView"
+        :image-src="cropImageSrc"
+        hint-text="在中间区域拖动框选题目"
+        :show-info="false"
+        @confirm="handleCropConfirm"
+        @cancel="handleRetake"
+      />
 
       <!-- 识别结果视图（已废弃的分屏视图逻辑已移除） -->
     </div>
@@ -158,22 +122,7 @@
       </div>
     </div>
 
-    <!-- 框选模式下的操作按钮 -->
-    <div class="crop-actions-panel" v-if="showCropView">
-      <!-- 重新框选 -->
-      <div class="crop-action-btn" @click="handleRetake">
-        <img :src="retakeIcon" alt="重新框选" class="crop-action-icon" />
-      </div>
-      <!-- 搜索 -->
-      <div
-        class="crop-action-btn search-btn"
-        :class="{ active: isSearching, disabled: !cropRect }"
-        @click="handleSearch"
-      >
-        <q-spinner v-if="isSearching" color="white" size="20px" />
-        <img v-else :src="searchIcon" alt="搜索" class="crop-action-icon" />
-      </div>
-    </div>
+    
 
     <!-- 框选内容临时面板（仅开发环境显示） -->
     <Transition name="crop-preview-panel">
@@ -307,7 +256,7 @@
               :question="currentQuestionData"
               @response="handleChatResponse"
               @send-message="handleSendSuggestionInPhotoSearch"
-              :size='small'
+              size="small"
             >
               <!-- 前置插槽：操作按钮组 -->
               <template #header-prefix>
@@ -369,7 +318,7 @@
         </div>
       </div>
     </Transition>
-  </div>
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -377,6 +326,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import QuestionList from '@/components/QuestionList.vue'
 import ImagePicker from '@/components/chat/ImagePicker.vue'
+import ImageCropOverlay from '@/components/base/ImageCropOverlay.vue'
 import PhotoSearchDebugPanel from '@/components/debug/PhotoSearchDebugPanel.vue'
 import { apiService } from '@/services/http/api-service'
 import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
@@ -516,6 +466,66 @@ const handleTabSwitch = async (tab: 'photo' | 'keyword') => {
 const videoElement = ref<HTMLVideoElement | null>(null)
 const cameraStream = ref<MediaStream | null>(null)
 
+const bindStreamToVideoElement = async () => {
+  if (isAndroid.value) return
+  if (!cameraStream.value) return
+  await nextTick()
+  if (!videoElement.value) return
+
+  const el = videoElement.value
+  if (el.srcObject !== cameraStream.value) {
+    el.srcObject = cameraStream.value
+  }
+
+  // 某些浏览器/场景下需要显式 play 才会进入可截图状态
+  try {
+    await el.play()
+  } catch {
+    // ignore
+  }
+}
+
+const ensureWebCameraReady = async () => {
+  if (isAndroid.value) return
+
+  const waitForVideoSize = async (el: HTMLVideoElement) => {
+    if (el.videoWidth > 0 && el.videoHeight > 0) return true
+    return await new Promise<boolean>((resolve) => {
+      const timeout = window.setTimeout(() => {
+        resolve(false)
+      }, 1200)
+
+      const done = () => {
+        window.clearTimeout(timeout)
+        resolve(true)
+      }
+
+      el.addEventListener('loadedmetadata', done, { once: true })
+      el.addEventListener('canplay', done, { once: true })
+    })
+  }
+
+  // 1) 确保有 stream
+  if (!cameraStream.value) {
+    await startCamera()
+  }
+
+  // 2) 确保 stream 绑定到当前 video（video 可能因 v-if 重建）
+  await bindStreamToVideoElement()
+
+  const el = videoElement.value
+  if (!el) return
+
+  const ok = await waitForVideoSize(el)
+  if (ok) return
+
+  // 3) 首次未 ready：尝试重启一次相机
+  await stopCamera()
+  showCameraPreview.value = true
+  await startCamera()
+  await bindStreamToVideoElement()
+}
+
 // 框选相关
 const cropCanvas = ref<HTMLCanvasElement | null>(null)
 const isFromGallery = ref(false) // 标记图片来源：true=相册，false=相机
@@ -561,6 +571,11 @@ const currentImage = ref<{
   preview: string
   base64DataUrl?: string
 } | null>(null)
+
+const cropImageSrc = computed(() => {
+  if (!currentImage.value?.preview) return ''
+  return ensureDataUrl(currentImage.value.preview)
+})
 
 // 分屏组件模型值
 const splitterModel = ref(50)
@@ -787,6 +802,7 @@ const captureFromCamera = async (): Promise<string | null> => {
     })
   } else {
     // Web环境：从video元素截图
+    await ensureWebCameraReady()
     if (!videoElement.value) return null
 
     try {
@@ -824,6 +840,9 @@ const handleCapturePhoto = async () => {
   }
 
   try {
+    if (!isAndroid.value) {
+      await ensureWebCameraReady()
+    }
     // 直接从实时相机流中截图（相机已在对话框打开时启动）
     const base64DataUrl = await captureFromCamera()
     if (!base64DataUrl) {
@@ -1527,42 +1546,23 @@ const handleRetake = async () => {
   await startCamera()
 }
 
-// 处理搜索
-const handleSearch = async () => {
-  if (!currentImage.value || !cropRect.value || !cropCanvas.value) {
-    showMessage('请先选择图片区域', 'warning')
+const handleCropConfirm = async (croppedDataUrl: string) => {
+  if (!selectedSubject.value) {
+    showMessage('请先选择学科', 'warning')
     return
   }
 
   try {
     isSearching.value = true
+    croppedImageBase64.value = croppedDataUrl
 
-    // 获取裁剪后的图片
-    const croppedFile = await getCroppedImage()
-    if (!croppedFile) {
-      showMessage('图片裁剪失败', 'error')
-      return
-    }
-
-    // 获取裁剪后图片的 base64，用于抽屉显示
-    const reader = new FileReader()
-    croppedImageBase64.value = await new Promise<string>((resolve, reject) => {
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(croppedFile)
-    })
-
-    // 调用后端接口进行图片识别，传入学科信息
+    const croppedFile = await base64ToFile(croppedDataUrl, 'cropped.jpg')
     const question = await apiService.recognizeImage(croppedFile, selectedSubject.value)
 
     if (question) {
-      // 将识别到的题目数据保存到 photoQuestionData
       photoQuestionData.value = question
-
-      // 隐藏框选视图，显示抽屉
-      showCropView.value = false
       showDrawer.value = true
-      activeTab.value = 'photo' // 默认显示拍照搜题标签
+      activeTab.value = 'photo'
     } else {
       showMessage('未识别到题目', 'warning')
     }
@@ -1827,10 +1827,17 @@ const handleCloseDrawer = async () => {
   // 重新显示相机预览
   showCameraPreview.value = true
 
-  // 如果是从相册打开的，需要重新启动相机
-  if (wasFromGallery) {
+  // Web：video 通过 v-if 重新创建后，需要把现有 stream 重新绑回去
+  if (!isAndroid.value) {
+    await nextTick()
+  }
+
+  // 如果是从相册打开的（此前 stopCamera 过），或当前没有 stream，则需要重启相机
+  if (wasFromGallery || (!isAndroid.value && !cameraStream.value)) {
     await startCamera()
-    isFromGallery.value = false // 重置标记
+    isFromGallery.value = false
+  } else {
+    await bindStreamToVideoElement()
   }
 }
 
@@ -1867,7 +1874,13 @@ const handleAddToPracticeInChat = async () => {
 
   try {
     // 获取当前题目ID
-    const currentId = questionStore.questions.find((q) => q.bmNo === currentQuestionData?.value?.bmNo)?.id
+    const currentId =
+      questionStore.questions.find((q) => q.bmNo === currentQuestionData.value?.bmNo)?.id ??
+      currentQuestionData.value.id
+    if (!currentId) {
+      showMessage('题目ID无效，无法操作', 'warning')
+      return
+    }
     // 检查题目是否已在练习列表中
     if (isInPracticeList.value) {
       // 已在列表中，执行删除操作（先调用后端，再刷新本地列表）
@@ -2011,7 +2024,6 @@ onUnmounted(() => {
   width: 42px;
   height: 42px;
   z-index: 10001;
-  background: #6c6b65;
 }
 
 // 返回图标尺寸
@@ -2498,7 +2510,6 @@ onUnmounted(() => {
 }
 
 .drawer-back-btn {
-  border-radius: 50%;
   position: absolute;
   top: 10px;
   left: 10px;
@@ -2510,6 +2521,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  background-color: transparent;
   z-index: 2;
 }
 

@@ -370,6 +370,17 @@
     >
       {{ forwardSuccessMessage }}
     </Dialog>
+
+    <!-- 图片裁剪组件 -->
+    <ImageCropOverlay
+      v-model="showImageCropDialog"
+      :image-src="imageCropSrc"
+      title="裁剪图片"
+      hint-text="拖动选择裁剪区域"
+      :show-info="true"
+      @confirm="handleImageCropConfirm"
+      @cancel="handleImageCropCancel"
+    />
   </div>
 </template>
 
@@ -399,6 +410,7 @@ import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
 import Dialog from './base/Dialog.vue'
 import Checkbox from './base/Checkbox.vue'
 import Button from './base/Button.vue'
+import ImageCropOverlay from './base/ImageCropOverlay.vue'
 
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
@@ -592,13 +604,13 @@ const handleEditScreenshot = (id: string) => {
 }
 
 const onImageSelected = async (imageData: ChatImageData) => {
-  // ChatView 不再负责截图编辑弹窗，这里仅负责“把图挂到输入框缩略图区 / 或交给上层处理”
+  // ChatView 不再负责截图编辑弹窗，这里仅负责"把图挂到输入框缩略图区 / 或交给上层处理"
   if (!imageData?.base64DataUrl) return
 
   // 教材场景的截图挂载/编辑由 PdfViewerView 统一处理
   if (props.type === 'ai-textbook') return
 
-  // ai-general / user-client：将图片挂载到输入框缩略图区（不立即发送）
+  // ai-general / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
   if (props.type === 'ai-general' || props.type === 'user-client') {
     const maxImages = props.type === 'user-client' ? 5 : 3
     if (localAttachedScreenshots.value.length >= maxImages) {
@@ -606,19 +618,14 @@ const onImageSelected = async (imageData: ChatImageData) => {
       return
     }
 
-    const shot: AttachedScreenshot = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      dataUrl: imageData.base64DataUrl, // 缩略图
-      originalDataUrl: imageData.base64DataUrl, // 原图（新图片原图和缩略图相同）
-      width: imageData.width || 0,
-      height: imageData.height || 0,
-    }
-
-    localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
+    // 保存原始图片数据，显示裁剪对话框
+    pendingImageData.value = imageData
+    imageCropSrc.value = imageData.base64DataUrl
+    showImageCropDialog.value = true
     return
   }
 
-  // 其它场景：走策略的“发送图片”逻辑
+  // 其它场景：走策略的"发送图片"逻辑
   if (!chatStrategy.value?.sendImageMessage) return
 
   await chatStrategy.value.sendImageMessage(
@@ -634,6 +641,75 @@ const onImageSelected = async (imageData: ChatImageData) => {
       selectedModel: selectedModel.value,
     },
   )
+}
+
+// 图片裁剪取消处理
+const handleImageCropCancel = () => {
+  pendingImageData.value = null
+  imageCropSrc.value = ''
+  showImageCropDialog.value = false
+}
+
+// 处理裁剪后的图片
+const processCroppedImage = async (imageData: ChatImageData) => {
+  if (!imageData?.base64DataUrl) return
+
+  // ai-general / user-client：将裁剪后的图片挂载到输入框缩略图区
+  if (props.type === 'ai-general' || props.type === 'user-client') {
+    const shot: AttachedScreenshot = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      dataUrl: imageData.base64DataUrl, // 裁剪后的缩略图
+      originalDataUrl: imageData.base64DataUrl, // 裁剪后的原图
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+    }
+
+    localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
+    return
+  }
+
+  // 其它场景：走策略的"发送图片"逻辑
+  if (!chatStrategy.value?.sendImageMessage) return
+
+  await chatStrategy.value.sendImageMessage(
+    {
+      filePath: imageData.filePath || '',
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+      fileSize: imageData.fileSize || 0,
+      base64DataUrl: imageData.base64DataUrl,
+    },
+    inputMessage.value,
+    {
+      selectedModel: selectedModel.value,
+    },
+  )
+}
+
+// 图片裁剪确认处理 - 适配新组件
+const handleImageCropConfirm = async (croppedDataUrl: string) => {
+  if (!pendingImageData.value) return
+  
+  try {
+    // 创建裁剪后的图片数据
+    const croppedImageData: ChatImageData = {
+      ...pendingImageData.value,
+      base64DataUrl: croppedDataUrl,
+      width: 0, // 新组件内部处理尺寸
+      height: 0,
+    }
+
+    // 处理裁剪后的图片
+    await processCroppedImage(croppedImageData)
+
+    // 清理状态
+    pendingImageData.value = null
+    imageCropSrc.value = ''
+    showImageCropDialog.value = false
+  } catch (error) {
+    console.error('[ChatView] 图片裁剪失败:', error)
+    showMessage('图片裁剪失败，请重试', 'error')
+  }
 }
 
 // 处理 ChatInput 发出的移除缩略图事件
@@ -1097,6 +1173,11 @@ const activeMode = ref<{ label: string; icon: string; color: string } | null>(nu
 
 // 全局图片选择器
 const { pickImage } = useImagePicker()
+
+// 图片裁剪相关状态
+const showImageCropDialog = ref(false)
+const imageCropSrc = ref('')
+const pendingImageData = ref<ChatImageData | null>(null)
 
 // 语音录制相关状态
 const showCancelHint = ref(false) // 是否显示取消提示

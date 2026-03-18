@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
-import { computed, defineEmits, defineProps, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 type Placement = 'top' | 'bottom' | 'left' | 'right'
 
@@ -140,6 +140,11 @@ const setVisible = (value: boolean) => {
     // 等待气泡 DOM 渲染后再计算位置
     nextTick(() => {
       updatePosition()
+      // 某些场景（例如父级抽屉/过渡动画、首次 Teleport 渲染）首帧布局未稳定，
+      // 需要在下一帧再计算一次，避免首次打开定位/placement 不准。
+      requestAnimationFrame(() => {
+        updatePosition()
+      })
     })
   } else {
     unbindGlobalListeners()
@@ -379,9 +384,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .bubble-popup-wrapper {
   display: inline-block;
-}
-
-.bubble-popup-trigger {
 }
 
 .bubble-popup {
