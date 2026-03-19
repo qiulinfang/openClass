@@ -291,7 +291,7 @@ export function getApiPaths(): ApiPaths {
         },
         teacher: {
           historyList: '/yb-teacher-test/yb-teacher/api/question/historyList',
-          uploadImg: '/yb-teacher-test/yb-teacher/api/system/uploadImg',
+          uploadImg: '/yb-test/blw-edu-yb/api/system/uploadImg',
           wsPath: '/teacher-ws-test/yb-teacher-ws',
         },
         textbook: {
@@ -349,7 +349,7 @@ export function getApiPaths(): ApiPaths {
       },
       teacher: {
         historyList: '/yb-teacher-release/blw-edu-yb/api/question/historyList',
-        uploadImg: '/yb-teacher-release/blw-edu-yb/api/system/uploadImg',
+        uploadImg: '/yb-release/blw-edu-yb/api/system/uploadImg',
         wsPath: '/teacher-ws-release/blw-edu-yb/ws',
       },
       textbook: {
