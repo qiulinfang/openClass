@@ -116,11 +116,6 @@ public class MainWebViewActivity extends AppCompatActivity
     /** Web 应用 URL，默认为本地 assets 中的 index.html */
     private String webAppUrl = "file:///android_asset/webapp/index.html";
 
-    // ========== 悬浮 FAB 按钮相关 ==========
-
-    /** 悬浮 FAB 按钮的 action 参数，用于触发特定的 Web 端操作 */
-    private String floatingFabAction = null;
-
     // ========== 键盘检测相关 ==========
 
     /** 上一次检测到的键盘高度（像素） */
@@ -224,12 +219,6 @@ public class MainWebViewActivity extends AppCompatActivity
             webAppUrl = customUrl;
         }
 
-        // 获取悬浮 FAB 按钮的 action 参数（如果存在）
-        floatingFabAction = getIntent().getStringExtra("floating_fab_action");
-        if (floatingFabAction != null) {
-            Log.d(TAG, "收到悬浮 FAB 按钮 action: " + floatingFabAction);
-        }
-
         Log.d(TAG, "加载 URL: " + webAppUrl);
 
         // 第1步：先初始化 Activity Result Launchers（必须在 initWebView 之前）
@@ -251,24 +240,6 @@ public class MainWebViewActivity extends AppCompatActivity
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-
-        try {
-            String action = intent != null ? intent.getStringExtra("floating_fab_action") : null;
-            if (action != null && !action.isEmpty()) {
-                Log.d(TAG, "onNewIntent 收到悬浮 FAB action: " + action);
-                floatingFabAction = action;
-
-                // 如果 WebAppInterface 已就绪，直接派发到 Web；否则等 onWebAppReady 再触发
-                ApplicationModelShared app = (ApplicationModelShared) getApplication();
-                WebAppInterface w = app != null ? app.getWebAppInterface() : null;
-                if (w != null) {
-                    w.dispatchFloatingFabActionEventToWeb(action);
-                    floatingFabAction = null;
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "onNewIntent handle floating_fab_action failed", e);
-        }
     }
 
     @Override
@@ -971,9 +942,7 @@ public class MainWebViewActivity extends AppCompatActivity
      * 此时可以安全地执行以下操作：
      * <ul>
      *   <li>初始化 MessagingManager（消息管理器）</li>
-     *   <li>启动悬浮 FAB 按钮服务</li>
      *   <li>启动浮动机器人服务</li>
-     *   <li>触发悬浮 FAB 按钮的 action 事件（如果有）</li>
      * </ul>
      * </p>
      */
@@ -984,74 +953,6 @@ public class MainWebViewActivity extends AppCompatActivity
         // 自动初始化MessagingManager（类似FloatingRobotService的做法）
         // 这样Vue在应用启动时就可以使用，不需要等到用户进入聊天页面
         initMessagingManagerOnStartup();
-
-        // 启动系统级悬浮FAB按钮服务（在Web应用就绪后启动，确保功能完全准备好）
-        startFloatingFabServiceWhenReady();
-
-        // 如果有悬浮FAB按钮的action参数，触发CustomEvent
-        if (floatingFabAction != null && !floatingFabAction.isEmpty()) {
-            // 延迟触发，确保Vue完全初始化
-            webView.postDelayed(() -> {
-                dispatchFloatingFabActionEvent(floatingFabAction);
-                // 清除action，避免重复触发
-                floatingFabAction = null;
-            }, 500);
-        }
-    }
-
-    /**
-     * 在 Web 应用就绪后启动悬浮 FAB 按钮服务
-     * <p>
-     * 确保 Web 应用和 Vue 完全初始化后再启动服务，
-     * 避免用户点击悬浮按钮时功能未准备好。
-     * </p>
-     */
-    private void startFloatingFabServiceWhenReady() {
-        ApplicationModelShared app = (ApplicationModelShared) getApplication();
-        app.startFloatingFabService();
-        Log.d(TAG, "已尝试启动悬浮FAB按钮服务（Web应用就绪后）");
-    }
-
-
-    /**
-     * 触发悬浮 FAB 按钮 action 事件到 WebView
-     * <p>
-     * 通过 JavaScript 代码在 Web 端触发 'floating-fab-action' CustomEvent，
-     * 事件详情包含 action 参数，用于触发特定的 Web 端操作。
-     * </p>
-     *
-     * @param action 要触发的 action 名称
-     */
-    private void dispatchFloatingFabActionEvent(String action) {
-        runOnUiThread(() -> {
-            try {
-                // 构造事件详情
-                org.json.JSONObject detailObj = new org.json.JSONObject();
-                detailObj.put("action", action);
-
-                String detailJson = detailObj.toString();
-                Log.d(TAG, "准备触发 floating-fab-action 事件，detail: " + detailJson);
-
-                // 使用单引号包裹JSON字符串，避免双引号冲突
-                String jsCode = "javascript:(function() {" +
-                        "  try {" +
-                        "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
-                        "    var detail = JSON.parse(detailStr);" +
-                        "    var event = new CustomEvent('floating-fab-action', { detail: detail });" +
-                        "    window.dispatchEvent(event);" +
-                        "    console.log('📡 [Android] 触发 floating-fab-action 事件', detail);" +
-                        "  } catch(e) {" +
-                        "    console.error('📡 [Android] 触发事件失败:', e);" +
-                        "  }" +
-                        "})()";
-
-                webView.evaluateJavascript(jsCode, null);
-                Log.d(TAG, "已触发 floating-fab-action 事件");
-            } catch (Exception e) {
-                Log.e(TAG, "触发WebView事件失败", e);
-                e.printStackTrace();
-            }
-        });
     }
 
     /**
