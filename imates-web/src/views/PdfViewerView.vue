@@ -27,18 +27,17 @@
             @redo="handleRedo"
           >
             <template #left-actions>
-              <!-- 返回按钮 -->
-              <q-btn
-                flat
-                round
-                dense
-                @click="handleGoBack"
-                class="goback-btn"
-              >
-                <img :src="goBackIcon" alt="返回" class="goback-icon" />
-              </q-btn>
             </template>
             <template #right-actions>
+              <!-- 加入课堂按钮：右上角浮层（同 MyProfileView） -->
+              <button
+                type="button"
+                class="join-class-button join-class-button--top-right"
+                :class="{ 'in-class': isInClass  }"
+                @click="toggleJoinClass"
+              >
+                加入课堂
+              </button>
               <!-- 调试面板按钮 -->
               <q-btn
                 v-if="isDev"
@@ -52,11 +51,36 @@
               />
             </template>
           </UnifiedToolbar>
+
+          <!-- 加入课堂确认对话框（同 MyProfileView） -->
+          <Dialog
+            ref="joinClassDialogRef"
+            :title="isInClass ? '确认退出课堂' : '课堂提示'"
+            :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
+            :cancelButtonText="'取消'"
+            @confirm="confirmJoinClass"
+            @cancel="handleJoinClassDialogCancel"
+          >
+            <div class="exit-classroom" v-if="isInClass">
+              <div class="exit-icon">!</div>
+              <div class="exit-text">
+                <div class="primary">确认退出课堂？</div>
+                <div class="secondary">退出后将不能和老师互动，且投屏会结束。</div>
+              </div>
+            </div>
+
+            <div class="join-classroom-content" v-else>
+              <div class="join-classroom-body">
+                <div class="status-text">确认加入课堂？</div>
+              </div>
+            </div>
+          </Dialog>
           <!-- PDF 不分页渲染 -->
           <PdfPage
-            v-if="currentFile"
+            v-if="currentFile || currentImageUrl"
             ref="pdfPageRef"
             :file="currentFile"
+            :image-url="currentImageUrl"
             @screenshot-captured="handleScreenshotCaptured"
           />
 
@@ -136,10 +160,14 @@ import ScreenshotInputDialog from '@/components/dialog/ScreenshotInputDialog.vue
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import CommonActionButton from '@/components/base/Button.vue'
+import Dialog from '@/components/base/Dialog.vue'
 import goBackIcon from '/icons/goback.svg'
 import xiaogongjuIcon from '/icons/xiaogongju.svg'
+import joinClassIcon from '/icons/join_class.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
+import { androidBridge } from '@/services/business/android-bridge'
+import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleDebugPanel: () => void
@@ -209,6 +237,154 @@ const miniClassFabStart = ref({
 const miniClassFabMoved = ref(false)
 const lastMiniClassFabDragEndAt = ref(0)
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+
+// 加入课堂状态（同 MyProfileView）
+const isInClass = ref(false)
+const isProjecting = ref(false)
+const joinClassDialogRef = ref<InstanceType<typeof Dialog>>()
+
+// 检查课堂状态（读取原生 -> 更新前端状态）
+const checkClassroomStatus = () => {
+  const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
+  if (status && status.isInClass === true) {
+    isInClass.value = true
+    isProjecting.value = status.status === 'streaming'
+  } else {
+    isInClass.value = false
+    isProjecting.value = false
+  }
+}
+
+const loadImageFromRoute = async () => {
+  try {
+    const resourceId = route.query.resourceId as string
+    const id = route.query.id as string
+    if (!resourceId || !id) {
+      throw new Error('缺少必要的路由参数: resourceId 和 id')
+    }
+
+    // 读取图片二进制
+    const fileData = await resourceManager.getFileData(id, resourceId)
+    if (!fileData) {
+      throw new Error('本地图片不存在，请先写入 IndexedDB')
+    }
+
+    // 释放旧 URL
+    if (currentImageObjectUrl) {
+      try {
+        URL.revokeObjectURL(currentImageObjectUrl)
+      } catch {
+      }
+      currentImageObjectUrl = null
+    }
+
+    const guessedType = (route.query.imageMimeType as string) || 'image/png'
+    const blob = new Blob([fileData.buffer as ArrayBuffer], { type: guessedType })
+    const url = URL.createObjectURL(blob)
+    currentImageObjectUrl = url
+
+    currentFile.value = null
+    currentImageUrl.value = url
+
+    // 同步 store 信息（复用原 PDF 分支逻辑）
+    pdfViewerStore.setCurrentFileInfo(id, resourceId)
+    aiTextbookStore.setResourceId(resourceId)
+
+    const currentSectionName =
+      (route.query.sectionName as string) || (route.query.textbookName as string) || null
+    aiTextbookStore.setSectionName(currentSectionName)
+
+    const chapterInfo = {
+      grade: (route.query.chapterGrade as string) || '',
+      subject: (route.query.chapterSubject as string) || '',
+      textbook: (route.query.chapterTextbook as string) || '',
+      chapter_title: (route.query.chapterTitle as string) || '',
+    }
+    aiTextbookStore.setChapterInfo(
+      chapterInfo.grade || chapterInfo.subject || chapterInfo.textbook || chapterInfo.chapter_title
+        ? chapterInfo
+        : null,
+    )
+
+    console.log('[PdfViewerView] Image 设置完成:', {
+      resourceId,
+      bytes: fileData.length,
+      type: guessedType,
+    })
+  } catch (error) {
+    console.error('[PdfViewerView] Image 加载失败:', error)
+    throw error
+  }
+}
+
+const toggleJoinClass = () => {
+  joinClassDialogRef.value?.openDialog()
+}
+
+const handleJoinClassDialogCancel = () => {
+  joinClassDialogRef.value?.closeDialog()
+}
+
+const getStudentNameFromStorage = () => {
+  try {
+    const raw = localStorage.getItem('userInfo')
+    if (!raw) return ''
+    const parsed = JSON.parse(raw)
+    const name = parsed?.name
+    return typeof name === 'string' ? name : ''
+  } catch {
+    return ''
+  }
+}
+
+// 确认加入/退出课堂（同 MyProfileView 的流程）
+const confirmJoinClass = () => {
+  joinClassDialogRef.value?.closeDialog()
+
+  const traceId = `JC_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
+  console.log('[Classroom][Action] start', { traceId, isInClass: isInClass.value })
+
+  if (!androidBridge.isAndroidBridgeAvailable()) {
+    console.error('[Classroom][Action] AndroidBridge unavailable', { traceId })
+    showMessage('Web 演示模式：已完成教室选择，但当前环境不支持真实加入课堂', 'info')
+    return
+  }
+
+  if (isInClass.value) {
+    console.log('[Classroom][Exit] call native', { traceId })
+    const ok = androidBridge.exitClassroom()
+    if (ok) {
+      isInClass.value = false
+      isProjecting.value = false
+      console.log('[Classroom][Exit] ok', { traceId })
+      showMessage('已退出课堂', 'success')
+    } else {
+      console.error('[Classroom][Exit] failed', { traceId })
+      showMessage('退出课堂失败', 'error')
+    }
+    return
+  }
+
+  const storeUserId = getUserId() || ''
+  const nativeUser = androidBridge.getUserInfo() as Partial<BridgeUserInfo> | null
+  const nativeUserId = nativeUser?.userId || nativeUser?.id || ''
+
+  const studentId = storeUserId || nativeUserId
+  const studentName =
+    (nativeUser?.nickName ?? nativeUser?.userName ?? getStudentNameFromStorage()) || '用户'
+  const isGuest = !studentId
+
+  console.log('[Classroom][Join] call native', { traceId, studentId, studentName, isGuest })
+  const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
+  if (ok) {
+    isInClass.value = true
+    console.log('[Classroom][Join] ok (waiting teacher cmd)', { traceId })
+    showMessage('已加入课堂', 'success')
+  } else {
+    console.error('[Classroom][Join] failed', { traceId })
+    showMessage('加入课堂失败', 'error')
+  }
+}
 
 const onMiniClassFabPointerMove = (e: PointerEvent) => {
   if (miniClassFabPointerId.value === null || e.pointerId !== miniClassFabPointerId.value) return
@@ -367,6 +543,8 @@ const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
 
 // 当前文件
 const currentFile = ref<File | null>(null)
+const currentImageUrl = ref<string>('')
+let currentImageObjectUrl: string | null = null
 
 // 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
 type PdfToolId = 'hand' | 'select' | 'highlighter' | 'draw' | 'eraser-draw' | 'note' | 'screenshot'
@@ -617,6 +795,14 @@ const loadPdfWithService = async (file: File) => {
 
     // 2. 设置当前文件，PdfPage 组件会自动加载
     currentFile.value = file
+    currentImageUrl.value = ''
+    if (currentImageObjectUrl) {
+      try {
+        URL.revokeObjectURL(currentImageObjectUrl)
+      } catch {
+      }
+      currentImageObjectUrl = null
+    }
 
     console.log('PDF 文件设置完成:', {
       fileName: file.name,
@@ -865,10 +1051,48 @@ const handlePdfRemoveScreenshot = (id: string) => {
 // 生命周期
 onMounted(async () => {
   try {
+    // 同步课堂状态 + 绑定课堂事件（用于工具栏按钮高亮）
+    checkClassroomStatus()
+    androidBridge.onClassroomJoined(() => {
+      console.log('[PdfViewerView] onClassroomJoined')
+      isInClass.value = true
+      showMessage('已加入课堂', 'success')
+    })
+    androidBridge.onClassroomExited(() => {
+      console.log('[PdfViewerView] onClassroomExited')
+      isInClass.value = false
+      showMessage('已退出课堂', 'info')
+    })
+    androidBridge.onClassroomStatusChanged((newStatus: BridgeClassroomStatus) => {
+      console.log('[PdfViewerView] onClassroomStatusChanged:', newStatus)
+      const inClass = !!newStatus?.isInClass
+      if (isInClass.value !== inClass) {
+        isInClass.value = inClass
+      }
+      const projecting = newStatus?.status === 'streaming'
+      if (isProjecting.value !== projecting) {
+        isProjecting.value = projecting
+      }
+    })
+    androidBridge.onScreenProjectionStarted(() => {
+      console.log('[PdfViewerView] onScreenProjectionStarted')
+      isProjecting.value = true
+    })
+    androidBridge.onScreenProjectionStopped(() => {
+      console.log('[PdfViewerView] onScreenProjectionStopped')
+      isProjecting.value = false
+    })
+
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
-    const file = await loadFileFromRoute()
-    await loadPdfWithService(file)
+
+    const isImage = route.query.isImage === 'true'
+    if (isImage) {
+      await loadImageFromRoute()
+    } else {
+      const file = await loadFileFromRoute()
+      await loadPdfWithService(file)
+    }
     // 加载当前教材的聊天历史
     const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
     if (currentResourceId) {
@@ -900,6 +1124,14 @@ onBeforeUnmount(() => {
   // 退出 PDF 页面时清空当前工具，避免影响其它页面
   pdfViewerStore.selectedTool = '' as any
   pdfViewerStore.closeChatPanel()
+
+  if (currentImageObjectUrl) {
+    try {
+      URL.revokeObjectURL(currentImageObjectUrl)
+    } catch {
+    }
+    currentImageObjectUrl = null
+  }
 })
 </script>
 
@@ -1074,6 +1306,151 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+.join-class-button {
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  flex-shrink: 0;
+  margin-left: 0;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 500;
+  background: #ffffff;
+  color: #666666;
+}
+
+.join-class-button--top-right {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  margin-left: 0;
+}
+
+.join-class-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+
+.join-class-button.in-class {
+  box-shadow:
+    0 0 0 2px rgba(252, 253, 82, 0.65),
+    0 0 16px rgba(252, 253, 82, 0.75),
+    0 0 28px rgba(252, 253, 82, 0.4);
+  animation: join-class-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes join-class-glow {
+  0% {
+    box-shadow:
+      0 0 0 2px rgba(252, 253, 82, 0.6),
+      0 0 12px rgba(252, 253, 82, 0.55),
+      0 0 22px rgba(252, 253, 82, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(252, 253, 82, 0.75),
+      0 0 20px rgba(252, 253, 82, 0.85),
+      0 0 36px rgba(252, 253, 82, 0.45);
+  }
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(252, 253, 82, 0.6),
+      0 0 12px rgba(252, 253, 82, 0.55),
+      0 0 22px rgba(252, 253, 82, 0.28);
+  }
+}
+
+
+@keyframes breathe {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.exit-classroom {
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.exit-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.exit-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.exit-text .primary {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.exit-text .secondary {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.join-classroom-content {
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.join-classroom-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.status-text {
+  font-size: 13px;
+  color: #6b7280;
+}
+
 /* PDF页面容器 - 支持横向和纵向滚动 */
 .pdf-pages-container {
   height: 100%;
@@ -1163,11 +1540,12 @@ onBeforeUnmount(() => {
 }
 
 :deep(.q-splitter__separator) {
-  background-color: #e0e0e0;
+  background-color: transparent;
   cursor: col-resize;
   position: relative;
-  width: 0px;
+  width: 16px;
   z-index: 5;
+  margin: 0 -8px;
 }
 :deep(.q-splitter__after) {
   overflow: visible !important;

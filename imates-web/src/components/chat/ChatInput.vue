@@ -148,7 +148,7 @@
             </BubblePopup>
 
             <!-- 联网搜索按钮 - 使用顶部同款搜索图标 -->
-            <button
+            <!-- <button
               class="toolbar-btn"
               @click="handleToggleWebSearch"
               v-if="
@@ -158,7 +158,7 @@
               "
             >
               <img :src="onlineSearchIconToUse" alt="互联网搜索" class="toolbar-icon" />
-            </button>
+            </button> -->
           </template>
         </div>
 
@@ -232,9 +232,9 @@ import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
-import DeskmateIcon from '/icons/Deskmate.svg'
-import RepresentativeIcon from '/icons/Representative.svg'
-import GuruIcon from '/icons/Guru.svg'
+import DeskmateIcon from '/icons/head.webp'
+import RepresentativeIcon from '/icons/head2.webp'
+import GuruIcon from '/icons/head2.webp'
 // 顶部工具条图标
 import onlineSearchIcon from '/icons/onlineSearch.svg' // 搜索
 import selectAndAskIcon from '/icons/selectAndAsk.svg' // 选中并问

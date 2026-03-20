@@ -317,7 +317,7 @@ const currentSchoolAppConfig: SchoolAppConfig = {
   schoolId: 'jinshanyuanyang',
   nav: {
     main: [
-      { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
+      // { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
       {
         key: 'knowledge',
         label: '知识图谱',

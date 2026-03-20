@@ -328,9 +328,10 @@ import type { ChatBubble, SceneType } from '../../types'
 import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import refreshIcon from '/icons/refresh.svg'
-import DeskmateIcon from '/icons/Deskmate.svg'
-import RepresentativeIcon from '/icons/Representative.svg'
-import GuruIcon from '/icons/Guru.svg'
+
+import DeskmateIcon from '/icons/head.webp'
+import RepresentativeIcon from '/icons/head2.webp'
+import GuruIcon from '/icons/head2.webp'
 
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {

@@ -608,7 +608,29 @@ const onImageSelected = async (imageData: ChatImageData) => {
   if (!imageData?.base64DataUrl) return
 
   // 教材场景的截图挂载/编辑由 PdfViewerView 统一处理
-  if (props.type === 'ai-textbook') return
+  if (props.type === 'ai-textbook') {
+    const maxImages = 3
+    if (aiTextbookStore.attachedScreenshots.length >= maxImages) {
+      showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
+      return
+    }
+
+    const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const shot: AttachedScreenshot = {
+      id: shotId,
+      dataUrl: imageData.base64DataUrl,
+      originalDataUrl: imageData.base64DataUrl,
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+    }
+
+    aiTextbookStore.appendAttachedScreenshots([shot])
+    aiTextbookStore.setScreenshotDrawingStates({
+      ...aiTextbookStore.screenshotDrawingStates,
+      [shotId]: aiTextbookStore.screenshotDrawingStates[shotId] || { objects: [], history: [], historyIndex: -1 },
+    } as any)
+    return
+  }
 
   // ai-general / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
   if (props.type === 'ai-general' || props.type === 'user-client') {

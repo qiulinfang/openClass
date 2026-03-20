@@ -40,6 +40,15 @@
               <span class="item-value">{{ userId }}</span>
             </div>
           </div>
+
+          <!-- 退出登录项 -->
+          <div class="list-item logout-item" @click="handleLogout">
+            <div class="item-label logout-label">退出登录</div>
+            <div class="item-content">
+              <span class="logout-icon">⚡</span>
+            </div>
+            <div class="item-arrow">›</div>
+          </div>
         </div>
       </div>
     </Modal>
@@ -55,7 +64,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useImagePicker } from '@/composables/useImagePicker'
+import { authService, getXuebanToken, getYanbanToken } from '@/services'
 import { showMessage } from '@/utils'
 import Modal from '@/components/base/Modal.vue'
 import AvatarCropOverlay from '@/components/base/AvatarCropOverlay.vue'
@@ -79,6 +90,8 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const router = useRouter()
 
 // 使用 v-model 的本地状态
 const localVisible = computed({
@@ -144,6 +157,29 @@ const handleCropConfirm = (croppedDataUrl: string) => {
 
 const handleCropCancel = () => {
   cropSrc.value = ''
+}
+
+// 处理退出登录
+const handleLogout = () => {
+  try {
+    // 清除所有认证信息
+    localStorage.removeItem('XUEBAN_TOKEN')
+    localStorage.removeItem('YANBAN_TOKEN')
+    localStorage.removeItem('userInfo')
+    localStorage.removeItem('yanbanuserid')
+    localStorage.removeItem('lastLoginTime')
+    
+    // 关闭对话框
+    emit('update:modelValue', false)
+    
+    // 跳转到登录页
+    router.replace('/login')
+    
+    showMessage('已退出登录', 'success')
+  } catch (error) {
+    console.error('[ProfileDialog] 退出登录失败:', error)
+    showMessage('退出登录失败，请重试', 'error')
+  }
 }
 </script>
 
@@ -234,6 +270,20 @@ const handleCropCancel = () => {
   color: #d1d5db;
   margin-left: 12px;
   flex-shrink: 0;
+}
+
+// 退出登录样式
+.logout-item {
+  border-top: 1px solid #f3f4f6;
+  
+  &:hover {
+    background-color: #fef2f2;
+  }
+}
+
+.logout-icon {
+  font-size: 18px;
+  color: #dc2626;
 }
 
 // 列表头像样式

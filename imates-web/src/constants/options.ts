@@ -62,9 +62,8 @@ export const CHAT_TAB_OPTIONS: Array<{ label: string; value: string; icon?: stri
 
 // AI 角色选项（用于聊天输入）
 export const AI_ROLE_OPTIONS: SelectOption[] = [
-  { label: '同桌', value: 'mate' },
-  { label: '课代表', value: 'mentor' },
-  { label: '大神', value: 'researcher' },
+  { label: '猜想家', value: 'mate' },
+  { label: '探索家', value: 'mentor' },
 ]
 
 // 缩放预设选项（用于画板）

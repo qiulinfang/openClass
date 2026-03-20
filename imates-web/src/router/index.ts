@@ -19,6 +19,7 @@ import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
 import LottieTest from '@/views/LottieTest.vue'
+import PdfImageJumpTestView from '@/views/PdfImageJumpTestView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -145,6 +146,11 @@ const router = createRouter({
       path: '/render-test',
       name: 'renderTest',
       component: RenderTestView
+    },
+    {
+      path: '/pdf-image-jump-test',
+      name: 'pdfImageJumpTest',
+      component: PdfImageJumpTestView
     },
     {
       path: '/lottie-test',

@@ -251,6 +251,7 @@ const hitTestFreeform = (pageIndex: number, path: Point[]) => {
 // === Props ===
 const props = defineProps<{
   file: File | null
+  imageUrl?: string
 }>()
 
 const emit = defineEmits<{
@@ -472,13 +473,15 @@ const containerStyle = computed(() => ({
 }))
 
 // === 持久化核心逻辑 ===
+const getCurrentDocKey = (): string | null => {
+  if (props.file) return `pdf|${props.file.name}|${props.file.size}`
+  if (props.imageUrl) return `image|${props.imageUrl}`
+  return null
+}
 
-const getDocKey = (file: File) => `${file.name}|${file.size}`
-
-const loadDataFromDb = async (file: File) => {
+const loadDataFromDb = async (docKey: string) => {
   try {
-    const key = getDocKey(file)
-    const data = await dbService.get<SavedData>('annotations', key)
+    const data = await dbService.get<SavedData>('annotations', docKey)
     if (data) {
       if (data.strokes) {
         data.strokes.forEach((s) => {
@@ -492,18 +495,23 @@ const loadDataFromDb = async (file: File) => {
       // 不再恢复视图状态（滚动、缩放），每次加载使用默认
       console.log('已恢复持久化笔迹:', data.strokes.length, '条笔迹')
     }
-  } catch (e) {
-    console.error('加载持久化数据失败:', e)
+  } catch (err) {
+    console.error('[PdfPage] Load DB Error:', err)
   }
 }
 
 const saveDataToDb = async () => {
-  if (!props.file) return
+  const docKey = getCurrentDocKey()
+  if (!docKey) return
   try {
-    const key = getDocKey(props.file)
     const data: SavedData = {
-      docKey: key,
+      docKey,
       strokes: toRaw(allStrokes.value),
+      viewState: {
+        scale: scale.value,
+        offsetX: offset.value.x,
+        offsetY: offset.value.y,
+      },
       updatedAt: Date.now(),
     }
     await dbService.put('annotations', data)
@@ -569,6 +577,70 @@ const clearAndBurnMupdfInkAnnotations = async (doc: mupdf.Document) => {
 
 // === 核心流程 ===
 
+const loadImageElement = async (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`图片加载失败: ${url}`))
+    img.src = url
+  })
+}
+
+const prefetchImageDimensionsAndLayout = async (img: HTMLImageElement) => {
+  const width = img.naturalWidth || img.width
+  const height = img.naturalHeight || img.height
+
+  const currentY = PAGE_GAP
+  pageList.value = [
+    {
+      viewWidth: width,
+      viewHeight: height,
+      x: 0,
+      y: currentY,
+    },
+  ]
+  contentSize.value = { width, height: currentY + height + PAGE_GAP }
+}
+
+const renderImagePages = async (img: HTMLImageElement) => {
+  isRendering.value = true
+
+  try {
+    const baseDpr = window.devicePixelRatio || 1
+    const renderDpr = Math.min(baseDpr * 2, 3)
+    renderDprRef.value = renderDpr
+
+    const pageLayout = pageList.value[0]
+    const canvas = pdfRefs.value[0]
+    const inkCanvas = inkRefs.value[0]
+    if (!pageLayout || !canvas || !inkCanvas) return
+
+    const cssW = pageLayout.viewWidth
+    const cssH = pageLayout.viewHeight
+
+    canvas.width = cssW * renderDpr
+    canvas.height = cssH * renderDpr
+    canvas.style.width = `${cssW}px`
+    canvas.style.height = `${cssH}px`
+
+    inkCanvas.width = canvas.width
+    inkCanvas.height = canvas.height
+    inkCanvas.style.width = canvas.style.width
+    inkCanvas.style.height = canvas.style.height
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0)
+    ctx.clearRect(0, 0, cssW, cssH)
+    ctx.drawImage(img, 0, 0, cssW, cssH)
+
+    renderInkLayer(0)
+  } finally {
+    isRendering.value = false
+  }
+}
+
 const loadFile = async (file: File) => {
   loading.value = true
   resetState()
@@ -576,7 +648,8 @@ const loadFile = async (file: File) => {
 
   try {
     // 1. 先加载持久化数据（笔迹和视图状态）
-    await loadDataFromDb(file)
+    const docKey = getCurrentDocKey()
+    if (docKey) await loadDataFromDb(docKey)
 
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
@@ -605,6 +678,48 @@ const loadFile = async (file: File) => {
     console.error('[PdfPage] PDF Load Error:', err)
   } finally {
     loading.value = false
+  }
+}
+
+const loadImageUrl = async (url: string) => {
+  loading.value = true
+  resetState()
+  fileName.value = url.split('/').pop() || 'image'
+
+  try {
+    const docKey = getCurrentDocKey()
+    if (docKey) await loadDataFromDb(docKey)
+
+    const img = await loadImageElement(url)
+    pdfDoc.value = null
+    pageCount.value = 1
+
+    await prefetchImageDimensionsAndLayout(img)
+
+    if (isVisible.value && pageList.value.length > 0 && !hasRendered.value) {
+      await renderImagePages(img)
+      hasRendered.value = true
+    }
+
+    if (offset.value.x === 0 && offset.value.y === 0 && scale.value === 1.0) {
+      centerContent()
+    } else {
+      clampOffset()
+    }
+  } catch (err) {
+    console.error('[PdfPage] Image Load Error:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadSource = async () => {
+  if (props.file) {
+    await loadFile(props.file)
+    return
+  }
+  if (props.imageUrl) {
+    await loadImageUrl(props.imageUrl)
   }
 }
 
@@ -1973,6 +2088,17 @@ const centerContent = () => {
   const rect = viewportRef.value.getBoundingClientRect()
   if (rect.width === 0) return
 
+  // 单页（图片模式）居中：同时水平/垂直居中，并考虑 page.x/page.y 的定位偏移
+  if (pageList.value.length === 1) {
+    const p = pageList.value[0]
+    const s = scale.value
+    offset.value = {
+      x: (rect.width - p.viewWidth * s) / 2 - p.x * s,
+      y: (rect.height - p.viewHeight * s) / 2 - p.y * s,
+    }
+    return
+  }
+
   const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
   offset.value = {
     x: (rect.width - maxW * scale.value) / 2,
@@ -1994,8 +2120,16 @@ const getRectStyle = (rect: { x: number; y: number; w: number; h: number }) => (
 })
 
 watch(
-  () => props.file,
-  (f) => f && loadFile(f),
+  [() => props.file, () => props.imageUrl],
+  ([f, url]) => {
+    if (f) {
+      loadFile(f)
+      return
+    }
+    if (url) {
+      loadImageUrl(url)
+    }
+  },
   { immediate: true }
 )
 

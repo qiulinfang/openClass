@@ -54,8 +54,21 @@
         >
           <!-- 通过 ChatView 的 header-prefix 插槽引入“选中并问”按钮 -->
           <template #header-prefix>
-            <button type="button" class="pdf-toolbar-btn" @click="handleSelectAndAskClick">
+            <button
+              type="button"
+              class="pdf-toolbar-btn pdf-toolbar-btn--select-and-ask"
+              @click="handleSelectAndAskClick"
+            >
               <img :src="selectAndAskIconToUse" alt="选中并问" class="pdf-toolbar-icon" />
+            </button>
+
+            <button
+              type="button"
+              class="pdf-toolbar-btn pdf-toolbar-btn--clear"
+              @click="openClearChatDialog"
+            >
+              <img :src="deleteIcon" alt="清空记录" class="pdf-toolbar-icon pdf-toolbar-icon--clear" />
+              <span class="pdf-toolbar-text">清空记录</span>
             </button>
           </template>
         </ChatView>
@@ -78,17 +91,31 @@
 
     <!-- 全局聊天对话框 -->
     <GlobalChatDialog v-model="showGlobalChatDialog" :entry="globalChatEntry" />
+
+    <Dialog
+      ref="clearChatDialogRef"
+      title="清空确认"
+      :confirmButtonText="'清空'"
+      :cancelButtonText="'取消'"
+      @confirm="confirmClearChat"
+      @cancel="cancelClearChat"
+    >
+      确定要清空聊天记录吗？此操作不可撤销。
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, watch, type ComponentPublicInstance } from 'vue'
+import { storeToRefs } from 'pinia'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
+import Dialog from '@/components/base/Dialog.vue'
 import { useRoute } from 'vue-router'
 import type { AiTextbookSession, AttachedScreenshot, ChatEntry } from '@/types'
 import {
@@ -101,9 +128,13 @@ import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord.svg'
+import deleteIcon from '/icons/delete.svg'
+import { getUserId } from '@/services/http/auth-service'
 
 const pdfViewerStore = usePdfViewerStore()
 const aiTextbookStore = useAiTextbookChatStore()
+const aiGeneralStore = useAiGeneralChatStore()
+const { currentSessionId, isNewSession } = storeToRefs(aiTextbookStore)
 const route = useRoute()
 
 const props = defineProps<{
@@ -279,6 +310,44 @@ const overlayButtonStyle = ref<Record<string, string>>({
 
 const overlayButtonReady = ref(false)
 
+const clearChatDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+
+const openClearChatDialog = () => {
+  clearChatDialogRef.value?.openDialog()
+}
+
+const cancelClearChat = () => {
+  clearChatDialogRef.value?.closeDialog()
+}
+
+const confirmClearChat = async () => {
+  try {
+    clearChatDialogRef.value?.closeDialog()
+
+    // 关键：教材聊天后端 thread_id 优先取 ai-general 的顶部会话ID。
+    // 因此清空时强制创建一个新的 ai-general 顶部会话，确保后端 thread_id 变化。
+    aiGeneralStore.resetState()
+    await aiGeneralStore.createSession('清空记录')
+
+    await aiTextbookStore.clearChatHistory()
+    aiTextbookStore.clearAttachedScreenshots()
+    aiTextbookStore.clearScreenshotDrawingStates()
+
+    const userId = getUserId() || ''
+    const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
+    currentSessionId.value = newSessionId
+    isNewSession.value = true
+
+    selectedRecordId.value = undefined
+    activeTab.value = 'ai-chat'
+
+    await nextTick()
+    setTimeout(updateOverlayButtonPosition, 100)
+  } catch (error) {
+    console.error('[PdfChatPanel] 清空记录失败:', error)
+  }
+}
+
 // 计算并更新遮罩层按钮位置，确保覆盖实际按钮
 const updateOverlayButtonPosition = async () => {
   overlayButtonReady.value = false
@@ -286,7 +355,9 @@ const updateOverlayButtonPosition = async () => {
 
   try {
     // 获取实际按钮元素
-    const actualButton = document.querySelector('.chat-content-container .tab-content .pdf-toolbar-btn') as HTMLElement
+    const actualButton = document.querySelector(
+      '.chat-content-container .tab-content .pdf-toolbar-btn--select-and-ask',
+    ) as HTMLElement
     if (!actualButton) {
       console.warn('[PdfChatPanel] 找不到实际按钮元素')
       return
@@ -435,6 +506,27 @@ defineExpose({
   justify-content: center;
   cursor: pointer;
   position: relative; /* 为覆盖层提供定位上下文 */
+}
+
+.pdf-toolbar-btn--clear {
+  height: 32px;
+  padding: 0 10px;
+  border: 1.3px solid #615efe;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.95);
+  gap: 6px;
+}
+
+.pdf-toolbar-icon--clear {
+  width: 19px;
+  height: 16px;
+}
+
+.pdf-toolbar-text {
+  font-size: 13px;
+  line-height: 1;
+  color: #2f2a45;
+  font-weight: 400;
 }
 
 .pdf-toolbar-icon {

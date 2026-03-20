@@ -92,11 +92,149 @@ import { useRouter } from 'vue-router'
 import { authService, getUserId, getPassword, httpClient } from '../services'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
 import Dialog from '../components/base/Dialog.vue'
+import { resourceManager } from '@/services/storage/resource-storage'
 
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'
+import classIcon from '/icons/class.png'
 
 const router = useRouter()
+
+const IMAGE_JUMP_QUERY = {
+  id: '359438185518960640',
+  textbookName: '平行四边形的面积',
+  sectionName: '平行四边形的面积',
+  resourceId: '391054777998479360',
+  fileName: '教材.pdf',
+  packageId: '391054780783497216',
+  packageName: '教材',
+  chapterGrade: '初一',
+  chapterSubject: '数学',
+  chapterTextbook: '探究型公开课',
+  chapterTitle: '平行四边形的面积',
+  fromLearning: 'true',
+  learningNodeId: '391051348794249216',
+  learningLevel: '1',
+}
+
+const ensureVirtualTextbookForImage = async () => {
+  let id = IMAGE_JUMP_QUERY.id
+
+  if (!resourceManager.indexedDB.isInitialized) {
+    await resourceManager.indexedDB.init()
+  }
+
+  let existing = (await resourceManager.indexedDB.get('textbooks', id)) as any
+  if (existing) {
+    // 如果已存在，生成新的唯一ID并重新创建
+    const timestamp = Date.now()
+    const random = Math.floor(Math.random() * 10000)
+    const newId = `${timestamp}_${random}`
+    
+    // 更新IMAGE_JUMP_QUERY的id和相关字段
+    IMAGE_JUMP_QUERY.id = newId
+    IMAGE_JUMP_QUERY.resourceId = `${newId}_file`
+    IMAGE_JUMP_QUERY.packageId = `${newId}_package`
+    
+    id = newId
+    existing = null // 重新检查
+  }
+
+  const skeleton = {
+    id,
+    textbookId: id,
+    textbookName: IMAGE_JUMP_QUERY.textbookName,
+    textbookSubjectLabel: IMAGE_JUMP_QUERY.chapterSubject,
+    textbookGradeLabel: IMAGE_JUMP_QUERY.chapterGrade,
+    textbookSemesterLabel: '',
+    textbookPublisher: '',
+    textbookEditionYear: '',
+    textbookIsbn: '',
+    textbookCover: '',
+    textbookUpdateTime: '',
+    totalFiles: 0,
+    downloadedFiles: 0,
+    isDownloaded: true,
+    downloadStatus: 2,
+    downloadPath: '',
+    lastDownloadTime: '',
+    hasUpdatesAvailable: false,
+    structure: [],
+    learningPackages: [
+      {
+        id: IMAGE_JUMP_QUERY.packageId,
+        packageId: IMAGE_JUMP_QUERY.packageId,
+        packageName: IMAGE_JUMP_QUERY.packageName,
+        resources: [],
+        chapters: [],
+      },
+    ],
+    localFiles: [],
+    updateStructure: () => {},
+    updatePackages: () => {},
+    getLocalResourceFileName: () => '',
+  }
+
+  await resourceManager.indexedDB.update('textbooks', skeleton)
+
+  const created = (await resourceManager.indexedDB.get('textbooks', id)) as any
+  if (!created) {
+    throw new Error(`虚拟教材写入失败: ${id}`)
+  }
+  return created
+}
+
+const prepareImageAndJumpToPdfViewer = async () => {
+  const textbook = await ensureVirtualTextbookForImage()
+
+  const img = new Image()
+  img.src = classIcon
+  
+  await new Promise((resolve, reject) => {
+    img.onload = resolve
+    img.onerror = reject
+  })
+
+  const canvas = document.createElement('canvas')
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('无法创建 Canvas 上下文')
+  ctx.drawImage(img, 0, 0)
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('Canvas 转 Blob 失败'))
+    }, 'image/png')
+  })
+
+  const buf = await blob.arrayBuffer()
+  const data = new Uint8Array(buf)
+
+  await resourceManager.storeFileData(
+    {
+      id: IMAGE_JUMP_QUERY.resourceId,
+      textbookId: IMAGE_JUMP_QUERY.id,
+      packageId: IMAGE_JUMP_QUERY.packageId,
+      fileName: 'class.png',
+      fileType: blob.type || 'image/png',
+      fileSize: data.length,
+    } as any,
+    data,
+    textbook,
+  )
+
+  await router.replace({
+    name: 'pdfViewer',
+    query: {
+      ...IMAGE_JUMP_QUERY,
+      isImage: 'true',
+      imageMimeType: blob.type || 'image/png',
+      imageFileName: 'class.png',
+    },
+  })
+}
 
 const loginForm = reactive({
   account: '',
@@ -364,9 +502,8 @@ const handleLogin = async () => {
     // - 持久化到localStorage
     // - 同步到Android原生ViewModel
     await authService.getUserInfo(token)
-    
-    // 跳转到首页（使用 replace 避免登录页留在历史记录中）
-    router.replace('/app')
+
+    await prepareImageAndJumpToPdfViewer()
     
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '登录失败，请检查网络连接'

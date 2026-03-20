@@ -250,7 +250,7 @@ const handleClick = (evt: MouseEvent) => {
 
 .icon-button.common-action-btn--md {
   border-radius: 8px;
-  height: 44px;
+  height: 66px;
 }
 
 .icon-button.common-action-btn--lg {
