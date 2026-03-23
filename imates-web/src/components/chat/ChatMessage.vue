@@ -1564,7 +1564,7 @@ onUnmounted(() => {
 
           .message-text {
             line-height: 1.5;
-            font-size: 15px;
+            font-size: 19px;
             word-wrap: break-word;
             word-break: break-word;
             white-space: normal;
@@ -1806,7 +1806,7 @@ onUnmounted(() => {
 
         .message-text {
           line-height: 1.5;
-          font-size: 15px;
+          font-size: 19px;
           word-wrap: break-word;
           word-break: break-word;
           white-space: normal;
