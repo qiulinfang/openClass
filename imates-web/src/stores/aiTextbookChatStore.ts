@@ -29,6 +29,7 @@ import {
   buildRetryFailureMessage,
   findMessageIndex,
   validateMessageExists,
+  generateUniqueId,
   type ChatImageData,
 } from './utils/chatStoreUtils'
 import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
@@ -456,6 +457,26 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     backendSessionId.value = null  // 同时重置后端会话ID
     backendSessionOwnerUserId.value = null
     isNewSession.value = true
+  }
+
+  /**
+   * 初始化默认欢迎消息
+   */
+  const initDefaultWelcomeMessage = (): void => {
+    // 只有在消息列表为空时才添加默认欢迎消息
+    if (messages.value.length === 0) {
+      const welcomeMessage: ChatBubble = {
+        id: generateUniqueId('welcome'),
+        content: '你好呀，我是你们的学习伙伴小葵，欢迎你们和我交流问题或想法哦～',
+        type: Sender.AI,
+        timestamp: new Date().toISOString(),
+        sender: Sender.AI,
+        messageType: 'text',
+        isStreaming: false,
+        isError: false,
+      }
+      messages.value.push(welcomeMessage)
+    }
   }
 
   // ========== 截图挂载管理（PDF 场景用） ==========
@@ -958,6 +979,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 统一按 resourceId 维度存取
       const targetResourceId = resourceIdOrStorageKey || resourceId.value
       if (!targetResourceId) {
+        // 没有 resourceId 时，直接显示默认欢迎消息
+        initDefaultWelcomeMessage()
         return
       }
 
@@ -984,11 +1007,15 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       } else {
         messages.value = []
         chatResponseTimes.value = 0
+        // 没有历史记录时，显示默认欢迎消息
+        initDefaultWelcomeMessage()
       }
     } catch (error) {
       console.error('加载聊天历史失败:', error)
       messages.value = []
       chatResponseTimes.value = 0
+      // 加载失败时，也显示默认欢迎消息
+      initDefaultWelcomeMessage()
     } finally {
       isChatLoading.value = false
     }
@@ -1001,12 +1028,16 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     try {
       if (!resourceId.value) {
         clearMessages()
+        // 清空消息后显示默认欢迎语
+        initDefaultWelcomeMessage()
         return
       }
       
       const storageKey = `ai-textbook-${resourceId.value}`
       await chatStorage.removeChatHistory(storageKey)
       clearMessages()
+      // 清空消息后显示默认欢迎语
+      initDefaultWelcomeMessage()
     } catch (error) {
       console.error('清除聊天历史失败:', error)
     }
@@ -1043,6 +1074,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     addMessage,
     updateMessage,
     clearMessages,
+    initDefaultWelcomeMessage,
     setAttachedScreenshots,
     appendAttachedScreenshots,
     removeAttachedScreenshot,
