@@ -5,88 +5,46 @@
       <img :src="textbookipIcon" alt="textbookip" class="explore-icon textbookip" />
       <img :src="ipWordIcon" alt="ipWord" class="explore-icon ipWord" />
     </div>
-    <!-- 遮罩层上的按钮（独立于遮罩层，避免被覆盖） -->
-    <button
-      v-if="isExploring && overlayButtonReady"
-      type="button"
-      class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
-      :class="{ 'explore-icon-large': hasAttachedScreenshots }"
-      :style="overlayButtonStyle"
-      @click.stop="handleSelectAndAskClick"
-    >
-      <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
-    </button>
 
     <!-- 对话面板头部 -->
     <div class="chat-panel-header">
-      <!-- Tab 切换 -->
-      <div class="chat-tabs">
-        <div class="tab-list">
-          <div
-            v-for="tab in tabOptions"
-            :key="tab.value"
-            :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
-            @click="activeTab = tab.value"
-          >
-            <span>{{ tab.label }}</span>
-          </div>
-        </div>
-      </div>
-      <!-- 关闭按钮 -->
-      <q-btn flat round dense icon="close" size="md" @click="handleClose" class="close-button" />
+      <div class="user-id">{{ xuebanUserId }}</div>
+      <slot name="header-actions" />
     </div>
 
     <!-- Tab 内容区域 -->
     <div class="chat-content-container">
-      <!-- AI 问答 Tab -->
-      <div v-show="activeTab === 'ai-chat'" class="tab-content">
-        <ChatView
-          ref="chatViewRef"
-          type="ai-textbook"
-          :compressed-height="360"
-          @send-with-screenshot="
-            (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
-          "
-          @remove-screenshot="(id) => emit('remove-screenshot', id)"
-          @edit-screenshot="(id) => emit('edit-screenshot', id)"
-          @open-teacher-dialog="handleOpenTeacherDialog"
-          @switch-to-teacher="handleSwitchToTeacher"
-        >
-          <!-- 通过 ChatView 的 header-prefix 插槽引入“选中并问”按钮 -->
-          <template #header-prefix>
-            <button
-              type="button"
-              class="pdf-toolbar-btn pdf-toolbar-btn--select-and-ask"
-              @click="handleSelectAndAskClick"
-            >
-              <img :src="selectAndAskIconToUse" alt="选中并问" class="pdf-toolbar-icon" />
-            </button>
+      <ChatView
+        ref="chatViewRef"
+        type="ai-textbook"
+        :compressed-height="360"
+        @send-with-screenshot="
+          (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
+        "
+        @remove-screenshot="(id) => emit('remove-screenshot', id)"
+        @edit-screenshot="(id) => emit('edit-screenshot', id)"
+        @open-teacher-dialog="handleOpenTeacherDialog"
+        @switch-to-teacher="handleSwitchToTeacher"
+      >
+        <template #header-prefix>
+          <button
+            type="button"
+            class="pdf-toolbar-btn pdf-toolbar-btn--select-and-ask"
+            @click="handleSelectAndAskClick"
+          >
+            <img :src="selectAndAskIconToUse" alt="选中并问" class="pdf-toolbar-icon" />
+          </button>
 
-            <button
-              type="button"
-              class="pdf-toolbar-btn pdf-toolbar-btn--clear"
-              @click="openClearChatDialog"
-            >
-              <img :src="deleteIcon" alt="清空记录" class="pdf-toolbar-icon pdf-toolbar-icon--clear" />
-              <span class="pdf-toolbar-text">清空记录</span>
-            </button>
-          </template>
-        </ChatView>
-      </div>
-      <!-- 会话记录 Tab -->
-      <div v-show="activeTab === 'question-record'" class="tab-content">
-        <div class="session-list-wrapper">
-          <SessionList
-            :records="sessions"
-            :selectedRecordId="selectedRecordId"
-            @record-click="handleSessionClick"
-            @record-delete="handleSessionDelete"
-            @record-pin="handleSessionPin"
-            @batch-delete="handleBatchDelete"
-            :showHeader="false"
-          />
-        </div>
-      </div>
+          <button
+            type="button"
+            class="pdf-toolbar-btn pdf-toolbar-btn--clear"
+            @click="openClearChatDialog"
+          >
+            <img :src="deleteIcon" alt="清空记录" class="pdf-toolbar-icon pdf-toolbar-icon--clear" />
+            <span class="pdf-toolbar-text">清空记录</span>
+          </button>
+        </template>
+      </ChatView>
     </div>
 
     <!-- 全局聊天对话框 -->
@@ -108,22 +66,14 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, watch, type ComponentPublicInstance } from 'vue'
 import { storeToRefs } from 'pinia'
-import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import ChatView from '@/components/ChatView.vue'
-import SessionList from '@/components/SessionList.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import Dialog from '@/components/base/Dialog.vue'
 import { useRoute } from 'vue-router'
-import type { AiTextbookSession, AttachedScreenshot, ChatEntry } from '@/types'
-import {
-  getScreenshotSessionsByResourceId,
-  deleteScreenshotSession,
-  batchDeleteScreenshotSessions,
-  updateScreenshotSession,
-} from '@/utils/storage/screenshotSessions'
+import type { AttachedScreenshot, ChatEntry } from '@/types'
 import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 import textbookipIcon from '/icons/textbookip.png'
@@ -153,18 +103,6 @@ const emit = defineEmits<{
 // ChatView 实例引用
 const chatViewRef = ref<ComponentPublicInstance | null>(null)
 
-// Tab 状态
-const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
-
-// Tab 选项
-const tabOptions = CHAT_TAB_OPTIONS as Array<{ label: string; value: 'ai-chat' | 'question-record' }>
-
-// 会话数据
-const sessions = ref<AiTextbookSession[]>([])
-
-// 选中的会话ID
-const selectedRecordId = ref<string | undefined>(undefined)
-
 // 全局聊天对话框显示状态
 const showGlobalChatDialog = ref(false)
 
@@ -173,9 +111,9 @@ const globalChatEntry = ref<ChatEntry | undefined>(undefined)
 // “选中并问”按钮选中状态：与截图工具是否被选中保持一致
 const isSelectAndAskSelected = computed(() => pdfViewerStore.selectedTool === 'screenshot')
 
-// 是否处于“探索/截图”选择状态 —— 当工具为 screenshot 且当前为 AI 问答 tab 时显示遮罩
+// 是否处于“探索/截图”选择状态 —— 当工具为 screenshot 时显示遮罩
 const isExploring = computed(() => {
-  return pdfViewerStore.selectedTool === 'screenshot' && activeTab.value === 'ai-chat'
+  return pdfViewerStore.selectedTool === 'screenshot'
 })
 
 // 计算当前使用的"选中并问"图标
@@ -190,9 +128,15 @@ const hasAttachedScreenshots = computed(() => {
 
 const attachedScreenshotCount = computed(() => aiTextbookStore.attachedScreenshots.length)
 
-// 辅助函数：获取会话ID（兼容 id 和 sessionId）
-const getSessionId = (session: AiTextbookSession): string => {
-  return session.sessionId || session.id || ''
+const xuebanUserId = ref('')
+
+const syncXuebanUserIdFromStorage = () => {
+  try {
+    const id = localStorage.getItem('xuebanuserid') || ''
+    xuebanUserId.value = id
+  } catch {
+    xuebanUserId.value = ''
+  }
 }
 
 // 获取当前 resourceId（仅从路由参数获取）
@@ -209,64 +153,11 @@ const setupResourceId = () => {
   }
 }
 
-// 加载会话列表
-const loadSessions = async () => {
-  const currentResourceId = getCurrentResourceId() || ''
-  const byResource = await getScreenshotSessionsByResourceId(currentResourceId)
-  sessions.value = byResource
-  console.log('[会话] 加载(按 resourceId)', { currentResourceId, sessions: sessions.value })
-}
-
-// 处理会话点击
-const handleSessionClick = async (record: AiTextbookSession) => {
-  selectedRecordId.value = getSessionId(record)
-  const sessionId = getSessionId(record)
-
-  // 打开对话面板
-  pdfViewerStore.openChatPanel()
-  // 切换到 AI 问答 Tab
-  activeTab.value = 'ai-chat'
-
-  await nextTick()
-  ;(chatViewRef.value as any)?.scrollToSession?.(sessionId)
-}
-
-// 处理会话删除
-const handleSessionDelete = async (record: AiTextbookSession) => {
-  const sessionId = getSessionId(record)
-  const ok = await deleteScreenshotSession(sessionId)
-  if (ok) {
-    if (selectedRecordId.value === sessionId) {
-      selectedRecordId.value = undefined
-    }
-    await loadSessions()
-  }
-}
-
-// 处理批量删除
-const handleBatchDelete = async (recordIds: string[]) => {
-  const ok = await batchDeleteScreenshotSessions(recordIds)
-  if (ok) {
-    if (selectedRecordId.value && recordIds.includes(selectedRecordId.value)) {
-      selectedRecordId.value = undefined
-    }
-    await loadSessions()
-  }
-}
-
-// 处理置顶
-const handleSessionPin = async (record: AiTextbookSession) => {
-  record.pinned = !record.pinned
-  const ok = await updateScreenshotSession(record)
-  if (ok) {
-    await loadSessions()
-  }
-}
-
 // 关闭对话面板
 const handleClose = () => {
   emit('close')
 }
+
 
 // 处理打开老师对话框
 const handleOpenTeacherDialog = ({ sessionId }: { sessionId: string; message?: any }) => {
@@ -298,18 +189,6 @@ const handleSelectAndAskClick = () => {
   emit('select-and-ask-click')
 }
 
-// 遮罩层按钮位置样式
-const overlayButtonStyle = ref<Record<string, string>>({
-  position: 'fixed', // 使用 fixed 定位相对于视口
-  left: '24px',
-  top: '16px',
-  width: '32px',
-  height: '32px',
-  zIndex: '35'
-})
-
-const overlayButtonReady = ref(false)
-
 const clearChatDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 
 const openClearChatDialog = () => {
@@ -337,75 +216,25 @@ const confirmClearChat = async () => {
     const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
     currentSessionId.value = newSessionId
     isNewSession.value = true
-
-    selectedRecordId.value = undefined
-    activeTab.value = 'ai-chat'
-
-    await nextTick()
-    setTimeout(updateOverlayButtonPosition, 100)
   } catch (error) {
     console.error('[PdfChatPanel] 清空记录失败:', error)
   }
 }
 
-// 计算并更新遮罩层按钮位置，确保覆盖实际按钮
-const updateOverlayButtonPosition = async () => {
-  overlayButtonReady.value = false
-  await nextTick()
-
-  try {
-    // 获取实际按钮元素
-    const actualButton = document.querySelector(
-      '.chat-content-container .tab-content .pdf-toolbar-btn--select-and-ask',
-    ) as HTMLElement
-    if (!actualButton) {
-      console.warn('[PdfChatPanel] 找不到实际按钮元素')
-      return
-    }
-
-    // 获取按钮相对于视口的位置
-    const buttonRect = actualButton.getBoundingClientRect()
-
-    // 更新遮罩层按钮样式 - 使用视口固定定位
-    overlayButtonStyle.value = {
-      position: 'fixed' as const,
-      left: `${buttonRect.left}px`,
-      top: `${buttonRect.top}px`,
-      width: `${buttonRect.width}px`,
-      height: `${buttonRect.height}px`,
-      zIndex: '35'
-    }
-
-    overlayButtonReady.value = true
-
-    console.log('[PdfChatPanel] 遮罩层按钮位置已更新:', overlayButtonStyle.value)
-  } catch (error) {
-    console.error('[PdfChatPanel] 计算按钮位置失败:', error)
-  }
-}
-
-// 监听相关状态变化，更新遮罩层按钮位置
-watch([isExploring, activeTab, attachedScreenshotCount], async (newValues) => {
-  const [exploring, tab] = newValues
-  if (exploring && tab === 'ai-chat') {
-    // 延迟执行，确保DOM已更新
-    setTimeout(updateOverlayButtonPosition, 100)
-  } else {
-    overlayButtonReady.value = false
-  }
-}, { immediate: false })
-
 onMounted(async () => {
   // 设置资源ID，确保基于资源的会话ID生成
   setupResourceId()
-  await loadSessions()
 
-  // 初始计算按钮位置
-  setTimeout(updateOverlayButtonPosition, 200)
+  syncXuebanUserIdFromStorage()
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'xuebanuserid') {
+      syncXuebanUserIdFromStorage()
+    }
+  })
 })
 
 defineExpose({
-  reloadSessions: loadSessions,
+  reloadSessions: () => {},
 })
 </script>
 
@@ -423,72 +252,39 @@ defineExpose({
   padding-top: 10px;
   height: 48px;
   display: flex;
-  justify-content: center;
-  align-items: flex-end;
-}
-
-/* Tab 列表 */
-.tab-list {
-  display: flex;
-  gap: 2px;
-}
-
-/* 每个 Tab 项 */
-.tab-item {
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 12px;
+  gap: 10px;
   position: relative;
-  padding: 8px 18px;
-  color: #a19cb6;
-  text-decoration: none;
-  font-size: 15px;
-  font-weight: bold;
-  text-align: center;
-  cursor: pointer;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  width: 100px;
 }
 
-/* 激活的 Tab 项 */
-.tab-active {
-  background-image: url('/icons/sessionbackfround.png');
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-position: center center;
-  color: #504b64;
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
-  height: 40px;
-  line-height: 24px;
-  width: 100px;
-}
-
-/* 激活 Tab 底部下划线 */
-.tab-active::after {
-  content: '';
+.user-id {
   position: absolute;
-  bottom: 1px;
   left: 50%;
   transform: translateX(-50%);
-  width: 30%;
-  height: 3px;
-  background: #6e55ff;
-  border-radius: 2px;
+  max-width: 220px;
+  font-size: 14px;
+  color: #2f2a45;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Tab hover */
-.tab-item:hover:not(.tab-active) {
-  opacity: 0.85;
-  background: transparent;
+:slotted(.join-class-button) {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(97, 94, 254, 0.5);
+  background: rgba(255, 255, 255, 0.95);
+  color: #2f2a45;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-/* 关闭按钮 */
-.close-button {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  color: #393548;
-  z-index: 1;
+:slotted(.join-class-button.in-class) {
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 .chat-content-container {
@@ -548,16 +344,7 @@ defineExpose({
   pointer-events: none; /* 不阻止点击，但提供视觉覆盖 */
 }
 
-.tab-content {
-  height: 100%;
-  border-radius: 20px;
-}
 
-.session-list-wrapper {
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
 
 /* 探索遮罩层：浅紫色半透明覆盖整个面板，禁止背后的元素交互 */
 .explore-overlay {
@@ -592,23 +379,4 @@ defineExpose({
   height: auto;
 }
 
-/* 遮罩层按钮样式：位置由JavaScript动态计算和设置 */
-.explore-icon.pdf-toolbar-icon-overlay {
-  position: fixed;
-  z-index: 35;
-  pointer-events: auto;
-  cursor: pointer;
-  /* 基础样式，具体位置由:style动态设置 */
-  border: none;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-}
-
-/* 当有附加截图时，按钮更大 */
-.explore-icon-large {
-  bottom: 26.7%  !important;;
-}
 </style>

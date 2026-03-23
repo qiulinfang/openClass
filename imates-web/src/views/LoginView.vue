@@ -93,6 +93,8 @@ import { authService, getUserId, getPassword, httpClient } from '../services'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
 import Dialog from '../components/base/Dialog.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
+import { chatStorage } from '../services/storage/chat-storage'
+import type { AiGeneralSession } from '../types'
 
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'
@@ -100,13 +102,15 @@ import classIcon from '/icons/class.png'
 
 const router = useRouter()
 
+const virtualTextbookId = `${getUserId()}_35943sdfsf0640`
+
 const IMAGE_JUMP_QUERY = {
-  id: '359438185518960640',
+  id: virtualTextbookId,
   textbookName: '平行四边形的面积',
   sectionName: '平行四边形的面积',
-  resourceId: '391054777998479360',
+  resourceId: `${virtualTextbookId}_file`,
   fileName: '教材.pdf',
-  packageId: '391054780783497216',
+  packageId: `${virtualTextbookId}_package`,
   packageName: '教材',
   chapterGrade: '初一',
   chapterSubject: '数学',
@@ -118,26 +122,10 @@ const IMAGE_JUMP_QUERY = {
 }
 
 const ensureVirtualTextbookForImage = async () => {
-  let id = IMAGE_JUMP_QUERY.id
+  const id = IMAGE_JUMP_QUERY.id
 
   if (!resourceManager.indexedDB.isInitialized) {
     await resourceManager.indexedDB.init()
-  }
-
-  let existing = (await resourceManager.indexedDB.get('textbooks', id)) as any
-  if (existing) {
-    // 如果已存在，生成新的唯一ID并重新创建
-    const timestamp = Date.now()
-    const random = Math.floor(Math.random() * 10000)
-    const newId = `${timestamp}_${random}`
-    
-    // 更新IMAGE_JUMP_QUERY的id和相关字段
-    IMAGE_JUMP_QUERY.id = newId
-    IMAGE_JUMP_QUERY.resourceId = `${newId}_file`
-    IMAGE_JUMP_QUERY.packageId = `${newId}_package`
-    
-    id = newId
-    existing = null // 重新检查
   }
 
   const skeleton = {
@@ -285,6 +273,32 @@ const loadAppVersion = (): string => {
   }
 }
 
+const ensureAiGeneralSession = async (userId: string) => {
+  try {
+    if (!userId || userId === 'undefined' || userId.trim() === '') return
+
+    const generalSessions = await chatStorage.loadGeneralSessions()
+    if (generalSessions && generalSessions.length > 0) {
+      return
+    }
+
+    const rand = Math.random().toString(16).slice(2, 6)
+    const sessionId = `${userId}-general-session-${Date.now()}-${rand}`
+    const newSession: AiGeneralSession = {
+      sessionId,
+      sessionName: `AI通用会话-${rand}`,
+      createTime: Date.now(),
+      updateTime: Date.now(),
+      msgCount: 0,
+      pinned: true,
+    }
+    await chatStorage.saveGeneralSessions([newSession])
+    console.log('[LoginView] ai-general 会话列表为空，已创建随机会话:', { sessionId })
+  } catch (error) {
+    console.warn('[LoginView] ensureAiGeneralSession 失败:', error)
+  }
+}
+
 // 保存版本号到 localStorage
 const saveAppVersion = (version: string): void => {
   try {
@@ -336,6 +350,12 @@ onMounted(async () => {
   // 从 localStorage 加载已保存的版本号
   appVersion.value = loadAppVersion()
   console.log('[LoginView] 从 localStorage 加载版本号:', appVersion.value)
+
+  try {
+    await ensureAiGeneralSession(savedUserId || '')
+  } catch (error) {
+    console.warn('[LoginView] 写入 ai-general 会话列表失败:', error)
+  }
 
   // Web 端主动调用更新接口检查服务器版本号
   await checkAppUpdate()
@@ -493,15 +513,11 @@ const handleLogin = async () => {
   isLoading.value = true
   
   try {
-    // 直接发送明文密码，与Android端LoginActivity保持一致
-    // loginXueban内部已自动保存token和用户凭据到localStorage
     const token = await authService.loginXueban(loginForm.account, loginForm.password)
 
-    // 获取用户信息
-    // getUserInfo内部已自动完成：
-    // - 持久化到localStorage
-    // - 同步到Android原生ViewModel
     await authService.getUserInfo(token)
+
+    await ensureAiGeneralSession(getUserId() || loginForm.account)
 
     await prepareImageAndJumpToPdfViewer()
     
