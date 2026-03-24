@@ -157,6 +157,9 @@
                     ctx.drawImage(handIcon, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
                 }
             });
+
+            // 绘制边长标签
+            drawEdgeLabels();
         }
 
         function checkPointHover(mx, my) {
@@ -168,6 +171,76 @@
                 }
             });
             return found;
+        }
+
+        // 计算两点之间的距离（像素）
+        function getDistance(p1, p2) {
+            return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+        }
+
+        // 绘制边长标签
+        function drawEdgeLabels() {
+            if (!points || points.length < 4) return;
+            
+            const [A, B, C, D] = points;
+            const edges = [
+                { p1: A, p2: B, name: '底边' },
+                { p1: B, p2: C, name: '侧边' },
+                { p1: C, p2: D, name: '底边' },
+                { p1: D, p2: A, name: '侧边' }
+            ];
+
+            ctx.save();
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            edges.forEach((edge, index) => {
+                const length = getDistance(edge.p1, edge.p2);
+                const lengthInUnits = (length / UNIT).toFixed(1);
+                
+                // 计算中点位置
+                const midX = (edge.p1.x + edge.p2.x) / 2;
+                const midY = (edge.p1.y + edge.p2.y) / 2;
+                
+                // 计算边的角度，用于调整标签位置
+                const angle = Math.atan2(edge.p2.y - edge.p1.y, edge.p2.x - edge.p1.x);
+                
+                // 根据边的方向计算偏移量（将标签稍微偏离边）
+                const offsetDistance = 20;
+                const offsetX = Math.sin(angle) * offsetDistance;
+                const offsetY = -Math.cos(angle) * offsetDistance;
+                
+                const labelX = midX + offsetX;
+                const labelY = midY + offsetY;
+                
+                // 绘制标签背景
+                const text = `${lengthInUnits}`;
+                const textWidth = ctx.measureText(text).width;
+                const padding = 6;
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.strokeStyle = '#4f46e5';
+                ctx.lineWidth = 1;
+                
+                // 绘制圆角矩形背景
+                ctx.beginPath();
+                ctx.roundRect(
+                    labelX - textWidth / 2 - padding,
+                    labelY - 10,
+                    textWidth + padding * 2,
+                    20,
+                    4
+                );
+                ctx.fill();
+                ctx.stroke();
+                
+                // 绘制文字
+                ctx.fillStyle = '#4f46e5';
+                ctx.fillText(text, labelX, labelY + 1);
+            });
+
+            ctx.restore();
         }
 
         function handleDrag(mx, my) {
