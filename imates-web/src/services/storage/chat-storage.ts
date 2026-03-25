@@ -122,6 +122,10 @@ export class ChatStorageService {
     const toPlainRecord = (input: unknown): Record<string, any> | undefined => {
       if (!input || typeof input !== 'object') return undefined
       try {
+        if (Array.isArray(input)) {
+          // 解除 Vue 响应式，确保 IndexedDB 能存储
+          return JSON.parse(JSON.stringify(input)) as unknown as Record<string, any>
+        }
         return { ...(input as Record<string, any>) }
       } catch {
         return undefined
@@ -181,7 +185,7 @@ export class ChatStorageService {
         messageId: msg.messageId,
         messageType: msg.messageType,
         rawHtml: msg.rawHtml,
-        rawHtmlMap: toPlainRecord(msg.rawHtmlMap),
+        rawHtmlMap: msg.rawHtmlMap ? JSON.parse(JSON.stringify(msg.rawHtmlMap)) : undefined,
         isRead: msg.isRead, // 序列化已读状态
         isStreaming: msg.isStreaming || false,
         // 完整序列化 imageData，包括 base64DataUrl（用于UI显示）

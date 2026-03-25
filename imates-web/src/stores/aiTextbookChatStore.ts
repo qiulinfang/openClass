@@ -18,6 +18,7 @@ import { useAiGeneralChatStore } from './aiGeneralChatStore'
 import { useChatPersistence } from '@/composables/useChatPersistence'
 import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
+import { useHtmlMessageRawMap } from '@/composables/useHtmlMessageRawMap'
 import {
   createUserMessage,
   createTempAiReplyMessage,
@@ -77,19 +78,19 @@ interface BuildTextbookMessageParams {
 
 export const REQUIRED_CHAPTER_INFO_LIST = [
   {
-    // grade: '初一',
+    grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '最短路径的基本原理',
   },
   {
-    // grade: '初一',
+    grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '能移回去吗',
   },
   {
-    // grade: '初一',
+    grade: '初一',
     subject: '数学',
     textbook: '探究型公开课',
     chapter_title: '平行四边形的面积',
@@ -139,11 +140,13 @@ const shouldSendChapterInfo = (info: BuildTextbookMessageParams['chapterInfo']):
   if (!keys.every((k) => k === 'grade' || k === 'subject' || k === 'textbook' || k === 'chapter_title')) {
     return false
   }
+  const matchedInfo = getMatchedChapterInfo(info)
+  if (!matchedInfo) return false
   return (
-    info.grade === REQUIRED_CHAPTER_INFO.grade &&
-    info.subject === REQUIRED_CHAPTER_INFO.subject &&
-    info.textbook === REQUIRED_CHAPTER_INFO.textbook &&
-    info.chapter_title === REQUIRED_CHAPTER_INFO.chapter_title
+    info.grade === matchedInfo.grade &&
+    info.subject === matchedInfo.subject &&
+    info.textbook === matchedInfo.textbook &&
+    info.chapter_title === matchedInfo.chapter_title
   )
 }
 
@@ -183,7 +186,7 @@ const buildAiTextbookMessage = ({
       role: chatRole,
       subject,
       sectionName: sectionName || undefined,
-      chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
+      chapter_info: shouldSendChapterInfo(chapterInfo) ? getMatchedChapterInfo(chapterInfo) : undefined,
       dstUrl: getApiPaths().xueban.ai.previewPictureQA,
       explanation: '', // 教材场景占位
       imageList,
@@ -210,7 +213,7 @@ const buildAiTextbookMessage = ({
     role: chatRole,
     subject,
     sectionName: sectionName || undefined,
-    chapter_info: shouldSendChapterInfo(chapterInfo) ? REQUIRED_CHAPTER_INFO : undefined,
+    chapter_info: shouldSendChapterInfo(chapterInfo) ? getMatchedChapterInfo(chapterInfo) : undefined,
     dstUrl,
     explanation: '', // 教材场景占位
     imageList,
@@ -278,130 +281,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     onAfterHistorySync: () => saveChatHistory(),
   })
 
-  const enhanceResponsiveHtml = (html: string): string => {
-    if (!html) return html
-
-    let enhancedHtml = html
-
-    // 仅展示绘图区：强制关闭 GeoGebra Classic 的非绘图 UI
-    // 仅做替换（不插入新字段），避免破坏源 HTML
-    const forceFalseKeys = [
-      'showToolBar',
-      'showAlgebraInput',
-      'showMenuBar',
-      'allowStyleBar',
-      'showFullscreenButton',
-      'enableLabelDrags',
-      'enableRightClick',
-      'errorDialogsActive',
-    ]
-    for (const key of forceFalseKeys) {
-      const reg = new RegExp(`(["']?${key}["']?\\s*:\\s*)true`, 'gi')
-      enhancedHtml = enhancedHtml.replace(reg, `$1false`)
-    }
-
-    // Classic 模式下强制仅几何视图：perspective 设为 "G"（不含 Algebra）
-    // 仅替换已存在的 perspective 字段，避免对非 GeoGebra HTML 产生副作用
-    enhancedHtml = enhancedHtml.replace(
-      /(["']?perspective["']?\s*:\s*)["'][^"']*["']/gi,
-      `$1"G"`,
-    )
-
-    // 如果没有 perspective 字段，主动插入 perspective: "G"
-    // 查找 parameters 对象并在其中插入 perspective 配置
-    if (!enhancedHtml.includes('perspective')) {
-      enhancedHtml = enhancedHtml.replace(
-        /(\bparameters\s*=\s*\{[^}]*)}/gi,
-        (match, beforeBrace) => {
-          // 如果 parameters 对象为空或已结束，在其末尾插入 perspective
-          if (beforeBrace.trim().endsWith('{') || beforeBrace.trim().endsWith(',')) {
-            return `${beforeBrace} perspective: "G" }`
-          } else {
-            return `${beforeBrace}, perspective: "G" }`
-          }
-        }
-      )
-    }
-
-    enhancedHtml = enhancedHtml.replace(
-      /"width": window\.innerWidth/g,
-      `"width": document.getElementById('ggb-container').parentElement.clientWidth`,
-    )
-    enhancedHtml = enhancedHtml.replace(
-      /"height": window\.innerHeight/g,
-      `"height": document.getElementById('ggb-container').parentElement.clientHeight`,
-    )
-
-    // 已经注入过 ResizeObserver 则不重复注入，但仍保留上面的参数/尺寸替换
-    if (!enhancedHtml.includes('ResizeObserver')) {
-      const resizeScript = `
-        <script>
-          // 添加 ResizeObserver 监听容器变化
-          if (typeof ResizeObserver !== 'undefined') {
-            const resizeObserver = new ResizeObserver(entries => {
-              for (const entry of entries) {
-                const { width, height } = entry.contentRect;
-                const ggbApplet = window.ggbApplet || document.querySelector('#ggb-container')?.ggbApplet;
-                if (ggbApplet && ggbApplet.setSize) {
-                  ggbApplet.setSize(width, height);
-                }
-              }
-            });
-            
-            // 监听 ggb-container 容器
-            const ggbContainer = document.getElementById('ggb-container');
-            if (ggbContainer) {
-              resizeObserver.observe(ggbContainer.parentElement);
-            }
-          }
-        <\/script>
-      `
-
-      enhancedHtml = enhancedHtml.replace('</body>', resizeScript + '</body>')
-    }
-    return enhancedHtml
-  }
-
-  const ensureHtmlRawMapForMessage = async (message: ChatBubble): Promise<boolean> => {
-    if (message.messageType !== 'html') return false
-
-    const urlMatches = message.content
-      ? message.content.match(/(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/gi)
-      : null
-    const urls = urlMatches || []
-    if (urls.length === 0) return false
-
-    if (!message.rawHtmlMap) {
-      message.rawHtmlMap = {}
-    }
-
-    let changed = false
-
-    for (const url of urls) {
-      try {
-        let html = message.rawHtmlMap[url]
-
-        if (!html) {
-          const htmlData = await apiService.fetchHtmlSource(url)
-          if (htmlData && (htmlData.html || htmlData.raw_html)) {
-            html = htmlData.html || htmlData.raw_html
-          }
-        }
-
-        if (html) {
-          const enhanced = enhanceResponsiveHtml(html)
-          if (message.rawHtmlMap[url] !== enhanced) {
-            message.rawHtmlMap[url] = enhanced
-            changed = true
-          }
-        }
-      } catch (error) {
-        console.warn(`[AI_TEXTBOOK] 获取 rawHtml 失败:`, url, error)
-      }
-    }
-
-    return changed
-  }
+  const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
 
   // 每张截图的 DrawingBoard 状态（按截图 id 索引）
   const screenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
@@ -760,7 +640,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const aiIndex = messages.value.findIndex((m) => m.id === tempReplyId)
       if (aiIndex >= 0) {
         const msg = messages.value[aiIndex]
-        const changed = await ensureHtmlRawMapForMessage(msg)
+        const changed = await ensureHtmlRawMapForMessage(msg, { logTag: 'AI_TEXTBOOK' })
         if (changed) {
           messages.value[aiIndex] = { ...msg }
           await saveChatHistory()
@@ -948,7 +828,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       if (data && Array.isArray(data.messages)) {
         const enhancedMessages = await Promise.all(
           data.messages.map(async (message) => {
-            await ensureHtmlRawMapForMessage(message)
+            await ensureHtmlRawMapForMessage(message, { logTag: 'AI_TEXTBOOK' })
             return message
           }),
         )
@@ -973,6 +853,31 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     } finally {
       isChatLoading.value = false
     }
+  }
+
+  const reloadHtmlImage = async (messageId: string, url: string): Promise<void> => {
+    if (!messageId || !url) return
+    const index = messages.value.findIndex((m) => m.id === messageId)
+    if (index < 0) return
+
+    const msg = messages.value[index]
+    if (msg.messageType !== 'html') return
+    if (!msg.rawHtmlMap) msg.rawHtmlMap = {}
+
+    const prev = msg.rawHtmlMap[url]
+    const prevHtml = prev?.[0] || ''
+    msg.rawHtmlMap[url] = [prevHtml, '']
+    messages.value[index] = { ...msg }
+
+    const changed = await ensureHtmlRawMapForMessage(msg, {
+      logTag: 'AI_TEXTBOOK',
+      onlyUrls: [url],
+      forceRender: true,
+    })
+    if (changed) {
+      messages.value[index] = { ...msg }
+    }
+    await saveChatHistory()
   }
   
   /**
@@ -1037,6 +942,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     saveChatHistory,
     loadChatHistory,
     clearChatHistory,
+    reloadHtmlImage,
     toggleWebSearch,
     setResourceId,
     setSectionName,

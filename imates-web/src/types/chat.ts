@@ -51,7 +51,7 @@ export interface ChatBubble {
   timestamp: string
   messageType?: 'text' | 'voice' | 'image' | 'multi_image' | 'chat_record' | 'html' | 'system' | 'time_separator' // 场景39：支持系统消息类型 + 多图消息 + 时间分隔符
   rawHtml?: string
-  rawHtmlMap?: Record<string, string>
+  rawHtmlMap?: Record<string, [string, string?]>
   isStreaming?: boolean
   isError?: boolean // 标记是否为错误消息
   canRetry?: boolean // 标记是否可以重发

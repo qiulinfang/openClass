@@ -127,6 +127,7 @@
                       :is-streaming="message.isStreaming"
                       :message-type="message.messageType === 'html' ? 'html' : 'text'"
                       :raw-html-map="message.rawHtmlMap"
+                      @reload-html-image="(url) => handleReloadHtmlImage(url)"
                       :ref="setStreamingRef"
                     />
                   </div>
@@ -430,6 +431,31 @@ const currentQuestion = computed(() => {
   }
   return isFromHomework.value ? homeworkCurrentQuestion.value : exerciseCurrentQuestion.value
 })
+
+const handleReloadHtmlImage = async (url: string) => {
+  if (!url) return
+  try {
+    if (props.type === 'ai-general') {
+      await aiGeneralStore.reloadHtmlImage(props.message.id, url)
+      return
+    }
+    if (props.type === 'ai-textbook') {
+      await aiTextbookStore.reloadHtmlImage(props.message.id, url)
+      return
+    }
+    if (props.type === 'ai-exercise') {
+      const bmNo = (currentQuestion.value as any)?.bmNo
+      if (!bmNo) {
+        showMessage('题目信息缺失，无法重新生成', 'warning')
+        return
+      }
+      await aiExerciseStore.reloadHtmlImage(props.message.id, url, bmNo)
+    }
+  } catch (e) {
+    console.warn('重新生成失败:', e)
+    showMessage('重新生成失败', 'error')
+  }
+}
 
 // 消息状态由收到消息时自动管理，不需要额外处理
 

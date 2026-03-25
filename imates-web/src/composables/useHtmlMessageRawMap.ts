@@ -1,0 +1,374 @@
+import type { ChatBubble } from '@/types'
+import type { ApiService } from '@/services'
+import html2canvas from 'html2canvas'
+
+// 对传入的 HTML 进行自适应增强处理，确保图形界面在不同环境下更稳妥展示
+export const enhanceResponsiveHtml = (html: string): string => {
+  if (!html) return html
+
+  let enhancedHtml = html
+
+  // GeoGebra Classic UI 隐藏配置：强制关闭非绘图相关的界面元素
+  const forceFalseKeys = [
+    'showToolBar',        // 工具栏
+    'showAlgebraInput',   // 代数输入框
+    'showMenuBar',        // 菜单栏
+    'allowStyleBar',      // 样式栏
+    'showFullscreenButton', // 全屏按钮
+    'enableLabelDrags',   // 标签拖拽
+    'enableRightClick',   // 右键菜单
+    'errorDialogsActive', // 错误对话框
+    'enableUndoRedo',     // 撤销重做
+    'enableSnapshots',    // 快照
+  ]
+
+  // 将上述配置项从 true 强制改为 false
+  for (const key of forceFalseKeys) {
+    const reg = new RegExp(`(["']?${key}["']?\s*:\s*)true`, 'gi')
+    enhancedHtml = enhancedHtml.replace(reg, `$1false`)
+  }
+
+  // 强制设置 GeoGebra 视角为纯几何视图（不含代数）
+  enhancedHtml = enhancedHtml.replace(
+    /(["']?perspective["']?\s*:\s*)["'][^"']*["']/gi,
+    `$1"G"`,
+  )
+
+  // 如果没有 perspective 字段，主动插入 perspective: "G"
+  // 查找 parameters 对象并在其中插入 perspective 配置
+  if (!enhancedHtml.includes('perspective')) {
+    enhancedHtml = enhancedHtml.replace(
+      /(\bparameters\s*=\s*\{[^}]*)}/gi,
+      (match, beforeBrace) => {
+        if (beforeBrace.trim().endsWith('{') || beforeBrace.trim().endsWith(',')) {
+          return `${beforeBrace} perspective: "G" }`
+        } else {
+          return `${beforeBrace}, perspective: "G" }`
+        }
+      },
+    )
+  }
+
+  // 替换窗口尺寸为容器尺寸，确保图形在 iframe 内正确适配
+  enhancedHtml = enhancedHtml.replace(
+    /"width": window\.innerWidth/g,
+    `"width": document.getElementById('ggb-container').parentElement.clientWidth`,
+  )
+  enhancedHtml = enhancedHtml.replace(
+    /"height": window\.innerHeight/g,
+    `"height": document.getElementById('ggb-container').parentElement.clientHeight`,
+  )
+
+  // 注入 ResizeObserver 脚本，实现容器尺寸变化时自动调整图形大小
+  if (!enhancedHtml.includes('ResizeObserver')) {
+    const resizeScript = `
+        <script>
+          // 添加 ResizeObserver 监听容器变化，实现图形自适应缩放
+          if (typeof ResizeObserver !== 'undefined') {
+            const resizeObserver = new ResizeObserver(entries => {
+              for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                // 获取 GeoGebra 应用实例
+                const ggbApplet = window.ggbApplet || document.querySelector('#ggb-container')?.ggbApplet;
+                if (ggbApplet && ggbApplet.setSize) {
+                  ggbApplet.setSize(width, height);
+                }
+              }
+            });
+            // 监听 ggb-container 容器的父元素（因为容器本身可能被缩放）
+            const ggbContainer = document.getElementById('ggb-container');
+            if (ggbContainer) {
+              resizeObserver.observe(ggbContainer.parentElement);
+            }
+          }
+        <\/script>
+      `
+
+    enhancedHtml = enhancedHtml.replace('</body>', resizeScript + '</body>')
+  }
+
+  return enhancedHtml
+}
+
+// 配置选项类型
+type EnsureOptions = {
+  urlRegex?: RegExp      // 自定义 URL 匹配正则
+  enhanceHtml?: (html: string) => string  // 自定义 HTML 增强函数
+  logTag?: string         // 日志标签，用于区分不同场景
+  onlyUrls?: string[]     // 仅处理指定 URL（用于局部刷新/重渲染）
+  forceRender?: boolean   // 强制重新生成图片（忽略已有缓存）
+}
+
+/**
+ * HTML 消息原始内容获取与增强 Composable
+ * 
+ * 功能：
+ * - 从消息内容中提取 HTML URL
+ * - 通过后端代理获取 HTML 源码
+ * - 对 HTML 进行响应式增强处理
+ * - 缓存到 message.rawHtmlMap 供 iframe 渲染使用
+ * 
+ * 使用场景：
+ * - 新消息完成后补齐 rawHtmlMap
+ * - 历史消息加载时增强 HTML 内容
+ */
+export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) => {
+  // 默认匹配 kelvin-cosin.cloud 的 HTML 文件 URL
+  const defaultUrlRegex = /(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/gi
+
+  const inflight = new Map<string, Promise<string | undefined>>()
+
+  const PREVIEW_WIDTH = 600
+  const PREVIEW_HEIGHT = 600
+  const PREVIEW_SCALE = 1.5
+
+  const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+  const raf = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+  const waitForIframeStable = async (iframe: HTMLIFrameElement) => {
+    const doc = iframe.contentDocument
+    const win = iframe.contentWindow as any
+    if (!doc) return
+
+    // 并行等待字体和图片，超时缩短到 800ms 避免卡顿
+    const fontWait = (async () => {
+      try {
+        const fonts = (doc as any).fonts
+        if (fonts?.ready) {
+          await Promise.race([fonts.ready, wait(800)])
+        }
+      } catch {
+        // ignore
+      }
+    })()
+
+    const imageWait = (async () => {
+      try {
+        const images = Array.from(doc.images || [])
+        const waits = images
+          .filter((img) => !img.complete)
+          .slice(0, 6) // 最多等前6张关键图，避免海量图片拖慢
+          .map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                const done = () => resolve()
+                img.addEventListener('load', done, { once: true })
+                img.addEventListener('error', done, { once: true })
+                setTimeout(done, 800)
+              }),
+          )
+        if (waits.length) await Promise.all(waits)
+      } catch {
+        // ignore
+      }
+    })()
+
+    // 并行执行，总耗时不超过 800ms（以慢的为准）
+    await Promise.all([fontWait, imageWait])
+
+    // GeoGebra 场景才做额外 reflow + 等待；普通 HTML 快速通过
+    const ggbContainer = doc.querySelector('#ggb-container') as HTMLElement | null
+    if (ggbContainer) {
+      // 强制一次 reflow，避免某些情况下首次布局为 0
+      void ggbContainer.offsetHeight
+      // 等待一帧确保绘制
+      await raf()
+      // GeoGebra 额外等 150ms（已比原来 200ms 短）
+      if (win?.ggbApplet) {
+        await wait(150)
+      }
+    }
+  }
+
+  const isCanvasMostlyWhite = (canvas: HTMLCanvasElement) => {
+    try {
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return false
+      const w = canvas.width
+      const h = canvas.height
+      if (!w || !h) return true
+      const sampleW = Math.min(60, w)
+      const sampleH = Math.min(60, h)
+      const data = ctx.getImageData(Math.floor((w - sampleW) / 2), Math.floor((h - sampleH) / 2), sampleW, sampleH)
+        .data
+      // 统计接近纯白像素占比
+      let white = 0
+      const total = data.length / 4
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
+        const a = data[i + 3]
+        if (a >= 250 && r >= 250 && g >= 250 && b >= 250) white++
+      }
+      return white / total > 0.98
+    } catch {
+      return false
+    }
+  }
+
+  const renderHtmlToImage = async (url: string, rawHtml: string): Promise<string | undefined> => {
+    if (!url || !rawHtml) return
+    if (inflight.has(url)) return inflight.get(url)
+
+    const job = (async () => {
+      const host = document.createElement('div')
+      host.style.position = 'fixed'
+      host.style.left = '-100000px'
+      host.style.top = '-100000px'
+      host.style.width = `${PREVIEW_WIDTH}px`
+      host.style.height = `${PREVIEW_HEIGHT}px`
+      host.style.overflow = 'hidden'
+      host.style.pointerEvents = 'none'
+      document.body.appendChild(host)
+
+      const iframe = document.createElement('iframe')
+      iframe.style.width = `${PREVIEW_WIDTH}px`
+      iframe.style.height = `${PREVIEW_HEIGHT}px`
+      iframe.style.border = '0'
+      iframe.style.background = '#fff'
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms')
+      iframe.srcdoc = rawHtml
+      host.appendChild(iframe)
+
+      try {
+        await new Promise<void>((resolve) => {
+          const done = () => resolve()
+          iframe.addEventListener('load', done, { once: true })
+          setTimeout(() => resolve(), 3000)
+        })
+
+        await new Promise<void>((resolve) => {
+          let attempts = 0
+          const maxAttempts = 15
+
+          const checkGeoGebra = () => {
+            attempts++
+            const contentWindow = iframe.contentWindow as any
+            const ggbApplet = contentWindow?.ggbApplet
+            const hasContent =
+              (contentWindow?.document?.querySelector('#ggb-container')?.innerHTML?.length || 0) > 100
+
+            if ((ggbApplet || hasContent) || attempts >= maxAttempts) {
+              resolve()
+            } else {
+              setTimeout(checkGeoGebra, 500)
+            }
+          }
+
+          setTimeout(checkGeoGebra, 2000)
+        })
+
+        await waitForIframeStable(iframe)
+
+        const body = iframe.contentDocument?.body
+        if (!body) return
+
+        const renderOnce = async () =>
+          html2canvas(body, {
+            width: PREVIEW_WIDTH,
+            height: PREVIEW_HEIGHT,
+            backgroundColor: '#ffffff',
+            scale: PREVIEW_SCALE,
+            useCORS: true,
+            allowTaint: true,
+            foreignObjectRendering: true,
+            removeContainer: false,
+            scrollX: 0,
+            scrollY: 0,
+          })
+
+        // 白图通常是首帧未渲染完成，做一次轻量重试
+        let canvas = await renderOnce()
+        if (isCanvasMostlyWhite(canvas)) {
+          await wait(400)
+          await waitForIframeStable(iframe)
+          canvas = await renderOnce()
+        }
+
+        return canvas.toDataURL('image/png')
+      } finally {
+        iframe.remove()
+        host.remove()
+        inflight.delete(url)
+      }
+    })()
+
+    inflight.set(url, job)
+    return job
+  }
+
+  /**
+   * 确保消息中的 HTML 内容被获取并缓存到 rawHtmlMap
+   * 
+   * @param message 聊天消息对象
+   * @param options 配置选项
+   * @returns 是否有变更（true: 新增或更新了 HTML，false: 无变化）
+   */
+  const ensureHtmlRawMapForMessage = async (message: ChatBubble, options: EnsureOptions = {}): Promise<boolean> => {
+    // 非 HTML 消息直接返回
+    if (message.messageType !== 'html') return false
+
+    // 使用自定义正则或默认正则
+    const regex = options.urlRegex || defaultUrlRegex
+    regex.lastIndex = 0  // 重置正则状态
+
+    // 从消息内容中提取 HTML URL
+    const urlMatches = message.content ? message.content.match(regex) : null
+    const urlsAll = urlMatches || []
+    const urls = options.onlyUrls?.length
+      ? urlsAll.filter((u) => options.onlyUrls!.includes(u))
+      : urlsAll
+    if (urls.length === 0) return false
+
+    if (!message.rawHtmlMap) message.rawHtmlMap = {}
+
+    // 获取增强函数和日志标签
+    const enhance = options.enhanceHtml || enhanceResponsiveHtml
+    const logTag = options.logTag || 'HTML_RAW'
+
+    let changed = false
+
+    // 遍历每个 URL，获取并缓存 HTML 内容
+    for (const url of urls) {
+      try {
+        const cached = message.rawHtmlMap[url]
+        const cachedHtml = cached?.[0]
+        const cachedImg = cached?.[1]
+
+        let html: string | undefined = cachedHtml
+
+        // 缓存未命中，发起 HTTP 请求
+        if (!html) {
+          const htmlData = await api.fetchHtmlSource(url)
+          if (htmlData && (htmlData.html || htmlData.raw_html)) {
+            html = htmlData.html || htmlData.raw_html
+          }
+        }
+
+        // 对 HTML 进行增强处理并缓存
+        if (html) {
+          const finalHtml = enhance ? enhance(html) : html
+
+          const needRender = !!options.forceRender || !cachedImg || cachedHtml !== finalHtml
+          const finalImg = needRender ? (await renderHtmlToImage(url, finalHtml)) || '' : cachedImg
+
+          const nextValue: [string, string] = [finalHtml, finalImg]
+          const prev = message.rawHtmlMap[url]
+
+          if (!prev || prev[0] !== nextValue[0] || prev[1] !== nextValue[1]) {
+            message.rawHtmlMap[url] = nextValue
+            changed = true
+          }
+        }
+      } catch (error) {
+        console.warn(`[${logTag}] 获取 rawHtml 失败:`, url, error)
+      }
+    }
+
+    return changed
+  }
+
+  return { ensureHtmlRawMapForMessage }
+}

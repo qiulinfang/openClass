@@ -15,6 +15,7 @@ import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
 import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, BackendHistoryMessage } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
+import { useHtmlMessageRawMap } from '@/composables/useHtmlMessageRawMap'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
 import { useChatPersistence } from '@/composables/useChatPersistence'
 import { useChatRetry } from '@/composables/useChatRetry'
@@ -181,6 +182,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     lastHistorySignatureRef: lastHistorySignature,
   })
 
+  const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
+
   // ==================== 公开方法 ====================
   
   /**
@@ -322,6 +325,31 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       
       throw error
     }
+  }
+
+  const reloadHtmlImage = async (messageId: string, url: string, questionBmNo: string): Promise<void> => {
+    if (!messageId || !url || !questionBmNo) return
+    const index = messages.value.findIndex((m) => m.id === messageId)
+    if (index < 0) return
+
+    const msg = messages.value[index]
+    if (msg.messageType !== 'html') return
+    if (!msg.rawHtmlMap) msg.rawHtmlMap = {}
+
+    const prev = msg.rawHtmlMap[url]
+    const prevHtml = prev?.[0] || ''
+    msg.rawHtmlMap[url] = [prevHtml, '']
+    messages.value[index] = { ...msg }
+
+    const changed = await ensureHtmlRawMapForMessage(msg, {
+      logTag: 'AI_EXERCISE',
+      onlyUrls: [url],
+      forceRender: true,
+    })
+    if (changed) {
+      messages.value[index] = { ...msg }
+    }
+    await saveChatHistory(questionBmNo)
   }
   
   /**
@@ -917,6 +945,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     createNewSession,
     deleteSession,
     getSessionCards,
+    reloadHtmlImage,
   }
 })
 

@@ -34,27 +34,22 @@
             tabindex="0"
             @click.stop="openHtmlDialog(seg.url)"
           >
-            <div class="html-card-content" :ref="setIframeContainerRef">
-              <iframe
-                v-if="seg.rawHtml"
-                :key="seg.url"
-                :srcdoc="seg.rawHtml"
-                class="html-card-iframe"
-                :style="iframeStyle"
-                frameborder="0"
-                allowfullscreen
-              ></iframe>
-            </div>
-
-            <div class="html-card-footer">
-              <div class="html-card-actions">
-                <Button
-                  :icon="fullScreenIcon"
-                  label="全屏"
-                  size="sm"
-                  @click.stop="openHtmlDialog(seg.url)"
-                />
-              </div>
+            <div class="html-card-content">
+              <button
+                class="html-card-reload-btn"
+                type="button"
+                @click.stop.prevent="handleReloadClick(seg.url)"
+              >
+                <img :src="refreshIcon" alt="重新加载" class="reload-icon" />
+              </button>
+              <img
+                v-if="seg.url && props.rawHtmlMap?.[seg.url]?.[1]"
+                :src="props.rawHtmlMap?.[seg.url]?.[1]"
+                alt="HTML预览"
+                class="html-card-img"
+                @click.stop="openHtmlDialog(seg.url)"
+              />
+              <Loading v-else text="加载中..." :size="24" class="html-card-loading-wrapper" />
             </div>
           </div>
         </div>
@@ -68,76 +63,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { streamingManager } from '../../config/streaming'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { MathJaxUtils } from '../../utils/math/mathjax'
-import { useMainChatPanel } from '../../composables/useMainChatPanel'
-import Button from '../base/Button.vue'
-import fullScreenIcon from '/icons/fullScreen.svg'
+import Loading from '../base/Loading.vue'
 import generateImgGif from '/icons/generateImg.webp'
-
+import refreshIcon from '/icons/refresh.svg'
+import { useMainChatPanel } from '../../composables/useMainChatPanel'
 // 定义Props
 interface Props{
   content: string
   isStreaming?: boolean
   messageType?: 'text' | 'html'
-  rawHtmlMap?: Record<string, string>
+  rawHtmlMap?: Record<string, [string, string?]>
 }
+
+const emit = defineEmits<{
+  'reload-html-image': [url: string]
+}>()
 
 const props = withDefaults(defineProps<Props>(), {
   isStreaming: false,
   rawHtmlMap: () => ({}),
-})
-
-// 添加ref引用
-const streamingContentRef = ref<HTMLElement>()
-const typewriterContentRef = ref<HTMLElement>()
-const iframeContainer = ref<HTMLElement | null>(null)
-let iframeResizeObserver: ResizeObserver | null = null
-
-const iframeDesignWidth = 900
-const iframeDesignHeight = 800
-const iframeScale = ref(1)
-
-const updateIframeScale = () => {
-  const el = iframeContainer.value
-  if (!el) return
-  const w = el.clientWidth
-  const h = el.clientHeight
-  if (!w || !h) return
-  const scale = Math.min(w / iframeDesignWidth, h / iframeDesignHeight)
-  iframeScale.value = Number.isFinite(scale) && scale > 0 ? scale : 1
-}
-
-const setupIframeResizeObserver = () => {
-  if (!iframeContainer.value) return
-
-  iframeResizeObserver?.disconnect()
-  iframeResizeObserver = new ResizeObserver(() => {
-    updateIframeScale()
-  })
-  iframeResizeObserver.observe(iframeContainer.value)
-
-  updateIframeScale()
-}
-
-const setIframeContainerRef = (el: any) => {
-  const dom = el?.$el instanceof HTMLElement ? el.$el : el
-  if (!(dom instanceof HTMLElement)) return
-  iframeContainer.value = dom
-
-  // 新消息场景下，容器可能在 mounted 之后才出现：这里立即绑定 observer 并计算一次
-  setupIframeResizeObserver()
-}
-
-const iframeStyle = computed(() => {
-  return {
-    width: `${iframeDesignWidth}px`,
-    height: `${iframeDesignHeight}px`,
-    transform: `translate(-50%, -50%) scale(${iframeScale.value})`,
-  } as Record<string, string>
 })
 
 const router = useRouter()
@@ -160,6 +108,11 @@ const openHtmlDialog = (urlArg?: string) => {
       }
     })
   }
+}
+
+const handleReloadClick = (url?: string) => {
+  if (!url) return
+  emit('reload-html-image', url)
 }
 
 // 计算显示的内容（用于打字机效果，流式与非流式统一使用 displayedLength 控制）
@@ -204,7 +157,7 @@ const htmlSegments = computed(() => {
       key: `l-${start}-${regex.lastIndex}`,
       type: 'link',
       url,
-      rawHtml: props.rawHtmlMap?.[url] || '',
+      rawHtml: props.rawHtmlMap?.[url]?.[0] || '',
     })
 
     lastIndex = regex.lastIndex
@@ -248,7 +201,6 @@ const processMarkdownImages = (container: HTMLElement) => {
 // MathJax渲染处理
 const setStreamingContentRef = (el: any) => {
   if (el && el instanceof HTMLElement) {
-    streamingContentRef.value = el
     // 对于流式内容，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
@@ -260,7 +212,6 @@ const setStreamingContentRef = (el: any) => {
 
 const setTypewriterContentRef = (el: any) => {
   if (el && el instanceof HTMLElement) {
-    typewriterContentRef.value = el
     // 对于打字机内容，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
@@ -269,65 +220,6 @@ const setTypewriterContentRef = (el: any) => {
     })
   }
 }
-
-const refreshMathAndImages = () => {
-  nextTick(() => {
-    if (streamingContentRef.value) {
-      MathJaxUtils.renderMath(streamingContentRef.value, true)
-      processMarkdownImages(streamingContentRef.value)
-    }
-    if (typewriterContentRef.value) {
-      MathJaxUtils.renderMath(typewriterContentRef.value, true)
-      processMarkdownImages(typewriterContentRef.value)
-    }
-  })
-}
-
-let mathJaxRenderTimeout: ReturnType<typeof setTimeout> | null = null
-
-const scheduleMathAndImageRefresh = () => {
-  // 防抖处理，避免频繁渲染MathJax和处理图片
-  if (mathJaxRenderTimeout) {
-    clearTimeout(mathJaxRenderTimeout)
-  }
-  mathJaxRenderTimeout = setTimeout(() => {
-    refreshMathAndImages()
-  }, 300) // 300ms防抖
-}
-
-// 监听内容变化：只要内容长度增加，就对新增部分做打字机效果
-watch(
-  () => props.content,
-  () => {
-    scheduleMathAndImageRefresh()
-  },
-  { immediate: true },
-)
-
-// rawHtmlMap / messageType 变化时（新消息补齐 rawHtmlMap、或从 text 切到 html），确保重新计算缩放
-watch(
-  () => [props.messageType, props.rawHtmlMap],
-  () => {
-    nextTick(() => {
-      setupIframeResizeObserver()
-    })
-  },
-  { deep: true },
-)
-
-onMounted(() => {
-  setupIframeResizeObserver()
-  refreshMathAndImages()
-})
-
-onUnmounted(() => {
-  if (mathJaxRenderTimeout) {
-    clearTimeout(mathJaxRenderTimeout)
-  }
-
-  iframeResizeObserver?.disconnect()
-  iframeResizeObserver = null
-})
 </script>
 
 <style scoped>
@@ -348,12 +240,11 @@ onUnmounted(() => {
   /* 使用固定尺寸，避免受父级 shrink-to-fit 影响变成 0 宽 */
   width: 260px;
   min-height: 160px;
-  border-radius: 18px;
-  background-position: center center;
-  background-repeat: no-repeat;
   background-size: cover;
-  position: relative;
-  overflow: hidden;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  background-color: #f8f9fa;
 }
 
 /* HTML 段落包装器样式 */
@@ -423,13 +314,43 @@ onUnmounted(() => {
 
 .html-card-content {
   background: white;
-  margin: 0 16px 8px;
+  margin: 16px 8px;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 18px;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+  overflow: hidden;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.html-card-reload-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.reload-icon {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
 }
 
 .html-card-footer {
@@ -441,16 +362,25 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.html-card-iframe {
+.html-card-img {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform-origin: center center;
-  border: none;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
 }
 
-/* 链接预览样式 */
-.link-preview {
+.html-card-loading {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.html-render-host {
+  position: fixed;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -577,6 +507,22 @@ onUnmounted(() => {
   white-space: normal;
 }
 
+.html-card-loading-wrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.html-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
 
 .typing-cursor {
   display: inline;
