@@ -2,9 +2,14 @@
   <Teleport to="body">
     <div v-if="modelValue" class="image-crop-overlay" @click.self="handleCancel">
       <div class="image-crop-container">
-        <q-btn flat round dense class="crop-back-btn" @click="handleCancel">
-          <img :src="goBackIcon" alt="取消" class="back-icon" />
-        </q-btn>
+        <Button
+          label="取消"
+          :icon="goBackIcon"
+          variant="ghost"
+          size="mdCompact"
+          class="crop-back-btn"
+          @click="handleCancel"
+        />
 
         <div class="crop-container">
           <canvas
@@ -46,22 +51,17 @@
           </div>
         </div>
 
-        <!-- 框选模式下的操作按钮（与 PhotoSearchView 一致：右侧悬浮） -->
+        <!-- 框选模式下的操作按钮（右上角确定） -->
         <div class="crop-actions-panel">
-          <div class="crop-action-btn" @click="handleRetake">
-            <img class="crop-action-icon" :src="rongIcon" alt="重选" />
-          </div>
-          <div
-            class="crop-action-btn"
-            :class="{ disabled: !cropRect }"
+          <Button
+            label="确定"
+            :icon="yesIcon"
+            variant="ghost"
+            size="sm"
+            :disabled="!cropRect"
+            class="crop-confirm-btn"
             @click="handleConfirm"
-          >
-            <img class="crop-action-icon-yes" :src="yesIcon" alt="确定" />
-          </div>
-        </div>
-
-        <div v-if="cropRect && showInfo" class="crop-info">
-          <span>裁剪区域: {{ Math.round(cropRect.width) }} × {{ Math.round(cropRect.height) }} px</span>
+          />
         </div>
       </div>
     </div>
@@ -71,8 +71,8 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import Button from './Button.vue'
 import goBackIcon from '/icons/goback.svg'
-import rongIcon from '/icons/rong.svg'
 import yesIcon from '/icons/yes.svg'
 
 interface Props {
@@ -98,6 +98,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const cropCanvasRef = ref<HTMLCanvasElement | null>(null)
+
+const containerSize = ref({ width: 0, height: 0 })
+const canvasClientRect = ref<{ left: number; top: number } | null>(null)
+let rafMoveId: number | null = null
+let pendingMovePoint: { x: number; y: number } | null = null
 
 // 图片绘制信息（用于从 canvas 坐标映射回图片像素坐标）
 const imageNaturalSize = ref({ width: 0, height: 0 })
@@ -127,10 +132,15 @@ const cropOverlayStyle = computed(() => {
 })
 
 const getContainerSize = () => {
+  return containerSize.value
+}
+
+const refreshCanvasMeasure = () => {
   const canvas = cropCanvasRef.value
-  if (!canvas) return { width: 0, height: 0 }
+  if (!canvas) return
   const rect = canvas.getBoundingClientRect()
-  return { width: rect.width, height: rect.height }
+  containerSize.value = { width: rect.width, height: rect.height }
+  canvasClientRect.value = { left: rect.left, top: rect.top }
 }
 
 const cropMaskTopStyle = computed(() => {
@@ -184,6 +194,8 @@ const resizeAndRedraw = () => {
   if (!canvas || !img) return
 
   const rect = canvas.getBoundingClientRect()
+  containerSize.value = { width: rect.width, height: rect.height }
+  canvasClientRect.value = { left: rect.left, top: rect.top }
   const dpr = window.devicePixelRatio || 1
   canvas.width = Math.max(1, Math.round(rect.width * dpr))
   canvas.height = Math.max(1, Math.round(rect.height * dpr))
@@ -226,17 +238,24 @@ const loadAndDraw = async (src: string) => {
 const getCanvasPoint = (clientX: number, clientY: number) => {
   const canvas = cropCanvasRef.value
   if (!canvas) return { x: 0, y: 0 }
-  
-  const rect = canvas.getBoundingClientRect()
+
+  const rect = canvasClientRect.value
+  if (!rect) {
+    refreshCanvasMeasure()
+  }
+  const r = canvasClientRect.value
+  if (!r) return { x: 0, y: 0 }
   return {
-    x: clientX - rect.left,
-    y: clientY - rect.top,
+    x: clientX - r.left,
+    y: clientY - r.top,
   }
 }
 
 // 开始框选
 const startCrop = (e: MouseEvent) => {
   if (!cropCanvasRef.value) return
+
+  refreshCanvasMeasure()
   
   const point = getCanvasPoint(e.clientX, e.clientY)
   isCropping.value = true
@@ -249,27 +268,39 @@ const startCrop = (e: MouseEvent) => {
 // 处理鼠标移动
 const handleCropMouseMove = (e: MouseEvent) => {
   if (!isCropping.value || !cropCanvasRef.value) return
-  
-  const point = getCanvasPoint(e.clientX, e.clientY)
-  
-  // 计算框选区域
-  const { width: containerW, height: containerH } = getContainerSize()
-  const rawX = Math.min(cropStartPos.value.x, point.x)
-  const rawY = Math.min(cropStartPos.value.y, point.y)
-  const rawW = Math.abs(point.x - cropStartPos.value.x)
-  const rawH = Math.abs(point.y - cropStartPos.value.y)
 
-  const x = Math.max(0, Math.min(rawX, containerW))
-  const y = Math.max(0, Math.min(rawY, containerH))
-  const w = Math.max(0, Math.min(rawW, containerW - x))
-  const h = Math.max(0, Math.min(rawH, containerH - y))
+  pendingMovePoint = getCanvasPoint(e.clientX, e.clientY)
+  if (rafMoveId != null) return
 
-  cropRect.value = { x, y, width: w, height: h }
+  rafMoveId = requestAnimationFrame(() => {
+    rafMoveId = null
+    const point = pendingMovePoint
+    pendingMovePoint = null
+    if (!point) return
+
+    const { width: containerW, height: containerH } = getContainerSize()
+    const rawX = Math.min(cropStartPos.value.x, point.x)
+    const rawY = Math.min(cropStartPos.value.y, point.y)
+    const rawW = Math.abs(point.x - cropStartPos.value.x)
+    const rawH = Math.abs(point.y - cropStartPos.value.y)
+
+    const x = Math.max(0, Math.min(rawX, containerW))
+    const y = Math.max(0, Math.min(rawY, containerH))
+    const w = Math.max(0, Math.min(rawW, containerW - x))
+    const h = Math.max(0, Math.min(rawH, containerH - y))
+
+    cropRect.value = { x, y, width: w, height: h }
+  })
 }
 
 // 结束框选
 const endCrop = () => {
   isCropping.value = false
+  if (rafMoveId != null) {
+    cancelAnimationFrame(rafMoveId)
+    rafMoveId = null
+  }
+  pendingMovePoint = null
 }
 
 // 鼠标离开画布
@@ -283,21 +314,13 @@ const handleCropMouseLeave = () => {
 const handleCropTouchStart = (e: TouchEvent) => {
   e.preventDefault()
   const touch = e.touches[0]
-  const mouseEvent = new MouseEvent('mousedown', {
-    clientX: touch.clientX,
-    clientY: touch.clientY
-  })
-  startCrop(mouseEvent)
+  startCrop({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
 }
 
 const handleCropTouchMove = (e: TouchEvent) => {
   e.preventDefault()
   const touch = e.touches[0]
-  const mouseEvent = new MouseEvent('mousemove', {
-    clientX: touch.clientX,
-    clientY: touch.clientY
-  })
-  handleCropMouseMove(mouseEvent)
+  handleCropMouseMove({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
 }
 
 const handleCropTouchEnd = (e: TouchEvent) => {
@@ -562,70 +585,21 @@ onBeforeUnmount(() => {
   border-right: 4px solid #fff;
 }
 
-.crop-info {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  z-index: 10001;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  backdrop-filter: blur(10px);
-}
 
-/* 框选模式下的操作按钮（右侧竖排） */
+/* 框选模式下的操作按钮（右上角确定） */
 .crop-actions-panel {
   position: absolute;
-  right: 24px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 16px;
+  top: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  justify-content: flex-end;
   z-index: 10001;
 }
 
-.crop-action-btn {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #7a55ff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  user-select: none;
-}
-
-.crop-action-icon {
-  width: 22px;
-  height: 22px;
-  display: block;
-}
-.crop-action-icon-yes {
-  width: 30px;
-  height: 27px;
-  display: block;
-}
-
-
-.crop-action-btn:hover {
-  background: #7a55ff;
-  transform: scale(1.05);
-}
-
-.crop-action-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.crop-action-btn.disabled:hover {
-  transform: none;
-  background: #7a55ff;
+.crop-back-btn {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 10001;
 }
 </style>
