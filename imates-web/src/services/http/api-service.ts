@@ -11,7 +11,14 @@ import { getApiPaths, getImBaseUrl, getTeacherWsUrl } from '@/config/env-config'
 import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
-import { HomeworkApi, type HomeworkSubmitSaveResult } from './homework-api'
+import {
+  HomeworkApi,
+  type HomeworkSubmitSaveResult,
+  type GaokaoAgentQuestionReq,
+  type GaokaoAgentResponse,
+  type GaokaoQuestionTypeData,
+  type GaokaoChoiceParseData,
+} from './homework-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 使用统一类型定义
@@ -289,6 +296,20 @@ export class ApiService {
    */
   public async homeworkSubmitSave(homeworkSubmitReq: HomeworkSubmitSaveReq): Promise<HomeworkSubmitSaveResult> {
     return this.homeworkApi.homeworkSubmitSave(homeworkSubmitReq)
+  }
+
+  /**
+   * 高考AI接口 - 题型识别
+   */
+  public async gaokaoQuestionType(req: GaokaoAgentQuestionReq): Promise<GaokaoAgentResponse<GaokaoQuestionTypeData>> {
+    return this.homeworkApi.gaokaoQuestionType(req)
+  }
+
+  /**
+   * 高考AI接口 - 选择题拆分
+   */
+  public async gaokaoChoiceParse(req: GaokaoAgentQuestionReq): Promise<GaokaoAgentResponse<GaokaoChoiceParseData>> {
+    return this.homeworkApi.gaokaoChoiceParse(req)
   }
 
   // ========== 图片上传相关接口 ==========

@@ -9,6 +9,33 @@ import { getApiPaths } from '@/config/env-config'
 
 import type { IdReq, HomeworkSubmitSaveReq, HomeworkUndoItem, HomeworkQuestionDetail, HomeworkQueryReq } from '@/types'
 
+export type GaokaoQuestionType = 'single_choice' | 'multiple_choice' | 'judgment' | 'subjective'
+
+export interface GaokaoAgentQuestionReq {
+  question: string
+  answer?: string
+  analysis?: string
+}
+
+export type GaokaoAgentResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: string }
+
+export interface GaokaoQuestionTypeData {
+  questionType: GaokaoQuestionType
+}
+
+export interface GaokaoChoiceOption {
+  optionId: string
+  optionContent: string
+}
+
+export interface GaokaoChoiceParseData {
+  questionType: Exclude<GaokaoQuestionType, 'subjective'>
+  questionContent: string
+  options: GaokaoChoiceOption[]
+}
+
 export interface HomeworkSubmitSaveResult {
   success: boolean
   message?: string
@@ -17,6 +44,8 @@ export interface HomeworkSubmitSaveResult {
 export class HomeworkApi {
   constructor() {
   }
+
+  private readonly gaokaoAgentBaseUrl = 'http://49.232.39.212:9011'
 
   /**
    * 获取未完成作业列表
@@ -84,6 +113,50 @@ export class HomeworkApi {
     } catch (error) {
       console.error('[HomeworkApi] homeworkSubmitSave error:', error)
       return { success: false, message: error instanceof Error ? error.message : '提交失败' }
+    }
+  }
+
+  /**
+   * 高考AI接口 - 题型识别
+   */
+  public async gaokaoQuestionType(req: GaokaoAgentQuestionReq): Promise<GaokaoAgentResponse<GaokaoQuestionTypeData>> {
+    const endpoint = '/v1/question/type'
+    try {
+      const response = await httpClient.post<GaokaoAgentResponse<GaokaoQuestionTypeData>>(endpoint, {
+        question: req.question,
+        answer: req.answer || '',
+        analysis: req.analysis || '',
+      })
+
+      if (response.success && response.data) {
+        return response.data
+      }
+      return { success: false, error: response.message || '题型识别失败' }
+    } catch (error) {
+      console.error('[HomeworkApi] gaokaoQuestionType error:', error)
+      return { success: false, error: error instanceof Error ? error.message : '题型识别失败' }
+    }
+  }
+
+  /**
+   * 高考AI接口 - 选择题拆分
+   */
+  public async gaokaoChoiceParse(req: GaokaoAgentQuestionReq): Promise<GaokaoAgentResponse<GaokaoChoiceParseData>> {
+    const endpoint = '/v1/question/choice/parse'
+    try {
+      const response = await httpClient.post<GaokaoAgentResponse<GaokaoChoiceParseData>>(endpoint, {
+        question: req.question,
+        answer: req.answer || '',
+        analysis: req.analysis || '',
+      })
+
+      if (response.success && response.data) {
+        return response.data
+      }
+      return { success: false, error: response.message || '选择题拆分失败' }
+    } catch (error) {
+      console.error('[HomeworkApi] gaokaoChoiceParse error:', error)
+      return { success: false, error: error instanceof Error ? error.message : '选择题拆分失败' }
     }
   }
 }

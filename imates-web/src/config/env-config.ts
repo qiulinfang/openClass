@@ -93,6 +93,7 @@ export const ADDRESS_CATALOG = {
   HISTORY_MANAGE: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
   ZAMMAD_API: 'http://app.imates.com.cn:8080',
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
+  GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
 } as const
 
 // localStorage 键名
@@ -236,12 +237,13 @@ export function getImWebSocketUrl(): string {
   return ADDRESS_CATALOG.CLIENT_WS
 }
 
-export function getRequestsProxyBaseUrl(): string {
-  return ADDRESS_CATALOG.IMATES_HTTP
+
+
+export function getGaokaoAgentBaseUrl(): string {
+  return ADDRESS_CATALOG.GAOKAO_AGENT_LLM
 }
 
 /**
- * 获取 API 路径配置
  * 只包含需要环境分流的路径，相同路径直接写死在调用处
  */
 export function getApiPaths(): ApiPaths {
@@ -376,7 +378,6 @@ export function getAppUpdateUrl(): string {
  */
 export function getRouteBaseMap(): Record<string, string> {
   const yanbanBaseUrl = getYanbanBaseUrl()
-  const requestsProxyBaseUrl = getRequestsProxyBaseUrl()
 
   return {
     // 学伴测试环境 Nginx 前缀（/xb-test/...）
@@ -399,9 +400,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
     // 学伴服务（根据环境动态切换）
     '/history_manage': ADDRESS_CATALOG.HISTORY_MANAGE,
-    // 资源服务器（根据环境动态切换）
-    '/img': yanbanBaseUrl,
-    // 图片上传接口（直接走 Nginx 8200 端口，不走 /blw-edu-yb 前缀）
-    '/api/images/upload': ADDRESS_CATALOG.CLIENT_HTTP,
+    // gaokao-agent-llm 服务
+    '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
   }
 }

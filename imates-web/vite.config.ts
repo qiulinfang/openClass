@@ -175,6 +175,15 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/knowledge')
           }
         },
+        // gaokao-agent-llm 服务
+        '/v1': {
+          target: ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/v1')
+          }
+        },
         // 图片上传接口：走 Nginx 8200 端口
         '/api/images/upload': {
           target: ADDRESS_CATALOG.CLIENT_HTTP,
