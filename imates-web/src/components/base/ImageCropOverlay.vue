@@ -19,13 +19,12 @@
               'crop-canvas',
               { 'is-dragging': isDragging, 'is-drawing': isCropping },
             ]"
-            @mousedown="startCrop"
-            @mousemove="handleCropMouseMove"
-            @mouseup="endCrop"
-            @mouseleave="handleCropMouseLeave"
-            @touchstart="handleCropTouchStart"
-            @touchmove="handleCropTouchMove"
-            @touchend="handleCropTouchEnd"
+            @pointerdown="handlePointerDown"
+            @pointermove="handlePointerMove"
+            @pointerup="handlePointerUp"
+            @pointercancel="handlePointerUp"
+            @pointerleave="handlePointerUp"
+            @wheel.prevent="handleWheel"
           ></canvas>
 
           <!-- 灰色蒙版层 -->
@@ -106,8 +105,60 @@ let pendingMovePoint: { x: number; y: number } | null = null
 
 // 图片绘制信息（用于从 canvas 坐标映射回图片像素坐标）
 const imageNaturalSize = ref({ width: 0, height: 0 })
-const drawInfo = ref({ scale: 1, offsetX: 0, offsetY: 0 })
+const drawInfo = ref({ scale: 1, dpr: 1 })
 const loadedImage = ref<HTMLImageElement | null>(null)
+
+const userScale = ref(1)
+const rotationDeg = ref(0)
+
+const ROTATION_THRESHOLD = 7
+
+const translateX = ref(0)
+const translateY = ref(0)
+
+type Point = { x: number; y: number }
+
+const activePointers = new Map<number, Point>()
+const lastSinglePointer = ref<{ id: number; x: number; y: number } | null>(null)
+const gestureStart = ref<{
+  distance: number
+  angleDeg: number
+  midpoint: Point
+  startScale: number
+  startRotationDeg: number
+  startTranslateX: number
+  startTranslateY: number
+} | null>(null)
+
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
+
+const getDistance = (a: Point, b: Point) => {
+  const dx = a.x - b.x
+  const dy = a.y - b.y
+  return Math.hypot(dx, dy)
+}
+
+const getMidpoint = (a: Point, b: Point): Point => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+})
+
+const getAngleDeg = (a: Point, b: Point) => {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  return (Math.atan2(dy, dx) * 180) / Math.PI
+}
+
+const normalizeDeg = (deg: number) => {
+  const v = deg % 360
+  return v < 0 ? v + 360 : v
+}
+
+const snapToNearest90 = (deg: number) => Math.round(deg / 90) * 90
+
+const syncPointer = (e: PointerEvent) => {
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+}
 
 // 框选状态
 const cropRect = ref<{
@@ -205,16 +256,27 @@ const resizeAndRedraw = () => {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, rect.width, rect.height)
 
-  // cover 模式：填满容器
-  const scale = Math.max(rect.width / img.naturalWidth, rect.height / img.naturalHeight)
-  const drawW = img.naturalWidth * scale
-  const drawH = img.naturalHeight * scale
-  const offsetX = (rect.width - drawW) / 2
-  const offsetY = (rect.height - drawH) / 2
-  drawInfo.value = { scale, offsetX, offsetY }
+  const rot = normalizeDeg(rotationDeg.value)
+  const isRotated = rot === 90 || rot === 270
+  const effectiveW = isRotated ? img.naturalHeight : img.naturalWidth
+  const effectiveH = isRotated ? img.naturalWidth : img.naturalHeight
+
+  const baseScale = Math.min(rect.width / effectiveW, rect.height / effectiveH)
+  const scale = baseScale * userScale.value
+
+  drawInfo.value = { scale, dpr }
   imageNaturalSize.value = { width: img.naturalWidth, height: img.naturalHeight }
 
-  ctx.drawImage(img, offsetX, offsetY, drawW, drawH)
+  const centerX = rect.width / 2
+  const centerY = rect.height / 2
+  const rad = (rot * Math.PI) / 180
+
+  ctx.save()
+  ctx.translate(centerX + translateX.value, centerY + translateY.value)
+  ctx.rotate(rad)
+  ctx.scale(scale, scale)
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
+  ctx.restore()
 }
 
 const loadAndDraw = async (src: string) => {
@@ -230,6 +292,10 @@ const loadAndDraw = async (src: string) => {
   cropRect.value = null
   isCropping.value = false
   isDragging.value = false
+  userScale.value = 1
+  rotationDeg.value = 0
+  translateX.value = 0
+  translateY.value = 0
   await Promise.resolve()
   resizeAndRedraw()
 }
@@ -303,55 +369,179 @@ const endCrop = () => {
   pendingMovePoint = null
 }
 
-// 鼠标离开画布
-const handleCropMouseLeave = () => {
-  if (isCropping.value) {
-    endCrop()
+const handlePointerDown = (e: PointerEvent) => {
+  if (!props.modelValue) return
+  if (!cropCanvasRef.value) return
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  syncPointer(e)
+
+  try {
+    cropCanvasRef.value.setPointerCapture(e.pointerId)
+  } catch {
+    // ignore
+  }
+
+  if (activePointers.size === 1) {
+    lastSinglePointer.value = { id: e.pointerId, x: e.clientX, y: e.clientY }
+    gestureStart.value = null
+
+    // 单指：仅用于框选
+    isDragging.value = false
+    startCrop({ clientX: e.clientX, clientY: e.clientY } as unknown as MouseEvent)
+    return
+  }
+
+  if (activePointers.size === 2) {
+    const pts = Array.from(activePointers.values())
+    const a = pts[0]
+    const b = pts[1]
+    gestureStart.value = {
+      distance: getDistance(a, b),
+      angleDeg: getAngleDeg(a, b),
+      midpoint: getMidpoint(a, b),
+      startScale: userScale.value,
+      startRotationDeg: rotationDeg.value,
+      startTranslateX: translateX.value,
+      startTranslateY: translateY.value,
+    }
+    lastSinglePointer.value = null
+    // 双指开始：停止框选
+    if (isCropping.value) {
+      endCrop()
+    }
   }
 }
 
-// 触摸事件处理
-const handleCropTouchStart = (e: TouchEvent) => {
+const handlePointerMove = (e: PointerEvent) => {
+  if (!props.modelValue) return
+  if (!activePointers.has(e.pointerId)) return
+
   e.preventDefault()
-  const touch = e.touches[0]
-  startCrop({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
+  e.stopPropagation()
+
+  syncPointer(e)
+
+  // 单指
+  if (activePointers.size === 1 && lastSinglePointer.value?.id === e.pointerId) {
+    // 单指：框选更新
+    handleCropMouseMove({ clientX: e.clientX, clientY: e.clientY } as unknown as MouseEvent)
+    return
+  }
+
+  // 双指捏合缩放（对齐 ImageViewer：以中点为缩放中心做平移补偿）
+  if (activePointers.size >= 2 && gestureStart.value) {
+    const pts = Array.from(activePointers.values())
+    const a = pts[0]
+    const b = pts[1]
+
+    const distance = getDistance(a, b)
+    const angleDeg = getAngleDeg(a, b)
+    const midpoint = getMidpoint(a, b)
+
+    const scaleFactor = gestureStart.value.distance > 0 ? distance / gestureStart.value.distance : 1
+    const newScale = clamp(gestureStart.value.startScale * scaleFactor, 0.5, 6)
+
+    const containerRect = cropCanvasRef.value?.getBoundingClientRect()
+    if (!containerRect) return
+
+    const centerX = containerRect.left + containerRect.width / 2
+    const centerY = containerRect.top + containerRect.height / 2
+
+    const scaleRatio = gestureStart.value.startScale > 0 ? newScale / gestureStart.value.startScale : 1
+    const startRelativeX = gestureStart.value.midpoint.x - centerX - gestureStart.value.startTranslateX
+    const startRelativeY = gestureStart.value.midpoint.y - centerY - gestureStart.value.startTranslateY
+
+    translateX.value = midpoint.x - centerX - startRelativeX * scaleRatio
+    translateY.value = midpoint.y - centerY - startRelativeY * scaleRatio
+
+    const deltaAngle = angleDeg - gestureStart.value.angleDeg
+    if (Math.abs(deltaAngle) > ROTATION_THRESHOLD) {
+      rotationDeg.value = gestureStart.value.startRotationDeg + deltaAngle
+    }
+
+    userScale.value = newScale
+    resizeAndRedraw()
+  }
 }
 
-const handleCropTouchMove = (e: TouchEvent) => {
-  e.preventDefault()
-  const touch = e.touches[0]
-  handleCropMouseMove({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
-}
+const handlePointerUp = (e: PointerEvent) => {
+  if (!activePointers.has(e.pointerId)) return
 
-const handleCropTouchEnd = (e: TouchEvent) => {
   e.preventDefault()
-  endCrop()
+  e.stopPropagation()
+
+  activePointers.delete(e.pointerId)
+
+  try {
+    cropCanvasRef.value?.releasePointerCapture(e.pointerId)
+  } catch {
+    // ignore
+  }
+
+  if (activePointers.size === 1) {
+    const remainingId = Array.from(activePointers.keys())[0]
+    const pt = activePointers.get(remainingId)
+    if (pt) {
+      lastSinglePointer.value = { id: remainingId, x: pt.x, y: pt.y }
+    }
+    gestureStart.value = null
+    return
+  }
+
+  if (activePointers.size < 1) {
+    lastSinglePointer.value = null
+    gestureStart.value = null
+    isDragging.value = false
+
+    // 双指旋转结束：吸附到最近 90 度
+    const snapped = snapToNearest90(rotationDeg.value)
+    if (snapped !== rotationDeg.value) {
+      rotationDeg.value = snapped
+      resizeAndRedraw()
+    }
+
+    // 结束单指框选
+    endCrop()
+  }
 }
 
 // 导出裁剪后的图片
 const exportCroppedImage = async (): Promise<string> => {
   const img = loadedImage.value
-  if (!cropRect.value || !img) {
+  const canvas = cropCanvasRef.value
+  if (!cropRect.value || !img || !canvas) {
     throw new Error('没有选择裁剪区域')
   }
 
-  const { scale, offsetX, offsetY } = drawInfo.value
-  const sx = Math.max(0, (cropRect.value.x - offsetX) / scale)
-  const sy = Math.max(0, (cropRect.value.y - offsetY) / scale)
-  const sw = Math.max(1, cropRect.value.width / scale)
-  const sh = Math.max(1, cropRect.value.height / scale)
-
-  const safeSw = Math.min(sw, img.naturalWidth - sx)
-  const safeSh = Math.min(sh, img.naturalHeight - sy)
+  const dpr = drawInfo.value.dpr || (window.devicePixelRatio || 1)
+  const sx = Math.max(0, Math.round(cropRect.value.x * dpr))
+  const sy = Math.max(0, Math.round(cropRect.value.y * dpr))
+  const sw = Math.max(1, Math.round(cropRect.value.width * dpr))
+  const sh = Math.max(1, Math.round(cropRect.value.height * dpr))
 
   const outCanvas = document.createElement('canvas')
-  outCanvas.width = Math.round(safeSw)
-  outCanvas.height = Math.round(safeSh)
+  outCanvas.width = sw
+  outCanvas.height = sh
   const ctx = outCanvas.getContext('2d')
   if (!ctx) throw new Error('无法创建画布')
 
-  ctx.drawImage(img, sx, sy, safeSw, safeSh, 0, 0, safeSw, safeSh)
+  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh)
   return outCanvas.toDataURL('image/jpeg', props.quality)
+}
+
+const clampScale = (v: number) => {
+  const min = 0.5
+  const max = 6
+  return Math.max(min, Math.min(max, v))
+}
+
+const handleWheel = (e: WheelEvent) => {
+  const factor = e.deltaY > 0 ? 1 / 1.08 : 1.08
+  userScale.value = clampScale(userScale.value * factor)
+  resizeAndRedraw()
 }
 
 // 处理确认
