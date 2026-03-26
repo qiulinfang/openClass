@@ -185,7 +185,12 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
     try {
       const win = iframe.contentWindow as any
       const ggbApplet = win?.ggbApplet
-      if (!ggbApplet || typeof ggbApplet.getPNGBase64 !== 'function') return
+      console.log(`[GGB_EXPORT] 开始导出: ggbApplet存在=${!!ggbApplet}, getPNGBase64函数=${typeof ggbApplet?.getPNGBase64}`)
+      
+      if (!ggbApplet || typeof ggbApplet.getPNGBase64 !== 'function') {
+        console.log(`[GGB_EXPORT] GeoGebra 实例或 getPNGBase64 方法不可用`)
+        return
+      }
 
       const isPngLowInk = async (dataUrl: string) => {
         try {
@@ -220,6 +225,7 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
             if (p[3] > 0 && (p[0] < 245 || p[1] < 245 || p[2] < 245)) ink++
           }
           const ratio = ink / sample
+          console.log(`[GGB_EXPORT] 低墨迹检测: ratio=${ratio.toFixed(4)}, threshold=0.0025`)
 
           // 经验阈值：仅坐标轴/网格一般非常低；如果你的主题颜色很浅可再调低一些
           return ratio < 0.0025
@@ -229,21 +235,36 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
       }
 
       // 等待 GeoGebra 再稳定一点：有时坐标轴出来了但对象/图形还没渲染完成
-      // 这里用“对象/构造就绪”作为导出门槛，并做多次导出重试
+      // 这里用"对象/构造就绪"作为导出门槛，并做多次导出重试
       const isConstructionReady = () => {
         try {
           if (typeof ggbApplet.getAllObjectNames === 'function') {
             const names = ggbApplet.getAllObjectNames() as unknown
-            if (Array.isArray(names) && names.length > 0) return true
+            if (Array.isArray(names)) {
+              console.log(`[GGB_EXPORT] 对象数量: ${names.length}`)
+              if (names.length > 0) {
+                console.log(`[GGB_EXPORT] 构造检查通过: getAllObjectNames返回${names.length}个对象`)
+                console.log(`[GGB_EXPORT] 对象列表:`, names.slice(0, 10)) // 显示前10个对象名
+                return true
+              }
+            }
           }
 
           if (typeof ggbApplet.getXML === 'function') {
             const xml = ggbApplet.getXML() as unknown
-            if (typeof xml === 'string' && xml.length > 200) return true
+            if (typeof xml === 'string' && xml.length > 0) {
+              // 检查 XML 中是否包含构造/对象（仅用长度会误判：有时只有坐标系配置但无对象）
+              const hasConstruction = xml.includes('<construction>') || xml.includes('<element ')
+              const hasObjects = xml.includes('type="') && xml.includes('label="')
+              console.log(`[GGB_EXPORT] XML长度=${xml.length}`)
+              console.log(`[GGB_EXPORT] XML内容检查: construction=${hasConstruction}, objects=${hasObjects}`)
+              if (hasConstruction || hasObjects) return true
+            }
           }
         } catch {
           // ignore
         }
+        console.log(`[GGB_EXPORT] 构造未就绪`)
         return false
       }
 
@@ -266,31 +287,80 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
       // 等待就绪（最多约 2.5s）
       for (let i = 0; i < 10; i++) {
         if (isConstructionReady()) break
+        console.log(`[GGB_EXPORT] 等待构造就绪 #${i+1}/10`)
         tryForceRepaint()
         await raf()
         await wait(250)
       }
 
-      // 导出重试：即使“对象已就绪”，首帧也可能只渲染出坐标轴；因此对导出结果做低墨迹判定
+      // 导出重试：即使"对象已就绪"，首帧也可能只渲染出坐标轴；因此对导出结果做低墨迹判定
       // 最多约 4s
       for (let i = 0; i < 12; i++) {
+        console.log(`[GGB_EXPORT] 导出尝试 #${i+1}/12`)
         tryForceRepaint()
         await raf()
         await wait(180)
 
-        const pngBase64 = ggbApplet.getPNGBase64(1, false)
-        if (typeof pngBase64 !== 'string' || pngBase64.length <= 200) continue
+        // 尝试不同的导出参数
+        let pngBase64: string | undefined
+        try {
+          if (i < 4) {
+            // 前4次尝试使用原始参数
+            pngBase64 = ggbApplet.getPNGBase64(1, false)
+            console.log(`[GGB_EXPORT] 使用参数 (1, false)`)
+          } else if (i < 8) {
+            // 中4次尝试使用透明背景
+            pngBase64 = ggbApplet.getPNGBase64(1, true)
+            console.log(`[GGB_EXPORT] 使用参数 (1, true)`)
+          } else {
+            // 最后4次尝试更高分辨率
+            pngBase64 = ggbApplet.getPNGBase64(2, false)
+            console.log(`[GGB_EXPORT] 使用参数 (2, false)`)
+          }
+        } catch (e) {
+          console.log(`[GGB_EXPORT] PNG 导出异常:`, e)
+          continue
+        }
+
+        if (typeof pngBase64 !== 'string' || pngBase64.length <= 200) {
+          console.log(`[GGB_EXPORT] PNG 数据无效或太短: length=${pngBase64?.length || 0}`)
+          continue
+        }
 
         const dataUrl = `data:image/png;base64,${pngBase64}`
         const lowInk = await isPngLowInk(dataUrl)
-        if (!lowInk) return dataUrl
+        console.log(`[GGB_EXPORT] 低墨迹检测: ratio=${lowInk ? 'low' : 'normal'}`)
+        
+        if (!lowInk) {
+          console.log(`[GGB_EXPORT] PNG 导出成功，墨迹正常`)
+          console.log(`[GGB_EXPORT] PNG 数据详情: base64长度=${pngBase64.length}, dataUrl长度=${dataUrl.length}`)
+          
+          // 尝试验证图片有效性
+          try {
+            const img = new Image()
+            img.onload = () => {
+              console.log(`[GGB_EXPORT] 图片验证成功: 尺寸=${img.naturalWidth}x${img.naturalHeight}`)
+            }
+            img.onerror = () => {
+              console.log(`[GGB_EXPORT] 图片验证失败: 无法加载`)
+            }
+            img.src = dataUrl
+          } catch (e) {
+            console.log(`[GGB_EXPORT] 图片验证异常:`, e)
+          }
+          
+          return dataUrl
+        }
 
         // 低墨迹（疑似仅坐标轴/网格）：再等一会继续
+        console.log(`[GGB_EXPORT] 检测到低墨迹，继续等待...`)
         await wait(260)
       }
 
+      console.log(`[GGB_EXPORT] 所有导出尝试均失败`)
       return
-    } catch {
+    } catch (error) {
+      console.log(`[GGB_EXPORT] 导出异常:`, error)
       return
     }
   }
@@ -326,6 +396,9 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
     if (!url || !rawHtml) return
     if (inflight.has(url)) return inflight.get(url)
 
+    console.log(`[HTML_RENDER] 开始渲染 URL: ${url}`)
+    console.log(`[HTML_RENDER] 原始 HTML 长度: ${rawHtml.length}`)
+
     const job = (async () => {
       const host = document.createElement('div')
       host.style.position = 'fixed'
@@ -347,24 +420,37 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
       host.appendChild(iframe)
 
       try {
+        console.log(`[HTML_RENDER] iframe 创建完成，等待加载...`)
         await new Promise<void>((resolve) => {
-          const done = () => resolve()
+          const done = () => {
+            console.log(`[HTML_RENDER] iframe 加载完成`)
+            resolve()
+          }
           iframe.addEventListener('load', done, { once: true })
-          setTimeout(() => resolve(), 3000)
+          setTimeout(() => {
+            console.log(`[HTML_RENDER] iframe 加载超时`)
+            resolve()
+          }, 3000)
         })
 
+        console.log(`[HTML_RENDER] 检查 GeoGebra 状态...`)
         await new Promise<void>((resolve) => {
           let attempts = 0
-          const maxAttempts = 15
+          const maxAttempts = 20 // 增加最大尝试次数
 
           const checkGeoGebra = () => {
             attempts++
             const contentWindow = iframe.contentWindow as any
             const ggbApplet = contentWindow?.ggbApplet
-            const hasContent =
-              (contentWindow?.document?.querySelector('#ggb-container')?.innerHTML?.length || 0) > 100
+            const containerContent = contentWindow?.document?.querySelector('#ggb-container')?.innerHTML?.length || 0
+            const hasContent = containerContent > 100
+            const hasPngMethod = typeof ggbApplet?.getPNGBase64 === 'function'
 
-            if ((ggbApplet || hasContent) || attempts >= maxAttempts) {
+            console.log(`[HTML_RENDER] GeoGebra 检查 #${attempts}: ggbApplet=${!!ggbApplet}, containerContent=${containerContent}, getPNGBase64=${hasPngMethod}`)
+
+            // 必须同时满足：有实例、有内容、有导出方法
+            if ((ggbApplet && hasContent && hasPngMethod) || attempts >= maxAttempts) {
+              console.log(`[HTML_RENDER] GeoGebra 检查完成: ggbApplet=${!!ggbApplet}, hasContent=${hasContent}, getPNGBase64=${hasPngMethod}`)
               resolve()
             } else {
               setTimeout(checkGeoGebra, 500)
@@ -374,14 +460,23 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
           setTimeout(checkGeoGebra, 2000)
         })
 
+        console.log(`[HTML_RENDER] 等待 iframe 稳定...`)
         await waitForIframeStable(iframe)
 
         // GeoGebra 优先：直接用官方导出 API，避免 html2canvas 截不到 canvas/WebGL 而变白
+        console.log(`[HTML_RENDER] 尝试 GeoGebra PNG 导出...`)
         const ggbPng = await tryExportGeoGebraPng(iframe)
-        if (ggbPng) return ggbPng
+        if (ggbPng) {
+          console.log(`[HTML_RENDER] GeoGebra PNG 导出成功，长度: ${ggbPng.length}`)
+          return ggbPng
+        }
+        console.log(`[HTML_RENDER] GeoGebra PNG 导出失败，回退到 html2canvas`)
 
         const body = iframe.contentDocument?.body
-        if (!body) return
+        if (!body) {
+          console.log(`[HTML_RENDER] 无法获取 body，渲染失败`)
+          return
+        }
 
         const renderOnce = async () =>
           html2canvas(body, {
@@ -398,14 +493,24 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
           })
 
         // 白图通常是首帧未渲染完成，做一次轻量重试
+        console.log(`[HTML_RENDER] 第一次 html2canvas 渲染...`)
         let canvas = await renderOnce()
-        if (isCanvasMostlyWhite(canvas)) {
+        const mostlyWhite = isCanvasMostlyWhite(canvas)
+        console.log(`[HTML_RENDER] 第一次渲染结果: mostlyWhite=${mostlyWhite}, canvas尺寸=${canvas.width}x${canvas.height}`)
+
+        if (mostlyWhite) {
+          console.log(`[HTML_RENDER] 检测到白图，等待 400ms 后重试...`)
           await wait(400)
           await waitForIframeStable(iframe)
+          console.log(`[HTML_RENDER] 第二次 html2canvas 渲染...`)
           canvas = await renderOnce()
+          const mostlyWhiteAfterRetry = isCanvasMostlyWhite(canvas)
+          console.log(`[HTML_RENDER] 第二次渲染结果: mostlyWhite=${mostlyWhiteAfterRetry}`)
         }
 
-        return canvas.toDataURL('image/png')
+        const dataUrl = canvas.toDataURL('image/png')
+        console.log(`[HTML_RENDER] 最终渲染完成，图片长度: ${dataUrl.length}`)
+        return dataUrl
       } finally {
         iframe.remove()
         host.remove()
