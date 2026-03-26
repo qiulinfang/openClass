@@ -181,6 +181,120 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
     }
   }
 
+  const tryExportGeoGebraPng = async (iframe: HTMLIFrameElement) => {
+    try {
+      const win = iframe.contentWindow as any
+      const ggbApplet = win?.ggbApplet
+      if (!ggbApplet || typeof ggbApplet.getPNGBase64 !== 'function') return
+
+      const isPngLowInk = async (dataUrl: string) => {
+        try {
+          const img = new Image()
+          img.decoding = 'async'
+          img.src = dataUrl
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve()
+            img.onerror = () => reject(new Error('image load failed'))
+          })
+
+          const canvas = document.createElement('canvas')
+          const w = Math.max(1, img.naturalWidth || img.width || PREVIEW_WIDTH)
+          const h = Math.max(1, img.naturalHeight || img.height || PREVIEW_HEIGHT)
+          canvas.width = w
+          canvas.height = h
+
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return false
+
+          ctx.drawImage(img, 0, 0, w, h)
+
+          // 低墨迹检测：坐标轴/网格通常只占很少像素；真正图形会显著增加非白像素占比。
+          // 这里做采样而不是全量遍历，避免开销。
+          const sample = 2200
+          let ink = 0
+          for (let i = 0; i < sample; i++) {
+            const x = Math.floor((Math.random() * w) | 0)
+            const y = Math.floor((Math.random() * h) | 0)
+            const p = ctx.getImageData(x, y, 1, 1).data
+            // 非白像素（允许轻微抗锯齿）
+            if (p[3] > 0 && (p[0] < 245 || p[1] < 245 || p[2] < 245)) ink++
+          }
+          const ratio = ink / sample
+
+          // 经验阈值：仅坐标轴/网格一般非常低；如果你的主题颜色很浅可再调低一些
+          return ratio < 0.0025
+        } catch {
+          return false
+        }
+      }
+
+      // 等待 GeoGebra 再稳定一点：有时坐标轴出来了但对象/图形还没渲染完成
+      // 这里用“对象/构造就绪”作为导出门槛，并做多次导出重试
+      const isConstructionReady = () => {
+        try {
+          if (typeof ggbApplet.getAllObjectNames === 'function') {
+            const names = ggbApplet.getAllObjectNames() as unknown
+            if (Array.isArray(names) && names.length > 0) return true
+          }
+
+          if (typeof ggbApplet.getXML === 'function') {
+            const xml = ggbApplet.getXML() as unknown
+            if (typeof xml === 'string' && xml.length > 200) return true
+          }
+        } catch {
+          // ignore
+        }
+        return false
+      }
+
+      const tryForceRepaint = () => {
+        try {
+          if (typeof ggbApplet.setSize === 'function') {
+            ggbApplet.setSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+          }
+          if (typeof ggbApplet.refreshViews === 'function') {
+            ggbApplet.refreshViews()
+          }
+          if (typeof ggbApplet.repaint === 'function') {
+            ggbApplet.repaint()
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 等待就绪（最多约 2.5s）
+      for (let i = 0; i < 10; i++) {
+        if (isConstructionReady()) break
+        tryForceRepaint()
+        await raf()
+        await wait(250)
+      }
+
+      // 导出重试：即使“对象已就绪”，首帧也可能只渲染出坐标轴；因此对导出结果做低墨迹判定
+      // 最多约 4s
+      for (let i = 0; i < 12; i++) {
+        tryForceRepaint()
+        await raf()
+        await wait(180)
+
+        const pngBase64 = ggbApplet.getPNGBase64(1, false)
+        if (typeof pngBase64 !== 'string' || pngBase64.length <= 200) continue
+
+        const dataUrl = `data:image/png;base64,${pngBase64}`
+        const lowInk = await isPngLowInk(dataUrl)
+        if (!lowInk) return dataUrl
+
+        // 低墨迹（疑似仅坐标轴/网格）：再等一会继续
+        await wait(260)
+      }
+
+      return
+    } catch {
+      return
+    }
+  }
+
   const isCanvasMostlyWhite = (canvas: HTMLCanvasElement) => {
     try {
       const ctx = canvas.getContext('2d')
@@ -261,6 +375,10 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
         })
 
         await waitForIframeStable(iframe)
+
+        // GeoGebra 优先：直接用官方导出 API，避免 html2canvas 截不到 canvas/WebGL 而变白
+        const ggbPng = await tryExportGeoGebraPng(iframe)
+        if (ggbPng) return ggbPng
 
         const body = iframe.contentDocument?.body
         if (!body) return

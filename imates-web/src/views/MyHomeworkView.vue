@@ -345,15 +345,25 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
     const questionDetails = await apiService.getHomeworkDetailList(item.id)
 
     if (questionDetails && questionDetails.length > 0) {
+      const normalizeQuestionContent = (content?: string) => {
+        // main: / main：
+        // c1: c2: c3: 题干...
+        // gc1_of_c1: gc1_of_c2: 题干...
+        if (!content) return ''
+        const withoutMain = content.replace(/^\s*main\s*[:：]\s*/i, '')
+        return withoutMain.replace(/^\s*(?:(?:[a-z]+[a-z0-9_]*?)\s*[:：]\s*)+/i, '')
+      }
+
       // 将题目列表存入 homeworkStore
       const exerciseItems: ExerciseItem[] = questionDetails.map((question: HomeworkQuestionDetail, index: number) => {
         const bmNo = question.questionId || String(index + 1)
+        const questionContent = normalizeQuestionContent(question.questionContent)
 
         const merged = {
           id: question.questionId,
           bmNo,
-          title: question.questionContent,
-          question: question.questionContent,
+          title: questionContent,
+          question: questionContent,
           answer: question.questionAnswer || '',
           explanation: question.questionAnalysis || '',
           subject: item.homework.subject,
