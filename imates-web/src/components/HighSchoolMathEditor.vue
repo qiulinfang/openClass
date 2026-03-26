@@ -29,7 +29,9 @@
           </div>
         </div>
         <div class="hsm-editor-wrapper" ref="editorWrapper">
+          <!-- prism显示 LaTeX 代码的语法高亮层 -->
           <pre ref="prismLayer" class="hsm-prism-layer" aria-hidden="true"><code class="language-latex" v-html="highlightedFormula"></code></pre>
+          <!-- 编辑器区域 -->
           <div
             ref="editor"
             class="latex-input hsm-textarea hsm-contenteditable"
@@ -37,6 +39,7 @@
             spellcheck="false"
             :data-placeholder="'在此处输入或通过上方工具栏生成代码...'"
             @input="onEditorInput"
+            @paste="onEditorPaste"
             @keydown="onEditorKeydown"
             @focus="handleEditorFocus"
             @click="updateCursorPosition"
@@ -58,6 +61,7 @@
               :maxWidth="800"
               :maxHeight="2000"
             >
+              <!-- 圆形浮动触发按钮 -->
               <template #trigger>
                 <button
                   class="float-trigger-btn"
@@ -71,6 +75,7 @@
                 </button>
               </template>
 
+              <!-- 气泡符号面板 -->
               <div class="symbol-panel-popup">
                 <div class="scroll-x-container">
                   <div v-for="(group, name) in symbolGroups" :key="name" class="symbol-category">
@@ -83,7 +88,7 @@
                         class="symbol-btn"
                         :title="item.label"
                       >
-                        <span class="hsm-symbol" v-html="renderStatic(item.value)" />
+                        <span class="hsm-symbol" v-html="renderStatic(item.display || item.value)" />
                       </button>
                     </div>
                   </div>
@@ -101,9 +106,12 @@
         </div>
         <div class="hsm-preview-wrapper">
           <div class="preview-container">
+            <!-- 预览区域 -->
             <div v-if="formula.trim()" ref="previewArea"></div>
+            <!-- 空状态 -->
             <div v-else class="hsm-preview-empty">等待输入公式...</div>
           </div>
+          <!-- 错误信息 -->
           <div v-if="error" class="hsm-error">
             语法错误: {{ error }}
           </div>
@@ -225,64 +233,37 @@ const symbolGroups: Record<string, SymbolItem[]> = {
     { label: '对数', value: '\\log_{a}(x)', display: '\\log_{\\square}(\\square)', cursorStart: 6, cursorEnd: 7 },
     { label: '自然对数', value: '\\ln(x)', display: '\\ln(\\square)', cursorStart: 4, cursorEnd: 5 },
     { label: '指数', value: 'e^{ }', display: 'e^{\\square}' },
+    { label: 'e的x次方', value: 'e^{x}' },
     { label: '平方', value: 'x^{2}', cursorStart: 0, cursorEnd: 1 },
+    { label: '括号平方', value: '( )^{2}', display: '(\\square)^{2}', cursorStart: 2, cursorEnd: 2 },
     { label: '立方', value: 'x^{3}', cursorStart: 0, cursorEnd: 1 },
     { label: 'n次方', value: 'x^{n}', cursorStart: 0, cursorEnd: 1 },
     { label: 'a平方', value: 'a^{2}', cursorStart: 0, cursorEnd: 1 },
     { label: 'a立方', value: 'a^{3}', cursorStart: 0, cursorEnd: 1 },
     { label: '导数', value: "f'(x)" },
-
-    { label: '方程组', value: '\\begin{cases} x + y = 2 \\\\ x - y = 0 \\\\ \\end{cases}', cursorStart: 12, cursorEnd: 13 },
   ],
-  '集合与常用逻辑': [
-    { label: '属于', value: '\\in' },
-    { label: '包含于', value: '\\subseteq' },
-    { label: '真包含于', value: '\\subsetneqq' },
-    { label: '并集', value: '\\cup' },
-    { label: '交集', value: '\\cap' },
-    { label: '空集', value: '\\emptyset' },
-    { label: '补集', value: '\\complement_U' },
-    { label: '任意', value: '\\forall' },
-    { label: '存在', value: '\\exists' },
-  ],
-
   '三角函数': [
     { label: '正弦', value: '\\sin(x)', cursorStart: 5, cursorEnd: 6 },
     { label: '余弦', value: '\\cos(x)', cursorStart: 5, cursorEnd: 6 },
     { label: '正切', value: '\\tan(x)', cursorStart: 5, cursorEnd: 6 },
+    { label: 'sin()', value: '\\sin( )', display: '\\sin(\\square)', cursorStart: 5, cursorEnd: 5 },
+    { label: 'cos()', value: '\\cos( )', display: '\\cos(\\square)', cursorStart: 5, cursorEnd: 5 },
+    { label: 'tan()', value: '\\tan( )', display: '\\tan(\\square)', cursorStart: 5, cursorEnd: 5 },
     { label: '角度', value: '^{\\circ}', display: '\\square^{\\circ}' },
     { label: '圆周率', value: '\\pi' },
     { label: '希腊alpha', value: '\\alpha' },
     { label: '希腊theta', value: '\\theta' },
     { label: '希腊omega', value: '\\omega' }
   ],
-  '数列与向量': [
-    { label: '向量', value: '\\vec{ }', display: '\\vec{\\square}' },
-    { label: '点乘', value: '\\cdot' },
-    { label: '求和', value: '\\sum_{i=1}^{n}' },
-    { label: '通项', value: 'a_n' },
-    { label: '模', value: '| |', display: '|\\vec{\\square}|' },
-    { label: '平行', value: '\\parallel' },
-    { label: '垂直', value: '\\perp' }
+  '解析几何': [
+    { label: '直线方程', value: 'ax + b' },
+    { label: '直线方程', value: 'ax - b' },
+    { label: '圆的标准方程', value: '(x-a)^2 + (y-b)^2 = r^2', display: '(\\square-a)^2 + (\\square-b)^2 = r^2' },
+    { label: '椭圆标准方程', value: '\\frac{x^2}{a^2} + \\frac{y^2}{b^2} = 1' },
+    { label: '双曲线标准方程', value: '\\frac{x^2}{a^2} - \\frac{y^2}{b^2} = 1' },
+    { label: '抛物线标准方程', value: 'y^2 = 2px', display: '\\square^2 = 2p\\square' },
+    { label: '参数方程', value: '\\begin{cases} x = x_0 + t \\cos \\alpha \\\\ y = y_0 + t \\sin \\alpha \\end{cases}' }
   ],
-  '几何与变换': [
-    { label: '三角形', value: '\\triangle' },
-    { label: '全等', value: '\\cong' },
-    { label: '相似', value: '\\sim' },
-    { label: '因为', value: '\\because' },
-    { label: '所以', value: '\\therefore' },
-    { label: '椭圆模板', value: '\\frac{x^2}{a^2} + \\frac{y^2}{b^2} = 1' }
-  ],
-  '概率统计与复数': [
-    { label: '组合', value: 'C_{n}^{m}' },
-    { label: '排列', value: 'A_{n}^{m}' },
-    { label: '期望', value: 'E(X)' },
-    { label: '方差', value: 'D(X)' },
-    { label: '平均数', value: '\\bar{x}' },
-    { label: '虚数', value: 'i' },
-    { label: '共轭复数', value: '\\bar{z}' },
-    { label: '不等于', value: '\\neq' }
-  ]
 }
 
 // 获取编辑器纯文本内容
@@ -291,6 +272,8 @@ const getEditorPlainText = () => {
   if (!el) return ''
   return (el.innerText || '').replace(/\r\n/g, '\n')
 }
+
+const normalizeNoNewline = (value: string) => value.replace(/\r\n|\r|\n/g, ' ')
 
 // 设置编辑器纯文本内容，使用 textContent 防止 HTML 注入风险
 const setEditorPlainText = (value: string) => {
@@ -503,7 +486,8 @@ const updatePreview = () => {
 }
 
 // 在编辑器中插入指定的文本内容
-const insert = (text: string, cursorStart?: number, cursorEnd?: number) => {
+const insert = async (text: string, cursorStart?: number, cursorEnd?: number) => {
+  text = normalizeNoNewline(text)
   // 获取编辑器元素引用
   const el = editor.value
   if (!el) return
@@ -542,8 +526,19 @@ const insert = (text: string, cursorStart?: number, cursorEnd?: number) => {
   formula.value = getEditorPlainText()
   emit('update:modelValue', formula.value)
 
-  // 在下一个tick中更新历史记录和光标位置
-  nextTick(() => {
+  // 等待DOM更新完成，确保Prism层和Contenteditable层同步
+  await nextTick()
+  
+  // 强制同步滚动位置，确保两层对齐
+  if (prismLayer.value && editor.value) {
+    const scrollLeft = editor.value.scrollLeft
+    const scrollTop = editor.value.scrollTop
+    prismLayer.value.scrollLeft = scrollLeft
+    prismLayer.value.scrollTop = scrollTop
+  }
+
+  // 在下一帧布局完成后更新历史记录和光标位置（移动端对 caret rect 更新可能滞后）
+  requestAnimationFrame(() => {
     ensureHistoryInitialized()
     const offsets = getSelectionCharOffsets()
     pushHistorySnapshot(formula.value || '', offsets.start, offsets.end)
@@ -732,7 +727,12 @@ const clear = () => {
 // 编辑器输入事件处理
 const onEditorInput = () => {
   // 获取编辑器的纯文本内容
-  formula.value = getEditorPlainText()
+  const raw = getEditorPlainText()
+  const normalized = normalizeNoNewline(raw)
+  if (raw !== normalized) {
+    setEditorPlainText(normalized)
+  }
+  formula.value = normalized
   // 同步数据
   emit('update:modelValue', formula.value)
   // 确保历史快照数组已初始化，若空则创建初始快照并设置索引
@@ -743,10 +743,26 @@ const onEditorInput = () => {
   pushHistorySnapshot(formula.value || '', sel.start, sel.end)
   // 在编辑器聚焦或内容变化时计算光标位置并更新浮动按钮
   updateCursorPosition()
+  
+  // 同步滚动位置，确保两层对齐
+  nextTick(() => {
+    handleScrollSync()
+  })
+}
+
+const onEditorPaste = (event: ClipboardEvent) => {
+  event.preventDefault()
+  const text = event.clipboardData?.getData('text/plain') ?? ''
+  void insert(text)
 }
 
 // 编辑器键盘事件处理
 const onEditorKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    return
+  }
+
   const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
   const isMeta = isMac ? event.metaKey : event.ctrlKey
   if (!isMeta) return
@@ -767,6 +783,30 @@ const onEditorKeydown = (event: KeyboardEvent) => {
   }
 }
 
+// 监听公式内容变化，自动更新预览
+watch(() => formula.value, () => {
+  updatePreview()
+})
+
+// 监听外部传入的 modelValue 变化
+watch(() => props.modelValue, (newValue) => {
+  if (newValue !== formula.value) {
+    formula.value = newValue || ''
+    setEditorPlainText(formula.value)
+    updatePreview()
+  }
+})
+
+// 滚动同步处理函数
+const handleScrollSync = () => {
+  if (prismLayer.value && editor.value) {
+    const scrollLeft = editor.value.scrollLeft
+    const scrollTop = editor.value.scrollTop
+    prismLayer.value.scrollLeft = scrollLeft
+    prismLayer.value.scrollTop = scrollTop
+  }
+}
+
 // 组件挂载时初始化各项功能
 onMounted(() => {
   // 在预览区域渲染当前公式的 KaTeX 表达式
@@ -781,10 +821,20 @@ onMounted(() => {
   })
 
   document.addEventListener('selectionchange', updateCursorPosition)
+  
+  // 添加滚动同步监听器
+  if (editor.value) {
+    editor.value.addEventListener('scroll', handleScrollSync)
+  }
 })
 
 onUnmounted(() => {
   document.removeEventListener('selectionchange', updateCursorPosition)
+  
+  // 移除滚动同步监听器
+  if (editor.value) {
+    editor.value.removeEventListener('scroll', handleScrollSync)
+  }
 })
 </script>
 
@@ -804,10 +854,10 @@ onUnmounted(() => {
 
 .symbol-panel-popup .hsm-category-title {
   font-size: 11px;
-  color: #2563eb;
+  color: #7c3aed;
   font-weight: 700;
   padding-left: 4px;
-  border-left: 3px solid #2563eb;
+  border-left: 3px solid #7c3aed;
   margin-bottom: 8px;
   display: block;
   white-space: nowrap;
@@ -842,7 +892,7 @@ onUnmounted(() => {
 .symbol-panel-popup .symbol-btn:hover {
   transform: translateY(-1px);
   background-color: #f3f4f6;
-  border-color: #3b82f6;
+  border-color: #7c3aed;
 }
 
 .symbol-panel-popup .hsm-symbol {
@@ -1019,6 +1069,11 @@ onUnmounted(() => {
   content: attr(data-placeholder);
   color: #cbd5e1;
   pointer-events: none;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  font-size: 14px;
+  font-style: italic;
 }
 
 .cursor-float-button {
@@ -1057,6 +1112,7 @@ onUnmounted(() => {
   font-size: 14px;
   color: #cbd5e1;
   font-style: italic;
+  padding: 20px;
 }
 
 .hsm-error {
