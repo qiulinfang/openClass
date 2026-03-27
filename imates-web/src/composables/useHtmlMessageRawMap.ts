@@ -238,18 +238,20 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
       // 这里用"对象/构造就绪"作为导出门槛，并做多次导出重试
       const isConstructionReady = () => {
         try {
+          // 检查对象数量（最可靠的方式）
           if (typeof ggbApplet.getAllObjectNames === 'function') {
             const names = ggbApplet.getAllObjectNames() as unknown
             if (Array.isArray(names)) {
               console.log(`[GGB_EXPORT] 对象数量: ${names.length}`)
               if (names.length > 0) {
                 console.log(`[GGB_EXPORT] 构造检查通过: getAllObjectNames返回${names.length}个对象`)
-                console.log(`[GGB_EXPORT] 对象列表:`, names.slice(0, 10)) // 显示前10个对象名
+                console.log(`[GGB_EXPORT] 对象列表:`, names.slice(0, 10))
                 return true
               }
             }
           }
 
+          // 检查 XML 内容（兼容旧版本）
           if (typeof ggbApplet.getXML === 'function') {
             const xml = ggbApplet.getXML() as unknown
             if (typeof xml === 'string' && xml.length > 0) {
@@ -260,6 +262,15 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
               console.log(`[GGB_EXPORT] XML内容检查: construction=${hasConstruction}, objects=${hasObjects}`)
               if (hasConstruction || hasObjects) return true
             }
+          }
+
+          // 新版本适配：检查是否有 evalCommand 的执行结果
+          // 通过检查一些基础对象是否存在来判断
+          if (typeof ggbApplet.exists === 'function') {
+            // 检查 A、B、C 这些基础点是否存在（根据 HTML 中的命令）
+            const hasPoints = ggbApplet.exists('A') && ggbApplet.exists('B') && ggbApplet.exists('C')
+            console.log(`[GGB_EXPORT] 基础点检查: A=${ggbApplet.exists('A')}, B=${ggbApplet.exists('B')}, C=${ggbApplet.exists('C')}`)
+            if (hasPoints) return true
           }
         } catch {
           // ignore
@@ -441,23 +452,26 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
           const checkGeoGebra = () => {
             attempts++
             const contentWindow = iframe.contentWindow as any
-            const ggbApplet = contentWindow?.ggbApplet
+            const ggbApplet = contentWindow?.ggbApplet || contentWindow?.ggbApplet?.ggbApplet
             const containerContent = contentWindow?.document?.querySelector('#ggb-container')?.innerHTML?.length || 0
-            const hasContent = containerContent > 100
+            const hasContent = containerContent > 50 // 降低阈值，因为新版本可能只注入 canvas
             const hasPngMethod = typeof ggbApplet?.getPNGBase64 === 'function'
+            
+            // 额外检查：是否有 canvas 元素（新版本 GeoGebra 的渲染方式）
+            const hasCanvas = !!contentWindow?.document?.querySelector('#ggb-container canvas')
 
-            console.log(`[HTML_RENDER] GeoGebra 检查 #${attempts}: ggbApplet=${!!ggbApplet}, containerContent=${containerContent}, getPNGBase64=${hasPngMethod}`)
+            console.log(`[HTML_RENDER] GeoGebra 检查 #${attempts}: ggbApplet=${!!ggbApplet}, containerContent=${containerContent}, getPNGBase64=${hasPngMethod}, hasCanvas=${hasCanvas}`)
 
-            // 必须同时满足：有实例、有内容、有导出方法
-            if ((ggbApplet && hasContent && hasPngMethod) || attempts >= maxAttempts) {
-              console.log(`[HTML_RENDER] GeoGebra 检查完成: ggbApplet=${!!ggbApplet}, hasContent=${hasContent}, getPNGBase64=${hasPngMethod}`)
+            // 更宽松的条件：有实例 + (有内容或canvas) + 有导出方法
+            if ((ggbApplet && (hasContent || hasCanvas) && hasPngMethod) || attempts >= maxAttempts) {
+              console.log(`[HTML_RENDER] GeoGebra 检查完成: ggbApplet=${!!ggbApplet}, hasContent=${hasContent}, hasCanvas=${hasCanvas}, getPNGBase64=${hasPngMethod}`)
               resolve()
             } else {
               setTimeout(checkGeoGebra, 500)
             }
           }
 
-          setTimeout(checkGeoGebra, 2000)
+          setTimeout(checkGeoGebra, 3000) // 增加到 3 秒，给 appletOnLoad 回调更多时间
         })
 
         console.log(`[HTML_RENDER] 等待 iframe 稳定...`)
