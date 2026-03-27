@@ -48,6 +48,7 @@ public class FloatingFabService extends Service {
     private WindowManager windowManager;
     private View floatingFabView;
     private ImageView lottieAnimationView;
+    private Drawable floatingFabDrawable;
     
     private WindowManager.LayoutParams layoutParams;
     private int screenWidth;
@@ -165,13 +166,12 @@ public class FloatingFabService extends Service {
             try {
                 // 复刻 Web FAB：使用动图 ip.webp 作为按钮背景
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    Drawable drawable = ImageDecoder.decodeDrawable(
+                    floatingFabDrawable = ImageDecoder.decodeDrawable(
                             ImageDecoder.createSource(getResources(), R.drawable.ip_new)
                     );
-                    lottieAnimationView.setImageDrawable(drawable);
-                    if (drawable instanceof Animatable) {
-                        ((Animatable) drawable).start();
-                    }
+                    // 注意：AnimatedImageDrawable 的帧调度依赖 View attach 后的 Drawable.Callback。
+                    // 因此这里先 setImageDrawable，真正 start 放到 addView 后执行，避免“启动静止、触摸才动”。
+                    lottieAnimationView.setImageDrawable(floatingFabDrawable);
                 } else {
                     // 低版本系统对 Animated WebP 支持不稳定：先显示首帧（如需动图，需要接入 Glide Animated WebP 解码器）
                     Glide.with(this)
@@ -202,6 +202,20 @@ public class FloatingFabService extends Service {
             sendLogToWeb("ERROR", TAG, "initFloatingFab 步骤5结果: 窗口添加失败 - " + e.getMessage());
             Log.e(TAG, "添加悬浮窗口失败", e);
             return;
+        }
+
+        // addView 后（确保 View 已 attach），再启动 Animated WebP 动画
+        try {
+            lottieAnimationView.post(() -> {
+                try {
+                    Drawable d = lottieAnimationView.getDrawable();
+                    if (d instanceof Animatable) {
+                        ((Animatable) d).start();
+                    }
+                } catch (Exception ignore) {
+                }
+            });
+        } catch (Exception ignore) {
         }
 
         // addView 后再根据真实尺寸把悬浮按钮放到右下角
@@ -362,6 +376,17 @@ public class FloatingFabService extends Service {
             floatingFabView.setVisibility(View.VISIBLE);
             Log.d(TAG, "showFab: setVisibility(VISIBLE) completed, view=" + floatingFabView);
             sendLogToWeb("INFO", TAG, "showFab: 悬浮按钮已显示");
+
+            // 兜底：重新显示时确保动图在跑（某些 ROM/省电策略会暂停动画）
+            try {
+                if (lottieAnimationView != null) {
+                    Drawable d = lottieAnimationView.getDrawable();
+                    if (d instanceof Animatable) {
+                        ((Animatable) d).start();
+                    }
+                }
+            } catch (Exception ignore) {
+            }
         } else {
             Log.w(TAG, "showFab: floatingFabView is null");
             sendLogToWeb("WARN", TAG, "showFab: floatingFabView为null，无法显示");
