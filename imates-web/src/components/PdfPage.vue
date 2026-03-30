@@ -3,30 +3,34 @@
     <!-- 视口区域 -->
     <div
       class="viewport"
+      :class="{ 'is-horizontal': readingDirection === 'horizontal', 'is-drawing': readingDirection === 'horizontal' && (currentMode === 'pen' || currentMode === 'highlighter' || currentMode === 'eraser') }"
       ref="viewportRef"
-      @wheel.prevent="handleWheel"
+      @wheel="handleWheel"
+      @scroll="handleViewportScroll"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerUp"
       @pointerleave="onPointerUp"
     >
-      <div class="canvas-container" :style="containerStyle" ref="containerRef">
+      <div
+        class="canvas-container"
+        :class="{ 'is-horizontal': readingDirection === 'horizontal' }"
+        :style="containerStyle"
+        ref="containerRef"
+      >
         <div
-          v-for="(page, index) in pageList"
-          :key="index"
+          v-for="page in pageList"
+          :key="page.pageIndex"
           class="page-wrapper"
-          :style="{
-            width: page.viewWidth + 'px',
-            height: page.viewHeight + 'px',
-            left: page.x + 'px',
-            top: page.y + 'px',
-          }"
+          :class="{ 'is-horizontal': readingDirection === 'horizontal' }"
+          :data-page-index="page.pageIndex"
+          :style="{ width: page.viewWidth + 'px', height: page.viewHeight + 'px', left: page.x + 'px', top: page.y + 'px' }"
         >
           <!-- PDF 内容层 -->
-          <canvas :ref="(el) => setPdfCanvasRef(el, index)"></canvas>
+          <canvas :ref="(el) => setPdfCanvasRef(el, page.pageIndex)"></canvas>
           <!-- 涂鸦/形状层 -->
-          <canvas :ref="(el) => setInkCanvasRef(el, index)" class="ink-canvas"></canvas>
+          <canvas :ref="(el) => setInkCanvasRef(el, page.pageIndex)" class="ink-canvas"></canvas>
         </div>
 
         <div
@@ -38,11 +42,28 @@
 
       <!-- 加载状态提示 -->
       <div v-if="loading || isRendering" class="loading-overlay">
-        <div class="spinner"></div>
-        <span>正在加载...</span>
+        <Loading text="正在加载..." :size="48" theme="light" />
       </div>
-      <div v-else-if="!isVisible && pageCount > 0" class="waiting-overlay">
-        <span>等待视图容器就绪...</span>
+
+      <div v-if="readingDirection === 'horizontal'" class="horizontal-nav">
+        <q-btn
+          class="nav-btn nav-left"
+          round
+          dense
+          flat
+          icon="chevron_left"
+          :disable="isHorizontalFirstPage"
+          @click.stop="goPrevPage"
+        />
+        <q-btn
+          class="nav-btn nav-right"
+          round
+          dense
+          flat
+          icon="chevron_right"
+          :disable="isHorizontalLastPage"
+          @click.stop="goNextPage"
+        />
       </div>
 
       <!-- 橡皮擦光标提示 -->
@@ -61,11 +82,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, toRaw, nextTick, watch, onUnmounted, type ComponentPublicInstance } from 'vue'
+import {
+  ref,
+  shallowRef,
+  computed,
+  onMounted,
+  toRaw,
+  nextTick,
+  watch,
+  onUnmounted,
+  defineAsyncComponent,
+  type ComponentPublicInstance,
+} from 'vue'
 import * as mupdf from 'mupdf'
 import { IndexedDBService } from '@/services/storage/indexeddb-service'
 import { resourceManager } from '../services/storage/resource-storage'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
+import Loading from './base/Loading.vue'
 
 // === 类型定义 ===
 type ToolMode = 'pan' | 'pen' | 'highlighter' | 'eraser' | 'rectangle' | 'screenshot' | 'select'
@@ -276,7 +309,7 @@ const dbService = IndexedDBService.getInstance({
 const pdfDoc = shallowRef<mupdf.Document | null>(null)
 const fileName = ref('')
 const pageCount = ref(0)
-const pageList = ref<Array<{ viewWidth: number; viewHeight: number; x: number; y: number }>>([])
+const pageList = ref<Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }>>([])
 const scale = ref(1.0)
 const offset = ref({ x: 0, y: 0 })
 const loading = ref(false)
@@ -284,6 +317,10 @@ const isRendering = ref(false)
 const isVisible = ref(false)
 const hasRendered = ref(false)
 const contentSize = ref({ width: 0, height: 0 })
+let lastObservedViewportWidth = 0
+let lastObservedViewportHeight = 0
+
+const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
 
 // 工具状态
 const currentMode = ref<ToolMode>('pan')
@@ -429,16 +466,6 @@ const rebuildSpatialIndex = () => {
 // 橡皮擦的视觉直径与命中检测阈值保持一致（半径 = eraserSize，乘以 scale 后再取直径）
 const getEraserCursorSize = () => pdfViewerStore.drawingConfig.eraserSize * scale.value * 2
 
-watch(
-  () => pdfViewerStore.drawingConfig.eraserSize,
-  (val) => {
-    console.log('[PdfPage][eraser] size changed from store ->', val)
-    if (currentMode.value === 'eraser' && eraserCursor.value.visible) {
-      eraserCursor.value = { ...eraserCursor.value, size: getEraserCursorSize() }
-    }
-  }
-)
-
 // 渲染控制
 const viewportRef = ref<HTMLDivElement | null>(null)
 const pdfRefs = ref<HTMLCanvasElement[]>([])
@@ -465,11 +492,84 @@ let rafId: number | null = null
 let lastPinchDist = 0
 let lastPinchCenter = { x: 0, y: 0 }
 
-const containerStyle = computed(() => ({
-  width: `${contentSize.value.width}px`,
-  height: `${contentSize.value.height}px`,
-  transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
-}))
+const horizontalPageIndex = ref(0)
+let horizontalScrollTimer: any = null
+let horizontalScrollEndTimer: any = null
+let horizontalScaleResetRaf: number | null = null
+let horizontalScaleResetStartAt = 0
+let horizontalScaleResetFrom = 1
+let lastViewportScrollLeft = 0
+let lastViewportScrollTop = 0
+
+const isHorizontalScrolling = ref(false)
+
+const containerStyle = computed(() => {
+  const base = {
+    width: `${contentSize.value.width}px`,
+    height: `${contentSize.value.height}px`,
+  }
+  return {
+    ...base,
+    transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
+  }
+})
+
+const handleViewportScroll = () => {
+  // 横向已改为单页模式，不再依赖原生 scroll 进行切页
+  if (readingDirection.value === 'horizontal') return
+  if (!viewportRef.value) return
+
+  const currentLeft = viewportRef.value.scrollLeft
+  const currentTop = viewportRef.value.scrollTop
+  const dx = Math.abs(currentLeft - lastViewportScrollLeft)
+  const dy = Math.abs(currentTop - lastViewportScrollTop)
+  lastViewportScrollLeft = currentLeft
+  lastViewportScrollTop = currentTop
+
+  // 横向模式允许上下滚动（scrollTop 变化），但不应该触发“切页滚动”逻辑与缩放恢复
+  if (dx < 1 && dy >= 1) {
+    return
+  }
+
+  isHorizontalScrolling.value = true
+  if (horizontalScrollEndTimer) clearTimeout(horizontalScrollEndTimer)
+  horizontalScrollEndTimer = setTimeout(() => {
+    horizontalScrollEndTimer = null
+    isHorizontalScrolling.value = false
+  }, 160)
+
+  // 滚动过程中平滑把缩放恢复到 1（更丝滑，而不是滚动结束后瞬间跳变）
+  if (scale.value !== 1 && horizontalScaleResetRaf == null) {
+    horizontalScaleResetStartAt = performance.now()
+    horizontalScaleResetFrom = scale.value
+    const duration = 180
+    const step = (now: number) => {
+      const t = Math.min(1, (now - horizontalScaleResetStartAt) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      scale.value = horizontalScaleResetFrom + (1 - horizontalScaleResetFrom) * eased
+      if (t < 1) {
+        horizontalScaleResetRaf = requestAnimationFrame(step)
+      } else {
+        scale.value = 1
+        horizontalScaleResetRaf = null
+      }
+    }
+    horizontalScaleResetRaf = requestAnimationFrame(step)
+  }
+
+  if (horizontalScrollTimer) clearTimeout(horizontalScrollTimer)
+  horizontalScrollTimer = setTimeout(() => {
+    horizontalScrollTimer = null
+    if (!viewportRef.value) return
+    const w = viewportRef.value.clientWidth || 1
+    const idx = Math.round(viewportRef.value.scrollLeft / w)
+    if (idx !== horizontalPageIndex.value) {
+      horizontalPageIndex.value = idx
+      // 兜底：滚动结束后确保 scale 完全恢复
+      if (scale.value !== 1) scale.value = 1
+    }
+  }, 120)
+}
 
 // === 持久化核心逻辑 ===
 
@@ -506,7 +606,9 @@ const saveDataToDb = async () => {
       strokes: toRaw(allStrokes.value),
       updatedAt: Date.now(),
     }
+    console.log('保存数据到数据库:', { key, strokesCount: data.strokes.length })
     await dbService.put('annotations', data)
+    console.log('数据保存成功:', key)
   } catch (e) {
     console.error('保存数据失败:', e)
   }
@@ -611,9 +713,33 @@ const loadFile = async (file: File) => {
 const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
   const numPages = doc.countPages()
 
+  if (readingDirection.value === 'horizontal') {
+    const pageIndex = Math.min(Math.max(horizontalPageIndex.value, 0), Math.max(0, numPages - 1))
+    horizontalPageIndex.value = pageIndex
+    const page = doc.loadPage(pageIndex)
+    try {
+      const bounds = page.getBounds()
+      const width = bounds[2] - bounds[0]
+      const height = bounds[3] - bounds[1]
+      pageList.value = [
+        {
+          pageIndex,
+          viewWidth: width,
+          viewHeight: height,
+          x: 0,
+          y: 0,
+        },
+      ]
+      contentSize.value = { width, height }
+    } finally {
+      page.destroy?.()
+    }
+    return
+  }
+
   let currentY = PAGE_GAP
   let maxW = 0
-  const list: Array<{ viewWidth: number; viewHeight: number; x: number; y: number }> = []
+  const list: Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }> = []
 
   // MuPDF 获取页面尺寸是同步的，这里仍用 async 包一层保持接口一致
   for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
@@ -624,6 +750,7 @@ const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
       const height = bounds[3] - bounds[1]
       if (width > maxW) maxW = width
       list.push({
+        pageIndex,
         viewWidth: width,
         viewHeight: height,
         x: 0,
@@ -655,12 +782,38 @@ const setupResizeObserver = () => {
       const { width, height } = entry.contentRect
       const isNowVisible = width > 0 && height > 0
 
+      const sizeChanged =
+        Math.abs(width - lastObservedViewportWidth) > 1 || Math.abs(height - lastObservedViewportHeight) > 1
+      lastObservedViewportWidth = width
+      lastObservedViewportHeight = height
+
       if (isNowVisible !== isVisible.value) {
         isVisible.value = isNowVisible
         if (isNowVisible) {
           tryRenderContent()
           if (hasRendered.value) clampOffset()
         }
+        continue
+      }
+
+      // ChatPanel 打开/关闭会导致 viewport 尺寸变化：无论横/纵向都需要
+      // 1) offset 归零（左右/上下位移）
+      // 2) scale 归 1
+      // 3) 强制重新触发渲染
+      if (isNowVisible && sizeChanged) {
+        if (scale.value !== 1) scale.value = 1
+
+        // 尺寸变化后都重新居中（横向：单页也需要在 viewport 内水平+垂直居中）
+        centerContent()
+
+        hasRendered.value = false
+        requestAnimationFrame(() => {
+          tryRenderContent()
+          if (hasRendered.value) {
+            centerContent()
+            clampOffset()
+          }
+        })
       }
     }
   })
@@ -687,11 +840,12 @@ const renderPdfPages = async () => {
     renderDprRef.value = renderDpr
     console.log('[PdfPage] renderDpr:', renderDpr, 'sizeMB:', (props.file?.size || 0) / 1024 / 1024, 'pages:', pageList.value.length, 'lowMode:', shouldUseLowRenderMode)
 
-    const renderOnePage = async (i: number) => {
-      const pageLayout = pageList.value[i]
+    const renderOnePage = async (pageIndex: number) => {
+      const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
+      if (!pageLayout) return
       try {
-        const canvas = pdfRefs.value[i]
-        const inkCanvas = inkRefs.value[i]
+        const canvas = pdfRefs.value[pageIndex]
+        const inkCanvas = inkRefs.value[pageIndex]
         if (!canvas || !inkCanvas) return
 
         const cssW = pageLayout.viewWidth
@@ -710,7 +864,7 @@ const renderPdfPages = async () => {
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
-        const page = rawDoc.loadPage(i)
+        const page = rawDoc.loadPage(pageIndex)
         try {
           const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
           const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
@@ -737,18 +891,49 @@ const renderPdfPages = async () => {
         }
 
         // 渲染 Ink 层（包含刚加载的笔迹）
-        renderInkLayer(i)
+        renderInkLayer(pageIndex)
       } catch (e) {
-        console.error('[PdfPage] render page failed:', { pageIndex: i, error: e })
+        console.error('[PdfPage] render page failed:', { pageIndex, error: e })
       }
     }
 
-    const renderPromises = pageList.value.map((_, i) => renderOnePage(i))
+    const renderPromises = pageList.value.map((p) => renderOnePage(p.pageIndex))
     await Promise.all(renderPromises)
   } finally {
     isRendering.value = false
   }
 }
+
+const goToHorizontalPage = async (pageIndex: number) => {
+  const rawDoc = toRaw(pdfDoc.value)
+  if (!rawDoc) return
+  const next = Math.min(Math.max(pageIndex, 0), Math.max(0, rawDoc.countPages() - 1))
+  if (next === horizontalPageIndex.value) return
+  horizontalPageIndex.value = next
+
+  // 切页时重置缩放/状态
+  if (scale.value !== 1) scale.value = 1
+  offset.value = { x: 0, y: 0 }
+
+  await prefetchDimensionsAndLayout(rawDoc)
+  hasRendered.value = false
+  await nextTick()
+  await tryRenderContent()
+
+  // 单页切换后确保居中（并做边界修正）
+  requestAnimationFrame(() => {
+    centerContent()
+    clampOffset()
+  })
+}
+
+const goPrevPage = () => goToHorizontalPage(horizontalPageIndex.value - 1)
+const goNextPage = () => goToHorizontalPage(horizontalPageIndex.value + 1)
+
+const isHorizontalFirstPage = computed(() => readingDirection.value === 'horizontal' && horizontalPageIndex.value <= 0)
+const isHorizontalLastPage = computed(
+  () => readingDirection.value === 'horizontal' && horizontalPageIndex.value >= Math.max(0, pageCount.value - 1)
+)
 
 const resetState = () => {
   if (pdfDoc.value) {
@@ -1058,7 +1243,7 @@ const getPdfPoint = (
     const withinX = localX >= p.x && localX <= p.x + p.viewWidth
     if (withinY && withinX) {
       return {
-        pageIndex: i,
+        pageIndex: p.pageIndex,
         x: localX - p.x,
         y: localY - p.y,
       }
@@ -1362,7 +1547,16 @@ const applyPan = (dx: number, dy: number): void => {
 
 // ==================== 指针按下事件 ====================
 const onPointerDown = (e: PointerEvent) => {
-  if (viewportRef.value) viewportRef.value.setPointerCapture(e.pointerId)
+  const shouldLockScrollForDrawInHorizontal =
+    readingDirection.value === 'horizontal' &&
+    (currentMode.value === 'pen' || currentMode.value === 'highlighter' || currentMode.value === 'eraser')
+
+  if (viewportRef.value && (readingDirection.value !== 'horizontal' || shouldLockScrollForDrawInHorizontal)) {
+    viewportRef.value.setPointerCapture(e.pointerId)
+  }
+  if (shouldLockScrollForDrawInHorizontal) {
+    e.preventDefault()
+  }
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
   stopInertia()
 
@@ -1371,6 +1565,21 @@ const onPointerDown = (e: PointerEvent) => {
     const loc = getPdfPoint(e.clientX, e.clientY)
 
     handlePointerMoveForEraserCursor(e)
+
+    // 截图模式：不依赖 loc 命中页面（横向单页布局下 getPdfPoint 可能返回 null）
+    if (currentMode.value === 'screenshot') {
+      const p = getContentPoint(e.clientX, e.clientY)
+      if (p) {
+        screenshotStartPoint.value = p
+        screenshotDragRect.value = { x: p.x, y: p.y, w: 0, h: 0 }
+        isDrawingStarted.value = true
+        // 复用现有的 finishDrawing 流程：确保 dragStartPage 非 -1
+        if (dragStartPage.value === -1) {
+          dragStartPage.value = readingDirection.value === 'horizontal' ? horizontalPageIndex.value : 0
+        }
+      }
+      return
+    }
 
     // 非 pan 模式：优先在页面内交互；若不在页面内，则允许平移
     if (currentMode.value !== 'pan' && !loc) {
@@ -1405,16 +1614,6 @@ const onPointerDown = (e: PointerEvent) => {
         return
       }
 
-      // 截图模式处理
-      if (currentMode.value === 'screenshot') {
-        const p = getContentPoint(e.clientX, e.clientY)
-        if (p) {
-          screenshotStartPoint.value = p
-          screenshotDragRect.value = { x: p.x, y: p.y, w: 0, h: 0 }
-        }
-        isDrawingStarted.value = true
-      }
-
       // 其他模式：仅在非 pen/highlighter 时立即渲染
       if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
         renderInkLayer(loc.pageIndex)
@@ -1434,6 +1633,20 @@ const onPointerDown = (e: PointerEvent) => {
 const onPointerMove = (e: PointerEvent) => {
   if (!activePointers.has(e.pointerId)) return
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+  // 截图模式：开始后持续更新矩形（不依赖 dragStartPage 命中）
+  if (currentMode.value === 'screenshot' && screenshotStartPoint.value) {
+    handleScreenshotDrag(e.clientX, e.clientY)
+    return
+  }
+
+  if (
+    readingDirection.value === 'horizontal' &&
+    activePointers.size === 1 &&
+    (currentMode.value === 'pen' || currentMode.value === 'highlighter' || currentMode.value === 'eraser')
+  ) {
+    e.preventDefault()
+  }
 
   if (activePointers.size === 1) {
     // 平移模式处理
@@ -1521,37 +1734,37 @@ const onPointerUp = (e: PointerEvent) => {
   activePointers.delete(e.pointerId)
 
   if (activePointers.size === 0) {
-    // 平移模式处理
-    if (currentMode.value === 'pan' || isPanningInDrawMode) {
-      startInertia()
-      scheduleSaveToDb(600)
-      isPanningInDrawMode = false
-    } else {
-      // 选择模式处理
-      if (currentMode.value === 'select') {
-        const pageIdx = dragStartPage.value
-        if (pageIdx !== -1 && selectAction) {
-          switch (selectAction.type) {
-            case 'box_select':
-              finalizeBoxSelection(pageIdx)
-              break
-            case 'freeform_select':
-              finalizeFreeformSelection(pageIdx)
-              break
-            case 'move':
-              commitSelectionMove(pageIdx)
-              break
-          }
+    // 最后一个指针松开：需要在这里提交绘制/选区结果，否则只会停留在预览层，数据不会进入 allStrokes
+    if (currentMode.value === 'select') {
+      const pageIdx = dragStartPage.value
+      if (pageIdx !== -1 && selectAction) {
+        switch (selectAction.type) {
+          case 'box_select':
+            finalizeBoxSelection(pageIdx)
+            break
+          case 'freeform_select':
+            finalizeFreeformSelection(pageIdx)
+            break
+          case 'move':
+            commitSelectionMove(pageIdx)
+            break
         }
         cleanupSelectionState(pageIdx)
-        return
       }
-
-      // 其他模式：完成绘制
+    } else {
       finishDrawing(true)
     }
-  } else {
-    // 还有其他指针时，更新最后位置
+
+    lastPinchDist = 0
+    lastPinchCenter = { x: 0, y: 0 }
+    selectAction = null
+    stopInertia()
+    scheduleSaveToDb(600)
+    isPanningInDrawMode = false
+  }
+
+  // 还有其他指针时，更新最后位置
+  if (activePointers.size > 0) {
     const pt = activePointers.values().next().value
     if (pt) lastPointerPos = { x: pt.x, y: pt.y }
   }
@@ -1865,8 +2078,16 @@ const redo = () => {
 
 const handleWheel = (e: WheelEvent) => {
   if (e.ctrlKey || e.metaKey) {
+    if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
+      e.preventDefault()
+      return
+    }
+    e.preventDefault()
     zoomAt(-e.deltaY, e.clientX, e.clientY)
   } else {
+    if (readingDirection.value === 'horizontal') {
+      return
+    }
     offset.value.x -= e.deltaX
     offset.value.y -= e.deltaY
     clampOffset()
@@ -1879,6 +2100,9 @@ const handleWheel = (e: WheelEvent) => {
 let saveTimer: any = null
 
 const handlePinch = () => {
+  if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
+    return
+  }
   const pts = Array.from(activePointers.values())
   const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
   const centerX = (pts[0].x + pts[1].x) / 2
@@ -1946,7 +2170,8 @@ const clampOffset = () => {
   if (!viewportRef.value || pageList.value.length === 0) return
   const vpRect = viewportRef.value.getBoundingClientRect()
   const lastPage = pageList.value[pageList.value.length - 1]
-  const contentH = (lastPage.y + lastPage.viewHeight + PAGE_GAP) * scale.value
+  const contentH =
+    (lastPage.y + lastPage.viewHeight + (readingDirection.value === 'horizontal' ? 0 : PAGE_GAP)) * scale.value
   const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
   const contentW = maxW * scale.value
   const padding = 100
@@ -1962,8 +2187,13 @@ const clampOffset = () => {
     if (x + contentW < vpRect.width - padding) x = vpRect.width - padding - contentW
   }
 
-  if (y > padding) y = padding
-  if (y + contentH < vpRect.height - padding) y = vpRect.height - padding - contentH
+  if (contentH < vpRect.height) {
+    if (y > vpRect.height - padding) y = vpRect.height - padding
+    if (y + contentH < padding) y = padding - contentH
+  } else {
+    if (y > padding) y = padding
+    if (y + contentH < vpRect.height - padding) y = vpRect.height - padding - contentH
+  }
 
   offset.value = { x, y }
 }
@@ -1974,9 +2204,18 @@ const centerContent = () => {
   if (rect.width === 0) return
 
   const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
-  offset.value = {
-    x: (rect.width - maxW * scale.value) / 2,
-    y: 20,
+  if (readingDirection.value === 'horizontal') {
+    const p = pageList.value[0]
+    const pageH = p?.viewHeight ?? 0
+    offset.value = {
+      x: (rect.width - maxW * scale.value) / 2,
+      y: (rect.height - pageH * scale.value) / 2,
+    }
+  } else {
+    offset.value = {
+      x: (rect.width - maxW * scale.value) / 2,
+      y: 20,
+    }
   }
 }
 
@@ -1994,12 +2233,19 @@ const getRectStyle = (rect: { x: number; y: number; w: number; h: number }) => (
 })
 
 watch(
-  () => props.file,
-  (f) => f && loadFile(f),
-  { immediate: true }
+  () => pdfViewerStore.drawingConfig.eraserSize,
+  (val) => {
+    console.log('[PdfPage][eraser] size changed from store ->', val)
+    if (currentMode.value === 'eraser' && eraserCursor.value.visible) {
+      eraserCursor.value = { ...eraserCursor.value, size: getEraserCursorSize() }
+    }
+  }
 )
 
 onMounted(() => {
+  if (props.file) {
+    loadFile(props.file)
+  }
   setupResizeObserver()
 })
 
@@ -2026,8 +2272,68 @@ const toggleScreenshotMode = () => {
 const toggleNoteMode = () => {
   currentMode.value = 'pen'
 }
+const toggleDebugPanel = () => {}
 const toggleSelectMode = () => {
   currentMode.value = 'select'
+}
+
+const getCurrentVerticalPageIndex = (): number => {
+  if (!viewportRef.value || pageList.value.length === 0) return 0
+  const rect = viewportRef.value.getBoundingClientRect()
+  const centerY = rect.height / 2
+  const contentCenterY = (centerY - offset.value.y) / (scale.value || 1)
+  for (const p of pageList.value) {
+    if (contentCenterY >= p.y && contentCenterY < p.y + p.viewHeight) return p.pageIndex
+  }
+  return pageList.value[pageList.value.length - 1].pageIndex
+}
+
+const toggleReadingDirection = async () => {
+  const fromDirection = readingDirection.value
+  const targetPageIndex = fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
+  readingDirection.value = fromDirection === 'horizontal' ? 'vertical' : 'horizontal'
+  if (scale.value !== 1) scale.value = 1
+  offset.value = { x: 0, y: 0 }
+  if (readingDirection.value === 'horizontal') {
+    horizontalPageIndex.value = targetPageIndex
+    lastViewportScrollLeft = 0
+    lastViewportScrollTop = 0
+    if (horizontalScrollTimer) {
+      clearTimeout(horizontalScrollTimer)
+      horizontalScrollTimer = null
+    }
+    if (horizontalScrollEndTimer) {
+      clearTimeout(horizontalScrollEndTimer)
+      horizontalScrollEndTimer = null
+    }
+    if (horizontalScaleResetRaf != null) {
+      cancelAnimationFrame(horizontalScaleResetRaf)
+      horizontalScaleResetRaf = null
+    }
+    isHorizontalScrolling.value = false
+  }
+  const rawDoc = toRaw(pdfDoc.value)
+  if (!rawDoc) return
+  await prefetchDimensionsAndLayout(rawDoc)
+  hasRendered.value = false
+  await nextTick()
+  tryRenderContent()
+  requestAnimationFrame(() => {
+    if (readingDirection.value === 'vertical') {
+      if (!viewportRef.value || pageList.value.length === 0) return
+      const rect = viewportRef.value.getBoundingClientRect()
+      const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
+      const targetPage = pageList.value.find((p) => p.pageIndex === targetPageIndex)
+      offset.value = {
+        x: (rect.width - maxW * scale.value) / 2,
+        y: targetPage ? 20 - targetPage.y * scale.value : 20,
+      }
+      clampOffset()
+    } else {
+      centerContent()
+      clampOffset()
+    }
+  })
 }
 const setSelectionMode = (mode: 'rectangle' | 'freeform') => {
   selectionMode.value = mode
@@ -2036,6 +2342,7 @@ const undoLastStroke = () => undo()
 const redoLastStroke = () => redo()
 
 defineExpose({
+  toggleDebugPanel,
   toggleGestureMode,
   toggleHighlightMode,
   togglePenMode,
@@ -2043,6 +2350,9 @@ defineExpose({
   toggleScreenshotMode,
   toggleNoteMode,
   toggleSelectMode,
+  toggleReadingDirection,
+  goPrevPage,
+  goNextPage,
   setSelectionMode,
   undoLastStroke,
   redoLastStroke,
@@ -2067,6 +2377,15 @@ defineExpose({
   touch-action: none;
   cursor: crosshair;
 }
+
+.viewport.is-horizontal {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.viewport.is-horizontal.is-drawing {
+  touch-action: none;
+}
 .viewport:active {
   cursor: grabbing;
 }
@@ -2075,6 +2394,36 @@ defineExpose({
   position: absolute;
   transform-origin: 0 0;
   will-change: transform;
+}
+
+.canvas-container.is-horizontal {
+  position: absolute;
+}
+
+.canvas-container.is-horizontal .page-wrapper {
+  position: absolute;
+  overflow: hidden;
+}
+
+.page-wrapper.is-horizontal {
+  background: transparent;
+  box-shadow: none;
+}
+
+.canvas-container.is-horizontal .page-wrapper canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: none;
+  transform-origin: 0 0;
+}
+
+.canvas-container.is-horizontal .page-wrapper canvas:not(.ink-canvas) {
+  z-index: 1;
+}
+
+.canvas-container.is-horizontal .page-wrapper .ink-canvas {
+  z-index: 2;
 }
 
 .page-wrapper {
@@ -2120,6 +2469,34 @@ canvas {
   z-index: var(--z-pdf-loading-overlay);
 }
 
+.horizontal-nav {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: var(--z-pdf-loading-overlay);
+}
+
+.horizontal-nav .nav-btn {
+  position: absolute;
+  pointer-events: auto;
+  width: 40px;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.horizontal-nav .nav-left {
+  left: 12px;
+}
+
+.horizontal-nav .nav-right {
+  right: 12px;
+}
+
 .eraser-cursor {
   position: absolute;
   border: 1px solid rgba(0, 0, 0, 0.4);
@@ -2129,29 +2506,5 @@ canvas {
   box-sizing: border-box;
   z-index: var(--z-pdf-eraser-cursor);
   transform: translate(-50%, -50%);
-}
-
-.waiting-overlay {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #999;
-  font-size: 12px;
-  z-index: var(--z-pdf-loading-overlay);
-}
-
-.spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid #fff;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

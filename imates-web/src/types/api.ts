@@ -32,6 +32,8 @@ export interface AiChatMessageRequest {
   imageList?: Array<{
     base64DataUrl: string
   }>
+  /** 图片 URL（用于 /ai/2.0/chatMath 与 /ai/2.0/chat 等文本对话接口透传图片链接） */
+  image_url?: string
 }
 
 /** 聊天响应接口 */

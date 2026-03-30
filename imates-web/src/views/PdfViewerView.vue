@@ -39,6 +39,17 @@
               </q-btn>
             </template>
             <template #right-actions>
+              <q-btn
+                flat
+                round
+                dense
+                icon="swap_horiz"
+                color="white"
+                @click="handleToggleReadingDirection"
+                class="q-mr-sm"
+              >
+                <q-tooltip>{{ isHorizontalReading ? '切换为纵向滚动' : '切换为横向滚动' }}</q-tooltip>
+              </q-btn>
               <!-- 调试面板按钮 -->
               <q-btn
                 v-if="isDev"
@@ -145,6 +156,7 @@ type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleGestureMode: () => void
   toggleScreenshotMode: () => void
   toggleSelectMode: () => void
+  toggleReadingDirection: () => Promise<void> | void
   setSelectionMode: (mode: 'rectangle' | 'freeform') => void
 }>
 
@@ -363,6 +375,17 @@ const handleConfigChange = (config: {
 
 // PdfPage 实例引用
 const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
+
+const isHorizontalReading = ref(false)
+
+const handleToggleReadingDirection = async () => {
+  try {
+    isHorizontalReading.value = !isHorizontalReading.value
+    await (pdfPageRef.value as any)?.toggleReadingDirection?.()
+  } catch (e) {
+    console.error('[PdfViewerView] toggleReadingDirection failed:', e)
+  }
+}
 
 // 当前文件
 const currentFile = ref<File | null>(null)

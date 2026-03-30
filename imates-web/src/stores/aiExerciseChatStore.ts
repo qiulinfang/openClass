@@ -38,6 +38,7 @@ const buildAiExerciseMessage = (
   enableWebSearch: boolean,
   selectedModel: string = 'mate',
   imageData?: ChatImageData,
+  imageList?: ChatImageData[],
   sessionId?: string | null,
 ): AiChatMessageRequest => {
   
@@ -54,61 +55,54 @@ const buildAiExerciseMessage = (
   const userId = getUserId() || ''
   const finalSessionId = sessionId || `${userId ? userId + '-' : ''}exercise-${questionId}-${Date.now()}`
   
-  // 如果有图片数据，使用图片接口
-  if (imageData?.base64DataUrl) {
-    // 处理图片格式：jpeg -> jpg
-    const questionDataUrl = imageData.base64DataUrl.startsWith('data:image/jpeg;')
-      ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
-      : imageData.base64DataUrl
-    
-    const request: AiChatMessageRequest = {
-      sessionId: finalSessionId,
-      newValue: '1',
-      coversation: conversationContent,
-      question: currentQuestion.question || currentQuestion.title || '',
-      answer: currentQuestion.answer || '',
-      name: getUserId() || 'User',
-      reason: 'start',
-      bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
-      isWebSearch: enableWebSearch ? '1' : '0',
-      role: selectedModel,
-      subject: subject,
-      dstUrl: getApiPaths().xueban.ai.previewPictureQA,
-      explanation: currentQuestion.explanation || '',
-    }
-    
-    // 校验请求参数完整性
-    validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
-    
-    return request
-  } else {
-    // 根据题目学科确定API路径，而不是全局用户学科设置
-    const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
-    const apiUrl =
-      effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
+  // 根据题目学科确定API路径，而不是全局用户学科设置
+  const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
+  const apiUrl = effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
 
-    // 普通文本消息
-    const request: AiChatMessageRequest = {
-      sessionId: finalSessionId,
-      newValue: '1',
-      coversation: conversationContent,
-      question: currentQuestion.question || currentQuestion.title || '',
-      answer: currentQuestion.answer || '',
-      name: getUserId() || 'User',
-      reason: 'start',
-      bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
-      isWebSearch: enableWebSearch ? '1' : '0',
-      role: selectedModel,
-      subject: subject,
-      dstUrl: apiUrl,
-      explanation: currentQuestion.explanation || '', // 添加 explanation 字段
-    }
-    
-    // 校验请求参数完整性
-    validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
-    
-    return request
+  const maxImages = 3
+  const normalizedImageList = Array.isArray(imageList)
+    ? imageList
+        .filter((img) => !!img?.base64DataUrl)
+        .slice(0, maxImages)
+        .map((img) => ({
+          base64DataUrl: img.base64DataUrl!.startsWith('data:image/jpeg;')
+            ? img.base64DataUrl!.replace('data:image/jpeg;', 'data:image/jpg;')
+            : img.base64DataUrl!,
+        }))
+    : []
+
+  const singleBase64 = imageData?.base64DataUrl
+    ? (imageData.base64DataUrl.startsWith('data:image/jpeg;')
+        ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
+        : imageData.base64DataUrl)
+    : undefined
+
+  const request: AiChatMessageRequest = {
+    sessionId: finalSessionId,
+    newValue: '1',
+    coversation: conversationContent,
+    question: currentQuestion.question || currentQuestion.title || '',
+    answer: currentQuestion.answer || '',
+    name: getUserId() || 'User',
+    reason: 'start',
+    bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
+    isWebSearch: enableWebSearch ? '1' : '0',
+    role: selectedModel,
+    subject: subject,
+    dstUrl: apiUrl,
+    explanation: currentQuestion.explanation || '',
+    imageList:
+      normalizedImageList.length > 0
+        ? normalizedImageList
+        : singleBase64
+          ? [{ base64DataUrl: singleBase64 }]
+          : undefined,
   }
+
+  // 校验请求参数完整性
+  validateExerciseChatRequest(request, currentQuestion.title || currentQuestion.question || '未知题目')
+
+  return request
 }
 
 /**
@@ -208,6 +202,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     hidePrefix: boolean = false,
     skipUserMessage?: boolean,
     quotedMessage?: ChatQuotedMessage,
+    imageList?: ChatImageData[],
   ): Promise<void> => {
     // 验证题目
     if (!currentQuestion) {
@@ -233,6 +228,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         enableWebSearch.value,
         selectedModel,
         imageData,
+        imageList,
         currentSessionId.value,
       )
     } catch (error) {
@@ -394,6 +390,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         enableWebSearch.value,
         selectedModel,
         imageData,
+        undefined,
         currentSessionId.value,
       )
     } catch (error) {

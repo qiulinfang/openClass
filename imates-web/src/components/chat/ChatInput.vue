@@ -167,7 +167,7 @@
 
           <!-- 图片上传 - 在 ai-general 和 user-client 场景下显示 -->
           <button
-            v-if="props.type === 'ai-general' || props.type === 'user-client' || props.type === 'teacher'"
+            v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client' || props.type === 'teacher'"
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"

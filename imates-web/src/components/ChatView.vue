@@ -590,8 +590,8 @@ const localAttachedScreenshots = ref<AttachedScreenshot[]>(
 // - ai-general 和 user-client 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
 // - 其它场景（如 ai-textbook）：保持向上传递，由上层（如 PdfViewerView）处理多图截图发送
 const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
-  if (props.type === 'ai-general' || props.type === 'user-client') {
-    // 对于 ai-general 和 user-client：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
+  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
+    // 对于 ai-general / ai-exercise / user-client：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
     void sendMessage()
   } else {
     emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
@@ -610,8 +610,8 @@ const onImageSelected = async (imageData: ChatImageData) => {
   // 教材场景的截图挂载/编辑由 PdfViewerView 统一处理
   if (props.type === 'ai-textbook') return
 
-  // ai-general / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
-  if (props.type === 'ai-general' || props.type === 'user-client') {
+  // ai-general / ai-exercise / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
+  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
     const maxImages = props.type === 'user-client' ? 5 : 3
     if (localAttachedScreenshots.value.length >= maxImages) {
       showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
@@ -654,8 +654,8 @@ const handleImageCropCancel = () => {
 const processCroppedImage = async (imageData: ChatImageData) => {
   if (!imageData?.base64DataUrl) return
 
-  // ai-general / user-client：将裁剪后的图片挂载到输入框缩略图区
-  if (props.type === 'ai-general' || props.type === 'user-client') {
+  // ai-general / ai-exercise / user-client：将裁剪后的图片挂载到输入框缩略图区
+  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
     const shot: AttachedScreenshot = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       dataUrl: imageData.base64DataUrl, // 裁剪后的缩略图
@@ -1544,14 +1544,15 @@ const sendSimpleMessage = async (message: string) => {
 const sendMessage = async (attachedFile?: File) => {
   const hasText = !!inputMessage.value.trim()
   const hasFile = !!attachedFile
-  const hasImageForAiGeneral =
-    props.type === 'ai-general' && localAttachedScreenshots.value.length > 0
+  const hasImageForInlineAttach =
+    (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
+    localAttachedScreenshots.value.length > 0
 
-  if ((!hasText && !hasFile && !hasImageForAiGeneral) || isLoading.value) {
+  if ((!hasText && !hasFile && !hasImageForInlineAttach) || isLoading.value) {
     console.error('[ChatView] ❌ 发送消息失败:', {
       inputMessage: inputMessage.value,
       attachedFile: attachedFile,
-      hasImageForAiGeneral,
+      hasImageForInlineAttach,
       isLoading: isLoading.value,
     })
     return
@@ -1622,13 +1623,13 @@ const sendMessage = async (attachedFile?: File) => {
     let imageListForApi: ChatImageData[] | undefined
     const finalMessageContent = messageContent
 
-    // ai-general 和 user-client 场景：如果有挂在输入框上的截图
+    // ai-general / ai-exercise / user-client 场景：如果有挂在输入框上的截图
     // - 1张：走 imageData
     // - 多张：走 imageList
     let imageDataForApi: ChatImageData | undefined
     const maxImages = props.type === 'user-client' ? 5 : 3
     if (
-      (props.type === 'ai-general' || props.type === 'user-client') &&
+      (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
       localAttachedScreenshots.value.length > 0
     ) {
       if (localAttachedScreenshots.value.length > 1) {
@@ -1654,9 +1655,9 @@ const sendMessage = async (attachedFile?: File) => {
       }
     }
 
-    // ai-general 和 user-client：点击发送后立刻清空输入区缩略图（不等待回复完成）
+    // ai-general / ai-exercise / user-client：点击发送后立刻清空输入区缩略图（不等待回复完成）
     if (
-      (props.type === 'ai-general' || props.type === 'user-client') &&
+      (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
       localAttachedScreenshots.value.length > 0
     ) {
       localAttachedScreenshots.value = []

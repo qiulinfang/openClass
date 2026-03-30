@@ -14,6 +14,8 @@ import { apiService } from '../../../services/http/api-service'
 import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 import { normalizeSubject } from '@/constants/subjects'
+import { Sender } from '@/types/enums'
+import type { ChatQuotedMessage } from '@/stores/utils/chatStoreUtils'
 
 export class AiExerciseStrategy implements ChatStrategy {
   private aiExerciseStore = useAiExerciseChatStore()
@@ -51,6 +53,19 @@ export class AiExerciseStrategy implements ChatStrategy {
         throw new Error('无法确定题目学科')
       }
 
+      const quotedForStore: ChatQuotedMessage | undefined = options.quotedMessage
+        ? {
+            id: options.quotedMessage.id,
+            content: options.quotedMessage.content,
+            sender:
+              options.quotedMessage.sender === 'user'
+                ? Sender.USER
+                : options.quotedMessage.sender === 'teacher'
+                  ? Sender.TEACHER
+                  : Sender.AI,
+          }
+        : undefined
+
       // 调用Store的sendMessage方法，传递所有必需参数
       await this.aiExerciseStore.sendMessage(
         content,
@@ -61,7 +76,8 @@ export class AiExerciseStrategy implements ChatStrategy {
         options.imageData,
         hidePrefix,
         options.skipUserMessage,
-        options.quotedMessage,
+        quotedForStore,
+        options.imageList,
       )
     } catch (error) {
       // 如果是验证错误，将错误信息作为AI回复返回
@@ -73,9 +89,9 @@ export class AiExerciseStrategy implements ChatStrategy {
         const errorReply: ChatBubble = {
           id: generateUniqueId('error_ai'),
           content: `抱歉，当前题目信息不完整，无法进行对话。错误详情：${errorMessage}`,
-          type: 'ai',
+          type: Sender.AI,
           timestamp: new Date().toISOString(),
-          sender: 'ai',
+          sender: Sender.AI,
           isStreaming: false,
           selectedModel: options.selectedModel || 'mate'
         }
@@ -259,9 +275,9 @@ export class AiExerciseStrategy implements ChatStrategy {
         const welcomeMessage: ChatBubble = {
           id: 'welcome_' + Date.now(),
           content: this.getWelcomeMessage(),
-          type: this.getMessageType(),
+          type: Sender.AI,
           timestamp: '',
-          sender: this.getSenderType(),
+          sender: Sender.AI,
         }
         await this.addMessage(welcomeMessage)
       }
@@ -294,9 +310,9 @@ export class AiExerciseStrategy implements ChatStrategy {
     const imageMessage: ChatBubble = {
       id: Date.now().toString(),
       content: '',
-      type: 'user',
+      type: Sender.USER,
       timestamp: '',
-      sender: 'user',
+      sender: Sender.USER,
       messageType: 'image',
       imageData: {
         filePath: imageInfo.filePath,
