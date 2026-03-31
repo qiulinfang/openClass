@@ -6,6 +6,18 @@
 
 // ========== 聊天相关API ==========
 
+/** HTML 预览焦点对象 */
+export interface HtmlPreviewFocus {
+  type: 'html'
+  value: string
+  change: Array<{
+    type: string
+    ts: number
+    data: any
+  }>
+  screenshot: string | null
+}
+
 /** AI 聊天消息请求接口 */
 export interface AiChatMessageRequest {
   sessionId: string
@@ -34,6 +46,8 @@ export interface AiChatMessageRequest {
   }>
   /** 图片 URL（用于 /ai/2.0/chatMath 与 /ai/2.0/chat 等文本对话接口透传图片链接） */
   image_url?: string
+  /** 可选：前端额外上下文（如 html-preview 的 focus 对象） */
+  focus?: HtmlPreviewFocus
 }
 
 /** 聊天响应接口 */

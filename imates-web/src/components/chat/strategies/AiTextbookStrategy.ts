@@ -41,6 +41,7 @@ export class AiTextbookStrategy implements ChatStrategy {
       options.skipUserMessage,
       options.quotedMessage, // 传递引用消息信息（用于消息气泡展示）
       options.imageList,
+      options.focus,
     )
   }
   

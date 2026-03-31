@@ -13,7 +13,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
-import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo, BackendHistoryMessage } from '../types'
+import type { AiChatMessageRequest, ExerciseItem, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
 import { useHtmlMessageRawMap } from '@/composables/useHtmlMessageRawMap'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
@@ -40,6 +40,7 @@ const buildAiExerciseMessage = (
   imageData?: ChatImageData,
   imageList?: ChatImageData[],
   sessionId?: string | null,
+  focus?: HtmlPreviewFocus,
 ): AiChatMessageRequest => {
   
   // 如果内容包含"我们开始吧"，只发送"我们开始吧"给后端
@@ -97,6 +98,7 @@ const buildAiExerciseMessage = (
         : singleBase64
           ? [{ base64DataUrl: singleBase64 }]
           : undefined,
+    focus,
   }
 
   // 校验请求参数完整性
@@ -203,6 +205,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     skipUserMessage?: boolean,
     quotedMessage?: ChatQuotedMessage,
     imageList?: ChatImageData[],
+    focus?: HtmlPreviewFocus,
   ): Promise<void> => {
     // 验证题目
     if (!currentQuestion) {
@@ -230,6 +233,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         imageData,
         imageList,
         currentSessionId.value,
+        focus,
       )
     } catch (error) {
       // 验证失败时显示友好的错误提示

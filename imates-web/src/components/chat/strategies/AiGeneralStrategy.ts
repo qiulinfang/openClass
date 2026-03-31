@@ -45,6 +45,7 @@ export class AiGeneralStrategy implements ChatStrategy {
       options.quotedMessage,
       options.imageData,
       options.imageList,
+      options.focus,
     )
   }
   

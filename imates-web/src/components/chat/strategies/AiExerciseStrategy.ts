@@ -78,6 +78,7 @@ export class AiExerciseStrategy implements ChatStrategy {
         options.skipUserMessage,
         quotedForStore,
         options.imageList,
+        options.focus,
       )
     } catch (error) {
       // 如果是验证错误，将错误信息作为AI回复返回

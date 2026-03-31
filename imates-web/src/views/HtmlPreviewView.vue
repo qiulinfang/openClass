@@ -7,6 +7,7 @@
       </q-btn>
       <div class="toolbar-spacer"></div>
       <q-btn
+        v-if="isDev"
         flat
         dense
         class="toolbar-action-btn"
@@ -14,6 +15,7 @@
         @click="printOriginalHtml"
       />
       <q-btn
+        v-if="isDev"
         flat
         dense
         class="toolbar-action-btn"
@@ -75,6 +77,8 @@ const { showMainChatPanel } = useMainChatPanel()
 // 组件状态
 const isLoading = ref(true)
 const error = ref<string | null>(null)
+
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // 从路由参数获取 HTML URL
 const htmlUrl = ref<string>('')
@@ -195,11 +199,18 @@ const printOriginalHtml = () => {
   })
 }
 
-const printLiveHtml = async () => {
+type HtmlPreviewFocus = {
+  type: 'html'
+  value: string
+  change: Array<{ type: string; ts: number; data: any }>
+  screenshot: string | null
+}
+
+const collectLiveFocus = async (): Promise<HtmlPreviewFocus | null> => {
   const iframe = iframeRef.value
   if (!iframe) {
     console.warn('[HtmlPreview] iframe not ready')
-    return
+    return null
   }
 
   try {
@@ -208,7 +219,7 @@ const printLiveHtml = async () => {
     const html = doc?.documentElement?.outerHTML
     if (!html) {
       console.warn('[HtmlPreview] live html is empty or inaccessible')
-      return
+      return null
     }
 
     const canvasSnapshots = (() => {
@@ -250,15 +261,21 @@ const printLiveHtml = async () => {
         })()
       : null
 
-    console.log('[HtmlPreview][live][focus]', {
+    return {
       type: 'html',
       value: htmlUrl.value,
       change: ggbEventLog.value,
       screenshot,
-    })
+    }
   } catch (e) {
     console.warn('[HtmlPreview] 无法读取 iframe 实时 HTML（可能跨域或 sandbox 限制）:', e)
+    return null
   }
+}
+
+const printLiveHtml = async () => {
+  const focus = await collectLiveFocus()
+  console.log('[HtmlPreview][live][focus]', focus)
 }
 
 // 重试加载
@@ -272,11 +289,17 @@ onMounted(() => {
   loadHtmlContent()
   fetchHtmlSourceAndRender()
   window.addEventListener('message', onBridgeMessage)
+
+  ;(window as any).__htmlPreview_getFocus = collectLiveFocus
 })
 
 onBeforeUnmount(() => {
   if (htmlBlobUrl.value) URL.revokeObjectURL(htmlBlobUrl.value)
   window.removeEventListener('message', onBridgeMessage)
+
+  if ((window as any).__htmlPreview_getFocus) {
+    delete (window as any).__htmlPreview_getFocus
+  }
 })
 </script>
 

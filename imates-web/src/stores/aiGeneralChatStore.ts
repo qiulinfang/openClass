@@ -13,7 +13,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
-import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage } from '../types'
+import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
 import localforage from 'localforage'
@@ -44,6 +44,7 @@ const buildAiGeneralMessage = (
   sessionId?: string | null,
   useScreenshotApi: boolean = false,
   imageList?: { base64DataUrl: string }[],
+  focus?: HtmlPreviewFocus,
 ): AiChatMessageRequest => {
   // 优先使用传入的 sessionId，如果没有则新建
   const createSessionId = (maybeSessionId?: string) => {
@@ -72,6 +73,7 @@ const buildAiGeneralMessage = (
     dstUrl,
     explanation: '', // 通用对话占位
     imageList: imageList && imageList.length > 0 ? imageList : undefined,
+    focus,
   }
   
   // 校验请求参数完整性
@@ -200,6 +202,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     quotedMessage?: ChatQuotedMessage,
     imageData?: ChatImageData,
     imageList?: ChatImageData[],
+    focus?: HtmlPreviewFocus,
   ): Promise<void> => {
     // 如果没有当前会话，创建新会话
     if (!currentSession.value) {
@@ -304,6 +307,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       currentSession.value?.sessionId,
       useScreenshotApi,
       imageListForRequest,
+      focus,
     )
     
     // 记录本次 AI 回复对应的后端接口地址，供后续刷新(handleRefresh) 时严格跟随原接口

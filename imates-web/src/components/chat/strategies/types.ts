@@ -3,6 +3,7 @@
  */
 
 import type { ChatImageData } from '../../../stores/utils/chatStoreUtils'
+import type { HtmlPreviewFocus } from '../../../types/api'
 
 /**
  * 发送消息的选项
@@ -12,6 +13,7 @@ export interface SendMessageOptions {
   imageData?: ChatImageData
   imageList?: ChatImageData[]
   skipUserMessage?: boolean  // 是否跳过创建用户消息（乐观发送场景）
+  focus?: HtmlPreviewFocus
   // 当前题目对象，由上层 ChatView 通过 props.question 传入
   question?: unknown
   // 当前题目对象，由上层 ChatView 通过 props.question 传入

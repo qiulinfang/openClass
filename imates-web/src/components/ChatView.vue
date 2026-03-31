@@ -415,6 +415,7 @@ import ImageCropOverlay from './base/ImageCropOverlay.vue'
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
 import type { ChatImageData } from '../stores/utils/chatStoreUtils'
+import type { HtmlPreviewFocus } from '../types'
 import { Sender } from '../types/enums'
 
 interface ScreenshotDrawingState {
@@ -1715,6 +1716,22 @@ const sendMessage = async (attachedFile?: File) => {
 
     quotedMessage.value = null
 
+    let focusForApi: HtmlPreviewFocus | undefined = undefined
+    try {
+      const inHtmlPreview =
+        typeof window !== 'undefined' &&
+        (window.location?.pathname?.includes('/html-preview') ||
+          window.location?.hash?.includes('/html-preview') ||
+          window.location?.href?.includes('#/app/html-preview'))
+      const getFocus = (window as any).__htmlPreview_getFocus
+      if (inHtmlPreview && typeof getFocus === 'function') {
+        const maybeFocus = await getFocus()
+        focusForApi = (maybeFocus || undefined) as HtmlPreviewFocus | undefined
+      }
+    } catch (e) {
+      console.warn('[ChatView] get html-preview focus failed:', e)
+    }
+
     await chatStrategy.value?.sendMessage(finalMessageContent, {
       selectedModel: selectedModel.value,
       // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
@@ -1722,6 +1739,7 @@ const sendMessage = async (attachedFile?: File) => {
       quotedMessage: quotedMessageForUi, // 引用的消息信息（用于消息气泡展示）
       imageData: imageDataForApi,
       imageList: imageListForApi,
+      focus: focusForApi,
     })
     await scrollToBottom()
     emit('response')

@@ -32,7 +32,7 @@ import {
   validateMessageExists,
   type ChatImageData,
 } from './utils/chatStoreUtils'
-import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, AttachedScreenshot } from '../types'
+import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot } from '../types'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
 import { validateTextbookChatRequest } from './utils/requestValidator'
 import { getApiPaths } from '@/config/env-config'
@@ -74,6 +74,7 @@ interface BuildTextbookMessageParams {
   useScreenshotApi?: boolean
   isNewSession?: boolean
   imageList?: TextbookChatImageData[] // 多图数据列表（用于截图多图场景）
+  focus?: HtmlPreviewFocus
 }
 
 export const REQUIRED_CHAPTER_INFO_LIST = [
@@ -162,6 +163,7 @@ const buildAiTextbookMessage = ({
   useScreenshotApi = false,
   isNewSession = true,
   imageList,
+  focus,
 }: BuildTextbookMessageParams): AiChatMessageRequest => {
   // 从 localStorage 获取 userId
   const userId = getUserId() || 'User'
@@ -190,6 +192,7 @@ const buildAiTextbookMessage = ({
       dstUrl: getApiPaths().xueban.ai.previewPictureQA,
       explanation: '', // 教材场景占位
       imageList,
+      focus,
     }
     
     // 校验请求参数完整性
@@ -217,6 +220,7 @@ const buildAiTextbookMessage = ({
     dstUrl,
     explanation: '', // 教材场景占位
     imageList,
+    focus,
   }
   
   // 校验请求参数完整性
@@ -496,6 +500,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     skipUserMessage?: boolean,
     quotedMessage?: { id: string; content: string; sender: Sender }, // 引用消息信息（用于消息气泡展示）
     imageList?: ChatImageData[], // 多图数据列表（用于截图多图场景）
+    focus?: HtmlPreviewFocus,
   ): Promise<void> => {
     // 创建并添加用户消息（可选）
     if (!skipUserMessage) {
@@ -614,6 +619,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
         imageList: builderImageList,
+        focus,
       })
       updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
 
