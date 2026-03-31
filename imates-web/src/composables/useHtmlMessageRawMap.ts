@@ -87,6 +87,176 @@ export const enhanceResponsiveHtml = (html: string): string => {
     enhancedHtml = enhancedHtml.replace('</body>', resizeScript + '</body>')
   }
 
+  // 注入 GeoGebra 事件监听器桥接脚本：将 add/remove/rename/update 事件回传给父页面
+  if (!enhancedHtml.includes('GGB_LISTENER_BRIDGE')) {
+    const bridgeScript = `
+        <script>
+          // GGB_LISTENER_BRIDGE
+          (function() {
+            var BRIDGE_SOURCE = 'GGB_LISTENER_BRIDGE';
+            var MAX_EVENTS = 200;
+            // buffer: 仅保存本轮（上次 flush 之后）的事件，flush 后清空
+            var buffer = [];
+            var pendingTimer = null;
+
+            // update 事件可能非常高频：对同一对象抓取 valueString 做节流
+            var UPDATE_DETAIL_THROTTLE_MS = 500;
+            var lastDetailTsByName = Object.create(null);
+
+            function safeGetApi() {
+              try {
+                return window.ggbApplet || null;
+              } catch {
+                return null;
+              }
+            }
+
+            function safeGetObjectType(api, name) {
+              try {
+                return api && typeof api.getObjectType === 'function' ? api.getObjectType(name) : null;
+              } catch {
+                return null;
+              }
+            }
+
+            function safeGetValueString(api, name) {
+              try {
+                return api && typeof api.getValueString === 'function' ? api.getValueString(name) : null;
+              } catch {
+                return null;
+              }
+            }
+
+            function safeGetState() {
+              try {
+                var api = window.ggbApplet;
+                if (!api) return null;
+                var xml = (typeof api.getXML === 'function') ? api.getXML() : null;
+                return { xml: xml };
+              } catch (e) {
+                return { error: (e && e.message) ? e.message : String(e) };
+              }
+            }
+
+            function buildDiff(list) {
+              var diff = { add: [], remove: [], update: [] };
+              var updateMap = Object.create(null);
+              for (var i = 0; i < list.length; i++) {
+                var ev = list[i];
+                if (!ev || !diff[ev.type]) continue;
+
+                // update 降噪：同一轮内同一对象只保留最后一次 update
+                if (ev.type === 'update' && ev.data && ev.data.name) {
+                  updateMap[ev.data.name] = ev;
+                  continue;
+                }
+
+                diff[ev.type].push(ev);
+              }
+
+              for (var k in updateMap) {
+                diff.update.push(updateMap[k]);
+              }
+              return diff;
+            }
+
+            function flush() {
+              pendingTimer = null;
+              var last = buffer.length ? buffer[buffer.length - 1] : null;
+              var list = buffer.slice(0);
+              buffer.length = 0;
+              var payload = {
+                source: BRIDGE_SOURCE,
+                update: last,
+                currentState: safeGetState(),
+                diff: buildDiff(list)
+              };
+              try {
+                window.parent && window.parent.postMessage(payload, '*');
+              } catch (e) {
+                // ignore
+              }
+            }
+
+            function pushEvent(type, data) {
+              var ev = {
+                type: type,
+                ts: Date.now(),
+                data: data || null
+              };
+              buffer.push(ev);
+              if (buffer.length > MAX_EVENTS) buffer.shift();
+
+              if (pendingTimer) return;
+              pendingTimer = setTimeout(flush, 120);
+            }
+
+            // GeoGebra 会按“函数名字符串”回调，因此把函数挂在 window 上
+            window.__ggb_on_add = function(objName) {
+              var api = safeGetApi();
+              pushEvent('add', {
+                name: objName,
+                objectType: safeGetObjectType(api, objName),
+                valueString: safeGetValueString(api, objName)
+              });
+            };
+            window.__ggb_on_remove = function(objName) {
+              // remove 时对象可能已不可取，尽力而为
+              var api = safeGetApi();
+              pushEvent('remove', {
+                name: objName,
+                objectType: safeGetObjectType(api, objName),
+                valueString: safeGetValueString(api, objName)
+              });
+            };
+            window.__ggb_on_update = function(objName) {
+              var api = safeGetApi();
+              var now = Date.now();
+              var last = lastDetailTsByName[objName] || 0;
+              if (now - last < UPDATE_DETAIL_THROTTLE_MS) {
+                // 高频更新：只上报名称，不抓 valueString
+                pushEvent('update', { name: objName });
+                return;
+              }
+              lastDetailTsByName[objName] = now;
+              pushEvent('update', {
+                name: objName,
+                objectType: safeGetObjectType(api, objName),
+                valueString: safeGetValueString(api, objName)
+              });
+            };
+
+            function tryRegister() {
+              var api = window.ggbApplet;
+              if (!api) return false;
+
+              try {
+                if (typeof api.registerAddListener === 'function') api.registerAddListener('__ggb_on_add');
+                if (typeof api.registerRemoveListener === 'function') api.registerRemoveListener('__ggb_on_remove');
+                if (typeof api.registerUpdateListener === 'function') api.registerUpdateListener('__ggb_on_update');
+              } catch (e) {
+                // ignore
+              }
+
+              // 首次注册后主动发一条 currentState
+              pushEvent('update', { name: '__init__' });
+              return true;
+            }
+
+            // 轮询等待 ggbApplet ready（比依赖 appletOnLoad 更稳）
+            var tries = 0;
+            var timer = setInterval(function() {
+              tries++;
+              if (tryRegister() || tries > 60) {
+                clearInterval(timer);
+              }
+            }, 250);
+          })();
+        <\/script>
+      `
+    enhancedHtml = enhancedHtml.replace('</body>', bridgeScript + '</body>')
+  }
+
   return enhancedHtml
 }
 

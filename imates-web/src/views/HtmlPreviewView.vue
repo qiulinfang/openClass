@@ -6,13 +6,28 @@
         <img :src="goBackIcon" alt="返回" class="goback-icon" />
       </q-btn>
       <div class="toolbar-spacer"></div>
+      <q-btn
+        flat
+        dense
+        class="toolbar-action-btn"
+        label="打印原始"
+        @click="printOriginalHtml"
+      />
+      <q-btn
+        flat
+        dense
+        class="toolbar-action-btn"
+        label="打印实时"
+        @click="printLiveHtml"
+      />
     </div>
     <!-- HTML 内容区域 -->
     <div class="html-content-wrapper">
       <!-- iframe 显示 HTML -->
       <iframe
-        v-if="!isLoading && !error && htmlUrl"
-        :src="htmlUrl"
+        v-if="!isLoading && !error && htmlContentUrl"
+        ref="iframeRef"
+        :src="htmlContentUrl"
         class="html-iframe"
         frameborder="0"
         allowfullscreen
@@ -42,10 +57,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMainChatPanel } from '@/composables/useMainChatPanel'
 import goBackIcon from '/icons/goback.svg'
+import { apiService } from '@/services'
+import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
+import { getApiPaths, ADDRESS_CATALOG } from '@/config/env-config'
 
 // 使用路由
 const route = useRoute()
@@ -60,6 +78,26 @@ const error = ref<string | null>(null)
 
 // 从路由参数获取 HTML URL
 const htmlUrl = ref<string>('')
+
+const iframeRef = ref<HTMLIFrameElement | null>(null)
+const originalHtml = ref<string>('')
+
+const ggbListenerState = ref<{ update: any; currentState: any; diff: any } | null>(null)
+const ggbEventLog = ref<Array<{ type: string; ts: number; data: any }>>([])
+
+// HTML内容URL（使用Blob URL）
+const htmlBlobUrl = ref<string | null>(null)
+
+const htmlContentUrl = ref<string>('')
+
+watch(
+  htmlBlobUrl,
+  (next, prev) => {
+    if (prev) URL.revokeObjectURL(prev)
+    htmlContentUrl.value = next || ''
+  },
+  { immediate: true },
+)
 
 // 处理返回
 const handleGoBack = () => {
@@ -94,14 +132,151 @@ const loadHtmlContent = () => {
   }
 }
 
+const fetchHtmlSourceAndRender = async () => {
+  if (!htmlUrl.value) return
+  try {
+    const htmlData = await apiService.fetchHtmlSource(htmlUrl.value)
+    const raw = htmlData?.html || htmlData?.raw_html
+    if (!raw) throw new Error('获取 HTML 源码失败')
+
+    const enhanced = enhanceResponsiveHtml(raw)
+    originalHtml.value = enhanced
+    ggbListenerState.value = null
+    ggbEventLog.value = []
+    const blob = new Blob([enhanced], { type: 'text/html' })
+    htmlBlobUrl.value = URL.createObjectURL(blob)
+  } catch (e) {
+    console.warn('[HtmlPreview] fetchHtmlSource failed:', e)
+    error.value = e instanceof Error ? e.message : '获取HTML源码失败'
+  }
+}
+
+const onBridgeMessage = (event: MessageEvent) => {
+  const data = (event as MessageEvent).data as any
+  if (!data || data.source !== 'GGB_LISTENER_BRIDGE') return
+  ggbListenerState.value = {
+    update: data.update,
+    currentState: data.currentState,
+    diff: data.diff,
+  }
+
+  const diff = data.diff as any
+  if (diff && typeof diff === 'object') {
+    const types = ['add', 'remove', 'update']
+    for (const t of types) {
+      const arr = diff[t]
+      if (!Array.isArray(arr) || arr.length === 0) continue
+      for (const ev of arr) {
+        if (!ev || typeof ev !== 'object') continue
+        if (typeof ev.type === 'string' && typeof ev.ts === 'number') {
+          ggbEventLog.value.push({ type: ev.type, ts: ev.ts, data: ev.data })
+        } else {
+          ggbEventLog.value.push({ type: t, ts: Date.now(), data: ev })
+        }
+      }
+    }
+
+    const MAX_LOG = 5000
+    if (ggbEventLog.value.length > MAX_LOG) {
+      ggbEventLog.value.splice(0, ggbEventLog.value.length - MAX_LOG)
+    }
+  }
+}
+
+const printOriginalHtml = () => {
+  if (!originalHtml.value) {
+    console.warn('[HtmlPreview] originalHtml is empty')
+    return
+  }
+  console.log('[HtmlPreview][original]', {
+    type: 'html',
+    value: htmlUrl.value,
+    html: originalHtml.value,
+  })
+}
+
+const printLiveHtml = async () => {
+  const iframe = iframeRef.value
+  if (!iframe) {
+    console.warn('[HtmlPreview] iframe not ready')
+    return
+  }
+
+  try {
+    const doc = iframe.contentDocument
+    const win = iframe.contentWindow
+    const html = doc?.documentElement?.outerHTML
+    if (!html) {
+      console.warn('[HtmlPreview] live html is empty or inaccessible')
+      return
+    }
+
+    const canvasSnapshots = (() => {
+      try {
+        const canvases = Array.from(doc?.querySelectorAll('canvas') || []) as HTMLCanvasElement[]
+        return canvases.map((c, idx) => {
+          try {
+            const dataUrl = c.toDataURL('image/png')
+            return { index: idx, width: c.width, height: c.height, dataUrl, error: null }
+          } catch (e) {
+            return {
+              index: idx,
+              width: c.width,
+              height: c.height,
+              dataUrl: null,
+              error: e instanceof Error ? e.message : String(e),
+            }
+          }
+        })
+      } catch (e) {
+        return [{ index: -1, width: 0, height: 0, dataUrl: null, error: e instanceof Error ? e.message : String(e) }]
+      }
+    })()
+
+    const screenshotDataUrl = canvasSnapshots?.find((s) => typeof s?.dataUrl === 'string')?.dataUrl || null
+    const screenshot = screenshotDataUrl
+      ? await (async () => {
+          try {
+            const path = await apiService.uploadImageToYanban(screenshotDataUrl)
+            // 根据环境拼接完整可访问 URL
+            const apiPaths = getApiPaths()
+            const isTest = apiPaths.yanban.teacher.uploadImg.includes('/yb-test/')
+            const baseUrl = isTest ? 'https://43.138.16.5:50013' : 'https://www.imates.com.cn'
+            return path.startsWith('http') ? path : `${baseUrl}${path}`
+          } catch (e) {
+            console.warn('[HtmlPreview][live] screenshot upload failed:', e)
+            return null
+          }
+        })()
+      : null
+
+    console.log('[HtmlPreview][live][focus]', {
+      type: 'html',
+      value: htmlUrl.value,
+      change: ggbEventLog.value,
+      screenshot,
+    })
+  } catch (e) {
+    console.warn('[HtmlPreview] 无法读取 iframe 实时 HTML（可能跨域或 sandbox 限制）:', e)
+  }
+}
+
 // 重试加载
 const retry = () => {
   loadHtmlContent()
+  fetchHtmlSourceAndRender()
 }
 
 // 生命周期
 onMounted(() => {
   loadHtmlContent()
+  fetchHtmlSourceAndRender()
+  window.addEventListener('message', onBridgeMessage)
+})
+
+onBeforeUnmount(() => {
+  if (htmlBlobUrl.value) URL.revokeObjectURL(htmlBlobUrl.value)
+  window.removeEventListener('message', onBridgeMessage)
 })
 </script>
 
@@ -143,6 +318,10 @@ onMounted(() => {
 
 .toolbar-spacer {
   width: 80px; /* 与返回按钮宽度保持一致 */
+}
+
+.toolbar-action-btn {
+  color: #ffffff;
 }
 
 .html-content-wrapper {

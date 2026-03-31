@@ -139,6 +139,510 @@ interface SavedData {
   updatedAt: number
 }
 
+// 选区操作类型定义
+type SelectActionType = 'move' | 'box_select' | 'freeform_select'
+
+interface SelectActionData {
+  type: SelectActionType
+  pageIndex: number
+  lastPos: Point
+  startPos: Point
+  moved: boolean
+  beforeStrokes: Stroke[]
+}
+
+// === Props ===
+const props = defineProps<{
+  file: File | null
+}>()
+
+// === Emit ===
+const emit = defineEmits<{
+  (e: 'screenshot-captured', blob: Blob): void
+}>()
+
+// === 配置常量 ===
+const PAGE_GAP = 20
+
+// MuPDF 渲染像素比（Canvas 实际像素 / CSS 像素），用于保证笔迹绘制与 PDF 底图对齐
+const renderDprRef = ref(1)
+
+// === 持久化服务 ===
+const dbService = IndexedDBService.getInstance({
+  dbName: 'pdf-ink-db',
+  version: 1,
+  stores: [{ name: 'annotations', keyPath: 'docKey' }],
+})
+
+// === 状态管理 ===
+const pdfDoc = shallowRef<mupdf.Document | null>(null)
+const fileName = ref('')
+const pageCount = ref(0)
+const pageList = ref<Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }>>([])
+const scale = ref(1.0)
+const offset = ref({ x: 0, y: 0 })
+const loading = ref(false)
+const isRendering = ref(false)
+const isVisible = ref(false)
+const hasRendered = ref(false)
+const contentSize = ref({ width: 0, height: 0 })
+let lastObservedViewportWidth = 0
+let lastObservedViewportHeight = 0
+
+const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
+
+// 工具状态
+const currentMode = ref<ToolMode>('pan')
+const pdfViewerStore = usePdfViewerStore()
+
+// 数据存储
+const allStrokes = shallowRef<Stroke[]>([])
+const undoStack = ref<HistoryAction[]>([])
+const redoStack = ref<HistoryAction[]>([])
+
+// 交互临时状态
+const dragStartPage = ref<number>(-1)
+const currentDragPath = ref<Point[]>([])
+const currentDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
+const screenshotDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
+const screenshotStartPoint = ref<Point | null>(null)
+const isDrawingStarted = ref(false)
+
+const selectionMode = ref<'rectangle' | 'freeform'>('rectangle')
+const selectedStrokeIds = shallowRef(new Set<string>())
+const selectDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
+const selectFreeformPath = ref<Point[] | null>(null)
+let selectAction: null | {
+  type: 'move' | 'box_select' | 'freeform_select'
+  pageIndex: number
+  lastPos: Point
+  startPos: Point
+  moved: boolean
+  beforeStrokes: Stroke[]
+} = null
+
+const eraserCursor = ref<{ visible: boolean; x: number; y: number; size: number }>({
+  visible: false,
+  x: 0,
+  y: 0,
+  size: pdfViewerStore.drawingConfig.eraserSize,
+})
+
+// === 性能优化：空间索引 ===
+const GRID_SIZE = 100 // 100px 分辨率的网格
+// key: `${pageIndex}|${gridX}|${gridY}` -> Set<Stroke>
+const spatialGrid = new Map<string, Set<Stroke>>()
+
+// 渲染控制
+const viewportRef = ref<HTMLDivElement | null>(null)
+const pdfRefs = ref<HTMLCanvasElement[]>([])
+const inkRefs = ref<HTMLCanvasElement[]>([])
+let resizeObserver: ResizeObserver | null = null
+
+// 写字模式下在非 PDF 区域拖动时，降级为平移
+let isPanningInDrawMode = false
+
+// 手势控制
+const activePointers = new Map<number, Point>()
+let lastPointerPos = { x: 0, y: 0 }
+let velocity = { x: 0, y: 0 }
+let rafId: number | null = null
+let lastPinchDist = 0
+let lastPinchCenter = { x: 0, y: 0 }
+
+const horizontalPageIndex = ref(0)
+let horizontalScrollTimer: any = null
+let horizontalScrollEndTimer: any = null
+let horizontalScaleResetRaf: number | null = null
+let horizontalScaleResetStartAt = 0
+let horizontalScaleResetFrom = 1
+let lastViewportScrollLeft = 0
+let lastViewportScrollTop = 0
+
+const isHorizontalScrolling = ref(false)
+
+
+// 计算属性
+const containerStyle = computed(() => {
+  const base = {
+    width: `${contentSize.value.width}px`,
+    height: `${contentSize.value.height}px`,
+  }
+  return {
+    ...base,
+    transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
+  }
+})
+const isHorizontalFirstPage = computed(() => readingDirection.value === 'horizontal' && horizontalPageIndex.value <= 0)
+const isHorizontalLastPage = computed(
+  () => readingDirection.value === 'horizontal' && horizontalPageIndex.value >= Math.max(0, pageCount.value - 1)
+)
+
+watch(
+  () => pdfViewerStore.drawingConfig.eraserSize,
+  (val) => {
+    console.log('[PdfPage][eraser] size changed from store ->', val)
+    if (currentMode.value === 'eraser' && eraserCursor.value.visible) {
+      eraserCursor.value = { ...eraserCursor.value, size: getEraserCursorSize() }
+    }
+  }
+)
+
+onMounted(() => {
+  if (props.file) {
+    loadFile(props.file)
+  }
+  setupResizeObserver()
+})
+
+onUnmounted(() => {
+  stopInertia()
+  if (resizeObserver) resizeObserver.disconnect()
+})
+
+const setPdfCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
+  pdfRefs.value[index] = el as HTMLCanvasElement
+}
+
+const setInkCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
+  inkRefs.value[index] = el as HTMLCanvasElement
+}
+
+// 页面导航处理
+const goToHorizontalPage = async (pageIndex: number) => {
+  const rawDoc = toRaw(pdfDoc.value)
+  if (!rawDoc) return
+  const next = Math.min(Math.max(pageIndex, 0), Math.max(0, rawDoc.countPages() - 1))
+  if (next === horizontalPageIndex.value) return
+  horizontalPageIndex.value = next
+
+  // 切页时重置缩放/状态
+  if (scale.value !== 1) scale.value = 1
+  offset.value = { x: 0, y: 0 }
+
+  await prefetchDimensionsAndLayout(rawDoc)
+  hasRendered.value = false
+  await nextTick()
+  await tryRenderContent()
+
+  // 单页切换后确保居中（并做边界修正）
+  requestAnimationFrame(() => {
+    centerContent()
+    clampOffset()
+  })
+}
+
+// 处理上一页按钮点击
+const goPrevPage = () => goToHorizontalPage(horizontalPageIndex.value - 1)
+// 处理下一页按钮点击
+const goNextPage = () => goToHorizontalPage(horizontalPageIndex.value + 1)
+
+
+
+// === 绘图与渲染逻辑 ===
+
+
+
+let highlighterRafId: number | null = null
+let highlighterPending: { pageIndex: number; points: Point[] } | null = null
+
+let penRafId: number | null = null
+let penPending: { pageIndex: number; points: Point[] } | null = null
+
+let eraserRafId: number | null = null
+let eraserPending: { pageIndex: number; x: number; y: number } | null = null
+
+
+
+
+
+
+const drawStartDot = (pageIndex: number, p: Point, mode: ToolMode) => {
+  if (mode !== 'pen' && mode !== 'highlighter') return
+  const ctx = getInkContext(pageIndex)
+  if (!ctx) return
+  const q = renderDprRef.value || 1
+  const cfg = getToolConfigForMode(mode)
+  ctx.save()
+  ctx.globalAlpha = cfg.opacity ?? 1.0
+  if (mode === 'highlighter') {
+    ctx.globalCompositeOperation = 'multiply'
+  }
+  ctx.fillStyle = cfg.color
+  ctx.beginPath()
+  ctx.arc(p.x * q, p.y * q, (cfg.width * q) / 2, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+const drawStroke = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
+  ctx.save()
+  ctx.scale(renderDprRef.value || 1, renderDprRef.value || 1)
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.globalAlpha = stroke.opacity
+
+  if (stroke.type === 'highlighter') {
+    ctx.globalCompositeOperation = 'multiply'
+  }
+
+  ctx.strokeStyle = stroke.color
+  ctx.lineWidth = stroke.width
+
+  if (stroke.type === 'rectangle') {
+    const [start, end] = stroke.points
+    const w = end.x - start.x
+    const h = end.y - start.y
+    ctx.strokeRect(start.x, start.y, w, h)
+  } else {
+    const points = stroke.points
+    if (points.length === 1) {
+      ctx.fillStyle = stroke.color
+      ctx.beginPath()
+      ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.beginPath()
+      ctx.moveTo(points[0].x, points[0].y)
+      for (let i = 1; i < points.length - 1; i++) {
+        const p0 = points[i]
+        const p1 = points[i + 1]
+        const midX = (p0.x + p1.x) / 2
+        const midY = (p0.y + p1.y) / 2
+        ctx.quadraticCurveTo(p0.x, p0.y, midX, midY)
+      }
+      const last = points[points.length - 1]
+      ctx.lineTo(last.x, last.y)
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+}
+
+// 获取类工具函数
+// 获取橡皮擦光标大小
+const getEraserCursorSize = () => pdfViewerStore.drawingConfig.eraserSize * scale.value * 2
+
+// 生成文档唯一标识键
+const getDocKey = (file: File) => `${file.name}|${file.size}`
+
+// 获取指定页面选中的笔迹
+const getSelectedStrokesOnPage = (pageIndex: number) => {
+  const ids = selectedStrokeIds.value
+  return allStrokes.value.filter((s) => s.pageIndex === pageIndex && ids.has(s.id))
+}
+
+// 获取笔迹组的边界框
+const getGroupBBox = (strokes: Stroke[]) => {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  strokes.forEach((s) => {
+    if (s.minX == null || s.maxX == null || s.minY == null || s.maxY == null) return
+    minX = Math.min(minX, s.minX)
+    minY = Math.min(minY, s.minY)
+    maxX = Math.max(maxX, s.maxX)
+    maxY = Math.max(maxY, s.maxY)
+  })
+  if (minX === Infinity) return null
+  return { minX, minY, maxX, maxY }
+}
+
+// 根据模式获取工具配置
+const getToolConfigForMode = (mode: ToolMode) => {
+  if (mode === 'pen') {
+    return {
+      color: pdfViewerStore.drawingConfig.penColor,
+      width: pdfViewerStore.drawingConfig.penWidth,
+      opacity: pdfViewerStore.drawingConfig.penOpacity ?? 1.0,
+    }
+  }
+  if (mode === 'highlighter') {
+    return {
+      color: pdfViewerStore.drawingConfig.highlighterColor,
+      width: pdfViewerStore.drawingConfig.highlighterWidth,
+      opacity: pdfViewerStore.drawingConfig.highlighterOpacity ?? 0.4,
+    }
+  }
+  return {
+    color: '#FF0000',
+    width: 2,
+    opacity: 1.0,
+  }
+}
+
+// 将客户端坐标转换为内容坐标
+const getContentPoint = (clientX: number, clientY: number): Point | null => {
+  if (!viewportRef.value) return null
+  const rect = viewportRef.value.getBoundingClientRect()
+  const mx = clientX - rect.left
+  const my = clientY - rect.top
+  return {
+    x: (mx - offset.value.x) / scale.value,
+    y: (my - offset.value.y) / scale.value,
+  }
+}
+
+// 获取画布绘制上下文
+const getInkContext = (pageIndex: number) => {
+  const canvas = inkRefs.value[pageIndex]
+  if (!canvas) return null
+  return canvas.getContext('2d')
+}
+
+// 将客户端坐标转换为PDF页面坐标
+const getPdfPoint = (
+  clientX: number,
+  clientY: number
+): { pageIndex: number; x: number; y: number } | null => {
+  if (!viewportRef.value || pageList.value.length === 0) return null
+  const rect = viewportRef.value.getBoundingClientRect()
+  const mx = clientX - rect.left
+  const my = clientY - rect.top
+
+  const localX = (mx - offset.value.x) / scale.value
+  const localY = (my - offset.value.y) / scale.value
+
+  for (let i = 0; i < pageList.value.length; i++) {
+    const p = pageList.value[i]
+    const withinY = localY >= p.y && localY <= p.y + p.viewHeight
+    const withinX = localX >= p.x && localX <= p.x + p.viewWidth
+    if (withinY && withinX) {
+      return {
+        pageIndex: p.pageIndex,
+        x: localX - p.x,
+        y: localY - p.y,
+      }
+    }
+  }
+  return null
+}
+
+// 获取矩形样式对象
+const getRectStyle = (rect: { x: number; y: number; w: number; h: number }) => ({
+  left: rect.x + 'px',
+  top: rect.y + 'px',
+  width: rect.w + 'px',
+  height: rect.h + 'px',
+})
+
+// 获取当前纵向页面索引
+const getCurrentVerticalPageIndex = (): number => {
+  if (!viewportRef.value || pageList.value.length === 0) return 0
+  const rect = viewportRef.value.getBoundingClientRect()
+  const centerY = rect.height / 2
+  const contentCenterY = (centerY - offset.value.y) / (scale.value || 1)
+  for (const p of pageList.value) {
+    if (contentCenterY >= p.y && contentCenterY < p.y + p.viewHeight) return p.pageIndex
+  }
+  return pageList.value[pageList.value.length - 1].pageIndex
+}
+
+// 判断类工具函数
+// 判断点是否在选中区域边界内
+const isPointInSelectionBounds = (pageIndex: number, x: number, y: number) => {
+  const selected = getSelectedStrokesOnPage(pageIndex)
+  const bbox = getGroupBBox(selected)
+  if (!bbox) return false
+  const padding = 8
+  return (
+    x >= bbox.minX - padding &&
+    x <= bbox.maxX + padding &&
+    y >= bbox.minY - padding &&
+    y <= bbox.maxY + padding
+  )
+}
+
+// 判断点是否在多边形内
+const isPointInPolygon = (x: number, y: number, polygon: Point[]) => {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x
+    const yi = polygon[i].y
+    const xj = polygon[j].x
+    const yj = polygon[j].y
+
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+// 选区操作：检查点是否在已有选区范围内
+const isPointInExistingSelection = (pageIndex: number, pos: Point): boolean => {
+  return selectedStrokeIds.value.size > 0 && isPointInSelectionBounds(pageIndex, pos.x, pos.y)
+}
+
+// 计算类工具函数
+// 计算笔迹边界框
+const calculateBBox = (points: Point[], width: number) => {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  const padding = width / 2 + 2
+  for (const p of points) {
+    if (p.x < minX) minX = p.x
+    if (p.x > maxX) maxX = p.x
+    if (p.y < minY) minY = p.y
+    if (p.y > maxY) maxY = p.y
+  }
+  return { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding }
+}
+
+// 计算点到线段的距离
+const distancePointToSegment = (px: number, py: number, ax: Point, bx: Point) => {
+  const dx = bx.x - ax.x
+  const dy = bx.y - ax.y
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - ax.x, py - ax.y)
+  let t = ((px - ax.x) * dx + (py - ax.y) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  const projX = ax.x + t * dx
+  const projY = ax.y + t * dy
+  return Math.hypot(px - projX, py - projY)
+}
+
+// 创建类工具函数
+const createStrokeObject = (pageIndex: number, points: Point[], mode: string): Stroke => {
+  const isHighlighter = mode === 'highlighter'
+  const isRect = mode === 'rectangle'
+  const cfg = getToolConfigForMode(mode as ToolMode)
+  const width = isHighlighter ? cfg.width : isRect ? 3 : cfg.width
+  const stroke: Stroke = {
+    id: Math.random().toString(36).slice(2),
+    type: mode as any,
+    pageIndex,
+    points: [...points],
+    color: isRect ? '#FF0000' : cfg.color,
+    width,
+    opacity: isRect ? 1.0 : cfg.opacity ?? 1.0,
+  }
+  Object.assign(stroke, calculateBBox(stroke.points, stroke.width))
+  return stroke
+}
+
+// 选区操作：创建设置移动操作
+const createSelectMoveAction = (
+  pageIndex: number,
+  pos: Point,
+  strokes?: Stroke[]
+): SelectActionData => {
+  const selected = strokes ?? getSelectedStrokesOnPage(pageIndex)
+  const before = selected.map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
+  return {
+    type: 'move',
+    pageIndex,
+    lastPos: { x: pos.x, y: pos.y },
+    startPos: { x: pos.x, y: pos.y },
+    moved: false,
+    beforeStrokes: before,
+  }
+}
+
+// 命中测试类工具函数
+// 笔迹命中测试
 const strokeHitTest = (pageIndex: number, x: number, y: number) => {
   const searchRadius = 40
   const minGridX = Math.floor((x - searchRadius) / GRID_SIZE)
@@ -212,54 +716,7 @@ const strokeHitTest = (pageIndex: number, x: number, y: number) => {
   return best
 }
 
-const getSelectedStrokesOnPage = (pageIndex: number) => {
-  const ids = selectedStrokeIds.value
-  return allStrokes.value.filter((s) => s.pageIndex === pageIndex && ids.has(s.id))
-}
-
-const getGroupBBox = (strokes: Stroke[]) => {
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity
-  strokes.forEach((s) => {
-    if (s.minX == null || s.maxX == null || s.minY == null || s.maxY == null) return
-    minX = Math.min(minX, s.minX)
-    minY = Math.min(minY, s.minY)
-    maxX = Math.max(maxX, s.maxX)
-    maxY = Math.max(maxY, s.maxY)
-  })
-  if (minX === Infinity) return null
-  return { minX, minY, maxX, maxY }
-}
-
-const isPointInSelectionBounds = (pageIndex: number, x: number, y: number) => {
-  const selected = getSelectedStrokesOnPage(pageIndex)
-  const bbox = getGroupBBox(selected)
-  if (!bbox) return false
-  const padding = 8
-  return (
-    x >= bbox.minX - padding &&
-    x <= bbox.maxX + padding &&
-    y >= bbox.minY - padding &&
-    y <= bbox.maxY + padding
-  )
-}
-
-const isPointInPolygon = (x: number, y: number, polygon: Point[]) => {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x
-    const yi = polygon[i].y
-    const xj = polygon[j].x
-    const yj = polygon[j].y
-
-    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
-    if (intersect) inside = !inside
-  }
-  return inside
-}
-
+// 自由选择模式下的笔迹命中测试
 const hitTestFreeform = (pageIndex: number, path: Point[]) => {
   if (!path || path.length < 3) return new Set<string>()
 
@@ -281,239 +738,34 @@ const hitTestFreeform = (pageIndex: number, path: Point[]) => {
   return next
 }
 
-// === Props ===
-const props = defineProps<{
-  file: File | null
-}>()
 
-const emit = defineEmits<{
-  (e: 'screenshot-captured', blob: Blob): void
-}>()
 
-// === 配置常量 ===
-const RENDER_QUALITY = 3.0
-const PAGE_GAP = 20
-const FRICTION = 0.96
-
-// MuPDF 渲染像素比（Canvas 实际像素 / CSS 像素），用于保证笔迹绘制与 PDF 底图对齐
-const renderDprRef = ref(1)
-
-// === 持久化服务 ===
-const dbService = IndexedDBService.getInstance({
-  dbName: 'pdf-ink-db',
-  version: 1,
-  stores: [{ name: 'annotations', keyPath: 'docKey' }],
-})
-
-// === 状态管理 ===
-const pdfDoc = shallowRef<mupdf.Document | null>(null)
-const fileName = ref('')
-const pageCount = ref(0)
-const pageList = ref<Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }>>([])
-const scale = ref(1.0)
-const offset = ref({ x: 0, y: 0 })
-const loading = ref(false)
-const isRendering = ref(false)
-const isVisible = ref(false)
-const hasRendered = ref(false)
-const contentSize = ref({ width: 0, height: 0 })
-let lastObservedViewportWidth = 0
-let lastObservedViewportHeight = 0
-
-const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
-
-// 工具状态
-const currentMode = ref<ToolMode>('pan')
-const currentModeLabel = computed(() => {
-  const map: Record<ToolMode, string> = {
-    pan: '浏览',
-    pen: '画笔',
-    highlighter: '高亮',
-    eraser: '橡皮擦',
-    rectangle: '矩形',
-    screenshot: '截图',
-    select: '选择',
-  }
-  return map[currentMode.value]
-})
-
-const pdfViewerStore = usePdfViewerStore()
-
-const getToolConfigForMode = (mode: ToolMode) => {
-  if (mode === 'pen') {
-    return {
-      color: pdfViewerStore.drawingConfig.penColor,
-      width: pdfViewerStore.drawingConfig.penWidth,
-      opacity: pdfViewerStore.drawingConfig.penOpacity ?? 1.0,
+/*
+  事件处理方法
+*/
+// 处理鼠标滚轮事件
+const handleWheel = (e: WheelEvent) => {
+  if (e.ctrlKey || e.metaKey) {
+    if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
+      e.preventDefault()
+      return
     }
-  }
-  if (mode === 'highlighter') {
-    return {
-      color: pdfViewerStore.drawingConfig.highlighterColor,
-      width: pdfViewerStore.drawingConfig.highlighterWidth,
-      opacity: pdfViewerStore.drawingConfig.highlighterOpacity ?? 0.4,
+    e.preventDefault()
+    zoomAt(-e.deltaY, e.clientX, e.clientY)
+  } else {
+    if (readingDirection.value === 'horizontal') {
+      return
     }
+    offset.value.x -= e.deltaX
+    offset.value.y -= e.deltaY
+    clampOffset()
   }
-  return {
-    color: '#FF0000',
-    width: 2,
-    opacity: 1.0,
-  }
+  // 滚动/缩放停止后保存视图（这里做个简单的防抖保存）
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => scheduleSaveToDb(0), 1000)
 }
 
-// 数据存储
-const allStrokes = shallowRef<Stroke[]>([])
-const undoStack = ref<HistoryAction[]>([])
-const redoStack = ref<HistoryAction[]>([])
-
-// 交互临时状态
-const dragStartPage = ref<number>(-1)
-const currentDragPath = ref<Point[]>([])
-const currentDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
-const screenshotDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
-const screenshotStartPoint = ref<Point | null>(null)
-const isDrawingStarted = ref(false)
-
-const selectionMode = ref<'rectangle' | 'freeform'>('rectangle')
-const selectedStrokeIds = shallowRef(new Set<string>())
-const selectDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
-const selectFreeformPath = ref<Point[] | null>(null)
-let selectAction: null | {
-  type: 'move' | 'box_select' | 'freeform_select'
-  pageIndex: number
-  lastPos: Point
-  startPos: Point
-  moved: boolean
-  beforeStrokes: Stroke[]
-} = null
-
-const eraserCursor = ref<{ visible: boolean; x: number; y: number; size: number }>({
-  visible: false,
-  x: 0,
-  y: 0,
-  size: pdfViewerStore.drawingConfig.eraserSize,
-})
-
-// === 性能优化：空间索引 ===
-const GRID_SIZE = 100 // 100px 分辨率的网格
-// key: `${pageIndex}|${gridX}|${gridY}` -> Set<Stroke>
-const spatialGrid = new Map<string, Set<Stroke>>()
-
-const calculateBBox = (points: Point[], width: number) => {
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity
-  const padding = width / 2 + 2
-  for (const p of points) {
-    if (p.x < minX) minX = p.x
-    if (p.x > maxX) maxX = p.x
-    if (p.y < minY) minY = p.y
-    if (p.y > maxY) maxY = p.y
-  }
-  return { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding }
-}
-
-const addToSpatialIndex = (stroke: Stroke) => {
-  if (stroke.minX == null || stroke.maxX == null || stroke.minY == null || stroke.maxY == null)
-    return
-  const startX = Math.floor(stroke.minX / GRID_SIZE)
-  const endX = Math.floor(stroke.maxX / GRID_SIZE)
-  const startY = Math.floor(stroke.minY / GRID_SIZE)
-  const endY = Math.floor(stroke.maxY / GRID_SIZE)
-  for (let gx = startX; gx <= endX; gx++) {
-    for (let gy = startY; gy <= endY; gy++) {
-      const key = `${stroke.pageIndex}|${gx}|${gy}`
-      let cell = spatialGrid.get(key)
-      if (!cell) {
-        cell = new Set<Stroke>()
-        spatialGrid.set(key, cell)
-      }
-      cell.add(stroke)
-    }
-  }
-}
-
-const removeFromSpatialIndex = (stroke: Stroke) => {
-  if (stroke.minX == null || stroke.maxX == null || stroke.minY == null || stroke.maxY == null)
-    return
-  const startX = Math.floor(stroke.minX / GRID_SIZE)
-  const endX = Math.floor(stroke.maxX / GRID_SIZE)
-  const startY = Math.floor(stroke.minY / GRID_SIZE)
-  const endY = Math.floor(stroke.maxY / GRID_SIZE)
-  for (let gx = startX; gx <= endX; gx++) {
-    for (let gy = startY; gy <= endY; gy++) {
-      const key = `${stroke.pageIndex}|${gx}|${gy}`
-      const cell = spatialGrid.get(key)
-      if (cell) {
-        cell.delete(stroke)
-        if (cell.size === 0) spatialGrid.delete(key)
-      }
-    }
-  }
-}
-
-const rebuildSpatialIndex = () => {
-  spatialGrid.clear()
-  allStrokes.value.forEach((s) => {
-    if (s.minX == null) {
-      Object.assign(s, calculateBBox(s.points, s.width))
-    }
-    addToSpatialIndex(s)
-  })
-}
-
-// 橡皮擦的视觉直径与命中检测阈值保持一致（半径 = eraserSize，乘以 scale 后再取直径）
-const getEraserCursorSize = () => pdfViewerStore.drawingConfig.eraserSize * scale.value * 2
-
-// 渲染控制
-const viewportRef = ref<HTMLDivElement | null>(null)
-const pdfRefs = ref<HTMLCanvasElement[]>([])
-const inkRefs = ref<HTMLCanvasElement[]>([])
-const containerRef = ref<HTMLDivElement | null>(null)
-let resizeObserver: ResizeObserver | null = null
-
-const setPdfCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
-  pdfRefs.value[index] = el as HTMLCanvasElement
-}
-
-const setInkCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
-  inkRefs.value[index] = el as HTMLCanvasElement
-}
-
-// 写字模式下在非 PDF 区域拖动时，降级为平移
-let isPanningInDrawMode = false
-
-// 手势控制
-const activePointers = new Map<number, Point>()
-let lastPointerPos = { x: 0, y: 0 }
-let velocity = { x: 0, y: 0 }
-let rafId: number | null = null
-let lastPinchDist = 0
-let lastPinchCenter = { x: 0, y: 0 }
-
-const horizontalPageIndex = ref(0)
-let horizontalScrollTimer: any = null
-let horizontalScrollEndTimer: any = null
-let horizontalScaleResetRaf: number | null = null
-let horizontalScaleResetStartAt = 0
-let horizontalScaleResetFrom = 1
-let lastViewportScrollLeft = 0
-let lastViewportScrollTop = 0
-
-const isHorizontalScrolling = ref(false)
-
-const containerStyle = computed(() => {
-  const base = {
-    width: `${contentSize.value.width}px`,
-    height: `${contentSize.value.height}px`,
-  }
-  return {
-    ...base,
-    transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
-  }
-})
-
+// 处理视口滚动事件（纵向模式翻页）
 const handleViewportScroll = () => {
   // 横向已改为单页模式，不再依赖原生 scroll 进行切页
   if (readingDirection.value === 'horizontal') return
@@ -571,981 +823,8 @@ const handleViewportScroll = () => {
   }, 120)
 }
 
-// === 持久化核心逻辑 ===
-
-const getDocKey = (file: File) => `${file.name}|${file.size}`
-
-const loadDataFromDb = async (file: File) => {
-  try {
-    const key = getDocKey(file)
-    const data = await dbService.get<SavedData>('annotations', key)
-    if (data) {
-      if (data.strokes) {
-        data.strokes.forEach((s) => {
-          if (s.minX == null) {
-            Object.assign(s, calculateBBox(s.points, s.width))
-          }
-        })
-        allStrokes.value = data.strokes
-        rebuildSpatialIndex()
-      }
-      // 不再恢复视图状态（滚动、缩放），每次加载使用默认
-      console.log('已恢复持久化笔迹:', data.strokes.length, '条笔迹')
-    }
-  } catch (e) {
-    console.error('加载持久化数据失败:', e)
-  }
-}
-
-const saveDataToDb = async () => {
-  if (!props.file) return
-  try {
-    const key = getDocKey(props.file)
-    const data: SavedData = {
-      docKey: key,
-      strokes: toRaw(allStrokes.value),
-      updatedAt: Date.now(),
-    }
-    console.log('保存数据到数据库:', { key, strokesCount: data.strokes.length })
-    await dbService.put('annotations', data)
-    console.log('数据保存成功:', key)
-  } catch (e) {
-    console.error('保存数据失败:', e)
-  }
-}
-
-const clearAndBurnMupdfInkAnnotations = async (doc: mupdf.Document) => {
-  const pdf = doc.asPDF()
-  if (!pdf) return
-
-  let removedCount = 0
-  for (let pageIndex = 0; pageIndex < doc.countPages(); pageIndex++) {
-    const page = pdf.loadPage(pageIndex) as any
-    try {
-      const annots = page.getAnnotations?.() as any[] | undefined
-      if (!annots || annots.length === 0) continue
-
-      let changed = false
-      for (const annot of annots) {
-        const type = annot?.getType?.()
-        if (type !== 'Ink') continue
-        page.deleteAnnotation?.(annot)
-        changed = true
-        removedCount++
-      }
-
-      if (changed) {
-        page.update?.()
-      }
-    } finally {
-      page.destroy?.()
-    }
-  }
-
-  if (removedCount <= 0) return
-
-  const resourceIdRaw: any = (pdfViewerStore as any).currentResourceId
-  const resourceId = typeof resourceIdRaw === 'string' ? resourceIdRaw : resourceIdRaw?.value
-  if (!resourceId) {
-    console.warn('[PdfPage] 已清除 Ink 注释，但缺少 resourceId，无法刻蚀保存')
-    return
-  }
-
-  try {
-    let buffer: any
-    try {
-      buffer = pdf.saveToBuffer('incremental')
-    } catch (e) {
-      console.warn('[PdfPage] incremental 保存失败，回退 full 保存', e)
-      buffer = pdf.saveToBuffer()
-    }
-    const uint8 = buffer.asUint8Array() as Uint8Array
-    const data = new Uint8Array(uint8.length)
-    data.set(uint8)
-    await resourceManager.updateFileData(resourceId, data)
-    console.log('[PdfPage] Ink 注释已清除并刻蚀保存:', removedCount)
-  } catch (e) {
-    console.error('[PdfPage] 刻蚀保存 PDF 失败', e)
-  }
-}
-
-// === 核心流程 ===
-
-const loadFile = async (file: File) => {
-  loading.value = true
-  resetState()
-  fileName.value = file.name
-
-  try {
-    // 1. 先加载持久化数据（笔迹和视图状态）
-    await loadDataFromDb(file)
-
-    const arrayBuffer = await file.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
-
-    // 使用 MuPDF 打开 PDF 文档（比 pdfjs 更适合 Android WebView / file:// 环境）
-    const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
-    pdfDoc.value = doc
-    pageCount.value = doc.countPages()
-
-    // 删除 PDF 内嵌 Ink 注释并刻蚀保存回资源存储（不落地到 strokes/IndexedDB）
-    await clearAndBurnMupdfInkAnnotations(doc)
-
-    // 2. 预取尺寸
-    await prefetchDimensionsAndLayout(doc)
-
-    // 3. 尝试渲染
-    tryRenderContent()
-
-    // 4. 如果没有保存的视图状态，才居中；否则保持恢复的位置并进行边界修正
-    if (offset.value.x === 0 && offset.value.y === 0 && scale.value === 1.0) {
-      centerContent()
-    } else {
-      clampOffset() // 确保恢复的位置合法
-    }
-  } catch (err) {
-    console.error('[PdfPage] PDF Load Error:', err)
-  } finally {
-    loading.value = false
-  }
-}
-
-const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
-  const numPages = doc.countPages()
-
-  if (readingDirection.value === 'horizontal') {
-    const pageIndex = Math.min(Math.max(horizontalPageIndex.value, 0), Math.max(0, numPages - 1))
-    horizontalPageIndex.value = pageIndex
-    const page = doc.loadPage(pageIndex)
-    try {
-      const bounds = page.getBounds()
-      const width = bounds[2] - bounds[0]
-      const height = bounds[3] - bounds[1]
-      pageList.value = [
-        {
-          pageIndex,
-          viewWidth: width,
-          viewHeight: height,
-          x: 0,
-          y: 0,
-        },
-      ]
-      contentSize.value = { width, height }
-    } finally {
-      page.destroy?.()
-    }
-    return
-  }
-
-  let currentY = PAGE_GAP
-  let maxW = 0
-  const list: Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }> = []
-
-  // MuPDF 获取页面尺寸是同步的，这里仍用 async 包一层保持接口一致
-  for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
-    const page = doc.loadPage(pageIndex)
-    try {
-      const bounds = page.getBounds()
-      const width = bounds[2] - bounds[0]
-      const height = bounds[3] - bounds[1]
-      if (width > maxW) maxW = width
-      list.push({
-        pageIndex,
-        viewWidth: width,
-        viewHeight: height,
-        x: 0,
-        y: currentY,
-      })
-      currentY += height + PAGE_GAP
-    } finally {
-      page.destroy?.()
-    }
-  }
-
-  list.forEach((p) => (p.x = (maxW - p.viewWidth) / 2))
-
-  pageList.value = list
-  contentSize.value = { width: maxW, height: currentY }
-}
-
-const tryRenderContent = async () => {
-  if (isVisible.value && pageList.value.length > 0 && !hasRendered.value) {
-    await renderPdfPages()
-    hasRendered.value = true
-  }
-}
-
-const setupResizeObserver = () => {
-  if (!viewportRef.value) return
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      const { width, height } = entry.contentRect
-      const isNowVisible = width > 0 && height > 0
-
-      const sizeChanged =
-        Math.abs(width - lastObservedViewportWidth) > 1 || Math.abs(height - lastObservedViewportHeight) > 1
-      lastObservedViewportWidth = width
-      lastObservedViewportHeight = height
-
-      if (isNowVisible !== isVisible.value) {
-        isVisible.value = isNowVisible
-        if (isNowVisible) {
-          tryRenderContent()
-          if (hasRendered.value) clampOffset()
-        }
-        continue
-      }
-
-      // ChatPanel 打开/关闭会导致 viewport 尺寸变化：无论横/纵向都需要
-      // 1) offset 归零（左右/上下位移）
-      // 2) scale 归 1
-      // 3) 强制重新触发渲染
-      if (isNowVisible && sizeChanged) {
-        if (scale.value !== 1) scale.value = 1
-
-        // 尺寸变化后都重新居中（横向：单页也需要在 viewport 内水平+垂直居中）
-        centerContent()
-
-        hasRendered.value = false
-        requestAnimationFrame(() => {
-          tryRenderContent()
-          if (hasRendered.value) {
-            centerContent()
-            clampOffset()
-          }
-        })
-      }
-    }
-  })
-  resizeObserver.observe(viewportRef.value)
-}
-
-const renderPdfPages = async () => {
-  const rawDoc = toRaw(pdfDoc.value)
-  if (!rawDoc) return
-
-  isRendering.value = true
-
-  try {
-    const baseDpr = window.devicePixelRatio || 1
-
-    // 根据文件大小/页数决定是否降级渲染（避免 WebView 崩溃）
-    const shouldUseLowRenderMode = (() => {
-      const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
-      return fileSizeMB > 3
-    })()
-
-    const renderDpr = shouldUseLowRenderMode ? 1 : Math.min(baseDpr * 2, 3)
-
-    renderDprRef.value = renderDpr
-    console.log('[PdfPage] renderDpr:', renderDpr, 'sizeMB:', (props.file?.size || 0) / 1024 / 1024, 'pages:', pageList.value.length, 'lowMode:', shouldUseLowRenderMode)
-
-    const renderOnePage = async (pageIndex: number) => {
-      const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
-      if (!pageLayout) return
-      try {
-        const canvas = pdfRefs.value[pageIndex]
-        const inkCanvas = inkRefs.value[pageIndex]
-        if (!canvas || !inkCanvas) return
-
-        const cssW = pageLayout.viewWidth
-        const cssH = pageLayout.viewHeight
-
-        canvas.width = cssW * renderDpr
-        canvas.height = cssH * renderDpr
-        canvas.style.width = `${cssW}px`
-        canvas.style.height = `${cssH}px`
-
-        inkCanvas.width = canvas.width
-        inkCanvas.height = canvas.height
-        inkCanvas.style.width = canvas.style.width
-        inkCanvas.style.height = canvas.style.height
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-
-        const page = rawDoc.loadPage(pageIndex)
-        try {
-          const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
-          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
-          try {
-            const pixels = pixmap.getPixels()
-            const width = pixmap.getWidth()
-            const height = pixmap.getHeight()
-            const rgbData = new Uint8Array(pixels)
-            const rgbaData = new Uint8ClampedArray(width * height * 4)
-
-            for (let j = 0; j < width * height; j++) {
-              rgbaData[j * 4] = rgbData[j * 3]
-              rgbaData[j * 4 + 1] = rgbData[j * 3 + 1]
-              rgbaData[j * 4 + 2] = rgbData[j * 3 + 2]
-              rgbaData[j * 4 + 3] = 255
-            }
-
-            ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
-          } finally {
-            pixmap.destroy()
-          }
-        } finally {
-          page.destroy?.()
-        }
-
-        // 渲染 Ink 层（包含刚加载的笔迹）
-        renderInkLayer(pageIndex)
-      } catch (e) {
-        console.error('[PdfPage] render page failed:', { pageIndex, error: e })
-      }
-    }
-
-    const renderPromises = pageList.value.map((p) => renderOnePage(p.pageIndex))
-    await Promise.all(renderPromises)
-  } finally {
-    isRendering.value = false
-  }
-}
-
-const goToHorizontalPage = async (pageIndex: number) => {
-  const rawDoc = toRaw(pdfDoc.value)
-  if (!rawDoc) return
-  const next = Math.min(Math.max(pageIndex, 0), Math.max(0, rawDoc.countPages() - 1))
-  if (next === horizontalPageIndex.value) return
-  horizontalPageIndex.value = next
-
-  // 切页时重置缩放/状态
-  if (scale.value !== 1) scale.value = 1
-  offset.value = { x: 0, y: 0 }
-
-  await prefetchDimensionsAndLayout(rawDoc)
-  hasRendered.value = false
-  await nextTick()
-  await tryRenderContent()
-
-  // 单页切换后确保居中（并做边界修正）
-  requestAnimationFrame(() => {
-    centerContent()
-    clampOffset()
-  })
-}
-
-const goPrevPage = () => goToHorizontalPage(horizontalPageIndex.value - 1)
-const goNextPage = () => goToHorizontalPage(horizontalPageIndex.value + 1)
-
-const isHorizontalFirstPage = computed(() => readingDirection.value === 'horizontal' && horizontalPageIndex.value <= 0)
-const isHorizontalLastPage = computed(
-  () => readingDirection.value === 'horizontal' && horizontalPageIndex.value >= Math.max(0, pageCount.value - 1)
-)
-
-const resetState = () => {
-  if (pdfDoc.value) {
-    try {
-      pdfDoc.value.destroy()
-    } catch {}
-  }
-  pdfDoc.value = null
-  pageList.value = []
-  allStrokes.value = []
-  spatialGrid.clear()
-  undoStack.value = []
-  redoStack.value = []
-  offset.value = { x: 0, y: 0 }
-  scale.value = 1.0
-  contentSize.value = { width: 0, height: 0 }
-  hasRendered.value = false
-}
-
-// === 绘图与渲染逻辑 ===
-
-const renderInkLayer = (pageIndex: number) => {
-  const canvas = inkRefs.value[pageIndex]
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-  const pageStrokes = allStrokes.value.filter((s) => s.pageIndex === pageIndex)
-  pageStrokes.forEach((stroke) => drawStroke(ctx, stroke))
-
-  if (dragStartPage.value === pageIndex && currentDragPath.value.length > 0) {
-    if (currentMode.value === 'select') {
-      // 选择模式：不渲染临时 stroke 预览（否则会按默认红色绘制一个起点圆点）
-    } else if (currentMode.value === 'eraser') {
-      // 橡皮模式不渲染临时路径，避免出现红色线条
-      return
-    } else if (currentMode.value === 'pen' || currentMode.value === 'highlighter') {
-      const tempStroke = createStrokeObject(pageIndex, currentDragPath.value, currentMode.value)
-      drawStroke(ctx, tempStroke)
-    } else if (currentMode.value === 'rectangle' && currentDragRect.value) {
-      const { x, y, w, h } = currentDragRect.value
-      const rectStroke = createStrokeObject(
-        pageIndex,
-        [
-          { x, y },
-          { x: x + w, y: y + h },
-        ],
-        'rectangle'
-      )
-      drawStroke(ctx, rectStroke)
-    } else {
-      const tempStroke = createStrokeObject(pageIndex, currentDragPath.value, currentMode.value)
-      drawStroke(ctx, tempStroke)
-    }
-  }
-
-  if (currentMode.value === 'select') {
-    const q = renderDprRef.value || 1
-    const selected = getSelectedStrokesOnPage(pageIndex)
-    const bbox = getGroupBBox(selected)
-    if (bbox) {
-      ctx.save()
-      ctx.scale(q, q)
-      ctx.strokeStyle = '#3b82f6'
-      ctx.lineWidth = 1
-      ctx.setLineDash([6, 4])
-      ctx.strokeRect(bbox.minX, bbox.minY, bbox.maxX - bbox.minX, bbox.maxY - bbox.minY)
-      ctx.restore()
-    }
-
-    if (dragStartPage.value === pageIndex && selectDragRect.value) {
-      const r = selectDragRect.value
-      ctx.save()
-      ctx.scale(q, q)
-      ctx.strokeStyle = '#3b82f6'
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 4])
-      ctx.strokeRect(r.x, r.y, r.w, r.h)
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.10)'
-      ctx.fillRect(r.x, r.y, r.w, r.h)
-      ctx.restore()
-    }
-
-    if (
-      dragStartPage.value === pageIndex &&
-      selectFreeformPath.value &&
-      selectFreeformPath.value.length >= 2
-    ) {
-      const path = selectFreeformPath.value
-      ctx.save()
-      ctx.scale(q, q)
-      ctx.strokeStyle = '#3b82f6'
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.10)'
-      ctx.lineWidth = 2
-      ctx.setLineDash([])
-      ctx.beginPath()
-      ctx.moveTo(path[0].x, path[0].y)
-      for (let i = 1; i < path.length; i++) {
-        ctx.lineTo(path[i].x, path[i].y)
-      }
-      ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
-      ctx.restore()
-    }
-  }
-}
-
-const createStrokeObject = (pageIndex: number, points: Point[], mode: string): Stroke => {
-  const isHighlighter = mode === 'highlighter'
-  const isRect = mode === 'rectangle'
-  const cfg = getToolConfigForMode(mode as ToolMode)
-  const width = isHighlighter ? cfg.width : isRect ? 3 : cfg.width
-  const stroke: Stroke = {
-    id: Math.random().toString(36).slice(2),
-    type: mode as any,
-    pageIndex,
-    points: [...points],
-    color: isRect ? '#FF0000' : cfg.color,
-    width,
-    opacity: isRect ? 1.0 : cfg.opacity ?? 1.0,
-  }
-  Object.assign(stroke, calculateBBox(stroke.points, stroke.width))
-  return stroke
-}
-
-const getInkContext = (pageIndex: number) => {
-  const canvas = inkRefs.value[pageIndex]
-  if (!canvas) return null
-  return canvas.getContext('2d')
-}
-
-let dbSaveTimer: any = null
-const scheduleSaveToDb = (delay = 300) => {
-  if (dbSaveTimer) clearTimeout(dbSaveTimer)
-  dbSaveTimer = setTimeout(() => {
-    dbSaveTimer = null
-    saveDataToDb()
-  }, delay)
-}
-
-const inkBackupCanvases = new Map<number, HTMLCanvasElement>()
-const backupInkCanvas = (pageIndex: number) => {
-  const src = inkRefs.value[pageIndex]
-  if (!src) return
-  let backup = inkBackupCanvases.get(pageIndex)
-  if (!backup) {
-    backup = document.createElement('canvas')
-    inkBackupCanvases.set(pageIndex, backup)
-  }
-  if (backup.width !== src.width) backup.width = src.width
-  if (backup.height !== src.height) backup.height = src.height
-  const bctx = backup.getContext('2d')
-  if (!bctx) return
-  bctx.clearRect(0, 0, backup.width, backup.height)
-  bctx.drawImage(src, 0, 0)
-}
-
-const restoreInkCanvasBackup = (pageIndex: number) => {
-  const backup = inkBackupCanvases.get(pageIndex)
-  const dst = inkRefs.value[pageIndex]
-  if (!backup || !dst) return
-  const dctx = dst.getContext('2d')
-  if (!dctx) return
-  dctx.clearRect(0, 0, dst.width, dst.height)
-  dctx.drawImage(backup, 0, 0)
-}
-
-let highlighterRafId: number | null = null
-let highlighterPending: { pageIndex: number; points: Point[] } | null = null
-
-let penRafId: number | null = null
-let penPending: { pageIndex: number; points: Point[] } | null = null
-
-let eraserRafId: number | null = null
-let eraserPending: { pageIndex: number; x: number; y: number } | null = null
-
-const scheduleHighlighterPreviewDraw = (pageIndex: number, points: Point[]) => {
-  if (!points || points.length === 0) return
-  highlighterPending = { pageIndex, points }
-  if (highlighterRafId != null) return
-  highlighterRafId = requestAnimationFrame(() => {
-    highlighterRafId = null
-    const p = highlighterPending
-    highlighterPending = null
-    if (!p) return
-    // 先恢复底图，再仅绘制当前荧光笔笔迹（避免重绘整页导致卡顿）
-    restoreInkCanvasBackup(p.pageIndex)
-    const ctx = getInkContext(p.pageIndex)
-    if (!ctx) return
-    const tempStroke = createStrokeObject(p.pageIndex, p.points, 'highlighter')
-    drawStroke(ctx, tempStroke)
-  })
-}
-
-const schedulePenPreviewDraw = (pageIndex: number, points: Point[]) => {
-  if (!points || points.length === 0) return
-  penPending = { pageIndex, points }
-  if (penRafId != null) return
-  penRafId = requestAnimationFrame(() => {
-    penRafId = null
-    const p = penPending
-    penPending = null
-    if (!p) return
-    restoreInkCanvasBackup(p.pageIndex)
-    const ctx = getInkContext(p.pageIndex)
-    if (!ctx) return
-    const tempStroke = createStrokeObject(p.pageIndex, p.points, 'pen')
-    drawStroke(ctx, tempStroke)
-  })
-}
-
-const scheduleEraserCheck = (pageIndex: number, x: number, y: number) => {
-  eraserPending = { pageIndex, x, y }
-  if (eraserRafId != null) return
-  eraserRafId = requestAnimationFrame(() => {
-    eraserRafId = null
-    const p = eraserPending
-    eraserPending = null
-    if (!p) return
-    const changed = performEraserCheck(p.pageIndex, p.x, p.y)
-    if (changed) renderInkLayer(p.pageIndex)
-  })
-}
-
-const drawStartDot = (pageIndex: number, p: Point, mode: ToolMode) => {
-  if (mode !== 'pen' && mode !== 'highlighter') return
-  const ctx = getInkContext(pageIndex)
-  if (!ctx) return
-  const q = renderDprRef.value || 1
-  const cfg = getToolConfigForMode(mode)
-  ctx.save()
-  ctx.globalAlpha = cfg.opacity ?? 1.0
-  if (mode === 'highlighter') {
-    ctx.globalCompositeOperation = 'multiply'
-  }
-  ctx.fillStyle = cfg.color
-  ctx.beginPath()
-  ctx.arc(p.x * q, p.y * q, (cfg.width * q) / 2, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
-}
-
-const drawStroke = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
-  ctx.save()
-  ctx.scale(renderDprRef.value || 1, renderDprRef.value || 1)
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.globalAlpha = stroke.opacity
-
-  if (stroke.type === 'highlighter') {
-    ctx.globalCompositeOperation = 'multiply'
-  }
-
-  ctx.strokeStyle = stroke.color
-  ctx.lineWidth = stroke.width
-
-  if (stroke.type === 'rectangle') {
-    const [start, end] = stroke.points
-    const w = end.x - start.x
-    const h = end.y - start.y
-    ctx.strokeRect(start.x, start.y, w, h)
-  } else {
-    const points = stroke.points
-    if (points.length === 1) {
-      ctx.fillStyle = stroke.color
-      ctx.beginPath()
-      ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2)
-      ctx.fill()
-    } else {
-      ctx.beginPath()
-      ctx.moveTo(points[0].x, points[0].y)
-      for (let i = 1; i < points.length - 1; i++) {
-        const p0 = points[i]
-        const p1 = points[i + 1]
-        const midX = (p0.x + p1.x) / 2
-        const midY = (p0.y + p1.y) / 2
-        ctx.quadraticCurveTo(p0.x, p0.y, midX, midY)
-      }
-      const last = points[points.length - 1]
-      ctx.lineTo(last.x, last.y)
-      ctx.stroke()
-    }
-  }
-  ctx.restore()
-}
-
-// === 交互逻辑核心 ===
-
-const getPdfPoint = (
-  clientX: number,
-  clientY: number
-): { pageIndex: number; x: number; y: number } | null => {
-  if (!viewportRef.value || pageList.value.length === 0) return null
-  const rect = viewportRef.value.getBoundingClientRect()
-  const mx = clientX - rect.left
-  const my = clientY - rect.top
-
-  const localX = (mx - offset.value.x) / scale.value
-  const localY = (my - offset.value.y) / scale.value
-
-  for (let i = 0; i < pageList.value.length; i++) {
-    const p = pageList.value[i]
-    const withinY = localY >= p.y && localY <= p.y + p.viewHeight
-    const withinX = localX >= p.x && localX <= p.x + p.viewWidth
-    if (withinY && withinX) {
-      return {
-        pageIndex: p.pageIndex,
-        x: localX - p.x,
-        y: localY - p.y,
-      }
-    }
-  }
-  return null
-}
-
-const getContentPoint = (clientX: number, clientY: number): Point | null => {
-  if (!viewportRef.value) return null
-  const rect = viewportRef.value.getBoundingClientRect()
-  const mx = clientX - rect.left
-  const my = clientY - rect.top
-  return {
-    x: (mx - offset.value.x) / scale.value,
-    y: (my - offset.value.y) / scale.value,
-  }
-}
-
-const handlePointerMoveForEraserCursor = (e: PointerEvent) => {
-  if (!viewportRef.value || currentMode.value !== 'eraser') {
-    eraserCursor.value.visible = false
-    return
-  }
-  const rect = viewportRef.value.getBoundingClientRect()
-  const size = getEraserCursorSize()
-  eraserCursor.value = {
-    visible: true,
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top,
-    size,
-  }
-}
-
-// ==================== 指针事件处理辅助函数 ====================
-
-// 选区操作类型定义
-type SelectActionType = 'move' | 'box_select' | 'freeform_select'
-
-interface SelectActionData {
-  type: SelectActionType
-  pageIndex: number
-  lastPos: Point
-  startPos: Point
-  moved: boolean
-  beforeStrokes: Stroke[]
-}
-
-// 选区操作：创建设置移动操作
-const createSelectMoveAction = (
-  pageIndex: number,
-  pos: Point,
-  strokes?: Stroke[]
-): SelectActionData => {
-  const selected = strokes ?? getSelectedStrokesOnPage(pageIndex)
-  const before = selected.map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
-  return {
-    type: 'move',
-    pageIndex,
-    lastPos: { x: pos.x, y: pos.y },
-    startPos: { x: pos.x, y: pos.y },
-    moved: false,
-    beforeStrokes: before,
-  }
-}
-
-// 选区操作：创建框选操作
-const createBoxSelectAction = (pageIndex: number, pos: Point): SelectActionData => ({
-  type: 'box_select',
-  pageIndex,
-  lastPos: { x: pos.x, y: pos.y },
-  startPos: { x: pos.x, y: pos.y },
-  moved: false,
-  beforeStrokes: [],
-})
-
-// 选区操作：创建自由选区操作
-const createFreeformSelectAction = (pageIndex: number, pos: Point): SelectActionData => ({
-  type: 'freeform_select',
-  pageIndex,
-  lastPos: { x: pos.x, y: pos.y },
-  startPos: { x: pos.x, y: pos.y },
-  moved: false,
-  beforeStrokes: [],
-})
-
-// 选区操作：检测并处理选区命中
-const handleSelectHitTest = (pageIndex: number, pos: Point): SelectActionData | null => {
-  const hit = strokeHitTest(pageIndex, pos.x, pos.y) as Stroke | null
-  if (hit) {
-    if (!selectedStrokeIds.value.has(hit.id)) {
-      selectedStrokeIds.value = new Set<string>([hit.id])
-    }
-    return createSelectMoveAction(pageIndex, pos)
-  }
-  return null
-}
-
-// 选区操作：处理框选/自由选区初始化
-const initSelectionMode = (pageIndex: number, pos: Point) => {
-  selectedStrokeIds.value = new Set()
-  if (selectionMode.value === 'freeform') {
-    selectFreeformPath.value = [{ x: pos.x, y: pos.y }]
-    selectDragRect.value = null
-    selectAction = createFreeformSelectAction(pageIndex, pos)
-  } else {
-    selectDragRect.value = { x: pos.x, y: pos.y, w: 0, h: 0 }
-    selectFreeformPath.value = null
-    selectAction = createBoxSelectAction(pageIndex, pos)
-  }
-  renderInkLayer(pageIndex)
-}
-
-// 选区操作：检查点是否在已有选区范围内
-const isPointInExistingSelection = (pageIndex: number, pos: Point): boolean => {
-  return selectedStrokeIds.value.size > 0 && isPointInSelectionBounds(pageIndex, pos.x, pos.y)
-}
-
-// 选区移动：更新选中笔迹位置
-const moveSelectedStrokes = (pageIndex: number, lastPos: Point, newPos: Point): void => {
-  const movedDx = newPos.x - lastPos.x
-  const movedDy = newPos.y - lastPos.y
-
-  if (Math.abs(newPos.x - selectAction!.startPos.x) > 0.1 || Math.abs(newPos.y - selectAction!.startPos.y) > 0.1) {
-    selectAction!.moved = true
-  }
-
-  const ids = selectedStrokeIds.value
-  allStrokes.value.forEach((s) => {
-    if (s.pageIndex !== pageIndex || !ids.has(s.id)) return
-    s.points = s.points.map((p) => ({ x: p.x + movedDx, y: p.y + movedDy }))
-    Object.assign(s, calculateBBox(s.points, s.width))
-  })
-
-  selectAction!.lastPos = { x: newPos.x, y: newPos.y }
-  renderInkLayer(pageIndex)
-}
-
-// 选区移动：提交移动结果到历史记录
-const commitSelectionMove = (pageIdx: number): void => {
-  if (!selectAction?.moved) return
-
-  const ids = selectedStrokeIds.value
-  const after = allStrokes.value
-    .filter((s) => s.pageIndex === pageIdx && ids.has(s.id))
-    .map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
-
-  selectAction.beforeStrokes.forEach((s) => removeFromSpatialIndex(s))
-  after.forEach((s) => addToSpatialIndex(s))
-  pushUpdateHistory(selectAction.beforeStrokes, after)
-  scheduleSaveToDb(600)
-}
-
-// 选区完成：处理框选完成
-const finalizeBoxSelection = (pageIdx: number): void => {
-  const r = selectDragRect.value
-  if (!r || r.w <= 2 || r.h <= 2) {
-    selectedStrokeIds.value = new Set()
-    return
-  }
-
-  const minX = r.x, minY = r.y, maxX = r.x + r.w, maxY = r.y + r.h
-  const next = new Set<string>()
-
-  allStrokes.value.forEach((s) => {
-    if (s.pageIndex !== pageIdx) return
-    if (s.minX == null || s.maxX == null || s.minY == null || s.maxY == null) return
-    if (s.minX >= minX && s.maxX <= maxX && s.minY >= minY && s.maxY <= maxY) {
-      next.add(s.id)
-    }
-  })
-
-  selectedStrokeIds.value = next
-}
-
-// 选区完成：处理自由选区完成
-const finalizeFreeformSelection = (pageIdx: number): void => {
-  const path = selectFreeformPath.value
-  selectedStrokeIds.value = path && path.length >= 3 ? hitTestFreeform(pageIdx, path) : new Set()
-}
-
-// 选区完成：清理选区状态
-const cleanupSelectionState = (pageIdx: number): void => {
-  selectAction = null
-  selectDragRect.value = null
-  selectFreeformPath.value = null
-  finishDrawing(false)
-  if (pageIdx !== -1) renderInkLayer(pageIdx)
-}
-
-// 绘制操作：初始化笔/高光笔绘制
-const initStrokeDrawing = (pageIndex: number, mode: 'pen' | 'highlighter'): void => {
-  const start = currentDragPath.value[0]
-  if (!isDrawingStarted.value) {
-    isDrawingStarted.value = true
-    backupInkCanvas(pageIndex)
-    drawStartDot(pageIndex, start, mode)
-  }
-}
-
-// 绘制操作：更新拖动路径
-const appendDragPath = (pos: Point): void => {
-  currentDragPath.value.push({ x: pos.x, y: pos.y })
-}
-
-// 绘制完成：保存新笔迹
-const saveNewStroke = (pageIdx: number): boolean => {
-  const path = currentDragPath.value
-  if (!isDrawingStarted.value || path.length <= 1) return false
-  if (currentMode.value === 'eraser') return false
-
-  let newStroke: Stroke
-  if (currentMode.value === 'rectangle') {
-    newStroke = createStrokeObject(pageIdx, [path[0], path[path.length - 1]], 'rectangle')
-  } else {
-    newStroke = createStrokeObject(pageIdx, path, currentMode.value)
-  }
-
-  allStrokes.value = [...allStrokes.value, newStroke]
-  addToSpatialIndex(newStroke)
-  pushHistory('add', [newStroke])
-  return true
-}
-
-// 绘制完成：保存点笔迹（点击但未拖动）
-const saveDotStroke = (pageIdx: number): boolean => {
-  const path = currentDragPath.value
-  if (
-    isDrawingStarted.value ||
-    path.length === 0 ||
-    currentMode.value === 'eraser' ||
-    currentMode.value === 'rectangle' ||
-    currentMode.value === 'screenshot'
-  ) {
-    return false
-  }
-
-  const dotStroke = createStrokeObject(pageIdx, [path[0]], currentMode.value)
-  backupInkCanvas(pageIdx)
-  drawStartDot(pageIdx, path[0], currentMode.value)
-  allStrokes.value = [...allStrokes.value, dotStroke]
-  addToSpatialIndex(dotStroke)
-  pushHistory('add', [dotStroke])
-  return true
-}
-
-// 绘制完成：清理绘制状态
-const cleanupDrawingState = (): void => {
-  dragStartPage.value = -1
-  currentDragPath.value = []
-  currentDragRect.value = null
-  screenshotDragRect.value = null
-  screenshotStartPoint.value = null
-  isDrawingStarted.value = false
-}
-
-// 绘制完成：清理动画帧
-const cancelDrawingAnimationFrames = (pageIdx: number): void => {
-  if (pageIdx === -1) return
-
-  if (currentMode.value === 'pen' && penRafId != null) {
-    cancelAnimationFrame(penRafId)
-    penRafId = null
-    penPending = null
-  }
-
-  if (currentMode.value === 'highlighter' && highlighterRafId != null) {
-    cancelAnimationFrame(highlighterRafId)
-    highlighterRafId = null
-    highlighterPending = null
-  }
-
-  if (currentMode.value === 'eraser' && eraserRafId != null) {
-    cancelAnimationFrame(eraserRafId)
-    eraserRafId = null
-    eraserPending = null
-  }
-}
-
-// 截图操作：处理截图拖动
-const handleScreenshotDrag = (clientX: number, clientY: number): void => {
-  const p = getContentPoint(clientX, clientY)
-  const start = screenshotStartPoint.value
-  if (!p || !start) return
-
-  screenshotDragRect.value = {
-    x: Math.min(start.x, p.x),
-    y: Math.min(start.y, p.y),
-    w: Math.abs(p.x - start.x),
-    h: Math.abs(p.y - start.y),
-  }
-}
-
-// 平移操作：执行平移
-const applyPan = (dx: number, dy: number): void => {
-  offset.value.x += dx
-  offset.value.y += dy
-  velocity = { x: dx, y: dy }
-  clampOffset()
-}
-
 // ==================== 指针按下事件 ====================
+// 处理指针按下事件（开始绘制/拖动）
 const onPointerDown = (e: PointerEvent) => {
   const shouldLockScrollForDrawInHorizontal =
     readingDirection.value === 'horizontal' &&
@@ -1630,6 +909,7 @@ const onPointerDown = (e: PointerEvent) => {
 }
 
 // ==================== 指针移动事件 ====================
+// 处理指针移动事件（绘制/拖动/橡皮擦）
 const onPointerMove = (e: PointerEvent) => {
   if (!activePointers.has(e.pointerId)) return
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -1730,6 +1010,7 @@ const onPointerMove = (e: PointerEvent) => {
 }
 
 // ==================== 指针松开事件 ====================
+// 处理指针松开事件（完成绘制）
 const onPointerUp = (e: PointerEvent) => {
   activePointers.delete(e.pointerId)
 
@@ -1775,67 +1056,558 @@ const onPointerUp = (e: PointerEvent) => {
   }
 }
 
-// ==================== 完成绘制处理 ====================
-const finishDrawing = (save: boolean) => {
-  if (dragStartPage.value === -1) return
+const undo = () => {
+  const action = undoStack.value.pop()
+  if (!action) return
 
-  const pageIdx = dragStartPage.value
-  const started = isDrawingStarted.value
+  if (action.type === 'add') {
+    const ids = new Set(action.strokes.map((s) => s.id))
+    action.strokes.forEach((s) => removeFromSpatialIndex(s))
+    allStrokes.value = allStrokes.value.filter((s) => !ids.has(s.id))
+  } else if (action.type === 'remove') {
+    action.strokes.forEach((s) => addToSpatialIndex(s))
+    allStrokes.value = [...allStrokes.value, ...action.strokes]
+  } else {
+    const before = action.before ?? []
+    const after = action.after ?? []
+    const afterIds = new Set(after.map((s) => s.id))
+    after.forEach((s) => removeFromSpatialIndex(s))
+    const kept = allStrokes.value.filter((s) => !afterIds.has(s.id))
+    before.forEach((s) => addToSpatialIndex(s))
+    allStrokes.value = [...kept, ...before]
+  }
 
-  // 保存绘制结果
-  if (save) {
-    if (currentMode.value === 'screenshot' && currentDragRect.value) {
-      // screenshot 已改为 content 坐标处理
+  redoStack.value.push(action)
+  const pages = new Set(
+    action.type === 'update'
+      ? [
+          ...(action.before ?? []).map((s) => s.pageIndex),
+          ...(action.after ?? []).map((s) => s.pageIndex),
+        ]
+      : action.strokes.map((s) => s.pageIndex)
+  )
+  pages.forEach((p) => renderInkLayer(p))
+  scheduleSaveToDb(400)
+}
+
+const redo = () => {
+  const action = redoStack.value.pop()
+  if (!action) return
+
+  if (action.type === 'add') {
+    action.strokes.forEach((s) => addToSpatialIndex(s))
+    allStrokes.value = [...allStrokes.value, ...action.strokes]
+  } else if (action.type === 'remove') {
+    const ids = new Set(action.strokes.map((s) => s.id))
+    action.strokes.forEach((s) => removeFromSpatialIndex(s))
+    allStrokes.value = allStrokes.value.filter((s) => !ids.has(s.id))
+  } else {
+    const before = action.before ?? []
+    const after = action.after ?? []
+    const beforeIds = new Set(before.map((s) => s.id))
+    before.forEach((s) => removeFromSpatialIndex(s))
+    const kept = allStrokes.value.filter((s) => !beforeIds.has(s.id))
+    after.forEach((s) => addToSpatialIndex(s))
+    allStrokes.value = [...kept, ...after]
+  }
+
+  undoStack.value.push(action)
+  const pages = new Set(
+    action.type === 'update'
+      ? [
+          ...(action.before ?? []).map((s) => s.pageIndex),
+          ...(action.after ?? []).map((s) => s.pageIndex),
+        ]
+      : action.strokes.map((s) => s.pageIndex)
+  )
+  pages.forEach((p) => renderInkLayer(p))
+  scheduleSaveToDb(400)
+}
+
+// 文件加载与持久化处理
+const loadFile = async (file: File) => {
+  loading.value = true
+  resetState()
+  fileName.value = file.name
+
+  try {
+    // 1. 先加载持久化数据（笔迹和视图状态）
+    await loadDataFromDb(file)
+
+    const arrayBuffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
+
+    // 使用 MuPDF 打开 PDF 文档（比 pdfjs 更适合 Android WebView / file:// 环境）
+    const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
+    pdfDoc.value = doc
+    pageCount.value = doc.countPages()
+
+    // 删除 PDF 内嵌 Ink 注释并刻蚀保存回资源存储（不落地到 strokes/IndexedDB）
+    await clearAndBurnMupdfInkAnnotations(doc)
+
+    // 2. 预取尺寸
+    await prefetchDimensionsAndLayout(doc)
+
+    // 3. 尝试渲染
+    tryRenderContent()
+
+    // 4. 如果没有保存的视图状态，才居中；否则保持恢复的位置并进行边界修正
+    if (offset.value.x === 0 && offset.value.y === 0 && scale.value === 1.0) {
+      centerContent()
     } else {
-      // 保存拖动绘制的笔迹
-      if (saveNewStroke(pageIdx)) {
-        // 已保存
-      } else {
-        // 保存点击形成的点笔迹
-        saveDotStroke(pageIdx)
-      }
+      clampOffset() // 确保恢复的位置合法
     }
-  }
-
-  // 恢复或渲染画布
-  if (pageIdx !== -1) {
-    if (!save && started && (currentMode.value === 'pen' || currentMode.value === 'highlighter')) {
-      restoreInkCanvasBackup(pageIdx)
-    } else if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
-      renderInkLayer(pageIdx)
-    }
-  }
-
-  // 执行截图
-  if (currentMode.value === 'screenshot' && screenshotDragRect.value) {
-    takeScreenshotAcrossPages(screenshotDragRect.value)
-  }
-
-  // 清理状态
-  cleanupDrawingState()
-  cancelDrawingAnimationFrames(pageIdx)
-
-  // 高光笔需要额外渲染
-  if (save && pageIdx !== -1 && currentMode.value === 'highlighter') {
-    renderInkLayer(pageIdx)
-  }
-
-  // 保存到 DB
-  if (save && currentMode.value !== 'screenshot') {
-    scheduleSaveToDb(600)
+  } catch (err) {
+    console.error('[PdfPage] PDF Load Error:', err)
+  } finally {
+    loading.value = false
   }
 }
 
-const distancePointToSegment = (px: number, py: number, ax: Point, bx: Point) => {
-  const dx = bx.x - ax.x
-  const dy = bx.y - ax.y
-  const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.hypot(px - ax.x, py - ax.y)
-  let t = ((px - ax.x) * dx + (py - ax.y) * dy) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  const projX = ax.x + t * dx
-  const projY = ax.y + t * dy
-  return Math.hypot(px - projX, py - projY)
+
+// 从数据库加载持久化数据（笔迹等）
+const loadDataFromDb = async (file: File) => {
+  try {
+    const key = getDocKey(file)
+    const data = await dbService.get<SavedData>('annotations', key)
+    if (data) {
+      if (data.strokes) {
+        data.strokes.forEach((s) => {
+          if (s.minX == null) {
+            Object.assign(s, calculateBBox(s.points, s.width))
+          }
+        })
+        allStrokes.value = data.strokes
+        rebuildSpatialIndex()
+      }
+      // 不再恢复视图状态（滚动、缩放），每次加载使用默认
+      console.log('已恢复持久化笔迹:', data.strokes.length, '条笔迹')
+    }
+  } catch (e) {
+    console.error('加载持久化数据失败:', e)
+  }
+}
+
+const saveDataToDb = async () => {
+  if (!props.file) return
+  try {
+    const key = getDocKey(props.file)
+    const data: SavedData = {
+      docKey: key,
+      strokes: toRaw(allStrokes.value),
+      updatedAt: Date.now(),
+    }
+    console.log('保存数据到数据库:', { key, strokesCount: data.strokes.length })
+    await dbService.put('annotations', data)
+    console.log('数据保存成功:', key)
+  } catch (e) {
+    console.error('保存数据失败:', e)
+  }
+}
+
+let dbSaveTimer: any = null
+const scheduleSaveToDb = (delay = 300) => {
+  if (dbSaveTimer) clearTimeout(dbSaveTimer)
+  dbSaveTimer = setTimeout(() => {
+    dbSaveTimer = null
+    saveDataToDb()
+  }, delay)
+}
+
+
+// 重置组件所有状态到初始值
+const resetState = () => {
+  if (pdfDoc.value) {
+    try {
+      pdfDoc.value.destroy()
+    } catch {}
+  }
+  pdfDoc.value = null
+  pageList.value = []
+  allStrokes.value = []
+  spatialGrid.clear()
+  undoStack.value = []
+  redoStack.value = []
+  offset.value = { x: 0, y: 0 }
+  scale.value = 1.0
+  contentSize.value = { width: 0, height: 0 }
+  hasRendered.value = false
+}
+
+// PDF渲染处理
+
+const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
+  const numPages = doc.countPages()
+
+  if (readingDirection.value === 'horizontal') {
+    const pageIndex = Math.min(Math.max(horizontalPageIndex.value, 0), Math.max(0, numPages - 1))
+    horizontalPageIndex.value = pageIndex
+    const page = doc.loadPage(pageIndex)
+    try {
+      const bounds = page.getBounds()
+      const width = bounds[2] - bounds[0]
+      const height = bounds[3] - bounds[1]
+      pageList.value = [
+        {
+          pageIndex,
+          viewWidth: width,
+          viewHeight: height,
+          x: 0,
+          y: 0,
+        },
+      ]
+      contentSize.value = { width, height }
+    } finally {
+      page.destroy?.()
+    }
+    return
+  }
+
+  let currentY = PAGE_GAP
+  let maxW = 0
+  const list: Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }> = []
+
+  // MuPDF 获取页面尺寸是同步的，这里仍用 async 包一层保持接口一致
+  for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
+    const page = doc.loadPage(pageIndex)
+    try {
+      const bounds = page.getBounds()
+      const width = bounds[2] - bounds[0]
+      const height = bounds[3] - bounds[1]
+      if (width > maxW) maxW = width
+      list.push({
+        pageIndex,
+        viewWidth: width,
+        viewHeight: height,
+        x: 0,
+        y: currentY,
+      })
+      currentY += height + PAGE_GAP
+    } finally {
+      page.destroy?.()
+    }
+  }
+
+  list.forEach((p) => (p.x = (maxW - p.viewWidth) / 2))
+
+  pageList.value = list
+  contentSize.value = { width: maxW, height: currentY }
+}
+
+const tryRenderContent = async () => {
+  if (isVisible.value && pageList.value.length > 0 && !hasRendered.value) {
+    await renderPdfPages()
+    hasRendered.value = true
+  }
+}
+
+
+const renderPdfPages = async () => {
+  const rawDoc = toRaw(pdfDoc.value)
+  if (!rawDoc) return
+
+  isRendering.value = true
+
+  try {
+    const baseDpr = window.devicePixelRatio || 1
+
+    // 根据文件大小/页数决定是否降级渲染（避免 WebView 崩溃）
+    const shouldUseLowRenderMode = (() => {
+      const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
+      return fileSizeMB > 3
+    })()
+
+    const renderDpr = shouldUseLowRenderMode ? 1 : Math.min(baseDpr * 2, 3)
+
+    renderDprRef.value = renderDpr
+    console.log('[PdfPage] renderDpr:', renderDpr, 'sizeMB:', (props.file?.size || 0) / 1024 / 1024, 'pages:', pageList.value.length, 'lowMode:', shouldUseLowRenderMode)
+
+    const renderOnePage = async (pageIndex: number) => {
+      const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
+      if (!pageLayout) return
+      try {
+        const canvas = pdfRefs.value[pageIndex]
+        const inkCanvas = inkRefs.value[pageIndex]
+        if (!canvas || !inkCanvas) return
+
+        const cssW = pageLayout.viewWidth
+        const cssH = pageLayout.viewHeight
+
+        canvas.width = cssW * renderDpr
+        canvas.height = cssH * renderDpr
+        canvas.style.width = `${cssW}px`
+        canvas.style.height = `${cssH}px`
+
+        inkCanvas.width = canvas.width
+        inkCanvas.height = canvas.height
+        inkCanvas.style.width = canvas.style.width
+        inkCanvas.style.height = canvas.style.height
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        const page = rawDoc.loadPage(pageIndex)
+        try {
+          const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
+          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
+          try {
+            const pixels = pixmap.getPixels()
+            const width = pixmap.getWidth()
+            const height = pixmap.getHeight()
+            const rgbData = new Uint8Array(pixels)
+            const rgbaData = new Uint8ClampedArray(width * height * 4)
+
+            for (let j = 0; j < width * height; j++) {
+              rgbaData[j * 4] = rgbData[j * 3]
+              rgbaData[j * 4 + 1] = rgbData[j * 3 + 1]
+              rgbaData[j * 4 + 2] = rgbData[j * 3 + 2]
+              rgbaData[j * 4 + 3] = 255
+            }
+
+            ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
+          } finally {
+            pixmap.destroy()
+          }
+        } finally {
+          page.destroy?.()
+        }
+
+        // 渲染 Ink 层（包含刚加载的笔迹）
+        renderInkLayer(pageIndex)
+      } catch (e) {
+        console.error('[PdfPage] render page failed:', { pageIndex, error: e })
+      }
+    }
+
+    const renderPromises = pageList.value.map((p) => renderOnePage(p.pageIndex))
+    await Promise.all(renderPromises)
+  } finally {
+    isRendering.value = false
+  }
+}
+
+
+const renderInkLayer = (pageIndex: number) => {
+  const canvas = inkRefs.value[pageIndex]
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const pageStrokes = allStrokes.value.filter((s) => s.pageIndex === pageIndex)
+  pageStrokes.forEach((stroke) => drawStroke(ctx, stroke))
+
+  if (dragStartPage.value === pageIndex && currentDragPath.value.length > 0) {
+    if (currentMode.value === 'select') {
+      // 选择模式：不渲染临时 stroke 预览（否则会按默认红色绘制一个起点圆点）
+    } else if (currentMode.value === 'eraser') {
+      // 橡皮模式不渲染临时路径，避免出现红色线条
+      return
+    } else if (currentMode.value === 'pen' || currentMode.value === 'highlighter') {
+      const tempStroke = createStrokeObject(pageIndex, currentDragPath.value, currentMode.value)
+      drawStroke(ctx, tempStroke)
+    } else if (currentMode.value === 'rectangle' && currentDragRect.value) {
+      const { x, y, w, h } = currentDragRect.value
+      const rectStroke = createStrokeObject(
+        pageIndex,
+        [
+          { x, y },
+          { x: x + w, y: y + h },
+        ],
+        'rectangle'
+      )
+      drawStroke(ctx, rectStroke)
+    } else {
+      const tempStroke = createStrokeObject(pageIndex, currentDragPath.value, currentMode.value)
+      drawStroke(ctx, tempStroke)
+    }
+  }
+
+  if (currentMode.value === 'select') {
+    const q = renderDprRef.value || 1
+    const selected = getSelectedStrokesOnPage(pageIndex)
+    const bbox = getGroupBBox(selected)
+    if (bbox) {
+      ctx.save()
+      ctx.scale(q, q)
+      ctx.strokeStyle = '#3b82f6'
+      ctx.lineWidth = 1
+      ctx.setLineDash([6, 4])
+      ctx.strokeRect(bbox.minX, bbox.minY, bbox.maxX - bbox.minX, bbox.maxY - bbox.minY)
+      ctx.restore()
+    }
+
+    if (dragStartPage.value === pageIndex && selectDragRect.value) {
+      const r = selectDragRect.value
+      ctx.save()
+      ctx.scale(q, q)
+      ctx.strokeStyle = '#3b82f6'
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
+      ctx.strokeRect(r.x, r.y, r.w, r.h)
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.10)'
+      ctx.fillRect(r.x, r.y, r.w, r.h)
+      ctx.restore()
+    }
+
+    if (
+      dragStartPage.value === pageIndex &&
+      selectFreeformPath.value &&
+      selectFreeformPath.value.length >= 2
+    ) {
+      const path = selectFreeformPath.value
+      ctx.save()
+      ctx.scale(q, q)
+      ctx.strokeStyle = '#3b82f6'
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.10)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([])
+      ctx.beginPath()
+      ctx.moveTo(path[0].x, path[0].y)
+      for (let i = 1; i < path.length; i++) {
+        ctx.lineTo(path[i].x, path[i].y)
+      }
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      ctx.restore()
+    }
+  }
+}
+
+
+const setupResizeObserver = () => {
+  if (!viewportRef.value) return
+  resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const { width, height } = entry.contentRect
+      const isNowVisible = width > 0 && height > 0
+
+      const sizeChanged =
+        Math.abs(width - lastObservedViewportWidth) > 1 || Math.abs(height - lastObservedViewportHeight) > 1
+      lastObservedViewportWidth = width
+      lastObservedViewportHeight = height
+
+      if (isNowVisible !== isVisible.value) {
+        isVisible.value = isNowVisible
+        if (isNowVisible) {
+          tryRenderContent()
+          if (hasRendered.value) clampOffset()
+        }
+        continue
+      }
+
+      if (isNowVisible && sizeChanged) {
+        if (scale.value !== 1) scale.value = 1
+
+        centerContent()
+
+        hasRendered.value = false
+        requestAnimationFrame(() => {
+          tryRenderContent()
+          if (hasRendered.value) {
+            centerContent()
+            clampOffset()
+          }
+        })
+      }
+    }
+  })
+  resizeObserver.observe(viewportRef.value)
+}
+
+// 绘制与交互处理
+// 绘制操作：初始化笔/高光笔绘制
+const initStrokeDrawing = (pageIndex: number, mode: 'pen' | 'highlighter'): void => {
+  const start = currentDragPath.value[0]
+  if (!isDrawingStarted.value) {
+    isDrawingStarted.value = true
+    backupInkCanvas(pageIndex)
+    drawStartDot(pageIndex, start, mode)
+  }
+}
+
+// 绘制操作：更新拖动路径
+const appendDragPath = (pos: Point): void => {
+  currentDragPath.value.push({ x: pos.x, y: pos.y })
+}
+
+const schedulePenPreviewDraw = (pageIndex: number, points: Point[]) => {
+  if (!points || points.length === 0) return
+  penPending = { pageIndex, points }
+  if (penRafId != null) return
+  penRafId = requestAnimationFrame(() => {
+    penRafId = null
+    const p = penPending
+    penPending = null
+    if (!p) return
+    restoreInkCanvasBackup(p.pageIndex)
+    const ctx = getInkContext(p.pageIndex)
+    if (!ctx) return
+    const tempStroke = createStrokeObject(p.pageIndex, p.points, 'pen')
+    drawStroke(ctx, tempStroke)
+  })
+}
+const scheduleHighlighterPreviewDraw = (pageIndex: number, points: Point[]) => {
+  if (!points || points.length === 0) return
+  highlighterPending = { pageIndex, points }
+  if (highlighterRafId != null) return
+  highlighterRafId = requestAnimationFrame(() => {
+    highlighterRafId = null
+    const p = highlighterPending
+    highlighterPending = null
+    if (!p) return
+    // 先恢复底图，再仅绘制当前荧光笔笔迹（避免重绘整页导致卡顿）
+    restoreInkCanvasBackup(p.pageIndex)
+    const ctx = getInkContext(p.pageIndex)
+    if (!ctx) return
+    const tempStroke = createStrokeObject(p.pageIndex, p.points, 'highlighter')
+    drawStroke(ctx, tempStroke)
+  })
+}
+
+
+const inkBackupCanvases = new Map<number, HTMLCanvasElement>()
+const backupInkCanvas = (pageIndex: number) => {
+  const src = inkRefs.value[pageIndex]
+  if (!src) return
+  let backup = inkBackupCanvases.get(pageIndex)
+  if (!backup) {
+    backup = document.createElement('canvas')
+    inkBackupCanvases.set(pageIndex, backup)
+  }
+  if (backup.width !== src.width) backup.width = src.width
+  if (backup.height !== src.height) backup.height = src.height
+  const bctx = backup.getContext('2d')
+  if (!bctx) return
+  bctx.clearRect(0, 0, backup.width, backup.height)
+  bctx.drawImage(src, 0, 0)
+}
+
+
+const restoreInkCanvasBackup = (pageIndex: number) => {
+  const backup = inkBackupCanvases.get(pageIndex)
+  const dst = inkRefs.value[pageIndex]
+  if (!backup || !dst) return
+  const dctx = dst.getContext('2d')
+  if (!dctx) return
+  dctx.clearRect(0, 0, dst.width, dst.height)
+  dctx.drawImage(backup, 0, 0)
+}
+
+// 橡皮擦处理
+const scheduleEraserCheck = (pageIndex: number, x: number, y: number) => {
+  eraserPending = { pageIndex, x, y }
+  if (eraserRafId != null) return
+  eraserRafId = requestAnimationFrame(() => {
+    eraserRafId = null
+    const p = eraserPending
+    eraserPending = null
+    if (!p) return
+    const changed = performEraserCheck(p.pageIndex, p.x, p.y)
+    if (changed) renderInkLayer(p.pageIndex)
+  })
 }
 
 // 橡皮擦：使用空间网格 + 包围盒预判，减少全量遍历
@@ -1911,39 +1683,219 @@ const performEraserCheck = (pageIndex: number, x: number, y: number) => {
   return false
 }
 
-const takeScreenshot = (
-  pageIndex: number,
-  rect: { x: number; y: number; w: number; h: number }
-) => {
-  if (rect.w < 5 || rect.h < 5) return
-  const pdfCanvas = pdfRefs.value[pageIndex]
-  const inkCanvas = inkRefs.value[pageIndex]
-  if (!pdfCanvas || !inkCanvas) return
+// 选区操作处理
 
-  const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = rect.w * RENDER_QUALITY
-  tempCanvas.height = rect.h * RENDER_QUALITY
-  const ctx = tempCanvas.getContext('2d')
-  if (!ctx) return
-
-  const sx = rect.x * RENDER_QUALITY
-  const sy = rect.y * RENDER_QUALITY
-  const sw = rect.w * RENDER_QUALITY
-  const sh = rect.h * RENDER_QUALITY
-
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
-  ctx.drawImage(pdfCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
-  ctx.drawImage(inkCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
-
-  tempCanvas.toBlob(
-    (blob) => {
-      if (blob) emit('screenshot-captured', blob)
-    },
-    'image/jpeg',
-    0.95
-  )
+// 选区操作：处理框选/自由选区初始化
+const initSelectionMode = (pageIndex: number, pos: Point) => {
+  selectedStrokeIds.value = new Set()
+  if (selectionMode.value === 'freeform') {
+    selectFreeformPath.value = [{ x: pos.x, y: pos.y }]
+    selectDragRect.value = null
+    selectAction = createFreeformSelectAction(pageIndex, pos)
+  } else {
+    selectDragRect.value = { x: pos.x, y: pos.y, w: 0, h: 0 }
+    selectFreeformPath.value = null
+    selectAction = createBoxSelectAction(pageIndex, pos)
+  }
+  renderInkLayer(pageIndex)
 }
+
+// 选区移动：更新选中笔迹位置
+const moveSelectedStrokes = (pageIndex: number, lastPos: Point, newPos: Point): void => {
+  const movedDx = newPos.x - lastPos.x
+  const movedDy = newPos.y - lastPos.y
+
+  if (Math.abs(newPos.x - selectAction!.startPos.x) > 0.1 || Math.abs(newPos.y - selectAction!.startPos.y) > 0.1) {
+    selectAction!.moved = true
+  }
+
+  const ids = selectedStrokeIds.value
+  allStrokes.value.forEach((s) => {
+    if (s.pageIndex !== pageIndex || !ids.has(s.id)) return
+    s.points = s.points.map((p) => ({ x: p.x + movedDx, y: p.y + movedDy }))
+    Object.assign(s, calculateBBox(s.points, s.width))
+  })
+
+  selectAction!.lastPos = { x: newPos.x, y: newPos.y }
+  renderInkLayer(pageIndex)
+}
+
+// 选区完成：处理框选完成
+const finalizeBoxSelection = (pageIdx: number): void => {
+  const r = selectDragRect.value
+  if (!r || r.w <= 2 || r.h <= 2) {
+    selectedStrokeIds.value = new Set()
+    return
+  }
+
+  const minX = r.x, minY = r.y, maxX = r.x + r.w, maxY = r.y + r.h
+  const next = new Set<string>()
+
+  allStrokes.value.forEach((s) => {
+    if (s.pageIndex !== pageIdx) return
+    if (s.minX == null || s.maxX == null || s.minY == null || s.maxY == null) return
+    if (s.minX >= minX && s.maxX <= maxX && s.minY >= minY && s.maxY <= maxY) {
+      next.add(s.id)
+    }
+  })
+
+  selectedStrokeIds.value = next
+}
+
+// 选区完成：处理自由选区完成
+const finalizeFreeformSelection = (pageIdx: number): void => {
+  const path = selectFreeformPath.value
+  selectedStrokeIds.value = path && path.length >= 3 ? hitTestFreeform(pageIdx, path) : new Set()
+}
+
+// 选区移动：提交移动结果到历史记录
+const commitSelectionMove = (pageIdx: number): void => {
+  if (!selectAction?.moved) return
+
+  const ids = selectedStrokeIds.value
+  const after = allStrokes.value
+    .filter((s) => s.pageIndex === pageIdx && ids.has(s.id))
+    .map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
+
+  selectAction.beforeStrokes.forEach((s) => removeFromSpatialIndex(s))
+  after.forEach((s) => addToSpatialIndex(s))
+  pushUpdateHistory(selectAction.beforeStrokes, after)
+  scheduleSaveToDb(600)
+}
+
+// 选区完成：清理选区状态
+const cleanupSelectionState = (pageIdx: number): void => {
+  selectAction = null
+  selectDragRect.value = null
+  selectFreeformPath.value = null
+  finishDrawing(false)
+  if (pageIdx !== -1) renderInkLayer(pageIdx)
+}
+
+
+// 清理并刻蚀MuPDF内置注释
+const clearAndBurnMupdfInkAnnotations = async (doc: mupdf.Document) => {
+  const pdf = doc.asPDF()
+  if (!pdf) return
+
+  let removedCount = 0
+  for (let pageIndex = 0; pageIndex < doc.countPages(); pageIndex++) {
+    const page = pdf.loadPage(pageIndex) as any
+    try {
+      const annots = page.getAnnotations?.() as any[] | undefined
+      if (!annots || annots.length === 0) continue
+
+      let changed = false
+      for (const annot of annots) {
+        const type = annot?.getType?.()
+        if (type !== 'Ink') continue
+        page.deleteAnnotation?.(annot)
+        changed = true
+        removedCount++
+      }
+
+      if (changed) {
+        page.update?.()
+      }
+    } finally {
+      page.destroy?.()
+    }
+  }
+
+  if (removedCount <= 0) return
+
+  const resourceIdRaw: any = (pdfViewerStore as any).currentResourceId
+  const resourceId = typeof resourceIdRaw === 'string' ? resourceIdRaw : resourceIdRaw?.value
+  if (!resourceId) {
+    console.warn('[PdfPage] 已清除 Ink 注释，但缺少 resourceId，无法刻蚀保存')
+    return
+  }
+
+  try {
+    let buffer: any
+    try {
+      buffer = pdf.saveToBuffer('incremental')
+    } catch (e) {
+      console.warn('[PdfPage] incremental 保存失败，回退 full 保存', e)
+      buffer = pdf.saveToBuffer()
+    }
+    const uint8 = buffer.asUint8Array() as Uint8Array
+    const data = new Uint8Array(uint8.length)
+    data.set(uint8)
+    await resourceManager.updateFileData(resourceId, data)
+    console.log('[PdfPage] Ink 注释已清除并刻蚀保存:', removedCount)
+  } catch (e) {
+    console.error('[PdfPage] 刻蚀保存 PDF 失败', e)
+  }
+}
+
+
+// 处理橡皮擦光标移动
+const handlePointerMoveForEraserCursor = (e: PointerEvent) => {
+  if (!viewportRef.value || currentMode.value !== 'eraser') {
+    eraserCursor.value.visible = false
+    return
+  }
+  const rect = viewportRef.value.getBoundingClientRect()
+  const size = getEraserCursorSize()
+  eraserCursor.value = {
+    visible: true,
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+    size,
+  }
+}
+
+// 选区操作：检测并处理选区命中
+const handleSelectHitTest = (pageIndex: number, pos: Point): SelectActionData | null => {
+  const hit = strokeHitTest(pageIndex, pos.x, pos.y) as Stroke | null
+  if (hit) {
+    if (!selectedStrokeIds.value.has(hit.id)) {
+      selectedStrokeIds.value = new Set<string>([hit.id])
+    }
+    return createSelectMoveAction(pageIndex, pos)
+  }
+  return null
+}
+
+// ==================== 指针事件处理辅助函数 ====================
+
+// 选区操作：创建框选操作
+const createBoxSelectAction = (pageIndex: number, pos: Point): SelectActionData => ({
+  type: 'box_select',
+  pageIndex,
+  lastPos: { x: pos.x, y: pos.y },
+  startPos: { x: pos.x, y: pos.y },
+  moved: false,
+  beforeStrokes: [],
+})
+
+// 选区操作：创建自由选区操作
+const createFreeformSelectAction = (pageIndex: number, pos: Point): SelectActionData => ({
+  type: 'freeform_select',
+  pageIndex,
+  lastPos: { x: pos.x, y: pos.y },
+  startPos: { x: pos.x, y: pos.y },
+  moved: false,
+  beforeStrokes: [],
+})
+
+// 截图处理
+// 截图操作：处理截图拖动
+const handleScreenshotDrag = (clientX: number, clientY: number): void => {
+  const p = getContentPoint(clientX, clientY)
+  const start = screenshotStartPoint.value
+  if (!p || !start) return
+
+  screenshotDragRect.value = {
+    x: Math.min(start.x, p.x),
+    y: Math.min(start.y, p.y),
+    w: Math.abs(p.x - start.x),
+    h: Math.abs(p.y - start.y),
+  }
+}
+
+
 
 const takeScreenshotAcrossPages = (rect: { x: number; y: number; w: number; h: number }) => {
   if (rect.w < 5 || rect.h < 5) return
@@ -1996,109 +1948,157 @@ const takeScreenshotAcrossPages = (rect: { x: number; y: number; w: number; h: n
   )
 }
 
+
+
+// 绘制完成：保存新笔迹
+const saveNewStroke = (pageIdx: number): boolean => {
+  const path = currentDragPath.value
+  if (!isDrawingStarted.value || path.length <= 1) return false
+  if (currentMode.value === 'eraser') return false
+
+  let newStroke: Stroke
+  if (currentMode.value === 'rectangle') {
+    newStroke = createStrokeObject(pageIdx, [path[0], path[path.length - 1]], 'rectangle')
+  } else {
+    newStroke = createStrokeObject(pageIdx, path, currentMode.value)
+  }
+
+  allStrokes.value = [...allStrokes.value, newStroke]
+  addToSpatialIndex(newStroke)
+  pushHistory('add', [newStroke])
+  return true
+}
+
+// 绘制完成：保存点笔迹（点击但未拖动）
+const saveDotStroke = (pageIdx: number): boolean => {
+  const path = currentDragPath.value
+  if (
+    isDrawingStarted.value ||
+    path.length === 0 ||
+    currentMode.value === 'eraser' ||
+    currentMode.value === 'rectangle' ||
+    currentMode.value === 'screenshot'
+  ) {
+    return false
+  }
+
+  const dotStroke = createStrokeObject(pageIdx, [path[0]], currentMode.value)
+  backupInkCanvas(pageIdx)
+  drawStartDot(pageIdx, path[0], currentMode.value)
+  allStrokes.value = [...allStrokes.value, dotStroke]
+  addToSpatialIndex(dotStroke)
+  pushHistory('add', [dotStroke])
+  return true
+}
+
+// 绘制完成：清理绘制状态
+const cleanupDrawingState = (): void => {
+  dragStartPage.value = -1
+  currentDragPath.value = []
+  currentDragRect.value = null
+  screenshotDragRect.value = null
+  screenshotStartPoint.value = null
+  isDrawingStarted.value = false
+}
+
+// 绘制完成：清理动画帧
+const cancelDrawingAnimationFrames = (pageIdx: number): void => {
+  if (pageIdx === -1) return
+
+  if (currentMode.value === 'pen' && penRafId != null) {
+    cancelAnimationFrame(penRafId)
+    penRafId = null
+    penPending = null
+  }
+
+  if (currentMode.value === 'highlighter' && highlighterRafId != null) {
+    cancelAnimationFrame(highlighterRafId)
+    highlighterRafId = null
+    highlighterPending = null
+  }
+
+  if (currentMode.value === 'eraser' && eraserRafId != null) {
+    cancelAnimationFrame(eraserRafId)
+    eraserRafId = null
+    eraserPending = null
+  }
+}
+
+// 平移操作：执行平移
+const applyPan = (dx: number, dy: number): void => {
+  offset.value.x += dx
+  offset.value.y += dy
+  velocity = { x: dx, y: dy }
+  clampOffset()
+}
+
+// ==================== 完成绘制处理 ====================
+const finishDrawing = (save: boolean) => {
+  if (dragStartPage.value === -1) return
+
+  const pageIdx = dragStartPage.value
+  const started = isDrawingStarted.value
+
+  // 保存绘制结果
+  if (save) {
+    if (currentMode.value === 'screenshot' && currentDragRect.value) {
+      // screenshot 已改为 content 坐标处理
+    } else {
+      // 保存拖动绘制的笔迹
+      if (saveNewStroke(pageIdx)) {
+        // 已保存
+      } else {
+        // 保存点击形成的点笔迹
+        saveDotStroke(pageIdx)
+      }
+    }
+  }
+
+  // 恢复或渲染画布
+  if (pageIdx !== -1) {
+    if (!save && started && (currentMode.value === 'pen' || currentMode.value === 'highlighter')) {
+      restoreInkCanvasBackup(pageIdx)
+    } else if (currentMode.value !== 'pen' && currentMode.value !== 'highlighter') {
+      renderInkLayer(pageIdx)
+    }
+  }
+
+  // 执行截图
+  if (currentMode.value === 'screenshot' && screenshotDragRect.value) {
+    takeScreenshotAcrossPages(screenshotDragRect.value)
+  }
+
+  // 清理状态
+  cleanupDrawingState()
+  cancelDrawingAnimationFrames(pageIdx)
+
+  // 高光笔需要额外渲染
+  if (save && pageIdx !== -1 && currentMode.value === 'highlighter') {
+    renderInkLayer(pageIdx)
+  }
+
+  // 保存到 DB
+  if (save && currentMode.value !== 'screenshot') {
+    scheduleSaveToDb(600)
+  }
+}
+
+// 将操作历史入栈
 const pushHistory = (type: 'add' | 'remove', strokes: Stroke[]) => {
   undoStack.value.push({ type, strokes })
   redoStack.value = []
 }
 
+// 将更新前后状态入栈
 const pushUpdateHistory = (before: Stroke[], after: Stroke[]) => {
   undoStack.value.push({ type: 'update', strokes: [], before, after })
   redoStack.value = []
 }
 
-const undo = () => {
-  const action = undoStack.value.pop()
-  if (!action) return
-
-  if (action.type === 'add') {
-    const ids = new Set(action.strokes.map((s) => s.id))
-    action.strokes.forEach((s) => removeFromSpatialIndex(s))
-    allStrokes.value = allStrokes.value.filter((s) => !ids.has(s.id))
-  } else if (action.type === 'remove') {
-    action.strokes.forEach((s) => addToSpatialIndex(s))
-    allStrokes.value = [...allStrokes.value, ...action.strokes]
-  } else {
-    const before = action.before ?? []
-    const after = action.after ?? []
-    const afterIds = new Set(after.map((s) => s.id))
-    after.forEach((s) => removeFromSpatialIndex(s))
-    const kept = allStrokes.value.filter((s) => !afterIds.has(s.id))
-    before.forEach((s) => addToSpatialIndex(s))
-    allStrokes.value = [...kept, ...before]
-  }
-
-  redoStack.value.push(action)
-  const pages = new Set(
-    action.type === 'update'
-      ? [
-          ...(action.before ?? []).map((s) => s.pageIndex),
-          ...(action.after ?? []).map((s) => s.pageIndex),
-        ]
-      : action.strokes.map((s) => s.pageIndex)
-  )
-  pages.forEach((p) => renderInkLayer(p))
-  scheduleSaveToDb(400)
-}
-
-const redo = () => {
-  const action = redoStack.value.pop()
-  if (!action) return
-
-  if (action.type === 'add') {
-    action.strokes.forEach((s) => addToSpatialIndex(s))
-    allStrokes.value = [...allStrokes.value, ...action.strokes]
-  } else if (action.type === 'remove') {
-    const ids = new Set(action.strokes.map((s) => s.id))
-    action.strokes.forEach((s) => removeFromSpatialIndex(s))
-    allStrokes.value = allStrokes.value.filter((s) => !ids.has(s.id))
-  } else {
-    const before = action.before ?? []
-    const after = action.after ?? []
-    const beforeIds = new Set(before.map((s) => s.id))
-    before.forEach((s) => removeFromSpatialIndex(s))
-    const kept = allStrokes.value.filter((s) => !beforeIds.has(s.id))
-    after.forEach((s) => addToSpatialIndex(s))
-    allStrokes.value = [...kept, ...after]
-  }
-
-  undoStack.value.push(action)
-  const pages = new Set(
-    action.type === 'update'
-      ? [
-          ...(action.before ?? []).map((s) => s.pageIndex),
-          ...(action.after ?? []).map((s) => s.pageIndex),
-        ]
-      : action.strokes.map((s) => s.pageIndex)
-  )
-  pages.forEach((p) => renderInkLayer(p))
-  scheduleSaveToDb(400)
-}
-
-// === 视口操作 ===
-
-const handleWheel = (e: WheelEvent) => {
-  if (e.ctrlKey || e.metaKey) {
-    if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
-      e.preventDefault()
-      return
-    }
-    e.preventDefault()
-    zoomAt(-e.deltaY, e.clientX, e.clientY)
-  } else {
-    if (readingDirection.value === 'horizontal') {
-      return
-    }
-    offset.value.x -= e.deltaX
-    offset.value.y -= e.deltaY
-    clampOffset()
-  }
-  // 滚动/缩放停止后保存视图（这里做个简单的防抖保存）
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => scheduleSaveToDb(0), 1000)
-}
 
 let saveTimer: any = null
 
+// 根据当前两指触控计算并应用缩放与平移的处理逻辑
 const handlePinch = () => {
   if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
     return
@@ -2126,6 +2126,7 @@ const handlePinch = () => {
   lastPinchCenter = { x: centerX, y: centerY }
 }
 
+// 按鼠标位置与缩放比重新设定视图的缩放与偏移
 const zoomAt = (delta: number, clientX: number, clientY: number) => {
   const factor = Math.pow(1.1, delta / 100)
   const newScale = Math.min(Math.max(scale.value * factor, 0.1), 5.0)
@@ -2141,31 +2142,89 @@ const zoomAt = (delta: number, clientX: number, clientY: number) => {
   clampOffset()
 }
 
-const startInertia = () => {
-  if (Math.abs(velocity.x) > 0.5 || Math.abs(velocity.y) > 0.5) {
-    const step = () => {
-      if (Math.abs(velocity.x) < 0.1 && Math.abs(velocity.y) < 0.1) {
-        velocity = { x: 0, y: 0 }
-        scheduleSaveToDb(600) // 惯性停止后保存
-        return
-      }
-      offset.value.x += velocity.x
-      offset.value.y += velocity.y
-      velocity.x *= FRICTION
-      velocity.y *= FRICTION
-      clampOffset()
-      rafId = requestAnimationFrame(step)
-    }
-    rafId = requestAnimationFrame(step)
-  }
-}
-
+// 在绘制交互时停止惯性运动的函数
 const stopInertia = () => {
   if (rafId) cancelAnimationFrame(rafId)
   rafId = null
   velocity = { x: 0, y: 0 }
 }
 
+//  空间索引处理
+// 将笔画加入空间网格以便快速定位
+const addToSpatialIndex = (stroke: Stroke) => {
+  if (stroke.minX == null || stroke.maxX == null || stroke.minY == null || stroke.maxY == null)
+    return
+  const startX = Math.floor(stroke.minX / GRID_SIZE)
+  const endX = Math.floor(stroke.maxX / GRID_SIZE)
+  const startY = Math.floor(stroke.minY / GRID_SIZE)
+  const endY = Math.floor(stroke.maxY / GRID_SIZE)
+  for (let gx = startX; gx <= endX; gx++) {
+    for (let gy = startY; gy <= endY; gy++) {
+      const key = `${stroke.pageIndex}|${gx}|${gy}`
+      let cell = spatialGrid.get(key)
+      if (!cell) {
+        cell = new Set<Stroke>()
+        spatialGrid.set(key, cell)
+      }
+      cell.add(stroke)
+    }
+  }
+}
+
+// 从空间网格中移除给定笔迹
+const removeFromSpatialIndex = (stroke: Stroke) => {
+  if (stroke.minX == null || stroke.maxX == null || stroke.minY == null || stroke.maxY == null)
+    return
+  const startX = Math.floor(stroke.minX / GRID_SIZE)
+  const endX = Math.floor(stroke.maxX / GRID_SIZE)
+  const startY = Math.floor(stroke.minY / GRID_SIZE)
+  const endY = Math.floor(stroke.maxY / GRID_SIZE)
+  for (let gx = startX; gx <= endX; gx++) {
+    for (let gy = startY; gy <= endY; gy++) {
+      const key = `${stroke.pageIndex}|${gx}|${gy}`
+      const cell = spatialGrid.get(key)
+      if (cell) {
+        cell.delete(stroke)
+        if (cell.size === 0) spatialGrid.delete(key)
+      }
+    }
+  }
+}
+
+// 重新构建笔迹的空间网格索引
+const rebuildSpatialIndex = () => {
+  spatialGrid.clear()
+  allStrokes.value.forEach((s) => {
+    if (s.minX == null) {
+      Object.assign(s, calculateBBox(s.points, s.width))
+    }
+    addToSpatialIndex(s)
+  })
+}
+
+// 计算并设置内容居中偏移
+const centerContent = () => {
+  if (!viewportRef.value || pageList.value.length === 0) return
+  const rect = viewportRef.value.getBoundingClientRect()
+  if (rect.width === 0) return
+
+  const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
+  if (readingDirection.value === 'horizontal') {
+    const p = pageList.value[0]
+    const pageH = p?.viewHeight ?? 0
+    offset.value = {
+      x: (rect.width - maxW * scale.value) / 2,
+      y: (rect.height - pageH * scale.value) / 2,
+    }
+  } else {
+    offset.value = {
+      x: (rect.width - maxW * scale.value) / 2,
+      y: 20,
+    }
+  }
+}
+
+// 将视图偏移量限制在可视区域内的实现函数
 const clampOffset = () => {
   if (!viewportRef.value || pageList.value.length === 0) return
   const vpRect = viewportRef.value.getBoundingClientRect()
@@ -2198,96 +2257,7 @@ const clampOffset = () => {
   offset.value = { x, y }
 }
 
-const centerContent = () => {
-  if (!viewportRef.value || pageList.value.length === 0) return
-  const rect = viewportRef.value.getBoundingClientRect()
-  if (rect.width === 0) return
-
-  const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
-  if (readingDirection.value === 'horizontal') {
-    const p = pageList.value[0]
-    const pageH = p?.viewHeight ?? 0
-    offset.value = {
-      x: (rect.width - maxW * scale.value) / 2,
-      y: (rect.height - pageH * scale.value) / 2,
-    }
-  } else {
-    offset.value = {
-      x: (rect.width - maxW * scale.value) / 2,
-      y: 20,
-    }
-  }
-}
-
-const resetView = () => {
-  scale.value = 1.0
-  centerContent()
-  scheduleSaveToDb(600)
-}
-
-const getRectStyle = (rect: { x: number; y: number; w: number; h: number }) => ({
-  left: rect.x + 'px',
-  top: rect.y + 'px',
-  width: rect.w + 'px',
-  height: rect.h + 'px',
-})
-
-watch(
-  () => pdfViewerStore.drawingConfig.eraserSize,
-  (val) => {
-    console.log('[PdfPage][eraser] size changed from store ->', val)
-    if (currentMode.value === 'eraser' && eraserCursor.value.visible) {
-      eraserCursor.value = { ...eraserCursor.value, size: getEraserCursorSize() }
-    }
-  }
-)
-
-onMounted(() => {
-  if (props.file) {
-    loadFile(props.file)
-  }
-  setupResizeObserver()
-})
-
-onUnmounted(() => {
-  stopInertia()
-  if (resizeObserver) resizeObserver.disconnect()
-})
-
-const toggleGestureMode = () => {
-  currentMode.value = 'pan'
-}
-const toggleHighlightMode = () => {
-  currentMode.value = 'highlighter'
-}
-const togglePenMode = () => {
-  currentMode.value = 'pen'
-}
-const toggleEraserMode = () => {
-  currentMode.value = 'eraser'
-}
-const toggleScreenshotMode = () => {
-  currentMode.value = 'screenshot'
-}
-const toggleNoteMode = () => {
-  currentMode.value = 'pen'
-}
-const toggleDebugPanel = () => {}
-const toggleSelectMode = () => {
-  currentMode.value = 'select'
-}
-
-const getCurrentVerticalPageIndex = (): number => {
-  if (!viewportRef.value || pageList.value.length === 0) return 0
-  const rect = viewportRef.value.getBoundingClientRect()
-  const centerY = rect.height / 2
-  const contentCenterY = (centerY - offset.value.y) / (scale.value || 1)
-  for (const p of pageList.value) {
-    if (contentCenterY >= p.y && contentCenterY < p.y + p.viewHeight) return p.pageIndex
-  }
-  return pageList.value[pageList.value.length - 1].pageIndex
-}
-
+// 切换横向/纵向阅读模式并重置视图状态
 const toggleReadingDirection = async () => {
   const fromDirection = readingDirection.value
   const targetPageIndex = fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
@@ -2335,14 +2305,34 @@ const toggleReadingDirection = async () => {
     }
   })
 }
+
 const setSelectionMode = (mode: 'rectangle' | 'freeform') => {
   selectionMode.value = mode
 }
 const undoLastStroke = () => undo()
 const redoLastStroke = () => redo()
-
+const toggleGestureMode = () => {
+  currentMode.value = 'pan'
+}
+const toggleHighlightMode = () => {
+  currentMode.value = 'highlighter'
+}
+const togglePenMode = () => {
+  currentMode.value = 'pen'
+}
+const toggleEraserMode = () => {
+  currentMode.value = 'eraser'
+}
+const toggleScreenshotMode = () => {
+  currentMode.value = 'screenshot'
+}
+const toggleNoteMode = () => {
+  currentMode.value = 'pen'
+}
+const toggleSelectMode = () => {
+  currentMode.value = 'select'
+}
 defineExpose({
-  toggleDebugPanel,
   toggleGestureMode,
   toggleHighlightMode,
   togglePenMode,
