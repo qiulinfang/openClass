@@ -58,7 +58,6 @@ import com.cosinetech.imates.textbookservice.UserLearnData;
 import com.cosinetech.imates.textbookservice.UserTextbookInfo;
 import com.cosinetech.imates.textbookservice.LocalFileInfo;
 import com.cosinetech.imates.textbookservice.LocalPackageInfo;
-import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 
@@ -3836,13 +3835,14 @@ public class WebAppInterface {
                     
                     Log.d(TAG, "PDF文件已保存到临时文件: " + tempFile.getAbsolutePath() + ", 大小: " + pdfBytes.length + " 字节");
                     
-                    // 创建Intent启动MuPDFActivity
-                    Intent intent = new Intent(mContext, MuPDFActivity.class);
-                    intent.setAction(Intent.ACTION_VIEW);
-                    intent.setData(Uri.fromFile(tempFile));
-                    if (sectionName != null && !sectionName.isEmpty()) {
-                        intent.putExtra(MuPDFActivity.KEY_SECTION_NAME, sectionName);
-                    }
+                    Uri uri = FileProvider.getUriForFile(
+                            mContext,
+                            mContext.getPackageName() + ".fileprovider",
+                            tempFile
+                    );
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setDataAndType(uri, "application/pdf");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     mContext.startActivity(intent);
                     
                     // 注意：临时文件会在应用清理缓存时自动删除
