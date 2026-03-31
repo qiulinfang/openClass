@@ -8,7 +8,6 @@ import androidx.core.content.FileProvider;
 
 import com.cosinetech.imates.ui.activities.ImageViewerActivity;
 import com.cosinetech.imates.ui.activities.VideoPlayActivity;
-import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
 
 import java.io.File;
 
@@ -41,10 +40,14 @@ public class FileShareUtils {
         String mimeType = getMimeType(file.getName());
 
         if(mimeType.contains("pdf")) {
-            Intent intent = new Intent(context, MuPDFActivity.class);
-            intent.setAction(Intent.ACTION_VIEW);
-            intent.setData(Uri.fromFile(file));
-            intent.putExtra(MuPDFActivity.KEY_SECTION_NAME, sectionName);
+            Uri uri = FileProvider.getUriForFile(
+                    context,
+                    context.getPackageName() + ".fileprovider",
+                    file
+            );
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "application/pdf");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             context.startActivity(intent);
         } else if(mimeType.contains("audio")
             || mimeType.contains("video")) {

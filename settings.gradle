@@ -29,4 +29,3 @@ dependencyResolutionManagement {
 rootProject.name = "iMatesApp"
 include ':app'
 include ':image'
-include ':pdflibrary'
