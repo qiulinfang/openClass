@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">学伴</string>
     <string name="action_settings">设置</string>
     <string name="menu_transform">变换</string>
     <string name="menu_reflow">重排</string>

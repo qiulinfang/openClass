@@ -12,7 +12,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.cosinetech.imates.primary"
+        applicationId "com.cosinetech.imates.openclass"
         minSdk 24
         targetSdk 34
         versionCode 4
@@ -45,10 +45,16 @@ android {
     flavorDimensions "version"
     // 产品变体配置
     productFlavors {
+        // 开发版本 - 不会覆盖正式版和测试版
+        dev {
+            dimension "version"
+            applicationIdSuffix ".dev" 
+            resValue "string", "app_name", "学伴-公开课"
+        }
+        // 正式发布版本（默认）
         production {
             dimension "version"
-            applicationId "com.cosinetech.imates.primary"
-            versionNameSuffix ""
+            resValue "string", "app_name", "学伴-公开课"
         }
     }
     // 构建类型配置
@@ -277,7 +283,6 @@ dependencies {
 
     implementation 'com.github.Victor2018:DocViewer:3.0.6'
 
-    implementation project(path: ':pdflibrary')
     implementation project(path: ':image')
 
     testImplementation libs.junit
