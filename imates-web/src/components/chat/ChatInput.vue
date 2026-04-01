@@ -167,7 +167,13 @@
 
           <!-- 图片上传 - 在 ai-general 和 user-client 场景下显示 -->
           <button
-            v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client' || props.type === 'teacher'"
+            v-if="
+              props.type === 'ai-general' ||
+              props.type === 'ai-exercise' ||
+              props.type === 'ai-textbook' ||
+              props.type === 'user-client' ||
+              props.type === 'teacher'
+            "
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"
@@ -420,14 +426,8 @@ const openScreenshotPreview = (url: string) => {
 const handleScreenshotThumbClick = (shot: AttachedScreenshot) => {
   if (!shot?.id) return
 
-  // 教材场景：点缩略图进入编辑（由上层 ChatView 统一弹 ScreenshotInputDialog 并同步 store）
-  if (props.type === 'ai-textbook') {
-    emit('edit-screenshot', shot.id)
-    return
-  }
-
-  // 其它场景：保持原有行为（预览）
-  openScreenshotPreview(shot.dataUrl)
+  // 统一：点击缩略图进入编辑（由上层 ChatView 统一弹 ScreenshotInputDialog 并同步状态）
+  emit('edit-screenshot', shot.id)
 }
 
 // 联网搜索图标：当前只使用普通态图标

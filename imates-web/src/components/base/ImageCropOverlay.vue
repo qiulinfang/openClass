@@ -2,15 +2,6 @@
   <Teleport to="body">
     <div v-if="modelValue" class="image-crop-overlay" @click.self="handleCancel">
       <div class="image-crop-container">
-        <Button
-          label="取消"
-          :icon="goBackIcon"
-          variant="ghost"
-          size="mdCompact"
-          class="crop-back-btn"
-          @click="handleCancel"
-        />
-
         <div class="crop-container">
           <canvas
             v-if="imageSrc"
@@ -50,18 +41,23 @@
           </div>
         </div>
 
-        <!-- 框选模式下的操作按钮（右上角确定） -->
-        <div class="crop-actions-panel">
-          <Button
-            label="确定"
-            :icon="yesIcon"
-            variant="ghost"
-            size="sm"
+        <div class="capture-actions">
+          <button type="button" class="capture-action-btn" @click.stop="handleRetake">
+            重截
+          </button>
+          <button
+            type="button"
+            class="capture-action-btn primary"
             :disabled="!cropRect"
-            class="crop-confirm-btn"
-            @click="handleConfirm"
-          />
+            @click.stop="handleConfirm"
+          >
+            确认
+          </button>
         </div>
+
+        <q-btn flat round dense @click.stop="handleCancel" class="capture-close-btn goback-btn">
+          <img :src="goBackIcon" alt="返回" class="goback-icon" />
+        </q-btn>
       </div>
     </div>
   </Teleport>
@@ -70,9 +66,7 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import Button from './Button.vue'
 import goBackIcon from '/icons/goback.svg'
-import yesIcon from '/icons/yes.svg'
 
 interface Props {
   modelValue: boolean
@@ -86,6 +80,7 @@ interface Emits {
   (e: 'update:modelValue', value: boolean): void
   (e: 'confirm', croppedDataUrl: string): void
   (e: 'cancel'): void
+  (e: 'retake'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -567,6 +562,7 @@ const handleRetake = () => {
   cropRect.value = null
   isCropping.value = false
   isDragging.value = false
+  emit('retake')
 }
 
 const handleResize = () => resizeAndRedraw()
@@ -619,22 +615,6 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   position: relative;
-}
-
-.crop-back-btn {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  width: 42px;
-  height: 42px;
-  z-index: 10001;
-}
-
-.back-icon {
-  max-width: 100%;
-  max-height: 100%;
-  display: block;
-  object-fit: contain;
 }
 
 .crop-container {
@@ -777,19 +757,47 @@ onBeforeUnmount(() => {
 
 
 /* 框选模式下的操作按钮（右上角确定） */
-.crop-actions-panel {
+.capture-actions {
   position: absolute;
-  right: 16px;
-  top: 16px;
+  left: 0;
+  right: 0;
+  bottom: 24px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+  gap: 16px;
   z-index: 10001;
 }
 
-.crop-back-btn {
+.capture-action-btn {
+  height: 38px;
+  min-width: 86px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 14px;
+}
+
+.capture-action-btn.primary {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(45, 111, 250, 0.95);
+}
+
+.capture-action-btn:disabled {
+  opacity: 0.45;
+}
+
+.capture-close-btn.goback-btn {
   position: absolute;
-  left: 16px;
-  top: 16px;
-  z-index: 10001;
+  right: 12px;
+  top: 12px;
+  z-index: 10002;
+}
+
+.goback-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 </style>

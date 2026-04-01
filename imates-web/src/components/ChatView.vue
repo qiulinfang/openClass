@@ -14,7 +14,7 @@
         <div
           v-if="
             displayedMessages.length === 0 &&
-            !aiExerciseStore.isChatLoading &&
+            !(chatStrategy?.isChatLoading?.() ?? false) &&
             type === 'ai-exercise'
           "
           :class="[
@@ -256,11 +256,7 @@
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
           :quoted-message="quotedMessage"
-          :attached-screenshots="
-            props.type === 'ai-textbook'
-              ? aiTextbookStore.attachedScreenshots
-              : localAttachedScreenshots
-          "
+          :attached-screenshots="strategyInputAttachedScreenshots"
           :show-toolbar="showToolbar"
           @send-message="sendMessage"
           @send-with-screenshot="handleSendWithScreenshot"
@@ -381,6 +377,20 @@
       @confirm="handleImageCropConfirm"
       @cancel="handleImageCropCancel"
     />
+
+    <ScreenshotInputDialog
+      v-if="screenshotEditorVisible"
+      v-model="screenshotEditorVisible"
+      :mode="screenshotEditorMode"
+      :screenshot-data-url="screenshotEditorDataUrl"
+      :initial-shot-id="screenshotEditorInitialShotId"
+      :existing-screenshots="strategyInputAttachedScreenshots"
+      :drawing-states-from-parent="strategyInputScreenshotDrawingStatesForDialog"
+      @confirm="handleScreenshotEditorConfirm"
+      @add-more="handleScreenshotEditorAddMore"
+      @cancel="handleScreenshotEditorCancel"
+      @remove-screenshot="handleScreenshotEditorRemove"
+    />
   </div>
 </template>
 
@@ -390,9 +400,11 @@
 import { ref, nextTick, onMounted, onUnmounted, computed, watchEffect } from 'vue'
 
 // 状态管理和工具函数
+import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
 import { useTeacherChatStore } from '../stores/teacherChatStore'
+import { useUserClientStore } from '../stores/userClientStore'
 import { useImagePicker } from '../composables/useImagePicker'
 import { androidBridge } from '../services/business/android-bridge'
 import { showMessage } from '../utils'
@@ -411,6 +423,7 @@ import Dialog from './base/Dialog.vue'
 import Checkbox from './base/Checkbox.vue'
 import Button from './base/Button.vue'
 import ImageCropOverlay from './base/ImageCropOverlay.vue'
+import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
@@ -494,6 +507,7 @@ const emit = defineEmits<{
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
   'edit-screenshot': [id: string]
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 const toSenderEnum = (sender: 'ai' | 'teacher' | 'user'): Sender => {
@@ -509,6 +523,20 @@ const toSenderEnum = (sender: 'ai' | 'teacher' | 'user'): Sender => {
 const aiExerciseStore = useAiExerciseChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
 const teacherStore = useTeacherChatStore()
+const userClientStore = useUserClientStore()
+
+// 输入框截图附件与绘图状态：统一由策略内部读写 store，ChatView 仅通过策略接口访问
+const strategyInputAttachedScreenshots = computed<AttachedScreenshot[]>(() => {
+  return chatStrategy.value?.getInputAttachedScreenshots?.() ?? []
+})
+
+const strategyInputScreenshotDrawingStates = computed<Record<string, unknown>>(() => {
+  return chatStrategy.value?.getInputScreenshotDrawingStates?.() ?? {}
+})
+
+const strategyInputScreenshotDrawingStatesForDialog = computed(() => {
+  return strategyInputScreenshotDrawingStates.value as Record<string, ScreenshotDrawingState>
+})
 
 // Markdown + 公式渲染工具（用于会话卡片快照）
 const { renderMessageContent } = useMessageRenderer()
@@ -581,18 +609,12 @@ const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单
 const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话卡片堆叠组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
 
-// 本地截图列表（用于非 ai-textbook 场景在输入框上方展示缩略图）
-// 注意：必须深拷贝 props.attachedScreenshots，避免引用共享导致删除时影响父组件
-const localAttachedScreenshots = ref<AttachedScreenshot[]>(
-  props.attachedScreenshots ? [...props.attachedScreenshots] : []
-)
-
 // 处理 ChatInput 发出的 send-with-screenshot 事件
-// - ai-general 和 user-client 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 localAttachedScreenshots 传入）
+// - ai-general 和 user-client 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 inputAttachedScreenshots 传入）
 // - 其它场景（如 ai-textbook）：保持向上传递，由上层（如 PdfViewerView）处理多图截图发送
 const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
   if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
-    // 对于 ai-general / ai-exercise / user-client：直接复用 sendMessage，内部会根据 localAttachedScreenshots 构造 imageData
+    // 对于 ai-general / ai-exercise / user-client：直接复用 sendMessage，内部会根据 inputAttachedScreenshots 构造 imageData
     void sendMessage()
   } else {
     emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
@@ -601,20 +623,33 @@ const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
 
 const handleEditScreenshot = (id: string) => {
   if (!id) return
-  emit('edit-screenshot', id)
+
+  openScreenshotEditor({
+    mode: 'multiple',
+    initialShotId: id,
+    lastCapturedShotId: '',
+    dataUrl: '',
+  })
+}
+
+const requestScreenshot = () => {
+  const kind = chatStrategy.value?.getScreenshotEntryKind?.() ?? 'screen_snapshot'
+  emit('request-screenshot', { kind })
 }
 
 const onImageSelected = async (imageData: ChatImageData) => {
   // ChatView 不再负责截图编辑弹窗，这里仅负责"把图挂到输入框缩略图区 / 或交给上层处理"
   if (!imageData?.base64DataUrl) return
 
-  // 教材场景的截图挂载/编辑由 PdfViewerView 统一处理
-  if (props.type === 'ai-textbook') return
-
   // ai-general / ai-exercise / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
-  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
-    const maxImages = props.type === 'user-client' ? 5 : 3
-    if (localAttachedScreenshots.value.length >= maxImages) {
+  if (
+    props.type === 'ai-general' ||
+    props.type === 'ai-exercise' ||
+    props.type === 'ai-textbook' ||
+    props.type === 'user-client'
+  ) {
+    const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+    if (strategyInputAttachedScreenshots.value.length >= maxImages) {
       showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
       return
     }
@@ -651,12 +686,40 @@ const handleImageCropCancel = () => {
   showImageCropDialog.value = false
 }
 
+const handlePostProcessedImage = async (imageData: ChatImageData) => {
+  const mode = chatStrategy.value?.getImagePostProcessMode?.() ?? 'attach_to_input'
+  if (mode === 'send_immediately') {
+    if (!chatStrategy.value?.sendImageMessage) return
+    await chatStrategy.value.sendImageMessage(
+      {
+        filePath: imageData.filePath || '',
+        width: imageData.width || 0,
+        height: imageData.height || 0,
+        fileSize: imageData.fileSize || 0,
+        base64DataUrl: imageData.base64DataUrl,
+      },
+      inputMessage.value,
+      {
+        selectedModel: selectedModel.value,
+      },
+    )
+    return
+  }
+
+  await attachImageDirectToPreview(imageData)
+}
+
 // 处理裁剪后的图片
 const processCroppedImage = async (imageData: ChatImageData) => {
   if (!imageData?.base64DataUrl) return
 
   // ai-general / ai-exercise / user-client：将裁剪后的图片挂载到输入框缩略图区
-  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
+  if (
+    props.type === 'ai-general' ||
+    props.type === 'ai-exercise' ||
+    props.type === 'ai-textbook' ||
+    props.type === 'user-client'
+  ) {
     const shot: AttachedScreenshot = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       dataUrl: imageData.base64DataUrl, // 裁剪后的缩略图
@@ -665,7 +728,13 @@ const processCroppedImage = async (imageData: ChatImageData) => {
       height: imageData.height || 0,
     }
 
-    localAttachedScreenshots.value = [...localAttachedScreenshots.value, shot]
+    // 由策略内部操作 store
+    if (chatStrategy.value?.appendInputAttachedScreenshots) {
+      chatStrategy.value.appendInputAttachedScreenshots([shot])
+    } else if (chatStrategy.value?.setInputAttachedScreenshots && chatStrategy.value?.getInputAttachedScreenshots) {
+      const current = chatStrategy.value.getInputAttachedScreenshots() || []
+      chatStrategy.value.setInputAttachedScreenshots(current.concat([shot]))
+    }
     return
   }
 
@@ -687,23 +756,71 @@ const processCroppedImage = async (imageData: ChatImageData) => {
   )
 }
 
+const attachImageDirectToPreview = async (imageData: ChatImageData) => {
+  if (!imageData?.base64DataUrl) return
+
+  // ai-general / ai-exercise / user-client：直接挂到输入框缩略图区（不再触发裁剪）
+  if (
+    props.type === 'ai-general' ||
+    props.type === 'ai-exercise' ||
+    props.type === 'ai-textbook' ||
+    props.type === 'user-client'
+  ) {
+    const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+    if (strategyInputAttachedScreenshots.value.length >= maxImages) {
+      showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
+      return
+    }
+
+    await processCroppedImage(imageData)
+    return
+  }
+
+  // 其它场景：走策略的"发送图片"逻辑
+  if (!chatStrategy.value?.sendImageMessage) return
+  await chatStrategy.value.sendImageMessage(
+    {
+      filePath: imageData.filePath || '',
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+      fileSize: imageData.fileSize || 0,
+      base64DataUrl: imageData.base64DataUrl,
+    },
+    inputMessage.value,
+    {
+      selectedModel: selectedModel.value,
+    },
+  )
+}
+
 // 图片裁剪确认处理 - 适配新组件
 const handleImageCropConfirm = async (croppedDataUrl: string) => {
   if (!pendingImageData.value) return
   
   try {
-    // 创建裁剪后的图片数据
-    const croppedImageData: ChatImageData = {
-      ...pendingImageData.value,
-      base64DataUrl: croppedDataUrl,
-      width: 0, // 新组件内部处理尺寸
-      height: 0,
+    pendingAnnotateImageData.value = pendingImageData.value
+
+    const shouldAnnotate = chatStrategy.value?.shouldAnnotateAfterCrop?.() ?? true
+    if (shouldAnnotate) {
+      openScreenshotEditor({
+        mode: 'multiple',
+        dataUrl: croppedDataUrl,
+        initialShotId: '',
+        lastCapturedShotId: '',
+      })
+    } else {
+      // 不需要标记：直接进入后续处理
+      const base = pendingAnnotateImageData.value
+      const finalImageData: ChatImageData = {
+        ...(base || { filePath: '', width: 0, height: 0, fileSize: 0 }),
+        base64DataUrl: croppedDataUrl,
+        width: base?.width || 0,
+        height: base?.height || 0,
+      }
+      await handlePostProcessedImage(finalImageData)
+      pendingAnnotateImageData.value = null
     }
 
-    // 处理裁剪后的图片
-    await processCroppedImage(croppedImageData)
-
-    // 清理状态
     pendingImageData.value = null
     imageCropSrc.value = ''
     showImageCropDialog.value = false
@@ -713,36 +830,156 @@ const handleImageCropConfirm = async (croppedDataUrl: string) => {
   }
 }
 
-// 处理 ChatInput 发出的移除缩略图事件
-const handleRemoveScreenshot = (id: string) => {
-  console.log('[ChatView] 删除截图前:', {
-    id,
-    currentScreenshots: localAttachedScreenshots.value.map((s) => ({
-      id: s.id,
-      dataUrl: s.dataUrl?.substring(0, 50) + '...',
-    })),
-  })
+const screenshotEditorVisible = ref(false)
+const screenshotEditorMode = ref<'single' | 'multiple'>('multiple')
+const screenshotEditorDataUrl = ref('')
+const screenshotEditorInitialShotId = ref('')
+const screenshotEditorLastCapturedShotId = ref('')
 
-  // AI 教材场景仍然交给上层（PdfViewerView / aiTextbookStore）处理
-  if (props.type === 'ai-textbook') {
-    emit('remove-screenshot', id)
+const openScreenshotEditor = (payload?: {
+  mode?: 'single' | 'multiple'
+  dataUrl?: string
+  initialShotId?: string
+  lastCapturedShotId?: string
+}) => {
+  screenshotEditorMode.value = payload?.mode ?? 'multiple'
+  screenshotEditorDataUrl.value = payload?.dataUrl || ''
+  screenshotEditorInitialShotId.value = payload?.initialShotId || ''
+  screenshotEditorLastCapturedShotId.value = payload?.lastCapturedShotId || ''
+  screenshotEditorVisible.value = true
+}
+
+const closeScreenshotEditor = () => {
+  screenshotEditorVisible.value = false
+  screenshotEditorMode.value = 'multiple'
+  screenshotEditorDataUrl.value = ''
+  screenshotEditorInitialShotId.value = ''
+  screenshotEditorLastCapturedShotId.value = ''
+  annotateDataUrl.value = ''
+  pendingAnnotateImageData.value = null
+}
+
+const openTextbookScreenshotEditor = (payload?: { shotId?: string; lastCapturedShotId?: string }) => {
+  if (props.type !== 'ai-textbook') return
+  openScreenshotEditor({
+    dataUrl: '',
+    initialShotId: payload?.shotId || '',
+    lastCapturedShotId: payload?.lastCapturedShotId || '',
+  })
+}
+
+const handleScreenshotEditorConfirm = (
+  shots: AttachedScreenshot[],
+  states: Record<string, ScreenshotDrawingState>,
+) => {
+  if (!shots || shots.length === 0) return
+
+  // 教材：多图模式下全量覆盖
+  if (screenshotEditorMode.value === 'multiple') {
+    chatStrategy.value?.setInputAttachedScreenshots?.(shots)
+    chatStrategy.value?.setInputScreenshotDrawingStates?.(states as any)
+    closeScreenshotEditor()
     return
   }
 
-  // 其它场景：仅在本地列表中移除缩略图
-  const beforeLength = localAttachedScreenshots.value.length
-  localAttachedScreenshots.value = localAttachedScreenshots.value.filter((shot) => shot.id !== id)
-  const afterLength = localAttachedScreenshots.value.length
+  // 单图：复用原来的 confirm 行为（支持“编辑已有缩略图”与“新增”两种）
+  void handleScreenshotInputConfirm(shots, states)
+}
 
-  console.log('[ChatView] 删除截图后:', {
-    id,
-    beforeLength,
-    afterLength,
-    remainingScreenshots: localAttachedScreenshots.value.map((s) => ({
-      id: s.id,
-      dataUrl: s.dataUrl?.substring(0, 50) + '...',
-    })),
-  })
+const handleScreenshotEditorAddMore = (
+  shots: AttachedScreenshot[],
+  states: Record<string, ScreenshotDrawingState>,
+) => {
+  if (!shots || shots.length === 0) return
+
+  chatStrategy.value?.setInputAttachedScreenshots?.(shots)
+  chatStrategy.value?.setInputScreenshotDrawingStates?.(states as any)
+
+  closeScreenshotEditor()
+  requestScreenshot()
+}
+
+const handleScreenshotEditorCancel = () => {
+  const shotId = screenshotEditorInitialShotId.value
+  const lastCapturedId = screenshotEditorLastCapturedShotId.value
+
+  closeScreenshotEditor()
+  editingShotId.value = ''
+
+  // 取消=放弃本次“刚截图新建的那张”（仅当 lastCapturedShotId 命中时回滚）
+  if (shotId && lastCapturedId && shotId === lastCapturedId) {
+    chatStrategy.value?.removeInputAttachedScreenshot?.(shotId)
+  }
+}
+
+const handleScreenshotEditorRemove = (id: string) => {
+  if (!id) return
+
+  chatStrategy.value?.removeInputAttachedScreenshot?.(id)
+
+  if ((chatStrategy.value?.getInputAttachedScreenshots?.() || []).length === 0) {
+    closeScreenshotEditor()
+  }
+}
+
+const handleScreenshotInputConfirm = async (
+  shots: AttachedScreenshot[],
+  states: Record<string, ScreenshotDrawingState>,
+) => {
+  // 先关闭弹窗（但不要立刻清空 editingShotId，否则无法判断“编辑/新增”分支）
+  screenshotEditorVisible.value = false
+
+  // 由策略内部写 store
+  chatStrategy.value?.setInputScreenshotDrawingStates?.(states as any)
+
+  // 编辑已有缩略图：按 id 覆盖更新，不走“新增附件/发送”逻辑
+  if (editingShotId.value) {
+    const edited = shots?.[0]
+    if (edited?.id) {
+      const current = chatStrategy.value?.getInputAttachedScreenshots?.() ?? []
+      const updated = current.map((s) =>
+        s.id === edited.id ? { ...s, ...edited } : s
+      )
+      chatStrategy.value?.setInputAttachedScreenshots?.(updated)
+    }
+
+    annotateDataUrl.value = ''
+    pendingAnnotateImageData.value = null
+    editingShotId.value = ''
+    closeScreenshotEditor()
+    return
+  }
+
+  const first = shots?.[0]
+  if (!first?.dataUrl) {
+    annotateDataUrl.value = ''
+    pendingAnnotateImageData.value = null
+    return
+  }
+
+  const base = pendingAnnotateImageData.value
+  const finalImageData: ChatImageData = {
+    ...(base || { filePath: '', width: 0, height: 0, fileSize: 0 }),
+    base64DataUrl: first.dataUrl,
+    width: first.width || base?.width || 0,
+    height: first.height || base?.height || 0,
+  }
+
+  await handlePostProcessedImage(finalImageData)
+
+  annotateDataUrl.value = ''
+  pendingAnnotateImageData.value = null
+  closeScreenshotEditor()
+}
+
+// 处理 ChatInput 发出的移除缩略图事件
+const handleRemoveScreenshot = (id: string) => {
+  console.log('[ChatView] 删除截图前:', { id })
+
+  // 统一由策略内部操作 store（ai-textbook 也走策略）
+  chatStrategy.value?.removeInputAttachedScreenshot?.(id)
+
+  console.log('[ChatView] 删除截图后:', { id })
 }
 
 // 会话卡片数据（用于 CardStack v-model）- 通过策略接口获取
@@ -1179,6 +1416,9 @@ const { pickImage } = useImagePicker()
 const showImageCropDialog = ref(false)
 const imageCropSrc = ref('')
 const pendingImageData = ref<ChatImageData | null>(null)
+const pendingAnnotateImageData = ref<ChatImageData | null>(null)
+const annotateDataUrl = ref('')
+const editingShotId = ref('') // 新增
 
 // 语音录制相关状态
 const showCancelHint = ref(false) // 是否显示取消提示
@@ -1547,7 +1787,7 @@ const sendMessage = async (attachedFile?: File) => {
   const hasFile = !!attachedFile
   const hasImageForInlineAttach =
     (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
-    localAttachedScreenshots.value.length > 0
+    strategyInputAttachedScreenshots.value.length > 0
 
   if ((!hasText && !hasFile && !hasImageForInlineAttach) || isLoading.value) {
     console.error('[ChatView] ❌ 发送消息失败:', {
@@ -1624,44 +1864,17 @@ const sendMessage = async (attachedFile?: File) => {
     let imageListForApi: ChatImageData[] | undefined
     const finalMessageContent = messageContent
 
-    // ai-general / ai-exercise / user-client 场景：如果有挂在输入框上的截图
-    // - 1张：走 imageData
-    // - 多张：走 imageList
+    // ai-general / ai-exercise / user-client：挂载截图的发送负载构建交给策略
     let imageDataForApi: ChatImageData | undefined
-    const maxImages = props.type === 'user-client' ? 5 : 3
-    if (
-      (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
-      localAttachedScreenshots.value.length > 0
-    ) {
-      if (localAttachedScreenshots.value.length > 1) {
-        imageListForApi = localAttachedScreenshots.value
-          .filter((s) => !!s.dataUrl)
-          .slice(0, maxImages)
-          .map((s) => ({
-            filePath: '',
-            width: s.width || 0,
-            height: s.height || 0,
-            fileSize: 0,
-            base64DataUrl: s.dataUrl,
-            isLargeImage: false,
-          }))
-      } else {
-        const firstShot = localAttachedScreenshots.value[0]
-        if (firstShot?.dataUrl) {
-          imageDataForApi = {
-            filePath: '',
-            base64DataUrl: firstShot.dataUrl,
-          }
-        }
-      }
-    }
+    if (strategyInputAttachedScreenshots.value.length > 0 && chatStrategy.value?.buildImagePayloadFromAttachedScreenshots) {
+      const payload = chatStrategy.value.buildImagePayloadFromAttachedScreenshots(strategyInputAttachedScreenshots.value)
+      imageDataForApi = payload.imageData
+      imageListForApi = payload.imageList
 
-    // ai-general / ai-exercise / user-client：点击发送后立刻清空输入区缩略图（不等待回复完成）
-    if (
-      (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
-      localAttachedScreenshots.value.length > 0
-    ) {
-      localAttachedScreenshots.value = []
+      // 点击发送后是否清空输入区缩略图：遵循策略
+      if (chatStrategy.value.shouldClearInputAfterImage()) {
+        chatStrategy.value?.clearInputAttachedScreenshots?.()
+      }
     }
 
     if (quotedMessage.value) {
@@ -2196,9 +2409,14 @@ const showImagePickerDialog = async () => {
     return
   }
 
+  if (chatStrategy.value?.supportsImagePicker && !chatStrategy.value.supportsImagePicker()) {
+    showMessage('当前场景不支持选择图片', 'info')
+    return
+  }
+
   // 检查图片数量限制
-  const maxImages = props.type === 'user-client' ? 5 : 3
-  if (localAttachedScreenshots.value.length >= maxImages) {
+  const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+  if (strategyInputAttachedScreenshots.value.length >= maxImages) {
     showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
     return
   }
@@ -2815,6 +3033,9 @@ defineExpose({
   inputMessage,
   sendMessage,
   onImageSelected,
+  attachImageDirectToPreview,
+  requestScreenshot,
+  openTextbookScreenshotEditor,
   isLoading,
   scrollToBottom,
   scrollSessionListToBottom,

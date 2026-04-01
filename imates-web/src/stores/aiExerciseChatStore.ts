@@ -13,7 +13,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
-import type { AiChatMessageRequest, ExerciseItem, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus } from '../types'
+import type { AiChatMessageRequest, ExerciseItem, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData, type ChatQuotedMessage } from './utils/chatStoreUtils'
 import { useHtmlMessageRawMap } from '@/composables/useHtmlMessageRawMap'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
@@ -156,6 +156,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   /** 是否可以查看答案 */
   const canViewAnswer = ref(false)
+
+  const inputAttachedScreenshots = ref<AttachedScreenshot[]>([])
+  const inputScreenshotDrawingStates = ref<Record<string, unknown>>({})
 
   const chatPersistence = useChatPersistence<ChatHistoryData>(
     {
@@ -928,6 +931,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     VIEW_ANSWER_CHAT_TIMES,
     currentSessionId,
     sessions,
+
+    inputAttachedScreenshots,
+    inputScreenshotDrawingStates,
     
     // 方法
     sendMessage,
@@ -947,6 +953,24 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     deleteSession,
     getSessionCards,
     reloadHtmlImage,
+
+    setInputAttachedScreenshots: (shots: AttachedScreenshot[]) => {
+      inputAttachedScreenshots.value = Array.isArray(shots) ? shots : []
+    },
+    clearInputAttachedScreenshots: () => {
+      inputAttachedScreenshots.value = []
+    },
+    removeInputAttachedScreenshot: (id: string) => {
+      inputAttachedScreenshots.value = inputAttachedScreenshots.value.filter((s) => s.id !== id)
+      if (id && inputScreenshotDrawingStates.value && id in inputScreenshotDrawingStates.value) {
+        const next = { ...inputScreenshotDrawingStates.value }
+        delete next[id]
+        inputScreenshotDrawingStates.value = next
+      }
+    },
+    setInputScreenshotDrawingStates: (states: Record<string, unknown>) => {
+      inputScreenshotDrawingStates.value = states || {}
+    },
   }
 })
 

@@ -92,6 +92,7 @@
                   :compressed-height="339"
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
+                  @request-screenshot="(payload) => emit('request-screenshot', payload)"
                 >
                   <template #header-prefix>
                       <button type="button" class="pdf-toolbar-btn" @click="handleOpenScreenCapture">
@@ -175,7 +176,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   'toggle-mode': []
-  'open-screen-capture': []
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 // 引用
@@ -621,7 +622,8 @@ watch(
 )
 
 const handleOpenScreenCapture = () => {
-  emit('open-screen-capture')
+  // 统一协议：交给 ChatView 决定截图入口 kind，并向上抛 request-screenshot
+  ;(aiGeneralChatViewRef.value as any)?.requestScreenshot?.()
 }
 
 defineExpose({
@@ -639,6 +641,20 @@ defineExpose({
 
     // 挂到输入框预览区（ai-general 场景下 onImageSelected 不会立即发送）
     await aiGeneralChatViewRef.value?.onImageSelected?.(imageInfo)
+  },
+
+  attachImageToAiGeneralDirect: async (imageInfo: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }) => {
+    activeTab.value = 'ai-chat'
+    activeCategory.value = 'ai-general'
+    await nextTick()
+
+    await aiGeneralChatViewRef.value?.attachImageDirectToPreview?.(imageInfo)
   },
 })
 </script>

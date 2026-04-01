@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ChatBubble } from '../types'
+import type { ChatBubble, AttachedScreenshot } from '../types'
 import { showMessage } from '../utils'
 import { getImBaseUrl, getImWebSocketUrl } from '@/config/env-config'
 import { getUserId } from '../services'
@@ -49,6 +49,9 @@ export const useUserClientStore = defineStore('userClient', () => {
 
   /** 消息列表 */
   const messages = ref<ChatBubble[]>([])
+
+  const inputAttachedScreenshots = ref<AttachedScreenshot[]>([])
+  const inputScreenshotDrawingStates = ref<Record<string, unknown>>({})
 
   /** WebSocket连接 */
   const ws = ref<WebSocket | null>(null)
@@ -986,6 +989,8 @@ export const useUserClientStore = defineStore('userClient', () => {
   return {
     // 状态
     messages,
+    inputAttachedScreenshots,
+    inputScreenshotDrawingStates,
     isConnected,
     connectionStatus,
     isSending,
@@ -1007,6 +1012,24 @@ export const useUserClientStore = defineStore('userClient', () => {
     markAllAIMessagesAsRead,
     sendUserJoinMessage,
     sendReadStatusToAgent,
+
+    setInputAttachedScreenshots: (shots: AttachedScreenshot[]) => {
+      inputAttachedScreenshots.value = Array.isArray(shots) ? shots : []
+    },
+    clearInputAttachedScreenshots: () => {
+      inputAttachedScreenshots.value = []
+    },
+    removeInputAttachedScreenshot: (id: string) => {
+      inputAttachedScreenshots.value = inputAttachedScreenshots.value.filter((s) => s.id !== id)
+      if (id && inputScreenshotDrawingStates.value && id in inputScreenshotDrawingStates.value) {
+        const next = { ...inputScreenshotDrawingStates.value }
+        delete next[id]
+        inputScreenshotDrawingStates.value = next
+      }
+    },
+    setInputScreenshotDrawingStates: (states: Record<string, unknown>) => {
+      inputScreenshotDrawingStates.value = states || {}
+    },
 
     // 设置对话框打开状态
     setDialogOpen: (open: boolean) => {

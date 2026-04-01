@@ -61,6 +61,7 @@ body,
   --z-main-chat-overlay: 11000;
   --z-main-chat-toggle: 12000;
   --z-image-viewer-overlay: 13000;
+  --z-screenshot-input-dialog: 14000;
 }
 
 /* ==================== 基础尺寸规范 ==================== */

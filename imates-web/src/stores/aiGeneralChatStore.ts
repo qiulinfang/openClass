@@ -13,7 +13,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
-import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus } from '../types'
+import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
 import localforage from 'localforage'
@@ -103,6 +103,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   
   /** 是否正在创建会话 */
   const isCreatingSession = ref(false)
+
+  const inputAttachedScreenshots = ref<AttachedScreenshot[]>([])
+  const inputScreenshotDrawingStates = ref<Record<string, unknown>>({})
 
   const chatPersistence = useChatPersistence<ChatHistoryData>(
     {
@@ -894,6 +897,8 @@ ${conversationSummary}
     enableWebSearch,
     isCreatingSession,
     canCreateSession,
+    inputAttachedScreenshots,
+    inputScreenshotDrawingStates,
     
     // 方法
     sendMessage,
@@ -911,7 +916,25 @@ ${conversationSummary}
     loadSessions,
     resetState,
     toggleWebSearch,
-    reloadHtmlImage
+    reloadHtmlImage,
+
+    setInputAttachedScreenshots: (shots: AttachedScreenshot[]) => {
+      inputAttachedScreenshots.value = Array.isArray(shots) ? shots : []
+    },
+    clearInputAttachedScreenshots: () => {
+      inputAttachedScreenshots.value = []
+    },
+    removeInputAttachedScreenshot: (id: string) => {
+      inputAttachedScreenshots.value = inputAttachedScreenshots.value.filter((s) => s.id !== id)
+      if (id && inputScreenshotDrawingStates.value && id in inputScreenshotDrawingStates.value) {
+        const next = { ...inputScreenshotDrawingStates.value }
+        delete next[id]
+        inputScreenshotDrawingStates.value = next
+      }
+    },
+    setInputScreenshotDrawingStates: (states: Record<string, unknown>) => {
+      inputScreenshotDrawingStates.value = states || {}
+    },
   }
 })
 

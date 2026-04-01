@@ -4,14 +4,57 @@
  */
 
 import type { ChatBubble } from '../../../types'
-import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
-import type { SendMessageOptions, InitializeOptions } from './types'
+import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
+import type { InitializeOptions, SendMessageOptions } from './types'
+import type { AttachedScreenshot } from '../../../types'
 import { useUserClientStore } from '../../../stores/userClientStore'
 import { showMessage } from '../../../utils'
 
 export class UserClientStrategy implements ChatStrategy {
   private store = useUserClientStore()
   private chatView?: import('./ChatStrategy').ChatViewInterface
+
+  getInputAttachedScreenshots(): AttachedScreenshot[] {
+    return this.store.inputAttachedScreenshots
+  }
+
+  setInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
+    this.store.setInputAttachedScreenshots(Array.isArray(shots) ? shots : [])
+  }
+
+  appendInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
+    if (!shots || shots.length === 0) return
+    this.store.setInputAttachedScreenshots(this.store.inputAttachedScreenshots.concat(shots))
+  }
+
+  removeInputAttachedScreenshot(id: string): void {
+    this.store.removeInputAttachedScreenshot(id)
+  }
+
+  clearInputAttachedScreenshots(): void {
+    this.store.clearInputAttachedScreenshots()
+  }
+
+  getInputScreenshotDrawingStates(): Record<string, unknown> {
+    return this.store.inputScreenshotDrawingStates
+  }
+
+  setInputScreenshotDrawingStates(states: Record<string, unknown>): void {
+    this.store.setInputScreenshotDrawingStates(states || {})
+  }
+
+  removeInputScreenshotDrawingState(id: string): void {
+    if (!id) return
+    const next = { ...(this.store.inputScreenshotDrawingStates || {}) } as Record<string, unknown>
+    if (id in next) {
+      delete next[id]
+      this.store.setInputScreenshotDrawingStates(next)
+    }
+  }
+
+  clearInputScreenshotDrawingStates(): void {
+    this.store.setInputScreenshotDrawingStates({})
+  }
 
   // 获取消息存储引用
   getMessages(): ChatBubble[] {
@@ -82,6 +125,10 @@ export class UserClientStrategy implements ChatStrategy {
     return Promise.resolve()
   }
 
+  isChatLoading(): boolean {
+    return false
+  }
+
   // 检查是否支持转发消息
   canForwardMessage(): boolean {
     return false // 用户客服对话不支持转发
@@ -138,6 +185,56 @@ export class UserClientStrategy implements ChatStrategy {
   // 检查发送图片后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return false // 允许用户在发送图片后继续输入文字
+  }
+
+  supportsImagePicker(): boolean {
+    return true
+  }
+
+  supportsScreenshotAttach(): boolean {
+    return true
+  }
+
+  getMaxAttachedImages(): number {
+    return 5
+  }
+
+  shouldAnnotateAfterCrop(): boolean {
+    return true
+  }
+
+  getImagePostProcessMode(): 'attach_to_input' | 'send_immediately' {
+    return 'attach_to_input'
+  }
+
+  getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' {
+    return 'screen_snapshot'
+  }
+
+  buildImagePayloadFromAttachedScreenshots(shots: AttachedScreenshot[]) {
+    const maxImages = this.getMaxAttachedImages()
+    const list = (shots || []).filter((s) => !!s?.dataUrl).slice(0, maxImages)
+    if (list.length === 0) return {}
+
+    if (list.length === 1) {
+      return {
+        imageData: {
+          filePath: '',
+          base64DataUrl: list[0].dataUrl,
+        },
+      }
+    }
+
+    return {
+      imageList: list.map((s) => ({
+        filePath: '',
+        width: s.width || 0,
+        height: s.height || 0,
+        fileSize: 0,
+        base64DataUrl: s.dataUrl,
+        isLargeImage: false,
+      })),
+    }
   }
 
   // 发送图片消息（兼容接口，实际调用sendImagesMessage）

@@ -4,19 +4,63 @@
  */
 
 import type { ChatBubble } from '../../../types'
-import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
-import type { SendMessageOptions, InitializeOptions } from './types'
+import { showMessage } from '../../../utils'
+import type { ForwardOptions, ForwardResult } from './ChatStrategy'
+import type { SendMessageOptions } from './types'
+import type { AttachedScreenshot } from '../../../types'
+import type { InitializeOptions } from './types'
 import { useAiGeneralChatStore } from '../../../stores/aiGeneralChatStore'
 import { getUserInfo, getSubject } from '../../../services'
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { apiService } from '../../../services/http/api-service'
-import { showMessage } from '../../../utils'
 import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 import TeacherSelectionDialog from '../../dialog/TeacherSelectionDialog.vue'
 
 export class AiGeneralStrategy implements ChatStrategy {
   private aiGeneralStore = useAiGeneralChatStore()
   private chatView?: import('./ChatStrategy').ChatViewInterface
+
+  getInputAttachedScreenshots(): AttachedScreenshot[] {
+    return this.aiGeneralStore.inputAttachedScreenshots
+  }
+
+  setInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
+    this.aiGeneralStore.setInputAttachedScreenshots(Array.isArray(shots) ? shots : [])
+  }
+
+  appendInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
+    if (!shots || shots.length === 0) return
+    this.aiGeneralStore.setInputAttachedScreenshots(this.aiGeneralStore.inputAttachedScreenshots.concat(shots))
+  }
+
+  removeInputAttachedScreenshot(id: string): void {
+    this.aiGeneralStore.removeInputAttachedScreenshot(id)
+  }
+
+  clearInputAttachedScreenshots(): void {
+    this.aiGeneralStore.clearInputAttachedScreenshots()
+  }
+
+  getInputScreenshotDrawingStates(): Record<string, unknown> {
+    return this.aiGeneralStore.inputScreenshotDrawingStates
+  }
+
+  setInputScreenshotDrawingStates(states: Record<string, unknown>): void {
+    this.aiGeneralStore.setInputScreenshotDrawingStates(states || {})
+  }
+
+  removeInputScreenshotDrawingState(id: string): void {
+    if (!id) return
+    const next = { ...(this.aiGeneralStore.inputScreenshotDrawingStates || {}) } as Record<string, unknown>
+    if (id in next) {
+      delete next[id]
+      this.aiGeneralStore.setInputScreenshotDrawingStates(next)
+    }
+  }
+
+  clearInputScreenshotDrawingStates(): void {
+    this.aiGeneralStore.setInputScreenshotDrawingStates({})
+  }
   
   // 获取消息列表
   getMessages(): ChatBubble[] {
@@ -72,6 +116,10 @@ export class AiGeneralStrategy implements ChatStrategy {
   // 保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.aiGeneralStore.saveChatHistory()
+  }
+
+  isChatLoading(): boolean {
+    return !!this.aiGeneralStore.isChatLoading
   }
   
   // 检查是否支持转发消息
@@ -269,9 +317,59 @@ export class AiGeneralStrategy implements ChatStrategy {
     return true // AI通用对话支持转发
   }
   
-  // 发送图片消息后是否清空输入框
+  // 检查发送图片后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return true // AI场景需要清空输入框
+  }
+
+  supportsImagePicker(): boolean {
+    return true
+  }
+
+  supportsScreenshotAttach(): boolean {
+    return true
+  }
+
+  getMaxAttachedImages(): number {
+    return 3
+  }
+
+  shouldAnnotateAfterCrop(): boolean {
+    return true
+  }
+
+  getImagePostProcessMode(): 'attach_to_input' | 'send_immediately' {
+    return 'attach_to_input'
+  }
+
+  getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' {
+    return 'screen_snapshot'
+  }
+
+  buildImagePayloadFromAttachedScreenshots(shots: AttachedScreenshot[]) {
+    const maxImages = this.getMaxAttachedImages()
+    const list = (shots || []).filter((s) => !!s?.dataUrl).slice(0, maxImages)
+    if (list.length === 0) return {}
+
+    if (list.length === 1) {
+      return {
+        imageData: {
+          filePath: '',
+          base64DataUrl: list[0].dataUrl,
+        },
+      }
+    }
+
+    return {
+      imageList: list.map((s) => ({
+        filePath: '',
+        width: s.width || 0,
+        height: s.height || 0,
+        fileSize: 0,
+        base64DataUrl: s.dataUrl,
+        isLargeImage: false,
+      })),
+    }
   }
   
   // 是否使用乐观发送

@@ -113,7 +113,7 @@
       :entry="aiChatDialogEntry"
       :screenshot-flow-visible="aiDialogScreenshotFlowVisible"
       @toggle-mode="handleToggleUnifiedChatMode"
-      @open-screen-capture="handleOpenAiDialogScreenCapture"
+      @request-screenshot="handleAiDialogRequestScreenshot"
     />
 
     <!-- 教师统一聊天对话框 -->
@@ -143,7 +143,7 @@
       :screenshot-flow-visible="screenshotFlowVisible"
       @close="hideMainChatPanel"
       @toggle-mode="handleToggleMainChatMode"
-      @open-screen-capture="handleOpenMainChatScreenCapture"
+      @request-screenshot="handleMainChatRequestScreenshot"
     />
     <!-- 草稿本对话框 -->
     <Modal
@@ -174,23 +174,6 @@
         确定要清空画布吗？此操作不可撤销。
       </Dialog>
     </Modal>
-
-    <ScreenCaptureOverlay
-      v-if="mainChatScreenCaptureVisible"
-      v-model="mainChatScreenCaptureVisible"
-      @captured="handleMainChatScreenCaptured"
-      @cancel="handleMainChatScreenCaptureCancel"
-    />
-
-    <ScreenshotInputDialog
-      v-model="mainChatScreenshotDialogVisible"
-      mode="single"
-      :screenshot-data-url="mainChatScreenshotDataUrl"
-      :existing-screenshots="[]"
-      :drawing-states-from-parent="mainChatScreenshotDrawingStates"
-      @confirm="handleMainChatScreenshotConfirm"
-      @cancel="handleMainChatScreenshotCancel"
-    />
   </div>
 </template>
 
@@ -205,8 +188,6 @@ import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import FeedbackDialog from '@/components/dialog/FeedbackDialog.vue'
 import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
 import MainChatPanel from '@/components/MainChatPanel.vue'
-import ScreenCaptureOverlay from '@/components/base/ScreenCaptureOverlay.vue'
-import ScreenshotInputDialog from '@/components/dialog/ScreenshotInputDialog.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import Modal from '@/components/base/Modal.vue'
 import DrawingBoardNew from '@/components/drawingBoardNew.vue'
@@ -217,8 +198,8 @@ import { androidBridge } from '@/services/business/android-bridge'
 import { getUserId } from '@/services'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
+import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import type { ChatEntry } from '../types/chat'
-import type { AttachedScreenshot } from '@/types'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 import type { UserTextbookInfo } from '@/types'
 
@@ -228,6 +209,23 @@ type AskAiImageInfo = {
   height: number
   fileSize: number
   base64DataUrl?: string
+}
+
+const handleAiDialogRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
+  if (payload?.kind !== 'screen_snapshot') return
+  try {
+    const { dataUrl } = await captureScreenSnapshot()
+    if (!dataUrl) return
+    await aiChatDialogRef.value?.attachImageToAiGeneral?.({
+      filePath: '',
+      width: 0,
+      height: 0,
+      fileSize: 0,
+      base64DataUrl: dataUrl,
+    })
+  } catch {
+    // 静默处理
+  }
 }
 
 // 流程：导入图标资源
@@ -413,6 +411,25 @@ const updateCurrentUserInfo = () => {
   }
 }
 
+const handleMainChatRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
+  if (payload?.kind !== 'screen_snapshot') return
+  try {
+    const { dataUrl } = await captureScreenSnapshot()
+    if (!dataUrl) return
+    openMainChatPanel()
+    await nextTick()
+    await mainChatPanelRef.value?.attachImageToAiGeneral?.({
+      filePath: '',
+      width: 0,
+      height: 0,
+      fileSize: 0,
+      base64DataUrl: dataUrl,
+    })
+  } catch {
+    // 静默处理
+  }
+}
+
 // 设置用户信息到localStorage并更新响应式状态
 const setUserInfoToStorage = (userInfo: {
   id: string
@@ -484,124 +501,15 @@ const mainChatPanelRef = ref<
   | null
 >(null)
 
-const mainChatScreenCaptureVisible = ref(false)
-const mainChatScreenshotDialogVisible = ref(false)
-const mainChatScreenshotDataUrl = ref('')
-const mainChatScreenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
+const { captureScreenSnapshot, isSnapshotPreparing } = useScreenSnapshot()
 
 const screenshotFlowVisible = computed(() => {
-  return mainChatScreenCaptureVisible.value || mainChatScreenshotDialogVisible.value
+  return isSnapshotPreparing.value
 })
-
-const handleOpenMainChatScreenCapture = async () => {
-  // 如果草稿本打开，强制渲染 Canvas 以确保截图包含笔迹
-  if (showDraftNotebook.value && drawingBoardRef.value) {
-    try {
-      console.log('强制渲染草稿本 Canvas 以准备截图...')
-      await drawingBoardRef.value.forceRender()
-      console.log('草稿本 Canvas 强制渲染完成')
-    } catch (error) {
-      console.error('草稿本 Canvas 强制渲染失败:', error)
-    }
-  }
-  
-  mainChatScreenCaptureVisible.value = true
-}
-
-const handleMainChatScreenCaptureCancel = () => {
-  mainChatScreenCaptureVisible.value = false
-}
-
-const handleMainChatScreenCaptured = ({ dataUrl }: { dataUrl: string; width: number; height: number }) => {
-  mainChatScreenshotDataUrl.value = dataUrl
-  mainChatScreenshotDialogVisible.value = true
-}
-
-const handleMainChatScreenshotCancel = () => {
-  mainChatScreenshotDialogVisible.value = false
-  mainChatScreenshotDataUrl.value = ''
-}
-
-const aiDialogScreenCaptureVisible = ref(false)
-const aiDialogScreenshotDialogVisible = ref(false)
-const aiDialogScreenshotDataUrl = ref('')
-const aiDialogScreenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
 
 const aiDialogScreenshotFlowVisible = computed(() => {
-  return aiDialogScreenCaptureVisible.value || aiDialogScreenshotDialogVisible.value
+  return isSnapshotPreparing.value
 })
-
-const handleOpenAiDialogScreenCapture = () => {
-  aiDialogScreenCaptureVisible.value = true
-}
-
-const handleAiDialogScreenCaptureCancel = () => {
-  aiDialogScreenCaptureVisible.value = false
-}
-
-const handleAiDialogScreenCaptured = ({ dataUrl }: { dataUrl: string; width: number; height: number }) => {
-  aiDialogScreenshotDataUrl.value = dataUrl
-  aiDialogScreenshotDialogVisible.value = true
-}
-
-const handleAiDialogScreenshotCancel = () => {
-  aiDialogScreenshotDialogVisible.value = false
-  aiDialogScreenshotDataUrl.value = ''
-}
-
-const handleAiDialogScreenshotConfirm = async (
-  shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>,
-) => {
-  aiDialogScreenshotDialogVisible.value = false
-  aiDialogScreenshotDrawingStates.value = { ...states }
-
-  const first = shots?.[0]
-  if (!first?.dataUrl) {
-    aiDialogScreenshotDataUrl.value = ''
-    return
-  }
-
-  await aiChatDialogRef.value?.attachImageToAiGeneral?.({
-    filePath: '',
-    width: first.width || 0,
-    height: first.height || 0,
-    fileSize: 0,
-    base64DataUrl: first.dataUrl,
-  })
-
-  aiDialogScreenshotDataUrl.value = ''
-}
-
-const handleMainChatScreenshotConfirm = async (
-  shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>,
-) => {
-  mainChatScreenshotDialogVisible.value = false
-  mainChatScreenshotDrawingStates.value = { ...states }
-
-  const first = shots?.[0]
-  if (!first?.dataUrl) {
-    mainChatScreenshotDataUrl.value = ''
-    return
-  }
-
-  if (!showMainChatPanel.value) {
-    mainChatPanelEntry.value = { mode: 'default', category: 'ai-general' }
-    showPanel()
-    await nextTick()
-  }
-
-  await mainChatPanelRef.value?.attachImageToAiGeneral?.({
-    filePath: '',
-    width: first.width || 0,
-    height: first.height || 0,
-    fileSize: 0,
-    base64DataUrl: first.dataUrl,
-  })
-
-  mainChatScreenshotDataUrl.value = ''
-}
 
 // 工具箱显示状态
 const showToolbox = ref(false)

@@ -47,8 +47,8 @@
           @send-with-screenshot="
             (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
           "
-          @remove-screenshot="(id) => emit('remove-screenshot', id)"
           @edit-screenshot="(id) => emit('edit-screenshot', id)"
+          @request-screenshot="(payload) => emit('request-screenshot', payload)"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
         >
@@ -112,11 +112,10 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'select-and-ask-click': []
   close: []
   'send-with-screenshot': [string, AttachedScreenshot[], string]
-  'remove-screenshot': [string]
   'edit-screenshot': [string]
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 // ChatView 实例引用
@@ -264,7 +263,8 @@ const handleSwitchToTeacher = (forwardData: {
 
 // 处理"选中并问"点击：交给父组件触发截图工具与后续流程
 const handleSelectAndAskClick = () => {
-  emit('select-and-ask-click')
+  // 统一协议：请求 PDF 页面截图入口
+  emit('request-screenshot', { kind: 'pdf_page' })
 }
 
 // 遮罩层按钮位置样式
@@ -335,6 +335,9 @@ onMounted(async () => {
 
 defineExpose({
   reloadSessions: loadSessions,
+  openTextbookScreenshotEditor: (payload?: { shotId?: string; lastCapturedShotId?: string }) => {
+    ;(chatViewRef.value as any)?.openTextbookScreenshotEditor?.(payload)
+  },
 })
 </script>
 

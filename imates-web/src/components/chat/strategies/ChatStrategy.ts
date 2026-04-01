@@ -5,6 +5,8 @@
 
 import type { ChatBubble } from '../../../types'
 import type { SendMessageOptions } from './types'
+import type { AttachedScreenshot } from '../../../types'
+import type { ChatImageData } from '../../../stores/utils/chatStoreUtils'
 
 /**
  * ChatView接口定义
@@ -105,6 +107,9 @@ export interface ChatStrategy {
   
   // 保存聊天历史
   saveChatHistory(): Promise<void>
+
+  // 当前聊天是否处于加载状态（可选）
+  isChatLoading?(): boolean
   
   // 检查是否支持转发消息
   canForwardMessage(): boolean
@@ -149,6 +154,69 @@ export interface ChatStrategy {
     textContent?: string,
     options?: SendMessageOptions
   ): Promise<void>
+
+  // ========== 图片/截图规则（可选，逐步迁移用） ==========
+
+  // 是否支持从相册/文件选择图片并挂到输入框
+  supportsImagePicker?(): boolean
+
+  // 是否支持“截图作为图片附件”挂到输入框（不同场景入口不同）
+  supportsScreenshotAttach?(): boolean
+
+  // 输入框最多允许挂载的图片数量
+  getMaxAttachedImages?(): number
+
+  // 根据“挂在输入框的截图列表”构建发送用的 imageData / imageList
+  // - 单张 -> imageData
+  // - 多张 -> imageList
+  // 该逻辑用于让不同场景自行决定字段填充与数量裁剪，ChatView 仅负责 UI 编排。
+  buildImagePayloadFromAttachedScreenshots?: (shots: AttachedScreenshot[]) => {
+    imageData?: ChatImageData
+    imageList?: ChatImageData[]
+  }
+
+  // ========== 选图/裁剪后的行为决策（可选，逐步迁移用） ==========
+
+  // 裁剪后是否需要进入标记（ScreenshotInputDialog）
+  shouldAnnotateAfterCrop?(): boolean
+
+  // 裁剪+（可选标记）后的图片如何处理
+  // - attach_to_input: 回填到输入框缩略图区，等待用户点击发送
+  // - send_immediately: 不回填，直接发送为图片消息（可选带当前输入框文本）
+  getImagePostProcessMode?(): 'attach_to_input' | 'send_immediately'
+
+  // ========== 截图入口协议（可选，逐步迁移用） ==========
+
+  // 当前场景的“截图入口”类型，由上层容器决定如何捕获截图
+  // - screen_snapshot: 走 Web getDisplayMedia / Android takeSnapshot
+  // - pdf_page: 走 PdfPage 内部截图（切换工具到 screenshot 并等待 screenshot-captured 事件）
+  getScreenshotEntryKind?(): 'screen_snapshot' | 'pdf_page'
+
+  // ========== 输入框截图附件（单一数据源：策略内部操作 store） ==========
+
+  // 获取当前挂在输入框的截图列表
+  // - ai-general / ai-exercise / user-client: store.inputAttachedScreenshots
+  // - ai-textbook: store.attachedScreenshots
+  getInputAttachedScreenshots?(): AttachedScreenshot[]
+
+  // 覆盖设置当前截图列表
+  setInputAttachedScreenshots?(shots: AttachedScreenshot[]): void
+
+  // 追加截图
+  appendInputAttachedScreenshots?(shots: AttachedScreenshot[]): void
+
+  // 删除指定截图（并同步清理对应 drawingStates）
+  removeInputAttachedScreenshot?(id: string): void
+
+  // 清空截图列表（并同步清理 drawingStates）
+  clearInputAttachedScreenshots?(): void
+
+  // ========== 绘图状态（按截图 id 索引） ==========
+
+  getInputScreenshotDrawingStates?(): Record<string, unknown>
+  setInputScreenshotDrawingStates?(states: Record<string, unknown>): void
+  removeInputScreenshotDrawingState?(id: string): void
+  clearInputScreenshotDrawingStates?(): void
   
   // 更新已编辑的消息
   updateEditedMessage(messageId: string, newContent: string, options?: SendMessageOptions): Promise<void>

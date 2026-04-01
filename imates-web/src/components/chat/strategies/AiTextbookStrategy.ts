@@ -6,6 +6,7 @@
 import type { ChatBubble } from '../../../types'
 import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
 import type { SendMessageOptions, InitializeOptions } from './types'
+import type { AttachedScreenshot } from '../../../types'
 import { useAiTextbookChatStore } from '../../../stores/aiTextbookChatStore'
 import { useKnowledgeGraphStore } from '../../../stores/KnowledgeGraphStore'
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
@@ -17,6 +18,47 @@ export class AiTextbookStrategy implements ChatStrategy {
   private aiTextbookStore = useAiTextbookChatStore()
   private knowledgeGraphStore = useKnowledgeGraphStore()
   private chatView?: import('./ChatStrategy').ChatViewInterface
+
+  getInputAttachedScreenshots(): AttachedScreenshot[] {
+    return this.aiTextbookStore.attachedScreenshots
+  }
+
+  setInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
+    this.aiTextbookStore.setAttachedScreenshots(Array.isArray(shots) ? shots : [])
+  }
+
+  appendInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
+    if (!shots || shots.length === 0) return
+    this.aiTextbookStore.appendAttachedScreenshots(shots)
+  }
+
+  removeInputAttachedScreenshot(id: string): void {
+    if (!id) return
+    this.aiTextbookStore.removeAttachedScreenshot(id)
+    this.aiTextbookStore.removeScreenshotDrawingState(id)
+  }
+
+  clearInputAttachedScreenshots(): void {
+    this.aiTextbookStore.clearAttachedScreenshots()
+    this.aiTextbookStore.clearScreenshotDrawingStates()
+  }
+
+  getInputScreenshotDrawingStates(): Record<string, unknown> {
+    return this.aiTextbookStore.screenshotDrawingStates as any
+  }
+
+  setInputScreenshotDrawingStates(states: Record<string, unknown>): void {
+    this.aiTextbookStore.setScreenshotDrawingStates(states as any)
+  }
+
+  removeInputScreenshotDrawingState(id: string): void {
+    if (!id) return
+    this.aiTextbookStore.removeScreenshotDrawingState(id)
+  }
+
+  clearInputScreenshotDrawingStates(): void {
+    this.aiTextbookStore.clearScreenshotDrawingStates()
+  }
   
   // 获取消息列表
   getMessages(): ChatBubble[] {
@@ -68,6 +110,10 @@ export class AiTextbookStrategy implements ChatStrategy {
   // 保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.aiTextbookStore.saveChatHistory()
+  }
+
+  isChatLoading(): boolean {
+    return !!this.aiTextbookStore.isChatLoading
   }
   
   // 检查是否支持转发消息
@@ -277,6 +323,30 @@ export class AiTextbookStrategy implements ChatStrategy {
   // 发送图片消息后是否清空输入框
   shouldClearInputAfterImage(): boolean {
     return true // AI场景需要清空输入框
+  }
+
+  supportsImagePicker(): boolean {
+    return true
+  }
+
+  shouldAnnotateAfterCrop(): boolean {
+    return true
+  }
+
+  getImagePostProcessMode(): 'attach_to_input' | 'send_immediately' {
+    return 'attach_to_input'
+  }
+
+  supportsScreenshotAttach(): boolean {
+    return true
+  }
+
+  getMaxAttachedImages(): number {
+    return 3
+  }
+
+  getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' {
+    return 'pdf_page'
   }
   
   // 是否使用乐观发送

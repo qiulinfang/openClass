@@ -6,6 +6,7 @@
     :initial-height="900"
     :min-width="500"
     :min-height="450"
+    :z-index="screenshotDialogZIndex"
     :close-on-overlay-click="false"
     title-align="left"
     header-background-color="#ffffff"
@@ -79,6 +80,8 @@ import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 
+const screenshotDialogZIndex = 14000
+
 // 最多允许挂载的截图数量
 const MAX_SCREENSHOTS = 3
 
@@ -133,74 +136,81 @@ const drawingStates = ref<Record<string, ScreenshotDrawingState>>({})
 
 // 本地截图列表，管理所有截图的最新状态（包括编辑后的 dataUrl）
 const localScreenshots = ref<AttachedScreenshot[]>([])
+
+const initFromProps = async () => {
+  // 先同步父组件传进来的绘图状态
+  drawingStates.value = { ...(props.drawingStatesFromParent || {}) }
+
+  // 初始化本地截图列表（从 props 复制，保持独立）
+  const list: AttachedScreenshot[] = []
+  if (props.screenshotDataUrl) {
+    list.push({
+      id: 'current-capture',
+      dataUrl: props.screenshotDataUrl,
+      originalDataUrl: props.screenshotDataUrl,
+      width: 0,
+      height: 0,
+    })
+  }
+  if (Array.isArray(props.existingScreenshots) && props.existingScreenshots.length > 0) {
+    list.push(
+      ...props.existingScreenshots.map((s) => ({
+        ...s,
+        originalDataUrl: s.originalDataUrl || s.dataUrl,
+      })),
+    )
+  }
+  localScreenshots.value = list
+
+  // 优先使用 initialShotId，其次使用当前截图，再其次使用已有截图列表中的第一张
+  const canUseInitialId = !!props.initialShotId && list.some((s) => s.id === props.initialShotId)
+
+  if (canUseInitialId) {
+    currentShotId.value = props.initialShotId || null
+    previewImage.value = list.find((s) => s.id === props.initialShotId)?.dataUrl || ''
+  } else if (props.screenshotDataUrl) {
+    currentShotId.value = 'current-capture'
+    previewImage.value = props.screenshotDataUrl
+  } else if (list.length > 0) {
+    currentShotId.value = list[0].id
+    previewImage.value = list[0].dataUrl
+  } else {
+    currentShotId.value = null
+    previewImage.value = ''
+  }
+
+  await nextTick()
+  const id = currentShotId.value
+  const state = id ? drawingStates.value[id] : undefined
+  if (id && state && drawingBoardRef.value?.loadData) {
+    drawingBoardRef.value.loadData(state)
+  } else if (drawingBoardRef.value?.clearAll) {
+    drawingBoardRef.value.clearAll()
+  }
+}
+
+// 弹窗打开时初始化；并在弹窗打开期间，如果父组件更新了截图列表/初始选中/画板状态，也要同步
+watch(
+  () => [
+    props.modelValue,
+    props.mode,
+    props.screenshotDataUrl,
+    props.initialShotId,
+    props.existingScreenshots,
+    props.drawingStatesFromParent,
+  ],
+  async ([visible]) => {
+    if (!visible) return
+    await initFromProps()
+  },
+  { immediate: true },
+)
+
 // 使用 v-model 的本地状态
 const localVisible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
-
-// 对话框打开时初始化本地截图列表和预览图片
-watch(
-  () => props.modelValue,
-  async (newValue) => {
-    if (newValue) {
-      // 先同步父组件传进来的绘图状态
-      if (props.drawingStatesFromParent) {
-        drawingStates.value = { ...props.drawingStatesFromParent }
-      }
-
-      // 初始化本地截图列表（从 props 复制，保持独立）
-      const list: AttachedScreenshot[] = []
-      if (props.screenshotDataUrl) {
-        list.push({
-          id: 'current-capture',
-          dataUrl: props.screenshotDataUrl, // 缩略图数据
-          originalDataUrl: props.screenshotDataUrl, // 原图数据（新截图原图和缩略图相同）
-          width: 0,
-          height: 0,
-        })
-      }
-      if (Array.isArray(props.existingScreenshots) && props.existingScreenshots.length > 0) {
-        list.push(...props.existingScreenshots.map(s => ({ 
-          ...s,
-          // 确保有原图数据，如果没有则使用 dataUrl 作为原图
-          originalDataUrl: s.originalDataUrl || s.dataUrl 
-        })))
-      }
-      localScreenshots.value = list
-
-      // 优先使用 initialShotId（用于编辑已挂载截图），其次使用当前截图，再其次使用已有截图列表中的第一张
-      const canUseInitialId =
-        !!props.initialShotId &&
-        list.some((s) => s.id === props.initialShotId)
-
-      if (canUseInitialId) {
-        currentShotId.value = props.initialShotId || null
-        previewImage.value = list.find((s) => s.id === props.initialShotId)?.dataUrl || ''
-      } else if (props.screenshotDataUrl) {
-        currentShotId.value = 'current-capture'
-        previewImage.value = props.screenshotDataUrl
-      } else if (list.length > 0) {
-        currentShotId.value = list[0].id
-        previewImage.value = list[0].dataUrl
-      } else {
-        currentShotId.value = null
-        previewImage.value = ''
-      }
-
-      await nextTick()
-      const id = currentShotId.value
-      const state = id ? drawingStates.value[id] : undefined
-      if (id && state && drawingBoardRef.value?.loadData) {
-        // 如果之前保存过该截图的画板状态，则恢复它
-        drawingBoardRef.value.loadData(state)
-      } else if (drawingBoardRef.value?.clearAll) {
-        // 否则清空画板，基于当前 previewImage/backgroundImage 重新开始
-        drawingBoardRef.value.clearAll()
-      }
-    }
-  }
-)
 
 // 右侧缩略图数据源：从本地截图列表获取
 const thumbnailList = computed(() => localScreenshots.value)

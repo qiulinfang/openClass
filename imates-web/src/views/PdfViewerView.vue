@@ -71,20 +71,6 @@
             @screenshot-captured="handleScreenshotCaptured"
           />
 
-          <!-- 编辑已挂载截图（不在 ChatView 内弹窗，统一由 PdfViewerView 管理） -->
-          <ScreenshotInputDialog
-            v-model="editScreenshotDialogVisible"
-            mode="multiple"
-            :screenshot-data-url="''"
-            :initial-shot-id="editingShotId"
-            :existing-screenshots="aiTextbookStore.attachedScreenshots"
-            :drawing-states-from-parent="aiTextbookStore.screenshotDrawingStates"
-            @confirm="handleEditScreenshotConfirm"
-            @add-more="handleEditScreenshotAddMore"
-            @cancel="handleEditScreenshotCancel"
-            @remove-screenshot="handlePdfRemoveScreenshot"
-          />
-
           <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
 
           <q-btn
@@ -108,9 +94,8 @@
           ref="chatPanelRef" 
           :attached-screenshots="aiTextbookStore.attachedScreenshots"
           @send-with-screenshot="handlePdfSendWithScreenshot"
-          @remove-screenshot="handlePdfRemoveScreenshot"
           @edit-screenshot="handleEditScreenshot"
-          @select-and-ask-click="handleSelectAndAskFromChat" 
+          @request-screenshot="handleRequestScreenshot"
           @close="handleCloseChatPanel"
         />
       </template>
@@ -138,7 +123,6 @@ import {
 } from '@/utils/storage/screenshotSessions'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
-import ScreenshotInputDialog from '@/components/dialog/ScreenshotInputDialog.vue'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import goBackIcon from '/icons/goback.svg'
@@ -436,10 +420,10 @@ const handleToolChange = (tool: string) => {
   }
 }
 
-// 从右侧对话面板触发的“选中并问”：统一走截图工具流程
-const handleSelectAndAskFromChat = () => {
-  if (!pdfPageRef.value) return
-  handleToolChange('screenshot')
+const handleRequestScreenshot = (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
+  if (payload?.kind === 'pdf_page') {
+    handleToolChange('screenshot')
+  }
 }
 
 // 工具状态：使用 UnifiedToolbar 的工具 ID
@@ -665,18 +649,13 @@ const handleCloseChatPanel = () => {
   pdfViewerStore.closeChatPanel()
 }
 
-// 编辑已挂载截图（从 ChatInput 缩略图点击进入 / 或截图捕获后自动打开）
-const editScreenshotDialogVisible = ref(false)
-const editingShotId = ref('')
-const lastCapturedShotId = ref('')
-
 // 最多允许挂载的截图数量（与 ScreenshotInputDialog 保持一致）
 const MAX_SCREENSHOTS = 3
 
 // 处理截图捕获事件：接收 PdfPage 截图 blob，转换为 base64，并弹出输入对话框
 const handleScreenshotCaptured = async (blob: Blob) => {
   try {
-    // 检查截图数量是否已达上限（统一以 store 为准）
+    // 1. 检查截图数量限制（最多3张）
     const currentCount = aiTextbookStore.attachedScreenshots.length
     if (currentCount >= MAX_SCREENSHOTS) {
       showMessage(`最多只能添加 ${MAX_SCREENSHOTS} 张截图`, 'warning')
@@ -708,11 +687,12 @@ const handleScreenshotCaptured = async (blob: Blob) => {
       [shotId]: aiTextbookStore.screenshotDrawingStates[shotId] || { objects: [], history: [], historyIndex: -1 },
     } as any)
 
-    lastCapturedShotId.value = shotId
-
-    // 打开编辑弹窗并定位到新图
-    editingShotId.value = shotId
-    editScreenshotDialogVisible.value = true
+    // 打开编辑弹窗并定位到新图（弹窗由 ChatView 维护）
+    chatPanelRef.value?.openTextbookScreenshotEditor?.({ shotId, lastCapturedShotId: shotId })
+    
+    // 截图完成后自动退出截图模式，切换回 hand 模式
+    console.log('[PdfViewerView] 截图完成，自动切换回 hand 模式')
+    handleToolChange('hand')
   } catch (error) {
     console.error('[PdfViewerView] 处理截图数据失败', error)
   }
@@ -721,63 +701,7 @@ const handleScreenshotCaptured = async (blob: Blob) => {
 // 点击 ChatInput 缩略图：打开编辑弹窗并定位到指定截图
 const handleEditScreenshot = (shotId: string) => {
   if (!shotId) return
-  editingShotId.value = shotId
-  editScreenshotDialogVisible.value = true
-}
-
-const handleEditScreenshotConfirm = (
-  shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>,
-) => {
-  if (!shots || shots.length === 0) return
-
-  // shots 代表“弹窗内最终确认的截图列表”（包含顺序变化/删除/内容编辑等）
-  // 这里无论数量多少，都以 shots 为准全量覆盖 store，保证单一数据源一致
-  aiTextbookStore.setAttachedScreenshots(shots)
-
-  aiTextbookStore.setScreenshotDrawingStates({
-    ...aiTextbookStore.screenshotDrawingStates,
-    ...states,
-  } as any)
-
-  editScreenshotDialogVisible.value = false
-  editingShotId.value = ''
-
-  // 截图确认后：退出探索模式（重置选中工具）并打开对话面板
-  handleToolChange('hand')
-  pdfViewerStore.openChatPanel()
-}
-
-const handleEditScreenshotAddMore = () => {
-  editScreenshotDialogVisible.value = false
-  editingShotId.value = ''
-
-  // 检查是否已达截图上限（统一以 store 为准）
-  const currentCount = aiTextbookStore.attachedScreenshots.length
-  if (currentCount >= MAX_SCREENSHOTS) {
-    showMessage(`已达到最大截图数量 ${MAX_SCREENSHOTS} 张`, 'info')
-    pdfViewerStore.selectedTool = 'hand' as any
-    return
-  }
-
-  // 再次切换到截图工具模式
-  if (pdfViewerStore.selectedTool === 'screenshot') {
-    pdfViewerStore.selectedTool = 'hand' as any
-  }
-  handleToolChange('screenshot')
-}
-
-const handleEditScreenshotCancel = () => {
-  editScreenshotDialogVisible.value = false
-  const shotId = editingShotId.value
-  editingShotId.value = ''
-
-  // 如果取消的是“刚截图新建的那张”，回滚删除（保持取消=放弃本次截图语义）
-  if (shotId && lastCapturedShotId.value && shotId === lastCapturedShotId.value) {
-    aiTextbookStore.removeAttachedScreenshot(shotId)
-    aiTextbookStore.removeScreenshotDrawingState(shotId)
-    lastCapturedShotId.value = ''
-  }
+  chatPanelRef.value?.openTextbookScreenshotEditor?.({ shotId })
 }
 
 // 从 ChatInput 发送携带截图的消息：复用原 handleScreenshotConfirm 的逻辑
@@ -870,27 +794,6 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
     console.error('[PdfViewerView] 发送截图消息失败', error)
   }
 }
-
-// 从 ScreenshotInputDialog 或 ChatInput 中删除截图
-const handlePdfRemoveScreenshot = (id: string) => {
-  if (!id) return
-
-  // 单一数据源：统一从 store 中删除（无 temp 状态）
-  aiTextbookStore.removeAttachedScreenshot(id)
-  aiTextbookStore.removeScreenshotDrawingState(id)
-
-  // 清理相关引用
-  if (lastCapturedShotId.value === id) {
-    lastCapturedShotId.value = ''
-  }
-
-  // 如果删除后没有截图了，关闭弹窗（最后一张图片一定处于编辑状态）
-  if (aiTextbookStore.attachedScreenshots.length === 0) {
-    editScreenshotDialogVisible.value = false
-    editingShotId.value = ''
-  }
-}
-
 
 // 生命周期
 onMounted(async () => {

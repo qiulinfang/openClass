@@ -32,6 +32,7 @@
           :compressed-height="325"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
+          @request-screenshot="(payload) => emit('request-screenshot', payload)"
         >
           <!-- 新增会话按钮 -->
           <template #header-right>
@@ -100,6 +101,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
   'toggle-mode': []
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 // ==================== Store ====================
@@ -400,6 +402,18 @@ defineExpose({
     activeCategory.value = 'ai-general'
     await nextTick()
     await aiGeneralChatViewRef.value?.onImageSelected?.(imageInfo)
+  },
+
+  attachImageToAiGeneralDirect: async (imageInfo: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }) => {
+    activeCategory.value = 'ai-general'
+    await nextTick()
+    await aiGeneralChatViewRef.value?.attachImageDirectToPreview?.(imageInfo)
   },
 })
 
