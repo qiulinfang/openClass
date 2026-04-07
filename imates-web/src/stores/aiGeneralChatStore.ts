@@ -691,17 +691,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       const key = `chat_history_session_${sessionId}`
       await localforage.removeItem(key)
 
-      // 同步删除后端记忆（chatbot 线程）
-      try {
-        await apiService.manageConversationMemory({
-          command: 'delete_thread',
-          thread_id: sessionId,
-          agent_name: 'chatbot',
-        })
-      } catch (error) {
-        console.warn('[AI_GENERAL] 删除会话时同步后端记忆失败:', error)
-      }
-      
       // 保存会话列表
       await saveSessions()
     } catch (error) {
@@ -716,7 +705,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 规则：
    * - 如果选中的是 user 消息：删除该 user 及其之后的所有消息
    * - 如果选中的是 ai 消息：向前找到最近一条 user 消息，从这条 user 开始删除直到最后
-   * 本地历史与后端 manageConversationMemory(delete_messages, chatbot) 同步
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
@@ -740,36 +728,11 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         }
       }
 
-      // 确定用于后端 delete_messages 的起始 message_id
-      let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
-      if (!startBackendMessageId) {
-        for (let i = startIndex; i < messages.value.length; i++) {
-          if (messages.value[i].messageId) {
-            startBackendMessageId = messages.value[i].messageId
-            break
-          }
-        }
-      }
-
       // 先更新本地消息列表（从起点到末尾全部删除）
       messages.value.splice(startIndex)
 
       // 保存更新后的聊天历史
       await saveChatHistory()
-
-      // 调用后端 manageConversationMemory，同步删除对应线程的后续历史
-      if (currentSession.value?.sessionId && startBackendMessageId) {
-        try {
-          await apiService.manageConversationMemory({
-            command: 'delete_messages',
-            thread_id: currentSession.value.sessionId,
-            message_id: startBackendMessageId,
-            agent_name: 'chatbot',
-          })
-        } catch (error) {
-          console.warn('[AI_GENERAL] 删除消息时同步后端记忆失败:', error)
-        }
-      }
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 删除消息失败:', error)
       throw error

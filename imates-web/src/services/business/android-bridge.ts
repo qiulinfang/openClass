@@ -92,59 +92,11 @@ export class AndroidBridge {
       }
     }
 
-    if (!window.onExerciseDeleted) {
-      window.onExerciseDeleted = (exerciseId: string) => {
-        this.onExerciseDeleted(exerciseId)
-      }
-    }
-
-    if (!window.onQuestionAdded) {
-      window.onQuestionAdded = (questionData: any) => {
-        this.onQuestionAdded(questionData)
-      }
-    }
-
-    if (!window.onProgressSaved) {
-      window.onProgressSaved = (progressData: any) => {
-        this.onProgressSaved(progressData)
-      }
-    }
-
-    if (!window.onDataUpdate) {
-      window.onDataUpdate = (type: string, data: any) => {
-        this.onDataUpdate(type, data)
-      }
-    }
-
-    // 新增：题目列表更新回调
-    if (typeof window !== 'undefined' && !window.onExerciseListUpdated) {
-      window.onExerciseListUpdated = (questions: any) => {
-        this.onExerciseListUpdated(questions)
-      }
-    }
-
-    // 新增：加载状态变化回调
-    if (typeof window !== 'undefined' && !window.onLoadingStateChanged) {
-      window.onLoadingStateChanged = (isLoading: boolean) => {
-        this.onLoadingStateChanged(isLoading)
-      }
-    }
-
-    // 新增：科目变化回调
-    if (typeof window !== 'undefined' && !window.onSubjectChanged) {
-      window.onSubjectChanged = (subjectName: string) => {
-        this.onSubjectChanged(subjectName)
-      }
-    }
-
     // 设置图片相关回调
     this.setupImageCallbacks()
     
     // 设置课堂相关回调
     this.setupClassroomCallbacks()
-
-    // 设置语音识别回调
-    this.setupSpeechCallbacks()
   }
 
   /**
@@ -199,22 +151,6 @@ export class AndroidBridge {
   public showToast(message: string): void {
     if (this.isAvailable && window.AndroidBridge) {
       window.AndroidBridge.showToast(message)
-    }
-  }
-
-  /**
-   * 显示Android原生通知
-   * @param message 通知内容
-   * @param type 通知类型：success, error, warning, info
-   */
-  public showNotification(message: string, type: string = 'info'): void {
-    if (this.isAvailable && window.AndroidBridge && window.AndroidBridge.showNotification) {
-      window.AndroidBridge.showNotification(message, type)
-    } else {
-      // 降级到Toast
-      if (this.isAvailable && window.AndroidBridge) {
-        window.AndroidBridge.showToast(message)
-      }
     }
   }
 
@@ -338,13 +274,6 @@ export class AndroidBridge {
 
   // AI聊天、老师对话、进度保存等HTTP接口已移至API服务层，此处不再提供
 
-  /**
-   * 退出当前 Activity
-   */
-  public exitActivity(): void {
-    this.callVoid(() => window.AndroidBridge?.exitActivity?.())
-  }
-
   // 题目置顶功能已改为纯前端实现，不需要Android接口调用
 
   // ========== 事件监听器管理 ==========
@@ -377,34 +306,14 @@ export class AndroidBridge {
    */
   private emit(event: string, ...args: any[]): void {
     const listeners = this.eventListeners.get(event)
-    if (event === 'speechResult') {
-      console.log('[AndroidBridge] 📡 [语音识别] emit 方法被调用，事件:', event)
-      console.log('[AndroidBridge] 📊 [语音识别] 监听器数量:', listeners ? listeners.length : 0)
-    }
     if (listeners) {
-      listeners.forEach((callback, index) => {
+      listeners.forEach((callback) => {
         try {
-          if (event === 'speechResult') {
-            console.log(`[AndroidBridge] 🔄 [语音识别] 正在调用第 ${index + 1}/${listeners.length} 个监听器`)
-          }
           callback(...args)
-          if (event === 'speechResult') {
-            console.log(`[AndroidBridge] ✓ [语音识别] 第 ${index + 1}/${listeners.length} 个监听器执行完成`)
-          }
         } catch (err) {
-          if (event === 'speechResult') {
-            console.error(`[AndroidBridge] ❌ [语音识别] 第 ${index + 1}/${listeners.length} 个监听器执行出错:`, err)
-          }
           // 静默处理
         }
       })
-      if (event === 'speechResult') {
-        console.log('[AndroidBridge] ✅ [语音识别] 所有监听器执行完成')
-      }
-    } else {
-      if (event === 'speechResult') {
-        console.warn('[AndroidBridge] ⚠️ [语音识别] 没有找到 speechResult 事件的监听器')
-      }
     }
   }
 
@@ -417,75 +326,7 @@ export class AndroidBridge {
     this.emit('androidReady')
   }
 
-  /**
-   * 题目删除回调
-   */
-  private onExerciseDeleted(exerciseId: string): void {
-    this.emit('exerciseDeleted', exerciseId)
-  }
-
-  /**
-   * 题目添加回调
-   */
-  private onQuestionAdded(questionData: any): void {
-    this.emit('questionAdded', questionData)
-  }
-
-  /**
-   * 进度保存回调
-   */
-  private onProgressSaved(progressData: any): void {
-    this.emit('progressSaved', progressData)
-  }
-
-  /**
-   * 数据更新回调
-   */
-  private onDataUpdate(type: string, data: any): void {
-    this.emit('dataUpdate', type, data)
-  }
-
-  /**
-   * 题目列表更新回调
-   */
-  private onExerciseListUpdated(questions: any): void {
-    this.emit('exerciseListUpdated', questions)
-  }
-
-  /**
-   * 加载状态变化回调
-   */
-  private onLoadingStateChanged(isLoading: boolean): void {
-    this.emit('loadingStateChanged', isLoading)
-  }
-
-  /**
-   * 科目变化回调
-   */
-  private onSubjectChanged(subjectName: string): void {
-    this.emit('subjectChanged', subjectName)
-  }
-
-  /**
-   * 监听题目列表更新事件
-   */
-  public onExerciseListUpdate(callback: (questions: any) => void): void {
-    this.addEventListener('exerciseListUpdated', callback)
-  }
-
-  /**
-   * 监听加载状态变化事件
-   */
-  public onLoadingStateChange(callback: (isLoading: boolean) => void): void {
-    this.addEventListener('loadingStateChanged', callback)
-  }
-
-  /**
-   * 监听科目变化事件
-   */
-  public onSubjectChange(callback: (subjectName: string) => void): void {
-    this.addEventListener('subjectChanged', callback)
-  }
+  // 其他题目相关回调已移除（未使用）
 
   // ========== 便捷方法 ==========
 
@@ -499,35 +340,6 @@ export class AndroidBridge {
       callback()
     }
   }
-
-  /**
-   * 监听题目删除事件
-   */
-  public onExerciseDelete(callback: (exerciseId: string) => void): void {
-    this.addEventListener('exerciseDeleted', callback)
-  }
-
-  /**
-   * 监听题目添加事件
-   */
-  public onQuestionAdd(callback: (questionData: any) => void): void {
-    this.addEventListener('questionAdded', callback)
-  }
-
-  /**
-   * 监听进度保存事件
-   */
-  public onProgressSave(callback: (progressData: any) => void): void {
-    this.addEventListener('progressSaved', callback)
-  }
-
-  /**
-   * 监听数据更新事件
-   */
-  public onDataUpdated(callback: (type: string, data: any) => void): void {
-    this.addEventListener('dataUpdate', callback)
-  }
-
 
   // ========== MediaProjection 截图相关接口 ==========
   
@@ -621,6 +433,8 @@ export class AndroidBridge {
     })
   }
 
+  // ========== 语音播放相关接口 ==========
+
   /**
    * 播放语音消息
    */
@@ -645,174 +459,6 @@ export class AndroidBridge {
     })
   }
 
-  /**
-   * 发送语音消息
-   */
-  public sendVoiceMessage(filePath: string, duration: string, chatId: string = 'default'): VoiceRecordingResponse {
-    const resp = this.callString(() => window.AndroidBridge?.sendVoiceMessage?.(filePath, duration, chatId))
-    return this.parseJSON<VoiceRecordingResponse>(resp, { 
-      success: false, 
-      message: '发送功能不可用', 
-      data: null 
-    })
-  }
-
-  /**
-   * 获取录音状态
-   */
-  public getVoiceRecordingStatus(): VoiceRecordingStatus {
-    const resp = this.callString(() => window.AndroidBridge?.getVoiceRecordingStatus?.())
-    const response = this.parseJSON<VoiceRecordingResponse>(resp, { 
-      success: false, 
-      message: '', 
-      data: null 
-    })
-    
-    if (response.success && response.data) {
-      return this.parseJSON<VoiceRecordingStatus>(response.data, {
-        isRecording: false,
-        isPlaying: false,
-        currentFile: ''
-      })
-    }
-    
-    return {
-      isRecording: false,
-      isPlaying: false,
-      currentFile: ''
-    }
-  }
-
-  // ========== 语音识别相关接口 ==========
-
-  /**
-   * 开始语音识别（语音转文字）
-   */
-  public startSpeech(): VoiceRecordingResponse {
-    console.log('[AndroidBridge] 🎤 [语音识别] startSpeech() 被调用')
-    
-    if (!this.isAvailable) {
-      console.error('[AndroidBridge] ❌ [语音识别] AndroidBridge 不可用')
-      return { 
-        success: false, 
-        message: 'AndroidBridge 不可用', 
-        data: null 
-      }
-    }
-    
-    if (!window.AndroidBridge?.startSpeech) {
-      console.error('[AndroidBridge] ❌ [语音识别] startSpeech 方法不存在')
-      return { 
-        success: false, 
-        message: '语音识别功能不可用', 
-        data: null 
-      }
-    }
-    
-    try {
-      const resp = this.callString(() => window.AndroidBridge?.startSpeech?.())
-      const result = this.parseJSON<VoiceRecordingResponse>(resp, { 
-        success: false, 
-        message: '语音识别功能不可用', 
-        data: null 
-      })
-      
-      if (result.success) {
-        console.log('[AndroidBridge] ✓ [语音识别] 启动成功:', result.message)
-      } else {
-        console.warn('[AndroidBridge] ⚠️ [语音识别] 启动失败:', result.message)
-      }
-      
-      return result
-    } catch (error) {
-      console.error('[AndroidBridge] ❌ [语音识别] 启动异常:', error)
-      return { 
-        success: false, 
-        message: '语音识别启动异常: ' + (error instanceof Error ? error.message : String(error)), 
-        data: null 
-      }
-    }
-  }
-
-  /**
-   * 停止语音识别
-   */
-  public stopSpeech(): VoiceRecordingResponse {
-    console.log('[AndroidBridge] 🛑 [语音识别] stopSpeech() 被调用')
-    
-    if (!this.isAvailable) {
-      console.error('[AndroidBridge] ❌ [语音识别] AndroidBridge 不可用')
-      return { 
-        success: false, 
-        message: 'AndroidBridge 不可用', 
-        data: null 
-      }
-    }
-    
-    if (!window.AndroidBridge?.stopSpeech) {
-      console.error('[AndroidBridge] ❌ [语音识别] stopSpeech 方法不存在')
-      return { 
-        success: false, 
-        message: '停止语音识别功能不可用', 
-        data: null 
-      }
-    }
-    
-    try {
-      const resp = this.callString(() => window.AndroidBridge?.stopSpeech?.())
-      const result = this.parseJSON<VoiceRecordingResponse>(resp, { 
-        success: false, 
-        message: '停止语音识别功能不可用', 
-        data: null 
-      })
-      
-      if (result.success) {
-        console.log('[AndroidBridge] ✓ [语音识别] 停止成功:', result.message)
-      } else {
-        console.warn('[AndroidBridge] ⚠️ [语音识别] 停止失败:', result.message)
-      }
-      
-      return result
-    } catch (error) {
-      console.error('[AndroidBridge] ❌ [语音识别] 停止异常:', error)
-      return { 
-        success: false, 
-        message: '停止语音识别异常: ' + (error instanceof Error ? error.message : String(error)), 
-        data: null 
-      }
-    }
-  }
-
-  /**
-   * 设置语音识别回调
-   */
-  public setupSpeechCallbacks(): void {
-    if (typeof window === 'undefined') return
-
-    // 语音识别结果回调
-    if (!window.onSpeechResult) {
-      console.log('[AndroidBridge] 📝 [语音识别] 设置 onSpeechResult 回调')
-      window.onSpeechResult = (text: string | null, error: string | null) => {
-        console.log('[AndroidBridge] 🔔 [语音识别] window.onSpeechResult 回调被触发')
-        console.log('[AndroidBridge] 📥 [语音识别] 接收参数 - text:', text ? `"${text}" (长度: ${text.length})` : 'null', 'error:', error || 'null')
-        
-        if (error) {
-          console.error('[AndroidBridge] ❌ [语音识别] 收到识别错误:', error)
-        } else if (text) {
-          console.log('[AndroidBridge] ✓ [语音识别] 收到识别结果:', `"${text}" (长度: ${text.length})`)
-        } else {
-          console.warn('[AndroidBridge] ⚠️ [语音识别] 收到空结果')
-        }
-        
-        const eventData = { text, error }
-        console.log('[AndroidBridge] 📤 [语音识别] 准备触发 speechResult 事件，数据:', eventData)
-        this.emit('speechResult', eventData)
-        console.log('[AndroidBridge] ✅ [语音识别] speechResult 事件已触发')
-      }
-    } else {
-      console.log('[AndroidBridge] 📝 [语音识别] onSpeechResult 回调已存在，跳过设置')
-    }
-  }
 
   // ========== 图片发送相关接口 ==========
 
@@ -852,56 +498,6 @@ export class AndroidBridge {
     })
   }
 
-  /**
-   * 发送图片消息
-   */
-  public sendImageMessage(filePath: string, chatId: string = 'default'): ImagePickerResponse {
-    const resp = this.callString(() => window.AndroidBridge?.sendImageMessage?.(filePath, chatId))
-    return this.parseJSON<ImagePickerResponse>(resp, { 
-      success: false, 
-      message: '发送图片功能不可用', 
-      data: null 
-    })
-  }
-
-  /**
-   * 压缩图片
-   */
-  public compressImage(filePath: string, quality: number = 80): ImagePickerResponse & { compressionResult?: ImageCompressionResult } {
-    const resp = this.callString(() => window.AndroidBridge?.compressImage?.(filePath, quality))
-    const result = this.parseJSON<ImagePickerResponse>(resp, { 
-      success: false, 
-      message: '图片压缩功能不可用', 
-      data: null 
-    })
-    
-    // 如果成功且有数据，解析压缩结果
-    if (result.success && result.data) {
-      try {
-        const compressionResult = typeof result.data === 'string' 
-          ? this.parseJSON<ImageCompressionResult>(result.data, {} as ImageCompressionResult)
-          : result.data as ImageCompressionResult
-        return { ...result, compressionResult }
-      } catch (error) {
-        // 静默处理
-      }
-    }
-    
-    return result
-  }
-
-  /**
-   * 删除图片文件
-   */
-  public deleteImageFile(filePath: string): ImagePickerResponse {
-    const resp = this.callString(() => window.AndroidBridge?.deleteImageFile?.(filePath))
-    return this.parseJSON<ImagePickerResponse>(resp, { 
-      success: false, 
-      message: '删除图片功能不可用', 
-      data: null 
-    })
-  }
-
   public saveBase64ImageToGallery(base64DataUrl: string, filename: string): ImagePickerResponse {
     const resp = this.callString(() => window.AndroidBridge?.saveBase64ImageToGallery?.(base64DataUrl, filename))
     return this.parseJSON<ImagePickerResponse>(resp, {
@@ -909,32 +505,6 @@ export class AndroidBridge {
       message: '保存图片功能不可用',
       data: null,
     })
-  }
-
-  /**
-   * 获取拍照后的图片信息
-   */
-  public getCapturedImageInfo(): ImagePickerResponse & { imageInfo?: ImageData } {
-    const resp = this.callString(() => window.AndroidBridge?.checkImageResult?.())
-    const result = this.parseJSON<ImagePickerResponse>(resp, { 
-      success: false, 
-      message: '获取拍照图片信息功能不可用', 
-      data: null 
-    })
-    
-    // 如果成功且有数据，解析图片信息
-    if (result.success && result.data) {
-      try {
-        const imageInfo = typeof result.data === 'string' 
-          ? this.parseJSON<ImageData>(result.data, {} as ImageData)
-          : result.data as ImageData
-        return { ...result, imageInfo }
-      } catch (error) {
-        // 静默处理
-      }
-    }
-    
-    return result
   }
 
   // 移除checkImageResult方法，改用直接回调机制
@@ -1001,27 +571,6 @@ export class AndroidBridge {
       }
     }
 
-    // 截图完成回调
-    if (!window.onSnapshotTaken) {
-      window.onSnapshotTaken = (imageData: any) => {
-        this.emit('snapshotTaken', imageData)
-      }
-    }
-
-    // MediaProjection 授权结果回调（允许/拒绝）
-    if (!window.onMediaProjectionPermissionResult) {
-      window.onMediaProjectionPermissionResult = (granted: boolean) => {
-        this.emit('mediaProjectionPermissionResult', granted)
-      }
-    }
-
-    // 课堂错误回调
-    if (!window.onClassroomError) {
-      window.onClassroomError = (error: string) => {
-        this.emit('classroomError', error)
-      }
-    }
-
     // Android日志回调
     if (!window.onAndroidLog) {
       window.onAndroidLog = (level: string, tag: string, message: string) => {
@@ -1060,26 +609,6 @@ export class AndroidBridge {
    */
   public onImageCapture(callback: (imageInfo: ImageData) => void): void {
     this.addEventListener('imageCaptured', callback)
-  }
-
-  public onMediaProjectionPermissionResult(callback: (granted: boolean) => void): void {
-    this.addEventListener('mediaProjectionPermissionResult', callback)
-  }
-
-
-
-  /**
-   * 获取调试信息
-   */
-  public getDebugInfo(): object {
-    return {
-      isAvailable: this.isAvailable,
-      hasAndroidBridge: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined',
-      eventListeners: Object.fromEntries(
-        Array.from(this.eventListeners.entries()).map(([key, listeners]) => [key, listeners.length])
-      ),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
-    }
   }
 
   // ========== 加入课堂相关接口 ==========
@@ -1213,74 +742,6 @@ export class AndroidBridge {
   }
 
   /**
-   * 获取教室树数据
-   * @returns 教室树JSON对象，失败时返回 null
-   */
-  public fetchClassroomTree(): any | null {
-    try {
-      if (window.AndroidBridge?.fetchClassroomTree) {
-        console.log('[Classroom][Bridge][Tree] call')
-        const result = window.AndroidBridge.fetchClassroomTree()
-        console.log('[Classroom][Bridge][Tree] raw', { len: typeof result === 'string' ? result.length : -1 })
-
-        const response = this.parseJSON<{
-          success: boolean
-          message: string
-          data?: any
-        }>(result, {
-          success: false,
-          message: '解析失败'
-        })
-
-        if (response.success && response.data) {
-          const data = response.data as any
-          if (typeof data === 'string') {
-            const trimmed = data.trim()
-            if (!trimmed) {
-              return null
-            }
-            // 原生侧可能通过 createResponseWithJsonData 返回 JSON 字符串，这里做二次解析
-            const parsed = this.parseJSON<any>(trimmed, null)
-            console.log('[Classroom][Bridge][Tree] resp', { type: typeof parsed, keys: parsed && typeof parsed === 'object' ? Object.keys(parsed).length : -1 })
-            return parsed
-          }
-
-          console.log('[Classroom][Bridge][Tree] resp', { type: typeof data, keys: data && typeof data === 'object' ? Object.keys(data).length : -1 })
-          return data
-        }
-
-        console.log('[Classroom][Bridge][Tree] resp null', { success: response.success, message: response.message })
-        return null
-      }
-
-      console.error('[AndroidBridge] fetchClassroomTree: window.AndroidBridge.fetchClassroomTree not found')
-      return null
-    } catch (error) {
-      console.error('[AndroidBridge] fetchClassroomTree error:', error)
-      return null
-    }
-  }
-
-  /**
-   * 开始屏幕投屏
-   * @returns 操作结果
-   */
-  public startScreenProjection(): boolean {
-    try {
-      if (window.AndroidBridge?.startScreenProjection) {
-        const result = window.AndroidBridge.startScreenProjection()
-        return this.parseJSON<boolean>(result, false)
-      }
-
-      console.error('[AndroidBridge] startScreenProjection: method not found on window.AndroidBridge')
-      return false
-    } catch (error) {
-      console.error('[AndroidBridge] startScreenProjection error:', error)
-      return false
-    }
-  }
-
-  /**
    * 停止屏幕投屏
    * @returns 操作结果
    */
@@ -1315,26 +776,6 @@ export class AndroidBridge {
       return false
     } catch (error) {
       console.error('[AndroidBridge] takeSnapshot error:', error)
-      return false
-    }
-  }
-
-  /**
-   * 设置课堂模式
-   * @param classMode 课堂模式状态
-   * @returns 操作结果
-   */
-  public setClassroomMode(classMode: boolean): boolean {
-    try {
-      if (window.AndroidBridge?.setClassroomMode) {
-        const result = window.AndroidBridge.setClassroomMode(classMode)
-        return this.parseJSON<boolean>(result, false)
-      }
-
-      console.error('[AndroidBridge] setClassroomMode: method not found on window.AndroidBridge')
-      return false
-    } catch (error) {
-      console.error('[AndroidBridge] setClassroomMode error:', error)
       return false
     }
   }
@@ -1374,20 +815,6 @@ export class AndroidBridge {
    */
   public onScreenProjectionStopped(callback: () => void): void {
     this.addEventListener('screenProjectionStopped', callback)
-  }
-
-  /**
-   * 监听截图完成事件
-   */
-  public onSnapshotTaken(callback: (imageData: any) => void): void {
-    this.addEventListener('snapshotTaken', callback)
-  }
-
-  /**
-   * 监听课堂错误事件
-   */
-  public onClassroomError(callback: (error: string) => void): void {
-    this.addEventListener('classroomError', callback)
   }
 
   // ========== 研伴 API 代理接口（测试环境走原生网络） ==========

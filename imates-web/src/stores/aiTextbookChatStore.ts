@@ -37,6 +37,7 @@ import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/h
 import { validateTextbookChatRequest } from './utils/requestValidator'
 import { getApiPaths } from '@/config/env-config'
 import { Sender } from '@/types/enums'
+import { addScreenshotSession } from '@/utils/storage/screenshotSessions'
 
 interface TextbookChatHistoryData {
   questionId: string
@@ -252,7 +253,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const backendSessionOwnerUserId = ref<string | null>(null) // backendSessionId 归属的 userId，用于避免切换账号后串会话
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   // 当前挂在 AI 教材聊天输入框上的截图列表（PDF 场景）
-  const attachedScreenshots = ref<AttachedScreenshot[]>([])
+  const inputAttachedScreenshots = ref<AttachedScreenshot[]>([])
 
   const setChapterInfo = (info: {
     grade: string
@@ -288,7 +289,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
 
   // 每张截图的 DrawingBoard 状态（按截图 id 索引）
-  const screenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
+  const inputScreenshotDrawingStates = ref<Record<string, ScreenshotDrawingState>>({})
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
@@ -325,38 +326,38 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
   // ========== 截图挂载管理（PDF 场景用） ==========
 
-  const setAttachedScreenshots = (shots: AttachedScreenshot[]): void => {
-    attachedScreenshots.value = shots
+  const setInputAttachedScreenshots = (shots: AttachedScreenshot[]): void => {
+    inputAttachedScreenshots.value = shots
   }
 
-  const appendAttachedScreenshots = (shots: AttachedScreenshot[]): void => {
+  const appendInputAttachedScreenshots = (shots: AttachedScreenshot[]): void => {
     if (!shots || shots.length === 0) return
-    attachedScreenshots.value = attachedScreenshots.value.concat(shots)
+    inputAttachedScreenshots.value = inputAttachedScreenshots.value.concat(shots)
   }
 
-  const removeAttachedScreenshot = (id: string): void => {
-    attachedScreenshots.value = attachedScreenshots.value.filter((shot) => shot.id !== id)
+  const removeInputAttachedScreenshot = (id: string): void => {
+    inputAttachedScreenshots.value = inputAttachedScreenshots.value.filter((shot) => shot.id !== id)
   }
 
-  const clearAttachedScreenshots = (): void => {
-    attachedScreenshots.value = []
+  const clearInputAttachedScreenshots = (): void => {
+    inputAttachedScreenshots.value = []
   }
 
-  const setScreenshotDrawingStates = (states: Record<string, ScreenshotDrawingState>): void => {
-    screenshotDrawingStates.value = {
-      ...screenshotDrawingStates.value,
+  const setInputScreenshotDrawingStates = (states: Record<string, ScreenshotDrawingState>): void => {
+    inputScreenshotDrawingStates.value = {
+      ...inputScreenshotDrawingStates.value,
       ...states,
     }
   }
 
-  const removeScreenshotDrawingState = (id: string): void => {
-    const copy = { ...screenshotDrawingStates.value }
+  const removeInputScreenshotDrawingState = (id: string): void => {
+    const copy = { ...inputScreenshotDrawingStates.value }
     delete copy[id]
-    screenshotDrawingStates.value = copy
+    inputScreenshotDrawingStates.value = copy
   }
 
-  const clearScreenshotDrawingStates = (): void => {
-    screenshotDrawingStates.value = {}
+  const clearInputScreenshotDrawingStates = (): void => {
+    inputScreenshotDrawingStates.value = {}
   }
   
   /**
@@ -365,7 +366,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    * 规则与通用/解题一致：
    * - 选中 user：删该 user 及其之后所有消息
    * - 选中 ai：向前找到最近 user，从那条 user 起删到结尾
-   * 后端使用 backendSessionId 作为 thread_id，agent_name = chatbot
    */
   const deleteMessage = async (messageId: string): Promise<void> => {
     try {
@@ -388,37 +388,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         }
       }
 
-      // 确定用于后端 delete_messages 的起始 message_id
-      let startBackendMessageId: string | undefined = messages.value[startIndex]?.messageId
-      if (!startBackendMessageId) {
-        for (let i = startIndex; i < messages.value.length; i++) {
-          if (messages.value[i].messageId) {
-            startBackendMessageId = messages.value[i].messageId
-            break
-          }
-        }
-      }
-
       // 本地删除：从起点到末尾
       messages.value.splice(startIndex)
 
       // 保存更新后的聊天历史
       if (resourceId.value) {
         await saveChatHistory()
-      }
-
-      // 调用后端 manageConversationMemory（教材场景仍归 chatbot）
-      if (backendSessionId.value && startBackendMessageId) {
-        try {
-          await apiService.manageConversationMemory({
-            command: 'delete_messages',
-            thread_id: backendSessionId.value,
-            message_id: startBackendMessageId,
-            agent_name: 'chatbot',
-          })
-        } catch (error) {
-          console.warn('[AI_TEXTBOOK] 删除消息时同步后端记忆失败:', error)
-        }
       }
     } catch (error) {
       console.error('[AI_TEXTBOOK] ❌ 删除消息失败:', error)
@@ -913,6 +888,103 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     enableWebSearch.value = !enableWebSearch.value
   }
   
+  // ==================== 截图消息发送（PDF场景专用） ====================
+  
+  /**
+   * 发送截图消息（封装PDF场景的完整数据逻辑）
+   * - 清空截图列表
+   * - 生成会话ID
+   * - 发送消息
+   * - 创建截图会话记录
+   */
+  const sendScreenshotMessage = async (
+    text: string,
+    shots: AttachedScreenshot[],
+    selectedModel?: string,
+  ): Promise<void> => {
+    if (!shots || !shots.length) {
+      return
+    }
+
+    // 用户点击发送时，立刻清空挂在输入框上的截图
+    clearInputAttachedScreenshots()
+    clearInputScreenshotDrawingStates()
+
+    // 最多只保留前三张截图
+    const limitedShots = shots.slice(0, 3)
+    const firstShot = limitedShots[0]
+    const dataUrl = firstShot.dataUrl
+
+    // 设置当前教材ID（如果还没有设置）
+    if (!resourceId.value) {
+      console.warn('[AI_TEXTBOOK] resourceId 为空，无法生成教材会话ID')
+    }
+
+    // 为本次截图会话生成会话ID
+    const now = Date.now()
+    const userId = getUserId() || ''
+    const currentResourceId = resourceId.value || ''
+    const sessionId = currentResourceId
+      ? `${userId ? userId + '-' : ''}ai-textbook-${currentResourceId}-${now}`
+      : `${userId ? userId + '-' : ''}ai-textbook-${now}`
+    
+    // 设置当前会话ID
+    currentSessionId.value = sessionId
+    isNewSession.value = true
+
+    const fileName = `screenshot-${Date.now()}.jpg`
+
+    // 首图 imageData
+    const imageData: ChatImageData = {
+      filePath: fileName,
+      base64DataUrl: dataUrl,
+      width: firstShot.width,
+      height: firstShot.height,
+      fileSize: Math.round(dataUrl.length * 0.75),
+    }
+
+    // 构建多图列表
+    const imageList: ChatImageData[] = limitedShots.map((shot, index) => {
+      const shotDataUrl = shot.dataUrl
+      const shotFileName = `screenshot-${Date.now()}-${index}.jpg`
+      return {
+        filePath: shotFileName,
+        base64DataUrl: shotDataUrl,
+        width: shot.width,
+        height: shot.height,
+        fileSize: Math.round(shotDataUrl.length * 0.75),
+      }
+    })
+
+    // 发送消息
+    await sendMessage(
+      text,
+      selectedModel || 'mate',
+      imageData,
+      false,
+      false,
+      undefined,
+      imageList,
+    )
+
+    // 发送成功后，创建并持久化截图会话记录
+    const newSession = {
+      sessionId,
+      sessionName: text,
+      createTime: now,
+      updateTime: now,
+      msgCount: 0,
+      pinned: false,
+      thumbnailImage: dataUrl,
+      hasImage: true,
+      resourceId: currentResourceId || undefined,
+      id: sessionId,
+      question: text,
+      answer: '',
+    }
+    addScreenshotSession(newSession)
+  }
+  
   // ==================== 导出 ====================
   
   return {
@@ -928,22 +1000,23 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     isNewSession,
     backendSessionId,
     useScreenshotApi,
-    attachedScreenshots,
-    screenshotDrawingStates,
+    inputAttachedScreenshots,
+    inputScreenshotDrawingStates,
     
     // 方法
     addMessage,
     updateMessage,
     clearMessages,
-    setAttachedScreenshots,
-    appendAttachedScreenshots,
-    removeAttachedScreenshot,
-    clearAttachedScreenshots,
-    setScreenshotDrawingStates,
-    removeScreenshotDrawingState,
-    clearScreenshotDrawingStates,
+    setInputAttachedScreenshots,
+    appendInputAttachedScreenshots,
+    removeInputAttachedScreenshot,
+    clearInputAttachedScreenshots,
+    setInputScreenshotDrawingStates,
+    removeInputScreenshotDrawingState,
+    clearInputScreenshotDrawingStates,
     deleteMessage,
     sendMessage,
+    sendScreenshotMessage,
     retryAiMessage,
     saveChatHistory,
     loadChatHistory,

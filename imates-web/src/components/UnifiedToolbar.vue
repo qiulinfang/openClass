@@ -54,21 +54,15 @@
               :class="{ 'tool-disabled': toolStates[tool.value] === false }"
               @click="toolStates[tool.value] !== false && handleActionClick(tool.value)"
             >
-              <img
-                v-if="shouldUseRawIcon(tool.icon)"
-                :src="tool.icon"
-                class="tool-icon raw-icon"
-                alt=""
-              />
-              <div
-                v-else
-                :style="
-                  getMaskIconStyle(
+            <div
+                :style="{
+                  ...getMaskIconStyle(
                     tool.icon,
                     SELECTABLE_ACTION_TOOLS.includes(tool.value) ? 'tool' : 'action',
                     SELECTABLE_ACTION_TOOLS.includes(tool.value) ? tool.value : undefined
-                  )
-                "
+                  ),
+                  ...(tool.value === 'clear' ? { 'background-color': '#dc3545' } : {})
+                }"
                 class="tool-icon mask-icon"
               />
               <q-tooltip>{{ tool.label }}</q-tooltip>
@@ -262,8 +256,10 @@
             class="action-btn"
           >
             <!-- SVG 图标 -->
-            <img v-if="shouldUseRawIcon(tool.icon)" :src="tool.icon" class="action-icon raw-icon" alt="" />
-            <div v-else-if="isImageIcon(tool.icon)" :style="getMaskIconStyle(tool.icon, 'action')" />
+            <div v-if="isImageIcon(tool.icon)" :style="{
+              ...getMaskIconStyle(tool.icon, 'action'),
+              ...(tool.value === 'clear' ? { 'background-color': '#dc3545' } : {})
+            }" />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
         </div>
@@ -308,6 +304,7 @@ import circleIcon from '/icons/circle.svg' // 圆形
 import lineIcon from '/icons/line.svg' // 线
 import triangleIcon from '/icons/triangle.svg' // 三角形
 import shapeConfigIcon from '/icons/shape_config.svg' // 形状配置
+import coordinateIcon from '/icons/coordinate.svg' // 坐标轴
 import selectConfigIcon from '/icons/select_config.svg' // 选择配置
 import redoIcon from '/icons/undo.svg' // 撤销
 import undoIcon from '/icons/redo.svg' // 重做
@@ -673,8 +670,33 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       showOpacityPicker: true,
     },
   },
+  coordinate: {
+    value: 'coordinate',
+    label: '坐标轴',
+    icon: coordinateIcon,
+    config: {
+      showColorPicker: true,
+      colors: [
+        { value: '#212529', label: '黑色' },
+        { value: '#dc3545', label: '红色' },
+        { value: '#198754', label: '绿色' },
+        { value: '#0d6efd', label: '蓝色' },
+        { value: '#ffc107', label: '黄色' },
+        { value: '#6610f2', label: '紫色' },
+      ],
+      showSizePicker: true,
+      sizes: [
+        { value: 1, label: '细', displayHeight: '1px' },
+        { value: 2, label: '中', displayHeight: '2px' },
+        { value: 3, label: '粗', displayHeight: '3px' },
+        { value: 5, label: '特粗', displayHeight: '5px' },
+      ],
+      sizeLabel: '轴线粗细',
+      showOpacityPicker: true,
+    },
+  },
 
-  // 形状工具（带下拉菜单，包含直线）
+  // 形状工具（带下拉菜单，包含直线和坐标轴）
   shape: {
     value: 'shape',
     label: '形状',
@@ -964,10 +986,6 @@ const isImageIcon = (icon: string) => {
   // 2. 包含扩展名（.）表示是文件
   // 3. 以 data:image 开头表示是 base64 编码图片
   return icon.includes('/') || icon.includes('.') || icon.startsWith('data:image')
-}
-
-const shouldUseRawIcon = (iconPath: string) => {
-  return typeof iconPath === 'string' && iconPath.includes('/icons/delete.svg')
 }
 
 // 处理工具点击
@@ -1282,9 +1300,11 @@ $color-bg-selected: #e3e2fe;
     display: flex;
     align-items: center;
     padding: 8px 12px;
-    gap: 8px;
+    gap: 24px;
     max-width: 100%;
     overflow-x: auto;
+    border: none;
+    background: transparent;
   }
 
   .left-section {
@@ -1315,14 +1335,14 @@ $color-bg-selected: #e3e2fe;
 .right-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
 }
 
 .center-section {
   .tool-row {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 14px;
   }
 }
 

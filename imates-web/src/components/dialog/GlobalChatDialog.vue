@@ -32,7 +32,7 @@
           :compressed-height="325"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
-          @request-screenshot="(payload) => emit('request-screenshot', payload)"
+          @screenshot-click="handleScreenshotClick"
         >
           <!-- 新增会话按钮 -->
           <template #header-right>
@@ -101,7 +101,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
   'toggle-mode': []
-  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 // ==================== Store ====================
@@ -368,6 +367,17 @@ const handleSwitchToTeacher = async (forwardData?: {
 // 切换到指定分类
 const switchCategory = (category: 'ai-general' | 'teacher') => {
   activeCategory.value = category
+}
+
+// 处理截图按钮点击 - 内部直接处理
+const handleScreenshotClick = async () => {
+  try {
+    window.dispatchEvent(new CustomEvent('app:request-screenshot', { 
+      detail: { kind: 'screen_snapshot', target: 'ai-general' } 
+    }))
+  } catch (error) {
+    console.error('截图失败:', error)
+  }
 }
 
 // 设置教师会话并切换分类

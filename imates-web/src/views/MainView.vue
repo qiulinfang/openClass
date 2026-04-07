@@ -113,7 +113,6 @@
       :entry="aiChatDialogEntry"
       :screenshot-flow-visible="aiDialogScreenshotFlowVisible"
       @toggle-mode="handleToggleUnifiedChatMode"
-      @request-screenshot="handleAiDialogRequestScreenshot"
     />
 
     <!-- 教师统一聊天对话框 -->
@@ -143,7 +142,6 @@
       :screenshot-flow-visible="screenshotFlowVisible"
       @close="hideMainChatPanel"
       @toggle-mode="handleToggleMainChatMode"
-      @request-screenshot="handleMainChatRequestScreenshot"
     />
     <!-- 草稿本对话框 -->
     <Modal
@@ -209,23 +207,6 @@ type AskAiImageInfo = {
   height: number
   fileSize: number
   base64DataUrl?: string
-}
-
-const handleAiDialogRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
-  if (payload?.kind !== 'screen_snapshot') return
-  try {
-    const { dataUrl } = await captureScreenSnapshot()
-    if (!dataUrl) return
-    await aiChatDialogRef.value?.attachImageToAiGeneral?.({
-      filePath: '',
-      width: 0,
-      height: 0,
-      fileSize: 0,
-      base64DataUrl: dataUrl,
-    })
-  } catch {
-    // 静默处理
-  }
 }
 
 // 流程：导入图标资源
@@ -408,25 +389,6 @@ const updateCurrentUserInfo = () => {
     avatar: '',
     avatarNew: '',
     roles: [],
-  }
-}
-
-const handleMainChatRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
-  if (payload?.kind !== 'screen_snapshot') return
-  try {
-    const { dataUrl } = await captureScreenSnapshot()
-    if (!dataUrl) return
-    openMainChatPanel()
-    await nextTick()
-    await mainChatPanelRef.value?.attachImageToAiGeneral?.({
-      filePath: '',
-      width: 0,
-      height: 0,
-      fileSize: 0,
-      base64DataUrl: dataUrl,
-    })
-  } catch {
-    // 静默处理
   }
 }
 
@@ -698,20 +660,37 @@ const navBackgroundStyle = computed(() => mainViewStyle.value)
 
 // 悬浮功能按钮点击逻辑：
 // - 如果当前在 PDF 查看页（pdfViewer），则打开/关闭 PDF 页右侧对话面板
+// - 如果当前在 HTML 预览页且从 PDF 跳转而来（htmlPreview?from=pdf），则打开/关闭 PDF 对话面板
 // - 否则，切换主页右侧统一聊天面板
 const handleFloatingFabClick = () => {
   const traceId = createFabTraceId('fab-click')
+  const currentRoute = route
+  const isFromPdf = currentRoute.query.from === 'pdf'
+
   console.log('[FloatingFab][Web] handleFloatingFabClick (before)', {
     traceId,
-    routeName: route.name,
+    routeName: currentRoute.name,
+    isFromPdf,
     showMainChatPanel: showMainChatPanel.value,
     pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
     showFab: showFab.value,
     isAndroidEnv: isAndroidEnv.value,
   })
-  if (route.name === 'pdfViewer') {
+
+  if (currentRoute.name === 'pdfViewer') {
     pdfViewerStore.chatPanelVisible = !pdfViewerStore.chatPanelVisible
     console.log('[FloatingFab][Web] pdfViewer toggle chatPanelVisible ->', {
+      traceId,
+      chatPanelVisible: pdfViewerStore.chatPanelVisible,
+    })
+  } else if (currentRoute.name === 'htmlPreview' && isFromPdf) {
+    // 从 PDF 跳转来的 HTML 预览页，控制 PDF 对话面板
+    // 确保 MainChatPanel 是关闭的
+    if (showMainChatPanel.value) {
+      hideMainChatPanel()
+    }
+    pdfViewerStore.chatPanelVisible = !pdfViewerStore.chatPanelVisible
+    console.log('[FloatingFab][Web] htmlPreview(from=pdf) toggle chatPanelVisible ->', {
       traceId,
       chatPanelVisible: pdfViewerStore.chatPanelVisible,
     })
@@ -730,7 +709,7 @@ const handleFloatingFabClick = () => {
 
   console.log('[FloatingFab][Web] handleFloatingFabClick (after)', {
     traceId,
-    routeName: route.name,
+    routeName: currentRoute.name,
     showMainChatPanel: showMainChatPanel.value,
     pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
     showFab: showFab.value,
@@ -1328,7 +1307,6 @@ const handlePhotoQaClick = () => {
   width: 100%;
   height: 100vh;
   backdrop-filter: blur(5px);
-  border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;
   flex-direction: row;
   position: relative;

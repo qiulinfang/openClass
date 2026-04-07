@@ -28,13 +28,13 @@
       </p>
 
       <div class="dialog-actions">
-        <CommonActionButton
+        <Button
           :label="cancelButtonText"
           size="mdCompact"
           variant="ghost"
           @click="emit('cancel')"
         />
-        <CommonActionButton
+        <Button
           :label="confirmButtonText"
           size="mdCompact"
           variant="primary"
@@ -46,8 +46,8 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, defineExpose } from 'vue'
-import CommonActionButton from './Button.vue'
+import { ref, defineProps, defineEmits, defineExpose, watch } from 'vue'
+import Button from './Button.vue'
 
 // 定义组件属性
 const props = defineProps({
@@ -63,10 +63,14 @@ const props = defineProps({
     type: String,
     default: '取消',
   },
+  modelValue: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 定义组件事件
-const emit = defineEmits(['confirm', 'cancel'])
+const emit = defineEmits(['confirm', 'cancel', 'update:modelValue'])
 
 // 引用 <dialog> 元素
 const myDialog = ref(null)
@@ -87,7 +91,20 @@ const closeDialog = () => {
   if (myDialog.value) {
     myDialog.value.close()
   }
+  emit('update:modelValue', false)
 }
+
+// 监听 modelValue 变化，控制对话框显示/隐藏
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    if (newValue) {
+      openDialog()
+    } else {
+      closeDialog()
+    }
+  }
+)
 
 // 暴露打开和关闭方法，以便父组件可以控制对话框
 defineExpose({

@@ -42,17 +42,19 @@
         </div>
 
         <div class="capture-actions">
-          <button type="button" class="capture-action-btn" @click.stop="handleRetake">
-            重截
-          </button>
-          <button
-            type="button"
-            class="capture-action-btn primary"
+          <Button
+            label="重截"
+            size="md"
+            variant="ghost"
+            @click="handleRetake"
+          />
+          <Button
+            label="确认"
+            size="md"
+            variant="primary"
             :disabled="!cropRect"
-            @click.stop="handleConfirm"
-          >
-            确认
-          </button>
+            @click="handleConfirm"
+          />
         </div>
 
         <q-btn flat round dense @click.stop="handleCancel" class="capture-close-btn goback-btn">
@@ -67,6 +69,7 @@
 import type { CSSProperties } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import goBackIcon from '/icons/goback.svg'
+import Button from './Button.vue'
 
 interface Props {
   modelValue: boolean
@@ -768,36 +771,34 @@ onBeforeUnmount(() => {
   z-index: 10001;
 }
 
-.capture-action-btn {
-  height: 38px;
-  min-width: 86px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  font-size: 14px;
-}
-
-.capture-action-btn.primary {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(45, 111, 250, 0.95);
-}
-
-.capture-action-btn:disabled {
-  opacity: 0.45;
-}
-
-.capture-close-btn.goback-btn {
+/* 框选模式下的操作按钮容器 */
+.capture-actions {
   position: absolute;
-  right: 12px;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  z-index: 10001;
+}
+
+/* 返回按钮定位 */
+.capture-close-btn {
+  position: absolute;
+  left: 12px;
   top: 12px;
   z-index: 10002;
 }
 
+/* 返回按钮样式 - 参照 PdfViewerView */
+.goback-btn {
+  padding: 8px;
+}
+
 .goback-icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: block;
 }
 </style>

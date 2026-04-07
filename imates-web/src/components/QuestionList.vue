@@ -1,17 +1,21 @@
 <template>
   <div class="question-list" @click.capture="handleLinkClick" @click.stop>
     <!-- 全局加载遮罩 -->
-    <div
-      v-if="loading || renderingQuestions"
-      class="question-list-loading-overlay"
-    >
+    <div v-if="loading || renderingQuestions" class="question-list-loading-overlay">
       <div class="question-list-loading-spinner"></div>
       <div class="question-list-loading-text">题目加载中...</div>
     </div>
     <!-- 搜索输入框 -->
     <div class="search-container">
       <!-- 拍照搜题按钮：根据策略能力和 props 决定是否显示 -->
-      <q-btn v-if="props.showPhotoSearch !== false && strategy.canPhotoSearch()" flat round dense class="photo-search-btn" @click="handlePhotoSearch">
+      <q-btn
+        v-if="props.showPhotoSearch !== false && strategy.canPhotoSearch()"
+        flat
+        round
+        dense
+        class="photo-search-btn"
+        @click="handlePhotoSearch"
+      >
         <img :src="searchQuestionIcon" alt="拍照搜题" class="photo-search-icon" />
         <q-tooltip>拍照搜题</q-tooltip>
       </q-btn>
@@ -44,7 +48,11 @@
       <div v-if="displayedQuestions.length === 0 && !loading" class="native-empty-state">
         <q-icon name="quiz" size="80px" color="grey-5" />
         <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">
-          {{ searchQuery || selectedSubjectFilter ? strategy.getNoResultText() : strategy.getEmptyText() }}
+          {{
+            searchQuery || selectedSubjectFilter
+              ? strategy.getNoResultText()
+              : strategy.getEmptyText()
+          }}
         </div>
         <q-btn
           v-if="!searchQuery"
@@ -80,68 +88,106 @@
               <div class="question-header">
                 <!-- 左侧：题目序号 + 状态 -->
                 <div class="question-title-row">
-                  <div class="question-number">题目{{ getQuestionDisplayIndex(getQuestionUniqueId(question)) }}</div>
+                  <div class="question-number">
+                    题目{{ getQuestionDisplayIndex(getQuestionUniqueId(question)) }}
+                  </div>
                   <!-- 题目状态插槽 -->
                   <slot name="question-status" :question="question" :index="index" />
                 </div>
 
-                <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
-                <div class="question-actions" v-if="props.showQuestionActions !== false && isQuestionSelected(getQuestionUniqueId(question))">
-                  <q-btn
-                    v-if="strategy.canSendToAi() && props.showSendToAi !== false"
-                    flat
-                    round
-                    dense
-                    size="sm"
-                    class="action-btn"
-                    @click.stop="throttledSendToAi(question)"
+                <!-- 右侧：功能区 -->
+                <div class="question-actions">
+                  <!-- 仅当前题目选中时显示的按钮 -->
+                  <template
+                    v-if="
+                      props.showQuestionActions !== false &&
+                      isQuestionSelected(getQuestionUniqueId(question))
+                    "
                   >
-                    <img :src="askXuebanIcon" alt="问问学伴" class="action-icon" />
-                  </q-btn>
+                    <!-- 问问学伴 -->
+                    <q-btn
+                      v-if="strategy.canSendToAi() && props.showSendToAi !== false"
+                      flat
+                      round
+                      dense
+                      size="sm"
+                      class="action-btn"
+                      @click.stop="throttledSendToAi(question)"
+                    >
+                      <img :src="askXuebanIcon" alt="问问学伴" class="action-icon" />
+                    </q-btn>
 
-                  <q-btn
-                    v-if="strategy.canOpenMiniClass()"
-                    flat
-                    round
-                    dense
-                    size="sm"
-                    class="action-btn"
-                    @click.stop="throttledOpenMiniClass(question)"
-                  >
-                    <img :src="weikeIcon" alt="微课" class="action-icon" />
-                  </q-btn>
+                    <q-btn
+                      v-if="strategy.canOpenMiniClass()"
+                      flat
+                      round
+                      dense
+                      size="sm"
+                      class="action-btn"
+                      @click.stop="throttledOpenMiniClass(question)"
+                    >
+                      <img :src="weikeIcon" alt="微课" class="action-icon" />
+                    </q-btn>
 
-                  <!-- 更多按钮 + 自定义气泡框 BubblePopup -->
-                  <BubblePopup
-                    v-model="showMoreMenu[question.bmNo]"
-                    placement="bottom"
-                    :offset="8"
-                    :show-arrow="false"
-                  >
-                    <template #trigger>
-                      <q-btn
-                        icon="more_vert"
-                        color="grey-7"
-                        flat
-                        round
-                        size="sm"
-                        class="action-btn more-btn"
-                      >
-                      </q-btn>
-                    </template>
+                    
+                    <!-- 查看答案 -->
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      size="sm"
+                      class="action-btn"
+                      @click.stop="handleViewAnswer"
+                    >
+                      <q-tooltip>查看答案</q-tooltip>
+                      <img :src="daanIcon" alt="答案" class="action-icon" />
+                    </q-btn>
 
-                    <ActionList :items="buildMoreActions(question, index)">
-                      <!-- 额外操作插槽：例如“开始作答”等，由父组件通过插槽扩展 -->
-                      <template #extra>
-                        <slot
-                          name="more-extra"
-                          :question="question"
-                          :index="index"
-                          :close="() => closeMoreMenuById(question.bmNo)"
-                        />
+                    <!-- 举一反三 -->
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      size="sm"
+                      class="action-btn"
+                      @click.stop="handleViewSimilar"
+                    >
+                      <q-tooltip>举一反三</q-tooltip>
+                      <img :src="juyifansanIcon" alt="相似" class="action-icon" />
+                    </q-btn>
+
+                    <!-- 更多按钮 + 自定义气泡框 BubblePopup -->
+                    <BubblePopup
+                      v-model="showMoreMenu[question.bmNo]"
+                      placement="bottom"
+                      :offset="8"
+                      :show-arrow="false"
+                    >
+                      <template #trigger>
+                        <q-btn
+                          icon="more_vert"
+                          color="grey-7"
+                          flat
+                          round
+                          size="sm"
+                          class="action-btn more-btn"
+                        >
+                        </q-btn>
                       </template>
-                    </ActionList>
-                  </BubblePopup>
+
+                      <ActionList :items="buildMoreActions(question, index)">
+                        <!-- 额外操作插槽：例如"开始作答"等，由父组件通过插槽扩展 -->
+                        <template #extra>
+                          <slot
+                            name="more-extra"
+                            :question="question"
+                            :index="index"
+                            :close="() => closeMoreMenuById(question.bmNo)"
+                          />
+                        </template>
+                      </ActionList>
+                    </BubblePopup>
+                  </template>
                 </div>
               </div>
 
@@ -181,8 +227,6 @@
       :class-url="miniClassUrl"
       :question-title="miniClassQuestionTitle"
     />
-
-
     <!-- 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
 
@@ -215,6 +259,29 @@
         />
       </div>
     </Dialog>
+    <!-- 查看答案对话框 -->
+    <Modal
+      v-model="showAnswerDialog"
+      title="查看答案"
+      :initial-width="800"
+      :initial-height="600"
+      :show-footer="false"
+      :close-on-overlay-click="true"
+    >
+      <AnswerView />
+    </Modal>
+
+    <!-- 举一反三对话框 -->
+    <Modal
+      v-model="showSimilarDialog"
+      title="举一反三"
+      :initial-width="900"
+      :initial-height="700"
+      :show-footer="false"
+      :close-on-overlay-click="true"
+    >
+      <SimilarQuestionList @questionAdded="refreshQuestions" />
+    </Modal>
   </div>
 </template>
 <script setup lang="ts">
@@ -224,7 +291,6 @@ import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { useHomeworkStore } from '../stores/homeworkStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem } from '../types'
 import { apiService } from '../services/http/api-service'
 import { MathJaxUtils } from '../utils/math/mathjax'
@@ -234,8 +300,11 @@ import MiniClass from './MiniClass.vue'
 import ImageViewer from './ImageViewer.vue'
 import RubberBandList from './base/VirtualList.vue'
 import Dialog from './base/Dialog.vue'
+import Modal from './base/Modal.vue'
 import BubblePopup from './base/Popover.vue'
 import ActionList from './ActionList.vue'
+import AnswerView from './AnswerView.vue'
+import SimilarQuestionList from './SimilarQuestionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { normalizeSubject } from '../constants/subjects'
 
@@ -252,6 +321,8 @@ import shoucangIcon from '/icons/shoucang1.svg'
 import xingxingLightIcon from '/icons/xingxing-light.svg'
 import askXuebanIcon from '/icons/askXueban.svg'
 import weikeIcon from '/icons/weike.svg'
+import daanIcon from '/icons/daan.svg'
+import juyifansanIcon from '/icons/juyifansan.svg'
 
 const handleLinkClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement | null
@@ -262,30 +333,35 @@ const handleLinkClick = (event: MouseEvent) => {
   }
 }
 
-const props = withDefaults(defineProps<{
-  searchQuery?: string
-  selectedSubjectFilter?: string | null
-  // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
-  externalQuestions?: ExerciseItem[]
-  // 是否显示拍照搜题按钮，默认 true
-  showPhotoSearch?: boolean
-  // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
-  showSendToAi?: boolean
-  // 是否显示题目辅助功能（微课、更多菜单等），默认 true；作业场景可关闭
-  showQuestionActions?: boolean
-  // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
-  type?: QuestionListType
-}>(), {
-  showSendToAi: true,
-  showQuestionActions: true,
-})
+const props = withDefaults(
+  defineProps<{
+    searchQuery?: string
+    selectedSubjectFilter?: string | null
+    // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
+    externalQuestions?: ExerciseItem[]
+    // 是否显示拍照搜题按钮，默认 true
+    showPhotoSearch?: boolean
+    // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
+    showSendToAi?: boolean
+    // 是否显示题目辅助功能（微课、更多菜单等），默认 true；作业场景可关闭
+    showQuestionActions?: boolean
+    // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
+    type?: QuestionListType
+  }>(),
+  {
+    showSendToAi: true,
+    showQuestionActions: true,
+  }
+)
 
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
   openMiniClass: [question: ExerciseItem]
+  viewAnswer: []
+  viewSimilar: []
   'update:searchQuery': [value: string]
-  'questionDeleted': [payload: { questionId: string; withDraft: boolean }]
+  questionDeleted: [payload: { questionId: string; withDraft: boolean }]
   'paste-to-draft': [payload: { dataUrl: string; questionId: string }]
 }>()
 
@@ -321,7 +397,7 @@ const currentPage = ref(1) // 当前页码
 // 2) 非受控：父组件不传 searchQuery，由组件内部维护
 const internalSearchQuery = ref('')
 const searchQuery = computed(() => {
-  return props.searchQuery !== undefined ? (props.searchQuery || '') : internalSearchQuery.value
+  return props.searchQuery !== undefined ? props.searchQuery || '' : internalSearchQuery.value
 }) //搜索关键词
 const selectedSubjectFilter = computed(() => props.selectedSubjectFilter || null) //全部学科
 
@@ -420,19 +496,24 @@ const deleteDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
 
-// UI Store（用于微课对话框）
-const uiStore = useUIStore()
-const showMiniClassDialog = computed({
-  get: () => uiStore.showMiniClassDialog,
-  set: (value) => {
-    if (!value) {
-      uiStore.closeMiniClassDialog()
-    }
-  },
-})
-const miniClassUrl = computed(() => uiStore.miniClassUrl)
-const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
+// 微课对话框状态（局部状态，不依赖 uiStore）
+const showMiniClassDialog = ref(false)
+const miniClassUrl = ref<string>('')
+const miniClassQuestionTitle = ref<string>('')
 
+// 打开微课对话框
+const openMiniClassDialog = (url: string, questionTitle?: string) => {
+  miniClassUrl.value = url
+  miniClassQuestionTitle.value = questionTitle || ''
+  showMiniClassDialog.value = true
+}
+
+// 关闭微课对话框
+const closeMiniClassDialog = () => {
+  showMiniClassDialog.value = false
+  miniClassUrl.value = ''
+  miniClassQuestionTitle.value = ''
+}
 
 // 计算属性
 const filteredQuestions = computed(() => {
@@ -441,7 +522,9 @@ const filteredQuestions = computed(() => {
   // 先应用学科过滤
   if (selectedSubjectFilter.value) {
     const filterSubject = normalizeSubject(selectedSubjectFilter.value)
-    result = result.filter((question) => normalizeSubject((question as any).subject) === filterSubject)
+    result = result.filter(
+      (question) => normalizeSubject((question as any).subject) === filterSubject
+    )
   }
 
   // 再应用搜索过滤
@@ -491,31 +574,30 @@ let setQuestionCardRefImpl: (
   index: number
 ) => void = () => {}
 
-  // 处理内容引用（用于模板中的 ref）
-  const handleContentRef = (el: unknown, questionId: string) => {
-    const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
-    if (element instanceof HTMLElement) {
-      setContentRef(element, questionId)
-    }
+// 处理内容引用（用于模板中的 ref）
+const handleContentRef = (el: unknown, questionId: string) => {
+  const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
+  if (element instanceof HTMLElement) {
+    setContentRef(element, questionId)
   }
+}
 
-  // 设置内容引用，渲染MathJax并标记为已渲染完成
-  const setContentRef = async (el: HTMLElement | null, questionId: string) => {
-    if (el) {
-      contentRefs.value.set(questionId, el)
+// 设置内容引用，渲染MathJax并标记为已渲染完成
+const setContentRef = async (el: HTMLElement | null, questionId: string) => {
+  if (el) {
+    contentRefs.value.set(questionId, el)
 
+    // 渲染MathJax
+    await MathJaxUtils.renderMath(el, false)
 
-      // 渲染MathJax
-      await MathJaxUtils.renderMath(el, false)
+    // 给图片添加点击事件监听器
+    await nextTick()
+    attachImageClickListeners(el)
 
-      // 给图片添加点击事件监听器
-      await nextTick()
-      attachImageClickListeners(el)
-
-      // 标记该题目已完成渲染（包括公式和图片处理）
-      questionRenderedMap.value.set(questionId, true)
-    }
+    // 标记该题目已完成渲染（包括公式和图片处理）
+    questionRenderedMap.value.set(questionId, true)
   }
+}
 
 // 给元素内的所有图片添加点击事件监听器
 const attachImageClickListeners = (container: HTMLElement) => {
@@ -733,7 +815,11 @@ const callGaokaoChoiceParse = async (question: ExerciseItem) => {
       (data?.questionContent || '').toString(),
       options.length
         ? options
-            .map((o) => `${(o.optionId || '').toString().trim()} ${(o.optionContent || '').toString().trim()}`.trim())
+            .map((o) =>
+              `${(o.optionId || '').toString().trim()} ${(o.optionContent || '')
+                .toString()
+                .trim()}`.trim()
+            )
             .join('\n')
         : '',
     ]
@@ -807,7 +893,6 @@ const getAiSubjectFromQuestion = (question: ExerciseItem): 'MATH' | 'BIOLOGY' =>
   const s = normalizeSubject((question as any).subject)
   return s === 'biology' ? 'BIOLOGY' : 'MATH'
 }
-
 
 const openDeleteDialog = (question: ExerciseItem) => {
   deleteTargetQuestion.value = question
@@ -918,7 +1003,29 @@ const deleteQuestion = async () => {
   }
 }
 
-// 取消删除对话框
+// 对话框状态
+const showAnswerDialog = ref(false)
+const showSimilarDialog = ref(false)
+
+// 查看答案处理方法
+const handleViewAnswer = () => {
+  if (!currentQuestion.value) {
+    showMessage('请先选择一道题目', 'warning')
+    return
+  }
+  showAnswerDialog.value = true
+  emit('viewAnswer')
+}
+
+// 举一反三处理方法
+const handleViewSimilar = () => {
+  if (!currentQuestion.value) {
+    showMessage('请先选择一道题目', 'warning')
+    return
+  }
+  showSimilarDialog.value = true
+  emit('viewSimilar')
+}
 const cancelDeleteDialog = () => {
   // 关闭对话框并重置相关状态
   if (deleteDialogRef.value && typeof (deleteDialogRef.value as any).closeDialog === 'function') {
@@ -987,7 +1094,7 @@ const loadQuestions = async () => {
     loading.value = false
     return
   }
-  
+
   const currentStrategy = strategy.value
   console.log('[QuestionList] 开始加载题目', {
     type: props.type || 'exercise',
@@ -1069,7 +1176,7 @@ const handlePullDownRefresh = async () => {
     }
     return
   }
-  
+
   const currentStrategy = strategy.value
   try {
     console.log('[QuestionList] 下拉刷新开始', {
@@ -1209,9 +1316,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     const currentStrategy = strategy.value
     const targetQuestion = list[targetIndex]
     const storeQuestions = currentStrategy.getQuestions()
-    const storeIndex = storeQuestions.findIndex(
-      (q: ExerciseItem) => q.bmNo === targetQuestion.bmNo
-    )
+    const storeIndex = storeQuestions.findIndex((q: ExerciseItem) => q.bmNo === targetQuestion.bmNo)
     if (storeIndex >= 0) {
       await currentStrategy.selectQuestion(storeIndex)
     }
@@ -1262,7 +1367,6 @@ const moveQuestionToTop = async (questionId: string) => {
 
     // 通过策略同步到 store
     await currentStrategy.setQuestions(questions.value, selectedSubject.value)
-
   } catch {
     showMessage('操作失败', 'error')
   }
@@ -1273,7 +1377,6 @@ const moveQuestionToTop = async (questionId: string) => {
 // 发送给AI
 const sendToAi = async (question: ExerciseItem) => {
   try {
-    
     // 发出事件通知父组件切换到AI聊天界面
     emit('startAiGuidance', question)
     const aiExerciseStore = useAiExerciseChatStore()
@@ -1282,7 +1385,8 @@ const sendToAi = async (question: ExerciseItem) => {
     const aiSubject = getAiSubjectFromQuestion(question)
 
     // 根据当前列表类型 / 策略判断使用哪个 store
-    const isHomeworkType = strategy.value?.getListTitle?.() === '我的作业' || props.type === 'homework'
+    const isHomeworkType =
+      strategy.value?.getListTitle?.() === '我的作业' || props.type === 'homework'
 
     if (isHomeworkType) {
       // 作业场景：使用 homeworkStore
@@ -1317,7 +1421,7 @@ const sendToAi = async (question: ExerciseItem) => {
         aiSubject,
         'mate',
         undefined,
-        true,
+        true
       )
     } else {
       // 习题场景：沿用 questionStore 逻辑
@@ -1361,10 +1465,9 @@ const sendToAi = async (question: ExerciseItem) => {
         aiSubject,
         'mate',
         undefined,
-        true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
+        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
     }
-
   } catch (error) {
     // 发生错误时重置AI指导状态（仅对习题场景有效）
     const questionStore = useQuestionStore()
@@ -1417,16 +1520,25 @@ const sendToAi = async (question: ExerciseItem) => {
 // 打开微课（使用Web技术实现）
 const openMiniClass = async (question: ExerciseItem) => {
   try {
-    // 使用硬编码的微课URL
-    const classUrl = 'https://www.imates.com.cn:9099/demo/demo1.html'
+    const bmNo = (question.bmNo || '').trim()
+    if (!bmNo) {
+      showMessage('题目编号缺失，无法打开微课', 'warning')
+      return
+    }
+
+    // 使用题目的小写subject作为前缀
+    const subjectPrefix = (question.subject || 'math').toLowerCase()
+
+    // 按学科 + bmNo 动态拼接微课 URL
+    const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
 
     if (!classUrl || classUrl.trim() === '') {
       showMessage('该题目暂无微课', 'warning')
       return
     }
 
-    // 优先通过事件通知父组件（ExerciseSolveView）打开微课
-    emit('openMiniClass', question)
+    // 直接打开微课对话框，无需父组件参与
+    openMiniClassDialog(classUrl, question?.title || question?.question || '')
   } catch {
     showMessage('打开微课失败', 'error')
   }
@@ -1490,7 +1602,7 @@ watch(
       currentPage.value = 1
       return
     }
-    
+
     // 学科过滤时重置显示数量和页码
     displayedCount.value = INITIAL_DISPLAY_COUNT
     currentPage.value = 1
@@ -1752,7 +1864,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-x: hidden;
     background-color: #f7f6ff;
     position: relative;
-    padding: 0 8px 8px 8px;
+    padding: 0 16px;
   }
 
   // 分页器容器（Gemini 风格）
@@ -1849,36 +1961,56 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
     }
 
-    // 题目组块 - 去除卡片效果
+    // 题目组块 - 固定高度，内容溢出省略号，默认白色背景
     .question-block {
-      background-color: transparent;
+      background-color: #fcfcff;
       border-radius: 12px;
-      overflow: visible; // 改为visible以允许长公式显示
-      border: none;
+      overflow: hidden;
+      border: 1px solid transparent;
       box-shadow: none;
       transition: all 0.2s ease;
-      min-width: 0; // 允许组块收缩
+      min-width: 0;
+      height: 120px;
     }
 
-    // 悬停效果 - 去除卡片效果
-    &:hover {
-      .question-block {
-        background-color: transparent;
-        border-radius: 12px;
-        box-shadow: none;
+    // 题目内容区域 - 文字颜色
+    .question-content-area {
+      .question-content,
+      .markdown-content {
+        color: #393548;
+      }
+
+      :deep(*) {
+        color: #393548;
       }
     }
 
-    // 选中状态 - 背景白色，边框紫色
-    &.question-selected {
-      position: relative; // 确保可以相对定位伪元素
+    // 题目序号颜色
+    .question-header .question-number {
+      color: #393548;
+    }
+
+    // 悬停效果
+    &:hover {
       .question-block {
         background-color: $background-white;
         border-radius: 12px;
         box-shadow: none;
       }
+    }
 
-      // 选中时题目内容颜色变为黑色
+    // 选中状态 - 保持相同样式
+    &.question-selected {
+      position: relative;
+
+      .question-block {
+        background-color: $background-white;
+        border-radius: 12px;
+        box-shadow: none;
+        border: 1px solid #8b5cf6;
+      }
+
+      // 选中时题目内容颜色
       .question-content-area {
         .question-content,
         .markdown-content {
@@ -1890,32 +2022,12 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
       }
 
-      // 用 ::before 画出紫色描边，不影响布局
-      &::before {
-        content: '';
-        position: absolute;
-        inset: 0; // 覆盖整个 li 区域
-        border-radius: 12px;
-        pointer-events: none;
-        box-shadow: 0 0 0 1px #8b5cf6; // 相当于 1px 边框，但不占空间
-      }
-
-      // 选中时题目序号也变为黑色
+      // 选中时题目序号颜色
       .question-header .question-number {
         color: #393548;
       }
     }
 
-    &:not(.question-selected) {
-      :deep(.question-img-wrap)::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: 8px;
-        background-color: rgba(247, 246, 255, 0.55);
-        pointer-events: none;
-      }
-    }
   }
 
   // 题目头部
@@ -1982,6 +2094,23 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             color: $text-primary;
           }
         }
+
+        // 文字按钮样式（答案、相似）
+        .action-text {
+          font-size: 11px;
+          font-weight: 500;
+          color: $text-secondary;
+          white-space: nowrap;
+        }
+
+        &:hover .action-text {
+          color: $primary-color;
+        }
+
+        &:disabled .action-text {
+          color: $text-tertiary;
+          opacity: 0.5;
+        }
       }
     }
 
@@ -1993,62 +2122,28 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       flex: 1;
       min-width: 0;
     }
-
   }
 
-  // 题目内容区域
+  // 题目内容区域 - 固定高度，溢出省略号
   .question-content-area {
     background-color: transparent;
     @include responsive-padding(6px 16px 16px 16px, 8px 20px 20px 20px);
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden; // 改为hidden以支持省略号
     min-width: 0; // 允许内容收缩
+    height: calc(120px - 40px); // 卡片高度减去头部高度
+    display: -webkit-box;
+    -webkit-line-clamp: 3; // 显示3行后截断
+    line-clamp: 3; // 标准属性
+    -webkit-box-orient: vertical;
 
-    // 内容区域滚动条样式
-    &::-webkit-scrollbar {
-      height: 4px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.05);
-      border-radius: 3px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 3px;
-      transition: background 0.2s ease;
-    }
-
-    &::-webkit-scrollbar-thumb:hover {
-      background: rgba(0, 0, 0, 0.4);
-    }
-
-    // 确保内容区域可以处理长公式
-    .question-content {
-      min-width: 0;
-      overflow-x: auto;
-      overflow-y: hidden;
-
-      // 内容滚动条样式
-      &::-webkit-scrollbar {
-        height: 4px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.05);
-        border-radius: 3px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 3px;
-        transition: background 0.2s ease;
-      }
-
-      &::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 0, 0, 0.4);
-      }
+    :deep(.question-content),
+    :deep(.markdown-content) {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      line-clamp: 3; // 标准属性
+      -webkit-box-orient: vertical;
     }
   }
 }
@@ -2094,7 +2189,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 .markdown-content {
   font-size: 14px !important;
   line-height: 1.5;
-  color: #9792AC;
+  color: #9792ac;
   overflow-x: auto;
   overflow-y: hidden;
   word-wrap: break-word;
@@ -2118,7 +2213,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
   }
 
-
   :deep(p) {
     margin: 0 0 8px 0;
     font-size: inherit;
@@ -2141,12 +2235,12 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
   :deep(strong) {
     font-weight: 500;
-    color: #9792AC;
+    color: #9792ac;
   }
 
   :deep(em) {
     font-style: italic;
-    color: #9792AC;
+    color: #9792ac;
   }
 
   :deep(code) {
@@ -2155,7 +2249,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 6px;
     font-family: 'Google Sans Mono', 'Courier New', monospace;
     font-size: 0.9em;
-    color: #9792AC;
+    color: #9792ac;
   }
 
   :deep(img) {
@@ -2201,7 +2295,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
   :deep(li) {
     margin: 4px 0;
-    color: #9792AC;
+    color: #9792ac;
   }
 
   :deep(*) {
@@ -2217,7 +2311,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   :deep(h6) {
     margin: 12px 0 8px 0;
     font-weight: 500;
-    color: #9792AC;
+    color: #9792ac;
   }
 
   :deep(table) {
@@ -2239,7 +2333,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   :deep(th) {
     background-color: $background-grey;
     font-weight: 500;
-    color: #9792AC;
+    color: #9792ac;
   }
 }
 
@@ -2295,7 +2389,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 .markdown-content {
   font-size: 13px !important;
-  color: #9792AC;
+  color: #9792ac;
   overflow: visible;
 }
 
@@ -2306,7 +2400,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         .question-header {
           .question-number {
             font-size: 11px;
-            color: #9792AC;
+            color: #9792ac;
           }
 
           .question-actions {
@@ -2441,5 +2535,4 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     transform: rotate(360deg);
   }
 }
-
 </style>

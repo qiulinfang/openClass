@@ -27,59 +27,8 @@
       </q-input>
     </div>
 
-    <!-- 批量选择工具栏 -->
-    <q-toolbar v-if="isSelectionMode" class="selection-toolbar">
-      <!-- 左侧：关闭按钮 -->
-      <q-btn flat round icon="close" @click="exitSelectionMode" size="md" />
-
-      <!-- 中间：选择状态 -->
-      <div class="selection-info">
-        <q-icon name="check_circle" class="selection-icon" />
-        <span class="selection-text">{{ selectedRecords.size }} 个会话已选择</span>
-      </div>
-
-      <!-- 右侧：操作按钮 -->
-      <div class="action-buttons">
-        <!-- 全选/取消全选 -->
-        <q-btn
-          flat
-          round
-          icon="check_box"
-          @click="toggleSelectAll"
-          size="md"
-          :color="selectedRecords.size === records.length ? 'primary' : 'grey-6'"
-        >
-          <q-tooltip>{{ selectedRecords.size === records.length ? '取消全选' : '全选' }}</q-tooltip>
-        </q-btn>
-
-        <!-- 批量删除 -->
-        <q-btn
-          flat
-          round
-          icon="delete"
-          @click="handleBatchDelete"
-          :disable="selectedRecords.size === 0"
-          size="md"
-          color="negative"
-        >
-          <q-tooltip>删除选中</q-tooltip>
-        </q-btn>
-      </div>
-    </q-toolbar>
-
-    <!-- 空状态 -->
-    <div v-if="!filteredRecords || filteredRecords.length === 0" class="empty-state">
-      <q-icon name="chat" size="48px" color="grey-5" />
-      <div class="q-mt-md text-h6 text-grey-6">
-        {{ searchKeyword ? '未找到匹配的会话' : '暂无会话' }}
-      </div>
-      <div class="q-mt-sm text-caption text-grey-5">
-        {{ searchKeyword ? '尝试使用其他关键词搜索' : '您的会话记录将显示在这里' }}
-      </div>
-    </div>
-
     <!-- 会话列表 -->
-    <RubberBandList v-else class="scroll-wrapper">
+    <RubberBandList v-if="filteredRecords && filteredRecords.length > 0" class="scroll-wrapper">
       <div class="scroll-content">
         <div ref="sessionItemsRef" class="session-items">
           <!-- 置顶会话区域 -->
@@ -94,10 +43,10 @@
               :is-selection-mode="isSelectionMode"
               :selected-record-ids="selectedRecords"
               @click="handleItemClick(record)"
-              @contextmenu="handleLongPress(record)"
               @checkbox-change="toggleRecordSelection(getRecordId(record))"
               @pin="handlePin(record)"
               @delete="handleDelete(record)"
+              @enter-selection-mode="enterSelectionModeAndSelect(record)"
             />
           </div>
           <!--  按日期分组 -->
@@ -112,15 +61,73 @@
               :is-selection-mode="isSelectionMode"
               :selected-record-ids="selectedRecords"
               @click="handleItemClick(record)"
-              @contextmenu="handleLongPress(record)"
               @checkbox-change="toggleRecordSelection(getRecordId(record))"
               @pin="handlePin(record)"
               @delete="handleDelete(record)"
+              @enter-selection-mode="enterSelectionModeAndSelect(record)"
             />
           </div>
         </div>
       </div>
     </RubberBandList>
+
+    <!-- 批量选择工具栏 - 新设计（与 ChatView 样式统一）-->
+    <div v-if="isSelectionMode" class="selection-toolbar">
+      <!-- 左侧：全选区域 -->
+      <div class="selection-left" :title="isAllSelected ? '取消全选' : '全选'">
+        <Checkbox
+          :modelValue="isAllSelected"
+          :indeterminate="selectedRecords.size > 0 && !isAllSelected"
+          size="md"
+          @update:modelValue="toggleSelectAll"
+        />
+        <span class="select-all-text">全选</span>
+        <span class="selection-count">已选{{ selectedRecords.size }}/{{ filteredRecords.length }}</span>
+      </div>
+
+      <!-- 右侧：操作按钮组 -->
+      <div class="selection-actions">
+        <Button
+          label="取消"
+          variant="outline"
+          size="md"
+          @click="exitSelectionMode"
+        />
+
+        <Button
+          label="删除"
+          size="md"
+          :disabled="selectedRecords.size === 0"
+          @click="handleBatchDelete"
+        />
+      </div>
+    </div>
+
+    <!-- 删除确认对话框 -->
+    <Dialog
+      v-model="showDeleteConfirm"
+      title="确认删除"
+      confirm-text="删除"
+      cancel-text="取消"
+      :confirm-color="'negative'"
+      @confirm="executeDelete"
+      @cancel="showDeleteConfirm = false"
+    >
+      {{ deleteConfirmContent }}
+    </Dialog>
+
+    <!-- 批量删除确认对话框 -->
+    <Dialog
+      v-model="showBatchDeleteConfirm"
+      title="确认批量删除"
+      confirm-text="删除"
+      cancel-text="取消"
+      :confirm-color="'negative'"
+      @confirm="executeBatchDelete"
+      @cancel="showBatchDeleteConfirm = false"
+    >
+      确定要删除选中的 {{ selectedRecords.size }} 个会话吗？删除后无法恢复。
+    </Dialog>
   </div>
 </template>
 
@@ -129,6 +136,9 @@ import { ref, computed, onMounted } from 'vue'
 import type { AiTextbookSession } from '@/types'
 import RubberBandList from './base/VirtualList.vue'
 import SessionItem from './SessionItem.vue'
+import Checkbox from './base/Checkbox.vue'
+import Button from './base/Button.vue'
+import Dialog from './base/Dialog.vue'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getRecordId = (record: AiTextbookSession): string => {
@@ -176,6 +186,18 @@ const searchKeyword = ref('')
 const isSelectionMode = ref(false)
 const selectedRecords = ref<Set<string>>(new Set())
 
+// 删除确认对话框状态
+const showDeleteConfirm = ref(false)
+const showBatchDeleteConfirm = ref(false)
+const pendingDeleteRecord = ref<AiTextbookSession | null>(null)
+const deleteConfirmContent = computed(() => {
+  if (pendingDeleteRecord.value) {
+    const name = getRecordName(pendingDeleteRecord.value) || '该会话'
+    return `确定要删除"${name}"吗？删除后无法恢复。`
+  }
+  return '确定要删除该会话吗？删除后无法恢复。'
+})
+
 // ==================== 计算属性 ====================
 
 // 获取所有置顶的会话
@@ -216,7 +238,12 @@ const groupedRecords = computed(() => {
 	// 重新组装为 Record<string, AiTextbookSession[]>，保持原有返回结构
 	const sortedGroups: Record<string, AiTextbookSession[]> = {}
 	sortedEntries.forEach(([dateStr, info]) => {
-		sortedGroups[dateStr] = info.records
+		// 每个日期分组内的记录也按时间从新到旧排序
+		sortedGroups[dateStr] = info.records.sort((a, b) => {
+			const aTime = getRecordTimestamp(b)
+			const bTime = getRecordTimestamp(a)
+			return aTime - bTime // 倒序：新的在前
+		})
 	})
 
 	return sortedGroups
@@ -251,11 +278,15 @@ const filteredRecords = computed(() => {
     console.log('filtered', filtered)
   }
 
-  // 排序：pinned 的记录排在前面
+  // 排序：pinned 的记录排在前面，同 pinned 状态的按时间从新到旧排序
   return filtered.sort((a, b) => {
+    // 先按 pinned 排序
     if (a.pinned && !b.pinned) return -1
     if (!a.pinned && b.pinned) return 1
-    return 0
+    // 同 pinned 状态的，按时间从新到旧排序（更新时间大的在前）
+    const aTime = getRecordTimestamp(b) // 注意：b 的时间更大应该在前
+    const bTime = getRecordTimestamp(a)
+    return aTime - bTime // 倒序：新的在前
   })
 })
 
@@ -282,10 +313,16 @@ const toggleSelectAll = () => {
   }
 }
 
-// 进入批量选择模式
-const enterSelectionMode = () => {
+// 判断是否全选
+const isAllSelected = computed(() => {
+  return filteredRecords.value.length > 0 && selectedRecords.value.size === filteredRecords.value.length
+})
+
+// 进入批量选择模式并选中指定记录（通过多选菜单触发）
+const enterSelectionModeAndSelect = (record: AiTextbookSession) => {
   isSelectionMode.value = true
   selectedRecords.value.clear()
+  toggleRecordSelection(getRecordId(record))
 }
 
 // 退出批量选择模式
@@ -294,13 +331,17 @@ const exitSelectionMode = () => {
   selectedRecords.value.clear()
 }
 
-// 处理批量删除
+// 处理批量删除（显示确认对话框）
 const handleBatchDelete = () => {
   if (selectedRecords.value.size === 0) return
+  showBatchDeleteConfirm.value = true
+}
 
+// 执行批量删除
+const executeBatchDelete = () => {
   const recordIds = Array.from(selectedRecords.value)
   emit('batch-delete', recordIds)
-
+  showBatchDeleteConfirm.value = false
   // 退出选择模式
   exitSelectionMode()
 }
@@ -314,22 +355,24 @@ const handleItemClick = (record: AiTextbookSession) => {
   }
 }
 
-// 处理长按（进入批量选择模式）
-const handleLongPress = (record: AiTextbookSession) => {
-  if (!isSelectionMode.value) {
-    enterSelectionMode()
-    toggleRecordSelection(getRecordId(record))
-  }
-}
-
 // 处理置顶/取消置顶
 const handlePin = (record: AiTextbookSession) => {
   emit('record-pin', record)
 }
 
-// 处理删除
+// 处理删除（显示确认对话框）
 const handleDelete = (record: AiTextbookSession) => {
-  emit('record-delete', record)
+  pendingDeleteRecord.value = record
+  showDeleteConfirm.value = true
+}
+
+// 执行删除
+const executeDelete = () => {
+  if (pendingDeleteRecord.value) {
+    emit('record-delete', pendingDeleteRecord.value)
+    pendingDeleteRecord.value = null
+  }
+  showDeleteConfirm.value = false
 }
 
 
@@ -388,7 +431,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #f7f7f7;
+  background-color: #f7f6ff;
 }
 
 .session-header {
@@ -431,34 +474,37 @@ defineExpose({
 .selection-toolbar {
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
-  padding: 8px 16px;
+  padding: 8px 12px;
   min-height: 56px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
 
-  .selection-info {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.selection-toolbar .selection-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
 
-    .selection-icon {
-      color: #1976d2;
-      font-size: 20px;
-    }
+.selection-toolbar .select-all-text {
+  color: #374151;
+  font-size: 14px;
+  margin-left: 4px;
+}
 
-    .selection-text {
-      color: #333;
-      font-size: 14px;
-      font-weight: 500;
-    }
-  }
+.selection-toolbar .selection-count {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-left: 8px;
+}
 
-  .action-buttons {
-    display: flex;
-    gap: 4px;
-  }
+.selection-toolbar .selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .empty-state {

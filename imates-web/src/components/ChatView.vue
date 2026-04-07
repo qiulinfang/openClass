@@ -103,7 +103,7 @@
           :data-message-id="message.id"
         >
           <!-- 消息组件 -->
-          <ChatMessageComponent
+          <ChatMessage
             :message="message"
             :type="type"
             :current-question="currentQuestion"
@@ -111,6 +111,7 @@
             :is-selection-mode="isSelectionMode"
             :message-index="index"
             :is-last-message="isLastMessage(index)"
+            :is-last-user-message="index === lastUserMessageIndex"
             :show-action-buttons="showActionButtons"
             :enable-long-press="enableLongPress"
             :show-read-status="showReadStatus"
@@ -258,15 +259,13 @@
           :quoted-message="quotedMessage"
           :attached-screenshots="strategyInputAttachedScreenshots"
           :show-toolbar="showToolbar"
+          :toolbar-tools="props.toolbarTools"
           @send-message="sendMessage"
-          @send-with-screenshot="handleSendWithScreenshot"
-          @remove-screenshot="handleRemoveScreenshot"
-          @edit-screenshot="handleEditScreenshot"
           @remove-quote="handleRemoveQuote"
+          @edit-screenshot="handleEditScreenshot"
+          @remove-screenshot="handleRemoveScreenshot"
+          @send-with-screenshot="handleSendWithScreenshot"
           @blur="onInputBlur"
-          @start-voice-input="startVoiceInput"
-          @stop-voice-input="stopVoiceInput"
-          @voice-move="handleVoiceMove"
           @show-image-picker="showImagePickerDialog"
           @toggle-web-search="toggleWebSearch"
           @update:selected-model="selectedModel = $event"
@@ -274,6 +273,8 @@
           @cancel-edit="cancelEditMessage"
           @scroll-to-bottom="scrollToBottom"
           @ask-teacher-click="handleEnterMultiSelect"
+          @screenshot-click="emit('screenshot-click')"
+          @new-session-click="emit('new-session-click')"
           @focus="
             () => {
               isActiveInstance = true
@@ -337,8 +338,6 @@
         与学伴共学，敢质疑、会判断，思维不设限!
       </div>
     </div>
-    <!-- 语音录制组件 - 显示录音状态和取消提示 -->
-    <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
     <!-- 删除会话确认对话框 -->
     <Dialog
@@ -382,7 +381,6 @@
       v-if="screenshotEditorVisible"
       v-model="screenshotEditorVisible"
       :mode="screenshotEditorMode"
-      :screenshot-data-url="screenshotEditorDataUrl"
       :initial-shot-id="screenshotEditorInitialShotId"
       :existing-screenshots="strategyInputAttachedScreenshots"
       :drawing-states-from-parent="strategyInputScreenshotDrawingStatesForDialog"
@@ -411,11 +409,10 @@ import { showMessage } from '../utils'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 
 // 子组件导入
-import ChatMessageComponent from './chat/ChatMessage.vue'
+import ChatMessage from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import Modal from './base/Modal.vue' //不要删除此处引用
 import SimpleChatInput from './chat/SimpleChatInput.vue'
-import VoiceRecorder from './chat/VoiceRecorder.vue'
 import CardStack from './base/CardStack.vue'
 import RubberBandList from './base/VirtualList.vue'
 import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
@@ -429,6 +426,7 @@ import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
 import type { ChatBubble, AttachedScreenshot } from '../types'
 import type { ChatImageData } from '../stores/utils/chatStoreUtils'
 import type { HtmlPreviewFocus } from '../types'
+import type { BuiltinToolType, ToolbarTool } from '../types/toolbarTools'
 import { Sender } from '../types/enums'
 
 interface ScreenshotDrawingState {
@@ -439,6 +437,7 @@ interface ScreenshotDrawingState {
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy, type ChatViewInterface } from './chat/strategies'
+import { findLastUserMessageIndex } from './chat/messageActionVisibility'
 
 // ==================== 组件配置 ====================
 // 定义组件属性 - 支持AI和老师两种对话模式
@@ -461,6 +460,7 @@ const props = withDefaults(
     enableLongPress?: boolean // 是否启用消息长按功能
     showReadStatus?: boolean // 是否显示消息已读状态
     showTime?: boolean // 是否显示消息时间
+    toolbarTools?: (BuiltinToolType | ToolbarTool)[] // 工具栏工具配置数组（支持字符串或对象）
   }>(),
   {
     inputMode: 'full',
@@ -507,7 +507,9 @@ const emit = defineEmits<{
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
   'edit-screenshot': [id: string]
-  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
+  'screenshot-click': [] // 截图/选中并问按钮点击事件（统一处理 screenshot 和 select-and-ask）
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }] // 请求截图事件，由父组件处理
+  'new-session-click': [] // 新建会话按钮点击事件
 }>()
 
 const toSenderEnum = (sender: 'ai' | 'teacher' | 'user'): Sender => {
@@ -609,12 +611,8 @@ const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单
 const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话卡片堆叠组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
 
-// 处理 ChatInput 发出的 send-with-screenshot 事件
-// - ai-general 和 user-client 场景：统一走本地 sendMessage（此时 inputMessage 已由 ChatInput 更新，图片则通过 inputAttachedScreenshots 传入）
-// - 其它场景（如 ai-textbook）：保持向上传递，由上层（如 PdfViewerView）处理多图截图发送
 const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
-  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') {
-    // 对于 ai-general / ai-exercise / user-client：直接复用 sendMessage，内部会根据 inputAttachedScreenshots 构造 imageData
+  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook' || props.type === 'user-client') {
     void sendMessage()
   } else {
     emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
@@ -628,12 +626,12 @@ const handleEditScreenshot = (id: string) => {
     mode: 'multiple',
     initialShotId: id,
     lastCapturedShotId: '',
-    dataUrl: '',
   })
 }
 
 const requestScreenshot = () => {
   const kind = chatStrategy.value?.getScreenshotEntryKind?.() ?? 'screen_snapshot'
+  // 直接 emit 事件给父组件处理，不再使用全局事件
   emit('request-screenshot', { kind })
 }
 
@@ -802,11 +800,25 @@ const handleImageCropConfirm = async (croppedDataUrl: string) => {
 
     const shouldAnnotate = chatStrategy.value?.shouldAnnotateAfterCrop?.() ?? true
     if (shouldAnnotate) {
+      // 生成正式截图ID并创建截图对象
+      const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const newShot: AttachedScreenshot = {
+        id: shotId,
+        dataUrl: croppedDataUrl,
+        originalDataUrl: croppedDataUrl,
+        width: pendingImageData.value?.width || 0,
+        height: pendingImageData.value?.height || 0,
+      }
+      
+      // 先添加到store，再打开编辑器编辑
+      if (chatStrategy.value?.appendInputAttachedScreenshots) {
+        chatStrategy.value.appendInputAttachedScreenshots([newShot])
+      }
+      
       openScreenshotEditor({
         mode: 'multiple',
-        dataUrl: croppedDataUrl,
-        initialShotId: '',
-        lastCapturedShotId: '',
+        initialShotId: shotId,
+        lastCapturedShotId: shotId,
       })
     } else {
       // 不需要标记：直接进入后续处理
@@ -832,18 +844,22 @@ const handleImageCropConfirm = async (croppedDataUrl: string) => {
 
 const screenshotEditorVisible = ref(false)
 const screenshotEditorMode = ref<'single' | 'multiple'>('multiple')
-const screenshotEditorDataUrl = ref('')
 const screenshotEditorInitialShotId = ref('')
 const screenshotEditorLastCapturedShotId = ref('')
 
+// 图片裁剪相关状态
+const pendingImageData = ref<ChatImageData | null>(null)
+const pendingAnnotateImageData = ref<ChatImageData | null>(null)
+const imageCropSrc = ref('')
+const showImageCropDialog = ref(false)
+const editingShotId = ref('')
+
 const openScreenshotEditor = (payload?: {
   mode?: 'single' | 'multiple'
-  dataUrl?: string
   initialShotId?: string
   lastCapturedShotId?: string
 }) => {
   screenshotEditorMode.value = payload?.mode ?? 'multiple'
-  screenshotEditorDataUrl.value = payload?.dataUrl || ''
   screenshotEditorInitialShotId.value = payload?.initialShotId || ''
   screenshotEditorLastCapturedShotId.value = payload?.lastCapturedShotId || ''
   screenshotEditorVisible.value = true
@@ -852,17 +868,14 @@ const openScreenshotEditor = (payload?: {
 const closeScreenshotEditor = () => {
   screenshotEditorVisible.value = false
   screenshotEditorMode.value = 'multiple'
-  screenshotEditorDataUrl.value = ''
   screenshotEditorInitialShotId.value = ''
   screenshotEditorLastCapturedShotId.value = ''
-  annotateDataUrl.value = ''
   pendingAnnotateImageData.value = null
 }
 
 const openTextbookScreenshotEditor = (payload?: { shotId?: string; lastCapturedShotId?: string }) => {
   if (props.type !== 'ai-textbook') return
   openScreenshotEditor({
-    dataUrl: '',
     initialShotId: payload?.shotId || '',
     lastCapturedShotId: payload?.lastCapturedShotId || '',
   })
@@ -943,7 +956,6 @@ const handleScreenshotInputConfirm = async (
       chatStrategy.value?.setInputAttachedScreenshots?.(updated)
     }
 
-    annotateDataUrl.value = ''
     pendingAnnotateImageData.value = null
     editingShotId.value = ''
     closeScreenshotEditor()
@@ -952,7 +964,6 @@ const handleScreenshotInputConfirm = async (
 
   const first = shots?.[0]
   if (!first?.dataUrl) {
-    annotateDataUrl.value = ''
     pendingAnnotateImageData.value = null
     return
   }
@@ -967,7 +978,6 @@ const handleScreenshotInputConfirm = async (
 
   await handlePostProcessedImage(finalImageData)
 
-  annotateDataUrl.value = ''
   pendingAnnotateImageData.value = null
   closeScreenshotEditor()
 }
@@ -1143,6 +1153,11 @@ const showSessionListPanel = ref(false)
 // 对话相关状态（需要在策略初始化之前声明）
 const currentSubject = ref<string>('math') // 当前科目，默认为数学
 
+// 新消息指示器状态
+const showNewMessageIndicator = ref(false) // 是否显示新消息提示按钮
+const lastMessageCount = ref(0) // 上次消息数量，用于检测新消息
+const isUserAtBottom = ref(true) // 用户是否在滚动底部
+
 // ==================== 键盘动画相关状态 ====================
 // 键盘显示/隐藏状态
 const isKeyboardVisible = ref(false) // 键盘是否可见
@@ -1272,9 +1287,14 @@ const isAllSelected = computed(() => {
  * @returns 是否是最后一条消息（布尔值）
  */
 const isLastMessage = (index: number): boolean => {
-  const length = displayedMessages.value?.length ?? 0
+  const messages = displayedMessages.value ?? []
+  const length = messages.length
   return index === length - 1
 }
+
+const lastUserMessageIndex = computed((): number => {
+  return findLastUserMessageIndex(displayedMessages.value ?? [])
+})
 
 // ==================== 推荐问题相关 ====================
 // 默认推荐问题
@@ -1413,23 +1433,6 @@ const activeMode = ref<{ label: string; icon: string; color: string } | null>(nu
 const { pickImage } = useImagePicker()
 
 // 图片裁剪相关状态
-const showImageCropDialog = ref(false)
-const imageCropSrc = ref('')
-const pendingImageData = ref<ChatImageData | null>(null)
-const pendingAnnotateImageData = ref<ChatImageData | null>(null)
-const annotateDataUrl = ref('')
-const editingShotId = ref('') // 新增
-
-// 语音录制相关状态
-const showCancelHint = ref(false) // 是否显示取消提示
-const voiceStartY = ref(0) // 语音录制开始时的Y坐标
-const voiceCurrentY = ref(0) // 语音录制当前Y坐标
-
-// 新消息提示按钮状态
-const showNewMessageIndicator = ref(false) // 是否显示新消息提示按钮
-const lastMessageCount = ref(0) // 上次消息数量
-const isUserAtBottom = ref(true) // 用户是否在底部
-const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 
 // ==================== 计算属性 ====================
 // 滚动条样式配置
@@ -2227,180 +2230,6 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
   })
 }
 
-// 作用：处理录音权限授予后自动开始的录音事件
-const handleNativeVoiceRecordingStarted = (event: Event) => {
-  const customEvent = event as CustomEvent
-  const detail = customEvent.detail as { success: boolean; isRecording: boolean; filePath?: string }
-  if (detail.success && detail.isRecording) {
-    // 更新录音状态
-    isRecording.value = true
-    showCancelHint.value = false
-  }
-}
-
-// 作用：开始语音输入，记录触摸位置并调用录音接口
-const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
-  if (isLoading.value) {
-    return
-  }
-
-  // 记录开始位置（用于上滑取消）
-  if (event && 'touches' in event && event.touches.length > 0) {
-    voiceStartY.value = event.touches[0].clientY
-  } else if (event && 'clientY' in event) {
-    voiceStartY.value = event.clientY
-  }
-
-  // 先调用录音接口检查权限，只有在成功后才设置状态
-  try {
-    const result = androidBridge.startVoiceRecording()
-    if (!result.success) {
-      console.error('[ChatView] 开始录音失败', result.message)
-      showMessage(result.message || '开始录音失败', 'error')
-      // 确保状态为 false
-      isRecording.value = false
-      showCancelHint.value = false
-      return
-    }
-
-    // 如果正在请求权限，不设置录音状态，等待权限请求完成
-    if (result.message === '正在请求录音权限') {
-      // 权限请求是异步的，权限授予后会自动启动录音
-      // 不设置 isRecording 状态，等待权限授予后的回调
-      return
-    }
-
-    // 只有在录音成功后才设置状态
-    isRecording.value = true
-    showCancelHint.value = false
-  } catch (error) {
-    console.error('[ChatView] 录音异常', error)
-    showMessage('录音功能不可用', 'error')
-    // 确保状态为 false
-    isRecording.value = false
-    showCancelHint.value = false
-  }
-}
-
-// 作用：停止语音输入，处理上滑取消逻辑并发送语音消息
-const stopVoiceInput = async (event?: TouchEvent | MouseEvent) => {
-  // 如果当前未在录音，可能是权限失败后快速释放按钮，需要清理状态
-  if (!isRecording.value) {
-    console.warn('[ChatView] 当前未在录音，忽略停止请求')
-    // 确保状态清理
-    showCancelHint.value = false
-    // 尝试调用取消录音，确保 Android 端状态正确
-    try {
-      androidBridge.cancelVoiceRecording()
-    } catch {
-      // 忽略错误，因为可能根本没有开始录音
-    }
-    return
-  }
-
-  // 检查是否需要取消发送（上滑取消）
-  let shouldCancel = false
-  if (event && 'touches' in event && event.changedTouches.length > 0) {
-    voiceCurrentY.value = event.changedTouches[0].clientY
-    shouldCancel = voiceStartY.value - voiceCurrentY.value > CANCEL_THRESHOLD
-  } else if (event && 'clientY' in event) {
-    voiceCurrentY.value = event.clientY
-    shouldCancel = voiceStartY.value - voiceCurrentY.value > CANCEL_THRESHOLD
-  }
-  // 先设置录音状态为 false，确保 UI 更新
-  isRecording.value = false
-  showCancelHint.value = false
-
-  try {
-    if (shouldCancel) {
-      // 取消录音 - 使用AndroidBridge
-      androidBridge.cancelVoiceRecording()
-    } else {
-      // 停止录音并发送 - 使用AndroidBridge
-      const result = androidBridge.stopVoiceRecording()
-      if (result.success && result.voiceInfo) {
-        await sendVoiceMessage(result.voiceInfo)
-      } else {
-        console.error('[ChatView] 录音失败', result.message)
-        showMessage(result.message || '录音失败', 'error')
-      }
-    }
-  } catch (error) {
-    console.error('[ChatView] 录音操作异常', error)
-    showMessage('录音操作失败', 'error')
-  }
-}
-
-// 作用：处理语音录制过程中的移动事件，显示取消提示
-const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
-  if (!isRecording.value) return
-
-  let currentY = 0
-  if ('touches' in event && event.touches.length > 0) {
-    currentY = event.touches[0].clientY
-  } else if ('clientY' in event) {
-    currentY = event.clientY
-  }
-
-  const deltaY = voiceStartY.value - currentY
-  showCancelHint.value = deltaY > CANCEL_THRESHOLD
-}
-
-// 作用：发送语音消息，创建语音消息对象并发送到后端（策略模式重构版）
-const sendVoiceMessage = async (voiceInfo: {
-  filePath: string
-  duration: number
-  fileSize: number
-}) => {
-  // 检查是否需要选择题目（策略模式重构版）
-  // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
-  if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
-    console.warn('[ChatView] 未选择题目，取消发送语音消息')
-    showMessage('请先选择题目', 'warning')
-    return
-  }
-
-  // 创建语音消息
-  const voiceMessage: ChatBubble = {
-    id: Date.now().toString(),
-    content: '', // 语音消息不显示文字内容
-    type: Sender.USER,
-    timestamp: '',
-    sender: Sender.USER,
-    messageType: 'voice',
-    voiceData: voiceInfo,
-  }
-  await addMessageToStore(voiceMessage)
-  await scrollToBottom()
-
-  // 发送语音消息到后端（策略模式重构版）
-  isLoading.value = true
-  try {
-    const sendResult = await chatStrategy.value?.sendVoiceMessage(voiceInfo)
-
-    if (sendResult?.success) {
-      // 语音消息发送成功，等待真实回复
-      await scrollToBottom()
-      emit('response')
-    } else {
-      console.error('[ChatView] 语音消息发送失败', sendResult?.message)
-      showMessage(sendResult?.message || '发送失败', 'error')
-    }
-  } catch (error) {
-    console.error('[ChatView] 发送语音消息异常', error)
-    showMessage('发送失败', 'error')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// 作用：处理语音识别结果，将识别文本填入输入框
-const onVoiceRecognitionResult = (text: string) => {
-  if (text && text.trim()) {
-    inputMessage.value = text
-  }
-}
-
 // 作用：显示图片选择器对话框并处理选择结果
 const showImagePickerDialog = async () => {
   // 检查是否需要选择题目（策略模式重构版）
@@ -2846,19 +2675,14 @@ let nativeKeyboardListenersEnabled = true
 
 /**
  * 设置全局事件监听器
- * 作用：设置语音识别回调、键盘事件监听、录音事件监听等
+ * 作用：设置键盘事件监听等
  */
 const setupGlobalEventListeners = () => {
   if (typeof window !== 'undefined') {
-    // 3.1 设置语音识别结果回调
-    ;(
-      window as unknown as { onVoiceRecognitionResult: (text: string) => void }
-    ).onVoiceRecognitionResult = onVoiceRecognitionResult
-
-    // 3.2 老师消息接收回调已由 teacherGeneralChatStore.initMessageReceiver() 统一管理
+    // 3.1 老师消息接收回调已由 teacherGeneralChatStore.initMessageReceiver() 统一管理
     // 不需要在这里重复设置，避免覆盖 store 中的回调
 
-    // 3.3 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
+    // 3.2 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
     // 动态控制原生键盘事件监听，避免与公式键盘冲突
     const handleNativeKeyboardShow = (event: Event) => {
       if (!nativeKeyboardListenersEnabled) {
@@ -2878,9 +2702,6 @@ const setupGlobalEventListeners = () => {
       handleKeyboardHidden()
     }
 
-    // 3.4 监听录音权限授予后自动开始的录音
-    window.addEventListener('nativeVoiceRecordingStarted', handleNativeVoiceRecordingStarted)
-
     window.addEventListener('keyboard-show', handleNativeKeyboardShow)
     window.addEventListener('keyboard-hide', handleNativeKeyboardHide)
 
@@ -2892,10 +2713,10 @@ const setupGlobalEventListeners = () => {
       nativeKeyboardListenersEnabled = true
     }
 
-    // 3.5 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
+    // 3.3 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
     window.addEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
 
-    // 3.6 监听强制重置动画状态事件
+    // 3.4 监听强制重置动画状态事件
     window.addEventListener('force-reset-animation-state', handleForceResetAnimationState)
   }
 }
@@ -2906,8 +2727,6 @@ const setupGlobalEventListeners = () => {
  */
 const cleanupGlobalEventListeners = () => {
   if (typeof window !== 'undefined') {
-    // 清理录音事件监听器
-    window.removeEventListener('nativeVoiceRecordingStarted', handleNativeVoiceRecordingStarted)
     // 清理公式键盘事件监听器
     window.removeEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
     // 清理强制重置动画状态事件监听器
@@ -2920,7 +2739,7 @@ const cleanupGlobalEventListeners = () => {
 // ==================== 生命周期钩子 ====================
 /**
  * 组件挂载时的初始化
- * 作用：初始化聊天消息、设置事件监听器、配置语音识别等
+ * 作用：初始化聊天消息、设置事件监听器等
  */
 onMounted(async () => {
   createStrategy()
@@ -3342,14 +3161,14 @@ defineExpose({
 
 /* ==================== 空状态推荐问题样式 ==================== */
 .empty-chat-state {
-  padding: 16px 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 70%;
+  max-width: 85%;
   background-color: #f6f6f8;
   border-radius: 10px;
-  margin-left: 10px;
+  margin: 10px;
 }
 
 /* 紧凑版：减小内边距、字体与间距 */

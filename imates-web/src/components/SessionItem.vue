@@ -8,13 +8,13 @@
       'is-pinned': record.pinned,
     }"
   >
-    <!-- 批量选择复选框 -->
-    <div v-if="isSelectionMode" class="session-checkbox">
-      <q-checkbox
-        :model-value="isChecked"
-        @update:model-value="$emit('checkbox-change', $event)"
-        color="primary"
+    <!-- 批量选择复选框（ChatView 同款样式） -->
+    <div v-if="isSelectionMode" class="session-checkbox" @click.stop>
+      <Checkbox
+        :modelValue="isChecked"
+        :indeterminate="false"
         size="sm"
+        @update:modelValue="$emit('checkbox-change', $event)"
       />
     </div>
     <!-- 会话内容 -->
@@ -75,7 +75,12 @@
           <div>{{ record.pinned ? '取消置顶' : '置顶' }}</div>
         </div>
 
-        <!-- 收藏 -->
+        <!-- 多选 -->
+        <div class="more-menu-item-row" @click="closeMenuAndExecute(() => $emit('enter-selection-mode'))">
+          <q-icon name="library_add_check" size="18px" />
+          <div>多选</div>
+        </div>
+
         <div class="session-more-menu-divider"></div>
 
         <!-- 删除 -->
@@ -98,6 +103,7 @@ import { computed, ref } from 'vue'
 import type { AiTextbookSession } from '@/types'
 import ImageViewer from './ImageViewer.vue'
 import BubblePopup from './base/Popover.vue'
+import Checkbox from './base/Checkbox.vue'
 import pinIcon from '/icons/zhiding.svg'
 import pinOutlinedIcon from '/icons/quxiaozhiding.svg'
 import deleteIcon from '/icons/delete.svg'
@@ -137,6 +143,7 @@ defineEmits<{
   'checkbox-change': [checked: boolean]
   pin: []
   delete: []
+  'enter-selection-mode': []
 }>()
 
 // 图片预览相关状态
@@ -183,40 +190,48 @@ const isChecked = computed(() => {
 
 <style lang="scss" scoped>
 .session-item {
-  border-radius: 12px;
-  margin: 0 12px 10px;
+  border-radius: 8px;
+  margin: 4px 8px;
   display: flex;
-  align-items: stretch;
-  position: relative;
-  background: #f7f6ff;
-  padding: 5px;
+  align-items: center;
+  justify-content: space-between;
+  background: #f5f3ff;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  gap: 8px;
 
-  &.is-selected {
-    background: #ffffff;
-
-    // 被pin且选中时，背景色为#e8e9ff
-    &.is-pinned {
-      background: #e8e9ff;
-    }
-  }
-
-  &.is-checked {
-    background: #e3f2fd;
-    border-color: #1976d2;
+  &:hover {
+    background: #ede9fe;
   }
 
   &.is-selectable {
     cursor: pointer;
+  }
 
-    .session-content {
-      padding-left: 8px;
-    }
+  &.is-checked {
+    background: #e8e9ff;
+  }
+
+  &.is-selected {
+    background: #e8e9ff;
   }
 
   .session-checkbox {
     display: flex;
     align-items: center;
     padding: 0 8px 0 12px;
+    cursor: pointer;
+
+    :deep(.q-checkbox__bg) {
+      border-color: #7a7cff;
+      border-radius: 5px;
+    }
+
+    :deep(.q-checkbox__inner--truthy .q-checkbox__bg),
+    :deep(.q-checkbox__inner--indet .q-checkbox__bg) {
+      background-color: #7a7cff;
+    }
   }
 
   .session-content {
@@ -288,25 +303,17 @@ const isChecked = computed(() => {
     border: 1.5px solid #6e55ff;
   }
 
-  // 状态图标容器（收藏和置顶，始终显示）
+  // 状态图标容器（置顶，始终显示）
   .session-status-icons {
-    position: absolute;
-    top: 38%;
-    right: 9px;
     display: flex;
     align-items: center;
     gap: 8px;
-    z-index: 1;
+    flex-shrink: 0;
 
     .status-icon {
       width: 16px;
       height: 16px;
       flex-shrink: 0;
-    }
-
-    .star-icon {
-      width: 1rem;
-      height: 1rem;
     }
 
     .pin-icon {
@@ -316,30 +323,27 @@ const isChecked = computed(() => {
   }
 
   .session-actions {
-    position: absolute;
-    top: 32%;
-    right: 9px;
     display: flex;
     align-items: center;
     gap: 8px;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
 
     .more-btn {
-      color: #333;
+      color: #9e9e9e;
       display: inline-block;
       transform: rotate(90deg);
       transition: transform 0.2s ease;
     }
   }
 
-  // hover或选中时，状态图标向左移动，为更多按钮留出空间
-  &:hover .session-status-icons,
-  &.is-selected .session-status-icons {
-    right: 45px;
+  // hover时显示更多按钮
+  &:hover .session-actions {
+    opacity: 1;
   }
 
-  &:hover .session-actions,
+  // 选中时更多按钮始终显示
   &.is-selected .session-actions {
     opacity: 1;
   }

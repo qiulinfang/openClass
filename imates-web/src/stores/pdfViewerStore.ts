@@ -73,8 +73,8 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   }
   
   // 设置选中的工具
-  const setSelectedTool = (tool: string) => {
-    selectedTool.value = tool
+  const setSelectedTool = (tool: string | null) => {
+    selectedTool.value = tool ?? ''
   }
 
   // 打开聊天面板

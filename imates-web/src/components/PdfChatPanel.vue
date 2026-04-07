@@ -12,7 +12,7 @@
       class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
       :class="{ 'explore-icon-large': hasAttachedScreenshots }"
       :style="overlayButtonStyle"
-      @click.stop="handleSelectAndAskClick"
+      @click.stop="handleExploreClick"
     >
       <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
     </button>
@@ -44,21 +44,13 @@
           ref="chatViewRef"
           type="ai-textbook"
           :compressed-height="360"
-          @send-with-screenshot="
-            (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
-          "
-          @edit-screenshot="(id) => emit('edit-screenshot', id)"
-          @request-screenshot="(payload) => emit('request-screenshot', payload)"
+          :toolbar-tools="toolbarToolNames"
+          @edit-screenshot="handleEditScreenshot"
+          @screenshot-click="handleExploreClick"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
-        >
-          <!-- 通过 ChatView 的 header-prefix 插槽引入“选中并问”按钮 -->
-          <template #header-prefix>
-            <button type="button" class="pdf-toolbar-btn" @click="handleSelectAndAskClick">
-              <img :src="selectAndAskIconToUse" alt="选中并问" class="pdf-toolbar-icon" />
-            </button>
-          </template>
-        </ChatView>
+          @request-screenshot="handleRequestScreenshot"
+        />
       </div>
       <!-- 会话记录 Tab -->
       <div v-show="activeTab === 'question-record'" class="tab-content">
@@ -101,6 +93,7 @@ import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord.svg'
+import type { BuiltinToolType, ToolbarTool } from '../types/toolbarTools'
 
 const pdfViewerStore = usePdfViewerStore()
 const aiTextbookStore = useAiTextbookChatStore()
@@ -113,13 +106,18 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  'send-with-screenshot': [string, AttachedScreenshot[], string]
-  'edit-screenshot': [string]
-  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
+  'screenshot-click': [boolean]  // 统一截图工具事件：true=开启, false=关闭
 }>()
 
 // ChatView 实例引用
 const chatViewRef = ref<ComponentPublicInstance | null>(null)
+
+// 工具栏工具配置（"选中并问"按钮有状态切换）- 极简版
+const toolbarToolNames = computed((): ToolbarTool[] => [
+  { type: 'select-and-ask', isActive: isSelectAndAskSelected.value },
+  { type: 'formula' },
+  { type: 'ask-teacher' },
+])
 
 // Tab 状态
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
@@ -153,10 +151,10 @@ const selectAndAskIconToUse = computed(() =>
 
 // 计算是否有附加截图，用于动态调整按钮尺寸
 const hasAttachedScreenshots = computed(() => {
-  return aiTextbookStore.attachedScreenshots.length > 0
+  return (aiTextbookStore.inputAttachedScreenshots?.length ?? 0) > 0
 })
 
-const attachedScreenshotCount = computed(() => aiTextbookStore.attachedScreenshots.length)
+const attachedScreenshotCount = computed(() => aiTextbookStore.inputAttachedScreenshots?.length ?? 0)
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getSessionId = (session: AiTextbookSession): string => {
@@ -231,6 +229,13 @@ const handleSessionPin = async (record: AiTextbookSession) => {
   }
 }
 
+// 处理探索/截图点击（统一处理：遮罩层按钮和 ChatView 截图按钮）
+const handleExploreClick = () => {
+  // 统一事件：通知父组件切换截图工具
+  const isScreenshotMode = pdfViewerStore.selectedTool === 'screenshot'
+  emit('screenshot-click', !isScreenshotMode)
+}
+
 // 关闭对话面板
 const handleClose = () => {
   emit('close')
@@ -261,10 +266,17 @@ const handleSwitchToTeacher = (forwardData: {
   }
 }
 
-// 处理"选中并问"点击：交给父组件触发截图工具与后续流程
-const handleSelectAndAskClick = () => {
-  // 统一协议：请求 PDF 页面截图入口
-  emit('request-screenshot', { kind: 'pdf_page' })
+// 处理 ChatView 的截图请求 - ScreenshotInputDialog 点击"添加更多"时触发
+const handleRequestScreenshot = (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
+  if (payload?.kind === 'pdf_page') {
+    emit('screenshot-click', true)
+  }
+}
+
+// 处理截图编辑（内部处理，不上传到父组件）
+const handleEditScreenshot = (shotId: string) => {
+  if (!shotId) return
+  ;(chatViewRef.value as any)?.openTextbookScreenshotEditor?.({ shotId })
 }
 
 // 遮罩层按钮位置样式
@@ -285,8 +297,8 @@ const updateOverlayButtonPosition = async () => {
   await nextTick()
 
   try {
-    // 获取实际按钮元素
-    const actualButton = document.querySelector('.chat-content-container .tab-content .pdf-toolbar-btn') as HTMLElement
+    // 获取实际按钮元素（使用 .toolbar-btn 匹配 ChatInput 中的按钮类名）
+    const actualButton = document.querySelector('.chat-content-container .tab-content .toolbar-btn') as HTMLElement
     if (!actualButton) {
       console.warn('[PdfChatPanel] 找不到实际按钮元素')
       return
@@ -295,7 +307,7 @@ const updateOverlayButtonPosition = async () => {
     // 获取按钮相对于视口的位置
     const buttonRect = actualButton.getBoundingClientRect()
 
-    // 更新遮罩层按钮样式 - 使用视口固定定位
+    // 更新遮罩层按钮样式 - 使用视口固定定位，大小与实际按钮一致
     overlayButtonStyle.value = {
       position: 'fixed' as const,
       left: `${buttonRect.left}px`,
@@ -347,6 +359,9 @@ defineExpose({
   flex-direction: column;
   height: 100vh;
   background-color: #e8e9ff;
+  border-radius: 20px 0 0 20px;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
 /* 聊天面板头部 */

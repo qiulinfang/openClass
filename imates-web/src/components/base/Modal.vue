@@ -105,14 +105,14 @@
                 <!-- 底部操作按钮区域 -->
                 <div v-if="finalConfig.showFooter" class="dialog-footer-section">
                   <!-- 取消按钮 -->
-                  <CommonActionButton
+                  <Button
                     :label="finalConfig.cancelText"
                     size="mdCompact"
                     variant="ghost"
                     @click="emit('cancel')"
                   />
                   <!-- 确定按钮 -->
-                  <CommonActionButton
+                  <Button
                     :label="displayedConfirmLabel"
                     size="mdCompact"
                     :variant="finalConfig.confirmVariant"
@@ -210,14 +210,14 @@
             <!-- 底部操作按钮区域（使用 finalConfig 以兼容预设类型） -->
             <div v-if="finalConfig.showFooter" class="dialog-footer-section">
               <!-- 取消按钮 -->
-              <CommonActionButton
+              <Button
                 :label="finalConfig.cancelText"
                 size="mdCompact"
                 variant="ghost"
                 @click="emit('cancel')"
               />
               <!-- 确定按钮 -->
-              <CommonActionButton
+              <Button
                 :label="displayedConfirmLabel"
                 size="mdCompact"
                 :variant="finalConfig.confirmVariant"
@@ -241,7 +241,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import CommonActionButton from './Button.vue'
+import Button from './Button.vue'
 import switcherIcon from '/icons/Switcher.svg'
 import closeIcon from '/icons/close.svg'
 

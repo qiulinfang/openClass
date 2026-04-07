@@ -23,7 +23,7 @@
         <!-- 左侧：截图编辑区域（集成 DrawingBoard） -->
         <div class="screenshot-editor">
           <DrawingBoard
-            v-if="previewImage || screenshotDataUrl"
+            v-if="previewImage"
             ref="drawingBoardRef"
             :background-image="getOriginalImage()"
             :drawing-board-tools="['draw', 'eraser-draw', 'undo', 'redo']"
@@ -98,7 +98,6 @@ interface DrawingBoardExposed {
 interface Props {
   modelValue: boolean // 是否显示对话框（由 v-model 控制）
   mode?: 'single' | 'multiple' // 截图输入对话框工作模式，'single'=一张，'multiple'=多张(默认)
-  screenshotDataUrl?: string // 用户新截的截图（当前编辑的图，作为DrawingBoard背景）
   initialShotId?: string // 打开时优先选中的截图（用于编辑已挂载截图）
   existingScreenshots?: AttachedScreenshot[] // 右侧缩略图列表，支持多图切换（父组件传入）
   drawingStatesFromParent?: Record<string, ScreenshotDrawingState> // 恢复每张图的绘图状态（标注/擦除历史，父组件传入）
@@ -113,7 +112,6 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  screenshotDataUrl: '',
   initialShotId: '',
   existingScreenshots: () => [],
   mode: 'multiple',
@@ -143,15 +141,6 @@ const initFromProps = async () => {
 
   // 初始化本地截图列表（从 props 复制，保持独立）
   const list: AttachedScreenshot[] = []
-  if (props.screenshotDataUrl) {
-    list.push({
-      id: 'current-capture',
-      dataUrl: props.screenshotDataUrl,
-      originalDataUrl: props.screenshotDataUrl,
-      width: 0,
-      height: 0,
-    })
-  }
   if (Array.isArray(props.existingScreenshots) && props.existingScreenshots.length > 0) {
     list.push(
       ...props.existingScreenshots.map((s) => ({
@@ -162,15 +151,12 @@ const initFromProps = async () => {
   }
   localScreenshots.value = list
 
-  // 优先使用 initialShotId，其次使用当前截图，再其次使用已有截图列表中的第一张
+  // 优先使用 initialShotId，其次使用已有截图列表中的第一张
   const canUseInitialId = !!props.initialShotId && list.some((s) => s.id === props.initialShotId)
 
   if (canUseInitialId) {
     currentShotId.value = props.initialShotId || null
     previewImage.value = list.find((s) => s.id === props.initialShotId)?.dataUrl || ''
-  } else if (props.screenshotDataUrl) {
-    currentShotId.value = 'current-capture'
-    previewImage.value = props.screenshotDataUrl
   } else if (list.length > 0) {
     currentShotId.value = list[0].id
     previewImage.value = list[0].dataUrl
@@ -194,7 +180,6 @@ watch(
   () => [
     props.modelValue,
     props.mode,
-    props.screenshotDataUrl,
     props.initialShotId,
     props.existingScreenshots,
     props.drawingStatesFromParent,
@@ -219,7 +204,7 @@ const thumbnailList = computed(() => localScreenshots.value)
 const getOriginalImage = () => {
   const currentShot = localScreenshots.value.find((s) => s.id === currentShotId.value)
   // 优先使用原图，如果没有原图则使用当前截图数据
-  return currentShot?.originalDataUrl || currentShot?.dataUrl || previewImage.value || props.screenshotDataUrl || ''
+  return currentShot?.originalDataUrl || currentShot?.dataUrl || previewImage.value || ''
 }
 
 // 切换预览图片：点击右侧任意缩略图
@@ -261,13 +246,16 @@ const switchPreview = async (id: string) => {
   const target = localScreenshots.value.find((shot) => shot.id === id)
   previewImage.value = target?.dataUrl || ''
 
-  // 3. 加载对应的画板状态，如无则清空
+  // 3. 加载对应的画板状态：先强制清空画布，再加载新状态
   await nextTick()
+  // 先清空画板，避免前一张图的笔迹残留
+  if (drawingBoardRef.value?.clearAll) {
+    drawingBoardRef.value.clearAll()
+  }
+  // 再加载新图的状态（如果有）
   const state = drawingStates.value[id]
   if (state && drawingBoardRef.value?.loadData) {
     drawingBoardRef.value.loadData(state)
-  } else if (drawingBoardRef.value?.clearAll) {
-    drawingBoardRef.value.clearAll()
   }
 }
 
@@ -303,19 +291,22 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
   // 确保画板状态/画面已渲染到最新（避免导出到旧图）
   await nextTick()
 
-  if (!previewImage.value && !props.screenshotDataUrl) {
+  // 获取当前编辑的截图
+  const currentShot = localScreenshots.value.find((s) => s.id === currentShotId.value)
+  if (!currentShot) {
     showMessage('截图数据丢失，请重新截图', 'error')
     return null
   }
 
-  // 确定本次导出的截图 id：如果当前 id 是已有截图，就继续用；否则生成新 id
-  let shotId = currentShotId.value
-  if (!shotId || shotId === 'current-capture') {
-    shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  // 使用当前截图的 id
+  const shotId = currentShotId.value
+  if (!shotId) {
+    showMessage('截图数据丢失，请重新截图', 'error')
+    return null
   }
 
   // 从 DrawingBoard 导出 JPG 图片（包含背景截图 + 用户标注）
-  let finalImageData = previewImage.value || props.screenshotDataUrl || ''
+  let finalImageData = previewImage.value || currentShot.dataUrl || ''
   if (drawingBoardRef.value?.exportToJpg) {
     const exportedImage = drawingBoardRef.value.exportToJpg(0.9)
     if (!exportedImage) {
@@ -360,9 +351,11 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
     height: size.height,
   }
 
-  // 更新当前 id / 预览（保持一致）
-  currentShotId.value = shotId
-  previewImage.value = finalImageData
+  // 更新当前截图的 dataUrl（保持一致）
+  const idx = localScreenshots.value.findIndex((s) => s.id === shotId)
+  if (idx >= 0) {
+    localScreenshots.value[idx].dataUrl = finalImageData
+  }
 
   return [shot]
 }
@@ -373,11 +366,11 @@ const handleConfirm = async () => {
   if (!shots) return
 
   const current = shots[0]
-  const allShots = localScreenshots.value.filter((s) => s.id !== 'current-capture')
-  const idx = allShots.findIndex((s) => s.id === current.id)
-  const nextShots = idx >= 0 ? allShots.map((s) => (s.id === current.id ? current : s)) : [...allShots, current]
+  const allShots = localScreenshots.value.map((s) =>
+    s.id === current.id ? current : s
+  )
 
-  emit('confirm', nextShots, { ...drawingStates.value })
+  emit('confirm', allShots, { ...drawingStates.value })
 }
 
 // 继续截图：返回所有截图数组并关闭对话框，交给父组件继续触发截图流程
@@ -392,11 +385,11 @@ const handleAddMore = async () => {
   if (!shots) return
 
   const current = shots[0]
-  const allShots = localScreenshots.value.filter((s) => s.id !== 'current-capture')
-  const idx = allShots.findIndex((s) => s.id === current.id)
-  const nextShots = idx >= 0 ? allShots.map((s) => (s.id === current.id ? current : s)) : [...allShots, current]
+  const allShots = localScreenshots.value.map((s) =>
+    s.id === current.id ? current : s
+  )
 
-  emit('add-more', nextShots, { ...drawingStates.value })
+  emit('add-more', allShots, { ...drawingStates.value })
 }
 
 // 取消按钮

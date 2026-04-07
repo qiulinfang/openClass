@@ -1909,12 +1909,13 @@ const takeScreenshotAcrossPages = (rect: { x: number; y: number; w: number; h: n
   octx.fillStyle = '#ffffff'
   octx.fillRect(0, 0, out.width, out.height)
 
-  for (let pageIndex = 0; pageIndex < pageList.value.length; pageIndex++) {
-    const page = pageList.value[pageIndex]
-    const pdfCanvas = pdfRefs.value[pageIndex]
-    const inkCanvas = inkRefs.value[pageIndex]
+  for (let i = 0; i < pageList.value.length; i++) {
+    const page = pageList.value[i]
+    const pdfCanvas = pdfRefs.value[page.pageIndex]
+    const inkCanvas = inkRefs.value[page.pageIndex]
     if (!page || !pdfCanvas || !inkCanvas) continue
 
+    // 页面在内容坐标系中的位置
     const pageRect = { x: page.x, y: page.y, w: page.viewWidth, h: page.viewHeight }
     const ix1 = Math.max(rect.x, pageRect.x)
     const iy1 = Math.max(rect.y, pageRect.y)

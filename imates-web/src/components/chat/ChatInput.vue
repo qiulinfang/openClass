@@ -9,24 +9,41 @@
         <!-- 左侧：顶部工具条 -->
         <div class="chat-input-header-left">
           <div class="chat-top-toolbar">
-            <!-- 前置插槽：最前面的按钮，如“选中并问” -->
-            <slot name="header-prefix"></slot>
-            <!-- 默认中间工具条（公式 + 问老师） -->
-            <slot name="header-middle">
-              <!-- 公式 -->
-              <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
-                <img :src="formulaIcon" alt="公式" class="toolbar-icon" />
-              </button>
-              <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏，作业场景也隐藏 -->
+            <!-- 截图/选中并问按钮（prefix位置） -->
+            <template v-if="hasPrefixTool">
               <button
-                v-if="props.type !== 'teacher' && !props.hideAskTeacherIcon"
+                v-for="(tool, index) in prefixTools"
+                :key="index"
                 type="button"
                 class="toolbar-btn"
-                @click="handleAskTeacherClick"
+                @click="handleToolClick(tool)"
               >
-                <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
+                <img
+                  :src="getToolIcon(tool)"
+                  :alt="getToolTooltip(tool)"
+                  class="toolbar-icon"
+                />
               </button>
-            </slot>
+            </template>
+            <!-- 前置插槽：保留向后兼容 -->
+            <slot name="header-prefix"></slot>
+
+            <!-- 配置化工具（middle 位置：公式、问老师） -->
+            <template v-if="middleTools.length">
+              <button
+                v-for="(tool, index) in middleTools"
+                :key="index"
+                type="button"
+                class="toolbar-btn"
+                @click="handleToolClick(tool)"
+              >
+                <img
+                  :src="getToolIcon(tool)"
+                  :alt="getToolTooltip(tool)"
+                  class="toolbar-icon"
+                />
+              </button>
+            </template>
 
             <!-- 后置插槽：工具条下方追加内容（说明文字等） -->
             <slot name="header-suffix"></slot>
@@ -35,6 +52,22 @@
 
         <!-- 右侧：额外 header 区域 -->
         <div class="chat-input-header-right">
+          <!-- 新增会话按钮（right位置） -->
+          <template v-if="hasRightTool">
+            <button
+              v-for="(tool, index) in rightTools"
+              :key="index"
+              type="button"
+              class="toolbar-btn"
+              @click="handleToolClick(tool)"
+            >
+              <img
+                :src="getToolIcon(tool)"
+                :alt="getToolTooltip(tool)"
+                class="toolbar-icon"
+              />
+            </button>
+          </template>
           <slot name="header-right"></slot>
         </div>
       </slot>
@@ -246,6 +279,7 @@ import onlineSearchIcon from '/icons/onlineSearch.svg' // 搜索
 import selectAndAskIcon from '/icons/selectAndAsk.svg' // 选中并问
 import formulaIcon from '/icons/formula.svg' // 公式
 import askTeacherIcon from '/icons/askTeacher.svg' // 问老师
+import addSessionIcon from '/icons/addsession.png' // 新增会话
 import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索选中
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
@@ -253,6 +287,7 @@ import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师�
 import picturIcon from '/icons/picture.svg' // 图片上传
 import type { ContentBlock } from '../../types'
 import type { AttachedScreenshot } from '@/types'
+import type { ToolbarTool, BuiltinToolType } from '../../types/toolbarTools'
 
 const props = defineProps({
   modelValue: {
@@ -335,6 +370,11 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  // 工具栏工具配置数组（支持字符串数组或对象数组）
+  toolbarTools: {
+    type: Array as () => (BuiltinToolType | ToolbarTool)[],
+    default: () => [],
+  },
 })
 
 const emit = defineEmits({
@@ -357,9 +397,10 @@ const emit = defineEmits({
   'edit-screenshot': (_id: string) => true,
   'remove-quote': () => true,
   // 顶部工具条相关事件，供上层接入真实行为
-  'explore-click': () => true,
+  'screenshot-click': () => true,
   'formula-click': () => true,
   'ask-teacher-click': (_payload?: { mode?: string }) => true,
+  'new-session-click': () => true,
 })
 
 // 统一的截图列表：完全由 props 决定
@@ -418,11 +459,6 @@ const isAskTeacherSelected = ref(false)
 const imageViewerVisible = ref(false)
 const imageViewerUrl = ref('')
 
-const openScreenshotPreview = (url: string) => {
-  imageViewerUrl.value = url
-  imageViewerVisible.value = true
-}
-
 const handleScreenshotThumbClick = (shot: AttachedScreenshot) => {
   if (!shot?.id) return
 
@@ -434,10 +470,105 @@ const handleScreenshotThumbClick = (shot: AttachedScreenshot) => {
 const onlineSearchIconToUse = computed(() =>
   isOnlineSearchSelected.value ? onlineSearchIconSelected : onlineSearchIcon
 )
-// 问老师图标：当前只使用普通态图标
-const askTeacherIconToUse = computed(() =>
-  isAskTeacherSelected.value ? askTeacherIconSelected : askTeacherIcon
+
+// ==================== 工具栏工具数组支持（简化版）====================
+// 工具类型到位置的映射
+const TOOL_POSITION_MAP: Record<BuiltinToolType, 'prefix' | 'right' | 'middle' | 'none'> = {
+  'screenshot': 'prefix',
+  'select-and-ask': 'prefix',
+  'new-session': 'right',
+  'formula': 'middle',
+  'ask-teacher': 'middle',
+  'web-search': 'none', // web-search 在 control-bar，不在 header
+}
+
+// 工具类型到图标的映射
+const TOOL_ICON_MAP: Record<BuiltinToolType, { default: string; active?: string }> = {
+  'screenshot': { default: selectAndAskIcon },
+  'select-and-ask': { default: selectAndAskIcon, active: selectAndAskIconSelected },
+  'new-session': { default: addSessionIcon },
+  'formula': { default: formulaIcon, active: formulaIconSelected },
+  'ask-teacher': { default: askTeacherIcon, active: askTeacherIconSelected },
+  'web-search': { default: onlineSearchIcon, active: onlineSearchIconSelected },
+}
+
+// 工具类型到提示文字的映射
+const TOOL_TOOLTIP_MAP: Record<BuiltinToolType, string> = {
+  'screenshot': '截图提问',
+  'select-and-ask': '选中并问',
+  'new-session': '新增会话',
+  'formula': '插入公式',
+  'ask-teacher': '问老师',
+  'web-search': '联网搜索',
+}
+
+// 规范化工具配置（将字符串转换为对象）
+const normalizedTools = computed<ToolbarTool[]>(() =>
+  props.toolbarTools.map((t): ToolbarTool =>
+    typeof t === 'string' ? { type: t as BuiltinToolType } : (t as ToolbarTool)
+  )
 )
+
+// prefix 位置的工具（截图、选中并问）
+const prefixTools = computed(() =>
+  normalizedTools.value.filter((t) => TOOL_POSITION_MAP[t.type] === 'prefix')
+)
+const hasPrefixTool = computed(() => prefixTools.value.length > 0)
+
+// middle 位置的工具（公式、问老师）
+const middleTools = computed(() =>
+  normalizedTools.value.filter((t) => TOOL_POSITION_MAP[t.type] === 'middle')
+)
+const hasMiddleTool = computed(() => middleTools.value.length > 0)
+
+// right 位置的工具（新增会话）
+const rightTools = computed(() =>
+  normalizedTools.value.filter((t) => TOOL_POSITION_MAP[t.type] === 'right')
+)
+const hasRightTool = computed(() => rightTools.value.length > 0)
+
+// 获取工具图标
+const getToolIcon = (tool: ToolbarTool): string => {
+  const icons = TOOL_ICON_MAP[tool.type]
+  if (!icons) return ''
+  // 如果有激活状态且工具是激活的，使用激活图标
+  if (icons.active && tool.isActive) {
+    return icons.active
+  }
+  return icons.default
+}
+
+// 获取工具提示文字
+const getToolTooltip = (tool: ToolbarTool): string => {
+  return TOOL_TOOLTIP_MAP[tool.type] || ''
+}
+
+// 处理工具点击 - 通过事件通知父组件
+const handleToolClick = (tool: ToolbarTool) => {
+  // 内置类型行为：通过事件通知父组件处理
+  switch (tool.type) {
+    case 'screenshot':
+    case 'select-and-ask':
+      emit('screenshot-click')
+      break
+    case 'formula':
+      handleFormulaTopClick()
+      break
+    case 'ask-teacher':
+      handleAskTeacherClick()
+      break
+    case 'web-search':
+      handleToggleWebSearch()
+      break
+    case 'new-session':
+      // 新增会话通过事件通知父组件
+      emit('new-session-click')
+      break
+    default:
+      console.warn(`[ChatInput] 未知工具类型: ${tool.type}`)
+  }
+}
+// ============================================================
 
 // 调试：监控 quotedMessage 变化
 watch(
@@ -1037,7 +1168,7 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff;
+  background-color: transparent;
   border: none;
   cursor: pointer;
 }

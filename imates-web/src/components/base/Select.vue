@@ -2,6 +2,7 @@
   <div class="common-select" ref="rootRef">
     <button
       class="select-trigger"
+      :class="{ 'select-trigger--outline': variant === 'outline' }"
       type="button"
       @click="toggleDropdown"
     >
@@ -15,21 +16,23 @@
       </span>
     </button>
 
-    <transition name="fade-scale">
-      <div v-if="isOpen" class="select-dropdown">
-        <ul class="select-options">
-          <li
-            v-for="option in options"
-            :key="option.value"
-            class="select-option"
-            :class="{ 'select-option--active': option.value === modelValue }"
-            @click="handleSelect(option.value)"
-          >
-            {{ option.label }}
-          </li>
-        </ul>
-      </div>
-    </transition>
+    <teleport to="body">
+      <transition name="fade-scale">
+        <div v-if="isOpen" class="select-dropdown" :style="dropdownStyle">
+          <ul class="select-options">
+            <li
+              v-for="option in options"
+              :key="option.value"
+              class="select-option"
+              :class="{ 'select-option--active': option.value === modelValue }"
+              @click="handleSelect(option.value)"
+            >
+              {{ option.label }}
+            </li>
+          </ul>
+        </div>
+      </transition>
+    </teleport>
   </div>
 </template>
 
@@ -61,6 +64,10 @@ export default defineComponent({
       type: String,
       default: undefined,
     },
+    variant: {
+      type: String as () => 'default' | 'outline',
+      default: 'default',
+    },
   },
   emits: ['update:modelValue', 'change'],
   setup(props, { emit }) {
@@ -71,6 +78,19 @@ export default defineComponent({
       const found = props.options.find((o) => o.value === props.modelValue)
       if (found) return found.label
       return props.placeholder ?? '请选择'
+    })
+
+    // 下拉菜单定位样式
+    const dropdownStyle = computed(() => {
+      if (!rootRef.value || !isOpen.value) return {}
+      const rect = rootRef.value.getBoundingClientRect()
+      return {
+        position: 'fixed' as const,
+        top: `${rect.bottom + 8}px`,
+        left: `${rect.left}px`,
+        minWidth: `${rect.width}px`,
+        zIndex: 9999,
+      }
     })
 
     const toggleDropdown = () => {
@@ -104,6 +124,7 @@ export default defineComponent({
       isOpen,
       rootRef,
       currentLabel,
+      dropdownStyle,
       toggleDropdown,
       handleSelect,
     }
@@ -132,8 +153,29 @@ export default defineComponent({
   color: #111827;
 }
 
-.select-trigger:hover {
-  border-color: #c7d2fe;
+.select-trigger--outline {
+  width: auto;
+  min-width: 100px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background-color: transparent;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 8px;
+}
+
+.select-trigger--outline:hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.select-trigger--outline .select-icon {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
 }
 
 .select-label {

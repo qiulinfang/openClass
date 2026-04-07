@@ -1,78 +1,125 @@
 <template>
-  <div class="html-preview-container">
-    <!-- 顶部工具栏 -->
-    <div class="toolbar">
-      <q-btn flat round dense @click="handleGoBack" class="goback-btn">
-        <img :src="goBackIcon" alt="返回" class="goback-icon" />
-      </q-btn>
-      <div class="toolbar-spacer"></div>
-      <q-btn
-        v-if="isDev"
-        flat
-        dense
-        class="toolbar-action-btn"
-        label="打印原始"
-        @click="printOriginalHtml"
-      />
-      <q-btn
-        v-if="isDev"
-        flat
-        dense
-        class="toolbar-action-btn"
-        label="打印实时"
-        @click="printLiveHtml"
-      />
-    </div>
-    <!-- HTML 内容区域 -->
-    <div class="html-content-wrapper">
-      <!-- iframe 显示 HTML -->
-      <iframe
-        v-if="!isLoading && !error && htmlContentUrl"
-        ref="iframeRef"
-        :src="htmlContentUrl"
-        class="html-iframe"
-        frameborder="0"
-        allowfullscreen
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        referrerpolicy="no-referrer"
-        loading="lazy"
-      />
-      
-      <!-- 加载状态 -->
-      <div v-if="isLoading" class="loading-overlay">
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <div class="loading-text">正在加载HTML...</div>
+  <div class="html-preview-view">
+    <SplitPanel
+      ref="splitPanelRef"
+      :initial-mode="mode"
+      :left-config="[0, 0, 0]"
+      :center-config="[100, 100, 100]"
+      :right-config="[40, 30, 50]"
+      :transition-duration="0.3"
+      :show-splitters="mode === 'right'"
+      @mode-change="handleModeChange"
+    >
+      <!-- 左侧：空（不使用） -->
+      <template #left>
+        <div></div>
+      </template>
+
+      <!-- 中间：HTML 内容区域 -->
+      <template #center>
+        <div class="html-preview-container">
+          <!-- 顶部工具栏 -->
+          <div class="toolbar">
+            <q-btn flat round dense @click="handleGoBack" class="goback-btn">
+              <img :src="goBackIcon" alt="返回" class="goback-icon" />
+            </q-btn>
+            <div class="toolbar-spacer"></div>
+            <q-btn
+              v-if="isDev"
+              flat
+              dense
+              class="toolbar-action-btn"
+              label="打印原始"
+              @click="printOriginalHtml"
+            />
+            <q-btn
+              v-if="isDev"
+              flat
+              dense
+              class="toolbar-action-btn"
+              label="打印实时"
+              @click="printLiveHtml"
+            />
+          </div>
+          <!-- HTML 内容区域 -->
+          <div class="html-content-wrapper">
+            <!-- iframe 显示 HTML -->
+            <iframe
+              v-if="!isLoading && !error && htmlContentUrl"
+              ref="iframeRef"
+              :src="htmlContentUrl"
+              class="html-iframe"
+              frameborder="0"
+              allowfullscreen
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              referrerpolicy="no-referrer"
+              loading="lazy"
+            />
+
+            <!-- 加载状态 -->
+            <div v-if="isLoading" class="loading-overlay">
+              <div class="loading-state">
+                <div class="spinner"></div>
+                <div class="loading-text">正在加载HTML...</div>
+              </div>
+            </div>
+
+            <!-- 错误状态 -->
+            <div v-if="error" class="error-overlay">
+              <div class="error-state">
+                <div class="error-icon">⚠️</div>
+                <div class="error-text">{{ error }}</div>
+                <button class="retry-button" @click="retry">重试</button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <!-- 错误状态 -->
-      <div v-if="error" class="error-overlay">
-        <div class="error-state">
-          <div class="error-icon">⚠️</div>
-          <div class="error-text">{{ error }}</div>
-          <button class="retry-button" @click="retry">重试</button>
+      </template>
+
+      <!-- 右侧：PdfChatPanel -->
+      <template #right="{ isVisible }">
+        <div v-if="isVisible" class="chat-panel-wrapper">
+          <PdfChatPanel
+            ref="chatPanelRef"
+            @close="handleCloseChatPanel"
+            @screenshot-click="handleScreenshotClick"
+          />
         </div>
-      </div>
-    </div>
+      </template>
+    </SplitPanel>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted, watch } from 'vue'
+import { ref, onBeforeUnmount, onMounted, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMainChatPanel } from '@/composables/useMainChatPanel'
+import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import goBackIcon from '/icons/goback.svg'
 import { apiService } from '@/services'
 import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
 import { getApiPaths, ADDRESS_CATALOG } from '@/config/env-config'
+import PdfChatPanel from '@/components/PdfChatPanel.vue'
+import SplitPanel from '@/components/base/SplitPanel.vue'
 
 // 使用路由
 const route = useRoute()
 const router = useRouter()
 
+// 使用 Store
+const pdfViewerStore = usePdfViewerStore()
+
 // 使用 MainChatPanel 控制
 const { showMainChatPanel } = useMainChatPanel()
+
+// ChatPanel 引用
+const chatPanelRef = ref<ComponentPublicInstance | null>(null)
+
+// SplitPanel 引用
+const splitPanelRef = ref<ComponentPublicInstance | null>(null)
+
+// 当前模式（left 或 right）
+const mode = ref<'left' | 'right'>('left')
 
 // 组件状态
 const isLoading = ref(true)
@@ -102,6 +149,48 @@ watch(
   },
   { immediate: true },
 )
+
+// 监听 pdfViewerStore.chatPanelVisible 变化，更新 mode
+watch(
+  () => pdfViewerStore.chatPanelVisible,
+  (visible) => {
+    mode.value = visible ? 'right' : 'left'
+  },
+  { immediate: true }
+)
+
+// 处理模式变化
+const handleModeChange = (newMode: 'left' | 'right') => {
+  mode.value = newMode
+  // 同步更新 store 状态
+  if (newMode === 'left') {
+    pdfViewerStore.closeChatPanel()
+  } else {
+    pdfViewerStore.openChatPanel()
+  }
+}
+
+// 处理关闭对话面板
+const handleCloseChatPanel = () => {
+  pdfViewerStore.closeChatPanel()
+}
+
+// 处理截图点击（开启/关闭截图工具）
+const handleScreenshotClick = (isActive: boolean) => {
+  // 在 HTML 预览页，截图工具切换到 PDF 页面使用
+  // 这里可以导航回 PDF 页面并开启截图工具
+  const from = route.query.from
+  if (from === 'pdf') {
+    // 返回 PDF 页面并开启截图工具
+    router.push({
+      name: 'pdfViewer',
+      query: {
+        ...route.query,
+        screenshot: isActive ? 'true' : undefined
+      }
+    })
+  }
+}
 
 // 处理返回
 const handleGoBack = () => {
@@ -304,12 +393,23 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.html-preview-view {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.chat-panel-wrapper {
+  height: 100%;
+  width: 100%;
+}
+
 .html-preview-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: 100vh;
+  height: 100%;
   width: 100%;
   background: #f8f9fa;
 }

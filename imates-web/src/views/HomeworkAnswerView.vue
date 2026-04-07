@@ -54,7 +54,7 @@
             @clear="handleClearRequest"
           >
             <template #toolbar-right>
-              <CommonActionButton
+              <Button
                 label="上传作业"
                 variant="primary"
                 size="sm"
@@ -127,7 +127,7 @@ import { storeToRefs } from 'pinia'
 import QuestionList from '@/components/QuestionList.vue'
 import DrawingBoardNew from '@/components/drawingBoardNew.vue'
 import FloatBubble from '@/components/base/FloatBubble.vue'
-import CommonActionButton from '@/components/base/Button.vue'
+import Button from '@/components/base/Button.vue'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
 import { useHomeworkStore } from '@/stores/homeworkStore'

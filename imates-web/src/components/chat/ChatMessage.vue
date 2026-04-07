@@ -323,6 +323,10 @@ import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import MultiImageMessage from './MultiImageMessage.vue'
 import Checkbox from '../base/Checkbox.vue'
+import {
+  canEditUserMessage,
+  shouldShowMessageActionButtons,
+} from './messageActionVisibility'
 import type { ChatBubble, SceneType } from '../../types'
 import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
@@ -346,6 +350,7 @@ interface Props {
   isSelectionMode?: boolean
   messageIndex?: number
   isLastMessage?: boolean
+  isLastUserMessage?: boolean
   showActionButtons?: boolean // 是否显示消息功能按钮
   enableLongPress?: boolean // 是否启用长按功能
   showReadStatus?: boolean // 是否显示已读状态
@@ -359,26 +364,26 @@ const handlePasteToDraft = (dataUrl: string) => {
 
 // 是否启用贴到草稿本功能：仅在 ai-exercise 类型下启用
 const props = withDefaults(defineProps<Props>(), {
-  isSelected: false,
-  isSelectionMode: false,
-  messageIndex: 0,
-  isLastMessage: false,
-  showActionButtons: true, // 默认显示功能按钮
-  enableLongPress: true, // 默认启用长按功能
-  showReadStatus: false, // 默认不显示已读状态
-  showTime: false, // 默认不显示消息时间
+  isSelected: false, // 是否选中消息（多选模式）
+  isSelectionMode: false, // 是否处于多选模式
+  messageIndex: 0, // 消息在列表中的索引
+  isLastMessage: false, // 是否为最后一条消息
+  isLastUserMessage: false, // 是否为最后一条用户消息
+  showActionButtons: true, // 是否显示消息功能按钮
+  enableLongPress: true, // 是否启用长按功能
+  showReadStatus: false, // 是否显示消息已读状态
+  showTime: false, // 是否显示消息时间
 })
-
 const emit = defineEmits<{
-  'toggle-selection': [messageId: string]
-  'message-click': [message: ChatBubble]
-  'forward-message': [message: ChatBubble]
-  'edit-message': [message: ChatBubble]
+  'toggle-selection': [messageId: string] // 切换消息选择状态
+  'message-click': [message: ChatBubble] // 消息点击事件
+  'forward-message': [message: ChatBubble] // 转发消息
+  'edit-message': [message: ChatBubble] // 编辑消息
   'image-loaded': [] // 图片加载完成事件，用于刷新滚动容器
   'quote-message': [message: ChatBubble] // 引用消息
   'scroll-to-message': [messageId: string] // 滚动到指定消息
   'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
-  'paste-to-draft': [payload: { dataUrl: string; messageId: string }]
+  'paste-to-draft': [payload: { dataUrl: string; messageId: string }] // 粘贴到草稿本
 }>()
 
 // 是否启用贴到草稿本功能：仅在 ai-exercise 类型下启用
@@ -557,14 +562,12 @@ const setLazyMessageRef = (el: unknown) => {
 
 // 判断是否可以转发 - 已移除，避免误发送单个消息给老师
 
-// 判断是否为第一个消息（题目消息）
-const isFirstMessage = computed(() => {
-  return props.messageIndex === 0
-})
-
-// 判断是否可以编辑（第一个消息不能编辑）
+// 判断是否可以编辑（仅最后一条用户消息可编辑）
 const canEdit = computed(() => {
-  return props.message.sender === 'user' && !isFirstMessage.value
+  return canEditUserMessage({
+    sender: props.message.sender,
+    isLastUserMessage: props.isLastUserMessage ?? false,
+  })
 })
 
 // 功能按钮配置 - 根据消息类型生成按钮列表
@@ -580,40 +583,20 @@ const actionButtons = computed(() => {
 
   // 记录判断过程
 
-  // 检查是否应该显示功能按钮
-  if (!props.showActionButtons) {
-    return buttons
-  }
-
-  // 只有最后一条消息才显示功能按钮区域
-  // 使用 ?? false 确保值是布尔类型，避免 undefined
-  if (!(props.isLastMessage ?? false)) {
-    return buttons
-  }
-
-  // 教师答疑场景下，学生和教师的消息都不显示功能按钮区域
-  if (props.type === 'teacher') {
-    return buttons
-  }
-
-  // 欢迎消息不显示功能区域
-  if (props.message.id && props.message.id.startsWith('welcome_')) {
-    return buttons
-  }
-
   const isUser = props.message.sender === 'user'
-  let canShow = false
-
-  if (isUser) {
-    // 用户消息：只要是最后一条、满足前置条件即可显示按钮
-    canShow = true
-  } else {
-    // AI/老师消息：必须回复已结束且已有内容（或错误文案）才显示按钮
-    const hasContentOrError = !!props.message.content || !!props.message.isError
-    canShow = !props.message.isStreaming && hasContentOrError
-  }
-
-  if (!canShow) {
+  if (
+    !shouldShowMessageActionButtons({
+      showActionButtons: props.showActionButtons,
+      type: props.type,
+      sender: props.message.sender,
+      isLastMessage: props.isLastMessage ?? false,
+      isLastUserMessage: props.isLastUserMessage ?? false,
+      messageId: props.message.id,
+      content: props.message.content,
+      isError: props.message.isError,
+      isStreaming: props.message.isStreaming,
+    })
+  ) {
     return buttons
   }
 

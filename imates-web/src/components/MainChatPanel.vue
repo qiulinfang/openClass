@@ -90,24 +90,13 @@
                   ref="aiGeneralChatViewRef"
                   type="ai-general"
                   :compressed-height="339"
+                  :toolbar-tools="toolbarToolNames"
                   @open-teacher-dialog="handleOpenTeacherDialog"
                   @switch-to-teacher="handleSwitchToTeacher"
-                  @request-screenshot="(payload) => emit('request-screenshot', payload)"
-                >
-                  <template #header-prefix>
-                      <button type="button" class="pdf-toolbar-btn" @click="handleOpenScreenCapture">
-                        <img :src="screenshotIcon" alt="截图" class="pdf-toolbar-icon" />
-                      </button>
-                  </template>
-                  <!-- 新增会话按钮 -->
-                  <template #header-right v-if="activeCategory === 'ai-general'">
-                    <div class="header-right-actions">
-                      <div @click="handleNewChatClick" class="add-session-btn">
-                        <img :src="addSessionIcon" class="add-session-icon" alt="新增会话" />
-                      </div>
-                    </div>
-                  </template>
-                </ChatView>
+                  @screenshot-click="handleScreenshotClick"
+                  @request-screenshot="handleRequestScreenshot"
+                  @new-session-click="handleNewChatClick"
+                />
                 <!-- 老师聊天内容区域 -->
                 <ChatView
                   v-else-if="
@@ -117,9 +106,7 @@
                   :compressed-height="339"
                   :sessionId="teacherChatStore.currentSession.sessionId"
                   :key="teacherChatStore.currentSession.sessionId"
-                >
-                  <!-- 教师场景不显示新增会话按钮 -->
-                </ChatView>
+                />
                 <!-- 无会话 -->
                 <div v-else class="empty-chat">
                   <q-icon name="chat" size="48px" color="grey-4" />
@@ -154,17 +141,17 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { showMessage } from '../utils'
 import { getUserId } from '@/services'
+import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import addSessionIcon from '/icons/addsession.png'
 import switcherIcon from '/icons/Switcher.svg'
-import type { ChatBubble } from '@/types'
+import type { ChatBubble } from '../types'
 import type { ChatEntry } from '../types/chat'
+import type { BuiltinToolType } from '../types/toolbarTools'
 
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()
-
-import screenshotIcon from '/icons/selectAndAsk.svg'
 
 interface Props {
   entry?: ChatEntry
@@ -176,12 +163,17 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   'toggle-mode': []
-  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 // 引用
 const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
 const aiGeneralChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
+
+// 截图工具
+const { captureScreenSnapshot } = useScreenSnapshot()
+
+// 工具栏工具配置 - 极简版：只传工具名称字符串数组
+const toolbarToolNames: BuiltinToolType[] = ['screenshot', 'formula', 'ask-teacher', 'new-session']
 
 // 老师选择相关状态（与 UnifiedChatDialog 逻辑保持一致）
 const availableTeachers = ref<any[]>([])
@@ -621,9 +613,53 @@ watch(
   { immediate: true }
 )
 
-const handleOpenScreenCapture = () => {
-  // 统一协议：交给 ChatView 决定截图入口 kind，并向上抛 request-screenshot
-  ;(aiGeneralChatViewRef.value as any)?.requestScreenshot?.()
+// 处理截图点击
+const handleScreenshotClick = async () => {
+  try {
+    const { dataUrl, width, height } = await captureScreenSnapshot()
+    if (!dataUrl) return
+
+    // 将截图添加到 AI 问答聊天输入框
+    if (activeCategory.value === 'ai-general') {
+      const imageInfo = {
+        filePath: '',
+        width: width || 0,
+        height: height || 0,
+        fileSize: Math.round(dataUrl.length * 0.75),
+        base64DataUrl: dataUrl,
+      }
+      await aiGeneralChatViewRef.value?.onImageSelected?.(imageInfo)
+    }
+  } catch (error) {
+    console.error('截图失败:', error)
+    showMessage('截图失败', 'error')
+  }
+}
+
+// 处理 ChatView 的截图请求 - ScreenshotInputDialog 点击"添加更多"时触发
+const handleRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
+  console.log('[MainChatPanel] 处理截图请求:', payload)
+
+  if (payload?.kind !== 'screen_snapshot') return
+
+  try {
+    const { dataUrl, width, height } = await captureScreenSnapshot()
+    if (!dataUrl) return
+
+    // 将截图添加到 AI 问答聊天输入框
+    if (activeCategory.value === 'ai-general') {
+      const imageInfo = {
+        filePath: '',
+        width: width || 0,
+        height: height || 0,
+        fileSize: Math.round(dataUrl.length * 0.75),
+        base64DataUrl: dataUrl,
+      }
+      await aiGeneralChatViewRef.value?.onImageSelected?.(imageInfo)
+    }
+  } catch (error) {
+    console.error('[MainChatPanel] 截图失败:', error)
+  }
 }
 
 defineExpose({
@@ -675,12 +711,13 @@ defineExpose({
   height: 100vh;
   width: 460px; /* 默认宽度，会被动态覆盖 */
   background-color: #ffffff;
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   transition: width 0.1s ease-out; /* 非拖拽时保留平滑过渡 */
-  /* 为绝对定位的形态切换按钮提供定位上下文 */
+  border-radius: 20px 0 0 20px;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
   overflow: visible;
+  border-bottom-left-radius: 20px
 }
 
 /* 在主面板上绘制 seekbar 效果 */
@@ -736,6 +773,7 @@ defineExpose({
   justify-content: center;
   align-items: flex-end;
   position: relative;
+  border-top-left-radius: 20px;
 }
 
 .header-right-actions {
@@ -877,13 +915,14 @@ defineExpose({
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-bottom-left-radius: 20px;
 }
 
 .tab-content {
   flex: 1;
   height: 100%;
   display: flex;
-  border-radius: 20px;
+  border-radius: 20px 20px 0 0;
 }
 
 .session-list-wrapper {
@@ -891,6 +930,7 @@ defineExpose({
   width: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  border-bottom-left-radius: 20px;
 }
 
 .main-chat-body {
@@ -898,6 +938,7 @@ defineExpose({
   display: flex;
   height: 100%;
   overflow: hidden;
+  border-bottom-left-radius: 20px;
 }
 
 .left-panel {
@@ -906,6 +947,7 @@ defineExpose({
   background: #f5f5f5;
   display: flex;
   flex-direction: column;
+  border-bottom-left-radius: 20px;
 }
 
 .right-panel {
@@ -915,6 +957,7 @@ defineExpose({
   height: 100%;
   background: #ffffff;
   max-width: 100%;
+  border-bottom-left-radius: 20px;
 }
 
 .add-session-icon {
@@ -931,6 +974,7 @@ defineExpose({
   text-align: center;
   padding: 40px 16px;
   background-color: #e8e9ff;
+  border-bottom-left-radius: 20px;
 }
 
 .empty-text {

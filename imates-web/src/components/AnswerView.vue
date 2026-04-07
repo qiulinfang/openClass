@@ -1,3 +1,4 @@
+
 <template>
   <div class="answer-view">
     <q-scroll-area class="full-height" :thumb-style="thumbStyle">

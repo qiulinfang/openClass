@@ -46,12 +46,12 @@
 
       <!-- 按钮区域 -->
       <div class="dialog-footer">
-        <CommonActionButton
+        <Button
           label="取消"
           variant="outline"
           @click="handleCancel"
         />
-        <CommonActionButton
+        <Button
           label="确定上传"
           variant="primary"
           :disabled="photos.length === 0"
@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import Modal from '@/components/base/Modal.vue'
-import CommonActionButton from '@/components/base/Button.vue'
+import Button from '@/components/base/Button.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import { useImagePicker } from '@/composables/useImagePicker'

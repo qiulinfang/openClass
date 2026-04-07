@@ -103,7 +103,7 @@
                   <div class="resource-size">{{ formatFileSize(resource.size) }}</div>
                 </div>
                 <!-- 操作按钮 -->
-                <CommonActionButton
+                <Button
                   label="去学习"
                   class="resource-action"
                   @click.stop="startLearning(resource)"
@@ -136,7 +136,7 @@ import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/base/VirtualList.vue'
 import { getUserId } from '../services'
 import Modal from '../components/base/Modal.vue'
-import CommonActionButton from '../components/base/Button.vue'
+import Button from '../components/base/Button.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 import { isImageFile } from '../utils/thumbnail/image-thumbnail'

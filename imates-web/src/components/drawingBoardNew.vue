@@ -1,6 +1,6 @@
 <template>
   <div class="sketchpad-wrapper">
-    <div class="toolbar">
+    <div v-if="showToolbar" class="toolbar">
       <div class="toolbar-slot toolbar-slot--left">
         <slot name="toolbar-left" />
       </div>
@@ -242,6 +242,8 @@ const props = defineProps({
   initialZoom: { type: Number, default: 1 },
   // 是否启用AI问答功能
   enableAskAi: { type: Boolean, default: false },
+  // 是否显示工具栏（默认显示）
+  showToolbar: { type: Boolean, default: true },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -291,6 +293,7 @@ const toolStates = reactive({
   circle: { color: '#212529', size: 3, opacity: 1 },
   line: { color: '#212529', size: 3, opacity: 1 },
   triangle: { color: '#212529', size: 3, opacity: 1 },
+  coordinate: { color: '#212529', size: 2, opacity: 1 },
   text: { color: '#212529', size: 16, opacity: 1 },
   'eraser-stroke': { color: '#ffffff', size: 15, opacity: 1 },
 })
@@ -320,6 +323,7 @@ const toolbarTools = computed(() => {
       'highlighter',
       'eraser-stroke',
       'insertImage',
+      'coordinate',
     ],
   }
 })
@@ -644,8 +648,8 @@ function resizeCanvas() {
   if (!containerRef.value || !liveCanvasRef.value || !historyCanvasRef.value) return
   const dpr = window.devicePixelRatio || 1
   const rect = containerRef.value.getBoundingClientRect()
-  const width = rect.width
-  const height = rect.height
+  const width = rect.width * 1.2  // Canvas 尺寸为容器的 120%
+  const height = rect.height * 1.2
 
   // 调整两个 Canvas 的大小
   ;[liveCanvasRef.value, historyCanvasRef.value].forEach((cvs) => {
@@ -765,6 +769,42 @@ function drawStrokeToContext(targetCtx, obj) {
     targetCtx.lineTo(obj.x + obj.width, obj.y + obj.height)
     targetCtx.stroke()
     targetCtx.globalAlpha = 1
+  } else if (obj.type === 'coordinate') {
+    targetCtx.strokeStyle = obj.color
+    targetCtx.lineWidth = obj.size
+    targetCtx.lineCap = 'round'
+    targetCtx.globalAlpha = obj.opacity ?? 1
+    const arrowSize = Math.max(8, obj.size * 4)
+    // 计算中心点（原点）
+    const centerX = obj.x + obj.width / 2
+    const centerY = obj.y + obj.height / 2
+    // X轴（水平线，穿过原点）
+    targetCtx.beginPath()
+    targetCtx.moveTo(obj.x, centerY)
+    targetCtx.lineTo(obj.x + obj.width, centerY)
+    // X轴箭头（右端）
+    targetCtx.moveTo(obj.x + obj.width - arrowSize, centerY - arrowSize / 2)
+    targetCtx.lineTo(obj.x + obj.width, centerY)
+    targetCtx.lineTo(obj.x + obj.width - arrowSize, centerY + arrowSize / 2)
+    // X轴箭头（左端）
+    targetCtx.moveTo(obj.x + arrowSize, centerY - arrowSize / 2)
+    targetCtx.lineTo(obj.x, centerY)
+    targetCtx.lineTo(obj.x + arrowSize, centerY + arrowSize / 2)
+    targetCtx.stroke()
+    // Y轴（垂直线，穿过原点）
+    targetCtx.beginPath()
+    targetCtx.moveTo(centerX, obj.y)
+    targetCtx.lineTo(centerX, obj.y + obj.height)
+    // Y轴箭头（上端）
+    targetCtx.moveTo(centerX - arrowSize / 2, obj.y + arrowSize)
+    targetCtx.lineTo(centerX, obj.y)
+    targetCtx.lineTo(centerX + arrowSize / 2, obj.y + arrowSize)
+    // Y轴箭头（下端）
+    targetCtx.moveTo(centerX - arrowSize / 2, obj.y + obj.height - arrowSize)
+    targetCtx.lineTo(centerX, obj.y + obj.height)
+    targetCtx.lineTo(centerX + arrowSize / 2, obj.y + obj.height - arrowSize)
+    targetCtx.stroke()
+    targetCtx.globalAlpha = 1
   } else if (obj.type === 'image') {
     const dataUrl = obj.dataUrl
     if (!dataUrl) return
@@ -789,7 +829,7 @@ function renderHistory() {
 
   // 1. 清空 & 基础变换
   historyCtx.setTransform(1, 0, 0, 1, 0, 0)
-  historyCtx.fillStyle = '#f9fafb'
+  historyCtx.fillStyle = '#ffffff'
   historyCtx.fillRect(0, 0, width, height)
 
   // 2. 绘制网格
@@ -1050,7 +1090,7 @@ function hitTest(wx, wy, extraRadius = 0) {
 
     if (s.type === 'text') {
       return i
-    } else if (['rectangle', 'circle', 'triangle', 'line'].includes(s.type)) {
+    } else if (['rectangle', 'circle', 'triangle', 'line', 'coordinate'].includes(s.type)) {
       const threshold = s.size / 2 + 10 / camera.zoom + extraRadius
       if (s.type === 'rectangle') {
         const dLeft = Math.abs(wx - s.x),
@@ -1085,6 +1125,50 @@ function hitTest(wx, wy, extraRadius = 0) {
         const p1 = { x: s.x, y: s.y },
           p2 = { x: s.x + s.width, y: s.y + s.height }
         if (distToSegment(wx, wy, p1, p2) < threshold) return i
+      } else if (s.type === 'coordinate') {
+        // 坐标轴碰撞检测：检查X轴、Y轴和箭头（新形式：原点在中心）
+        const arrowSize = Math.max(8, s.size * 4)
+        const centerX = s.x + s.width / 2
+        const centerY = s.y + s.height / 2
+        // X轴线段（水平穿过中心）
+        const xAxisP1 = { x: s.x, y: centerY }
+        const xAxisP2 = { x: s.x + s.width, y: centerY }
+        // Y轴线段（垂直穿过中心）
+        const yAxisP1 = { x: centerX, y: s.y }
+        const yAxisP2 = { x: centerX, y: s.y + s.height }
+        // X轴箭头（右端）
+        const xArrowRightP1 = { x: s.x + s.width - arrowSize, y: centerY - arrowSize / 2 }
+        const xArrowRightP2 = { x: s.x + s.width, y: centerY }
+        const xArrowRightP3 = { x: s.x + s.width - arrowSize, y: centerY + arrowSize / 2 }
+        // X轴箭头（左端）
+        const xArrowLeftP1 = { x: s.x + arrowSize, y: centerY - arrowSize / 2 }
+        const xArrowLeftP2 = { x: s.x, y: centerY }
+        const xArrowLeftP3 = { x: s.x + arrowSize, y: centerY + arrowSize / 2 }
+        // Y轴箭头（上端）
+        const yArrowTopP1 = { x: centerX - arrowSize / 2, y: s.y + arrowSize }
+        const yArrowTopP2 = { x: centerX, y: s.y }
+        const yArrowTopP3 = { x: centerX + arrowSize / 2, y: s.y + arrowSize }
+        // Y轴箭头（下端）
+        const yArrowBottomP1 = { x: centerX - arrowSize / 2, y: s.y + s.height - arrowSize }
+        const yArrowBottomP2 = { x: centerX, y: s.y + s.height }
+        const yArrowBottomP3 = { x: centerX + arrowSize / 2, y: s.y + s.height - arrowSize }
+        if (
+          distToSegment(wx, wy, xAxisP1, xAxisP2) < threshold ||
+          distToSegment(wx, wy, yAxisP1, yAxisP2) < threshold ||
+          distToSegment(wx, wy, xArrowRightP1, xArrowRightP2) < threshold ||
+          distToSegment(wx, wy, xArrowRightP2, xArrowRightP3) < threshold ||
+          distToSegment(wx, wy, xArrowRightP3, xArrowRightP1) < threshold ||
+          distToSegment(wx, wy, xArrowLeftP1, xArrowLeftP2) < threshold ||
+          distToSegment(wx, wy, xArrowLeftP2, xArrowLeftP3) < threshold ||
+          distToSegment(wx, wy, xArrowLeftP3, xArrowLeftP1) < threshold ||
+          distToSegment(wx, wy, yArrowTopP1, yArrowTopP2) < threshold ||
+          distToSegment(wx, wy, yArrowTopP2, yArrowTopP3) < threshold ||
+          distToSegment(wx, wy, yArrowTopP3, yArrowTopP1) < threshold ||
+          distToSegment(wx, wy, yArrowBottomP1, yArrowBottomP2) < threshold ||
+          distToSegment(wx, wy, yArrowBottomP2, yArrowBottomP3) < threshold ||
+          distToSegment(wx, wy, yArrowBottomP3, yArrowBottomP1) < threshold
+        )
+          return i
       }
     } else {
       const threshold = s.size / 2 + 10 / camera.zoom + extraRadius
@@ -1219,7 +1303,8 @@ function saveState() {
   }
   autoSaveTimer = setTimeout(() => {
     autoSaveTimer = null
-    emit('save', saveData())
+    const data = saveData()
+    emit('save', data)
   }, AUTO_SAVE_DELAY_MS)
 }
 
@@ -1342,7 +1427,7 @@ function handlePointerDown(e) {
       renderHistory() // 历史改变
     }
     activeAction = { type: 'erase' }
-  } else if (['rectangle', 'circle', 'triangle', 'line'].includes(currentMode.value)) {
+  } else if (['rectangle', 'circle', 'triangle', 'line', 'coordinate'].includes(currentMode.value)) {
     selectedIndices.clear()
     groupBounds = null
     activeAction = {
@@ -1457,7 +1542,7 @@ function handlePointerMove(e) {
         obj.bounds.maxX += dx
         obj.bounds.minY += dy
         obj.bounds.maxY += dy
-      } else if (['rectangle', 'circle', 'triangle', 'line'].includes(obj.type)) {
+      } else if (['rectangle', 'circle', 'triangle', 'line', 'coordinate'].includes(obj.type)) {
         obj.x += dx
         obj.y += dy
         obj.bounds.minX += dx
@@ -1562,7 +1647,7 @@ function handleResize(currPos) {
       target.size = original.size * Math.min(Math.abs(scaleX), Math.abs(scaleY))
       target.bounds.minX = target.x
       target.bounds.minY = target.y
-    } else if (['rectangle', 'circle', 'triangle', 'line'].includes(target.type)) {
+    } else if (['rectangle', 'circle', 'triangle', 'line', 'coordinate'].includes(target.type)) {
       const relX = (original.x - startBounds.minX) / startBounds.width
       const relY = (original.y - startBounds.minY) / startBounds.height
       target.x = newBounds.minX + relX * newBounds.width
@@ -2159,7 +2244,8 @@ onMounted(() => {
   liveCtx = liveCanvasRef.value.getContext('2d') // Live 必须支持 alpha
   resizeCanvas()
   camera.zoom = normalizeZoom(props.initialZoom)
-  saveState()
+  // 注意：不要在 onMounted 中调用 saveState()，
+  // 因为它会创建自动保存定时器，可能在草稿加载前覆盖数据
   containerRef.value?.addEventListener('dragover', handleDragOver)
   containerRef.value?.addEventListener('drop', handleDrop)
   window.addEventListener('paste', handlePaste)
@@ -2341,6 +2427,12 @@ const saveData = () => ({
   historyIndex: historyStep.value,
 })
 const loadData = (data) => {
+  // 关键：清除可能正在运行的自动保存定时器，防止加载数据前被空数据覆盖
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  
   strokes = Array.isArray(data?.objects) ? data.objects : []
   history = Array.isArray(data?.history) ? data.history : []
 
@@ -2353,17 +2445,25 @@ const loadData = (data) => {
   strokes.forEach((s) => ensureBoundsForStroke(s))
   requestRenderAll()
 }
+
 const clearAll = () => {
   strokes = []
-  history = []
-  historyStep.value = -1
   selectedIndices.clear()
   groupBounds = null
+  activeAction = null
+  activeHandle = null
+  selectionRect = null
+  history = []
+  historyStep.value = -1
+  // 清除自动保存定时器，防止清空后仍然触发保存
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
   requestRenderAll()
 }
 
-// 导出与缩略图逻辑复用 (略微修改以适配 strokes 遍历)
-const getThumbnail = (width, height) => {
+const getThumbnail = (width = 300, height = 200) => {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -2491,6 +2591,17 @@ defineExpose({
   exportToJpg,
   insertImageFromDataUrl,
   forceRender,
+  // 工具栏相关
+  toolbarTools,
+  toolbarSelectedTool,
+  toolbarToolConfig,
+  handleToolbarToolChange,
+  handleToolbarConfigChange,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+  triggerImageSelect,
 })
 </script>
 
@@ -2514,8 +2625,8 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  background-color: #f7f6ff;
+  overflow: visible; /* 允许 Canvas 超出容器边界 */
+  background-color: #ffffff;
 }
 
 .image-delete-btn {

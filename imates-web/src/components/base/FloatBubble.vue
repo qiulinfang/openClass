@@ -67,13 +67,18 @@ const props = defineProps({
   items: {
     type: Array,
     default: () => []
+  },
+  // 是否只作为切换按钮使用（不弹出菜单，点击直接触发 toggle 事件）
+  toggleOnly: {
+    type: Boolean,
+    default: false
   }
 })
 
 const items = computed(() => props.items || [])
 const isSingleItem = computed(() => items.value.length === 1)
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'toggle'])
 const isVisible = ref(false)
 const isPressed = ref(false)
 const containerRef = ref(null)
@@ -169,6 +174,11 @@ const getItemStyle = (index) => {
 
 const toggleMenu = () => {
   if (isDev && debug.forceVisible) return
+  // 如果 toggleOnly 模式，直接触发 toggle 事件而不显示菜单
+  if (props.toggleOnly) {
+    emit('toggle')
+    return
+  }
   isVisible.value = !isVisible.value
 }
 

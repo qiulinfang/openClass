@@ -92,11 +92,9 @@
       <template v-slot:after v-if="pdfViewerStore.chatPanelVisible">
         <PdfChatPanel 
           ref="chatPanelRef" 
-          :attached-screenshots="aiTextbookStore.attachedScreenshots"
-          @send-with-screenshot="handlePdfSendWithScreenshot"
-          @edit-screenshot="handleEditScreenshot"
-          @request-screenshot="handleRequestScreenshot"
+          :attached-screenshots="aiTextbookStore.inputAttachedScreenshots"
           @close="handleCloseChatPanel"
+          @screenshot-click="handleScreenshotClick"
         />
       </template>
     </q-splitter>
@@ -110,7 +108,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, computed, ref, nextTick, type ComponentPublicInstance } from 'vue'
+import { onMounted, onBeforeUnmount, computed, ref, nextTick, type ComponentPublicInstance, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore, type ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
@@ -420,12 +418,6 @@ const handleToolChange = (tool: string) => {
   }
 }
 
-const handleRequestScreenshot = (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
-  if (payload?.kind === 'pdf_page') {
-    handleToolChange('screenshot')
-  }
-}
-
 // 工具状态：使用 UnifiedToolbar 的工具 ID
 const toolStates = computed(() => {
   return {
@@ -656,7 +648,7 @@ const MAX_SCREENSHOTS = 3
 const handleScreenshotCaptured = async (blob: Blob) => {
   try {
     // 1. 检查截图数量限制（最多3张）
-    const currentCount = aiTextbookStore.attachedScreenshots.length
+    const currentCount = aiTextbookStore.inputAttachedScreenshots?.length ?? 0
     if (currentCount >= MAX_SCREENSHOTS) {
       showMessage(`最多只能添加 ${MAX_SCREENSHOTS} 张截图`, 'warning')
       // 退出截图模式
@@ -681,10 +673,10 @@ const handleScreenshotCaptured = async (blob: Blob) => {
     }
 
     // 单一数据源：立即写入 store（此时 ChatInput 缩略图会立刻出现）
-    aiTextbookStore.appendAttachedScreenshots([shot])
-    aiTextbookStore.setScreenshotDrawingStates({
-      ...aiTextbookStore.screenshotDrawingStates,
-      [shotId]: aiTextbookStore.screenshotDrawingStates[shotId] || { objects: [], history: [], historyIndex: -1 },
+    aiTextbookStore.appendInputAttachedScreenshots([shot])
+    aiTextbookStore.setInputScreenshotDrawingStates({
+      ...aiTextbookStore.inputScreenshotDrawingStates,
+      [shotId]: aiTextbookStore.inputScreenshotDrawingStates[shotId] || { objects: [], history: [], historyIndex: -1 },
     } as any)
 
     // 打开编辑弹窗并定位到新图（弹窗由 ChatView 维护）
@@ -698,100 +690,19 @@ const handleScreenshotCaptured = async (blob: Blob) => {
   }
 }
 
-// 点击 ChatInput 缩略图：打开编辑弹窗并定位到指定截图
-const handleEditScreenshot = (shotId: string) => {
-  if (!shotId) return
-  chatPanelRef.value?.openTextbookScreenshotEditor?.({ shotId })
-}
-
-// 从 ChatInput 发送携带截图的消息：复用原 handleScreenshotConfirm 的逻辑
-const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreenshot[], selectedModel?: string) => {
-  if (!shots || !shots.length) {
-    return
-  }
-
-  // 用户点击发送时，立刻清空挂在输入框上的截图（无论后续发送成功与否）
-  aiTextbookStore.clearAttachedScreenshots()
-  aiTextbookStore.clearScreenshotDrawingStates()
-
-  // 最多只保留前三张截图
-  const limitedShots = shots.slice(0, 3)
-  const firstShot = limitedShots[0]
-  const dataUrl = firstShot.dataUrl
-
-  try {
-    // 打开对话面板并切换到 AI 问答 Tab
-    pdfViewerStore.openChatPanel()
-    // 设置当前教材ID
-    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
-    if (currentResourceId) {
-      aiTextbookStore.setResourceId(currentResourceId)
+// 处理统一的截图工具点击事件
+const handleScreenshotClick = (enable: boolean) => {
+  console.log('[PdfViewerView] 截图工具切换:', enable)
+  if (enable) {
+    // 开启截图模式
+    if (pdfViewerStore.selectedTool !== 'screenshot') {
+      handleToolChange('screenshot')
     }
-    // 为本次截图会话生成会话ID（同时作为存储键使用）
-    const now = Date.now()
-    const userId = getUserId() || ''
-    const sessionId = currentResourceId
-      ? `${userId ? userId + '-' : ''}ai-textbook-${currentResourceId}-${now}`
-      : `${userId ? userId + '-' : ''}ai-textbook-${now}`
-    aiTextbookStore.currentSessionId = sessionId
-
-    const fileName = `screenshot-${Date.now()}.jpg`
-
-    // 首图 imageData：用于截图接口（previewPictureQA）
-    const imageData = {
-      filePath: fileName,
-      base64DataUrl: dataUrl,
-      width: firstShot.width,
-      height: firstShot.height,
-      fileSize: Math.round(dataUrl.length * 0.75),
+  } else {
+    // 关闭截图模式
+    if (pdfViewerStore.selectedTool === 'screenshot') {
+      handleToolChange('hand')
     }
-
-    // 构建多图列表，包含最多前三张截图（全部放在 imageList 里传给 sendMessage）
-    const imageList = limitedShots.map((shot, index) => {
-      const shotDataUrl = shot.dataUrl
-      const shotFileName = `screenshot-${Date.now()}-${index}.jpg`
-      return {
-        filePath: shotFileName,
-        base64DataUrl: shotDataUrl,
-        width: shot.width,
-        height: shot.height,
-        fileSize: Math.round(shotDataUrl.length * 0.75),
-      }
-    })
-
-    // 通过 aiTextbookStore 发送消息：图片都挂在 imageList 上（最多3张），首图仍作为 imageData 走截图接口
-    await aiTextbookStore.sendMessage(
-      text,
-      selectedModel || 'mate',
-      imageData,
-      false,
-      false,
-      undefined,
-      imageList,
-    )
-
-    // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
-    const newSession: AiTextbookSession = {
-      sessionId,
-      sessionName: text,
-      createTime: now,
-      updateTime: now,
-      msgCount: 0,
-      pinned: false,
-      // 缩略图：直接使用当前截图的 base64 作为预览
-      thumbnailImage: dataUrl,
-      hasImage: true,
-      resourceId: currentResourceId || undefined,
-      // 兼容字段
-      id: sessionId,
-      question: text,
-      answer: '',
-    }
-    addScreenshotSession(newSession)
-    // 新增会话写入完成后，通知右侧对话面板刷新会话列表
-    chatPanelRef.value?.reloadSessions?.()
-  } catch (error) {
-    console.error('[PdfViewerView] 发送截图消息失败', error)
   }
 }
 

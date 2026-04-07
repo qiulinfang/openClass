@@ -8,9 +8,13 @@
     >
       <div class="scroll-content">
         <div class="q-pa-md">
+          <!-- 加载状态 -->
+          <div v-if="loading" class="loading-container">
+            <Loading text="查找相似题目中..." :size="48" theme="dark" />
+          </div>
 
         <!-- 空状态 -->
-        <div v-if="!loading && similarQuestions.length === 0" class="native-empty-state">
+        <div v-else-if="!loading && similarQuestions.length === 0" class="native-empty-state">
           <q-icon name="search_off" size="80px" color="grey-5" />
           <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">未找到相似题目</div>
           <div class="text-body2 text-grey-6 q-mt-sm native-text-md">
@@ -28,7 +32,7 @@
         </div>
 
         <!-- 相似题目项 - 与 QuestionList 保持一致的卡片布局 -->
-        <div v-if="!loading && similarQuestions.length > 0" class="similar-questions-container">
+        <div v-else-if="!loading && similarQuestions.length > 0" class="similar-questions-container">
           <div
             v-for="(question, index) in similarQuestions"
             :key="question.bmNo || index"
@@ -87,6 +91,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
 import RubberBandList from './base/VirtualList.vue'
 import ImageViewer from './ImageViewer.vue'
+import Loading from './base/Loading.vue'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)
 
@@ -304,6 +309,13 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   min-height: calc(100% + 1px);
 }
 
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+}
+
 .similar-questions-container {
   display: flex;
   flex-direction: column;
@@ -404,6 +416,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 .add-btn {
   flex-shrink: 0;
   margin-top: 4px;
+  margin-left: auto;
   @include button-base;
   background-color: transparent;
   width: 24px;

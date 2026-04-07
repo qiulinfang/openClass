@@ -73,7 +73,7 @@
                   size="sm"
                   dot
                 />
-                <CommonActionButton
+                <Button
                   :label="item.buttonText"
                   size="mdCompact"
                   :variant="item.buttonVariant"
@@ -104,7 +104,7 @@ import type { HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
 import type { ExerciseItem } from '@/types'
 import { SUBJECT_ID_TO_NAME, HOMEWORK_SUBJECT_OPTIONS, normalizeSubject } from '@/constants/subjects'
 import { getHomeworkStatusText, getHomeworkStatusType, getHomeworkStatusTagType, getHomeworkTagText, getHomeworkButtonText, getHomeworkButtonVariant } from '@/constants/homework'
-import CommonActionButton from '@/components/base/Button.vue'
+import Button from '@/components/base/Button.vue'
 import CommonDatePicker from '@/components/base/DatePicker.vue'
 import CommonSelect from '@/components/base/Select.vue'
 import RubberBandList from '@/components/base/VirtualList.vue'

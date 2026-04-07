@@ -19,6 +19,7 @@ import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
 import LottieTest from '@/views/LottieTest.vue'
+import ExerciseSolveViewNew from '@/views/ExerciseSolveViewNew.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -44,6 +45,11 @@ const router = createRouter({
         {
           path: 'exercise-solve',
           name: 'exerciseSolve',
+          component: ExerciseSolveViewNew
+        },
+        {
+          path: '/exercise-solve-new',
+          name: 'exerciseSolveNew',
           component: ExerciseSolveView
         },
         // 知识图谱路由

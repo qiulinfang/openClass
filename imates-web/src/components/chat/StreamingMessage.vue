@@ -71,6 +71,7 @@ import Loading from '../base/Loading.vue'
 import generateImgGif from '/icons/generateImg.webp'
 import refreshIcon from '/icons/refresh.svg'
 import { useMainChatPanel } from '../../composables/useMainChatPanel'
+import { usePdfViewerStore } from '../../stores/pdfViewerStore'
 // 定义Props
 interface Props{
   content: string
@@ -93,18 +94,31 @@ const router = useRouter()
 // 使用 MainChatPanel 控制
 const { hideMainChatPanel} = useMainChatPanel()
 
+// 使用 PdfViewerStore
+const pdfViewerStore = usePdfViewerStore()
+
 // 使用公共的 markdown 渲染器
 const { renderMessageContent } = useMessageRenderer()
 
 const openHtmlDialog = (urlArg?: string) => {
   // 关闭 MainChatPanel
   hideMainChatPanel()
-  
+
   if (urlArg) {
+    // 判断当前是否在 PDF 查看器场景
+    const currentRoute = router.currentRoute.value
+    const isFromPdf = currentRoute.name === 'pdfViewer'
+
+    // 如果是从 PDF 跳转，关闭 PdfChatPanel
+    if (isFromPdf) {
+      pdfViewerStore.closeChatPanel()
+    }
+
     router.push({
       name: 'htmlPreview',
       query: {
-        url: urlArg
+        url: urlArg,
+        ...(isFromPdf ? { from: 'pdf' } : {})
       }
     })
   }

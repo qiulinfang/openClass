@@ -20,44 +20,44 @@ export class AiTextbookStrategy implements ChatStrategy {
   private chatView?: import('./ChatStrategy').ChatViewInterface
 
   getInputAttachedScreenshots(): AttachedScreenshot[] {
-    return this.aiTextbookStore.attachedScreenshots
+    return this.aiTextbookStore.inputAttachedScreenshots
   }
 
   setInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
-    this.aiTextbookStore.setAttachedScreenshots(Array.isArray(shots) ? shots : [])
+    this.aiTextbookStore.setInputAttachedScreenshots(Array.isArray(shots) ? shots : [])
   }
 
   appendInputAttachedScreenshots(shots: AttachedScreenshot[]): void {
     if (!shots || shots.length === 0) return
-    this.aiTextbookStore.appendAttachedScreenshots(shots)
+    this.aiTextbookStore.appendInputAttachedScreenshots(shots)
   }
 
   removeInputAttachedScreenshot(id: string): void {
     if (!id) return
-    this.aiTextbookStore.removeAttachedScreenshot(id)
-    this.aiTextbookStore.removeScreenshotDrawingState(id)
+    this.aiTextbookStore.removeInputAttachedScreenshot(id)
+    this.aiTextbookStore.removeInputScreenshotDrawingState(id)
   }
 
   clearInputAttachedScreenshots(): void {
-    this.aiTextbookStore.clearAttachedScreenshots()
-    this.aiTextbookStore.clearScreenshotDrawingStates()
+    this.aiTextbookStore.clearInputAttachedScreenshots()
+    this.aiTextbookStore.clearInputScreenshotDrawingStates()
   }
 
   getInputScreenshotDrawingStates(): Record<string, unknown> {
-    return this.aiTextbookStore.screenshotDrawingStates as any
+    return this.aiTextbookStore.inputScreenshotDrawingStates as any
   }
 
   setInputScreenshotDrawingStates(states: Record<string, unknown>): void {
-    this.aiTextbookStore.setScreenshotDrawingStates(states as any)
+    this.aiTextbookStore.setInputScreenshotDrawingStates(states as any)
   }
 
   removeInputScreenshotDrawingState(id: string): void {
     if (!id) return
-    this.aiTextbookStore.removeScreenshotDrawingState(id)
+    this.aiTextbookStore.removeInputScreenshotDrawingState(id)
   }
 
   clearInputScreenshotDrawingStates(): void {
-    this.aiTextbookStore.clearScreenshotDrawingStates()
+    this.aiTextbookStore.clearInputScreenshotDrawingStates()
   }
   
   // 获取消息列表
@@ -348,7 +348,40 @@ export class AiTextbookStrategy implements ChatStrategy {
   getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' {
     return 'pdf_page'
   }
-  
+
+  buildImagePayloadFromAttachedScreenshots(shots: AttachedScreenshot[]) {
+    const maxImages = this.getMaxAttachedImages()
+    const list = (shots || []).filter((s) => !!s?.dataUrl).slice(0, maxImages)
+    if (list.length === 0) return {}
+
+    // 构建 imageList（截图场景验证器要求必须有 imageList）
+    const imageList = list.map((s) => ({
+      filePath: '',
+      width: s.width || 0,
+      height: s.height || 0,
+      fileSize: Math.round(s.dataUrl.length * 0.75),
+      base64DataUrl: s.dataUrl,
+      isLargeImage: false,
+    }))
+
+    if (list.length === 1) {
+      return {
+        imageData: {
+          filePath: '',
+          base64DataUrl: list[0].dataUrl,
+          width: list[0].width || 0,
+          height: list[0].height || 0,
+          fileSize: Math.round(list[0].dataUrl.length * 0.75),
+        },
+        imageList, // 单图时也返回 imageList，满足验证器要求
+      }
+    }
+
+    return {
+      imageList,
+    }
+  }
+
   // 是否使用乐观发送
   shouldOptimisticSend(): boolean {
     return false // AI场景不使用乐观发送

@@ -249,14 +249,60 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     // 自动检测并去除"我们开始吧"前缀（如果未显式设置 shouldHidePrefix）
     const shouldHidePrefixFlag = hidePrefix || content.includes('我们开始吧')
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(
-        content,
-        imageData,
-        shouldHidePrefixFlag,
-        currentSessionId.value || undefined,
-        quotedMessage,
-      )
-      messages.value.push(userMessage)
+      // 多图场景：创建 multi_image 类型消息
+      if (imageList && imageList.length > 0) {
+        const now = Date.now()
+        
+        // 标准化图片列表
+        const standardImageList = imageList
+          .filter((img) => !!img.base64DataUrl)
+          .map((img) => ({
+            filePath: img.filePath || '',
+            width: img.width || 0,
+            height: img.height || 0,
+            fileSize: img.fileSize || 0,
+            base64DataUrl: img.base64DataUrl!,
+            isLargeImage: img.isLargeImage || false,
+          }))
+        
+        // 第一条消息：只包含图片，不包含文字
+        const imageMessage: ChatBubble = {
+          id: now.toString(),
+          content: '', // 图片消息不包含文字
+          type: Sender.USER,
+          timestamp: new Date().toISOString(),
+          sender: Sender.USER,
+          messageType: 'multi_image',
+          imageList: standardImageList,
+          sessionId: currentSessionId.value || undefined,
+          quotedMessage, // 引用消息信息（前端展示用）
+        }
+        messages.value.push(imageMessage)
+
+        // 第二条消息：只包含文字（如果有文字内容）
+        if (content && content.trim()) {
+          const textMessage: ChatBubble = {
+            id: (now + 1).toString(), // 确保 id 不重复
+            content,
+            type: Sender.USER,
+            timestamp: new Date().toISOString(),
+            sender: Sender.USER,
+            messageType: 'text',
+            sessionId: currentSessionId.value || undefined,
+          }
+          messages.value.push(textMessage)
+        }
+      } else {
+        // 单图或纯文本，沿用原有逻辑
+        const userMessage = createUserMessage(
+          content,
+          imageData,
+          shouldHidePrefixFlag,
+          currentSessionId.value || undefined,
+          quotedMessage,
+        )
+        messages.value.push(userMessage)
+      }
     }
 
     // 创建临时AI回复（使用工具函数）
@@ -672,6 +718,15 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   // ==================== 多会话管理 ====================
   
+  // 辅助函数：生成会话标题（从首条用户消息提取）
+  const generateSessionTitle = (snapshot: { userMessage?: string }): string => {
+    const maxLength = 20
+    const content = snapshot.userMessage?.trim() || ''
+    if (!content) return '新会话'
+    if (content.length <= maxLength) return content
+    return content.substring(0, maxLength) + '...'
+  }
+
   /**
    * 从消息列表中提取快照信息
    */
@@ -709,7 +764,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     const sessionData: ExerciseSession = {
       id: currentSessionId.value,
       questionBmNo,
-      title: `会话 ${existingIndex >= 0 ? existingIndex + 1 : sessions.value.length + 1}`,
+      title: existingIndex >= 0 ? sessions.value[existingIndex].title : generateSessionTitle(snapshot),
       messages: [...messages.value],
       chatResponseTimes: chatResponseTimes.value,
       createdAt: existingIndex >= 0 ? sessions.value[existingIndex].createdAt : now,
@@ -851,12 +906,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     
     sessions.value.splice(index, 1)
     
-    // 删除后按题目维度重新编号会话标题，保证序号连续
-    const sameQuestionSessions = sessions.value.filter(s => s.questionBmNo === questionBmNo)
-    sameQuestionSessions.forEach((session, idx) => {
-      session.title = `会话 ${idx + 1}`
-    })
-    
     // 如果删除的是当前会话，切换到第一个会话或清空
     if (currentSessionId.value === sessionId) {
       if (sessions.value.length > 0) {
@@ -867,17 +916,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         chatResponseTimes.value = 0
         canViewAnswer.value = false
       }
-    }
-    
-    // 同步删除后端记忆（solvingbot）
-    try {
-      await apiService.manageConversationMemory({
-        command: 'delete_thread',
-        thread_id: sessionId,
-        agent_name: 'solvingbot',
-      })
-    } catch (error) {
-      console.warn('[AI_EXERCISE] 删除会话时同步后端记忆失败:', error)
     }
 
     // 删除本地存储中的该会话聊天历史

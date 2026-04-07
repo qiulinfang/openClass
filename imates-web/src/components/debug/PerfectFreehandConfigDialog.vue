@@ -171,7 +171,7 @@
       </q-expansion-item>
 
       <div class="pf-config-row pf-config-actions">
-        <CommonActionButton label="重置默认" size="mdCompact" variant="outline" @click="$emit('reset')" />
+        <Button label="重置默认" size="mdCompact" variant="outline" @click="$emit('reset')" />
       </div>
     </div>
   </Modal>
@@ -181,7 +181,7 @@
 import { computed, ref, watch } from 'vue'
 import { PRESET_OPTIONS, EASING_OPTIONS } from '../../constants/options'
 import Modal from '../base/Modal.vue'
-import CommonActionButton from '../base/Button.vue'
+import Button from '../base/Button.vue'
 import CommonSelect from '../base/Select.vue'
 
 type PfConfig = {
