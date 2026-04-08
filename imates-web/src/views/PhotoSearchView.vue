@@ -444,15 +444,18 @@ const questionStore = useQuestionStore()
 
 // 检查当前题目是否已在练习列表中
 const isInPracticeList = computed(() => {
-  if (!currentQuestionData.value) return false
+  if (!currentQuestionData.value) {
+    return false
+  }
   const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
-  return questionStore.questions.some((q) => (q.bmNo || q.id) === currentId)
+  const questionsList = questionStore.questions
+  const found = questionsList.some((q) => (q.bmNo || q.id) === currentId)
+  return found
 })
 
 // 根据当前tab返回对应的题目数据
 const currentQuestionData = computed(() => {
   const data = activeTab.value === 'photo' ? photoQuestionData.value : keywordQuestionData.value
-  console.log('currentQuestionData', data)
   return data
 })
 
@@ -1873,23 +1876,33 @@ const handleAddToPracticeInChat = async () => {
   }
 
   try {
-    // 获取当前题目ID
-    const currentId =
-      questionStore.questions.find((q) => q.bmNo === currentQuestionData.value?.bmNo)?.id ??
-      currentQuestionData.value.id
+    // 获取当前题目ID - 直接使用当前题目的 bmNo 或 id
+    const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
     if (!currentId) {
       showMessage('题目ID无效，无法操作', 'warning')
       return
     }
+
     // 检查题目是否已在练习列表中
     if (isInPracticeList.value) {
       // 已在列表中，执行删除操作（先调用后端，再刷新本地列表）
       try {
+        // 从题目列表中找到匹配的题目，获取后端返回的 id
+        const matchedQuestion = questionStore.questions.find((q) => (q.bmNo || q.id) === currentId)
+        // 优先使用后端返回的 id，如果没有则使用 bmNo
+        const deleteId = matchedQuestion?.id || matchedQuestion?.bmNo || currentId
+        
         // 调用后端删除练习题目
-        const success = await apiService.deleteExercise(currentId, selectedSubject.value)
+        const success = await apiService.deleteExercise(deleteId, selectedSubject.value)
         if (success) {
           showMessage('已从练习列表中移除', 'success')
-          // 刷新本地题目列表
+          // 立即从本地列表中移除该题目，确保 isInPracticeList 计算属性更新
+          const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
+          const indexToRemove = questionStore.questions.findIndex((q) => (q.bmNo || q.id) === currentId)
+          if (indexToRemove !== -1) {
+            questionStore.questions.splice(indexToRemove, 1)
+          }
+          // 刷新本地题目列表（从服务器获取最新数据）
           if (selectedSubject.value) {
             await questionStore.fetchQuestions(selectedSubject.value, false)
           } else {
@@ -1904,8 +1917,13 @@ const handleAddToPracticeInChat = async () => {
       }
     } else {
       // 不在列表中，执行添加操作
-      const questions = questionStore.questions
-      const exercisesId = questions.map((q) => q.bmNo || q.id).join(',')
+      // 构建 exercisesId：使用现有题目ID + 当前题目ID
+      const existingIds = questionStore.questions.map((q) => q.bmNo || q.id)
+      // 确保包含当前题目ID（如果是新题目，existingIds 中可能没有）
+      if (!existingIds.includes(currentId)) {
+        existingIds.push(currentId)
+      }
+      const exercisesId = existingIds.join(',')
 
       // 构建添加请求
       const questionData = {
@@ -1918,7 +1936,7 @@ const handleAddToPracticeInChat = async () => {
         showMessage('题目已添加到练习列表', 'success')
         // 刷新题目列表，使用与请求一致的学科
         await questionStore.fetchQuestions(selectedSubject.value, false)
-        // 弹出是否跳转“我的习题”提示
+        // 弹出是否跳转"我的习题"提示
         showAddToPracticeDialog.value = true
       } else {
         showMessage('添加题目失败', 'error')

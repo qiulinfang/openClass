@@ -259,7 +259,7 @@ const textInputRef = ref<HTMLTextAreaElement | null>(null)
 
 const currentMode = ref('draw')
 const currentColor = ref('#212529')
-const currentSize = ref(3)
+const currentSize = ref(2)
 const currentOpacity = ref(1)
 const selectMode = ref('rectangle')
 
@@ -287,7 +287,7 @@ const eraserCursor = reactive({
 
 // 工具状态配置
 const toolStates = reactive({
-  draw: { color: '#212529', size: 3, opacity: 1 },
+  draw: { color: '#212529', size: 1.5, opacity: 1 },
   highlighter: { color: '#ffc107', size: 12, opacity: 0.4 },
   rectangle: { color: '#212529', size: 3, opacity: 1 },
   circle: { color: '#212529', size: 3, opacity: 1 },

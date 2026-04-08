@@ -54,7 +54,7 @@
           <SessionList
             :records="sessions"
             :selectedRecordId="selectedRecordId"
-            @screenshot-click="handleSessionClick"
+            @record-click="handleSessionClick"
             @record-delete="handleSessionDelete"
             @record-pin="handleSessionPin"
             @batch-delete="handleBatchDelete"

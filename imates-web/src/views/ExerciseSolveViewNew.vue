@@ -71,6 +71,7 @@
                   :show-question-actions="true"
                   :selected-subject-filter="selectedSubjectFilter"
                   @question-selected="handleQuestionSelected"
+                  @question-deleted="handleQuestionDeleted"
                   @start-ai-guidance="handleStartAiGuidance"
                   @open-mini-class="handleOpenMiniClass"
                   @paste-to-draft="handlePasteToDraft"
@@ -94,15 +95,6 @@
                 :class="{ collapsed: isQuestionImageCollapsed }"
                 :style="{ height: isQuestionImageCollapsed ? '20%' : '70%' }"
               >
-                <div class="question-image-header">
-                  <span class="question-image-title">题目</span>
-                  <button class="collapse-btn" @click="toggleQuestionImage">
-                    <span class="collapse-icon" :class="{ rotated: isQuestionImageCollapsed }">
-                      {{ isQuestionImageCollapsed ? '▼' : '▲' }}
-                    </span>
-                    {{ isQuestionImageCollapsed ? '展开' : '收起' }}
-                  </button>
-                </div>
                 <div class="question-image-content">
                   <div
                     v-if="questionHtml"
@@ -112,26 +104,29 @@
                   <div v-else class="question-image-placeholder">请选择题目以查看内容</div>
                 </div>
               </div>
+              <div class="collapse-toggle-btn" @click="toggleQuestionImage">
+                <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
+              </div>
               <!-- 草稿本区域 -->
               <div class="panel-card-body draft-body">
                 <DrawingBoardNew
                   ref="draftBoardRef"
                   :showGrid="false"
-                  :initial-zoom="70"
+                  :initial-zoom="100"
                   :show-toolbar="false"
                   @save="handleDraftSave"
                   @clear="handleDraftClearClick"
                 />
-                <!-- IP 悬浮功能 - 使用 FloatBubble 组件（整体定位） -->
-                <FloatBubble
-                  toggle-only
-                  :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
-                  @toggle="handleToggle"
-                >
-                  <img :src="textbookipIcon" alt="textbookip" />
-                </FloatBubble>
               </div>
             </div>
+            <!-- IP 悬浮功能 - 使用 FloatBubble 组件（移到 panel-content 层级避免被裁剪） -->
+            <FloatBubble
+              toggle-only
+              :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
+              @toggle="handleToggle"
+            >
+              <img :src="textbookipIcon" alt="textbookip" />
+            </FloatBubble>
           </div>
         </template>
 
@@ -218,6 +213,7 @@ import ipWordIcon from '/icons/ipWord2.svg'
 import wodezuodaUnselectIcon from '/icons/wodezuoda_unselect.svg'
 import xuebandayiSelectIcon from '/icons/xuebandayi_select.svg'
 import questionSearchIcon from '/icons/questionSearch.svg'
+import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
 
 // Markdown + 公式渲染工具
 const { renderMessageContent } = useMessageRenderer()
@@ -363,6 +359,13 @@ const handleOpenMiniClass = (question: any) => {
 
 const handlePasteToDraft = (payload: any) => {
   draftBoardRef.value?.pasteImage?.(payload.dataUrl)
+}
+
+// 处理题目删除（按开关决定是否同步删除草稿）
+const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean }) => {
+  if (payload.withDraft) {
+    draftStore.deleteDraft(payload.questionId)
+  }
 }
 
 // 处理草稿本保存事件
@@ -901,54 +904,17 @@ onMounted(async () => {
 .question-image-section {
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(110, 85, 255, 0.32);
   transition: height 0.5s ease-in-out;
   overflow: hidden;
+  margin: 8px 12px 0 12px;
+  position: relative;
 }
 
 .question-image-section.collapsed {
   flex-shrink: 0;
-}
-
-.question-image-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  background: #ffffff;
-  flex-shrink: 0;
-}
-
-.question-image-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.collapse-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  font-size: 12px;
-  color: #64748b;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.collapse-btn:hover {
-  color: #3b82f6;
-}
-
-.collapse-icon {
-  transition: transform 0.3s ease;
-  display: inline-block;
-}
-
-.collapse-icon.rotated {
-  transform: rotate(180deg);
 }
 
 .question-image-content {
@@ -956,6 +922,28 @@ onMounted(async () => {
   padding: 12px 16px;
   overflow: auto;
   background: #ffffff;
+}
+
+.collapse-toggle-btn {
+  position: relative;
+  top:-1px;
+  height: auto;
+  width: auto;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  padding: 0;
+  align-self: center;
+  background: transparent;
+}
+
+.collapse-toggle-svg {
+  width: 100px;
+  height: auto;
+  display: block;
 }
 
 .question-html-content {

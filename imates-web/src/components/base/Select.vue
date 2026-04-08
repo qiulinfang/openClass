@@ -84,9 +84,17 @@ export default defineComponent({
     const dropdownStyle = computed(() => {
       if (!rootRef.value || !isOpen.value) return {}
       const rect = rootRef.value.getBoundingClientRect()
+      const dropdownHeight = 320 // 与 CSS 中的 max-height 保持一致
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      // 如果下方空间不足且上方空间更大，则向上展开
+      const shouldShowAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+
       return {
         position: 'fixed' as const,
-        top: `${rect.bottom + 8}px`,
+        top: shouldShowAbove ? 'auto' : `${rect.bottom + 8}px`,
+        bottom: shouldShowAbove ? `${window.innerHeight - rect.top + 8}px` : 'auto',
         left: `${rect.left}px`,
         minWidth: `${rect.width}px`,
         zIndex: 9999,

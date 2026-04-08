@@ -990,7 +990,29 @@ const deleteQuestion = async () => {
       await aiExerciseStore.clearChatHistory(question.bmNo)
     }
 
+    // 判断删除的是否是当前选中的题目
+    const currentStrategy = strategy.value
+    const deletedWasCurrent = currentStrategy.getCurrentQuestion()?.id === question.id ||
+                              currentStrategy.getCurrentQuestion()?.bmNo === question.bmNo
+
     applyLocalRemove(question)
+
+    // 如果删除的是当前题目且列表还有题目，自动选择第一个题目
+    if (deletedWasCurrent && questions.value.length > 0) {
+      const newIndex = 0
+      const newQuestion = questions.value[newIndex]
+      selectedQuestionIndex.value = newIndex
+
+      // 通过策略更新 store 中的当前题目
+      const storeQuestions = currentStrategy.getQuestions()
+      const storeIndex = storeQuestions.findIndex((q: ExerciseItem) => q.bmNo === newQuestion.bmNo)
+      if (storeIndex >= 0) {
+        await currentStrategy.selectQuestion(storeIndex)
+      }
+
+      // 关键：触发 questionSelected 事件，让父组件加载新题目的 HTML 和草稿
+      emit('questionSelected', newQuestion, newIndex)
+    }
 
     emit('questionDeleted', { questionId: question.id, withDraft: deleteWithDraft.value })
     showDeleteToast()
@@ -1326,49 +1348,6 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     scrollToCurrentQuestion(targetIndex)
   } catch {
     // 滚动选择失败
-  }
-}
-
-// 题目置顶/取消置顶处理
-const moveQuestionToTop = async (questionId: string) => {
-  try {
-    const currentIndex = questions.value.findIndex((q) => q.bmNo === questionId)
-    if (currentIndex < 0) return // 找不到题目
-
-    const currentStrategy = strategy.value
-
-    if (currentIndex === 0) {
-      // 已经在顶部，取消置顶 - 移到最后
-      const question = questions.value.splice(currentIndex, 1)[0]
-      questions.value.push(question)
-
-      // 取消置顶后，选择原来位置（现在是最后）
-      const newIndex = questions.value.length - 1
-      selectedQuestionIndex.value = newIndex
-      await currentStrategy.selectQuestion(newIndex)
-
-      showMessage('已取消置顶', 'positive')
-    } else {
-      // 不在顶部，置顶操作
-      const question = questions.value.splice(currentIndex, 1)[0]
-      questions.value.unshift(question)
-
-      // 置顶后，直接将置顶的题目标记为选中（索引 0）
-      selectedQuestionIndex.value = 0
-      await currentStrategy.selectQuestion(0)
-
-      // 题目置顶后滚动到最顶部
-      await nextTick()
-      const container = document.querySelector('.question-cards-container')
-      if (container) {
-        container.scrollTo({ top: 0, behavior: 'smooth' })
-      }
-    }
-
-    // 通过策略同步到 store
-    await currentStrategy.setQuestions(questions.value, selectedSubject.value)
-  } catch {
-    showMessage('操作失败', 'error')
   }
 }
 

@@ -571,7 +571,19 @@ export class AndroidBridge {
       }
     }
 
-    // Android日志回调
+    // 截图完成回调
+    if (!window.onSnapshotTaken) {
+      window.onSnapshotTaken = (imageData: unknown) => {
+        this.emit('snapshotTaken', imageData)
+      }
+    }
+
+    // MediaProjection 权限结果回调
+    if (!window.onMediaProjectionPermissionResult) {
+      window.onMediaProjectionPermissionResult = (granted: boolean) => {
+        this.emit('mediaProjectionPermissionResult', granted)
+      }
+    }
     if (!window.onAndroidLog) {
       window.onAndroidLog = (level: string, tag: string, message: string) => {
         // 根据日志级别在控制台打印
@@ -815,6 +827,20 @@ export class AndroidBridge {
    */
   public onScreenProjectionStopped(callback: () => void): void {
     this.addEventListener('screenProjectionStopped', callback)
+  }
+
+  /**
+   * 监听截图完成事件
+   */
+  public onSnapshotTaken(callback: (imageData: unknown) => void): void {
+    this.addEventListener('snapshotTaken', callback)
+  }
+
+  /**
+   * 监听 MediaProjection 权限结果事件
+   */
+  public onMediaProjectionPermissionResult(callback: (granted: boolean) => void): void {
+    this.addEventListener('mediaProjectionPermissionResult', callback)
   }
 
   // ========== 研伴 API 代理接口（测试环境走原生网络） ==========
