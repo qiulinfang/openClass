@@ -5,6 +5,17 @@
       <div class="login-form-card">
         <div class="login-form-section">
           <form @submit.prevent="handleLogin" class="login-form">
+            <!-- 学校选择框 -->
+            <div class="school-select-wrapper">
+              <img :src="schoolIcon" alt="school" class="school-icon">
+              <Select
+                v-model="selectedSchool"
+                :options="schoolOptions"
+                placeholder="请选择学校"
+                class="school-select-component"
+              />
+            </div>
+
             <!-- 用户名输入框 -->
             <div class="user-id-input-wrapper">
               <div class="login-input-container" :class="{ 'has-error': !!errors.account }">
@@ -92,12 +103,14 @@ import { useRouter } from 'vue-router'
 import { authService, getUserId, getPassword, httpClient } from '../services'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
 import Dialog from '../components/base/Dialog.vue'
+import Select from '@/components/base/Select.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { chatStorage } from '../services/storage/chat-storage'
 import type { AiGeneralSession } from '../types'
 
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'
+import schoolIcon from '/icons/school.svg'
 import classIcon from '/icons/class.png'
 
 const router = useRouter()
@@ -223,6 +236,15 @@ const prepareImageAndJumpToPdfViewer = async () => {
     },
   })
 }
+
+// 学校选择
+const selectedSchool = ref<'zgc' | 'jk'>('zgc')
+
+// 学校选项
+const schoolOptions = [
+  { label: '中关村一小', value: 'zgc' },
+  { label: '经开二中', value: 'jk' }
+]
 
 const loginForm = reactive({
   account: '',
@@ -519,7 +541,30 @@ const handleLogin = async () => {
 
     await ensureAiGeneralSession(getUserId() || loginForm.account)
 
-    await prepareImageAndJumpToPdfViewer()
+    // 根据学校选择跳转到不同的 PDF 查看器
+    if (selectedSchool.value === 'jk') {
+      // 经开二中
+      await router.replace({
+        name: 'pdfViewerJk',
+        query: {
+          ...IMAGE_JUMP_QUERY,
+          isImage: 'true',
+          imageMimeType: 'image/png',
+          imageFileName: 'class.png',
+        },
+      })
+    } else {
+      // 中关村一小
+      await router.replace({
+        name: 'pdfViewerZgc',
+        query: {
+          ...IMAGE_JUMP_QUERY,
+          isImage: 'true',
+          imageMimeType: 'image/png',
+          imageFileName: 'class.png',
+        },
+      })
+    }
     
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '登录失败，请检查网络连接'
@@ -578,6 +623,43 @@ const handleLogin = async () => {
   padding: 0 80px;
   box-sizing: border-box;
   position: relative;
+}
+
+.school-select-wrapper {
+  width: 100%;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.school-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.school-select-component {
+  flex: 1;
+  margin-left: 8px;
+}
+
+/* 覆盖 Select 组件的默认样式以适配登录表单 */
+.school-select-component :deep(.select-trigger) {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.school-select-component :deep(.select-label) {
+  color: #000000;
+  font-size: 0.9rem;
 }
 
 .user-id-input-wrapper {

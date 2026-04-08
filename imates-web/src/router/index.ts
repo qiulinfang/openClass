@@ -1,10 +1,13 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import MainView from '@/views/MainView.vue'
+import MainViewJk from '@/views/MainViewJk.vue'
 import ExerciseSolveView from '@/views/ExerciseSolveView.vue'
 import LoginView from '@/views/LoginView.vue'
 import KnowledgeGraphView from '@/views/KnowledgeGraphView.vue'
 import MyResourcesView from '@/views/MyResourcesView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
+import PdfViewerViewZGC from '@/views/PdfViewerViewZGC.vue'
+import PdfViewerViewJK from '@/views/PdfViewerViewJK.vue'
 import HtmlViewerView from '@/views/HtmlViewerView.vue'
 import HtmlPreviewView from '@/views/HtmlPreviewView.vue'
 import VideoViewerView from '@/views/VideoViewerView.vue'
@@ -36,6 +39,13 @@ const router = createRouter({
       name: 'login',
       component: LoginView
     },
+    // 经开二中主页路由
+    {
+      path: '/app-jk',
+      name: 'mainJk',
+      component: MainViewJk,
+      meta: { requiresAuth: true }
+    },
     {
       path: '/app',
       component: MainView,
@@ -64,6 +74,18 @@ const router = createRouter({
           path: 'pdf-viewer',
           name: 'pdfViewer',
           component: PdfViewerView
+        },
+        // 中关村一小PDF查看器路由
+        {
+          path: 'pdf-viewer-zgc',
+          name: 'pdfViewerZgc',
+          component: PdfViewerViewZGC
+        },
+        // 经开二中PDF查看器路由
+        {
+          path: 'pdf-viewer-jk',
+          name: 'pdfViewerJk',
+          component: PdfViewerViewJK
         },
         // HTML查看器路由
         {
@@ -226,8 +248,8 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // 如果访问 /app 下的任何路由，需要登录
-  if (to.path.startsWith('/app')) {
+  // 如果访问 /app 或 /app-jk 路由，需要登录
+  if (to.path.startsWith('/app') || to.path === '/app-jk') {
     if (!isLoggedIn) {
       next({ name: 'login' })
       return

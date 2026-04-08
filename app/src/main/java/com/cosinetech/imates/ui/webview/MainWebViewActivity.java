@@ -149,7 +149,7 @@ public class MainWebViewActivity extends AppCompatActivity
     };
 
     private String getUpdateUrl() {
-        return "https://www.imates.com.cn/bj101/appupdate-primary.json";
+        return "https://www.imates.com.cn/bj101/appupdate-primary-openclass.json";
     }
 
     /**

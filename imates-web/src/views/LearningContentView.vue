@@ -36,7 +36,7 @@ defineOptions({
 
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import PdfViewerView from './PdfViewerView.vue'
+import PdfViewerView from './PdfViewerViewZGC.vue'
 import HtmlViewerView from './HtmlViewerView.vue'
 import VideoViewerView from './VideoViewerView.vue'
 
