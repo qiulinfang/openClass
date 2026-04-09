@@ -523,6 +523,9 @@ const handlePdfRemoveScreenshot = (id: string) => {
 // 生命周期
 onMounted(async () => {
   try {
+    // 设置学校类型为经开（使用经开引导语）
+    aiTextbookStore.setSchoolType('jk')
+    
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
 

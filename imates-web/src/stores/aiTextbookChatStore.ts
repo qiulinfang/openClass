@@ -266,6 +266,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   // 当前挂在 AI 教材聊天输入框上的截图列表（PDF 场景）
   const attachedScreenshots = ref<AttachedScreenshot[]>([])
+  
+  // 学校类型，用于区分不同学校的引导语
+  const schoolType = ref<'jk' | 'zgc'>('jk')
 
   const setChapterInfo = (info: {
     grade: string
@@ -274,6 +277,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     chapter_title: string
   } | null): void => {
     chapterInfo.value = info
+  }
+
+  /**
+   * 设置学校类型
+   * @param type 'jk' - 经开二中，'zgc' - 中关村一小
+   */
+  const setSchoolType = (type: 'jk' | 'zgc'): void => {
+    schoolType.value = type
   }
 
   const chatPersistence = useChatPersistence<TextbookChatHistoryData>(
@@ -459,6 +470,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     isNewSession.value = true
   }
 
+  // 不同学校的引导语配置
+  const WELCOME_MESSAGES: Record<'jk' | 'zgc', string> = {
+    jk: '你好呀😊 咱们今天来探究平行四边形的面积问题，你有什么想问的或者想分享的想法吗？',
+    zgc: '你好呀！咱们继续探索平行四边形的面积吧！能大胆猜想一下你认为平行四边形面积和什么有关吗？'
+  }
+
   /**
    * 初始化默认欢迎消息
    */
@@ -467,7 +484,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     if (messages.value.length === 0) {
       const welcomeMessage: ChatBubble = {
         id: generateUniqueId('welcome'),
-        content: '你好呀，我是你们的学习伙伴小葵，欢迎你们和我交流问题或想法哦～',
+        content: WELCOME_MESSAGES[schoolType.value],
         type: Sender.AI,
         timestamp: new Date().toISOString(),
         sender: Sender.AI,
@@ -1092,5 +1109,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     setResourceId,
     setSectionName,
     setChapterInfo,
+    setSchoolType,
   }
 })
