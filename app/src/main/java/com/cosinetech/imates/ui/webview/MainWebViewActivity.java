@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.BuildConfig;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.screenshot.MediaProjectionForegroundService;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
@@ -149,7 +150,7 @@ public class MainWebViewActivity extends AppCompatActivity
     };
 
     private String getUpdateUrl() {
-        return "https://www.imates.com.cn/bj101/appupdate-primary-openclass.json";
+        return BuildConfig.UPDATE_URL;
     }
 
     /**
