@@ -49,12 +49,12 @@ android {
         dev {
             dimension "version"
             applicationIdSuffix ".dev" 
-            resValue "string", "app_name", "学伴-公开课"
+            resValue "string", "app_name", "开发版公开课"
         }
         // 正式发布版本（默认）
         production {
             dimension "version"
-            resValue "string", "app_name", "学伴-公开课"
+            resValue "string", "app_name", "公开课"
         }
     }
     // 构建类型配置
