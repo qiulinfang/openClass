@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.BuildConfig;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.screenshot.MediaProjectionForegroundService;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
@@ -154,17 +155,7 @@ public class MainWebViewActivity extends AppCompatActivity
     };
 
     private String getUpdateUrl() {
-        if (IS_INTERNAL_TEST) {
-            return "https://www.imates.com.cn/appupdate_test.json";
-        }
-
-        if ("jingkaierzhong".equals(SCHOOL_ID)) {
-            return "https://www.imates.com.cn/jinkai/appupdate.json";
-        } else if ("jinshanyuanyang".equals(SCHOOL_ID)) {
-            return "https://www.imates.com.cn/bj101/appupdate.json";
-        } else {
-            return "https://www.imates.com.cn/bj101/appupdate.json";
-        }
+        return BuildConfig.UPDATE_URL;
     }
 
     /**
