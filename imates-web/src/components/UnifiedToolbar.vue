@@ -237,6 +237,19 @@
                 </div>
               </BubblePopup>
             </template>
+
+            <!-- 问AI按钮 -->
+            <div
+              v-if="showAskAi"
+              class="tool-icon-wrapper"
+              @click="handleActionClick('askAi')"
+            >
+              <div
+                :style="getMaskIconStyle(askAiIcon, 'action')"
+                class="tool-icon mask-icon"
+              />
+              <q-tooltip>问AI</q-tooltip>
+            </div>
           </div>
         </div>
         <!-- 右侧区域（包含分隔线） -->
@@ -259,7 +272,7 @@
             <div v-if="isImageIcon(tool.icon)" :style="{
               ...getMaskIconStyle(tool.icon, 'action'),
               ...(tool.value === 'clear' ? { 'background-color': '#dc3545' } : {})
-            }" />
+            }" class="action-icon mask-icon" />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
         </div>
@@ -304,12 +317,12 @@ import circleIcon from '/icons/circle.svg' // 圆形
 import lineIcon from '/icons/line.svg' // 线
 import triangleIcon from '/icons/triangle.svg' // 三角形
 import shapeConfigIcon from '/icons/shape_config.svg' // 形状配置
-import coordinateIcon from '/icons/coordinate.svg' // 坐标轴
+import coordinateIcon from '/icons/zuobiaozhou.svg' // 坐标轴
 import selectConfigIcon from '/icons/select_config.svg' // 选择配置
 import redoIcon from '/icons/undo.svg' // 撤销
 import undoIcon from '/icons/redo.svg' // 重做
 import dustbinIcon from '/icons/delete.svg' // 清空（垃圾桶）
-import askAiIcon from '/icons/askAI.svg' // 问问学伴
+import askAiIcon from '/icons/wenai.svg' // 问问学伴
 import pictureIcon from '/icons/picture1.svg' // 图片
 // 工具配置接口
 interface ToolConfig {
@@ -372,6 +385,8 @@ const props = withDefaults(
     backgroundColor?: string
     // 工具栏方向：horizontal=水平，vertical=垂直
     orientation?: 'horizontal' | 'vertical'
+    // 是否显示问AI按钮
+    showAskAi?: boolean
   }>(),
   {
     tools: () => [],
@@ -381,6 +396,7 @@ const props = withDefaults(
     variant: 'floating',
     backgroundColor: undefined,
     orientation: 'horizontal',
+    showAskAi: false,
   }
 )
 
@@ -790,6 +806,7 @@ const emit = defineEmits<{
   search: []
   'hide-notes': []
   help: []
+  'ask-ai': []
 }>()
 
 // 使用 Store
@@ -1057,6 +1074,9 @@ const handleActionClick = (action: string) => {
       break
     case 'help':
       emit('help')
+      break
+    case 'askAi':
+      emit('ask-ai')
       break
     case 'hand':
       // hand 是绘图工具，需要触发 tool-change

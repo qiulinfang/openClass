@@ -87,7 +87,7 @@
                       :height="message.imageData.height"
                       :file-size="message.imageData.fileSize"
                       :is-user="false"
-                      :show-info="true"
+                      :show-info="false"
                     />
                   </div>
                 </template>
@@ -128,6 +128,7 @@
                       :message-type="message.messageType === 'html' ? 'html' : 'text'"
                       :raw-html-map="message.rawHtmlMap"
                       @reload-html-image="(url) => handleReloadHtmlImage(url)"
+                      @open-html-preview="(url) => handleOpenHtmlPreview(url)"
                       :ref="setStreamingRef"
                     />
                   </div>
@@ -223,7 +224,7 @@
                       :height="message.imageData.height"
                       :file-size="message.imageData.fileSize"
                       :is-user="true"
-                      :show-info="true"
+                      :show-info="false"
                     />
                   </div>
                 </template>
@@ -384,6 +385,7 @@ const emit = defineEmits<{
   'scroll-to-message': [messageId: string] // 滚动到指定消息
   'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }] // 粘贴到草稿本
+  'open-html-preview': [url: string] // HTML 预览点击事件
 }>()
 
 // 是否启用贴到草稿本功能：仅在 ai-exercise 类型下启用
@@ -460,6 +462,12 @@ const handleReloadHtmlImage = async (url: string) => {
     console.warn('重新生成失败:', e)
     showMessage('重新生成失败', 'error')
   }
+}
+
+// 处理 HTML 预览点击事件 - 向上传递到 ChatPanel
+const handleOpenHtmlPreview = (url: string) => {
+  if (!url) return
+  emit('open-html-preview', url)
 }
 
 // 消息状态由收到消息时自动管理，不需要额外处理

@@ -96,6 +96,7 @@
                   @screenshot-click="handleScreenshotClick"
                   @request-screenshot="handleRequestScreenshot"
                   @new-session-click="handleNewChatClick"
+                  @open-html-preview="handleOpenHtmlPreview"
                 />
                 <!-- 老师聊天内容区域 -->
                 <ChatView
@@ -106,6 +107,7 @@
                   :compressed-height="339"
                   :sessionId="teacherChatStore.currentSession.sessionId"
                   :key="teacherChatStore.currentSession.sessionId"
+                  @open-html-preview="handleOpenHtmlPreview"
                 />
                 <!-- 无会话 -->
                 <div v-else class="empty-chat">
@@ -136,6 +138,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -152,6 +155,7 @@ import type { BuiltinToolType } from '../types/toolbarTools'
 
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()
+const router = useRouter()
 
 interface Props {
   entry?: ChatEntry
@@ -660,6 +664,28 @@ const handleRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf
   } catch (error) {
     console.error('[MainChatPanel] 截图失败:', error)
   }
+}
+
+// 处理 HTML 预览点击 - 跳转到 HtmlPreviewView
+const lastHtmlPreviewOpen = ref<{ url: string; ts: number } | null>(null)
+const handleOpenHtmlPreview = (url: string) => {
+  if (!url) return
+  const now = Date.now()
+  const lastOpen = lastHtmlPreviewOpen.value
+  if (lastOpen && lastOpen.url === url && now - lastOpen.ts < 800) {
+    console.log('[MainChatPanel] 忽略重复 open-html-preview:', url)
+    return
+  }
+  lastHtmlPreviewOpen.value = { url, ts: now }
+  emit('close')
+  router.push({
+    name: 'htmlPreview',
+    query: {
+      url,
+      returnTo: router.currentRoute.value.fullPath,
+      reopenPanel: 'main',
+    }
+  })
 }
 
 defineExpose({

@@ -137,10 +137,11 @@
                       dense
                       size="sm"
                       class="action-btn"
+                      :disable="!canViewAnswer"
                       @click.stop="handleViewAnswer"
                     >
-                      <q-tooltip>查看答案</q-tooltip>
-                      <img :src="daanIcon" alt="答案" class="action-icon" />
+                      <q-tooltip>{{ canViewAnswer ? '查看答案' : `需与AI交互${aiExerciseStore.VIEW_ANSWER_CHAT_TIMES}次后可查看` }}</q-tooltip>
+                      <img :src="daanIcon" alt="答案" class="action-icon" :class="{ 'icon-disabled': !canViewAnswer }" />
                     </q-btn>
 
                     <!-- 举一反三 -->
@@ -492,6 +493,12 @@ const resizeObservers = new Map<string, ResizeObserver>() // ResizeObserver映�
 const heightMeasurementTimers = new Map<string, ReturnType<typeof setTimeout>>() // 延迟测量定时器
 
 const deleteDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+
+// AI 练习 Store，用于获取查看答案权限状态
+const aiExerciseStore = useAiExerciseChatStore()
+
+// 是否可以查看答案（需要与 AI 交互超过 3 次）
+const canViewAnswer = computed(() => aiExerciseStore.canViewAnswer)
 
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -2035,6 +2042,11 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       .action-icon {
         width: 25px;
         display: block;
+
+        &.icon-disabled {
+          opacity: 0.4;
+          filter: grayscale(100%);
+        }
       }
 
       .action-btn {

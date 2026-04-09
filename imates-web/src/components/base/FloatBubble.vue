@@ -8,6 +8,18 @@
       @update:debug="(v) => Object.assign(debug, v)"
     />
 
+    <!-- 拖动调试面板 -->
+    <DragDebugPanel
+      v-if="isDev"
+      :visible="dragDebugVisible"
+      :config="dragDebugConfig"
+      :drag-state="{ isDragging, dragStartY, dragOffsetY, persistentOffsetY }"
+      @update:visible="(v) => (dragDebugVisible = v)"
+      @update:config="(v) => Object.assign(dragDebugConfig, v)"
+      @reset-position="handleResetPosition"
+      @apply-position="handleApplyPosition"
+    />
+
     <!-- 气泡菜单 -->
     <transition name="bubble-pop">
       <div
@@ -43,7 +55,8 @@
     <!-- 触发器插槽 -->
     <div
       class="trigger-wrapper"
-      :class="{ pressed: isPressed }"
+      :class="{ pressed: isPressed, dragging: isDragging }"
+      :style="{ transform: `translateY(${persistentOffsetY + dragOffsetY}px)` }"
       @click.stop="toggleMenu"
       @mousedown.stop="handlePressStart"
       @mouseup.stop="handlePressEnd"
@@ -60,6 +73,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import FloatBubbleDebugPanel from './FloatBubbleDebugPanel.vue'
+import DragDebugPanel from './DragDebugPanel.vue'
 
 // --- Props 定义 (简化版) ---
 const props = defineProps({
@@ -82,6 +96,12 @@ const emit = defineEmits(['select', 'toggle'])
 const isVisible = ref(false)
 const isPressed = ref(false)
 const containerRef = ref(null)
+
+// 拖动相关状态
+const isDragging = ref(false)
+const dragStartY = ref(0)
+const dragOffsetY = ref(0)
+const persistentOffsetY = ref(0)
 
 const isDev = import.meta.env.DEV
 const debugPanelVisible = ref(false)
@@ -107,6 +127,14 @@ const debug = reactive({
   // 菜单项绝对定位：[{x: number, y: number}, ...]
   itemPositions: [{ x: 69, y: 32 }, { x: 72, y: 120 }],
   itemRotations: [28, -28],
+})
+
+// 拖动调试面板
+const dragDebugVisible = ref(false)
+const dragDebugConfig = reactive({
+  minY: -300,
+  maxY: 30,
+  enableLimit: false,
 })
 
 const menuVisible = computed(() => (isDev && debug.forceVisible ? true : isVisible.value))
@@ -182,12 +210,70 @@ const toggleMenu = () => {
   isVisible.value = !isVisible.value
 }
 
-const handlePressStart = () => {
+const handlePressStart = (event) => {
   isPressed.value = true
+  // 开始拖动
+  isDragging.value = true
+  dragStartY.value = event.clientY || event.touches?.[0]?.clientY || 0
+  dragOffsetY.value = 0
 }
 
 const handlePressEnd = () => {
   isPressed.value = false
+  isDragging.value = false
+  // 如果拖动距离很小（小于5px），视为点击，不保存位置
+  if (Math.abs(dragOffsetY.value) < 5) {
+    dragOffsetY.value = 0
+    return
+  }
+  // 保存拖动后的位置
+  persistentOffsetY.value += dragOffsetY.value
+  dragOffsetY.value = 0
+}
+
+const handleDrag = (event) => {
+  if (!isDragging.value) return
+
+  const currentY = event.clientY || event.touches?.[0]?.clientY || 0
+  const deltaY = currentY - dragStartY.value
+
+  // 应用范围限制
+  if (dragDebugConfig.enableLimit) {
+    const totalOffset = persistentOffsetY.value + deltaY
+    // 限制在最小值和最大值之间
+    const clampedOffset = Math.max(dragDebugConfig.minY, Math.min(dragDebugConfig.maxY, totalOffset))
+    dragOffsetY.value = clampedOffset - persistentOffsetY.value
+  } else {
+    dragOffsetY.value = deltaY
+  }
+}
+
+// 全局拖动事件监听
+const handleGlobalMouseMove = (event) => {
+  handleDrag(event)
+}
+
+const handleGlobalTouchMove = (event) => {
+  handleDrag(event)
+}
+
+const handleGlobalMouseUp = () => {
+  handlePressEnd()
+}
+
+const handleGlobalTouchEnd = () => {
+  handlePressEnd()
+}
+
+// 调试面板处理函数
+const handleResetPosition = () => {
+  persistentOffsetY.value = 0
+  dragOffsetY.value = 0
+}
+
+const handleApplyPosition = (pos) => {
+  persistentOffsetY.value = pos
+  dragOffsetY.value = 0
 }
 
 const closeMenu = () => {
@@ -210,10 +296,20 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
   window.addEventListener('click', handleClickOutside)
+  // 添加全局拖动事件监听
+  window.addEventListener('mousemove', handleGlobalMouseMove)
+  window.addEventListener('touchmove', handleGlobalTouchMove)
+  window.addEventListener('mouseup', handleGlobalMouseUp)
+  window.addEventListener('touchend', handleGlobalTouchEnd)
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', handleClickOutside)
+  // 移除全局拖动事件监听
+  window.removeEventListener('mousemove', handleGlobalMouseMove)
+  window.removeEventListener('touchmove', handleGlobalTouchMove)
+  window.removeEventListener('mouseup', handleGlobalMouseUp)
+  window.removeEventListener('touchend', handleGlobalTouchEnd)
 })
 </script>
 
@@ -233,6 +329,12 @@ onUnmounted(() => {
 
 .trigger-wrapper.pressed {
   transform: scale(0.9);
+}
+
+.trigger-wrapper.dragging {
+  cursor: grabbing;
+  transition: none;
+  user-select: none;
 }
 
 /* --- 气泡菜单样式 --- */

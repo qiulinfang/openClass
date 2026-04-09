@@ -1,22 +1,8 @@
 <template>
   <div class="html-preview-view">
-    <SplitPanel
-      ref="splitPanelRef"
-      :initial-mode="mode"
-      :left-config="[0, 0, 0]"
-      :center-config="[100, 100, 100]"
-      :right-config="[40, 30, 50]"
-      :transition-duration="0.3"
-      :show-splitters="mode === 'right'"
-      @mode-change="handleModeChange"
-    >
-      <!-- 左侧：空（不使用） -->
+    <DualPanel ref="dualPanelRef" v-model="isRightPanelOpen">
+      <!-- 左侧内容：HTML 预览 + 工具栏 -->
       <template #left>
-        <div></div>
-      </template>
-
-      <!-- 中间：HTML 内容区域 -->
-      <template #center>
         <div class="html-preview-container">
           <!-- 顶部工具栏 -->
           <div class="toolbar">
@@ -24,37 +10,17 @@
               <img :src="goBackIcon" alt="返回" class="goback-icon" />
             </q-btn>
             <div class="toolbar-spacer"></div>
-            <q-btn
-              v-if="isDev"
-              flat
-              dense
-              class="toolbar-action-btn"
-              label="打印原始"
-              @click="printOriginalHtml"
-            />
-            <q-btn
-              v-if="isDev"
-              flat
-              dense
-              class="toolbar-action-btn"
-              label="打印实时"
-              @click="printLiveHtml"
-            />
+            <q-btn v-if="isDev" flat dense class="toolbar-action-btn" label="打印原始" @click="printOriginalHtml" />
+            <q-btn v-if="isDev" flat dense class="toolbar-action-btn" label="打印实时" @click="printLiveHtml" />
           </div>
-          <!-- HTML 内容区域 -->
           <div class="html-content-wrapper">
             <!-- iframe 显示 HTML -->
-            <iframe
-              v-if="!isLoading && !error && htmlContentUrl"
-              ref="iframeRef"
-              :src="htmlContentUrl"
-              class="html-iframe"
-              frameborder="0"
-              allowfullscreen
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-              referrerpolicy="no-referrer"
-              loading="lazy"
-            />
+            <iframe v-if="!isLoading && !error && htmlContentUrl" ref="iframeRef" :src="htmlContentUrl"
+              class="html-iframe" frameborder="0" allowfullscreen
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"
+              loading="lazy" />
+
+            <HistoryDebugPanel v-if="false" ref="historyDebugRef" :extra-info="`htmlUrl: ${htmlUrl || '-'}`" />
 
             <!-- 加载状态 -->
             <div v-if="isLoading" class="loading-overlay">
@@ -73,34 +39,45 @@
               </div>
             </div>
           </div>
+
+          <!-- 悬浮按钮：右侧面板关闭时显示，点击打开 -->
+          <button v-if="!isRightPanelOpen" type="button" class="fab-chat"
+            :style="{ backgroundImage: `url(${ipNewIcon})` }" @click="isRightPanelOpen = true" title="打开对话"></button>
         </div>
       </template>
 
-      <!-- 右侧：PdfChatPanel -->
-      <template #right="{ isVisible }">
-        <div v-if="isVisible" class="chat-panel-wrapper">
-          <PdfChatPanel
-            ref="chatPanelRef"
-            @close="handleCloseChatPanel"
-            @screenshot-click="handleScreenshotClick"
-          />
+      <!-- 右侧内容：聊天面板 -->
+      <template #right>
+        <div class="right-panel-container">
+          <div class="chat-panel-wrapper">
+            <!-- PDF/教材场景：使用 HtmlPdfChatPanel -->
+            <HtmlPdfChatPanel v-if="chatViewType === 'ai-textbook'" ref="htmlPdfChatPanelRef"
+              @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
+              @open-html-preview="handleOpenHtmlPreviewFromPanel" />
+            <!-- 通用 AI 场景：使用内嵌式 HtmlMainChatPanel -->
+            <HtmlMainChatPanel v-else ref="htmlMainChatPanelRef" @close="handleCloseChatPanel"
+              @open-html-preview="handleOpenHtmlPreviewFromPanel" />
+          </div>
         </div>
       </template>
-    </SplitPanel>
+    </DualPanel>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted, watch, type ComponentPublicInstance } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMainChatPanel } from '@/composables/useMainChatPanel'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import goBackIcon from '/icons/goback.svg'
+import ipNewIcon from '/icons/ip_new.webp'
 import { apiService } from '@/services'
 import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
-import { getApiPaths, ADDRESS_CATALOG } from '@/config/env-config'
-import PdfChatPanel from '@/components/PdfChatPanel.vue'
-import SplitPanel from '@/components/base/SplitPanel.vue'
+import { getApiPaths } from '@/config/env-config'
+import DualPanel from '@/components/base/DualPanel.vue'
+import HtmlPdfChatPanel from '@/components/HtmlPdfChatPanel.vue'
+import HtmlMainChatPanel from '@/components/HtmlMainChatPanel.vue'
+import HistoryDebugPanel from '@/components/debug/HistoryDebugPanel.vue'
 
 // 使用路由
 const route = useRoute()
@@ -112,18 +89,29 @@ const pdfViewerStore = usePdfViewerStore()
 // 使用 MainChatPanel 控制
 const { showMainChatPanel } = useMainChatPanel()
 
-// ChatPanel 引用
-const chatPanelRef = ref<ComponentPublicInstance | null>(null)
+// HtmlPdfChatPanel 引用
+const htmlPdfChatPanelRef = ref<ComponentPublicInstance | null>(null)
+// HtmlMainChatPanel 引用
+const htmlMainChatPanelRef = ref<ComponentPublicInstance | null>(null)
 
-// SplitPanel 引用
-const splitPanelRef = ref<ComponentPublicInstance | null>(null)
+// 计算聊天视图类型：from=pdf 使用 ai-textbook，否则使用 ai-general
+const chatViewType = computed(() => {
+  const from = route.query.from as string
+  return from === 'pdf' ? 'ai-textbook' : 'ai-general'
+})
 
-// 当前模式（left 或 right）
-const mode = ref<'left' | 'right'>('left')
+// DualPanel 引用（新组件无配置 props）
+const dualPanelRef = ref<ComponentPublicInstance | null>(null)
+
+// 右侧面板显示状态
+const isRightPanelOpen = ref(false)
 
 // 组件状态
 const isLoading = ref(true)
 const error = ref<string | null>(null)
+
+const lastPanelPreviewOpen = ref<{ url: string; ts: number } | null>(null)
+const historyDebugRef = ref<{ addEvent: (type: string, detail: string) => void } | null>(null)
 
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -150,54 +138,70 @@ watch(
   { immediate: true },
 )
 
-// 监听 pdfViewerStore.chatPanelVisible 变化，更新 mode
-watch(
-  () => pdfViewerStore.chatPanelVisible,
-  (visible) => {
-    mode.value = visible ? 'right' : 'left'
-  },
-  { immediate: true }
-)
-
-// 处理模式变化
-const handleModeChange = (newMode: 'left' | 'right') => {
-  mode.value = newMode
-  // 同步更新 store 状态
-  if (newMode === 'left') {
-    pdfViewerStore.closeChatPanel()
-  } else {
-    pdfViewerStore.openChatPanel()
-  }
-}
-
-// 处理关闭对话面板
-const handleCloseChatPanel = () => {
-  pdfViewerStore.closeChatPanel()
-}
-
 // 处理截图点击（开启/关闭截图工具）
-const handleScreenshotClick = (isActive: boolean) => {
+const handleScreenshotClick = () => {
   // 在 HTML 预览页，截图工具切换到 PDF 页面使用
-  // 这里可以导航回 PDF 页面并开启截图工具
   const from = route.query.from
   if (from === 'pdf') {
+    historyDebugRef.value?.addEvent('push:pdfViewer', `from=${String(route.query.from || '')} url=${String(route.query.url || '')}`)
     // 返回 PDF 页面并开启截图工具
     router.push({
       name: 'pdfViewer',
       query: {
         ...route.query,
-        screenshot: isActive ? 'true' : undefined
+        screenshot: 'true'
       }
     })
   }
 }
 
+// 处理关闭聊天面板 - 隐藏右侧面板
+const handleCloseChatPanel = () => {
+  isRightPanelOpen.value = false
+}
+
+// 处理来自 ChatPanel 的 HTML 预览点击 - 直接刷新 iframe，不操作路由
+const handleOpenHtmlPreviewFromPanel = async (url: string) => {
+  if (!url) return
+  const now = Date.now()
+  const lastOpen = lastPanelPreviewOpen.value
+  if (lastOpen && lastOpen.url === url && now - lastOpen.ts < 800) {
+    historyDebugRef.value?.addEvent('dedupe:open-html-preview', url)
+    console.log('[HtmlPreviewView] 忽略重复 open-html-preview:', url)
+    return
+  }
+  lastPanelPreviewOpen.value = { url, ts: now }
+  historyDebugRef.value?.addEvent('open-html-preview', url)
+  htmlUrl.value = url
+  if (route.query.url !== url) {
+    historyDebugRef.value?.addEvent('replace:htmlPreview', `from=${route.fullPath} -> ${url}`)
+    router.replace({
+      name: 'htmlPreview',
+      query: {
+        ...route.query,
+        url,
+      }
+    })
+  }
+  await fetchHtmlSourceAndRender()
+}
+
 // 处理返回
 const handleGoBack = () => {
-  // 路由返回
+  historyDebugRef.value?.addEvent('back', `from=${route.fullPath}`)
+  const returnTo = route.query.returnTo as string | undefined
+  const reopenPanel = route.query.reopenPanel as string | undefined
+  if (returnTo && returnTo !== route.fullPath) {
+    if (reopenPanel === 'pdf') {
+      pdfViewerStore.openChatPanel()
+    } else if (reopenPanel === 'main') {
+      showMainChatPanel()
+    }
+    historyDebugRef.value?.addEvent('returnTo', returnTo)
+    router.replace(returnTo)
+    return
+  }
   router.back()
-  // 打开 MainChatPanel
-  showMainChatPanel()
 }
 
 // 加载 HTML 内容
@@ -205,18 +209,31 @@ const loadHtmlContent = () => {
   try {
     isLoading.value = true
     error.value = null
-    
+
+    // 检查是否有直接从 sessionStorage 传入的 HTML 内容
+    const inlineHtml = sessionStorage.getItem('htmlPreview_inlineContent')
+    if (inlineHtml) {
+      // 直接使用内联 HTML 内容，不需要 URL
+      originalHtml.value = inlineHtml
+      const blob = new Blob([inlineHtml], { type: 'text/html' })
+      htmlBlobUrl.value = URL.createObjectURL(blob)
+      isLoading.value = false
+      // 清除 sessionStorage 中的内容，防止刷新时重复
+      sessionStorage.removeItem('htmlPreview_inlineContent')
+      return
+    }
+
     // 从路由 query 参数获取 URL
     const url = route.query.url as string
     if (!url) {
       throw new Error('缺少 URL 参数')
     }
-    
+
     // 验证 URL 格式
     if (!url.startsWith('https://kelvin-cosin.cloud/')) {
       throw new Error('无效的 HTML URL')
     }
-    
+
     htmlUrl.value = url
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载HTML失败'
@@ -336,18 +353,18 @@ const collectLiveFocus = async (): Promise<HtmlPreviewFocus | null> => {
     const screenshotDataUrl = canvasSnapshots?.find((s) => typeof s?.dataUrl === 'string')?.dataUrl || null
     const screenshot = screenshotDataUrl
       ? await (async () => {
-          try {
-            const path = await apiService.uploadImageToYanban(screenshotDataUrl)
-            // 根据环境拼接完整可访问 URL
-            const apiPaths = getApiPaths()
-            const isTest = apiPaths.yanban.teacher.uploadImg.includes('/yb-test/')
-            const baseUrl = isTest ? 'https://43.138.16.5:50013' : 'https://www.imates.com.cn'
-            return path.startsWith('http') ? path : `${baseUrl}${path}`
-          } catch (e) {
-            console.warn('[HtmlPreview][live] screenshot upload failed:', e)
-            return null
-          }
-        })()
+        try {
+          const path = await apiService.uploadImageToYanban(screenshotDataUrl)
+          // 根据环境拼接完整可访问 URL
+          const apiPaths = getApiPaths()
+          const isTest = apiPaths.yanban.teacher.uploadImg.includes('/yb-test/')
+          const baseUrl = isTest ? 'https://43.138.16.5:50013' : 'https://www.imates.com.cn'
+          return path.startsWith('http') ? path : `${baseUrl}${path}`
+        } catch (e) {
+          console.warn('[HtmlPreview][live] screenshot upload failed:', e)
+          return null
+        }
+      })()
       : null
 
     return {
@@ -373,13 +390,41 @@ const retry = () => {
   fetchHtmlSourceAndRender()
 }
 
+// 监听右侧面板显示状态，当面板打开时重新加载 iframe
+watch(
+  isRightPanelOpen,
+  (isOpen, wasOpen) => {
+    if (isOpen && !wasOpen) {
+      console.log('[HtmlPreviewView] 右侧面板打开，重新加载 iframe')
+      // 通过重置 src 强制 iframe 重新加载
+      const currentSrc = htmlContentUrl.value
+      htmlContentUrl.value = ''
+      requestAnimationFrame(() => {
+        htmlContentUrl.value = currentSrc
+      })
+    }
+  }
+)
+
+// 监听路由 URL 参数变化，实现无跳转更新
+watch(
+  () => route.query.url,
+  (newUrl, oldUrl) => {
+    if (newUrl && newUrl !== oldUrl) {
+      console.log('[HtmlPreviewView] URL 变化，重新加载:', newUrl)
+      loadHtmlContent()
+      fetchHtmlSourceAndRender()
+    }
+  }
+)
+
 // 生命周期
 onMounted(() => {
   loadHtmlContent()
   fetchHtmlSourceAndRender()
   window.addEventListener('message', onBridgeMessage)
 
-  ;(window as any).__htmlPreview_getFocus = collectLiveFocus
+    ; (window as any).__htmlPreview_getFocus = collectLiveFocus
 })
 
 onBeforeUnmount(() => {
@@ -399,21 +444,16 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.chat-panel-wrapper {
-  height: 100%;
-  width: 100%;
-}
-
+/* 左侧容器 */
 .html-preview-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   height: 100%;
   width: 100%;
-  background: #f8f9fa;
+  position: relative;
 }
 
+/* 工具栏 */
 .toolbar {
   flex-shrink: 0;
   display: flex;
@@ -431,20 +471,61 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.toolbar-title {
-  flex: 1;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
 .toolbar-spacer {
-  width: 80px; /* 与返回按钮宽度保持一致 */
+  flex: 1;
 }
 
 .toolbar-action-btn {
   color: #ffffff;
+  margin-left: 8px;
+}
+
+/* 悬浮对话按钮 */
+.fab-chat {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 130px;
+  height: 130px;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  background-color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 100;
+}
+
+.fab-chat:hover {
+  transform: scale(1.1);
+}
+
+/* 右侧面板容器 - 背景渐变 */
+.right-panel-container {
+  height: 100%;
+  background: linear-gradient(to bottom, #0a0020 0%, #ffffff 30%);
+}
+
+/* 右侧面板包装器 - 参考 ExerciseSolveViewNew.vue 样式 */
+.chat-panel-wrapper {
+  height: 100%;
+  position: relative;
+  border-top-left-radius: 20px;
+  border-bottom-left-radius: 20px;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.chat-panel-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, #0a0020 0%, #ffffff 30%);
+  z-index: -1;
 }
 
 .html-content-wrapper {
@@ -452,7 +533,6 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   position: relative;
-  overflow: hidden;
 }
 
 .html-iframe {
@@ -540,16 +620,16 @@ onBeforeUnmount(() => {
   .toolbar {
     padding: 8px 12px;
   }
-  
+
   .back-button {
     padding: 6px 10px;
     font-size: 13px;
   }
-  
+
   .toolbar-title {
     font-size: 15px;
   }
-  
+
   .loading-state,
   .error-state {
     margin: 16px;
@@ -562,16 +642,16 @@ onBeforeUnmount(() => {
   .toolbar {
     padding: 6px 8px;
   }
-  
+
   .back-button {
     padding: 4px 8px;
     font-size: 12px;
   }
-  
+
   .toolbar-title {
     font-size: 14px;
   }
-  
+
   .toolbar-spacer {
     width: 60px;
   }

@@ -34,12 +34,14 @@
               :tool-states="{ undo: draftBoardRef.canUndo, redo: draftBoardRef.canRedo }"
               variant="browser"
               orientation="horizontal"
+              :show-ask-ai="true"
               @tool-change="(tool) => draftBoardRef?.handleToolbarToolChange(tool)"
               @config-change="(cfg) => draftBoardRef?.handleToolbarConfigChange(cfg)"
               @undo="draftBoardRef?.undo()"
               @redo="draftBoardRef?.redo()"
               @clear="handleDraftClearClick"
               @insert-image="draftBoardRef?.triggerImageSelect()"
+              @ask-ai="handleAskAiClick"
             />
             <CommonSelect
               v-show="mode === 'left'"
@@ -178,6 +180,7 @@
     >
       确定要清除当前题目的所有会话吗？此操作不可撤销。
     </Dialog>
+
   </div>
 </template>
 
@@ -280,6 +283,7 @@ const goBack = () => {
 // 对话框状态
 const showSessionListPanel = ref(false)
 
+
 // Store
 const draftStore = useDraftStore()
 const questionStore = useQuestionStore()
@@ -357,8 +361,12 @@ const handleOpenMiniClass = (question: any) => {
   // 打开微课
 }
 
-const handlePasteToDraft = (payload: any) => {
-  draftBoardRef.value?.pasteImage?.(payload.dataUrl)
+const handlePasteToDraft = async (payload: { dataUrl: string }) => {
+  if (!payload?.dataUrl) return
+  const board = draftBoardRef.value as any
+  if (board && typeof board.insertImageFromDataUrl === 'function') {
+    await board.insertImageFromDataUrl(payload.dataUrl)
+  }
 }
 
 // 处理题目删除（按开关决定是否同步删除草稿）
@@ -601,6 +609,42 @@ const handleClearAllSessions = async () => {
 const handleOpenScreenCapture = () => {
   // 调用 ExerciseChatPanel 的方法触发截图
   ;(exerciseChatPanelRef.value as any)?.getChatViewRef()?.requestScreenshot?.()
+}
+
+// 问AI按钮点击处理 - 直接截图并放入 Chat Input（由 Chat Input 内部处理裁剪和标注）
+const handleAskAiClick = async () => {
+  try {
+    // 1. 直接调用底层安卓原生API截图
+    const { dataUrl, width, height } = await captureScreenSnapshot()
+    if (!dataUrl) {
+      showMessage('截图失败，请重试', 'warning')
+      return
+    }
+
+    // 2. 显示 ExerciseChatPanel（切换到 right 模式）
+    if (mode.value === 'left' && splitPanelRef.value) {
+      splitPanelRef.value.toggle()
+    }
+
+    // 3. 将截图放入 chat input 截图区域（Chat Input 内部会处理裁剪和标注）
+    nextTick(() => {
+      const chatView = (exerciseChatPanelRef.value as any)?.getChatViewRef()
+      if (chatView?.onImageSelected) {
+        chatView.onImageSelected({
+          base64DataUrl: dataUrl,
+          filePath: '',
+          width: width || 0,
+          height: height || 0,
+          fileSize: Math.round(dataUrl.length * 0.75),
+        })
+      } else {
+        showMessage('聊天功能暂不可用', 'warning')
+      }
+    })
+  } catch (error) {
+    console.error('截图失败:', error)
+    showMessage('截图失败，请重试', 'warning')
+  }
 }
 
 // 截图相关 - 处理截图请求，使用 captureScreenSnapshot 与 MainView 保持一致
@@ -993,6 +1037,35 @@ onMounted(async () => {
 .screenshot-icon {
   display: block;
   height: 32px;
+  object-fit: contain;
+}
+
+/* 问AI按钮样式 */
+.ask-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  margin-left: 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6e55ff 0%, #9b7bff 100%);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ask-ai-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(110, 85, 255, 0.4);
+}
+
+.ask-ai-btn:active {
+  transform: translateY(0);
+}
+
+.ask-ai-icon {
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 

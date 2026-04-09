@@ -773,37 +773,97 @@ function drawStrokeToContext(targetCtx, obj) {
     targetCtx.strokeStyle = obj.color
     targetCtx.lineWidth = obj.size
     targetCtx.lineCap = 'round'
+    targetCtx.lineJoin = 'round'
     targetCtx.globalAlpha = obj.opacity ?? 1
-    const arrowSize = Math.max(8, obj.size * 4)
+
+    const arrowSize = Math.max(10, obj.size * 5)
+    const tickSize = Math.max(5, obj.size * 3)
+    const tickInterval = Math.max(20, obj.size * 10)
+
     // 计算中心点（原点）
     const centerX = obj.x + obj.width / 2
     const centerY = obj.y + obj.height / 2
-    // X轴（水平线，穿过原点）
+
+    // 绘制刻度线
     targetCtx.beginPath()
+    targetCtx.lineWidth = Math.max(1, obj.size * 0.5)
+
+    // X轴刻度（正方向）
+    for (let x = centerX + tickInterval; x < obj.x + obj.width - arrowSize; x += tickInterval) {
+      targetCtx.moveTo(x, centerY - tickSize / 2)
+      targetCtx.lineTo(x, centerY + tickSize / 2)
+    }
+    // X轴刻度（负方向）
+    for (let x = centerX - tickInterval; x > obj.x + arrowSize; x -= tickInterval) {
+      targetCtx.moveTo(x, centerY - tickSize / 2)
+      targetCtx.lineTo(x, centerY + tickSize / 2)
+    }
+    // Y轴刻度（正方向）
+    for (let y = centerY + tickInterval; y < obj.y + obj.height - arrowSize; y += tickInterval) {
+      targetCtx.moveTo(centerX - tickSize / 2, y)
+      targetCtx.lineTo(centerX + tickSize / 2, y)
+    }
+    // Y轴刻度（负方向）
+    for (let y = centerY - tickInterval; y > obj.y + arrowSize; y -= tickInterval) {
+      targetCtx.moveTo(centerX - tickSize / 2, y)
+      targetCtx.lineTo(centerX + tickSize / 2, y)
+    }
+    targetCtx.stroke()
+
+    // 绘制坐标轴线
+    targetCtx.lineWidth = obj.size
+    targetCtx.beginPath()
+
+    // X轴（水平线，穿过原点）
     targetCtx.moveTo(obj.x, centerY)
     targetCtx.lineTo(obj.x + obj.width, centerY)
-    // X轴箭头（右端）
-    targetCtx.moveTo(obj.x + obj.width - arrowSize, centerY - arrowSize / 2)
-    targetCtx.lineTo(obj.x + obj.width, centerY)
-    targetCtx.lineTo(obj.x + obj.width - arrowSize, centerY + arrowSize / 2)
-    // X轴箭头（左端）
-    targetCtx.moveTo(obj.x + arrowSize, centerY - arrowSize / 2)
-    targetCtx.lineTo(obj.x, centerY)
-    targetCtx.lineTo(obj.x + arrowSize, centerY + arrowSize / 2)
-    targetCtx.stroke()
+
     // Y轴（垂直线，穿过原点）
-    targetCtx.beginPath()
     targetCtx.moveTo(centerX, obj.y)
     targetCtx.lineTo(centerX, obj.y + obj.height)
-    // Y轴箭头（上端）
-    targetCtx.moveTo(centerX - arrowSize / 2, obj.y + arrowSize)
-    targetCtx.lineTo(centerX, obj.y)
-    targetCtx.lineTo(centerX + arrowSize / 2, obj.y + arrowSize)
-    // Y轴箭头（下端）
-    targetCtx.moveTo(centerX - arrowSize / 2, obj.y + obj.height - arrowSize)
-    targetCtx.lineTo(centerX, obj.y + obj.height)
-    targetCtx.lineTo(centerX + arrowSize / 2, obj.y + obj.height - arrowSize)
     targetCtx.stroke()
+
+    // 绘制箭头（实心三角形）- 只保留正方向
+    const drawArrow = (x: number, y: number, angle: number) => {
+      targetCtx.save()
+      targetCtx.translate(x, y)
+      targetCtx.rotate(angle)
+      targetCtx.beginPath()
+      targetCtx.moveTo(0, 0)
+      targetCtx.lineTo(-arrowSize, -arrowSize / 2)
+      targetCtx.lineTo(-arrowSize, arrowSize / 2)
+      targetCtx.closePath()
+      targetCtx.fillStyle = obj.color
+      targetCtx.fill()
+      targetCtx.restore()
+    }
+
+    // X轴正方向箭头（右端）
+    drawArrow(obj.x + obj.width, centerY, 0)
+    // Y轴正方向箭头（上端）
+    drawArrow(centerX, obj.y, -Math.PI / 2)
+
+    // 绘制原点标记
+    const originRadius = Math.max(3, obj.size * 1.5)
+    targetCtx.beginPath()
+    targetCtx.arc(centerX, centerY, originRadius, 0, Math.PI * 2)
+    targetCtx.fillStyle = obj.color
+    targetCtx.fill()
+
+    // 绘制轴标签
+    const fontSize = Math.max(12, obj.size * 6)
+    targetCtx.font = `${fontSize}px "Times New Roman", Georgia, serif`
+    targetCtx.fillStyle = obj.color
+    targetCtx.textAlign = 'center'
+    targetCtx.textBaseline = 'middle'
+
+    // X轴标签
+    targetCtx.fillText('x', obj.x + obj.width - arrowSize / 2, centerY + arrowSize)
+    // Y轴标签
+    targetCtx.fillText('y', centerX + arrowSize, obj.y + arrowSize / 2)
+    // 原点标签
+    targetCtx.fillText('O', centerX - arrowSize / 2, centerY + arrowSize)
+
     targetCtx.globalAlpha = 1
   } else if (obj.type === 'image') {
     const dataUrl = obj.dataUrl
@@ -1460,11 +1520,14 @@ function handlePointerMove(e) {
   hoverPos.value = wp
 
   if (currentMode.value === 'eraser-stroke') {
-    const screenPos = worldToScreen(wp.x, wp.y)
-    eraserCursor.x = screenPos.x - (currentSize.value * camera.zoom) / 2
-    eraserCursor.y = screenPos.y - (currentSize.value * camera.zoom) / 2
-    eraserCursor.size = currentSize.value * camera.zoom
-    eraserCursor.visible = true
+    const sketchpadWrapper = containerRef.value?.parentElement
+    if (sketchpadWrapper) {
+      const rect = sketchpadWrapper.getBoundingClientRect()
+      eraserCursor.x = e.clientX - rect.left - (currentSize.value * camera.zoom) / 2
+      eraserCursor.y = e.clientY - rect.top - (currentSize.value * camera.zoom) / 2
+      eraserCursor.size = currentSize.value * camera.zoom
+      eraserCursor.visible = true
+    }
   } else {
     eraserCursor.visible = false
   }

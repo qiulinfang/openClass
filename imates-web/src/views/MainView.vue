@@ -218,6 +218,7 @@ import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import homeworkIcon from '/icons/homework.png'
 import photoQaIcon from '/icons/paizhaodayi.svg'
+import canvasIcon from '/icons/draw.svg'
 import ipGif from '/icons/ip_new.webp'
 
 // 导入选中状态图标
@@ -227,6 +228,7 @@ import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
 import homeworkSelectIcon from '/icons/homework_select.png'
 import photoQaSelectIcon from '/icons/paizhaodayi_select.svg'
+import canvasSelectIcon from '/icons/draw_select.png'
 
 // 定义 props
 interface Props {
@@ -270,6 +272,7 @@ type NavKey =
   | 'homework'
   | 'resources'
   | 'photoQa'
+  | 'canvas'
   | 'logout'
 
 interface NavItemConfig {
@@ -323,6 +326,13 @@ const currentSchoolAppConfig: SchoolAppConfig = {
         iconType: 'photoQa',
         position: 'main',
         routeName: 'photoSearch',
+      },
+      {
+        key: 'canvas',
+        label: '创意画布',
+        iconType: 'canvas',
+        position: 'main',
+        routeName: 'interactiveCanvas',
       },
     ],
     bottom: [
@@ -539,7 +549,7 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'homeworkExercise', 'photoSearch']
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'homeworkExercise', 'photoSearch','htmlPreview']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
@@ -753,6 +763,10 @@ const currentPhotoQaIcon = computed(() => {
   return activeNavItem.value === 'photoQa' ? photoQaSelectIcon : photoQaIcon
 })
 
+const currentCanvasIcon = computed(() => {
+  return activeNavItem.value === 'canvas' ? canvasSelectIcon : canvasIcon
+})
+
 const currentDownloadResourcesIcon = computed(() => {
   return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
 })
@@ -770,6 +784,8 @@ const getNavIcon = (item: NavItemConfig) => {
       return currentHomeworkIcon.value
     case 'photoQa':
       return currentPhotoQaIcon.value
+    case 'canvas':
+      return currentCanvasIcon.value
     case 'resources':
       return currentDownloadResourcesIcon.value
     default:

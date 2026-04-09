@@ -20,6 +20,7 @@ import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
 import LottieTest from '@/views/LottieTest.vue'
 import ExerciseSolveViewNew from '@/views/ExerciseSolveViewNew.vue'
+import InteractiveCanvasView from '@/views/InteractiveCanvasView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -156,6 +157,11 @@ const router = createRouter({
       path: '/lottie-test',
       name: 'lottieTest',
       component: LottieTest
+    },
+    {
+      path: '/interactive-canvas',
+      name: 'interactiveCanvas',
+      component: InteractiveCanvasView
     },
     // 重定向旧路由到新路由
     {

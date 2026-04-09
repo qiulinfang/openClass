@@ -39,7 +39,7 @@
         dense
         icon="close"
         size="md"
-        @click="handleClose"
+        @click="emit('close')"
         class="close-button"
       />
     </div>
@@ -55,10 +55,10 @@
           :toolbar-tools="toolbarToolNames"
           @edit-screenshot="handleEditScreenshot"
           @screenshot-click="handleExploreClick"
-          @open-html-preview="handleOpenHtmlPreview"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
           @request-screenshot="handleRequestScreenshot"
+          @open-html-preview="handleOpenHtmlPreview"
         />
       </div>
       <!-- 会话记录 Tab -->
@@ -84,13 +84,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, watch, type ComponentPublicInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import type { AiTextbookSession, AttachedScreenshot, ChatEntry } from '@/types'
 import {
   getScreenshotSessionsByResourceId,
@@ -117,6 +118,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   'screenshot-click': [boolean]  // 统一截图工具事件：true=开启, false=关闭
+  'open-html-preview': [url: string] // HTML 预览点击事件，向上传递
 }>()
 
 // ChatView 实例引用
@@ -246,20 +248,6 @@ const handleExploreClick = () => {
   emit('screenshot-click', !isScreenshotMode)
 }
 
-// 处理 HTML 预览点击
-const handleOpenHtmlPreview = (url: string) => {
-  if (!url) return
-  router.push({
-    name: 'htmlPreview',
-    query: {
-      url,
-      from: 'pdf',
-      returnTo: router.currentRoute.value.fullPath,
-      reopenPanel: 'pdf',
-    }
-  })
-}
-
 // 关闭对话面板
 const handleClose = () => {
   emit('close')
@@ -301,6 +289,12 @@ const handleRequestScreenshot = (payload: { kind: 'screen_snapshot' | 'pdf_page'
 const handleEditScreenshot = (shotId: string) => {
   if (!shotId) return
   ;(chatViewRef.value as any)?.openTextbookScreenshotEditor?.({ shotId })
+}
+
+// 处理 HTML 预览点击 - 向上传递到父组件
+const handleOpenHtmlPreview = (url: string) => {
+  if (!url) return
+  emit('open-html-preview', url)
 }
 
 // 遮罩层按钮位置样式

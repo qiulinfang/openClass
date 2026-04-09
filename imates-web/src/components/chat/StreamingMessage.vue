@@ -82,6 +82,7 @@ interface Props{
 
 const emit = defineEmits<{
   'reload-html-image': [url: string]
+  'open-html-preview': [url: string] // HTML 预览点击事件
 }>()
 
 const props = withDefaults(defineProps<Props>(), {
@@ -101,27 +102,10 @@ const pdfViewerStore = usePdfViewerStore()
 const { renderMessageContent } = useMessageRenderer()
 
 const openHtmlDialog = (urlArg?: string) => {
-  // 关闭 MainChatPanel
-  hideMainChatPanel()
+  if (!urlArg) return
 
-  if (urlArg) {
-    // 判断当前是否在 PDF 查看器场景
-    const currentRoute = router.currentRoute.value
-    const isFromPdf = currentRoute.name === 'pdfViewer'
-
-    // 如果是从 PDF 跳转，关闭 PdfChatPanel
-    if (isFromPdf) {
-      pdfViewerStore.closeChatPanel()
-    }
-
-    router.push({
-      name: 'htmlPreview',
-      query: {
-        url: urlArg,
-        ...(isFromPdf ? { from: 'pdf' } : {})
-      }
-    })
-  }
+  // 优先通过事件传递，让父组件统一处理
+  emit('open-html-preview', urlArg)
 }
 
 const handleReloadClick = (url?: string) => {
