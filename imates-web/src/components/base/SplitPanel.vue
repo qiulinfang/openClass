@@ -2,9 +2,7 @@
   <div class="split-panel-container">
     <!-- 核心工作区 -->
     <div ref="workspaceRef" class="split-panel-workspace"
-      @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
-      @pointerleave="handlePointerUp"
     >
       <div
         v-if="containerWidth > 0"
@@ -82,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, useSlots } from 'vue';
+import { ref, computed, onMounted, onUnmounted, useSlots } from 'vue';
 import seekbarIcon from '/icons/seekbar.svg';
 
 interface Props {
@@ -130,6 +128,10 @@ const mode = ref<'left' | 'right'>(props.initialMode);
 const isLocked = ref<boolean>(false);
 
 let resizeObserver: ResizeObserver | null = null;
+let dragFrameId: number | null = null;
+let pendingClientX: number | null = null;
+let activePointerId: number | null = null;
+let activeDragElement: Element | null = null;
 
 onMounted(() => {
   if (workspaceRef.value) {
@@ -144,6 +146,13 @@ onMounted(() => {
 onUnmounted(() => {
   if (resizeObserver) {
     resizeObserver.disconnect();
+  }
+
+  removeDragListeners();
+
+  if (dragFrameId !== null) {
+    cancelAnimationFrame(dragFrameId);
+    dragFrameId = null;
   }
 });
 
@@ -189,12 +198,80 @@ const dragState = ref<{
 
 const isDragging = computed(() => dragState.value.isDragging);
 
+const updateDragLayout = (clientX: number) => {
+  const currentWidth = containerWidth.value;
+  if (!currentWidth) return;
+
+  const deltaX = clientX - dragState.value.startX;
+  const deltaP = (deltaX / currentWidth) * 100;
+
+  if (dragState.value.splitterIndex === 1) {
+    const leftMax = Math.min(props.leftConfig[2], 100 - props.centerConfig[1]);
+    const newP1 = Math.max(props.leftConfig[1], Math.min(dragState.value.startP1 + deltaP, leftMax));
+
+    if (newP1 !== p1.value) {
+      p1.value = newP1;
+      p2.value = 100 - newP1;
+    }
+  } else if (dragState.value.splitterIndex === 2) {
+    const centerMax = Math.min(props.centerConfig[2], 100 - props.rightConfig[1]);
+    const newP2 = Math.max(props.centerConfig[1], Math.min(dragState.value.startP2 + deltaP, centerMax));
+
+    if (newP2 !== p2.value) {
+      p2.value = newP2;
+      p3.value = 100 - newP2;
+    }
+  }
+};
+
+const flushDragFrame = () => {
+  dragFrameId = null;
+
+  if (!dragState.value.isDragging || pendingClientX === null) {
+    return;
+  }
+
+  updateDragLayout(pendingClientX);
+};
+
+const scheduleDragUpdate = (clientX: number) => {
+  pendingClientX = clientX;
+
+  if (dragFrameId !== null) {
+    return;
+  }
+
+  dragFrameId = requestAnimationFrame(flushDragFrame);
+};
+
+const handleWindowPointerMove = (e: PointerEvent) => {
+  if (!dragState.value.isDragging) return;
+  if (activePointerId !== null && e.pointerId !== activePointerId) return;
+
+  scheduleDragUpdate(e.clientX);
+};
+
+const removeDragListeners = () => {
+  window.removeEventListener('pointermove', handleWindowPointerMove);
+  window.removeEventListener('pointerup', handlePointerUp);
+  window.removeEventListener('pointercancel', handlePointerUp);
+};
+
+const addDragListeners = () => {
+  removeDragListeners();
+  window.addEventListener('pointermove', handleWindowPointerMove, { passive: true });
+  window.addEventListener('pointerup', handlePointerUp);
+  window.addEventListener('pointercancel', handlePointerUp);
+};
+
 const handleDrag1 = (e: PointerEvent) => {
   e.preventDefault();
   e.stopPropagation();
   if (isLocked.value || !props.showSplitters) return;
 
-  (e.target as Element).setPointerCapture(e.pointerId);
+  (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  activePointerId = e.pointerId;
+  activeDragElement = e.currentTarget as Element;
 
   dragState.value = {
     isDragging: true,
@@ -203,6 +280,8 @@ const handleDrag1 = (e: PointerEvent) => {
     startP1: p1.value,
     startP2: p2.value
   };
+
+  addDragListeners();
 };
 
 const handleDrag2 = (e: PointerEvent) => {
@@ -210,7 +289,9 @@ const handleDrag2 = (e: PointerEvent) => {
   e.stopPropagation();
   if (isLocked.value || !props.showSplitters) return;
 
-  (e.target as Element).setPointerCapture(e.pointerId);
+  (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  activePointerId = e.pointerId;
+  activeDragElement = e.currentTarget as Element;
 
   dragState.value = {
     isDragging: true,
@@ -219,38 +300,33 @@ const handleDrag2 = (e: PointerEvent) => {
     startP1: p1.value,
     startP2: p2.value
   };
-};
 
-const handlePointerMove = (e: PointerEvent) => {
-  if (!dragState.value.isDragging) return;
-
-  const currentWidth = containerWidth.value;
-  const deltaX = e.clientX - dragState.value.startX;
-  const deltaP = (deltaX / currentWidth) * 100;
-
-  if (dragState.value.splitterIndex === 1) {
-    // splitter1: left vs center，left的最大值受center最小值限制
-    const leftMax = Math.min(props.leftConfig[2], 100 - props.centerConfig[1]);
-    const newP1 = Math.max(props.leftConfig[1], Math.min(dragState.value.startP1 + deltaP, leftMax));
-    p1.value = newP1;
-    p2.value = 100 - newP1;
-  } else if (dragState.value.splitterIndex === 2) {
-    // splitter2: center vs right，center的最大值受right最小值限制
-    const centerMax = Math.min(props.centerConfig[2], 100 - props.rightConfig[1]);
-    const newP2 = Math.max(props.centerConfig[1], Math.min(dragState.value.startP2 + deltaP, centerMax));
-    p2.value = newP2;
-    p3.value = 100 - newP2;
-  }
-
-  emit('resize', containerWidth.value);
+  addDragListeners();
 };
 
 const handlePointerUp = (e?: PointerEvent) => {
+  removeDragListeners();
+
+  if (dragFrameId !== null) {
+    cancelAnimationFrame(dragFrameId);
+    dragFrameId = null;
+  }
+
+  if (pendingClientX !== null && dragState.value.isDragging) {
+    updateDragLayout(pendingClientX);
+  }
+
   if (e) {
     try {
-      (e.target as Element).releasePointerCapture(e.pointerId);
+      if (activeDragElement && activePointerId !== null) {
+        activeDragElement.releasePointerCapture(activePointerId);
+      }
     } catch {}
   }
+
+  pendingClientX = null;
+  activePointerId = null;
+  activeDragElement = null;
   dragState.value.isDragging = false;
   dragState.value.splitterIndex = null;
 };
@@ -307,6 +383,7 @@ const offsetX = computed(() => {
   bottom: 0;
   overflow: hidden;
   background-color: #f8fafc;
+  contain: layout paint;
 }
 
 .split-panel-track {
@@ -329,6 +406,8 @@ const offsetX = computed(() => {
   display: flex;
   flex-direction: column;
   transition: width 0.5s ease-in-out;
+  will-change: width;
+  contain: layout paint;
 }
 
 .split-panel-col.no-transition {
@@ -371,6 +450,7 @@ const offsetX = computed(() => {
   transition: left 0.5s ease-in-out, opacity 0.3s;
   touch-action: none;
   pointer-events: auto;
+  will-change: left;
 }
 
 .split-panel-splitter::before {

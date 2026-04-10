@@ -58,6 +58,10 @@
             @card-remove-request="handleDeleteSessionRequest"
             @card-add="handleAddSessionCard"
           >
+            <!-- 标题使用 Markdown 渲染 -->
+            <template #title="{ card }">
+              <MarkdownTitle :title="card.title" />
+            </template>
             <template #card-body="{ card }">
               <div class="chat-snapshot" @click="handleSessionCardClick(card.id)">
                 <div class="snapshot-messages">
@@ -139,6 +143,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
 import ChatView from '@/components/ChatView.vue'
 import CardStack from '@/components/base/CardStack.vue'
+import MarkdownTitle from '@/components/MarkdownTitle.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import Button from '@/components/base/Button.vue'
 import Dialog from '@/components/base/Dialog.vue'
@@ -206,12 +211,18 @@ const globalChatEntry = ref<ChatEntry | undefined>(undefined)
 
 const sessionCards = computed(() => {
   if (typeof aiExerciseStore.getSessionCards === 'function') {
-    return aiExerciseStore.getSessionCards()
+    const cards = aiExerciseStore.getSessionCards()
+    // 统一使用 会话+数字 作为标题，删除后会自动更新编号
+    return cards.map((card: any, index: number) => ({
+      ...card,
+      title: `会话 ${index + 1}`
+    }))
   }
   const sourceSessions = props.sessions || aiExerciseStore.sessions || []
+  // 统一使用 会话+数字 作为标题，删除后会自动更新编号
   return sourceSessions.map((session: any, index: number) => ({
     id: session.id || session.sessionId,
-    title: session.title || session.sessionName || `会话 ${index + 1}`,
+    title: `会话 ${index + 1}`,
     updateTime: session.updatedAt || session.updateTime,
     previewMessagesMarkdown: session.previewMessagesMarkdown || [],
   }))
@@ -604,6 +615,24 @@ defineExpose({
   background-color: #f7f6ff;
   display: flex;
   flex-direction: column;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 40px;
+  line-height: 1.4;
+}
+
+/* MathJax 公式在标题中的样式 */
+.card-title .math {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 0.9em;
 }
 
 .session-card-wrapper {

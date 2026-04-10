@@ -718,13 +718,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   // ==================== 多会话管理 ====================
   
-  // 辅助函数：生成会话标题（从首条用户消息提取）
+  // 辅助函数：生成会话标题（保留原始内容）
   const generateSessionTitle = (snapshot: { userMessage?: string }): string => {
-    const maxLength = 20
-    const content = snapshot.userMessage?.trim() || ''
-    if (!content) return '新会话'
-    if (content.length <= maxLength) return content
-    return content.substring(0, maxLength) + '...'
+    return snapshot.userMessage?.trim() || '新会话'
   }
 
   /**

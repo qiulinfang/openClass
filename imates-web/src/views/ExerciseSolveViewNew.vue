@@ -98,7 +98,6 @@
               <div
                 class="question-image-section"
                 :class="{ collapsed: isQuestionImageCollapsed }"
-                :style="{ height: isQuestionImageCollapsed ? '20%' : '70%' }"
               >
                 <div class="question-image-content">
                   <div
@@ -127,6 +126,9 @@
             <!-- IP 悬浮功能 - 使用 FloatBubble 组件（移到 panel-content 层级避免被裁剪） -->
             <FloatBubble
               toggle-only
+              :draggable="true"
+              :drag-min-y="-300"
+              :drag-max-y="30"
               :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
               @toggle="handleToggle"
             >
@@ -918,7 +920,7 @@ onMounted(async () => {
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   border-bottom-left-radius: 0;
-  border-bottom-right-radius: 20px;
+  border-bottom-right-radius: 0;
   transition: border-radius 0.5s ease-in-out;
 }
 
@@ -933,21 +935,25 @@ onMounted(async () => {
   width: 100%;
 }
 
-/* 题目图片区域 */
+/* 题目图片区域 - 使用 flex 优化动画性能 */
 .question-image-section {
   display: flex;
   flex-direction: column;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid rgba(110, 85, 255, 0.32);
-  transition: height 0.5s ease-in-out;
+  flex: 7 0 0; /* 默认展开占 70% */
+  min-height: 0;
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   margin: 8px 12px 0 12px;
   position: relative;
+  will-change: flex;
+  contain: layout paint;
 }
 
 .question-image-section.collapsed {
-  flex-shrink: 0;
+  flex: 0.25 0 0; /* 收起时占约 20% */
 }
 
 .question-image-content {

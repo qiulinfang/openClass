@@ -86,6 +86,21 @@ const props = defineProps({
   toggleOnly: {
     type: Boolean,
     default: false
+  },
+  // 是否启用拖动
+  draggable: {
+    type: Boolean,
+    default: true
+  },
+  // 拖动范围限制：最小 Y 偏移（负数表示向上拖动）
+  dragMinY: {
+    type: Number,
+    default: -300
+  },
+  // 拖动范围限制：最大 Y 偏移（正数表示向下拖动）
+  dragMaxY: {
+    type: Number,
+    default: 300
   }
 })
 
@@ -212,10 +227,12 @@ const toggleMenu = () => {
 
 const handlePressStart = (event) => {
   isPressed.value = true
-  // 开始拖动
-  isDragging.value = true
-  dragStartY.value = event.clientY || event.touches?.[0]?.clientY || 0
-  dragOffsetY.value = 0
+  // 只有启用了拖动才进入拖动状态
+  if (props.draggable) {
+    isDragging.value = true
+    dragStartY.value = event.clientY || event.touches?.[0]?.clientY || 0
+    dragOffsetY.value = 0
+  }
 }
 
 const handlePressEnd = () => {
@@ -232,20 +249,16 @@ const handlePressEnd = () => {
 }
 
 const handleDrag = (event) => {
-  if (!isDragging.value) return
+  if (!isDragging.value || !props.draggable) return
 
   const currentY = event.clientY || event.touches?.[0]?.clientY || 0
   const deltaY = currentY - dragStartY.value
 
   // 应用范围限制
-  if (dragDebugConfig.enableLimit) {
-    const totalOffset = persistentOffsetY.value + deltaY
-    // 限制在最小值和最大值之间
-    const clampedOffset = Math.max(dragDebugConfig.minY, Math.min(dragDebugConfig.maxY, totalOffset))
-    dragOffsetY.value = clampedOffset - persistentOffsetY.value
-  } else {
-    dragOffsetY.value = deltaY
-  }
+  const totalOffset = persistentOffsetY.value + deltaY
+  // 限制在最小值和最大值之间
+  const clampedOffset = Math.max(props.dragMinY, Math.min(props.dragMaxY, totalOffset))
+  dragOffsetY.value = clampedOffset - persistentOffsetY.value
 }
 
 // 全局拖动事件监听

@@ -21,7 +21,10 @@
               
               <div class="card-header">
                 <div class="card-title-group">
-                  <span class="card-title">{{ card.title }}</span>
+                  <!-- 标题插槽，允许自定义渲染 -->
+                  <slot name="title" :card="card">
+                    <span class="card-title">{{ card.title }}</span>
+                  </slot>
                 </div>
                 <button class="close-btn" @click.stop="requestRemove(card.id)" @touchstart.stop>
                   <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
@@ -567,6 +570,17 @@ defineExpose({
   font-weight: 700;
   color: #1f2937;
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 40px;
+  line-height: 1.4;
+}
+
+/* MathJax 公式在标题中的样式 */
+.card-title .math {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 0.9em;
 }
 
 .close-btn {
