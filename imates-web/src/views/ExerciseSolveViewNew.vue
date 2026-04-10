@@ -57,27 +57,30 @@
         </template>
         <!-- 左侧：题目面板 -->
         <template #left="{ isVisible }">
-          <div class="panel-bg"></div>
           <div
-            class="panel-content"
-            :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
-            :style="{ width: '100%', minWidth: '300px' }"
+            class="panel-bg1"
           >
-            <div class="panel-card problem-card">
-              <div class="panel-card-body">
-                <QuestionList
-                  ref="questionListRef"
-                  type="exercise"
-                  :show-photo-search="true"
-                  :show-send-to-ai="true"
-                  :show-question-actions="true"
-                  :selected-subject-filter="selectedSubjectFilter"
-                  @question-selected="handleQuestionSelected"
-                  @question-deleted="handleQuestionDeleted"
-                  @start-ai-guidance="handleStartAiGuidance"
-                  @open-mini-class="handleOpenMiniClass"
-                  @paste-to-draft="handlePasteToDraft"
-                />
+            <div
+              class="panel-content"
+              :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
+              :style="{ width: '100%', minWidth: '300px' }"
+            >
+              <div class="panel-card problem-card">
+                <div class="panel-card-body">
+                  <QuestionList
+                    ref="questionListRef"
+                    type="exercise"
+                    :show-photo-search="true"
+                    :show-send-to-ai="true"
+                    :show-question-actions="true"
+                    :selected-subject-filter="selectedSubjectFilter"
+                    @question-selected="handleQuestionSelected"
+                    @question-deleted="handleQuestionDeleted"
+                    @start-ai-guidance="handleStartAiGuidance"
+                    @open-mini-class="handleOpenMiniClass"
+                    @paste-to-draft="handlePasteToDraft"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -293,6 +296,10 @@ const handleToggle = () => {
 // SplitPanel 事件
 const handleModeChange = (newMode: 'left' | 'right') => {
   mode.value = newMode
+  // 切换到 AI 模式时，自动切换到 AI 问答 Tab
+  if (newMode === 'right') {
+    exerciseChatPanelRef.value?.switchToAiChat?.()
+  }
 }
 
 const onToggle = (newMode: 'left' | 'right') => {
@@ -794,9 +801,20 @@ onMounted(async () => {
   height: 100%;
   position: relative;
   background: #ffffff;
-  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
   border-radius: 20px;
-  will-change: opacity, transform;
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* 背景层 - 替代伪元素 */
+.panel-bg1 {
+  height: 100%;
+  background: linear-gradient(to right, #0f002e 4% , #ffffff 6%);
+  width: 100%;
+}
+
+/* 隐藏时背景层不参与交互 */
+.panel-hidden .panel-bg1 {
+  pointer-events: none;
 }
 
 /* 背景层 - 替代伪元素 */
@@ -810,13 +828,8 @@ onMounted(async () => {
   border-radius: 20px;
   z-index: -1;
   opacity: 1;
-  transition: opacity 0.5s ease-in-out;
 }
 
-/* 隐藏时背景层也隐藏 */
-.panel-hidden .panel-bg {
-  opacity: 0;
-}
 
 .panel-hidden {
   opacity: 0;

@@ -70,7 +70,8 @@
                     >
                       <div
                         class="bubble-text markdown-content"
-                        v-html="content"
+                        v-html="renderMessageContent(content)"
+                        v-mathjax-preview
                       ></div>
                     </div>
                   </template>
@@ -134,6 +135,7 @@ import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useDraftStore } from '@/stores/draftStore'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
+import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
 import ChatView from '@/components/ChatView.vue'
 import CardStack from '@/components/base/CardStack.vue'
@@ -191,6 +193,8 @@ const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 
 // Tab 选项
 const tabOptions = CHAT_TAB_OPTIONS as Array<{ label: string; value: 'ai-chat' | 'question-record' }>
+
+const { renderMessageContent } = useMessageRenderer()
 
 // 选中的会话ID
 const selectedRecordId = ref<string | undefined>(undefined)

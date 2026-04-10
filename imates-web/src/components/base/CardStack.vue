@@ -7,7 +7,7 @@
         <p>{{ emptyText }}</p>
       </div>
 
-      <div v-else class="cards-wrapper">
+      <div v-else ref="cardsWrapperRef" class="cards-wrapper" :class="{ 'is-bouncing': isRubberBandAnimating }" :style="cardsWrapperStyle">
         <TransitionGroup name="card-list">
           <div
             v-for="(card, index) in cards"
@@ -46,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch, onMounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 
 // --- 1. Props 定义 ---
 const props = defineProps({
@@ -97,6 +97,17 @@ const internalCards = ref([...DEFAULT_CARDS]);
 const cardRefs = ref(new Map());
 // 使用普通 ref，避免在 JS 脚本中使用 TS 泛型导致模板 ref 失效
 const scrollContainerRef = ref(null);
+const cardsWrapperRef = ref(null);
+const rubberBandOffset = ref(0);
+const isRubberBandAnimating = ref(false);
+
+let rubberBandStartY = 0;
+let rubberBandDragging = false;
+let rubberBandLocked = false;
+let rubberBandActive = false;
+
+const MAX_RUBBER_BAND_OFFSET = 120;
+const RUBBER_BAND_DAMPING = 0.55;
 
 // --- 7. 计算属性：实际使用的卡片数据 ---
 const cards = computed({
@@ -114,6 +125,10 @@ const cards = computed({
     }
   },
 });
+
+const cardsWrapperStyle = computed(() => ({
+  transform: `translate3d(0, ${rubberBandOffset.value}px, 0)`,
+}));
 
 // --- 8. 方法逻辑 ---
 
@@ -184,21 +199,132 @@ const setCardRef = (el, id) => {
   if (el) cardRefs.value.set(id, el);
 };
 
+const calculateRubberBandOffset = (distance) => {
+  const absDistance = Math.abs(distance);
+  const dampedDistance = absDistance * RUBBER_BAND_DAMPING;
+  const normalized = (dampedDistance * MAX_RUBBER_BAND_OFFSET) / (dampedDistance + MAX_RUBBER_BAND_OFFSET);
+  return normalized * Math.sign(distance);
+};
+
+const resetRubberBand = (withAnimation = true) => {
+  if (rubberBandOffset.value === 0 && !isRubberBandAnimating.value) {
+    rubberBandActive = false;
+    return;
+  }
+
+  if (withAnimation) {
+    isRubberBandAnimating.value = true;
+  } else {
+    isRubberBandAnimating.value = false;
+  }
+
+  rubberBandOffset.value = 0;
+  rubberBandActive = false;
+};
+
+const onRubberBandTransitionEnd = () => {
+  if (rubberBandOffset.value === 0) {
+    isRubberBandAnimating.value = false;
+  }
+};
+
+const handleContainerTouchStart = (e) => {
+  if (e.touches.length !== 1) return;
+  rubberBandStartY = e.touches[0].clientY;
+  rubberBandDragging = true;
+  rubberBandLocked = false;
+  rubberBandActive = false;
+  isRubberBandAnimating.value = false;
+};
+
+const handleContainerTouchMove = (e) => {
+  if (!rubberBandDragging) return;
+
+  const container = scrollContainerRef.value;
+  if (!container) return;
+
+  const currentY = e.touches[0].clientY;
+  const deltaY = currentY - rubberBandStartY;
+
+  if (!rubberBandLocked) {
+    if (Math.abs(deltaY) <= 6) {
+      return;
+    }
+    rubberBandLocked = true;
+  }
+
+  const { scrollTop, scrollHeight, clientHeight } = container;
+  const isAtTop = scrollTop <= 0;
+  const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+  const shouldPullDown = isAtTop && deltaY > 0;
+  const shouldPullUp = isAtBottom && deltaY < 0;
+
+  if (!shouldPullDown && !shouldPullUp) {
+    if (rubberBandActive) {
+      resetRubberBand(true);
+    }
+    return;
+  }
+
+  rubberBandActive = true;
+
+  if (e.cancelable) {
+    e.preventDefault();
+  }
+
+  rubberBandOffset.value = calculateRubberBandOffset(deltaY);
+};
+
+const handleContainerTouchEnd = () => {
+  rubberBandDragging = false;
+  rubberBandLocked = false;
+  resetRubberBand(true);
+};
 
 onMounted(() => {
+  const container = scrollContainerRef.value;
+  const wrapper = cardsWrapperRef.value;
+
+  if (container) {
+    container.addEventListener('touchstart', handleContainerTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleContainerTouchMove, { passive: false });
+    container.addEventListener('touchend', handleContainerTouchEnd);
+    container.addEventListener('touchcancel', handleContainerTouchEnd);
+  }
+
+  if (wrapper) {
+    wrapper.addEventListener('transitionend', onRubberBandTransitionEnd);
+  }
+
   scrollToBottom();
+});
+
+onUnmounted(() => {
+  const container = scrollContainerRef.value;
+  const wrapper = cardsWrapperRef.value;
+
+  if (container) {
+    container.removeEventListener('touchstart', handleContainerTouchStart);
+    container.removeEventListener('touchmove', handleContainerTouchMove);
+    container.removeEventListener('touchend', handleContainerTouchEnd);
+    container.removeEventListener('touchcancel', handleContainerTouchEnd);
+  }
+
+  if (wrapper) {
+    wrapper.removeEventListener('transitionend', onRubberBandTransitionEnd);
+  }
 });
 
 // 获取卡片样式：核心堆叠逻辑
 const getCardStyle = (index) => {
   return {
     position: 'sticky',
-    top: `${index * 5}px`, // 每张卡往下错开一点，形成阶梯
+    top: `${index * 6}px`, // 每张卡往下错开一点，形成阶梯
     zIndex: index, // z-index 保证堆叠顺序
     // 负 margin 实现覆盖效果
-    marginTop: index === 0 ? '0px' : `-${CARD_HEIGHT - HEADER_VISIBLE_HEIGHT}px`,
+    marginTop: index === 0 ? '0px' : `-${CARD_HEIGHT - HEADER_VISIBLE_HEIGHT + 8}px`,
     height: `${CARD_HEIGHT}px`,
-    marginBottom: '20px',
+    marginBottom: '28px',
     touchAction: 'pan-y' // 允许垂直滚动，接管水平滑动
   };
 };
@@ -327,8 +453,8 @@ defineExpose({
   handleReset,
   scrollToBottom,
 });
-</script>
 
+</script>
 
 <style scoped>
 /* --- 全局容器 --- */
@@ -348,10 +474,12 @@ defineExpose({
 .scroll-container {
   flex: 1;
   overflow-y: auto;
+  position: relative;
   padding-bottom: 230px; /* 给底部留空间 */
   /* 隐藏滚动条 */
   scrollbar-width: none; 
 }
+
 .scroll-container::-webkit-scrollbar {
   display: none;
 }
@@ -366,33 +494,52 @@ defineExpose({
   color: #9ca3af;
 }
 
-
 /* --- 卡片样式 --- */
-.cards-wrapper {
-  width: 100%;
-  margin: 0 auto;
-  position: relative;
-  /* min-height 保证内容少时也能滚动一点 */
-  min-height: 100%;
+ .cards-wrapper {
+   width: 100%;
+   margin: 0 auto;
+   position: relative;
+   /* min-height 保证内容少时也能滚动一点 */
+   min-height: 100%;
+   will-change: transform;
+   isolation: isolate;
+ }
+
+.cards-wrapper.is-bouncing {
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-item-wrapper {
   width: 100%;
+  position: sticky;
   transform-origin: top center;
   will-change: transform;
-}
+ }
+
+ .card-item-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 8px;
+  right: 8px;
+  height: 22px;
+  border-radius: 16px 16px 12px 12px;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow: 0 -1px 4px rgba(15, 23, 42, 0.028), 0 -6px 14px rgba(15, 23, 42, 0.02);
+ }
 
 .card {
   width: 100%;
   height: 100%;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 -5px 25px rgba(0,0,0,0.08);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: 1;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.6);
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 /* 卡片头部 */
