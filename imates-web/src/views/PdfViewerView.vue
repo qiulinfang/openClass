@@ -40,17 +40,33 @@
               </q-btn>
             </template>
             <template #right-actions>
-              <q-btn
-                flat
-                round
-                dense
-                icon="swap_horiz"
-                color="white"
-                @click="handleToggleReadingDirection"
-                class="q-mr-sm"
-              >
+              <div class="direction-toggle-wrapper q-mr-sm">
+                <q-btn
+                  flat
+                  dense
+                  @click="setVerticalReading"
+                  class="direction-btn"
+                >
+                  <img
+                    :src="!isHorizontalReading ? shangxiaSelectIcon : shangxiaIcon"
+                    alt="纵向阅读"
+                    class="direction-icon"
+                  />
+                </q-btn>
+                <q-btn
+                  flat
+                  dense
+                  @click="setHorizontalReading"
+                  class="direction-btn"
+                >
+                  <img
+                    :src="isHorizontalReading ? zuoyouSelectIcon : zuoyouIcon"
+                    alt="横向阅读"
+                    class="direction-icon"
+                  />
+                </q-btn>
                 <q-tooltip>{{ isHorizontalReading ? '切换为纵向滚动' : '切换为横向滚动' }}</q-tooltip>
-              </q-btn>
+              </div>
               <!-- 调试面板按钮 -->
               <q-btn
                 v-if="isDev"
@@ -126,6 +142,10 @@ import PdfPage from '@/components/PdfPage.vue'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import goBackIcon from '/icons/goback.svg'
+import shangxiaSelectIcon from '/icons/shangxia_select.svg'
+import shangxiaIcon from '/icons/shangxia.svg'
+import zuoyouSelectIcon from '/icons/zuoyou_select.svg'
+import zuoyouIcon from '/icons/zuoyou.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
 
@@ -401,6 +421,26 @@ const handleToggleReadingDirection = async () => {
     await (pdfPageRef.value as any)?.toggleReadingDirection?.()
   } catch (e) {
     console.error('[PdfViewerView] toggleReadingDirection failed:', e)
+  }
+}
+
+const setVerticalReading = async () => {
+  if (!isHorizontalReading.value) return
+  try {
+    isHorizontalReading.value = false
+    await (pdfPageRef.value as any)?.toggleReadingDirection?.()
+  } catch (e) {
+    console.error('[PdfViewerView] setVerticalReading failed:', e)
+  }
+}
+
+const setHorizontalReading = async () => {
+  if (isHorizontalReading.value) return
+  try {
+    isHorizontalReading.value = true
+    await (pdfPageRef.value as any)?.toggleReadingDirection?.()
+  } catch (e) {
+    console.error('[PdfViewerView] setHorizontalReading failed:', e)
   }
 }
 
@@ -1096,5 +1136,41 @@ onBeforeUnmount(() => {
   width: 24px;
   height: 24px;
   display: block;
+}
+
+/* 阅读方向切换按钮组 */
+.direction-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.direction-btn {
+  padding: 4px;
+  border-radius: 4px;
+  transition: transform 0.2s ease;
+}
+
+.direction-btn:active {
+  transform: scale(0.9);
+}
+
+.direction-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  animation: iconSwitch 0.3s ease;
+}
+
+@keyframes iconSwitch {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>

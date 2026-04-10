@@ -3,7 +3,11 @@
     <!-- 视口区域 -->
     <div
       class="viewport"
-      :class="{ 'is-horizontal': readingDirection === 'horizontal', 'is-drawing': readingDirection === 'horizontal' && (currentMode === 'pen' || currentMode === 'highlighter' || currentMode === 'eraser') }"
+      :class="{
+        'is-horizontal': readingDirection === 'horizontal',
+        'is-drawing': readingDirection === 'horizontal' && (currentMode === 'pen' || currentMode === 'highlighter' || currentMode === 'eraser'),
+        'direction-changing': isDirectionChanging
+      }"
       ref="viewportRef"
       @wheel="handleWheel"
       @scroll="handleViewportScroll"
@@ -191,6 +195,7 @@ let lastObservedViewportWidth = 0
 let lastObservedViewportHeight = 0
 
 const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
+const isDirectionChanging = ref(false)
 
 // 工具状态
 const currentMode = ref<ToolMode>('pan')
@@ -2312,10 +2317,15 @@ const clampOffset = () => {
   offset.value = { x, y }
 }
 
-// 切换横向/纵向阅读模式并重置视图状态
+// 切换横向/纵向阅读模式并重置视图状态（带淡入淡出过渡）
 const toggleReadingDirection = async () => {
   const fromDirection = readingDirection.value
   const targetPageIndex = fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
+
+  // 第一步：淡出（300ms）
+  isDirectionChanging.value = true
+  await new Promise(resolve => setTimeout(resolve, 300))
+
   readingDirection.value = fromDirection === 'horizontal' ? 'vertical' : 'horizontal'
   if (scale.value !== 1) scale.value = 1
   offset.value = { x: 0, y: 0 }
@@ -2343,6 +2353,11 @@ const toggleReadingDirection = async () => {
   hasRendered.value = false
   await nextTick()
   tryRenderContent()
+
+  // 第二步：淡入
+  requestAnimationFrame(() => {
+    isDirectionChanging.value = false
+  })
   requestAnimationFrame(() => {
     if (readingDirection.value === 'vertical') {
       if (!viewportRef.value || pageList.value.length === 0) return
@@ -2440,10 +2455,20 @@ defineExpose({
   cursor: grabbing;
 }
 
+/* 阅读方向切换时的过渡效果 */
+.viewport {
+  transition: opacity 0.3s ease;
+}
+
+.viewport.direction-changing {
+  opacity: 0;
+}
+
 .canvas-container {
   position: absolute;
   transform-origin: 0 0;
   will-change: transform;
+  transition: opacity 0.3s ease;
 }
 
 .canvas-container.is-horizontal {
@@ -2532,11 +2557,13 @@ canvas {
 .horizontal-nav .nav-btn {
   position: absolute;
   pointer-events: auto;
-  width: 40px;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(6px);
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
 }
 
 .horizontal-nav .nav-left {
