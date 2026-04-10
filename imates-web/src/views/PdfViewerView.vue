@@ -5,7 +5,8 @@
       v-model="splitterModel"
       :limits="[30, 70]"
       :disable="!pdfViewerStore.chatPanelVisible"
-      :class="['full-height', { 'full-width-before': !pdfViewerStore.chatPanelVisible, 'chat-panel-visible': pdfViewerStore.chatPanelVisible }]"
+      :class="['full-height', { 'full-width-before': !pdfViewerStore.chatPanelVisible, 'chat-panel-visible': pdfViewerStore.chatPanelVisible, 'splitter-resizing': isSplitterResizing }]"
+      @pointerdown.capture="handleSplitterPointerDown"
     >
       <!-- PDF内容区域 -->
       <template v-slot:before>
@@ -68,6 +69,7 @@
             v-if="currentFile"
             ref="pdfPageRef"
             :file="currentFile"
+            :layout-suspended="isSplitterResizing"
             @screenshot-captured="handleScreenshotCaptured"
           />
 
@@ -140,6 +142,7 @@ type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleSelectMode: () => void
   toggleReadingDirection: () => Promise<void> | void
   setSelectionMode: (mode: 'rectangle' | 'freeform') => void
+  refreshLayout: () => void
 }>
 
 // 调试面板状态
@@ -305,9 +308,41 @@ const toolbarBackgroundColor = ref('#0A0020')
 
 // 对话面板状态
 const splitterModel = ref(60) // 分隔比例（左侧占60%）
+const isSplitterResizing = ref(false)
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表
 const chatPanelRef = ref<InstanceType<typeof PdfChatPanel> | null>(null)
+
+const stopSplitterResize = () => {
+  if (!isSplitterResizing.value) return
+  isSplitterResizing.value = false
+  document.body.classList.remove('pdf-splitter-resizing')
+  requestAnimationFrame(() => {
+    pdfPageRef.value?.refreshLayout?.()
+  })
+}
+
+const handleSplitterPointerDown = (e: PointerEvent) => {
+  if (!pdfViewerStore.chatPanelVisible) return
+  const target = e.target as HTMLElement | null
+  if (!target?.closest('.q-splitter__separator')) return
+
+  isSplitterResizing.value = true
+  document.body.classList.add('pdf-splitter-resizing')
+}
+
+const handleGlobalPointerUp = () => {
+  stopSplitterResize()
+}
+
+watch(
+  () => pdfViewerStore.chatPanelVisible,
+  (visible) => {
+    if (!visible) {
+      stopSplitterResize()
+    }
+  }
+)
 
 // 处理工具配置变化（颜色、粗细等），写入 pdfViewerStore.drawingConfig
 const handleConfigChange = (config: {
@@ -709,6 +744,8 @@ const handleScreenshotClick = (enable: boolean) => {
 // 生命周期
 onMounted(async () => {
   try {
+    window.addEventListener('pointerup', handleGlobalPointerUp)
+    window.addEventListener('pointercancel', handleGlobalPointerUp)
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
     const file = await loadFileFromRoute()
@@ -726,6 +763,10 @@ onMounted(async () => {
 
 // 页面卸载前清理
 onBeforeUnmount(() => {
+  window.removeEventListener('pointerup', handleGlobalPointerUp)
+  window.removeEventListener('pointercancel', handleGlobalPointerUp)
+  document.body.classList.remove('pdf-splitter-resizing')
+  stopSplitterResize()
   // 退出 PDF 页面时清空当前工具，避免影响其它页面
   pdfViewerStore.selectedTool = '' as any
   pdfViewerStore.closeChatPanel()
@@ -980,14 +1021,26 @@ onBeforeUnmount(() => {
 }
 
 :deep(.q-splitter__separator) {
-  background-color: #e0e0e0;
+  background-color: transparent;
   cursor: col-resize;
   position: relative;
-  width: 0px;
+  width: 24px;
+  margin-left: -12px;
+  margin-right: -12px;
   z-index: 5;
+  will-change: left, right;
 }
 :deep(.q-splitter__after) {
   overflow: visible !important;
+}
+
+.splitter-resizing :deep(.q-splitter__before),
+.splitter-resizing :deep(.q-splitter__after) {
+  transition: none !important;
+}
+
+.splitter-resizing :deep(.q-splitter__separator) {
+  transition: none !important;
 }
 
 /* 在右侧面板上绘制 seekbar 效果 */

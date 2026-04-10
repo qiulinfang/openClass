@@ -154,6 +154,7 @@ interface SelectActionData {
 // === Props ===
 const props = defineProps<{
   file: File | null
+  layoutSuspended?: boolean
 }>()
 
 // === Emit ===
@@ -238,6 +239,8 @@ const viewportRef = ref<HTMLDivElement | null>(null)
 const pdfRefs = ref<HTMLCanvasElement[]>([])
 const inkRefs = ref<HTMLCanvasElement[]>([])
 let resizeObserver: ResizeObserver | null = null
+let pendingViewportResizeWhileSuspended = false
+let renderGeneration = 0
 
 // 写字模式下在非 PDF 区域拖动时，降级为平移
 let isPanningInDrawMode = false
@@ -261,7 +264,6 @@ let lastViewportScrollTop = 0
 
 const isHorizontalScrolling = ref(false)
 
-
 // 计算属性
 const containerStyle = computed(() => {
   const base = {
@@ -284,6 +286,22 @@ watch(
     console.log('[PdfPage][eraser] size changed from store ->', val)
     if (currentMode.value === 'eraser' && eraserCursor.value.visible) {
       eraserCursor.value = { ...eraserCursor.value, size: getEraserCursorSize() }
+    }
+  }
+)
+
+watch(
+  () => props.layoutSuspended,
+  (suspended, previous) => {
+    if (suspended) {
+      renderGeneration += 1
+      return
+    }
+    if (previous && pendingViewportResizeWhileSuspended) {
+      pendingViewportResizeWhileSuspended = false
+      requestAnimationFrame(() => {
+        refreshLayoutAfterViewportResize()
+      })
     }
   }
 )
@@ -1297,7 +1315,9 @@ const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
 const tryRenderContent = async () => {
   if (isVisible.value && pageList.value.length > 0 && !hasRendered.value) {
     await renderPdfPages()
-    hasRendered.value = true
+    if (!props.layoutSuspended) {
+      hasRendered.value = true
+    }
   }
 }
 
@@ -1305,6 +1325,8 @@ const tryRenderContent = async () => {
 const renderPdfPages = async () => {
   const rawDoc = toRaw(pdfDoc.value)
   if (!rawDoc) return
+
+  const generation = ++renderGeneration
 
   isRendering.value = true
 
@@ -1326,6 +1348,8 @@ const renderPdfPages = async () => {
       const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
       if (!pageLayout) return
       try {
+        if (generation !== renderGeneration || props.layoutSuspended) return
+
         const canvas = pdfRefs.value[pageIndex]
         const inkCanvas = inkRefs.value[pageIndex]
         if (!canvas || !inkCanvas) return
@@ -1343,7 +1367,7 @@ const renderPdfPages = async () => {
         inkCanvas.style.width = canvas.style.width
         inkCanvas.style.height = canvas.style.height
 
-        const ctx = canvas.getContext('2d')
+        const ctx = canvas.getContext('2d', { alpha: false })
         if (!ctx) return
 
         const page = rawDoc.loadPage(pageIndex)
@@ -1351,6 +1375,8 @@ const renderPdfPages = async () => {
           const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
           const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
           try {
+            if (generation !== renderGeneration || props.layoutSuspended) return
+
             const pixels = pixmap.getPixels()
             const width = pixmap.getWidth()
             const height = pixmap.getHeight()
@@ -1364,6 +1390,8 @@ const renderPdfPages = async () => {
               rgbaData[j * 4 + 3] = 255
             }
 
+            if (generation !== renderGeneration || props.layoutSuspended) return
+
             ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
           } finally {
             pixmap.destroy()
@@ -1373,7 +1401,9 @@ const renderPdfPages = async () => {
         }
 
         // 渲染 Ink 层（包含刚加载的笔迹）
-        renderInkLayer(pageIndex)
+        if (generation === renderGeneration && !props.layoutSuspended) {
+          renderInkLayer(pageIndex)
+        }
       } catch (e) {
         console.error('[PdfPage] render page failed:', { pageIndex, error: e })
       }
@@ -1382,7 +1412,9 @@ const renderPdfPages = async () => {
     const renderPromises = pageList.value.map((p) => renderOnePage(p.pageIndex))
     await Promise.all(renderPromises)
   } finally {
-    isRendering.value = false
+    if (generation === renderGeneration) {
+      isRendering.value = false
+    }
   }
 }
 
@@ -1477,6 +1509,23 @@ const renderInkLayer = (pageIndex: number) => {
 }
 
 
+const refreshLayoutAfterViewportResize = () => {
+  if (!isVisible.value) return
+  renderGeneration += 1
+  if (scale.value !== 1) scale.value = 1
+
+  centerContent()
+
+  hasRendered.value = false
+  requestAnimationFrame(() => {
+    tryRenderContent()
+    if (hasRendered.value) {
+      centerContent()
+      clampOffset()
+    }
+  })
+}
+
 const setupResizeObserver = () => {
   if (!viewportRef.value) return
   resizeObserver = new ResizeObserver((entries) => {
@@ -1499,6 +1548,11 @@ const setupResizeObserver = () => {
       }
 
       if (isNowVisible && sizeChanged) {
+        if (props.layoutSuspended) {
+          pendingViewportResizeWhileSuspended = true
+          continue
+        }
+
         if (scale.value !== 1) scale.value = 1
 
         centerContent()
@@ -2333,6 +2387,10 @@ const toggleNoteMode = () => {
 const toggleSelectMode = () => {
   currentMode.value = 'select'
 }
+const refreshLayout = () => {
+  pendingViewportResizeWhileSuspended = false
+  refreshLayoutAfterViewportResize()
+}
 defineExpose({
   toggleGestureMode,
   toggleHighlightMode,
@@ -2347,6 +2405,7 @@ defineExpose({
   setSelectionMode,
   undoLastStroke,
   redoLastStroke,
+  refreshLayout,
 })
 </script>
 
