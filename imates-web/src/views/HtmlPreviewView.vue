@@ -54,6 +54,10 @@
             <HtmlPdfChatPanel v-if="chatViewType === 'ai-textbook'" ref="htmlPdfChatPanelRef"
               @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
+            <!-- 题目练习场景：使用 ExerciseChatPanelNew -->
+            <ExerciseChatPanelNew v-else-if="chatViewType === 'ai-exercise'" ref="exerciseChatPanelRef"
+              @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
+              @open-html-preview="handleOpenHtmlPreviewFromPanel" />
             <!-- 通用 AI 场景：使用内嵌式 HtmlMainChatPanel -->
             <HtmlMainChatPanel v-else ref="htmlMainChatPanelRef" @close="handleCloseChatPanel"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
@@ -68,6 +72,7 @@
 import { ref, computed, onBeforeUnmount, onMounted, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMainChatPanel } from '@/composables/useMainChatPanel'
+import { useExerciseChatPanel } from '@/composables/useExerciseChatPanel'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import goBackIcon from '/icons/goback.svg'
 import ipNewIcon from '/icons/ip_new.webp'
@@ -77,6 +82,7 @@ import { getApiPaths } from '@/config/env-config'
 import DualPanel from '@/components/base/DualPanel.vue'
 import HtmlPdfChatPanel from '@/components/HtmlPdfChatPanel.vue'
 import HtmlMainChatPanel from '@/components/HtmlMainChatPanel.vue'
+import ExerciseChatPanelNew from '@/components/ExerciseChatPanelNew.vue'
 import HistoryDebugPanel from '@/components/debug/HistoryDebugPanel.vue'
 
 // 使用路由
@@ -89,15 +95,22 @@ const pdfViewerStore = usePdfViewerStore()
 // 使用 MainChatPanel 控制
 const { showMainChatPanel } = useMainChatPanel()
 
+// 使用 ExerciseChatPanel 控制
+const { showExerciseChatPanel } = useExerciseChatPanel()
+
 // HtmlPdfChatPanel 引用
 const htmlPdfChatPanelRef = ref<ComponentPublicInstance | null>(null)
 // HtmlMainChatPanel 引用
 const htmlMainChatPanelRef = ref<ComponentPublicInstance | null>(null)
+// ExerciseChatPanelNew 引用
+const exerciseChatPanelRef = ref<ComponentPublicInstance | null>(null)
 
-// 计算聊天视图类型：from=pdf 使用 ai-textbook，否则使用 ai-general
+// 计算聊天视图类型：from=pdf 使用 ai-textbook，from=exercise 使用 ai-exercise，否则 ai-general
 const chatViewType = computed(() => {
   const from = route.query.from as string
-  return from === 'pdf' ? 'ai-textbook' : 'ai-general'
+  if (from === 'pdf') return 'ai-textbook'
+  if (from === 'exercise') return 'ai-exercise'
+  return 'ai-general'
 })
 
 // DualPanel 引用（新组件无配置 props）
@@ -196,6 +209,8 @@ const handleGoBack = () => {
       pdfViewerStore.openChatPanel()
     } else if (reopenPanel === 'main') {
       showMainChatPanel()
+    } else if (reopenPanel === 'exercise') {
+      showExerciseChatPanel()
     }
     historyDebugRef.value?.addEvent('returnTo', returnTo)
     router.replace(returnTo)

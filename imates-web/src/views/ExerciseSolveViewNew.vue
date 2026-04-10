@@ -196,6 +196,7 @@ import { useDraftStore } from '@/stores/draftStore'
 import { useQuestionStore } from '@/stores/questionStore'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { storeToRefs } from 'pinia'
+import { useExerciseChatPanel } from '@/composables/useExerciseChatPanel'
 import goBackIcon from '/icons/goback.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import questionSearchIcon from '/icons/questionSearch.svg'
@@ -246,6 +247,15 @@ const handleExploreOverlayClick = () => {
 
 // 模式: 'left' = 题目+草稿, 'right' = 草稿+AI
 const mode = ref<'left' | 'right'>('left')
+
+// ExerciseChatPanel 全局状态同步
+const { isExerciseChatPanelVisible } = useExerciseChatPanel()
+watch(isExerciseChatPanelVisible, (visible) => {
+  if (visible && mode.value !== 'right') {
+    mode.value = 'right'
+    splitPanelRef.value?.toggle?.()
+  }
+})
 
 // 锁定状态（来自 SplitPanel）
 const isLocked = ref(false)
@@ -657,6 +667,13 @@ watch(currentSessionId, async (nextSessionId, previousSessionId) => {
 
 // 页面加载后自动选择第一题
 onMounted(async () => {
+  // 检查是否需要切换到 AI 模式（从 HtmlPreviewView 返回时）
+  if (isExerciseChatPanelVisible.value && mode.value !== 'right') {
+    mode.value = 'right'
+    await nextTick()
+    splitPanelRef.value?.toggle?.()
+  }
+
   // 延迟确保 QuestionList 组件已渲染并有数据
   if (questionListRef.value && typeof (questionListRef.value as any).scrollToQuestionAndSelect === 'function') {
     (questionListRef.value as any).scrollToQuestionAndSelect(0)

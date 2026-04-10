@@ -46,6 +46,7 @@
           @screenshot-click="handleScreenshotClick"
           @request-screenshot="handleRequestScreenshot"
           @new-session-click="handleAddSessionClick"
+          @open-html-preview="handleOpenHtmlPreview"
         />
       </div>
       <!-- 会话记录 Tab -->
@@ -135,6 +136,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useDraftStore } from '@/stores/draftStore'
@@ -192,6 +194,30 @@ const toolbarToolNames: BuiltinToolType[] = ['screenshot', 'formula', 'ask-teach
 
 // 截图工具
 const { captureScreenSnapshot } = useScreenSnapshot()
+const router = useRouter()
+
+// 处理 HTML 预览点击 - 跳转到 HtmlPreviewView
+const lastHtmlPreviewOpen = ref<{ url: string; ts: number } | null>(null)
+const handleOpenHtmlPreview = (url: string) => {
+  if (!url) return
+  const now = Date.now()
+  const lastOpen = lastHtmlPreviewOpen.value
+  if (lastOpen && lastOpen.url === url && now - lastOpen.ts < 800) {
+    console.log('[ExerciseChatPanel] 忽略重复 open-html-preview:', url)
+    return
+  }
+  lastHtmlPreviewOpen.value = { url, ts: now }
+  emit('close')
+  router.push({
+    name: 'htmlPreview',
+    query: {
+      url,
+      from: 'exercise',
+      returnTo: router.currentRoute.value.fullPath,
+      reopenPanel: 'exercise',
+    }
+  })
+}
 
 // Tab 状态
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
