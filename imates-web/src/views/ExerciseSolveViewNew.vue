@@ -132,25 +132,24 @@
           </div>
         </template>
 
-        <!-- 右侧：AI 面板 - 使用 ExerciseChatPanel 组件 -->
+        <!-- 右侧：AI 面板 - 使用 ExerciseChatPanelNew 组件 -->
         <template #right="{ isVisible }">
           <div
             class="exercise-chat-panel-wrapper"
             :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
             :style="{ width: '100%', minWidth: '300px' }"
           >
-            <ExerciseChatPanel
+            <ExerciseChatPanelNew
               ref="exerciseChatPanelRef"
               :question="currentQuestion"
+              :sessions="aiExerciseStore.sessions"
+              @close="handleCloseChatPanel"
               @scroll-to-bottom="scrollToBottom"
               @send-message="handleSendSuggestion"
               @open-teacher-dialog="handleOpenTeacherDialog"
               @switch-to-teacher="handleSwitchToTeacher"
               @paste-to-draft="handlePasteToDraft"
-              @request-screenshot="handleRequestScreenshot"
-              @screenshot-click="handleOpenScreenCapture"
               @add-session="handleAddSessionCard"
-              @close="handleToggle"
             />
           </div>
         </template>
@@ -169,34 +168,20 @@
       确定要清空当前题目的草稿吗？此操作不可撤销。
     </Dialog>
 
-    <!-- 清除所有会话确认对话框 -->
-    <Dialog
-      ref="clearAllDialogRef"
-      title="清除确认"
-      :confirmButtonText="'清除'"
-      :cancelButtonText="'取消'"
-      @confirm="confirmClearAllSessions"
-      @cancel="cancelClearAllSessions"
-    >
-      确定要清除当前题目的所有会话吗？此操作不可撤销。
-    </Dialog>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, onBeforeUnmount, onMounted } from 'vue'
+import { ref, nextTick, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMessage } from '@/utils'
-import * as htmlToImage from 'html-to-image'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { MathJaxUtils } from '@/utils/math/mathjax'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import QuestionList from '@/components/QuestionList.vue'
 import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
-import ExerciseChatPanel from '@/components/ExerciseChatPanel.vue'
-import Button from '@/components/base/Button.vue'
+import ExerciseChatPanelNew from '@/components/ExerciseChatPanelNew.vue'
 import Dialog from '@/components/base/Dialog.vue'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import CommonSelect from '@/components/base/Select.vue'
@@ -206,20 +191,15 @@ import { useDraftStore } from '@/stores/draftStore'
 import { useQuestionStore } from '@/stores/questionStore'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { storeToRefs } from 'pinia'
-import newSessionIcon from '/icons/new.svg'
-import sessionManagerIcon from '/icons/session_manager.svg'
-import deleteSessionIcon from '/icons/delete.svg'
-import goBackBlackIcon from '/icons/goback_black.svg'
 import goBackIcon from '/icons/goback.svg'
 import textbookipIcon from '/icons/textbookip.png'
-import ipWordIcon from '/icons/ipWord2.svg'
-import wodezuodaUnselectIcon from '/icons/wodezuoda_unselect.svg'
-import xuebandayiSelectIcon from '/icons/xuebandayi_select.svg'
 import questionSearchIcon from '/icons/questionSearch.svg'
 import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
 
 // Markdown + 公式渲染工具
 const { renderMessageContent } = useMessageRenderer()
+
+// ExerciseChatPanelNew 内部已配置工具栏
 
 // 截图工具
 const { captureScreenSnapshot } = useScreenSnapshot()
@@ -269,8 +249,7 @@ const isLocked = ref(false)
 const splitPanelRef = ref<InstanceType<typeof SplitPanel> | null>(null)
 const questionListRef = ref(null)
 const draftBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
-const exerciseChatPanelRef = ref<InstanceType<typeof ExerciseChatPanel> | null>(null)
-const clearAllDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+const exerciseChatPanelRef = ref<InstanceType<typeof ExerciseChatPanelNew> | null>(null)
 
 // Router
 const router = useRouter()
@@ -280,17 +259,14 @@ const goBack = () => {
   router.back()
 }
 
-// 对话框状态
-const showSessionListPanel = ref(false)
-
-
 // Store
 const draftStore = useDraftStore()
 const questionStore = useQuestionStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const { currentQuestion } = storeToRefs(questionStore)
+const { currentSessionId } = storeToRefs(aiExerciseStore)
 
-// 当前题目下是否存在 AI 会话（用于控制"清除会话"按钮可用状态）
+// 当前题目下是否存在 AI 会话
 const hasAiSessions = computed(() => {
   return Array.isArray(aiExerciseStore.sessions) && aiExerciseStore.sessions.length > 0
 })
@@ -372,7 +348,22 @@ const handlePasteToDraft = async (payload: { dataUrl: string }) => {
 // 处理题目删除（按开关决定是否同步删除草稿）
 const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean }) => {
   if (payload.withDraft) {
-    draftStore.deleteDraft(payload.questionId)
+    const targetQuestion = questionStore.questions.find(
+      (question: any) => (question?.id || '').toString() === payload.questionId
+    )
+    const questionBmNo = (
+      targetQuestion?.bmNo || targetQuestion?.id || payload.questionId || ''
+    ).toString()
+
+    const relatedDraftKeys = Array.from(draftStore.drafts.keys()).filter((key: string) =>
+      key === payload.questionId ||
+      key.startsWith(`${payload.questionId}::`) ||
+      key === questionBmNo ||
+      key.startsWith(`${questionBmNo}::`)
+    )
+    if (relatedDraftKeys.length > 0) {
+      void draftStore.deleteDrafts(relatedDraftKeys)
+    }
   }
 }
 
@@ -383,13 +374,14 @@ const handleDraftSave = async (data: {
   historyIndex: number
 }) => {
   const currentQ = currentQuestion.value
-  if (currentQ && currentQ.id) {
-    // 验证当前草稿题目ID与选中题目ID是否一致
-    if (currentDraftQuestionId.value && currentDraftQuestionId.value !== currentQ.id) {
+  const currentDraftKey = getCurrentDraftKey()
+  if (currentQ && currentDraftKey) {
+    // 验证当前草稿键与当前上下文是否一致
+    if (currentDraftQuestionId.value && currentDraftQuestionId.value !== currentDraftKey) {
       return
     }
 
-    await draftStore.saveDraft(currentQ.id, {
+    await draftStore.saveDraft(currentDraftKey, {
       objects: data.objects,
       history: data.history,
       historyIndex: data.historyIndex,
@@ -417,15 +409,16 @@ const getDraftDataFromBoard = (): {
 }
 
 // 立即保存草稿
-const saveDraftNow = async (questionId?: string | null) => {
+const saveDraftNow = async (draftKey?: string | null) => {
   const currentQ = currentQuestion.value
-  const qid = questionId || currentDraftQuestionId.value || currentQ?.id
-  if (!qid) {
+  const targetDraftKey = draftKey || currentDraftQuestionId.value || getCurrentDraftKey()
+  if (!targetDraftKey) {
     return
   }
 
-  // 验证当前题目ID与要保存的题目ID是否一致，避免保存错误题目的数据
-  if (currentQ?.id && qid !== currentQ.id) {
+  // 验证当前题目标识与要保存的草稿键是否一致，避免保存错误题目的数据
+  const questionBmNo = (currentQ?.bmNo || currentQ?.id || '').toString()
+  if (questionBmNo && !targetDraftKey.startsWith(`${questionBmNo}::`) && targetDraftKey !== questionBmNo) {
     return
   }
 
@@ -434,7 +427,7 @@ const saveDraftNow = async (questionId?: string | null) => {
     return
   }
 
-  await draftStore.saveDraft(qid, data)
+  await draftStore.saveDraft(targetDraftKey, data)
 }
 
 // 调度自动保存
@@ -451,12 +444,12 @@ const scheduleDraftAutoSave = () => {
 }
 
 // 立即刷新自动保存
-const flushDraftAutoSave = async (questionId?: string | null) => {
+const flushDraftAutoSave = async (draftKey?: string | null) => {
   if (draftAutoSaveTimer) {
     clearTimeout(draftAutoSaveTimer)
     draftAutoSaveTimer = null
   }
-  await saveDraftNow(questionId)
+  await saveDraftNow(draftKey)
 }
 
 // 处理清空草稿按钮点击（来自 DrawingBoardNew 的 clear 事件）
@@ -468,9 +461,9 @@ const handleDraftClearClick = () => {
 
 // 确认清空草稿（对话框确认按钮回调）
 const confirmClearDraft = async () => {
-  const currentQ = currentQuestion.value
-  if (currentQ?.id) {
-    await draftStore.deleteDraft(currentQ.id)
+  const currentDraftKey = getCurrentDraftKey()
+  if (currentDraftKey) {
+    await draftStore.deleteDraft(currentDraftKey)
   }
 
   if (draftBoardRef.value && typeof (draftBoardRef.value as any).clearAll === 'function') {
@@ -488,9 +481,10 @@ const cancelClearDraft = () => {
 }
 
 // 加载当前题目的草稿数据
-const loadCurrentDraft = async () => {
+const loadCurrentDraft = async (draftKey?: string | null) => {
   const currentQ = currentQuestion.value
-  if (!currentQ || !currentQ.id) {
+  const targetDraftKey = draftKey || getCurrentDraftKey()
+  if (!currentQ || !currentQ.id || !targetDraftKey) {
     return
   }
 
@@ -504,7 +498,7 @@ const loadCurrentDraft = async () => {
     }
 
     // 检查是否有草稿数据
-    const draft = await draftStore.getDraft(currentQ.id)
+    const draft = await draftStore.getDraft(targetDraftKey)
     if (draft && draftBoardRef.value) {
       // 加载草稿数据到画板
       const board = draftBoardRef.value as any
@@ -519,9 +513,47 @@ const loadCurrentDraft = async () => {
 
     // 关键：在清空旧数据并加载新数据后，再设置 currentDraftQuestionId
     // 防止自动保存验证通过但保存了错误的数据
-    currentDraftQuestionId.value = currentQ.id
+    currentDraftQuestionId.value = targetDraftKey
   } catch (error) {
     console.error('[草稿链路] 草稿加载失败:', error)
+  }
+}
+
+const buildDraftKey = (questionBmNo?: string | null, sessionId?: string | null) => {
+  if (!questionBmNo) {
+    return null
+  }
+  return `${questionBmNo}::${sessionId || 'default'}`
+}
+
+const getCurrentDraftKey = () => {
+  const questionBmNo = (currentQuestion.value?.bmNo || currentQuestion.value?.id || '').toString()
+  return buildDraftKey(questionBmNo, currentSessionId.value)
+}
+
+const handleSessionDraftChange = async (nextSessionId?: string | null, previousSessionId?: string | null) => {
+  const currentQ = currentQuestion.value
+  if (!currentQ?.id) {
+    return
+  }
+
+  const questionBmNo = (currentQ.bmNo || currentQ.id || '').toString()
+  const previousDraftKey = buildDraftKey(questionBmNo, previousSessionId)
+  const nextDraftKey = buildDraftKey(questionBmNo, nextSessionId)
+
+  if (previousDraftKey && previousDraftKey === currentDraftQuestionId.value) {
+    await flushDraftAutoSave(previousDraftKey)
+  }
+
+  await loadCurrentDraft(nextDraftKey)
+}
+
+const handleAddSessionCard = async () => {
+  const previousSessionId = currentSessionId.value
+  const chatView = exerciseChatPanelRef.value?.getChatViewRef?.() as any
+  if (chatView?.addSessionCard) {
+    await chatView.addSessionCard()
+    await handleSessionDraftChange(currentSessionId.value, previousSessionId)
   }
 }
 
@@ -529,16 +561,9 @@ const scrollToBottom = () => {
   // 滚动到底部
 }
 
-// 定义 ChatView 暴露的方法和属性类型
-interface ChatViewRef {
-  inputMessage: string
-  sendMessage: () => void
-  addSessionCard: () => void
-}
-
 // 处理推荐问题点击：直接发送消息
 const handleSendSuggestion = (message: string) => {
-  const chatViewRef = exerciseChatPanelRef.value?.getChatViewRef() as ChatViewRef | undefined
+  const chatViewRef = exerciseChatPanelRef.value?.getChatViewRef?.() as any
   if (chatViewRef?.sendMessage) {
     // 设置输入内容并发送
     chatViewRef.inputMessage = message
@@ -546,72 +571,22 @@ const handleSendSuggestion = (message: string) => {
   }
 }
 
+const handleCloseChatPanel = () => {
+  // 关闭聊天面板，切换回题目模式
+  if (mode.value === 'right' && splitPanelRef.value) {
+    splitPanelRef.value.toggle()
+  }
+}
+
 const handleOpenTeacherDialog = () => {
-  // 打开老师对话框
+  // 打开老师对话框（由 ExerciseChatPanelNew 内部处理）
 }
 
 const handleSwitchToTeacher = () => {
-  // 切换到老师聊天
+  // 切换到老师聊天（由 ExerciseChatPanelNew 内部处理）
 }
 
-// 确认清除所有会话（对话框确认按钮回调）
-const confirmClearAllSessions = async () => {
-  await handleClearAllSessions()
-  clearAllDialogRef.value?.closeDialog()
-}
-
-// 取消清除所有会话对话框
-const cancelClearAllSessions = () => {
-  if (clearAllDialogRef.value && typeof clearAllDialogRef.value.closeDialog === 'function') {
-    clearAllDialogRef.value.closeDialog()
-  }
-}
-
-// 处理清除所有会话按钮点击
-const handleClearAllSessionsClick = () => {
-  if (hasAiSessions.value && clearAllDialogRef.value) {
-    clearAllDialogRef.value.openDialog()
-  }
-}
-
-// 新建会话（底部会话管理按钮 / 右上角新增会话按钮复用同一逻辑）
-const handleAddSessionCard = async () => {
-  const chatViewRef = exerciseChatPanelRef.value?.getChatViewRef() as ChatViewRef | undefined
-  if (chatViewRef?.addSessionCard) {
-    chatViewRef.addSessionCard()
-  }
-}
-
-// 清除当前题目的所有 AI 会话（仅前端清除，不调用后端接口）
-const handleClearAllSessions = async () => {
-  try {
-    // 防御：如果没有会话，直接关闭面板
-    if (!aiExerciseStore.sessions || aiExerciseStore.sessions.length === 0) {
-      exerciseChatPanelRef.value?.switchToAiChat()
-      return
-    }
-
-    // 仅前端清除会话列表和消息
-    aiExerciseStore.sessions = []
-    aiExerciseStore.currentSessionId = null
-    aiExerciseStore.messages = [] // 清空当前显示的消息
-
-    // 关闭会话管理面板
-    if (exerciseChatPanelRef.value) {
-      exerciseChatPanelRef.value.switchToAiChat()
-    }
-  } catch (error) {
-    console.error('清除会话失败:', error)
-  }
-}
-
-// 截图相关
-const handleOpenScreenCapture = () => {
-  // 调用 ExerciseChatPanel 的方法触发截图
-  ;(exerciseChatPanelRef.value as any)?.getChatViewRef()?.requestScreenshot?.()
-}
-
-// 问AI按钮点击处理 - 直接截图并放入 Chat Input（由 Chat Input 内部处理裁剪和标注）
+// 问AI按钮点击处理 - 直接截图并放入 Chat Input
 const handleAskAiClick = async () => {
   try {
     // 1. 直接调用底层安卓原生API截图
@@ -621,14 +596,14 @@ const handleAskAiClick = async () => {
       return
     }
 
-    // 2. 显示 ExerciseChatPanel（切换到 right 模式）
+    // 2. 显示 AI 面板
     if (mode.value === 'left' && splitPanelRef.value) {
       splitPanelRef.value.toggle()
     }
 
-    // 3. 将截图放入 chat input 截图区域（Chat Input 内部会处理裁剪和标注）
+    // 3. 将截图放入 chat input 截图区域
     nextTick(() => {
-      const chatView = (exerciseChatPanelRef.value as any)?.getChatViewRef()
+      const chatView = exerciseChatPanelRef.value?.getChatViewRef?.() as any
       if (chatView?.onImageSelected) {
         chatView.onImageSelected({
           base64DataUrl: dataUrl,
@@ -647,30 +622,7 @@ const handleAskAiClick = async () => {
   }
 }
 
-// 截图相关 - 处理截图请求，使用 captureScreenSnapshot 与 MainView 保持一致
-const handleRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
-  if (payload?.kind !== 'screen_snapshot') return
-
-  try {
-    const { dataUrl, width, height } = await captureScreenSnapshot()
-    if (!dataUrl) return
-
-    // 调用 ChatView 的 onImageSelected 触发正常的截图处理流程
-    if ((exerciseChatPanelRef.value as any)?.getChatViewRef()?.onImageSelected) {
-      await (exerciseChatPanelRef.value as any).getChatViewRef().onImageSelected({
-        base64DataUrl: dataUrl,
-        filePath: '',
-        width: width || 0,
-        height: height || 0,
-        fileSize: Math.round(dataUrl.length * 0.75), // base64 大致大小估算
-      })
-    } else {
-      showMessage('截图功能暂不可用', 'warning')
-    }
-  } catch {
-    // 静默处理
-  }
-}
+// 截图相关 - 处理截图请求（由 ExerciseChatPanelNew 内部处理截图）
 
 // 页面卸载前保存草稿
 window.addEventListener('beforeunload', () => {
@@ -684,6 +636,14 @@ onBeforeUnmount(() => {
   if (currentDraftQuestionId.value) {
     void flushDraftAutoSave(currentDraftQuestionId.value)
   }
+})
+
+watch(currentSessionId, async (nextSessionId, previousSessionId) => {
+  if (!currentQuestion.value?.id || nextSessionId === previousSessionId) {
+    return
+  }
+
+  await handleSessionDraftChange(nextSessionId, previousSessionId)
 })
 
 // 页面加载后自动选择第一题
@@ -882,6 +842,7 @@ onMounted(async () => {
 .exercise-chat-panel-wrapper {
   height: 100%;
   position: relative;
+  overflow: hidden;
   transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
   will-change: opacity, transform;
 }
@@ -901,6 +862,21 @@ onMounted(async () => {
 
 .exercise-chat-panel-wrapper.panel-hidden::before {
   opacity: 0;
+}
+
+.function-panel {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+.exercise-chat-card {
+  height: 100%;
+  background: transparent;
+}
+
+.function-content {
+  height: 100%;
 }
 
 .panel-card-body {

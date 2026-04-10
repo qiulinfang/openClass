@@ -2,12 +2,13 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  label: string
+  label?: string
   loading?: boolean
   disabled?: boolean
   size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
-  variant?: 'primary' | 'outline' | 'ghost' | 'danger' | 'expired'  // 按钮样式变体
-  icon?: string  // 图标路径，如果提供则显示图标而不是文字
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+  icon?: string
+  type?: 'button' | 'submit' | 'reset'
 }>()
 
 const emit = defineEmits<{
@@ -34,15 +35,28 @@ const handleClick = (evt: MouseEvent) => {
 </script>
 
 <template>
-  <!-- 如果有图标，直接显示图片，保持点击事件 -->
+  <!-- 如果有图标但没传 label，只显示图标 -->
   <div
-    v-if="icon"
+    v-if="icon && !label"
     class="icon-button"
     :class="[sizeClass, { 'icon-button--disabled': disabled }]"
     @click="handleClick"
   >
-    <img :src="icon" :alt="label" class="icon-image" />
+    <img :src="icon" alt="" class="icon-image" />
   </div>
+  <!-- 如果有图标且传了 label，显示图标+文字按钮 -->
+  <button
+    v-else-if="icon && label"
+    class="common-action-btn icon-text-btn"
+    type="button"
+    :disabled="disabled || loading"
+    :class="[sizeClass, variantClass, { 'icon-text-btn--disabled': disabled }]"
+    @click="handleClick"
+  >
+    <img :src="icon" :alt="label" class="btn-icon" />
+    <span v-if="loading" class="spinner"></span>
+    <span v-else class="label">{{ label }}</span>
+  </button>
   <!-- 否则显示普通按钮 -->
   <button
     v-else
@@ -203,6 +217,25 @@ const handleClick = (evt: MouseEvent) => {
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #ffffff;
   animation: spin 0.8s linear infinite;
+}
+
+/* 图标+文字按钮样式 */
+.icon-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.icon-text-btn .btn-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.icon-text-btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 图标按钮样式 */

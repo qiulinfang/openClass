@@ -89,7 +89,6 @@
                   <!-- 会话面板关闭：仅在 header-suffix 中显示右上角会话管理按钮 -->
                   <template v-if="!aiChatViewRef?.showSessionListPanel" #header-suffix>
                     <Button
-                      label="会话管理"
                       :icon="sessionManagerIcon"
                       size="sm"
                       variant="outline"
@@ -102,7 +101,6 @@
                     <div class="session-bottom-bar">
                       <!-- 返回按钮 -->
                       <Button
-                        label="返回"
                         :icon="goBackBlackIcon"
                         size="xs"
                         variant="ghost"
@@ -110,7 +108,6 @@
                       />
                       <!-- 新建按钮 -->
                       <Button
-                        label="新建"
                         :icon="newSessionIcon"
                         size="xs"
                         variant="primary"
@@ -122,7 +119,6 @@
                       </button> -->
                       <!-- 清除会话按钮：删除所有会话（先弹出确认对话框） -->
                       <Button
-                        label="清除会话"
                         :icon="deleteSessionIcon"
                         size="xs"
                         variant="danger"
@@ -143,7 +139,6 @@
                   <!-- 作业场景下，在 ChatInput 头部前缀增加"返回作业"按钮 -->
                   <template #header-prefix v-if="isFromHomework">
                     <Button
-                      label="返回作业"
                       :icon="backToHomeworkIcon"
                       size="sm"
                       variant="ghost"
