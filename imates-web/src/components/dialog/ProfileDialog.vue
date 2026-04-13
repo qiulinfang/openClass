@@ -40,6 +40,14 @@
               <span class="item-value">{{ userId }}</span>
             </div>
           </div>
+
+          <!-- 退出登录项 -->
+          <div class="list-item logout-item" @click="handleLogout">
+            <div class="item-label logout-label">退出登录</div>
+            <div class="item-content">
+            </div>
+            <div class="item-arrow">›</div>
+          </div>
         </div>
       </div>
     </Modal>
@@ -75,6 +83,7 @@ interface Props {
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
   (e: 'avatar-changed', avatarUrl: string): void
+  (e: 'logout'): void
 }
 
 const props = defineProps<Props>()
@@ -144,6 +153,11 @@ const handleCropConfirm = (croppedDataUrl: string) => {
 
 const handleCropCancel = () => {
   cropSrc.value = ''
+}
+
+// 处理退出登录点击
+const handleLogout = () => {
+  emit('logout')
 }
 </script>
 

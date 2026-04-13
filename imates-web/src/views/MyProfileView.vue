@@ -32,12 +32,6 @@
             }}</span>
           </div>
         </div>
-        <!-- 退出登录按钮 -->
-        <div class="logout-section">
-          <div class="logout-button" @click="handleLogout">
-            <span class="logout-text">退出登录</span>
-          </div>
-        </div>
       </div>
     </RubberBandList>
 
@@ -65,6 +59,17 @@
       </div>
     </Dialog>
 
+    <!-- 退出登录确认对话框 -->
+    <Dialog
+      ref="logoutDialogRef"
+      title="退出确认"
+      :confirmButtonText="'退出'"
+      :cancelButtonText="'取消'"
+      @confirm="confirmLogout"
+      @cancel="cancelLogout"
+    >
+      确定要退出登录吗？
+    </Dialog>
     <!-- 退出登录确认对话框 -->
     <Dialog
       ref="logoutDialogRef"
@@ -347,7 +352,6 @@ const openTeacherQADialog = () => {
     openTeacherQADialogFromParent()
   }
 }
-
 // 处理退出登录
 const handleLogout = () => {
   logoutDialogRef.value?.openDialog()
@@ -360,7 +364,6 @@ const cancelLogout = () => {
 // 确认退出登录
 const confirmLogout = async () => {
   try {
-    isLoggingOut.value = true
     logoutDialogRef.value?.closeDialog()
 
     // 如果在课堂中，先退出课堂
@@ -377,23 +380,20 @@ const confirmLogout = async () => {
       }
     }
 
-  // 关闭工具箱
+    // 关闭工具箱
     if (closeToolbox) {
       closeToolbox()
     }
 
-    // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
+    // 跳转到登录页面
     await router.push('/login')
 
     showMessage('已退出登录', 'success')
   } catch (error) {
     console.error('退出登录失败:', error)
     showMessage('退出登录失败，请重试', 'error')
-  } finally {
-    isLoggingOut.value = false
   }
 }
-
 </script>
 
 <style lang="scss" scoped>

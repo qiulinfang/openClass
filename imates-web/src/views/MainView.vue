@@ -115,6 +115,19 @@
       @toggle-mode="handleToggleUnifiedChatMode"
     />
 
+    <!-- 退出登录确认对话框 -->
+    <Dialog
+      ref="confirmLogoutDialogRef"
+      v-model="confirmLogoutDialogVisible"
+      title="退出确认"
+      confirmButtonText="退出"
+      cancelButtonText="取消"
+      @confirm="confirmLogout"
+      @cancel="confirmLogoutDialogVisible = false"
+    >
+      确定要退出登录吗？
+    </Dialog>
+
     <!-- 教师统一聊天对话框 -->
     <GlobalChatDialog
       ref="teacherChatDialogRef"
@@ -132,6 +145,7 @@
       v-model="showProfileDialog"
       :userInfo="currentUserInfo"
       @avatar-changed="handleAvatarChanged"
+      @logout="handleLogoutFromDialog"
     />
 
     <!-- 主页右侧统一聊天面板 -->
@@ -172,6 +186,18 @@
         确定要清空画布吗？此操作不可撤销。
       </Dialog>
     </Modal>
+    <!-- 退出登录确认对话框 -->
+    <Dialog
+      ref="confirmLogoutDialogRef"
+      v-model="confirmLogoutDialogVisible"
+      title="退出确认"
+      confirmButtonText="退出"
+      cancelButtonText="取消"
+      @confirm="confirmLogout"
+      @cancel="confirmLogoutDialogVisible = false"
+    >
+      确定要退出登录吗？
+    </Dialog>
   </div>
 </template>
 
@@ -1042,6 +1068,9 @@ const handleToggleUnifiedChatMode = () => {
   showPanel()
 }
 
+const confirmLogoutDialogVisible = ref(false)
+const confirmLogoutDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+
 // 处理打开工具箱事件
 const handleOpenToolbox = () => {
   console.log('handleOpenToolbox')
@@ -1051,12 +1080,47 @@ const handleOpenToolbox = () => {
 }
 
 // 处理头像更改事件
-const handleAvatarChanged = (newAvatarUrl: string) => {
-  // 更新用户信息并持久化到localStorage
+const handleAvatarChanged = (newAvatar: string) => {
+  // 流程：接收新头像 -> 调用更新接口 -> 更新 store/localStorage -> 提示成功
+  console.log('[MainView] handleAvatarChanged:', newAvatar)
   setUserInfoToStorage({
     ...currentUserInfo.value,
-    avatarNew: newAvatarUrl,
+    avatarNew: newAvatar,
   })
+}
+
+// 从个人信息对话框触发的退出登录
+const handleLogoutFromDialog = () => {
+  showProfileDialog.value = false
+  // 延迟一会等 profile dialog 关闭后再打开退出确认弹窗，避免多个 modal 冲突
+  nextTick(() => {
+    confirmLogoutDialogVisible.value = true
+  })
+}
+
+const confirmLogout = async () => {
+  try {
+    confirmLogoutDialogVisible.value = false
+
+    // 如果在课堂中，先退出课堂
+    if (androidBridge.isAndroidBridgeAvailable()) {
+      try {
+        androidBridge.stopScreenProjection()
+      } catch {
+        // 忽略停止投屏的错误
+      }
+      try {
+        androidBridge.exitClassroom()
+      } catch {
+        // 忽略退出课堂的错误
+      }
+    }
+
+    // 跳转到登录页面
+    await router.push('/login')
+  } catch (error) {
+    console.error('退出登录失败:', error)
+  }
 }
 
 // 处理头像点击
