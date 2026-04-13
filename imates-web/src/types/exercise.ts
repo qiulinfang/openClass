@@ -18,6 +18,15 @@ export interface ExerciseItem {
   analysisData: string // answerAnalysis
   subject?: string // 科目
   
+  // 结构化字段
+  type?: 'choice' | 'fill' | 'judgment' | 'essay'
+  structuredContent?: {
+    stem: string
+    options?: Array<{ label: string, text: string }>
+    blanks?: number
+    judgmentResult?: boolean
+  }
+
   // 显示相关属性
   atUserList?: boolean
   isAiGuiding?: boolean

@@ -238,7 +238,7 @@ const prepareImageAndJumpToPdfViewer = async () => {
 }
 
 // 学校选择
-const selectedSchool = ref<'zgc' | 'jk'>('zgc')
+const selectedSchool = ref<'zgc' | 'jk'>((localStorage.getItem('selected_school') as 'zgc' | 'jk') || 'zgc')
 
 // 学校选项
 const schoolOptions = [
@@ -540,6 +540,9 @@ const handleLogin = async () => {
     await authService.getUserInfo(token)
 
     await ensureAiGeneralSession(getUserId() || loginForm.account)
+
+    // 持久化保存选择的学校
+    localStorage.setItem('selected_school', selectedSchool.value)
 
     // 根据学校选择跳转到不同的 PDF 查看器
     if (selectedSchool.value === 'jk') {

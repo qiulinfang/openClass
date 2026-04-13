@@ -1,14 +1,33 @@
 <template>
   <!-- 全屏对话面板 -->
   <div class="fullscreen-chat-container">
-    <PdfChatPanel 
-      ref="chatPanelRef" 
-      :attached-screenshots="aiTextbookStore.attachedScreenshots"
-      @send-with-screenshot="handlePdfSendWithScreenshot"
-      @remove-screenshot="handlePdfRemoveScreenshot"
-      @edit-screenshot="handleEditScreenshot"
-      @select-and-ask-click="handleSelectAndAskFromChat" 
-    >
+    <!-- 流程1：选择题界面 -->
+    <div v-if="currentFlow === 1" class="flow-container flow-choice">
+      <div class="choice-card">
+        <h2 class="choice-title">请选择选项</h2>
+        <div class="choice-options">
+          <button 
+            v-for="opt in [1, 2, 3]" 
+            :key="opt" 
+            class="choice-btn"
+            @click="handleChoiceSelect(opt)"
+          >
+            {{ opt }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 流程2 & 流程3：PDF 聊天面板内容 -->
+    <template v-if="true">
+      <PdfChatPanel 
+        ref="chatPanelRef" 
+        :attached-screenshots="aiTextbookStore.attachedScreenshots"
+        @send-with-screenshot="handlePdfSendWithScreenshot"
+        @remove-screenshot="handlePdfRemoveScreenshot"
+        @edit-screenshot="handleEditScreenshot"
+        @select-and-ask-click="handleSelectAndAskFromChat" 
+      >
       <template #header-actions>
         <button
           type="button"
@@ -24,7 +43,7 @@
       <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" />
 
       <div
-        v-if="shouldShowMiniClassFab && miniClassFabReady"
+        v-if="miniClassFabReady"
         class="mini-class-fab"
         :class="{ 'mini-class-fab--active': isPressingMiniClassFab, 'mini-class-fab--dragging': isDraggingMiniClassFab }"
         :style="{
@@ -33,12 +52,13 @@
         @pointerdown="onMiniClassFabPointerDown"
       >
         <CommonActionButton
-          label="微课"
+          label="作业"
           size="md"
           :icon="xiaogongjuIcon"
           @click="onMiniClassFabClick"
         />
       </div>
+    </template>
 
       <Dialog
         ref="joinClassDialogRef"
@@ -62,7 +82,9 @@ export default {
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, computed, ref, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
+import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useAiTextbookChatStore, type ScreenshotDrawingState, getMiniClassConfig } from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { showMessage } from '@/utils'
@@ -78,12 +100,39 @@ import xiaogongjuIcon from '/icons/xiaogongju.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
 import { AndroidBridge } from '@/services/business/android-bridge'
+import { PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 
 
 // 使用 pdfViewerStore 和路由
 const pdfViewerStore = usePdfViewerStore()
 const route = useRoute()
+const router = useRouter()
+const homeworkStore = useHomeworkStore()
+
+// 流程控制
+const currentFlow = ref(2)
+
+const handleChoiceSelect = (option: number) => {
+  console.log('[PdfViewerViewJK] 选择了选项:', option)
+  
+  // 根据选项填充对应的 Mock 题目
+  if (option === 1) {
+    // 活动一：课前预习
+    homeworkStore.questions = PREVIEW_HOMEWORK.questions
+    homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
+  } else if (option === 2) {
+    // 活动三：分层练习
+    homeworkStore.questions = EXERCISE_HOMEWORK.questions
+    homeworkStore.homeworkName = EXERCISE_HOMEWORK.homeworkName
+  } else {
+    // 默认清除
+    homeworkStore.questions = []
+    homeworkStore.homeworkName = '负数的认识'
+  }
+  
+  currentFlow.value = 2 // 进入流程2
+}
 
 // 使用 exerciseStore 来发送AI消息
 const aiTextbookStore = useAiTextbookChatStore()
@@ -280,13 +329,15 @@ const onMiniClassFabClick = () => {
   if (Date.now() - lastMiniClassFabDragEndAt.value < 200) {
     return
   }
-  const matched = getMiniClassConfig(aiTextbookStore.chapterInfo)
-  if (!matched) return
-  try {
-    uiStore.openMiniClassDialog(matched.url, matched.title)
-  } catch {
-    uiStore.openMiniClassDialog(matched.url, matched.title)
-  }
+  // 流程3：修改小工具逻辑，跳转到作业回答页面 (JK版)
+  console.log('[PdfViewerViewJK] 点击小工具，跳转到 HomeworkAnswerViewJK 页面')
+  // 进入作业页面前，默认设置为“课前预习”阶段
+  homeworkStore.questions = PREVIEW_HOMEWORK.questions
+  homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
+  router.push({ 
+    name: 'homeworkAnswerJk',
+    query: { stage: 'preview' } 
+  }) 
 }
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表
@@ -930,6 +981,65 @@ onBeforeUnmount(() => {
   top: 0;
   left: 0;
   background-color: #f9fafb;
+}
+
+/* 流程1：选择题样式 */
+.flow-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #e8e9ff;
+}
+
+.choice-card {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 400px;
+}
+
+.choice-title {
+  font-size: 24px;
+  color: #2f2a45;
+  margin-bottom: 32px;
+  font-weight: 600;
+}
+
+.choice-options {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.choice-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 2px solid #615efe;
+  background: white;
+  color: #615efe;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.choice-btn:hover {
+  background: #615efe;
+  color: white;
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(97, 94, 254, 0.3);
+}
+
+.choice-btn:active {
+  transform: scale(0.95);
 }
 
 /* 微课浮层按钮 */
