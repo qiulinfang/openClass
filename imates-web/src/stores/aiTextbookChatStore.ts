@@ -97,6 +97,12 @@ export const REQUIRED_CHAPTER_INFO_LIST = [
     textbook: '探究型公开课',
     chapter_title: '平行四边形的面积',
   },
+  {
+    grade: '初一',
+    subject: '数学',
+    textbook: '探究型公开课',
+    chapter_title: '利用导数证明分式指数不等式',
+  },
 ] as const
 
 export const MINI_CLASS_CHAPTER_URL_MAP = [
@@ -114,6 +120,11 @@ export const MINI_CLASS_CHAPTER_URL_MAP = [
     chapterInfo: REQUIRED_CHAPTER_INFO_LIST[2],
     title: '微课',
     url: 'https://www.imates.com.cn:9099/wk/math/classtool1.html',
+  },
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[3],
+    title: '微课',
+    url: '', // TODO: 待提供具体的微课 URL
   },
 ] as const
 
