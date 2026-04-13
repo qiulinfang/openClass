@@ -327,13 +327,13 @@ const currentSchoolAppConfig: SchoolAppConfig = {
         position: 'main',
         routeName: 'photoSearch',
       },
-      {
-        key: 'canvas',
-        label: '创意画布',
-        iconType: 'canvas',
-        position: 'main',
-        routeName: 'interactiveCanvas',
-      },
+      // {
+      //   key: 'canvas',
+      //   label: '创意画布',
+      //   iconType: 'canvas',
+      //   position: 'main',
+      //   routeName: 'interactiveCanvas',
+      // },
     ],
     bottom: [
       {

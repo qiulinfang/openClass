@@ -95,18 +95,19 @@ export const enhanceResponsiveHtml = (html: string): string => {
           (function() {
             var BRIDGE_SOURCE = 'GGB_LISTENER_BRIDGE';
             var MAX_EVENTS = 200;
-            // buffer: 仅保存本轮（上次 flush 之后）的事件，flush 后清空
             var buffer = [];
             var pendingTimer = null;
 
-            // update 事件可能非常高频：对同一对象抓取 valueString 做节流
             var UPDATE_DETAIL_THROTTLE_MS = 500;
             var lastDetailTsByName = Object.create(null);
 
             function safeGetApi() {
               try {
-                return window.ggbApplet || null;
-              } catch {
+                var api = window.ggbApplet || (window.parent && window.parent.ggbApplet);
+                if (api) return api;
+                var container = document.getElementById('ggb-container');
+                return (container && container.ggbApplet) || null;
+              } catch (e) {
                 return null;
               }
             }
@@ -114,23 +115,19 @@ export const enhanceResponsiveHtml = (html: string): string => {
             function safeGetObjectType(api, name) {
               try {
                 return api && typeof api.getObjectType === 'function' ? api.getObjectType(name) : null;
-              } catch {
-                return null;
-              }
+              } catch (e) { return null; }
             }
 
             function safeGetValueString(api, name) {
               try {
                 return api && typeof api.getValueString === 'function' ? api.getValueString(name) : null;
-              } catch {
-                return null;
-              }
+              } catch (e) { return null; }
             }
 
             function safeGetState() {
               try {
-                var api = window.ggbApplet;
-                if (!api) return null;
+                var api = safeGetApi();
+                if (!api) return { error: 'No API available' };
                 var xml = (typeof api.getXML === 'function') ? api.getXML() : null;
                 return { xml: xml };
               } catch (e) {
@@ -144,16 +141,12 @@ export const enhanceResponsiveHtml = (html: string): string => {
               for (var i = 0; i < list.length; i++) {
                 var ev = list[i];
                 if (!ev || !diff[ev.type]) continue;
-
-                // update 降噪：同一轮内同一对象只保留最后一次 update
                 if (ev.type === 'update' && ev.data && ev.data.name) {
                   updateMap[ev.data.name] = ev;
                   continue;
                 }
-
                 diff[ev.type].push(ev);
               }
-
               for (var k in updateMap) {
                 diff.update.push(updateMap[k]);
               }
@@ -169,29 +162,26 @@ export const enhanceResponsiveHtml = (html: string): string => {
                 source: BRIDGE_SOURCE,
                 update: last,
                 currentState: safeGetState(),
-                diff: buildDiff(list)
+                diff: buildDiff(list),
+                ts: Date.now()
               };
               try {
-                window.parent && window.parent.postMessage(payload, '*');
+                if (window.parent && window.parent !== window) {
+                  window.parent.postMessage(payload, '*');
+                }
               } catch (e) {
                 // ignore
               }
             }
 
             function pushEvent(type, data) {
-              var ev = {
-                type: type,
-                ts: Date.now(),
-                data: data || null
-              };
+              var ev = { type: type, ts: Date.now(), data: data || null };
               buffer.push(ev);
               if (buffer.length > MAX_EVENTS) buffer.shift();
-
               if (pendingTimer) return;
-              pendingTimer = setTimeout(flush, 120);
+              pendingTimer = setTimeout(flush, 150);
             }
 
-            // GeoGebra 会按“函数名字符串”回调，因此把函数挂在 window 上
             window.__ggb_on_add = function(objName) {
               var api = safeGetApi();
               pushEvent('add', {
@@ -201,7 +191,6 @@ export const enhanceResponsiveHtml = (html: string): string => {
               });
             };
             window.__ggb_on_remove = function(objName) {
-              // remove 时对象可能已不可取，尽力而为
               var api = safeGetApi();
               pushEvent('remove', {
                 name: objName,
@@ -214,7 +203,6 @@ export const enhanceResponsiveHtml = (html: string): string => {
               var now = Date.now();
               var last = lastDetailTsByName[objName] || 0;
               if (now - last < UPDATE_DETAIL_THROTTLE_MS) {
-                // 高频更新：只上报名称，不抓 valueString
                 pushEvent('update', { name: objName });
                 return;
               }
@@ -227,34 +215,52 @@ export const enhanceResponsiveHtml = (html: string): string => {
             };
 
             function tryRegister() {
-              var api = window.ggbApplet;
+              var api = safeGetApi();
               if (!api) return false;
 
               try {
-                if (typeof api.registerAddListener === 'function') api.registerAddListener('__ggb_on_add');
-                if (typeof api.registerRemoveListener === 'function') api.registerRemoveListener('__ggb_on_remove');
-                if (typeof api.registerUpdateListener === 'function') api.registerUpdateListener('__ggb_on_update');
+                var registeredCount = 0;
+                if (typeof api.registerAddListener === 'function') {
+                  api.registerAddListener('__ggb_on_add');
+                  registeredCount++;
+                }
+                if (typeof api.registerRemoveListener === 'function') {
+                  api.registerRemoveListener('__ggb_on_remove');
+                  registeredCount++;
+                }
+                if (typeof api.registerUpdateListener === 'function') {
+                  api.registerUpdateListener('__ggb_on_update');
+                  registeredCount++;
+                }
+                
+                if (registeredCount > 0) {
+                  pushEvent('update', { name: '__init__' });
+                  return true;
+                }
+                return false;
               } catch (e) {
-                // ignore
+                return false;
               }
-
-              // 首次注册后主动发一条 currentState
-              pushEvent('update', { name: '__init__' });
-              return true;
             }
 
-            // 轮询等待 ggbApplet ready（比依赖 appletOnLoad 更稳）
             var tries = 0;
             var timer = setInterval(function() {
               tries++;
-              if (tryRegister() || tries > 60) {
+              if (tryRegister() || tries > 80) {
                 clearInterval(timer);
               }
             }, 250);
           })();
         <\/script>
       `
-    enhancedHtml = enhancedHtml.replace('</body>', bridgeScript + '</body>')
+    
+    // 注入逻辑
+    const bodyCloseRegex = /<\s*\/\s*body\s*>/i;
+    if (bodyCloseRegex.test(enhancedHtml)) {
+      enhancedHtml = enhancedHtml.replace(bodyCloseRegex, bridgeScript + '</body>');
+    } else {
+      enhancedHtml += bridgeScript;
+    }
   }
 
   return enhancedHtml
