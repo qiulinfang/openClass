@@ -12,7 +12,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.cosinetech.imates.bj101"
+        applicationId "com.cosinetech.imates.bj1011"
         minSdk 24
         targetSdk 34
         versionCode 80
