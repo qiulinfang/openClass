@@ -15,8 +15,8 @@ android {
         applicationId "com.cosinetech.imates.bj101"
         minSdk 24
         targetSdk 34
-        versionCode 80
-        versionName "1.0.80"
+        versionCode 81
+        versionName "1.0.81"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -49,13 +49,15 @@ android {
             dimension "version"
             applicationIdSuffix ".dev" 
             resValue "string", "app_name", "开发版学伴"
-            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/secondary-dev.jsonn"'
+            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/secondary-dev.json"'
+            signingConfig signingConfigs.debug
         }
         // 正式发布版本（默认）
         production {
             dimension "version"
             resValue "string", "app_name", "学伴"
             buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/appupdate.json"'
+            signingConfig signingConfigs.release
         }
     }
 
@@ -64,6 +66,9 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.debug
         }
     }
 
