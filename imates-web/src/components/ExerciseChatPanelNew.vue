@@ -544,9 +544,9 @@ defineExpose({
 .chat-panel-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   background-color: #e8e9ff;
-  border-radius: 20px 0 0 20px;
+  border-radius: 20px 20px 0 0; /* 仅保留顶部圆角 */
   overflow: hidden;
 }
 

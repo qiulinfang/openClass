@@ -19,9 +19,6 @@
           class="split-panel-col col-1"
           :class="{ 'no-transition': isDragging }"
         >
-          <header v-if="$slots['left-header']" class="split-panel-col-header">
-            <slot name="left-header" />
-          </header>
           <div class="split-panel-col-body">
             <slot name="left" :width="w1Px" :percent="p1" :isVisible="mode === 'left'" />
           </div>
@@ -43,9 +40,6 @@
           class="split-panel-col col-2"
           :class="{ 'no-transition': isDragging }"
         >
-          <header v-if="$slots['center-header']" class="split-panel-col-header">
-            <slot name="center-header" />
-          </header>
           <div class="split-panel-col-body">
             <slot name="center" :width="w2Px" :percent="p2" />
           </div>
@@ -67,9 +61,6 @@
           class="split-panel-col col-3"
           :class="{ 'no-transition': isDragging }"
         >
-          <header v-if="$slots['right-header']" class="split-panel-col-header">
-            <slot name="right-header" />
-          </header>
           <div class="split-panel-col-body">
             <slot name="right" :width="w3Px" :percent="p3" :isVisible="mode === 'right'" />
           </div>
@@ -414,18 +405,6 @@ const offsetX = computed(() => {
   transition: none;
 }
 
-.split-panel-col-header {
-  height: 56px;
-  flex-shrink: 0;
-  background: #0f002e;
-  display: flex;
-  align-items: center;
-  padding: 0 1rem;
-  box-sizing: border-box;
-  overflow: hidden;
-  z-index: 10;
-}
-
 .split-panel-col-body {
   flex: 1;
   overflow: hidden;
@@ -438,7 +417,7 @@ const offsetX = computed(() => {
 
 .split-panel-splitter {
   position: absolute;
-  top: 56px;
+  top: 0;
   bottom: 0;
   width: 40px;
   margin-left: -20px;

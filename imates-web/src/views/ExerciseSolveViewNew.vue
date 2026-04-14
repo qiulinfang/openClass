@@ -1,5 +1,51 @@
 <template>
   <div class="exercise-solve-container">
+    <!-- 顶部导航栏 -->
+    <header class="exercise-solve-header">
+      <!-- 左侧：返回按钮 -->
+      <div class="header-left">
+        <div class="left-header-back" @click="goBack">
+          <img :src="goBackIcon" alt="返回" class="back-icon" />
+        </div>
+      </div>
+
+      <!-- 中间：工具栏和过滤器 -->
+      <div class="header-center">
+        <div class="center-header-actions">
+          <!-- 草稿本工具栏 -->
+          <UnifiedToolbar
+            v-if="draftBoardRef"
+            :tools="draftBoardRef.toolbarTools"
+            :selected-tool="draftBoardRef.toolbarSelectedTool"
+            :tool-config="draftBoardRef.toolbarToolConfig"
+            :tool-states="{ undo: draftBoardRef.canUndo, redo: draftBoardRef.canRedo }"
+            variant="browser"
+            orientation="horizontal"
+            :show-ask-ai="true"
+            @tool-change="(tool) => draftBoardRef?.handleToolbarToolChange(tool)"
+            @config-change="(cfg) => draftBoardRef?.handleToolbarConfigChange(cfg)"
+            @undo="draftBoardRef?.undo()"
+            @redo="draftBoardRef?.redo()"
+            @clear="handleDraftClearClick"
+            @insert-image="draftBoardRef?.triggerImageSelect()"
+            @ask-ai="handleAskAiClick"
+          />
+        </div>
+      </div>
+
+      <!-- 右侧：学科筛选 -->
+      <div class="header-right">
+        <CommonSelect
+          v-model="selectedSubjectFilter"
+          :options="SUBJECT_OPTIONS"
+          variant="outline"
+          class="subject-filter-select"
+          style="opacity: 1; transition: opacity 0.5s ease-in-out"
+          @change="onSubjectFilterChange"
+        />
+      </div>
+    </header>
+
     <!-- 核心工作区 -->
     <div class="exercise-body">
       <SplitPanel
@@ -15,46 +61,6 @@
         @mode-change="handleModeChange"
         @toggle="onToggle"
       >
-        <!-- 左侧 Header -->
-        <template #left-header>
-          <div class="left-header-back" @click="goBack">
-            <img :src="goBackIcon" alt="返回" class="back-icon" />
-          </div>
-        </template>
-
-        <!-- 中间 Header -->
-        <template #center-header>
-          <div class="center-header-actions">
-            <!-- 草稿本工具栏 -->
-            <UnifiedToolbar
-              v-if="draftBoardRef"
-              :tools="draftBoardRef.toolbarTools"
-              :selected-tool="draftBoardRef.toolbarSelectedTool"
-              :tool-config="draftBoardRef.toolbarToolConfig"
-              :tool-states="{ undo: draftBoardRef.canUndo, redo: draftBoardRef.canRedo }"
-              variant="browser"
-              orientation="horizontal"
-              :show-ask-ai="true"
-              @tool-change="(tool) => draftBoardRef?.handleToolbarToolChange(tool)"
-              @config-change="(cfg) => draftBoardRef?.handleToolbarConfigChange(cfg)"
-              @undo="draftBoardRef?.undo()"
-              @redo="draftBoardRef?.redo()"
-              @clear="handleDraftClearClick"
-              @insert-image="draftBoardRef?.triggerImageSelect()"
-              @ask-ai="handleAskAiClick"
-            />
-            <CommonSelect
-              v-show="mode === 'left'"
-              v-model="selectedSubjectFilter"
-              :options="SUBJECT_OPTIONS"
-              variant="outline"
-              class="subject-filter-select"
-              style="opacity: 1; transition: opacity 0.5s ease-in-out"
-              :class="{ 'hidden-select': mode !== 'left' }"
-              @change="onSubjectFilterChange"
-            />
-          </div>
-        </template>
         <!-- 左侧：题目面板 -->
         <template #left="{ isVisible }">
           <div
@@ -140,22 +146,31 @@
         <!-- 右侧：AI 面板 - 使用 ExerciseChatPanelNew 组件 -->
         <template #right="{ isVisible }">
           <div
-            class="exercise-chat-panel-wrapper"
-            :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
-            :style="{ width: '100%', minWidth: '300px' }"
+            class="panel-bg2"
           >
-            <ExerciseChatPanelNew
-              ref="exerciseChatPanelRef"
-              :question="currentQuestion"
-              :sessions="aiExerciseStore.sessions"
-              @close="handleCloseChatPanel"
-              @scroll-to-bottom="scrollToBottom"
-              @send-message="handleSendSuggestion"
-              @open-teacher-dialog="handleOpenTeacherDialog"
-              @switch-to-teacher="handleSwitchToTeacher"
-              @paste-to-draft="handlePasteToDraft"
-              @add-session="handleAddSessionCard"
-            />
+            <div
+              class="panel-content"
+              :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
+              :style="{ width: '100%', minWidth: '300px' }"
+            >
+              <div class="panel-card ai-chat-card">
+                <div class="panel-card-body">
+                  <ExerciseChatPanelNew
+                    ref="exerciseChatPanelRef"
+                    :question="currentQuestion"
+                    :sessions="aiExerciseStore.sessions"
+                    :show-close-button="true"
+                    @close="handleCloseChatPanel"
+                    @scroll-to-bottom="scrollToBottom"
+                    @send-message="handleSendSuggestion"
+                    @open-teacher-dialog="handleOpenTeacherDialog"
+                    @switch-to-teacher="handleSwitchToTeacher"
+                    @paste-to-draft="handlePasteToDraft"
+                    @add-session="handleAddSessionCard"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </template>
       </SplitPanel>
@@ -684,19 +699,54 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 顶部导航栏样式 */
+.exercise-solve-header {
+  height: 56px;
+  flex-shrink: 0;
+  background: #0f002e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  box-sizing: border-box;
+  z-index: 100;
+  color: #ffffff;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  flex: 1; /* 使用 flex: 1 而不是固定宽度 */
+}
+
+.header-center {
+  flex: 0 0 auto; /* 核心工具栏不伸缩，由两侧 flex: 1 挤压到中间 */
+  display: flex;
+  justify-content: center;
+}
+
+.header-right {
+  flex: 1; /* 使用 flex: 1 保持对称 */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 8px;
+}
+
 /* 左侧 Header 返回按钮 */
 .left-header-back {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  height: 100%;
-  padding: 0 12px;
+  justify-content: center;
+  height: 40px;
+  width: 40px;
   cursor: pointer;
   transition: background-color 0.2s;
+  border-radius: 50%;
 }
 
 .left-header-back:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .left-header-back .back-icon {
@@ -735,11 +785,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   flex: 1;
-}
-
-.subject-filter-select {
-  margin-left: auto;
-  margin-right: 0px;
 }
 
 .logo-section {
@@ -831,8 +876,15 @@ onMounted(async () => {
   width: 100%;
 }
 
+.panel-bg2 {
+  height: 100%;
+  background: linear-gradient(to left, #0f002e 4% , #ffffff 6%);
+  width: 100%;
+}
+
 /* 隐藏时背景层不参与交互 */
-.panel-hidden .panel-bg1 {
+.panel-hidden .panel-bg1,
+.panel-hidden .panel-bg2 {
   pointer-events: none;
 }
 
@@ -877,6 +929,7 @@ onMounted(async () => {
   overflow: hidden;
   transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
   will-change: opacity, transform;
+  border-top-right-radius: 20px; /* 仅右上角圆角 */
 }
 
 .exercise-chat-panel-wrapper::before {
@@ -886,7 +939,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(to bottom, #0f002e 0%, #ffffff 70%);
+  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%); /* 与 panel-bg1 一致的渐变 */
   z-index: -1;
   opacity: 1;
   transition: opacity 0.5s ease-in-out;
@@ -1097,6 +1150,13 @@ onMounted(async () => {
 /* AI模式（right）：紧贴草稿本左侧 */
 .textbookip-float.float-left {
   left: -70px;
+}
+
+.ai-chat-card {
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 /* 悬浮按钮图片大小 */
