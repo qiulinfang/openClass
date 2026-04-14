@@ -48,18 +48,22 @@
 
       <!-- 右侧内容：聊天面板 -->
       <template #right>
-        <div class="right-panel-container">
+        <div class="right-panel-container no-close-btn">
           <div class="chat-panel-wrapper">
             <!-- PDF/教材场景：使用 HtmlPdfChatPanel -->
             <HtmlPdfChatPanel v-if="chatViewType === 'ai-textbook'" ref="htmlPdfChatPanelRef"
+              :show-close-button="false"
               @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
             <!-- 题目练习场景：使用 ExerciseChatPanelNew -->
             <ExerciseChatPanelNew v-else-if="chatViewType === 'ai-exercise'" ref="exerciseChatPanelRef"
+              :show-close-button="false"
               @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
             <!-- 通用 AI 场景：使用内嵌式 HtmlMainChatPanel -->
-            <HtmlMainChatPanel v-else ref="htmlMainChatPanelRef" @close="handleCloseChatPanel"
+            <HtmlMainChatPanel v-else ref="htmlMainChatPanelRef"
+              :show-close-button="false"
+              @close="handleCloseChatPanel"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
           </div>
         </div>
@@ -117,7 +121,7 @@ const chatViewType = computed(() => {
 const dualPanelRef = ref<ComponentPublicInstance | null>(null)
 
 // 右侧面板显示状态
-const isRightPanelOpen = ref(false)
+const isRightPanelOpen = ref(true)
 
 // 组件状态
 const isLoading = ref(true)
@@ -628,6 +632,10 @@ onBeforeUnmount(() => {
 
 .retry-button:hover {
   background: #1565c0;
+}
+
+.right-panel-container.no-close-btn :deep(.close-button) {
+  display: none !important;
 }
 
 /* 响应式设计 */

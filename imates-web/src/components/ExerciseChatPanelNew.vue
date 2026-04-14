@@ -17,6 +17,7 @@
       </div>
       <!-- 关闭按钮 -->
       <q-btn
+        v-if="props.showCloseButton"
         flat
         round
         dense
@@ -155,12 +156,15 @@ import goBackBlackIcon from '/icons/goback_black.svg'
 import newSessionIcon from '/icons/new.svg'
 import deleteSessionIcon from '/icons/delete.svg'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   // 当前题目
   question?: ExerciseItem | null
   // 会话数据
   sessions?: AiTextbookSession[]
-}>()
+  showCloseButton?: boolean
+}>(), {
+  showCloseButton: true
+})
 
 const emit = defineEmits<{
   'scroll-to-bottom': []

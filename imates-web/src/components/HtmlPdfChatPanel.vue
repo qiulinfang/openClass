@@ -34,6 +34,7 @@
       </div>
       <!-- 关闭按钮 -->
       <q-btn
+        v-if="props.showCloseButton"
         flat
         round
         dense
@@ -110,10 +111,13 @@ const aiTextbookStore = useAiTextbookChatStore()
 const route = useRoute()
 const router = useRouter()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   // 目前不再通过 props 传递截图数组，保留占位以兼容旧调用方（不使用）
   attachedScreenshots?: AttachedScreenshot[]
-}>()
+  showCloseButton?: boolean
+}>(), {
+  showCloseButton: true
+})
 
 const emit = defineEmits<{
   close: []

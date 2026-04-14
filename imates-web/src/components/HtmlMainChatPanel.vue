@@ -25,6 +25,7 @@
       </div>
       <!-- 关闭按钮 -->
       <q-btn
+        v-if="props.showCloseButton"
         flat
         round
         dense
@@ -108,6 +109,12 @@ import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()
 const router = useRouter()
+
+const props = withDefaults(defineProps<{
+  showCloseButton?: boolean
+}>(), {
+  showCloseButton: true
+})
 
 const emit = defineEmits<{
   close: []
