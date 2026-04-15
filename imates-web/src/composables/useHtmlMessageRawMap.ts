@@ -200,13 +200,7 @@ export const enhanceResponsiveHtml = (html: string): string => {
             };
             window.__ggb_on_update = function(objName) {
               var api = safeGetApi();
-              var now = Date.now();
-              var last = lastDetailTsByName[objName] || 0;
-              if (now - last < UPDATE_DETAIL_THROTTLE_MS) {
-                pushEvent('update', { name: objName });
-                return;
-              }
-              lastDetailTsByName[objName] = now;
+              // 移除节流逻辑，确保每次 update 动作都记录完整的 objectType 和 valueString
               pushEvent('update', {
                 name: objName,
                 objectType: safeGetObjectType(api, objName),
