@@ -1699,10 +1699,173 @@ public class WebAppInterface {
         }
     }
 
+    /**
+     * 退出当前 Activity
+     */
     @JavascriptInterface
     public void exitActivity() {
         if (mContext instanceof Activity) {
             ((Activity) mContext).finish();
+        }
+    }
+
+    /**
+     * 使用系统应用打开文档（Word, Excel, PPT, PDF 等）
+     * 
+     * @param url 文档的下载地址
+     * @param fileName 文档名称（包含后缀）
+     */
+    @JavascriptInterface
+    public void openDocument(String url, String fileName) {
+        Log.d(TAG, "收到打开文档请求 (系统方式) - url: " + url + ", fileName: " + fileName);
+        if (mContext instanceof Activity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                try {
+                    // 1. 检查文件是否已在本地下载 (通过 resourceManager 逻辑)
+                    // 这里的逻辑可以根据你的文件存储规范调整
+                    // 目前我们先使用内置的 DocViewer 库作为一种“下载器 + 预览”的方案
+                    // 或者改用系统的下载器或 OkHttp 手动下载
+                    
+                    // 为了最快实现“唤起系统选择器”，我们先尝试用 Intent 直接预览在线地址
+                    // 注意：直接 VIEW 远程 URL 可能需要支持的应用不多
+                    // 更好的方案是：下载后再用 FileProvider 共享给第三方应用
+                    
+                    // 下面是下载后打开的标准做法实现：
+                    downloadAndOpenWithSystem(url, fileName);
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "打开文档失败", e);
+                    showToast("打开文档失败: " + e.getMessage());
+                }
+            });
+        }
+    }
+
+    /**
+     * 下载并使用系统应用打开
+     */
+    private void downloadAndOpenWithSystem(String url, String fileName) {
+        // 由于下载逻辑较长，这里我们先使用一个简化的流程：
+        // 如果 url 是本地文件路径，直接打开；如果是远程，先通知用户正在准备
+        
+        if (url == null || url.isEmpty()) return;
+
+        try {
+            // 获取文件 MIME 类型
+            String mimeType = getMimeType(fileName);
+            
+            if (url.startsWith("http")) {
+                // 远程地址：建议还是先用 DocViewer 或系统浏览器，
+                // 因为直接 Intent 唤起远程 PDF 需要第三方应用支持远程解析
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(Uri.parse(url), mimeType);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                
+                try {
+                    mContext.startActivity(Intent.createChooser(intent, "选择应用打开文档"));
+                } catch (Exception e) {
+                    // 如果无法直接打开 URL，尝试用浏览器
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    mContext.startActivity(browserIntent);
+                }
+            } else {
+                // 本地地址：使用 FileProvider 共享
+                java.io.File file = new java.io.File(url);
+                if (!file.exists()) {
+                    showToast("本地文件不存在: " + fileName);
+                    return;
+                }
+
+                Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    mContext, 
+                    mContext.getPackageName() + ".fileprovider", 
+                    file
+                );
+
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(contentUri, mimeType);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                
+                mContext.startActivity(Intent.createChooser(intent, "选择应用打开文档"));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "唤起系统打开失败", e);
+            showToast("未找到支持该格式的应用");
+        }
+    }
+
+    /**
+     * 根据文件名获取 MIME 类型
+     */
+    private String getMimeType(String fileName) {
+        String extension = "";
+        int i = fileName.lastIndexOf('.');
+        if (i > 0) {
+            extension = fileName.substring(i + 1).toLowerCase();
+        }
+        
+        switch (extension) {
+            case "doc":
+                return "application/msword";
+            case "docx":
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls":
+                return "application/vnd.ms-excel";
+            case "xlsx":
+                return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "ppt":
+                return "application/vnd.ms-powerpoint";
+            case "pptx":
+                return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case "pdf":
+                return "application/pdf";
+            case "txt":
+                return "text/plain";
+            default:
+                return "*/*";
+        }
+    }
+
+    /**
+     * 使用第三方工具打开本地文档（Base64 格式）
+     * 将 Web 端 IndexedDB 中的二进制数据转换为临时文件并唤起系统应用打开
+     * 
+     * @param base64Data Base64 编码的文件内容
+     * @param fileName 文档名称（包含后缀）
+     */
+    @JavascriptInterface
+    public void openDocumentFromBase64(String base64Data, String fileName) {
+        Log.d(TAG, "收到打开本地文档请求 (Base64) - fileName: " + fileName);
+        if (mContext instanceof Activity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                try {
+                    // 1. 解码 Base64 数据
+                    byte[] fileBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT);
+                    
+                    // 2. 创建临时文件路径（使用外部缓存目录，避免占用内部存储空间且方便共享）
+                    java.io.File cacheDir = new java.io.File(mContext.getExternalCacheDir(), "temp_docs");
+                    if (!cacheDir.exists()) {
+                        cacheDir.mkdirs();
+                    }
+                    java.io.File tempFile = new java.io.File(cacheDir, fileName);
+                    
+                    // 3. 将数据写入临时文件
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+                        fos.write(fileBytes);
+                        fos.flush();
+                    }
+
+                    Log.d(TAG, "临时文件已生成: " + tempFile.getAbsolutePath());
+
+                    // 4. 调用已有的 Intent 逻辑打开该真实路径的文件
+                    downloadAndOpenWithSystem(tempFile.getAbsolutePath(), fileName);
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "处理本地 Base64 文档失败", e);
+                    showToast("解析本地文件失败: " + e.getMessage());
+                }
+            });
         }
     }
 

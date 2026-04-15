@@ -141,16 +141,20 @@ const originalHtml = ref<string>('')
 const ggbListenerState = ref<{ update: any; currentState: any; diff: any } | null>(null)
 const ggbEventLog = ref<Array<{ type: string; ts: number; data: any }>>([])
 
-// HTML内容URL（使用Blob URL）
-const htmlBlobUrl = ref<string | null>(null)
-
+// HTML内容URL
 const htmlContentUrl = ref<string>('')
+
+// HTML内容URL（如果是 Blob 模式，使用此变量并监听）
+const htmlBlobUrl = ref<string | null>(null)
 
 watch(
   htmlBlobUrl,
   (next, prev) => {
     if (prev) URL.revokeObjectURL(prev)
-    htmlContentUrl.value = next || ''
+    // 只有在非直接 URL 模式下才更新 htmlContentUrl
+    if (next) {
+      htmlContentUrl.value = next
+    }
   },
   { immediate: true },
 )
@@ -248,12 +252,22 @@ const loadHtmlContent = () => {
       throw new Error('缺少 URL 参数')
     }
 
-    // 验证 URL 格式
-    if (!url.startsWith('https://kelvin-cosin.cloud/')) {
+    // 验证 URL 格式 (允许本地域名或微软预览服务)
+    const isAllowedUrl = url.startsWith('https://kelvin-cosin.cloud/') || 
+                        url.startsWith('https://view.officeapps.live.com/')
+    
+    if (!isAllowedUrl) {
       throw new Error('无效的 HTML URL')
     }
 
     htmlUrl.value = url
+
+    // 如果是微软预览 URL，直接将其设置为 iframe 的 src
+    if (url.startsWith('https://view.officeapps.live.com/')) {
+      htmlContentUrl.value = url
+      isLoading.value = false
+      return
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载HTML失败'
   } finally {
@@ -263,6 +277,10 @@ const loadHtmlContent = () => {
 
 const fetchHtmlSourceAndRender = async () => {
   if (!htmlUrl.value) return
+  // 如果是微软预览 URL，跳过源码抓取，因为它直接在 iframe 加载
+  if (htmlUrl.value.startsWith('https://view.officeapps.live.com/')) {
+    return
+  }
   try {
     const htmlData = await apiService.fetchHtmlSource(htmlUrl.value)
     const raw = htmlData?.html || htmlData?.raw_html
