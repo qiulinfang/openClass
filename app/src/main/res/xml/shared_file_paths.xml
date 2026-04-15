@@ -4,4 +4,9 @@
     <external-files-path
         name="shared_storage"
         path="." />
+
+    <!-- 允许共享外部缓存目录（getExternalCacheDir() 对应目录） -->
+    <external-cache-path
+        name="temp_cache"
+        path="." />
 </paths>

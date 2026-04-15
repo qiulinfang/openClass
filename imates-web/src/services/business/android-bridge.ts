@@ -344,6 +344,34 @@ export class AndroidBridge {
   // ========== MediaProjection 截图相关接口 ==========
   
   /**
+   * 使用第三方工具打开文档（Word, Excel, PPT, PDF 等）
+   * 
+   * @param url 文档的下载地址
+   * @param fileName 文档名称（包含后缀）
+   */
+  public openDocument(url: string, fileName: string): void {
+    if (this.isAvailable && window.AndroidBridge && (window.AndroidBridge as any).openDocument) {
+      (window.AndroidBridge as any).openDocument(url, fileName)
+    } else {
+      console.warn('[AndroidBridge] openDocument: AndroidBridge 不可用或方法不存在')
+    }
+  }
+
+  /**
+   * 使用第三方工具打开本地文档（Base64 格式）
+   * 
+   * @param base64Data Base64 编码的文件内容
+   * @param fileName 文档名称（包含后缀）
+   */
+  public openDocumentFromBase64(base64Data: string, fileName: string): void {
+    if (this.isAvailable && window.AndroidBridge && (window.AndroidBridge as any).openDocumentFromBase64) {
+      (window.AndroidBridge as any).openDocumentFromBase64(base64Data, fileName)
+    } else {
+      console.warn('[AndroidBridge] openDocumentFromBase64: AndroidBridge 不可用或方法不存在')
+    }
+  }
+
+  /**
    * 检查是否有 MediaProjection 权限
    */
   public hasMediaProjectionPermission(): boolean {

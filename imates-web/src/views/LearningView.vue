@@ -132,9 +132,10 @@ defineOptions({
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/storage/resource-storage'
+import { apiService, getUserId } from '../services'
+import { androidBridge } from '../services/business/android-bridge'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import RubberBandList from '../components/base/VirtualList.vue'
-import { getUserId } from '../services'
 import Modal from '../components/base/Modal.vue'
 import Button from '../components/base/Button.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -347,6 +348,8 @@ const getResourceIcon = (fileName: string) => {
     wav: 'audiotrack',
     zip: 'folder_zip',
     rar: 'folder_zip',
+    xls: 'table_view',
+    xlsx: 'table_view',
   }
   return iconMap[extension || ''] || 'folder'
 }
@@ -376,10 +379,28 @@ const getViewerRouteName = (fileName: string): string => {
     case 'flv':
     case 'webm':
       return 'videoViewer'
+    case 'xls':
+    case 'xlsx':
+    case 'doc':
+    case 'docx':
+    case 'ppt':
+    case 'pptx':
+      return 'htmlViewer'
     default:
-      // 默认使用PDF查看器
       return 'pdfViewer'
   }
+}
+
+// 检查是否为 Office 文档 (Excel, Word, PPT)
+const isOfficeFile = (fileName: string): boolean => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || ''
+  return ['xls', 'xlsx', 'doc', 'docx', 'ppt', 'pptx'].includes(extension)
+}
+
+// 检查是否为 Excel 文件
+const isExcelFile = (fileName: string): boolean => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || ''
+  return ['xls', 'xlsx'].includes(extension)
 }
 
 const startLearning = async (resource: ResourceFile) => {
@@ -393,6 +414,43 @@ const startLearning = async (resource: ResourceFile) => {
   try {
     const selectedScheme = currentScheme.value
 
+    // 1. 优先处理 Android 环境下的 Office 文档 (Excel, Word, PPT) 预览
+    if (androidBridge.isAndroidBridgeAvailable() && isOfficeFile(resource.fileName)) {
+      const localFile = localFiles.value.find(f => f.id === resource.id)
+      if (localFile && localFile.isDownloaded) {
+        try {
+          const fileData = await resourceManager.getFileData(id.value, resource.id)
+          if (fileData) {
+            const bytes = new Uint8Array(fileData)
+            let binary = ''
+            const len = bytes.byteLength
+            for (let i = 0; i < len; i++) {
+              binary += String.fromCharCode(bytes[i])
+            }
+            const base64 = window.btoa(binary)
+            androidBridge.openDocumentFromBase64(base64, resource.fileName)
+            
+            if (sectionId.value && sectionId.value.trim() !== '') {
+              markNodeAsLearned(sectionId.value)
+            }
+            return
+          }
+        } catch (e) {
+          console.error('获取并转换本地文件数据失败:', e)
+        }
+      }
+
+      // 未下载或获取本地数据失败，尝试直接打开 URL
+      if (resource.fileUrl) {
+        androidBridge.openDocument(resource.fileUrl, resource.fileName)
+        if (sectionId.value && sectionId.value.trim() !== '') {
+          markNodeAsLearned(sectionId.value)
+        }
+        return
+      }
+    }
+
+    // 2. 处理非 Android 环境或非 Office 文件的通用预览逻辑
     // 根据文件类型确定要跳转的路由
     const routeName = getViewerRouteName(resource.fileName)
 
