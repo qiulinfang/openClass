@@ -50,25 +50,27 @@ android {
             dimension "version"
             applicationIdSuffix ".dev" 
             resValue "string", "app_name", "开发版公开课"
-            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/openclass.json"'
+            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/openclass-dev.json"'
+            signingConfig signingConfigs.debug
         }
         // 正式发布版本（默认）
         production {
             dimension "version"
             resValue "string", "app_name", "公开课"
-            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/openclass-dev.json"'
+            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/openclass.json"'
+            signingConfig signingConfigs.release
         }
     }
-    // 构建类型配置
+
     buildTypes {
-        debug {
-            applicationIdSuffix ".debug"
-            signingConfig signingConfigs.debug
-        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            signingConfig signingConfigs.debug
         }
     }
 
