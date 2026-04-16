@@ -91,9 +91,10 @@
                   >
                     <!-- 删除按钮（右上角） -->
                     <button
+                      v-if="textbook.isDownloaded || textbook.downloadStatus !== 0 || textbook.downloadedFiles > 0"
                       @click.stop="handleDeleteTextbook(textbook)"
                       class="textbook-delete-btn"
-                      title="删除教材"
+                      title="清除本地资料"
                     >
                       <i class="material-icons">close</i>
                     </button>
@@ -245,18 +246,18 @@
           @close="showDebugPanel = false"
         />
 
-        <!-- 删除教材确认对话框 -->
+        <!-- 清除本地资料确认对话框 -->
         <Dialog
           ref="deleteDialogRef"
-          title="删除确认"
-          :confirmButtonText="'删除'"
+          title="清除本地资料"
+          :confirmButtonText="'确认清除'"
           :cancelButtonText="'取消'"
           @confirm="confirmDeleteTextbook"
           @cancel="cancelDeleteTextbook"
         >
-          确定要删除《{{
+          确定要清除《{{
             deleteTextbookName
-          }}》吗？删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。
+          }}》的本地下载资料吗？清除后，该教材的所有相关文件将从本地移除，需要重新下载后才能学习。
         </Dialog>
       </q-page>
     </q-page-container>
@@ -554,7 +555,6 @@ const mergeServerAndLocalData = (
         ...serverTextbook,
         // 显式保留本地下载相关字段，避免下拉刷新时被服务端空字段覆盖并写回数据库
         localFiles: localTextbook.localFiles || [],
-        structure: localTextbook.structure || [],
         learningPackages: localTextbook.learningPackages || [],
         totalFiles: localTextbook.totalFiles || 0,
         downloadStatus: localTextbook.downloadStatus,
@@ -564,7 +564,6 @@ const mergeServerAndLocalData = (
         lastDownloadTime: localTextbook.lastDownloadTime,
         hasUpdatesAvailable: localTextbook.hasUpdatesAvailable,
         // 保留方法（如果存在）
-        updateStructure: localTextbook.updateStructure || (() => {}),
         updatePackages: localTextbook.updatePackages || (() => {}),
         getLocalResourceFileName: localTextbook.getLocalResourceFileName || (() => ''),
       }
@@ -583,11 +582,9 @@ const mergeServerAndLocalData = (
         downloadPath: '',
         lastDownloadTime: '',
         learningPackages: [],
-        structure: [], // 🔥 初始化空结构
         hasUpdatesAvailable: false, // 🔥 初始化更新状态
         localFiles: [], // 🔥 初始化空本地文件列表
         // 初始化方法
-        updateStructure: () => {},
         updatePackages: () => {},
         getLocalResourceFileName: () => '',
       })
@@ -897,11 +894,6 @@ const cacheChapterStructure = async (
   try {
     const chapterData = await apiService.getTextbookStructure(textbook.textbookId)
     if (chapterData && chapterData.length > 0) {
-      fullTextbook.structure = chapterData
-      await resourceManager.updateTextbookInfo(fullTextbook, {
-        structure: chapterData,
-      })
-
       await saveChapterStructureToKnowledgeGraphCache(textbook.textbookId, chapterData)
 
       console.log(
@@ -1125,26 +1117,26 @@ const confirmDeleteTextbook = async () => {
       }
     }
 
-    // 删除教材及其所有相关数据
-    const success = await resourceManager.deleteTextbook(deleteTextbookId.value)
+    // 清除教材相关的本地文件数据
+    await resourceManager.clearTextbookFiles(deleteTextbookId.value)
 
-    if (success) {
-      // 从列表中移除教材
-      const index = textbooks.value.findIndex((t) => t.id === deleteTextbookId.value)
-      if (index !== -1) {
-        textbooks.value.splice(index, 1)
-      }
-
-      // 如果删除后列表为空，重新加载数据
-      if (textbooks.value.length === 0) {
-        await loadResources()
-      }
-
-      showMessage(`《${deleteTextbookName.value}》已删除`, 'success')
-      deleteDialogRef.value?.closeDialog()
-    } else {
-      showMessage(`删除《${deleteTextbookName.value}》失败`, 'error')
+    // 更新本地内存中的状态，并同步持久化
+    if (textbookToDelete) {
+      textbookToDelete.isDownloaded = false
+      textbookToDelete.downloadStatus = 0
+      textbookToDelete.downloadedFiles = 0
+      textbookToDelete.localFiles = []
+      textbookToDelete.learningPackages = []
+      textbookToDelete.lastDownloadTime = ''
+      
+      await resourceManager.updateTextbookInfo(textbookToDelete)
+      
+      // 触发视图刷新
+      resourceStore.markTextbookUpdated()
     }
+
+    showMessage(`《${deleteTextbookName.value}》本地资料已清除`, 'success')
+    deleteDialogRef.value?.closeDialog()
   } catch (error) {
     showMessage(
       `删除《${deleteTextbookName.value}》失败: ${

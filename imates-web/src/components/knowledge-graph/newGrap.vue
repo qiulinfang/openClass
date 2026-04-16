@@ -526,9 +526,9 @@ function init() {
   // 1. 把 level0 根节点也渲染成一个 Moon
   state.moons.push(new Moon(0, sections.length + 1, root));
 
-  let initialFocusIndex = 0;
+  let initialFocusIndex = sections.length; // 默认聚焦到子节点的最后一个 (逻辑顺序最后)
 
-  // 2. 每个 section 作为后续的 Moon，索引从 1 开始
+  // 2. 每个 section 作为后续 of Moon，索引从 1 开始
   sections.forEach((section, idx) => {
     const moonIndex = idx + 1;
     state.moons.push(new Moon(moonIndex, sections.length + 1, section));
@@ -642,14 +642,16 @@ function updateBubblePosition() {
 function draw() {
   ctx.clearRect(0, 0, width, height); // 清除画布
 
-  // 轨道 - 已隐藏
-  // ctx.beginPath();  // 开始路径
-  // ctx.ellipse(cx, cy, config.orbitRadiusX, config.orbitRadiusY, 0, 0, Math.PI * 2); // 轨道
-  // ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  // ctx.lineWidth = 1;
-  // ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+  // 1. 先绘制子节点 (Level 1)，按缩放比例排序确保聚焦节点在子节点层最上方
+  state.moons
+    .slice(1)
+    .sort((a, b) => a.scale - b.scale)
+    .forEach(m => m.draw(ctx));
 
-  [...state.moons].sort((a, b) => a.scale - b.scale).forEach(m => m.draw(ctx));
+  // 2. 最后绘制根节点 (Level 0)，确保其始终遮盖所有子节点
+  if (state.moons[0]) {
+    state.moons[0].draw(ctx);
+  }
 }
 
 // --- 指示器逻辑 (复用 OldKnowledgeGraphView) ---

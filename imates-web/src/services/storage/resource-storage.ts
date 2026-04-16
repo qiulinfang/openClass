@@ -48,7 +48,7 @@ export class ResourceManager {
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
       // 升级版本号，新增 knowledge_graph_chapter_structure 表用于缓存知识图谱章节结构
-      version: 12,
+      version: 13,
       stores: [
         {
           name: 'textbooks',
@@ -76,16 +76,6 @@ export class ResourceManager {
             { name: 'resourceId', keyPath: 'resourceId' },
             { name: 'pinned', keyPath: 'pinned' },
             { name: 'updateTime', keyPath: 'updateTime' }
-          ]
-        },
-        {
-          name: 'learning_packages',
-          keyPath: 'id',
-          indexes: [
-            { name: 'userId', keyPath: 'userId' },
-            { name: 'packageId', keyPath: 'packageId' },
-            { name: 'textbookId', keyPath: 'textbookId' },
-            { name: 'timestamp', keyPath: 'timestamp' },
           ]
         },
         {
@@ -553,7 +543,6 @@ export class ResourceManager {
           downloadPath: (dataRecord.downloadPath as string) || '',
           lastDownloadTime: (dataRecord.lastDownloadTime as string) || '',
           hasUpdatesAvailable: (dataRecord.hasUpdatesAvailable as boolean) || false,
-          structure: (dataRecord.structure as ChapterNode[]) || [],
           learningPackages: (dataRecord.learningPackages as LearningPackage[]) || [],
           localFiles: (() => {
             const localFiles = (dataRecord.localFiles as LocalFileInfo[]) || []
@@ -571,9 +560,6 @@ export class ResourceManager {
           })(), // 从数据库读取localFiles数据（瘦身版）
           
           // 添加方法
-          updateStructure: function(structure: ChapterNode[]) {
-            this.structure = structure || []
-          },
           updatePackages: function(packages: LearningPackage[]) {
             this.learningPackages = packages || []
           },
@@ -709,7 +695,15 @@ export class ResourceManager {
       textbook.isDownloaded = false
       textbook.downloadStatus = 0
       textbook.lastDownloadTime = ''
+      textbook.learningPackages = []
       await this.indexedDBInstance.update('textbooks', textbook)
+
+      // 清理知识图谱章节结构缓存
+      const userId = getUserId()
+      if (userId) {
+        const kgRecordId = `${userId}_${textbook.textbookId}`
+        await this.indexedDBInstance.delete('knowledge_graph_chapter_structure', kgRecordId)
+      }
       
     } catch {
       // 清理教材相关数据失败

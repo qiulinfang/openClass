@@ -4,7 +4,7 @@
     <q-splitter 
       v-model="splitterModel"
       :limits="[30, 70]"
-      :disable="!pdfViewerStore.chatPanelVisible"
+      :disable="!pdfViewerStore.chatPanelVisible || pdfViewerStore.selectedTool === 'screenshot'"
       :class="['full-height', { 'full-width-before': !pdfViewerStore.chatPanelVisible, 'chat-panel-visible': pdfViewerStore.chatPanelVisible, 'splitter-resizing': isSplitterResizing }]"
       @pointerdown.capture="handleSplitterPointerDown"
     >

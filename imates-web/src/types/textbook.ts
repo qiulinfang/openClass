@@ -124,11 +124,9 @@ export interface UserTextbookInfo {
   downloadPath: string // 下载路径
   lastDownloadTime: string // 最后下载时间
   hasUpdatesAvailable: boolean // 是否有可用更新
-  structure: ChapterNode[] // 教材结构
   learningPackages: LearningPackage[] // 学习资源包列表
   localFiles: LocalFileInfo[] // 本地文件信息列表
   
-  updateStructure(structure: ChapterNode[]): void // 更新教材结构方法
   updatePackages(packages: LearningPackage[]): void // 更新资源包方法
   getLocalResourceFileName(resource: ResourceFile): string // 获取本地资源文件名方法
 }
