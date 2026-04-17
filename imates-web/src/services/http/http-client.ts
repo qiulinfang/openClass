@@ -14,7 +14,7 @@ export class HttpClient {
   private timeout: number
 
 
-  constructor(baseURL: string = '', timeout: number = 5000) {
+  constructor(baseURL: string = '', timeout: number = 20000) {
     this.baseURL = baseURL
     this.timeout = timeout
     this.defaultHeaders = {
