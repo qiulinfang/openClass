@@ -685,15 +685,14 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'homeworkExercise', 'photoSearch']
+const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'homeworkExercise', 'photoSearch', 'pdfViewer', 'pdfViewerZgc', 'pdfViewerJk', 'pdfViewerSdsf']
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
 const showFab = computed(() => {
   const name = route.name as string | undefined
   const isRouteAllowed = !name || !routesHideFab.includes(name)
-  const isPdfChatOpen = name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
-  return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen
+  return isRouteAllowed && !showMainChatPanel.value
 })
 
 watch(
