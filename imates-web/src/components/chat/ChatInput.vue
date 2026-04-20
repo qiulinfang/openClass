@@ -221,7 +221,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
-import { AI_ROLE_OPTIONS } from '../../constants/options'
+import { AI_ROLE_OPTIONS, type SelectOption } from '../../constants/options'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
 import HighSchoolMathEditor from '../HighSchoolMathEditor.vue'
@@ -232,16 +232,11 @@ import BubblePopup from '../base/Popover.vue'
 import ActionList from '../ActionList.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
-import DeskmateIcon from '/icons/head.webp'
-import RepresentativeIcon from '/icons/head2.webp'
-import GuruIcon from '/icons/head2.webp'
 // 顶部工具条图标
 import onlineSearchIcon from '/icons/onlineSearch.svg' // 搜索
-import selectAndAskIcon from '/icons/selectAndAsk.svg' // 选中并问
 import formulaIcon from '/icons/formula.svg' // 公式
 import askTeacherIcon from '/icons/askTeacher.svg' // 问老师
 import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索选中
-import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
 import picturIcon from '/icons/picture.svg' // 图片上传
@@ -268,6 +263,10 @@ const props = defineProps({
   selectedModel: {
     type: String,
     required: true,
+  },
+  modelOptions: {
+    type: Array as () => SelectOption[],
+    default: () => AI_ROLE_OPTIONS,
   },
   type: {
     type: String as () =>
@@ -518,27 +517,23 @@ const handleEditorUpdate = (content: string) => {
 }
 
 // 学习伙伴角色选项
-const aiRoleOptions = AI_ROLE_OPTIONS
+const aiRoleOptions = computed(() => props.modelOptions)
 
 // 根据选择的模式获取显示名称
 const getModelDisplayName = (model: string) => {
-  const option = aiRoleOptions.find((opt) => opt.value === model)
+  const option = aiRoleOptions.value.find((opt) => opt.value === model)
   return option ? option.label : '同桌'
 }
 
 // 根据模式值获取对应的图标
 const getModelIcon = (model: string) => {
-  const iconMap: Record<string, string> = {
-    mate: DeskmateIcon,
-    mentor: RepresentativeIcon,
-    researcher: GuruIcon,
-  }
-  return iconMap[model] || DeskmateIcon
+  const option = aiRoleOptions.value.find((opt) => opt.value === model)
+  return option?.icon || ''
 }
 
 // 适配到通用 ActionList 的 items 结构
 const modelActionItems = computed(() =>
-  aiRoleOptions.map((option) => ({
+  aiRoleOptions.value.map((option) => ({
     key: option.value,
     label: option.label,
     icon: getModelIcon(option.value),

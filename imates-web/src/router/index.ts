@@ -19,6 +19,7 @@ import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import HomeworkAnswerViewJK from '@/views/HomeworkAnswerViewJK.vue'
+import HomeworkPreviewAnalysisView from '@/views/HomeworkPreviewAnalysisView.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
@@ -147,6 +148,12 @@ const router = createRouter({
           path: 'homework-answer-jk/:homeworkId?',
           name: 'homeworkAnswerJk',
           component: HomeworkAnswerViewJK
+        },
+        // 经开二中作业预习统计路由
+        {
+          path: 'homework-preview-analysis/:homeworkId?',
+          name: 'homeworkPreviewAnalysis',
+          component: HomeworkPreviewAnalysisView
         },
         // 作业答题跳转到学伴（从 homeworkAnswer 跳转专用）
         {

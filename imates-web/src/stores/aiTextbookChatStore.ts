@@ -481,7 +481,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    */
   const initDefaultWelcomeMessage = (): void => {
     // 只有在消息列表为空时才添加默认欢迎消息
-    if (messages.value.length === 0) {
+    // JK版不需要欢迎语
+    if (messages.value.length === 0 && schoolType.value !== 'jk') {
       const welcomeMessage: ChatBubble = {
         id: generateUniqueId('welcome'),
         content: WELCOME_MESSAGES[schoolType.value],

@@ -325,13 +325,10 @@ import ActionList from '../ActionList.vue'
 import MultiImageMessage from './MultiImageMessage.vue'
 import Checkbox from '../base/Checkbox.vue'
 import type { ChatBubble, SceneType } from '../../types'
+import { AI_ROLE_OPTIONS, AI_ROLE_OPTIONS_JK, type SelectOption, HeadIcon } from '../../constants/options'
 import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import refreshIcon from '/icons/refresh.svg'
-
-import DeskmateIcon from '/icons/head.webp'
-import RepresentativeIcon from '/icons/head2.webp'
-import GuruIcon from '/icons/head2.webp'
 
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {
@@ -352,6 +349,8 @@ interface Props {
   enableLongPress?: boolean // 是否启用长按功能
   showReadStatus?: boolean // 是否显示已读状态
   showTime?: boolean // 是否显示消息时间
+  // 新增：模式选项配置（用于头像渲染）
+  modelOptions?: SelectOption[]
 }
 
 const handlePasteToDraft = (dataUrl: string) => {
@@ -369,6 +368,7 @@ const props = withDefaults(defineProps<Props>(), {
   enableLongPress: true, // 默认启用长按功能
   showReadStatus: false, // 默认不显示已读状态
   showTime: false, // 默认不显示消息时间
+  modelOptions: () => AI_ROLE_OPTIONS, // 默认角色选项
 })
 
 const emit = defineEmits<{
@@ -450,12 +450,9 @@ const { elementRef: messageElementRef } = useLazyMessageRender({
 
 // 根据模式值获取对应的图标
 const getModelIcon = (model?: string) => {
-  const iconMap: Record<string, string> = {
-    mate: DeskmateIcon,
-    mentor: RepresentativeIcon,
-    researcher: GuruIcon,
-  }
-  return iconMap[model || 'mate'] || DeskmateIcon
+  if (!model) return HeadIcon
+  const option = props.modelOptions.find((opt) => opt.value === model)
+  return option?.icon || HeadIcon
 }
 
 // 计算AI/老师消息的头像图标
@@ -466,10 +463,10 @@ const aiAvatarIcon = computed(() => {
   }
   // 如果是老师消息，使用默认老师头像
   if (props.message.sender === 'teacher') {
-    return DeskmateIcon
+    return HeadIcon
   }
   // 默认使用AI头像
-  return DeskmateIcon
+  return HeadIcon
 })
 
 // 移除调试日志以提高性能

@@ -1,6 +1,7 @@
 export type SelectOption<T extends string | number = string> = {
   label: string
   value: T
+  icon?: string // 新增：支持图标配置
 }
 
 export const RESOURCE_GRADE_OPTIONS: SelectOption[] = [
@@ -60,10 +61,25 @@ export const CHAT_TAB_OPTIONS: Array<{ label: string; value: string; icon?: stri
   { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
 ]
 
+import DeskmateIcon from '/icons/Deskmate.svg'
+import RepresentativeIcon from '/icons/Representative.svg'
+import GuruIcon from '/icons/Guru.svg'
+import HeadIcon from '/icons/head.webp'
+import Head2Icon from '/icons/head2.webp'
+
+export { HeadIcon, Head2Icon }
+
 // AI 角色选项（用于聊天输入）
 export const AI_ROLE_OPTIONS: SelectOption[] = [
-  { label: '猜想家', value: 'mate' },
-  { label: '探索家', value: 'mentor' },
+  { label: '猜想家', value: 'mate', icon: HeadIcon },
+  { label: '探索家', value: 'mentor', icon: Head2Icon },
+]
+
+// AI 角色选项（用于聊天输入）
+export const AI_ROLE_OPTIONS_JK: SelectOption[] = [
+  { label: '同桌', value: 'mate', icon: DeskmateIcon },
+  { label: '课代表', value: 'mentor', icon: RepresentativeIcon },
+  { label: '大神', value: 'researcher', icon: GuruIcon },
 ]
 
 // 缩放预设选项（用于画板）
