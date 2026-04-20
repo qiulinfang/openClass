@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>燕子拼图演示工具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --board-width: 900px;
+      --board-height: 470px;
+      --board-scale: 1;
+    }
+
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+      background: #eceff3;
+      color: #d8dce8;
+      min-height: 100vh;
+      height: 100vh;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 34px;
+      font-weight: 700;
+      color: #8f6b11;
+      letter-spacing: 5px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Main Layout ───────────────────────────────────── */
+    .main-layout {
+      display: flex;
+      flex-direction: row;
+      gap: 18px;
+      align-items: stretch;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .right-col {
+      flex: 3 1 0;
+      min-width: 360px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* ─── Grid ─────────────────────────────────────────── */
+    .grid-wrap {
+      position: relative;
+      flex: 7 1 0;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      border: 1px solid #d7dbe3;
+      border-radius: 12px;
+      background: #f7f8fa;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+
+    .grid-stage {
+      position: relative;
+      width: var(--board-width);
+      height: var(--board-height);
+      flex-shrink: 0;
+      transform: scale(var(--board-scale));
+      transform-origin: center center;
+      will-change: transform;
+      border: 2px solid #2e3650;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.6);
+    }
+
+    .puzzle-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 90px);
+      grid-template-rows: repeat(5, 94px);
+    }
+
+    .cell {
+      width: 90px;
+      height: 94px;
+      background-image: url('original_pic.png');
+      background-size: 900px 470px;
+      position: relative;
+    }
+    .cell.swallow-origin-empty {
+      background-image: none;
+      background-color: #ffffff;
+    }
+
+    /* ─── Swallow Piece Overlay ─────────────────────────── */
+    .swallow-piece {
+      position: absolute;
+      width: 90px;
+      height: 94px;
+      background-image: url('original_pic.png');
+      background-size: 900px 470px;
+      box-shadow: 0 0 0 1px #e03838, 0 0 14px rgba(224,56,56,0.65);
+      z-index: 10;
+      transition: top 320ms cubic-bezier(0.4, 0, 0.2, 1),
+                  left 320ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .swallow-piece.arrived {
+      box-shadow: 0 0 0 1px #2ecc71, 0 0 18px rgba(46,204,113,0.85);
+      animation: arrivalPulse 0.55s ease 3;
+    }
+    @keyframes arrivalPulse {
+      0%,100% { box-shadow: 0 0 0 1px #2ecc71, 0 0 18px rgba(46,204,113,0.85); }
+      50%      { box-shadow: 0 0 0 3px #2ecc71, 0 0 28px rgba(46,204,113,1);   }
+    }
+
+    /* ─── SVG Trail ─────────────────────────────────────── */
+    .trail-svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: var(--board-width);
+      height: var(--board-height);
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    /* ─── Panel layout ──────────────────────────────────── */
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .card {
+      background: #1e2438;
+      border: 1px solid #2e3650;
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+
+    .card-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #5060a0;
+      margin-bottom: 8px;
+    }
+
+    .row { display: flex; align-items: center; gap: 8px; }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 7px 10px;
+      background: #141824;
+      border: 1px solid #2e3650;
+      border-radius: 4px;
+      color: #d8dce8;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    input:focus { outline: none; border-color: #4060c0; }
+
+    textarea {
+      width: 100%;
+      background: #141824;
+      border: 1px solid #2e3650;
+      border-radius: 4px;
+      color: #d8dce8;
+      font-size: 20px;
+      padding: 12px 14px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: #4060c0; }
+
+    .btn {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+    .btn-blue   { background: #2c5cc8; color: #fff; }
+    .btn-blue:hover:not(:disabled)   { background: #2250b8; }
+    .btn-green  { background: #1f8c50; color: #fff; }
+    .btn-green:hover:not(:disabled)  { background: #177840; }
+    .btn-red    { background: #7a2020; color: #ffa0a0; }
+    .btn-red:hover:not(:disabled)    { background: #8f2828; }
+    .btn-gray   { background: #2e3650; color: #a0a8c0; }
+    .btn-gray:hover:not(:disabled)   { background: #3a4468; }
+    .btn-amber  { background: #7a4e10; color: #f0c040; }
+    .btn-amber:hover:not(:disabled)  { background: #8f5c12; }
+
+    /* ─── Status lines ──────────────────────────────────── */
+    .status {
+      margin-top: 6px;
+      font-size: 12px;
+      min-height: 18px;
+      line-height: 1.5;
+    }
+    .status.err  { color: #e05858; }
+    .status.ok   { color: #40b870; }
+    .status.info { color: #5080c0; }
+
+    /* ─── Spinner ───────────────────────────────────────── */
+    .spin {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid #2e3650;
+      border-top-color: #4080d0;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: text-bottom;
+      margin-right: 4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── WS indicator dot ──────────────────────────────── */
+    .ws-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .ws-dot.disconnected { background: #e05858; }
+    .ws-dot.connecting   { background: #f0c040; animation: spin 0.65s linear infinite; }
+    .ws-dot.connected    { background: #40b870; }
+
+    /* ─── Chatbot panel ─────────────────────────────────── */
+    .chatbot-card {
+      background: #ffffff;
+      border: 1px solid #d7dbe3;
+      border-radius: 6px;
+      color: #1f2937;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .chatbot-header {
+      padding: 8px 14px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+    .chatbot-header-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #f0c040;
+      box-shadow: 0 0 6px rgba(240,192,64,0.6);
+    }
+    .chatbot-header-label {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #64748b;
+      transition: color 0.2s;
+    }
+    .chatbot-header-label.err  { color: #e05858; font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .chatbot-header-label.ok   { color: #40b870; font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .chatbot-header-label.info { color: #5080c0; font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .chatbot-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
+    .chatbot-messages::-webkit-scrollbar { width: 4px; }
+    .chatbot-messages::-webkit-scrollbar-track { background: transparent; }
+    .chatbot-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+    /* ─── Chatbot input footer ───────────────────────────── */
+    .chatbot-footer {
+      flex-shrink: 0;
+      border-top: 1px solid #e5e7eb;
+      background: #ffffff;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chatbot-input-row {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .chatbot-btn-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .chatbot-btn-stack .btn {
+      min-width: 96px;
+      height: 44px;
+    }
+    .chatbot-input-row textarea {
+      flex: 1;
+      resize: none;
+      border-radius: 8px;
+      min-height: 62px;
+      max-height: 160px;
+      background: #ffffff;
+      border-color: #d1d5db;
+      color: #111827;
+    }
+    .chatbot-input-row textarea::placeholder {
+      font-size: 19px;
+      color: #94a3b8;
+    }
+    /* ─── Replay overlay button (on grid) ───────────────── */
+    .replay-overlay {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 30;
+      opacity: 0.85;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    .replay-overlay:not(:disabled):hover { opacity: 1; }
+
+    .chat-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 7px;
+    }
+    .chat-row.student { flex-direction: row-reverse; }
+
+    .chat-avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      color: #000000;
+    }
+    .chat-avatar.coach   { background: #d1d5db; border: 1px solid #9ca3af; }
+    .chat-avatar.student { background: #d1d5db; border: 1px solid #9ca3af; }
+
+    .chat-bubble {
+      max-width: 78%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 20px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .chat-bubble.coach {
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+      color: #000000;
+      border-bottom-left-radius: 3px;
+    }
+    .chat-bubble.student {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #000000;
+      border-bottom-right-radius: 3px;
+    }
+
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+
+    /* ─── Success banner ────────────────────────────────────── */
+    .success-banner {
+      display: none;
+      text-align: center;
+      padding: 11px;
+      background: linear-gradient(90deg, #ecfdf3, #dcfce7, #ecfdf3);
+      border: 1px solid #86efac;
+      border-radius: 6px;
+      color: #166534;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(134,239,172,0.45);
+    }
+    .success-banner.in-grid-top {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      min-width: 320px;
+      max-width: calc(100% - 24px);
+    }
+    .success-banner.visible { display: block; }
+
+  </style>
+</head>
+<body>
+  <h1>燕 子 拼 图 演 示 工 具</h1>
+
+  <!-- ─── Main Layout ────────────────────────────────── -->
+  <div class="main-layout">
+
+    <!-- Left: Puzzle Grid -->
+    <div class="grid-wrap">
+      <div class="success-banner in-grid-top" id="successBanner">🎉 拼图还原成功！燕子已归位！</div>
+      <div class="grid-stage" id="gridStage">
+        <div class="puzzle-grid" id="puzzleGrid"></div>
+        <div class="swallow-piece"  id="swallowPiece"></div>
+        <svg class="trail-svg"      id="trailSvg"></svg>
+        <button class="btn btn-amber btn-sm replay-overlay" id="btnReplay"
+          onclick="replayPuzzle()" disabled>▶ 重播</button>
+      </div>
+    </div>
+
+    <!-- Right: Control Panel -->
+    <div class="right-col">
+      <div class="panel">
+
+        <!-- Chatbot panel (含输入区) -->
+        <div class="chatbot-card">
+          <div class="chatbot-header">
+            <span class="chatbot-header-dot"></span>
+            <span id="llmStatus" class="chatbot-header-label info">你有移动燕子到空缺方块的方案吗？</span>
+          </div>
+          <div class="chatbot-messages" id="chatMessages">
+            <div class="chat-empty" id="chatEmpty">对话记录展示区</div>
+          </div>
+          <div class="chatbot-footer">
+            <div class="chatbot-input-row">
+              <textarea id="nlInput" rows="2"
+                placeholder="请说出你的移动方案或思考"></textarea>
+              <div class="chatbot-btn-stack">
+                <button class="btn btn-amber" id="btnResetSession"
+                  onclick="restartPuzzleSession()">重玩</button>
+                <button class="btn btn-blue" id="btnSend"
+                  onclick="sendUserInput()" disabled>发送</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════
+    //  Constants
+    // ═══════════════════════════════════════════════════════
+    const ROWS = 5, COLS = 10;
+    const CELL_W = 90;
+    const CELL_H = Math.round(CELL_W * (1780 / ROWS) / (3418 / COLS)); // = 94
+
+    // Game coordinates: row 1 = bottom, row 5 = top; col 1 = left, col 10 = right
+    const SWALLOW_START = { row: 1, col: 1 };
+    const TARGET        = { row: 3, col: 5 };
+
+    const DIR_DELTA = {
+      '上': { dr:  1, dc:  0 },
+      '下': { dr: -1, dc:  0 },
+      '左': { dr:  0, dc: -1 },
+      '右': { dr:  0, dc:  1 },
+    };
+
+    const CORNER_OFF = {
+      '左上角': { dx: 0,      dy: 0      },
+      '右上角': { dx: CELL_W, dy: 0      },
+      '左下角': { dx: 0,      dy: CELL_H },
+      '右下角': { dx: CELL_W, dy: CELL_H },
+    };
+
+    // ═══════════════════════════════════════════════════════
+    //  Playback State
+    // ═══════════════════════════════════════════════════════
+    let pos                  = { ...SWALLOW_START };
+    let flatSteps            = [];
+    let moveEnds             = [];
+    let stepIdx              = 0;
+    let playing              = false;
+    let playTimer            = null;
+    let trail                = [];
+    let activeCorner         = null;
+    const speed              = 750;
+    let pendingCoachMessages = [];
+
+    // ═══════════════════════════════════════════════════════
+    //  WebSocket Layer
+    // ═══════════════════════════════════════════════════════
+    let ws               = null;
+    let wsConnected      = false;
+    let wsManualClose    = false;   // true when user explicitly disconnects
+    let wsReconnectTimer = null;
+    let waitingResponse  = false;   // true while waiting for server reply
+    // 每次页面加载生成一个新的会话 ID；刷新页面会更换 ID。
+    const pageSessionId  = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+    function getWsUrl() {
+      return `wss://kelvin-cosin.cloud/puzzle/ws/${encodeURIComponent(pageSessionId)}`;
+    }
+
+    function updateSendButtonState() {
+      const input = document.getElementById('nlInput');
+      const btn = document.getElementById('btnSend');
+      if (!btn) return;
+      const hasText = !!(input && input.value.trim());
+      btn.disabled = !wsConnected || waitingResponse || !hasText;
+    }
+
+    function connectWS() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      clearTimeout(wsReconnectTimer);
+      wsManualClose = false;
+
+      ws = new WebSocket(getWsUrl());
+
+      ws.onopen = () => {
+        wsConnected = true;
+        updateSendButtonState();
+      };
+
+      ws.onclose = () => {
+        wsConnected = false;
+        waitingResponse = false;
+        updateSendButtonState();
+
+        if (!wsManualClose) {
+          wsReconnectTimer = setTimeout(connectWS, 5000);
+        }
+      };
+
+      ws.onerror = () => {
+        console.error('[WS] 连接失败');
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          handleServerEvent(JSON.parse(e.data));
+        } catch (err) {
+          console.error('[WS] 解析服务端消息失败', err, e.data);
+        }
+      };
+    }
+
+    function manualDisconnect() {
+      wsManualClose = true;
+      clearTimeout(wsReconnectTimer);
+      if (ws) { ws.close(); ws = null; }
+      wsConnected = false;
+      updateSendButtonState();
+    }
+
+    function toggleWsConnection() {
+      if (wsConnected) {
+        manualDisconnect();
+      } else {
+        connectWS();
+      }
+    }
+
+    function sendWS(type, payload) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setStatus('llmStatus', 'err', '服务器未连接，请先点击「连接」');
+        return false;
+      }
+      ws.send(JSON.stringify({ type, payload }));
+      return true;
+    }
+
+    // ─── Server event dispatcher ───────────────────────────
+    function handleServerEvent(evt) {
+      const { type, eventId, payload } = evt;
+
+      // ACK every received event
+      if (eventId) sendWS('ack', { eventId });
+
+      switch (type) {
+        case 'connected':
+          break;
+
+        case 'instruction':
+          // Load plan and start playback; coach_message will follow from server
+          if (loadPlan(JSON.stringify(payload))) {
+            setStatus('llmStatus', 'ok', '收到指令，正在播放…');
+            togglePlay();
+          } else {
+            _enableSendBtn();
+          }
+          break;
+
+        case 'coach_message':
+          if (playing) {
+            // 播放中缓存，播放结束后由 stopPlay() 统一冲刷展示
+            pendingCoachMessages.push(payload.text);
+          } else {
+            showCoachMessage(payload.text);
+            _enableSendBtn();
+          }
+          break;
+
+        case 'sync_snapshot':
+          setStatus('llmStatus', 'info', payload.message || '会话已同步');
+          _enableSendBtn();
+          break;
+
+        case 'error':
+          setStatus('llmStatus', 'err', payload.message || '未知错误');
+          _enableSendBtn();
+          break;
+
+        case 'pong':
+          break;
+
+        default:
+          console.warn('[WS] 未知事件类型', type, payload);
+      }
+    }
+
+    function appendChatMessage(role, text) {
+      const container = document.getElementById('chatMessages');
+      if (!container) return;
+
+      const empty = document.getElementById('chatEmpty');
+      if (empty) empty.remove();
+
+      const isCoach = role === 'coach';
+
+      const row = document.createElement('div');
+      row.className = `chat-row ${isCoach ? 'coach' : 'student'}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = `chat-avatar ${isCoach ? 'coach' : 'student'}`;
+      avatar.textContent = isCoach ? '🤖' : '🧒';
+
+      const bubble = document.createElement('div');
+      bubble.className = `chat-bubble ${isCoach ? 'coach' : 'student'}`;
+      bubble.textContent = text;
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      container.appendChild(row);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showCoachMessage(text) {
+      appendChatMessage('coach', text);
+    }
+
+    function _enableSendBtn() {
+      waitingResponse = false;
+      updateSendButtonState();
+    }
+
+    function _setWsDot(_state) { /* UI element removed */ }
+
+    function _setWsText(_cls, _msg) { /* UI element removed */ }
+
+    // ═══════════════════════════════════════════════════════
+    //  Student Input → WebSocket
+    // ═══════════════════════════════════════════════════════
+    function sendUserInput() {
+      const text = document.getElementById('nlInput').value.trim();
+      if (!text) { setStatus('llmStatus', 'err', '请输入移动方案描述'); return; }
+      if (!sendWS('user_input', { text })) return;
+
+      appendChatMessage('student', text);
+      document.getElementById('nlInput').value = '';
+
+      waitingResponse = true;
+      updateSendButtonState();
+      setStatus('llmStatus', 'info', '<span class="spin"></span>思考中…');
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Grid Initialization
+    // ═══════════════════════════════════════════════════════
+    function buildGrid() {
+      const grid = document.getElementById('puzzleGrid');
+      grid.innerHTML = '';
+      for (let dr = 0; dr < ROWS; dr++) {
+        for (let dc = 0; dc < COLS; dc++) {
+          const gameRow = ROWS - dr;
+          const gameCol = dc + 1;
+          const div = document.createElement('div');
+          div.className = 'cell';
+          div.style.backgroundPosition =
+            `${-(gameCol - 1) * CELL_W}px ${-(ROWS - gameRow) * CELL_H}px`;
+          if (gameRow === TARGET.row && gameCol === TARGET.col) {
+            div.classList.add('empty-target');
+            div.id = 'targetCell';
+          }
+          if (gameRow === SWALLOW_START.row && gameCol === SWALLOW_START.col) {
+            div.id = 'swallowStartCell';
+          }
+          grid.appendChild(div);
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Swallow Piece Rendering
+    // ═══════════════════════════════════════════════════════
+    function renderSwallow(animate = true) {
+      const el = document.getElementById('swallowPiece');
+      el.style.transition = animate
+        ? `top ${Math.round(speed * 0.82)}ms cubic-bezier(0.4,0,0.2,1),`
+          + ` left ${Math.round(speed * 0.82)}ms cubic-bezier(0.4,0,0.2,1)`
+        : 'none';
+      el.style.top  = `${(ROWS - pos.row) * CELL_H}px`;
+      el.style.left = `${(pos.col - 1) * CELL_W}px`;
+      el.style.backgroundPosition =
+        `${-(SWALLOW_START.col - 1) * CELL_W}px ${-(ROWS - SWALLOW_START.row) * CELL_H}px`;
+      syncSwallowStartCellFill();
+    }
+
+    function syncSwallowStartCellFill() {
+      const startCell = document.getElementById('swallowStartCell');
+      if (!startCell) return;
+      const isAtStart = pos.row === SWALLOW_START.row && pos.col === SWALLOW_START.col;
+      startCell.classList.toggle('swallow-origin-empty', !isAtStart);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  SVG Trail
+    // ═══════════════════════════════════════════════════════
+    function cornerPixel(row, col, corner) {
+      return {
+        x: (col - 1) * CELL_W + CORNER_OFF[corner].dx,
+        y: (ROWS - row) * CELL_H + CORNER_OFF[corner].dy,
+      };
+    }
+
+    function selectedCorner() {
+      return activeCorner ?? '';
+    }
+
+    function initLiveDot() {
+      const svg = document.getElementById('trailSvg');
+
+      const hist = svgEl('g');
+      hist.id = 'trailHistory';
+      svg.appendChild(hist);
+
+      const glow = svgEl('circle');
+      glow.id = 'trailGlow';
+      glow.setAttribute('fill', '#f0c040');
+      glow.style.display = 'none';
+      const ga1 = svgEl('animate');
+      ga1.setAttribute('attributeName', 'r');
+      ga1.setAttribute('values', '9;15;9');
+      ga1.setAttribute('dur', '1.1s');
+      ga1.setAttribute('repeatCount', 'indefinite');
+      const ga2 = svgEl('animate');
+      ga2.setAttribute('attributeName', 'opacity');
+      ga2.setAttribute('values', '0.38;0;0.38');
+      ga2.setAttribute('dur', '1.1s');
+      ga2.setAttribute('repeatCount', 'indefinite');
+      glow.appendChild(ga1);
+      glow.appendChild(ga2);
+      svg.appendChild(glow);
+
+      const dot = svgEl('circle');
+      dot.id = 'trailLiveDot';
+      dot.setAttribute('fill', '#f0c040');
+      dot.setAttribute('stroke', '#fff');
+      dot.setAttribute('stroke-width', '1.5');
+      dot.style.display = 'none';
+      const da = svgEl('animate');
+      da.setAttribute('attributeName', 'r');
+      da.setAttribute('values', '5;8;5');
+      da.setAttribute('dur', '1.1s');
+      da.setAttribute('repeatCount', 'indefinite');
+      dot.appendChild(da);
+      svg.appendChild(dot);
+    }
+
+    function updateLiveDot(animate) {
+      const c = selectedCorner();
+      const dot  = document.getElementById('trailLiveDot');
+      const glow = document.getElementById('trailGlow');
+      if (!dot || !glow) return;
+
+      if (!c) {
+        dot.style.display  = 'none';
+        glow.style.display = 'none';
+        return;
+      }
+
+      const dur   = animate ? Math.round(speed * 0.82) : 0;
+      const ease  = 'cubic-bezier(0.4,0,0.2,1)';
+      const trans = dur > 0 ? `cx ${dur}ms ${ease}, cy ${dur}ms ${ease}` : 'none';
+      dot.style.transition  = trans;
+      glow.style.transition = trans;
+      dot.style.display  = '';
+      glow.style.display = '';
+
+      const { x, y } = cornerPixel(pos.row, pos.col, c);
+      dot.style.cx  = `${x}px`;
+      dot.style.cy  = `${y}px`;
+      glow.style.cx = `${x}px`;
+      glow.style.cy = `${y}px`;
+    }
+
+    function drawTrailHistory() {
+      const hist = document.getElementById('trailHistory');
+      if (!hist) return;
+      hist.innerHTML = '';
+
+      const c = selectedCorner();
+      if (!c || trail.length === 0) return;
+
+      const cur = cornerPixel(pos.row, pos.col, c);
+      const pts = [...trail, cur];
+      if (pts.length > 1) {
+        const pl = svgEl('polyline');
+        pl.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+        pl.setAttribute('fill', 'none');
+        pl.setAttribute('stroke', '#f0c040');
+        pl.setAttribute('stroke-width', '2');
+        pl.setAttribute('stroke-dasharray', '5,4');
+        pl.setAttribute('opacity', '0.62');
+        hist.appendChild(pl);
+      }
+
+      trail.forEach(p => {
+        const d = svgEl('circle');
+        d.setAttribute('cx', p.x); d.setAttribute('cy', p.y);
+        d.setAttribute('r', '3');
+        d.setAttribute('fill', '#f0c040');
+        d.setAttribute('opacity', '0.38');
+        hist.appendChild(d);
+      });
+    }
+
+    function clearTrail() {
+      trail = [];
+      const hist = document.getElementById('trailHistory');
+      if (hist) hist.innerHTML = '';
+      updateLiveDot(false);
+    }
+
+    function svgEl(tag) {
+      return document.createElementNS('http://www.w3.org/2000/svg', tag);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  JSON Plan Parsing & Validation
+    // ═══════════════════════════════════════════════════════
+    function parsePlan(raw) {
+      let data;
+      try { data = JSON.parse(raw.trim()); }
+      catch (e) { throw new Error('JSON 解析失败：' + e.message); }
+
+      if (!Array.isArray(data.moves) || data.moves.length === 0)
+        throw new Error('moves 必须为非空数组');
+
+      const VALID_DIRS    = new Set(['上','下','左','右']);
+      const VALID_CORNERS = new Set(['左上角','右上角','左下角','右下角']);
+      const steps = [];
+      const ends  = [];
+
+      data.moves.forEach((m, i) => {
+        if (!VALID_DIRS.has(m.dir))
+          throw new Error(`moves[${i}].dir 非法值 "${m.dir}"`);
+        const s = Number(m.steps);
+        if (!Number.isInteger(s) || s <= 0)
+          throw new Error(`moves[${i}].steps 必须为正整数`);
+        for (let j = 0; j < s; j++) steps.push(m.dir);
+        ends.push(steps.length);
+      });
+
+      const hl = (data.highlight && data.highlight !== 'null') ? data.highlight : null;
+      if (hl && !VALID_CORNERS.has(hl))
+        throw new Error(`highlight 非法值 "${hl}"`);
+
+      return { steps, moveEnds: ends, highlight: hl };
+    }
+
+    function loadPlan(rawJson) {
+      const raw = rawJson || '';
+      if (!raw) { setStatus('llmStatus', 'err', '无有效方案'); return false; }
+      let result;
+      try { result = parsePlan(raw); }
+      catch (e) { setStatus('llmStatus', 'err', e.message); return false; }
+
+      stopPlay();
+      pos          = { ...SWALLOW_START };
+      flatSteps    = result.steps;
+      moveEnds     = result.moveEnds;
+      activeCorner = result.highlight;
+      stepIdx      = 0;
+      clearTrail();
+      renderSwallow(false);
+      document.getElementById('targetCell')?.classList.add('empty-target');
+      document.getElementById('swallowPiece').classList.remove('arrived');
+      document.getElementById('successBanner').classList.remove('visible');
+      document.getElementById('btnReplay').disabled = false;
+      return true;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Step Execution
+    // ═══════════════════════════════════════════════════════
+    function doStep() {
+      if (stepIdx >= flatSteps.length) return false;
+      const dir = flatSteps[stepIdx];
+      const { dr, dc } = DIR_DELTA[dir];
+      const nr = pos.row + dr;
+      const nc = pos.col + dc;
+
+      if (nr < 1 || nr > ROWS || nc < 1 || nc > COLS) {
+        setStatus('llmStatus', 'err', `越界！（向${dir}移动超出网格范围）`);
+        stopPlay();
+        return false;
+      }
+
+      const c = selectedCorner();
+      if (c) trail.push(cornerPixel(pos.row, pos.col, c));
+
+      pos = { row: nr, col: nc };
+      renderSwallow(true);
+      updateLiveDot(true);
+      drawTrailHistory();
+      stepIdx++;
+      return true;
+    }
+
+    function checkSuccess() {
+      if (pos.row === TARGET.row && pos.col === TARGET.col) {
+        document.getElementById('targetCell')?.classList.remove('empty-target');
+        document.getElementById('swallowPiece').classList.add('arrived');
+        document.getElementById('successBanner').classList.add('visible');
+        setStatus('llmStatus', 'ok', '成功抵达目标位置！');
+        return true;
+      }
+      return false;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Playback Controls
+    // ═══════════════════════════════════════════════════════
+    function togglePlay() {
+      if (playing) { stopPlay(); return; }
+      if (flatSteps.length === 0) return;
+      if (stepIdx >= flatSteps.length) return;
+      playing = true;
+      if (stepIdx === 0 && selectedCorner()) {
+        updateLiveDot(false);
+        drawTrailHistory();
+        playTimer = setTimeout(schedule, speed);
+        return;
+      }
+      schedule();
+    }
+
+    function schedule() {
+      if (!playing) return;
+      if (stepIdx >= flatSteps.length) {
+        if (checkSuccess()) {
+          stopPlay();
+          return;
+        }
+        stopPlay();
+        setStatus('llmStatus', 'ok', '全部步骤执行完毕！');
+        return;
+      }
+      if (doStep()) {
+        playTimer = setTimeout(schedule, speed);
+      }
+    }
+
+    function stopPlay(flushCoachMessages = true) {
+      playing = false;
+      clearTimeout(playTimer);
+      // 冲刷播放期间缓存的教练消息
+      if (flushCoachMessages) {
+        while (pendingCoachMessages.length) {
+          showCoachMessage(pendingCoachMessages.shift());
+        }
+      } else {
+        pendingCoachMessages = [];
+      }
+      _enableSendBtn();
+    }
+
+    function replayPuzzle() {
+      if (flatSteps.length === 0) return;
+      stopPlay();
+      pos     = { ...SWALLOW_START };
+      stepIdx = 0;
+      clearTrail();
+      renderSwallow(false);
+      document.getElementById('targetCell')?.classList.add('empty-target');
+      document.getElementById('swallowPiece').classList.remove('arrived');
+      document.getElementById('successBanner').classList.remove('visible');
+      setStatus('llmStatus', '', '');
+      togglePlay();
+    }
+
+    function resetChatPanel() {
+      const container = document.getElementById('chatMessages');
+      if (!container) return;
+      container.innerHTML = '<div class="chat-empty" id="chatEmpty">对话记录展示区</div>';
+      container.scrollTop = 0;
+    }
+
+    function restartPuzzleSession() {
+      stopPlay(false);
+
+      // 清空前端播放状态与上下文展示
+      pos = { ...SWALLOW_START };
+      flatSteps = [];
+      moveEnds = [];
+      stepIdx = 0;
+      activeCorner = null;
+      clearTrail();
+      renderSwallow(false);
+      pendingCoachMessages = [];
+      waitingResponse = false;
+
+      document.getElementById('nlInput').value = '';
+      document.getElementById('targetCell')?.classList.add('empty-target');
+      document.getElementById('swallowPiece').classList.remove('arrived');
+      document.getElementById('successBanner').classList.remove('visible');
+      document.getElementById('btnReplay').disabled = true;
+      resetChatPanel();
+      setStatus('llmStatus', 'info', '已重置，等待新的输入。');
+      _enableSendBtn();
+
+      // 清空后端会话缓存
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'reset_session', payload: {} }));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Utilities
+    // ═══════════════════════════════════════════════════════
+    function setStatus(id, cls, html) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (id === 'llmStatus') {
+        const llmCls = cls || 'info';
+        el.className = 'chatbot-header-label' + (llmCls ? ' ' + llmCls : '');
+        el.innerHTML = html || '你有移动燕子到空缺方块的方案吗？';
+      } else {
+        el.className = 'status ' + cls;
+        el.innerHTML = html;
+      }
+    }
+
+    function syncResponsiveLayout() {
+      const wrap = document.querySelector('.grid-wrap');
+      const stage = document.getElementById('gridStage');
+      if (!wrap || !stage) return;
+
+      const style = window.getComputedStyle(wrap);
+      const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const availableWidth = Math.max(wrap.clientWidth - padX, CELL_W);
+      const availableHeight = Math.max(wrap.clientHeight - padY, CELL_H);
+      const scale = Math.min(availableWidth / (CELL_W * COLS), availableHeight / (CELL_H * ROWS));
+
+      document.documentElement.style.setProperty('--board-scale', scale.toFixed(4));
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Bootstrap
+    // ═══════════════════════════════════════════════════════
+    (function init() {
+      buildGrid();
+      initLiveDot();
+      renderSwallow(false);
+      const input = document.getElementById('nlInput');
+      input?.addEventListener('input', updateSendButtonState);
+      updateSendButtonState();
+      syncResponsiveLayout();
+      window.addEventListener('resize', syncResponsiveLayout);
+      // Auto-connect on page load
+      connectWS();
+    })();
+  </script>
+</body>
+</html>
