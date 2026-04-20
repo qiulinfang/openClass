@@ -50,11 +50,13 @@ android {
             dimension "version"
             applicationIdSuffix ".dev" 
             resValue "string", "app_name", "开发版学伴"
+            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/primary-dev.jsonn"'
         }
         // 正式发布版本（默认）
         production {
             dimension "version"
             resValue "string", "app_name", "学伴"
+            buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/primary.json"'
         }
     }
     // 构建类型配置
@@ -129,6 +131,7 @@ android {
         viewBinding true
         compose true
         dataBinding = true
+        buildConfig true
     }
     externalNativeBuild {
         cmake {
