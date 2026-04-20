@@ -2,6 +2,9 @@
   <div v-if="props.fullscreen && localVisible" class="mini-class-fullscreen-overlay">
     <div class="fullscreen-header">
       <div class="fullscreen-title">{{ props.questionTitle || '微课' }}</div>
+      <div class="fullscreen-header-slot" v-if="$slots.header">
+        <slot name="header"></slot>
+      </div>
       <button class="fullscreen-close-btn" @click="localVisible = false">
         <q-icon name="close" size="24px" />
       </button>
@@ -419,6 +422,14 @@ onUnmounted(() => {
       color: #1e293b;
     }
 
+    .fullscreen-header-slot {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0 16px;
+    }
+
     .fullscreen-close-btn {
       width: 36px;
       height: 36px;
@@ -442,6 +453,8 @@ onUnmounted(() => {
   .mini-class-container {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 

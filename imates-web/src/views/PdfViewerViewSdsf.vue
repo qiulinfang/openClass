@@ -22,7 +22,26 @@
       </template>
     </PdfChatPanel>
     
-      <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" fullscreen />
+      <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" fullscreen>
+      <template #header>
+        <div class="sdsf-miniclass-tabs">
+          <button 
+            class="sdsf-tab-btn"
+            :class="{ active: activeMiniClassTab === 'swallow' }"
+            @click="switchMiniClass('swallow')"
+          >
+            燕子互动
+          </button>
+          <button 
+            class="sdsf-tab-btn"
+            :class="{ active: activeMiniClassTab === 'basketball' }"
+            @click="switchMiniClass('basketball')"
+          >
+            篮球拼图
+          </button>
+        </div>
+      </template>
+    </MiniClass>
 
       <div
         v-if="shouldShowMiniClassFab && miniClassFabReady"
@@ -102,7 +121,27 @@ const showMiniClassDialog = computed({
     }
   },
 })
-const miniClassUrl = computed(() => uiStore.miniClassUrl)
+
+// 微课切换逻辑
+type MiniClassTab = 'swallow' | 'basketball'
+const miniClassUrl = ref('https://www.imates.com.cn:9099/wk/math/swallow_puzzle.html')
+const activeMiniClassTab = ref<MiniClassTab>('swallow')
+
+function switchMiniClass(tab: MiniClassTab) {
+  activeMiniClassTab.value = tab
+  let url = ''
+  if (tab === 'swallow') {
+    url = 'https://www.imates.com.cn:9099/wk/math/swallow_puzzle1.html'
+  } else {
+    url = 'https://www.imates.com.cn:9099/wk/math/basketball1.html'
+  }
+  miniClassUrl.value = url
+  // 如果对话框已经打开，通知 store 更新 URL 以触发 MiniClass 内部的 watch
+  if (showMiniClassDialog.value) {
+    uiStore.openMiniClassDialog(url, '小工具')
+  }
+}
+
 const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
 const shouldShowMiniClassFab = computed(() => {
@@ -431,6 +470,9 @@ onMounted(async () => {
       textbook: '探究型公开课',
       chapter_title: '燕子剪纸',
     })
+
+    // 初始化微课 URL
+    switchMiniClass('swallow')
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
@@ -509,5 +551,48 @@ onBeforeUnmount(() => {
   0% { box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6); }
   50% { box-shadow: 0 0 0 3px rgba(252, 253, 82, 0.75); }
   100% { box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6); }
+}
+
+/* 极简微课切换按钮 */
+.sdsf-miniclass-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 8px;
+}
+
+.sdsf-tab-btn {
+  height: 40px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  user-select: none;
+}
+
+.sdsf-tab-btn:hover {
+  color: #64748b;
+}
+
+.sdsf-tab-btn.active {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* 底部指示线 */
+.sdsf-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #0f172a;
+  border-radius: 2px;
 }
 </style>
