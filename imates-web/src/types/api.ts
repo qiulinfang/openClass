@@ -272,3 +272,25 @@ export interface HomeworkQuestionDetail {
   /** 问题解析 */
   questionAnalysis?: string
 }
+
+// ========== 手写公式识别 API ==========
+
+/** 手写公式识别请求 (Base64 JSON) */
+export interface RecognizeHandwrittenFormulaJsonRequest {
+  /** 图片 Base64 数据（包含 data:image/xxx;base64, 前缀） */
+  file: string
+  /** 文件名 */
+  filename: string
+}
+
+/** 手写公式识别响应 */
+export interface RecognizeHandwrittenFormulaResponse {
+  /** 主识别结果 (LaTeX) */
+  latex: string
+  /** 候选公式列表 */
+  candidates: string[]
+  /** 候选数量 */
+  formula_count: number
+  /** 消息 */
+  message: string
+}

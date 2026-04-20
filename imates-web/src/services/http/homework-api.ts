@@ -7,7 +7,15 @@ import { httpClient } from './http-client'
 import type { ApiResponse } from '@/types'
 import { getApiPaths } from '@/config/env-config'
 
-import type { IdReq, HomeworkSubmitSaveReq, HomeworkUndoItem, HomeworkQuestionDetail, HomeworkQueryReq } from '@/types'
+import type {
+  IdReq,
+  HomeworkSubmitSaveReq,
+  HomeworkUndoItem,
+  HomeworkQuestionDetail,
+  HomeworkQueryReq,
+  RecognizeHandwrittenFormulaJsonRequest,
+  RecognizeHandwrittenFormulaResponse
+} from '@/types'
 
 export type GaokaoQuestionType = 'single_choice' | 'multiple_choice' | 'judgment' | 'subjective'
 
@@ -46,6 +54,30 @@ export class HomeworkApi {
   }
 
   private readonly gaokaoAgentBaseUrl = 'http://49.232.39.212:9011'
+  private readonly hwFormulaRecognizeBaseUrl = 'http://49.232.39.212:9012'
+
+  /**
+   * 手写公式识别 (Base64 JSON)
+   */
+  public async recognizeHandwrittenFormula(image: string): Promise<RecognizeHandwrittenFormulaResponse | null> {
+    const endpoint = '/api/recognize-handwritten-formula-image/json'
+    // 去掉 data:image/xxx;base64, 前缀，只保留纯 Base64 字符串
+    const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '')
+    const body: RecognizeHandwrittenFormulaJsonRequest = {
+      file: base64Data,
+      filename: 'handwritten_formula.png'
+    }
+    try {
+      const response = await httpClient.post<RecognizeHandwrittenFormulaResponse>(endpoint, body)
+      if (response.success && response.data) {
+        return response.data
+      }
+      return null
+    } catch (error) {
+      console.error('[HomeworkApi] recognizeHandwrittenFormula error:', error)
+      return null
+    }
+  }
 
   /**
    * 获取未完成作业列表

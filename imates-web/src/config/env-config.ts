@@ -94,6 +94,7 @@ export const ADDRESS_CATALOG = {
   ZAMMAD_API: 'http://app.imates.com.cn:8080',
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
+  HW_FORMULA_RECOGNIZE: 'http://49.232.39.212:9012',
 } as const
 
 // localStorage 键名
@@ -241,6 +242,10 @@ export function getImWebSocketUrl(): string {
 
 export function getGaokaoAgentBaseUrl(): string {
   return ADDRESS_CATALOG.GAOKAO_AGENT_LLM
+}
+
+export function getHwFormulaRecognizeBaseUrl(): string {
+  return ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE
 }
 
 /**
@@ -402,5 +407,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/history_manage': ADDRESS_CATALOG.HISTORY_MANAGE,
     // gaokao-agent-llm 服务
     '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
+    // recognize-handwritten-formula-image 服务
+    '/api/recognize-handwritten-formula-image': ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE,
   }
 }

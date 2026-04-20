@@ -38,6 +38,7 @@ import type {
   PageResponse,
   HomeworkQueryResp,
   HomeworkInfoResp,
+  RecognizeHandwrittenFormulaResponse,
 } from '@/types'
 
 
@@ -310,6 +311,13 @@ export class ApiService {
    */
   public async gaokaoChoiceParse(req: GaokaoAgentQuestionReq): Promise<GaokaoAgentResponse<GaokaoChoiceParseData>> {
     return this.homeworkApi.gaokaoChoiceParse(req)
+  }
+
+  /**
+   * 手写公式识别
+   */
+  public async recognizeHandwrittenFormula(image: string): Promise<RecognizeHandwrittenFormulaResponse | null> {
+    return this.homeworkApi.recognizeHandwrittenFormula(image)
   }
 
   // ========== 图片上传相关接口 ==========

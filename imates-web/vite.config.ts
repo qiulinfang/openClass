@@ -194,6 +194,15 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/api/images/upload')
           }
         },
+        // 手写公式识别接口
+        '/api/recognize-handwritten-formula-image': {
+          target: ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/api/recognize-handwritten-formula-image')
+          }
+        },
       },
     },
     // 为Android WebView优化构建配置
