@@ -457,15 +457,17 @@ const getModelIcon = (model?: string) => {
 
 // 计算AI/老师消息的头像图标
 const aiAvatarIcon = computed(() => {
-  // 如果是AI消息且有selectedModel，使用对应模式的头像
-  if (props.message.sender === 'ai' && props.message.selectedModel) {
+  // 1. 优先根据 selectedModel 从配置中找图标
+  if ((props.message.sender === 'ai' || props.message.sender === 'teacher') && props.message.selectedModel) {
     return getModelIcon(props.message.selectedModel)
   }
-  // 如果是老师消息，使用默认老师头像
-  if (props.message.sender === 'teacher') {
-    return HeadIcon
+  
+  // 2. 如果没有 selectedModel（如旧消息或欢迎语），尝试使用配置中的第一个图标作为默认
+  if (props.message.sender === 'ai' && props.modelOptions && props.modelOptions.length > 0) {
+    return props.modelOptions[0].icon || HeadIcon
   }
-  // 默认使用AI头像
+
+  // 3. 兜底使用默认头像
   return HeadIcon
 })
 

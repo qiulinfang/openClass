@@ -23,6 +23,7 @@
       <PdfChatPanel 
         ref="chatPanelRef" 
         :attached-screenshots="aiTextbookStore.attachedScreenshots"
+        :model-options="AI_ROLE_OPTIONS_JK"
         @send-with-screenshot="handlePdfSendWithScreenshot"
         @remove-screenshot="handlePdfRemoveScreenshot"
         @edit-screenshot="handleEditScreenshot"
@@ -102,6 +103,7 @@ import { getUserId } from '@/services/http/auth-service'
 import { AndroidBridge } from '@/services/business/android-bridge'
 import { PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
 
 
 // 使用 pdfViewerStore 和路由

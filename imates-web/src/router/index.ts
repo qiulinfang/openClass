@@ -8,6 +8,7 @@ import MyResourcesView from '@/views/MyResourcesView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
 import PdfViewerViewZGC from '@/views/PdfViewerViewZGC.vue'
 import PdfViewerViewJK from '@/views/PdfViewerViewJK.vue'
+import PdfViewerViewSdsf from '@/views/PdfViewerViewSdsf.vue'
 import HtmlViewerView from '@/views/HtmlViewerView.vue'
 import HtmlPreviewView from '@/views/HtmlPreviewView.vue'
 import VideoViewerView from '@/views/VideoViewerView.vue'
@@ -88,6 +89,12 @@ const router = createRouter({
           path: 'pdf-viewer-jk',
           name: 'pdfViewerJk',
           component: PdfViewerViewJK
+        },
+        // 首都师范PDF查看器路由
+        {
+          path: 'pdf-viewer-sdsf',
+          name: 'pdfViewerSdsf',
+          component: PdfViewerViewSdsf
         },
         // HTML查看器路由
         {

@@ -4,6 +4,7 @@
     <PdfChatPanel 
       ref="chatPanelRef" 
       :attached-screenshots="aiTextbookStore.attachedScreenshots"
+      :model-options="AI_ROLE_OPTIONS"
       @send-with-screenshot="handlePdfSendWithScreenshot"
       @remove-screenshot="handlePdfRemoveScreenshot"
       @edit-screenshot="handleEditScreenshot"
@@ -79,6 +80,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
 import { AndroidBridge } from '@/services/business/android-bridge'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import { AI_ROLE_OPTIONS } from '@/constants/options'
 
 
 // 使用 pdfViewerStore 和路由

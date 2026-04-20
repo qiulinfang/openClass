@@ -95,6 +95,12 @@ export const REQUIRED_CHAPTER_INFO_LIST = [
     textbook: '探究型公开课',
     chapter_title: '平行四边形的面积',
   },
+  {
+    grade: '初一',
+    subject: '数学',
+    textbook: '探究型公开课',
+    chapter_title: '燕子剪纸',
+  },
 ] as const
 
 export const MINI_CLASS_CHAPTER_URL_MAP = [
@@ -112,6 +118,11 @@ export const MINI_CLASS_CHAPTER_URL_MAP = [
     chapterInfo: REQUIRED_CHAPTER_INFO_LIST[2],
     title: '微课',
     url: 'https://www.imates.com.cn:9099/wk/math/classtool1.html',
+  },
+  {
+    chapterInfo: REQUIRED_CHAPTER_INFO_LIST[3],
+    title: '微课',
+    url: 'https://www.imates.com.cn:9099/wk/math/swallow-tool.html',
   },
 ] as const
 
@@ -268,7 +279,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const attachedScreenshots = ref<AttachedScreenshot[]>([])
   
   // 学校类型，用于区分不同学校的引导语
-  const schoolType = ref<'jk' | 'zgc'>('jk')
+  const schoolType = ref<'jk' | 'zgc' | 'sdsf'>('jk')
 
   const setChapterInfo = (info: {
     grade: string
@@ -281,9 +292,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
   /**
    * 设置学校类型
-   * @param type 'jk' - 经开二中，'zgc' - 中关村一小
+   * @param type 'jk' - 经开二中，'zgc' - 中关村一小，'sdsf' - 首都师范
    */
-  const setSchoolType = (type: 'jk' | 'zgc'): void => {
+  const setSchoolType = (type: 'jk' | 'zgc' | 'sdsf'): void => {
     schoolType.value = type
   }
 
@@ -471,9 +482,10 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
 
   // 不同学校的引导语配置
-  const WELCOME_MESSAGES: Record<'jk' | 'zgc', string> = {
+  const WELCOME_MESSAGES: Record<'jk' | 'zgc' | 'sdsf', string> = {
     jk: '你好呀😊 咱们今天来探究平行四边形的面积问题，你有什么想问的或者想分享的想法吗？',
-    zgc: '你好呀！咱们继续探索平行四边形的面积吧！能大胆猜想一下你认为平行四边形面积和什么有关吗？'
+    zgc: '你好呀！咱们继续探索平行四边形的面积吧！能大胆猜想一下你认为平行四边形面积和什么有关吗？',
+    sdsf: '你好呀！我是你的AI助手，咱们今天来一起学习吧，你有什么想法吗？'
   }
 
   /**
@@ -492,6 +504,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         messageType: 'text',
         isStreaming: false,
         isError: false,
+        selectedModel: 'mate', // 显式指定模型，以便 ChatMessage 匹配头像
       }
       messages.value.push(welcomeMessage)
     }
@@ -1087,12 +1100,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     useScreenshotApi,
     attachedScreenshots,
     screenshotDrawingStates,
+    schoolType,
     
     // 方法
     addMessage,
     updateMessage,
     clearMessages,
     initDefaultWelcomeMessage,
+    setSchoolType,
     setAttachedScreenshots,
     appendAttachedScreenshots,
     removeAttachedScreenshot,

@@ -1,5 +1,45 @@
 ﻿<template>
+  <div v-if="props.fullscreen && localVisible" class="mini-class-fullscreen-overlay">
+    <div class="fullscreen-header">
+      <div class="fullscreen-title">{{ props.questionTitle || '微课' }}</div>
+      <button class="fullscreen-close-btn" @click="localVisible = false">
+        <q-icon name="close" size="24px" />
+      </button>
+    </div>
+    <div class="mini-class-container">
+      <div v-if="is404" class="empty-container">
+        <q-icon name="ondemand_video" size="64px" color="grey-5" />
+        <div class="text-h6 q-mt-md text-grey-7">该题目暂无微课内容</div>
+        <div class="text-body2 q-mt-sm text-grey-6">微课资源可能尚未上传或已被移除</div>
+      </div>
+
+      <div v-else-if="classUrl" class="video-container">
+        <iframe
+          ref="iframePlayer"
+          :src="iframeSrc"
+          class="iframe-player"
+          frameborder="0"
+          scrolling="no"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          @load="handleIframeLoad"
+          @error="handleIframeError"
+        ></iframe>
+
+        <div v-if="loading" class="loading-overlay">
+          <Loading text="正在加载微课..." :size="48" />
+        </div>
+      </div>
+
+      <div v-else class="empty-container">
+        <q-icon name="ondemand_video" size="64px" color="grey-5" />
+        <div class="text-h6 q-mt-md text-grey-7">暂无微课内容</div>
+      </div>
+    </div>
+  </div>
+
   <Modal 
+    v-else
     v-model="localVisible" 
     :title="props.questionTitle || '微课'"
     :initial-width="1200"
@@ -50,12 +90,14 @@ interface Props {
   modelValue?: boolean
   classUrl?: string
   questionTitle?: string
+  fullscreen?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   classUrl: '',
   questionTitle: '',
-  modelValue: false
+  modelValue: false,
+  fullscreen: false
 })
 
 const emit = defineEmits<{
@@ -350,6 +392,57 @@ onUnmounted(() => {
   display: block;
   flex: 1;
   min-height: 0;
+}
+
+.mini-class-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .fullscreen-header {
+    height: 56px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+
+    .fullscreen-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .fullscreen-close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: none;
+      background: #f1f5f9;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+    }
+  }
+
+  .mini-class-container {
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 </style>

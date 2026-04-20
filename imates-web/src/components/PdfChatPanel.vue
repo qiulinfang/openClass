@@ -18,6 +18,7 @@
         ref="chatViewRef"
         type="ai-textbook"
         :compressed-height="360"
+        :model-options="props.modelOptions"
         @send-with-screenshot="
           (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
         "
@@ -74,6 +75,7 @@ import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import Dialog from '@/components/base/Dialog.vue'
 import { useRoute } from 'vue-router'
 import type { AttachedScreenshot, ChatEntry } from '@/types'
+import type { SelectOption } from '@/constants/options'
 import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 import textbookipIcon from '/icons/textbookip.png'
@@ -90,6 +92,8 @@ const route = useRoute()
 const props = defineProps<{
   // 目前不再通过 props 传递截图数组，保留占位以兼容旧调用方（不使用）
   attachedScreenshots?: AttachedScreenshot[]
+  // AI 角色选项配置
+  modelOptions?: SelectOption[]
 }>()
 
 const emit = defineEmits<{

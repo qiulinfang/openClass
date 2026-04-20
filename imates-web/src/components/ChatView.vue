@@ -115,6 +115,7 @@
             :enable-long-press="enableLongPress"
             :show-read-status="showReadStatus"
             :show-time="showTime"
+            :model-options="modelOptions"
             @toggle-selection="toggleMessageSelection"
             @message-click="handleMessageClick"
             @enter-multi-select="handleEnterMultiSelect"
@@ -248,6 +249,7 @@
           :is-recording="isRecording"
           :enable-web-search="enableWebSearch"
           :selected-model="selectedModel"
+          :model-options="modelOptions"
           :type="type"
           :hide-ask-teacher-icon="props.hideAskTeacherIcon"
           :uploaded-files="uploadedFiles"
@@ -397,6 +399,7 @@ import { useImagePicker } from '../composables/useImagePicker'
 import { androidBridge } from '../services/business/android-bridge'
 import { showMessage } from '../utils'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
+import { AI_ROLE_OPTIONS, AI_ROLE_OPTIONS_JK, type SelectOption } from '../constants/options'
 
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
@@ -447,6 +450,7 @@ const props = withDefaults(
     enableLongPress?: boolean // 是否启用消息长按功能
     showReadStatus?: boolean // 是否显示消息已读状态
     showTime?: boolean // 是否显示消息时间
+    modelOptions?: SelectOption[] // AI 角色选项配置
   }>(),
   {
     inputMode: 'full',
@@ -981,6 +985,18 @@ const getCSSAnimationParams = () => {
 // 使用策略接口获取联网搜索状态
 const enableWebSearch = computed(() => chatStrategy.value?.getEnableWebSearch?.() ?? false)
 const selectedModel = ref('mate') // 选中的AI模型
+
+// 新增：计算角色选项配置
+const modelOptions = computed(() => {
+  // 1. 如果外部显式传入了选项，优先使用
+  if (props.modelOptions && props.modelOptions.length > 0) {
+    return props.modelOptions
+  }
+  // 2. 否则根据业务场景自动选择默认配置
+  return props.type === 'ai-textbook' || props.type === 'ai-exercise' 
+    ? AI_ROLE_OPTIONS_JK 
+    : AI_ROLE_OPTIONS
+})
 
 // ==================== 消息管理相关状态 ====================
 // 选择模式相关状态

@@ -116,6 +116,7 @@ import classIcon from '/icons/class.png'
 const router = useRouter()
 
 const virtualTextbookId = `${getUserId()}_35943sdfsf0640`
+const virtualTextbookIdSdsf = `${getUserId()}_35943sdsf0640`
 
 const IMAGE_JUMP_QUERY = {
   id: virtualTextbookId,
@@ -132,6 +133,13 @@ const IMAGE_JUMP_QUERY = {
   fromLearning: 'true',
   learningNodeId: '391051348794249216',
   learningLevel: '1',
+}
+
+const IMAGE_JUMP_QUERY_SDSF = {
+  ...IMAGE_JUMP_QUERY,
+  id: virtualTextbookIdSdsf,
+  resourceId: `${virtualTextbookIdSdsf}_file`,
+  packageId: `${virtualTextbookIdSdsf}_package`,
 }
 
 const ensureVirtualTextbookForImage = async () => {
@@ -238,12 +246,13 @@ const prepareImageAndJumpToPdfViewer = async () => {
 }
 
 // 学校选择
-const selectedSchool = ref<'zgc' | 'jk'>((localStorage.getItem('selected_school') as 'zgc' | 'jk') || 'zgc')
+const selectedSchool = ref<'zgc' | 'jk' | 'sdsf'>((localStorage.getItem('selected_school') as 'zgc' | 'jk' | 'sdsf') || 'zgc')
 
 // 学校选项
 const schoolOptions = [
   { label: '中关村一小', value: 'zgc' },
-  { label: '经开二中', value: 'jk' }
+  { label: '经开二中', value: 'jk' },
+  { label: '首都师范', value: 'sdsf' }
 ]
 
 const loginForm = reactive({
@@ -551,6 +560,17 @@ const handleLogin = async () => {
         name: 'pdfViewerJk',
         query: {
           ...IMAGE_JUMP_QUERY,
+          isImage: 'true',
+          imageMimeType: 'image/png',
+          imageFileName: 'class.png',
+        },
+      })
+    } else if (selectedSchool.value === 'sdsf') {
+      // 首都师范
+      await router.replace({
+        name: 'pdfViewerSdsf',
+        query: {
+          ...IMAGE_JUMP_QUERY_SDSF,
           isImage: 'true',
           imageMimeType: 'image/png',
           imageFileName: 'class.png',

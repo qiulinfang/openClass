@@ -675,7 +675,7 @@ const fabStyle = computed(() => ({
 }))
 
 // 需要隐藏左侧导航菜单的路由
-const routesHideFunctionMenu: string[] = ['homeworkAnswerJk','homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer','htmlPreview','pdfViewerZgc','pdfViewerJk']
+const routesHideFunctionMenu: string[] = ['homeworkAnswerJk','homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer','htmlPreview','pdfViewerZgc','pdfViewerJk','pdfViewerSdsf']
 
 // 是否隐藏左侧导航菜单
 // 在作业作答 / 作业答题等专注场景隐藏，避免干扰
