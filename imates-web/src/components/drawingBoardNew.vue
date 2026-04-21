@@ -122,7 +122,7 @@
     ></div>
 
     <!-- 缩放控制浮动框 -->
-    <div class="zoom-control-panel">
+    <div v-if="showZoomControls" class="zoom-control-panel">
       <button class="zoom-btn zoom-out" @click="zoomOut" :disabled="camera.zoom <= MIN_ZOOM">
         <svg
           width="16"
@@ -244,6 +244,8 @@ const props = defineProps({
   enableAskAi: { type: Boolean, default: false },
   // 是否显示工具栏（默认显示）
   showToolbar: { type: Boolean, default: true },
+  // 是否显示缩放控制（默认显示）
+  showZoomControls: { type: Boolean, default: true },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -2646,12 +2648,93 @@ async function forceRender() {
   renderLive()
 }
 
+const exportStrokesOnly = () => {
+  if (!strokes || strokes.length === 0) return ''
+  
+  // 1. 计算所有笔迹的整体包围盒
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  let hasValidStroke = false
+
+  strokes.forEach(s => {
+    // 排除背景图片和橡皮擦（如果橡皮擦模式是 stroke，则也参与计算，但通常我们只想要画出的内容）
+    if (s.type === 'image' || s.mode === 'eraser') return
+    
+    ensureBoundsForStroke(s)
+    if (s.bounds) {
+      minX = Math.min(minX, s.bounds.minX)
+      minY = Math.min(minY, s.bounds.minY)
+      maxX = Math.max(maxX, s.bounds.maxX)
+      maxY = Math.max(maxY, s.bounds.maxY)
+      hasValidStroke = true
+    }
+  })
+
+  if (!hasValidStroke) return ''
+
+  // 2. 添加少量内边距
+  const padding = 10
+  const width = (maxX - minX) + padding * 2
+  const height = (maxY - minY) + padding * 2
+
+  // 3. 创建临时画布进行裁剪绘制
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = width
+  tempCanvas.height = height
+  const tempCtx = tempCanvas.getContext('2d')
+  if (!tempCtx) return ''
+
+  // 填充白色背景
+  tempCtx.fillStyle = '#ffffff'
+  tempCtx.fillRect(0, 0, width, height)
+
+  // 4. 移动原点并绘制笔迹
+  tempCtx.save()
+  tempCtx.translate(-minX + padding, -minY + padding)
+  tempCtx.lineCap = 'round'
+  tempCtx.lineJoin = 'round'
+  
+  strokes.forEach(s => {
+    if (s.type !== 'image') {
+      drawStrokeToContext(tempCtx, s)
+    }
+  })
+  tempCtx.restore()
+
+  return tempCanvas.toDataURL('image/png')
+}
+
+const exportToPng = () => {
+  // 如果有笔迹，优先导出笔迹区域；否则导出全屏
+  const strokesOnly = exportStrokesOnly()
+  if (strokesOnly) return strokesOnly
+
+  if (!liveCanvasRef.value) return ''
+  // 简单导出当前视图可见区域
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = liveCanvasRef.value.width
+  tempCanvas.height = liveCanvasRef.value.height
+  const ctx = tempCanvas.getContext('2d')
+  if (!ctx) return ''
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+  ctx.drawImage(historyCanvasRef.value!, 0, 0)
+  ctx.drawImage(liveCanvasRef.value, 0, 0)
+  return tempCanvas.toDataURL('image/png')
+}
+
+const getDataUrl = () => {
+  return exportToPng()
+}
+
 defineExpose({
   saveData,
   loadData,
   getThumbnail,
   clearAll,
   exportToJpg,
+  exportToPng,
+  exportStrokesOnly,
+  getDataUrl,
   insertImageFromDataUrl,
   forceRender,
   // 工具栏相关

@@ -5,14 +5,15 @@
       <!-- 左侧：手写区 -->
       <div class="hsm-col hsm-col--handwriting">
         <div class="hsm-canvas-container">
-          <HandwritingCanvas
+          <DrawingBoardNew
             ref="handwritingRef"
-            :line-width="3"
-            @change="handleHandwritingChange"
+            :show-grid="true"
+            :show-toolbar="false"
+            :initial-zoom="1"
+            :show-zoom-controls="false"
+            @save="handleHandwritingChange"
+            @clear="handleHandwritingClear"
           />
-          <div v-if="!hasHandwriting" class="hsm-placeholder">
-            写出你想要的公式，右侧就会出现哦
-          </div>
           <!-- 手写板工具栏 -->
           <div class="hsm-handwriting-toolbar">
             <button @click="undoHandwriting" :disabled="!canUndoHandwriting" class="toolbar-btn" title="撤销">
@@ -23,6 +24,13 @@
             </button>
             <button @click="clearHandwriting" class="toolbar-btn toolbar-btn--danger" title="清空">
               <img :src="clearIcon" alt="清空" />
+            </button>
+            <button 
+              @click="handleManualRecognize" 
+              :disabled="!hasHandwriting || isRecognizing" 
+              class="recognize-btn"
+            >
+              {{ isRecognizing ? '识别中...' : '识别公式' }}
             </button>
           </div>
         </div>
@@ -38,7 +46,7 @@
              <div class="spinner"></div>
              <span>正在识别中...</span>
           </div>
-          <div v-else class="hsm-recognition-content">
+          <div v-else class="hsm-recognition-content" @click="handleConfirm">
             <div ref="previewArea" class="formula-preview"></div>
           </div>
           <div v-if="error" class="hsm-error-msg">
@@ -59,7 +67,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import HandwritingCanvas from './base/HandwritingCanvas.vue'
+import DrawingBoardNew from './drawingBoardNew.vue'
 import { apiService } from '../services/http/api-service'
 import undoIcon from '/icons/undo.svg'
 import redoIcon from '/icons/redo.svg'
@@ -88,8 +96,9 @@ const error = ref<string | null>(null)
 const toast = ref('')
 
 // 手写识别相关
-const handwritingRef = ref<InstanceType<typeof HandwritingCanvas> | null>(null)
+const handwritingRef = ref<any>(null)
 const isRecognizing = ref(false)
+const isTimeout = ref(false)
 const hasHandwriting = ref(false)
 const lastHandwritingBase64 = ref<string | null>(null)
 
@@ -99,16 +108,18 @@ const canRedoHandwriting = ref(false)
 
 const updateToolbarStatus = () => {
   if (handwritingRef.value) {
-    canUndoHandwriting.value = handwritingRef.value.canUndo()
-    canRedoHandwriting.value = handwritingRef.value.canRedo()
+    canUndoHandwriting.value = handwritingRef.value.canUndo || false
+    canRedoHandwriting.value = handwritingRef.value.canRedo || false
   }
 }
 
 const clearHandwriting = () => {
-  handwritingRef.value?.clear()
+  handwritingRef.value?.clearAll()
   hasHandwriting.value = false
   lastHandwritingBase64.value = null
   formula.value = ''
+  error.value = null
+  isTimeout.value = false
   updateToolbarStatus()
 }
 
@@ -122,29 +133,62 @@ const redoHandwriting = () => {
   updateToolbarStatus()
 }
 
-const handleHandwritingChange = (base64: string | null) => {
+const handleHandwritingChange = async () => {
+  if (!handwritingRef.value) return
+  
+  // 获取裁剪后的 Base64 仅用于判断是否有内容
+  const base64 = await handwritingRef.value.getDataUrl()
   lastHandwritingBase64.value = base64
   hasHandwriting.value = !!base64
   updateToolbarStatus()
+}
+
+const handleHandwritingClear = () => {
+  hasHandwriting.value = false
+  lastHandwritingBase64.value = null
+  formula.value = ''
+  error.value = null
+  isTimeout.value = false
+  updateToolbarStatus()
+}
+
+const handleManualRecognize = async () => {
+  if (!handwritingRef.value || !hasHandwriting.value) return
   
+  // 获取裁剪后的 Base64 进行识别
+  const base64 = await handwritingRef.value.getDataUrl()
   if (base64) {
-    // 自动触发识别
     recognizeFormula(base64)
-  } else {
-    formula.value = ''
   }
 }
 
 const recognizeFormula = async (base64: string) => {
   isRecognizing.value = true
   error.value = null
+  isTimeout.value = false
   try {
-    const result = await apiService.recognizeHandwrittenFormula(base64)
-    if (result && result.latex) {
-      formula.value = result.latex
+    // 此时传入的 base64 已经是裁剪后的
+    const result: any = await apiService.recognizeHandwrittenFormula(base64)
+    
+    // 识别 HttpClient 返回的超时状态码 408
+    if (result && result.code === 408) {
+      isTimeout.value = true
+      error.value = '网络请求超时，请重试'
+      formula.value = ''
+      return
+    }
+
+    const latex = result?.latex
+    
+    if (latex && latex.trim()) {
+      formula.value = latex
+      // 识别成功后立即同步给父组件，确保父组件的 v-model 绑定变量有值
+      emit('update:modelValue', latex)
+      // 识别成功后显式触发预览更新，不依赖 watch
       updatePreview()
     } else {
       formula.value = ''
+      error.value = '识别内容为空，请重新书写'
     }
   } catch (e: any) {
     console.error('[HighSchoolMathEditor] 识别公式失败:', e)
@@ -164,25 +208,27 @@ const handleConfirm = () => {
 
 // 在预览区域渲染当前公式的 KaTeX 表达式
 const updatePreview = () => {
-  if (!formula.value.trim()) return
-  nextTick(() => {
+  const currentFormula = formula.value.trim()
+  if (!currentFormula) {
+    if (previewArea.value) previewArea.value.innerHTML = ''
+    return
+  }
+  
+  // 使用 setTimeout 确保在 Vue 完成 v-if DOM 状态切换后执行
+  setTimeout(() => {
     if (previewArea.value) {
       try {
-        katex.render(formula.value, previewArea.value, {
+        katex.render(currentFormula, previewArea.value, {
           throwOnError: false,
           displayMode: true
         })
       } catch (e: any) {
         console.warn('KaTeX render error:', e)
+        if (previewArea.value) previewArea.value.innerText = currentFormula
       }
     }
-  })
+  }, 0)
 }
-
-// 监听公式内容变化，自动更新预览
-watch(() => formula.value, () => {
-  updatePreview()
-})
 
 // 组件挂载时初始化
 onMounted(() => {
@@ -212,7 +258,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   padding: 0;
-  gap: 24px;
+  gap: 12px;
   overflow: hidden;
 }
 
@@ -227,6 +273,7 @@ onMounted(() => {
 .hsm-canvas-container,
 .hsm-recognition-container {
   flex: 1;
+  height: 360px; /* 增加固定高度，确保网格和画布完整显示 */
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   position: relative;
@@ -267,6 +314,7 @@ onMounted(() => {
   border-radius: 30px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   border: 1px solid #f1f5f9;
+  z-index: 100; /* 确保在 DrawingBoardNew 之上 */
 }
 
 .toolbar-btn {
@@ -304,6 +352,35 @@ onMounted(() => {
 
 .toolbar-btn--danger img {
   filter: invert(47%) sepia(82%) saturate(2487%) hue-rotate(336deg) brightness(101%) contrast(96%);
+}
+
+.recognize-btn {
+  background: #7c3aed;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.recognize-btn:hover:not(:disabled) {
+  background: #6d28d9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+}
+
+.recognize-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.recognize-btn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 /* 识别内容展示 */

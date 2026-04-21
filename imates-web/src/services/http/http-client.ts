@@ -193,17 +193,21 @@ export class HttpClient {
         }
       }
 
+      // 只要 response.ok (status 200-299) 且有数据，就认为请求本身是成功的
+      // 这里的 success 字段优先使用接口返回的，如果接口没返回则默认为 true
       return {
-        success: data.success,
+        success: data && typeof data.success === 'boolean' ? data.success : true,
         data,
         code: response.status,
       }
     } catch (error) {
       cleanup()
+      const isAbortError = error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))
       return {
         success: false,
         message: (error as Error)?.message || '网络请求失败',
-        code: 0,
+        // 如果是超时/取消错误，返回特定的 code 方便上级识别
+        code: isAbortError ? 408 : 0, 
       }
     }
   }

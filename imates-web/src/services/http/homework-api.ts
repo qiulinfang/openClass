@@ -69,10 +69,11 @@ export class HomeworkApi {
     }
     try {
       const response = await httpClient.post<RecognizeHandwrittenFormulaResponse>(endpoint, body)
-      if (response.success && response.data) {
-        return response.data
+      // 如果请求本身失败（success 为 false），直接返回整个响应对象，让上层能看到 code
+      if (!response.success) {
+        return response as any
       }
-      return null
+      return response.data
     } catch (error) {
       console.error('[HomeworkApi] recognizeHandwrittenFormula error:', error)
       return null
