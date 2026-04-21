@@ -101,10 +101,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
             @Override
             public void onActivityPaused(Activity activity) {
                 resumedCount = Math.max(0, resumedCount - 1);
-                // 当应用进入后台时，强制显示悬浮按钮，保证用户能从后台点击悬浮唤起应用
-                if (resumedCount == 0) {
-                    forceShowFloatingFabInBackground();
-                }
             }
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
@@ -122,20 +118,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     public boolean isAppInForeground() {
         return resumedCount > 0;
-    }
-
-    private void forceShowFloatingFabInBackground() {
-        try {
-            if (floatingFabService != null) {
-                floatingFabService.showFab();
-                return;
-            }
-
-            // Service 还没启动时，尝试启动（会在 setFloatingFabService 时应用 pending 状态）
-            startFloatingFabService();
-        } catch (Exception e) {
-            Log.w("ApplicationModelShared", "forceShowFloatingFabInBackground failed", e);
-        }
     }
 
     private void startAppMonitorService() {

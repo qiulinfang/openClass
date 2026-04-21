@@ -695,51 +695,6 @@ const showFab = computed(() => {
   return isRouteAllowed && !showMainChatPanel.value
 })
 
-watch(
-  () => [showFab.value, isAndroidEnv.value] as const,
-  ([visible, androidReady]) => {
-    const traceId = createFabTraceId('fab-sync')
-    console.log('[FloatingFab][Web] sync->native (watch)', {
-      traceId,
-      visible,
-      androidReady,
-      routeName: route.name,
-      showMainChatPanel: showMainChatPanel.value,
-      pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
-    })
-    if (!androidReady) return
-    androidBridge.setFloatingFabVisible(visible)
-  },
-  { immediate: true }
-)
-
-// 兜底同步：从后台回到前台时，原生可能重置了悬浮按钮状态，这里强制按当前 showFab 再同步一次
-const syncFabToNative = () => {
-  if (!isAndroidEnv.value) return
-  const traceId = createFabTraceId('fab-resync')
-  console.log('[FloatingFab][Web] sync->native (resync)', {
-    traceId,
-    visible: showFab.value,
-    routeName: route.name,
-    showMainChatPanel: showMainChatPanel.value,
-    pdfChatPanelVisible: pdfViewerStore.chatPanelVisible,
-  })
-  androidBridge.setFloatingFabVisible(showFab.value)
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      syncFabToNative()
-    }
-  })
-}
-
-// AndroidBridge 刚 ready 时也同步一次，避免首次进入路由时漏同步
-androidBridge.onReady(() => {
-  syncFabToNative()
-})
-
 // 计算是否需要显示“去资源下载”悬浮引导：
 // 仅在知识图谱路由且尚未下载任何教材时显示
 const shouldShowGoResourcesHint = computed(() => {
