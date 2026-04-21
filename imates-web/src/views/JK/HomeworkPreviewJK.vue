@@ -48,19 +48,11 @@
         <div class="bottom-action-area">
           <CommonActionButton
             label="准备好了，展示给老师"
-            variant="outline"
-            size="lg"
-            class="kids-candy-btn-base mr-4"
-            :disabled="masteryChecklist.length === 0"
-            @click="$emit('submit', masteryChecklist)"
-          />
-          <CommonActionButton
-            label="开始课堂练习"
             variant="primary"
             size="lg"
             class="kids-candy-btn-base"
             :disabled="masteryChecklist.length === 0"
-            @click="$emit('submit', masteryChecklist, true)"
+            @click="$emit('submit', masteryChecklist)"
           />
         </div>
       </div>
@@ -113,19 +105,18 @@ const kidsEncourageTip = computed(() => {
   flex: 1;
   display: flex;
   overflow: hidden;
-  gap: 20px;
 }
 
 .left-panel {
   width: 400px;
-  background: white;
+  background: #f7f6ff;
   border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 
   &--modern {
-    background: transparent !important;
+    background: #f7f6ff;
     border: none !important;
   }
 }
@@ -151,7 +142,7 @@ const kidsEncourageTip = computed(() => {
   background: white;
   border-radius: 20px;
   padding: 20px;
-  border: 2px solid #e2e8f0;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
   transition: all 0.2s ease-out;
   position: relative;
@@ -166,7 +157,7 @@ const kidsEncourageTip = computed(() => {
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-    border-color: #cbd5e1;
+    border-color: #d1d5db;
   }
 
   &:active {
@@ -174,9 +165,10 @@ const kidsEncourageTip = computed(() => {
   }
 
   &.is-mastered {
-    background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+    background: white;
     border-color: #6e55ff;
-    box-shadow: 0 6px 15px -5px rgba(110, 85, 255, 0.1);
+    border-width: 2px;
+    box-shadow: 0 4px 12px rgba(110, 85, 255, 0.08);
 
     .question-no { color: #6e55ff; }
     .mastery-indicator { color: #6e55ff; }
@@ -192,29 +184,29 @@ const kidsEncourageTip = computed(() => {
 
 .question-no {
   font-size: 14px;
-  font-weight: 800;
-  color: #94a3b8;
+  font-weight: 700;
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .mastery-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #e2e8f0;
+  color: #d1d5db;
   transition: all 0.3s;
 
   .indicator-text {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
   }
 }
 
 .question-content {
   font-size: 16px;
   line-height: 1.6;
-  color: #1e293b;
+  color: #2f2a45;
   font-weight: 500;
 }
 
@@ -249,7 +241,7 @@ const kidsEncourageTip = computed(() => {
   justify-content: center;
   height: 100%;
   padding: 40px;
-  background: radial-gradient(circle at top right, #fdfcfb 0%, #e2d1c344 100%);
+  background: #f7f6ff;
   position: relative;
   text-align: center;
 }
@@ -272,9 +264,7 @@ const kidsEncourageTip = computed(() => {
   font-size: 80px;
   font-weight: 900;
   line-height: 1;
-  background: linear-gradient(180deg, #6e55ff 0%, #4a35cc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #6e55ff;
   margin-bottom: 4px;
 }
 

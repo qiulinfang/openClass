@@ -141,7 +141,7 @@ export const CORE_EXPLORATION: ExerciseItem[] = [
   {
     id: 'core-2',
     bmNo: 'CORE_MATH_002',
-    title: '负数 and 相反意义的量有什么区别？',
+    title: '负数和相反意义的量有什么区别？',
     type: 'essay',
     structuredContent: {
       stem: '负数和相反意义的量有什么区别？'
@@ -191,7 +191,11 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '-3读作（ ），+7读作（ ），-1.5读作（ ）',
-        blanks: 3
+        blanks: [
+          { index: 1, type: 'text', answer: '负三' },
+          { index: 2, type: 'text', answer: '正七' },
+          { index: 3, type: 'text', answer: '负一点五' }
+        ]
       },
       answer: '-3读作（负三），+7读作($7)，-1.5读作（负一点五）',
       explanation: '明确正负数的读写规则，“-”读作“负”，“+”读作“正”，数字部分正常读取，小数直接读小数点前后数字；',
@@ -205,7 +209,11 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '数轴的三要素是（ ）、（ ）、（ ）',
-        blanks: 3
+        blanks: [
+          { index: 1, type: 'text', answer: '原点' },
+          { index: 2, type: 'text', answer: '正方向' },
+          { index: 3, type: 'text', answer: '单位长度' }
+        ]
       },
       answer: '原点、正方向、单位长度',
       explanation: '回忆数轴的核心定义，数轴是规范表示数的直线，必须具备三个缺一不可的要素，分别是基准点、方向和统一单位；',
@@ -219,7 +227,11 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '0既不是（ ），也不是（ ），它是正数和负数的（ ）',
-        blanks: 3
+        blanks: [
+          { index: 1, type: 'text', answer: '正数' },
+          { index: 2, type: 'text', answer: '负数' },
+          { index: 3, type: 'text', answer: '分界点' }
+        ]
       },
       answer: '正数、负数、分界点',
       explanation: '明确0的归属，正数比0大，负数比0小，0是两者的分界，不属于任何一方；',
@@ -354,7 +366,9 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '若收入50元记作+50元，则支出30元记作（ ）元',
-        blanks: 1
+        blanks: [
+          { index: 1, type: 'text', answer: '-30' }
+        ]
       },
       answer: '-30',
       explanation: '明确相反意义的量的表示规则，收入记为正数，支出与收入相反，记为负数；',
@@ -368,7 +382,10 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '在数轴上，原点左边的数是（ ），右边的数是（ ）',
-        blanks: 2
+        blanks: [
+          { index: 1, type: 'text', answer: '负数' },
+          { index: 2, type: 'text', answer: '正数' }
+        ]
       },
       answer: '负数、正数',
       explanation: '回忆数轴规律，“左负右正”，原点左边为负数，右边为正数；',
@@ -437,7 +454,9 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '北斗卫星在太空运行时，温度低至零下200摄氏度，记作（ ）℃',
-        blanks: 1
+        blanks: [
+          { index: 1, type: 'text', answer: '-200' }
+        ]
       },
       answer: '-200',
       explanation: '零下温度用负数表示，“零下”对应“-”，数字部分不变；',
@@ -451,7 +470,9 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       type: 'fill',
       structuredContent: {
         stem: '若北斗卫星海拔记作-10000米（以海平面为原点），表示（ ）',
-        blanks: 1
+        blanks: [
+          { index: 1, type: 'text', answer: '北斗卫星在海平面以下10000米处' }
+        ]
       },
       answer: '北斗卫星在海平面以下10000米处',
       explanation: '以海平面为原点，海平面以上记为正数，海平面以下记为负数，据此推导含义；',

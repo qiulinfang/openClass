@@ -104,6 +104,7 @@ import { authService, getUserId, getPassword, httpClient } from '../services'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
 import Dialog from '../components/base/Dialog.vue'
 import Select from '@/components/base/Select.vue'
+import { ZGC_JUMP_QUERY, SDSF_JUMP_QUERY, JK_JUMP_QUERY } from '@/constants/jump-configs'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { chatStorage } from '../services/storage/chat-storage'
 import type { AiGeneralSession } from '../types'
@@ -117,133 +118,6 @@ const router = useRouter()
 
 const virtualTextbookId = `${getUserId()}_35943sdfsf0640`
 const virtualTextbookIdSdsf = `${getUserId()}_35943sdsf0640`
-
-const IMAGE_JUMP_QUERY = {
-  id: virtualTextbookId,
-  textbookName: '平行四边形的面积',
-  sectionName: '平行四边形的面积',
-  resourceId: `${virtualTextbookId}_file`,
-  fileName: '教材.pdf',
-  packageId: `${virtualTextbookId}_package`,
-  packageName: '教材',
-  chapterGrade: '初一',
-  chapterSubject: '数学',
-  chapterTextbook: '探究型公开课',
-  chapterTitle: '平行四边形的面积',
-  fromLearning: 'true',
-  learningNodeId: '391051348794249216',
-  learningLevel: '1',
-}
-
-const IMAGE_JUMP_QUERY_SDSF = {
-  ...IMAGE_JUMP_QUERY,
-  id: virtualTextbookIdSdsf,
-  resourceId: `${virtualTextbookIdSdsf}_file`,
-  packageId: `${virtualTextbookIdSdsf}_package`,
-}
-
-const ensureVirtualTextbookForImage = async () => {
-  const id = IMAGE_JUMP_QUERY.id
-
-  if (!resourceManager.indexedDB.isInitialized) {
-    await resourceManager.indexedDB.init()
-  }
-
-  const skeleton = {
-    id,
-    textbookId: id,
-    textbookName: IMAGE_JUMP_QUERY.textbookName,
-    textbookSubjectLabel: IMAGE_JUMP_QUERY.chapterSubject,
-    textbookGradeLabel: IMAGE_JUMP_QUERY.chapterGrade,
-    textbookSemesterLabel: '',
-    textbookPublisher: '',
-    textbookEditionYear: '',
-    textbookIsbn: '',
-    textbookCover: '',
-    textbookUpdateTime: '',
-    totalFiles: 0,
-    downloadedFiles: 0,
-    isDownloaded: true,
-    downloadStatus: 2,
-    downloadPath: '',
-    lastDownloadTime: '',
-    hasUpdatesAvailable: false,
-    structure: [],
-    learningPackages: [
-      {
-        id: IMAGE_JUMP_QUERY.packageId,
-        packageId: IMAGE_JUMP_QUERY.packageId,
-        packageName: IMAGE_JUMP_QUERY.packageName,
-        resources: [],
-        chapters: [],
-      },
-    ],
-    localFiles: [],
-    updateStructure: () => {},
-    updatePackages: () => {},
-    getLocalResourceFileName: () => '',
-  }
-
-  await resourceManager.indexedDB.update('textbooks', skeleton)
-
-  const created = (await resourceManager.indexedDB.get('textbooks', id)) as any
-  if (!created) {
-    throw new Error(`虚拟教材写入失败: ${id}`)
-  }
-  return created
-}
-
-const prepareImageAndJumpToPdfViewer = async () => {
-  const textbook = await ensureVirtualTextbookForImage()
-
-  const img = new Image()
-  img.src = classIcon
-  
-  await new Promise((resolve, reject) => {
-    img.onload = resolve
-    img.onerror = reject
-  })
-
-  const canvas = document.createElement('canvas')
-  canvas.width = img.naturalWidth
-  canvas.height = img.naturalHeight
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('无法创建 Canvas 上下文')
-  ctx.drawImage(img, 0, 0)
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('Canvas 转 Blob 失败'))
-    }, 'image/png')
-  })
-
-  const buf = await blob.arrayBuffer()
-  const data = new Uint8Array(buf)
-
-  await resourceManager.storeFileData(
-    {
-      id: IMAGE_JUMP_QUERY.resourceId,
-      textbookId: IMAGE_JUMP_QUERY.id,
-      packageId: IMAGE_JUMP_QUERY.packageId,
-      fileName: 'class.png',
-      fileType: blob.type || 'image/png',
-      fileSize: data.length,
-    } as any,
-    data,
-    textbook,
-  )
-
-  await router.replace({
-    name: 'pdfViewer',
-    query: {
-      ...IMAGE_JUMP_QUERY,
-      isImage: 'true',
-      imageMimeType: blob.type || 'image/png',
-      imageFileName: 'class.png',
-    },
-  })
-}
 
 // 学校选择
 const selectedSchool = ref<'zgc' | 'jk' | 'sdsf'>((localStorage.getItem('selected_school') as 'zgc' | 'jk' | 'sdsf') || 'zgc')
@@ -553,13 +427,13 @@ const handleLogin = async () => {
     // 持久化保存选择的学校
     localStorage.setItem('selected_school', selectedSchool.value)
 
-    // 根据学校选择跳转到不同的 PDF 查看器
+    // 根据学校选择跳转到不同的页面
     if (selectedSchool.value === 'jk') {
       // 经开二中
       await router.replace({
         name: 'pdfViewerJk',
         query: {
-          ...IMAGE_JUMP_QUERY,
+          ...JK_JUMP_QUERY,
           isImage: 'true',
           imageMimeType: 'image/png',
           imageFileName: 'class.png',
@@ -570,7 +444,7 @@ const handleLogin = async () => {
       await router.replace({
         name: 'pdfViewerSdsf',
         query: {
-          ...IMAGE_JUMP_QUERY_SDSF,
+          ...SDSF_JUMP_QUERY,
           isImage: 'true',
           imageMimeType: 'image/png',
           imageFileName: 'class.png',
@@ -581,7 +455,7 @@ const handleLogin = async () => {
       await router.replace({
         name: 'pdfViewerZgc',
         query: {
-          ...IMAGE_JUMP_QUERY,
+          ...ZGC_JUMP_QUERY,
           isImage: 'true',
           imageMimeType: 'image/png',
           imageFileName: 'class.png',

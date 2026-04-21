@@ -1,14 +1,33 @@
 <template>
   <!-- 全屏对话面板 -->
   <div class="fullscreen-chat-container">
+    <!-- 流程0：课前预习环节 -->
+    <FullscreenOverlay
+      v-if="currentFlow === 0"
+      v-model="previewOverlayVisible"
+      title="课前预习"
+      :show-header="true"
+    >
+      <template #header-left>
+        <div style="width: 40px"></div>
+      </template>
+      <template #header-right>
+        <div style="width: 40px"></div>
+      </template>
+      <HomeworkPreviewKids
+        :external-questions="PREVIEW_HOMEWORK.questions"
+        @submit="handlePreviewSubmit"
+      />
+    </FullscreenOverlay>
+
     <!-- 流程1：选择题界面 -->
-    <div v-if="currentFlow === 1" class="flow-container flow-choice">
+    <div v-else-if="currentFlow === 1" class="flow-container flow-choice">
       <div class="choice-card">
         <h2 class="choice-title">请选择选项</h2>
         <div class="choice-options">
-          <button 
-            v-for="opt in [1, 2, 3]" 
-            :key="opt" 
+          <button
+            v-for="opt in [1, 2, 3]"
+            :key="opt"
             class="choice-btn"
             @click="handleChoiceSelect(opt)"
           >
@@ -19,46 +38,47 @@
     </div>
 
     <!-- 流程2 & 流程3：PDF 聊天面板内容 -->
-    <template v-if="true">
-      <PdfChatPanel 
-        ref="chatPanelRef" 
+    <template v-if="currentFlow === 2 || currentFlow === 3">
+      <PdfChatPanel
+        ref="chatPanelRef"
         :attached-screenshots="aiTextbookStore.attachedScreenshots"
         :model-options="AI_ROLE_OPTIONS_JK"
         :suggestions="[
           '探究1 0为什么既不是正数也不是负数?',
-          '探究2 负数 and 相反意义的量有什么区别?',
+          '探究2 负数和相反意义的量有什么区别?',
           '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
-          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?'
+          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?',
         ]"
         :suggested-questions="[
           '探究1 0为什么既不是正数也不是负数?',
-          '探究2 负数 and 相反意义的量有什么区别?',
+          '探究2 负数和相反意义的量有什么区别?',
           '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
-          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?'
+          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?',
         ]"
         @send-with-screenshot="handlePdfSendWithScreenshot"
         @remove-screenshot="handlePdfRemoveScreenshot"
         @edit-screenshot="handleEditScreenshot"
-        @select-and-ask-click="handleSelectAndAskFromChat" 
+        @select-and-ask-click="handleSelectAndAskFromChat"
       >
-      <template #header-actions>
-        <button
-          type="button"
-          class="join-class-button"
-          :class="{ 'in-class': isInClass }"
-          @click="toggleJoinClass"
-        >
-          加入课堂
-        </button>
-      </template>
-    </PdfChatPanel>
-    
-      <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" />
+        <template #header-actions>
+          <button
+            type="button"
+            class="join-class-button"
+            :class="{ 'in-class': isInClass }"
+            @click="toggleJoinClass"
+          >
+            加入课堂
+          </button>
+        </template>
+      </PdfChatPanel>
 
       <div
         v-if="miniClassFabReady"
         class="mini-class-fab"
-        :class="{ 'mini-class-fab--active': isPressingMiniClassFab, 'mini-class-fab--dragging': isDraggingMiniClassFab }"
+        :class="{
+          'mini-class-fab--active': isPressingMiniClassFab,
+          'mini-class-fab--dragging': isDraggingMiniClassFab,
+        }"
         :style="{
           transform: `translate(${miniClassFabPos.x}px, ${miniClassFabPos.y}px) scale(var(--fab-scale, 1))`,
         }"
@@ -73,16 +93,34 @@
       </div>
     </template>
 
-      <Dialog
-        ref="joinClassDialogRef"
-        :title="isInClass ? '确认退出课堂' : '课堂提示'"
-        :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
-        :cancelButtonText="'取消'"
-        @confirm="confirmJoinClass"
-        @cancel="handleJoinClassDialogCancel"
-      >
-        {{ isInClass ? '确认退出课堂？' : '确认加入课堂？' }}
-      </Dialog>
+    <!-- 全屏作业面板 -->
+    <FullscreenOverlay v-model="homeworkOverlayVisible" :title="homeworkStore.homeworkName">
+      <template #header-center>
+        <div class="stage-toggle" v-if="homeworkRef">
+          <button
+            v-for="(label, key) in homeworkRef.stageNameMap"
+            :key="key"
+            class="toggle-btn"
+            :class="{ active: homeworkCurrentStage === key }"
+            @click="switchHomeworkStage(String(key))"
+          >
+            {{ label }}
+          </button>
+          </div>
+        </template>
+      <HomeworkAnswerViewJK ref="homeworkRef" is-component />
+    </FullscreenOverlay>
+
+    <Dialog
+      ref="joinClassDialogRef"
+      :title="isInClass ? '确认退出课堂' : '课堂提示'"
+      :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
+      :cancelButtonText="'取消'"
+      @confirm="confirmJoinClass"
+      @cancel="handleJoinClassDialogCancel"
+    >
+      {{ isInClass ? '确认退出课堂？' : '确认加入课堂？' }}
+    </Dialog>
   </div>
 </template>
 
@@ -98,25 +136,28 @@ import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useHomeworkStore } from '@/stores/homeworkStore'
-import { useAiTextbookChatStore, type ScreenshotDrawingState, getMiniClassConfig } from '@/stores/aiTextbookChatStore'
+import {
+  useAiTextbookChatStore,
+  type ScreenshotDrawingState,
+  getMiniClassConfig,
+} from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { showMessage } from '@/utils'
 import type { AiTextbookSession, AttachedScreenshot } from '@/types'
-import {
-  addScreenshotSession,
-} from '@/utils/storage/screenshotSessions'
+import { addScreenshotSession } from '@/utils/storage/screenshotSessions'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
-import MiniClass from '@/components/MiniClass.vue'
 import CommonActionButton from '@/components/base/Button.vue'
 import Dialog from '@/components/base/Dialog.vue'
+import FullscreenOverlay from '@/components/base/FullscreenOverlay.vue'
+import HomeworkAnswerViewJK from './HomeworkAnswerViewJK.vue'
 import xiaogongjuIcon from '/icons/xiaogongju.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
 import { AndroidBridge } from '@/services/business/android-bridge'
+import HomeworkPreviewKids from './HomeworkPreviewJK.vue'
 import { PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
-
 
 // 使用 pdfViewerStore 和路由
 const pdfViewerStore = usePdfViewerStore()
@@ -125,11 +166,18 @@ const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
 // 流程控制
-const currentFlow = ref(2)
+const currentFlow = ref(0) // 0: 课前预习, 1: 选择题, 2: PDF 聊天
+const previewOverlayVisible = ref(true)
+
+const handlePreviewSubmit = (checklist: string[]) => {
+  console.log('[PdfViewerViewJK] 提交预习结果:', checklist)
+  previewOverlayVisible.value = false
+  currentFlow.value = 2 // 预习完成后进入 PDF 聊天流程
+}
 
 const handleChoiceSelect = (option: number) => {
   console.log('[PdfViewerViewJK] 选择了选项:', option)
-  
+
   // 根据选项填充对应的 Mock 题目
   if (option === 1) {
     // 活动一：课前预习
@@ -144,7 +192,7 @@ const handleChoiceSelect = (option: number) => {
     homeworkStore.questions = []
     homeworkStore.homeworkName = '负数的认识'
   }
-  
+
   currentFlow.value = 2 // 进入流程2
 }
 
@@ -155,16 +203,6 @@ const aiGeneralStore = useAiGeneralChatStore()
 
 const uiStore = useUIStore()
 const androidBridge = AndroidBridge.getInstance()
-const showMiniClassDialog = computed({
-  get: () => uiStore.showMiniClassDialog,
-  set: (value) => {
-    if (!value) {
-      uiStore.closeMiniClassDialog()
-    }
-  },
-})
-const miniClassUrl = computed(() => uiStore.miniClassUrl)
-const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
 const shouldShowMiniClassFab = computed(() => {
   const info = aiTextbookStore.chapterInfo
@@ -176,6 +214,19 @@ const miniClassFabPos = ref({ x: 0, y: 0 })
 const miniClassFabReady = ref(false)
 const isDraggingMiniClassFab = ref(false)
 const isPressingMiniClassFab = ref(false)
+
+// 全屏作业面板相关
+const homeworkOverlayVisible = ref(false)
+const homeworkRef = ref<any>(null)
+const homeworkCurrentStage = ref('classroom')
+
+const switchHomeworkStage = (stage: string) => {
+  if (homeworkRef.value) {
+    homeworkRef.value.switchStage(stage)
+    homeworkCurrentStage.value = stage
+  }
+}
+
 const miniClassFabPointerId = ref<number | null>(null)
 const miniClassFabStart = ref({
   pointerX: 0,
@@ -212,8 +263,7 @@ const checkClassroomStatus = () => {
   try {
     const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
     isInClass.value = !!status?.isInClass
-  } catch {
-  }
+  } catch {}
 }
 
 const toggleJoinClass = () => {
@@ -283,8 +333,7 @@ const onMiniClassFabPointerUp = (e: PointerEvent) => {
     window.removeEventListener('pointermove', onMiniClassFabPointerMove)
     window.removeEventListener('pointerup', onMiniClassFabPointerUp)
     window.removeEventListener('pointercancel', onMiniClassFabPointerUp)
-  } catch {
-  }
+  } catch {}
 
   miniClassFabPointerId.value = null
   isDraggingMiniClassFab.value = false
@@ -302,8 +351,7 @@ const onMiniClassFabPointerDown = (e: PointerEvent) => {
 
   try {
     ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
-  } catch {
-  }
+  } catch {}
 
   const container =
     (document.querySelector('.fullscreen-chat-container') as HTMLElement | null) ||
@@ -335,23 +383,20 @@ const onMiniClassFabPointerDown = (e: PointerEvent) => {
     window.addEventListener('pointermove', onMiniClassFabPointerMove)
     window.addEventListener('pointerup', onMiniClassFabPointerUp)
     window.addEventListener('pointercancel', onMiniClassFabPointerUp)
-  } catch {
-  }
+  } catch {}
 }
 
 const onMiniClassFabClick = () => {
   if (Date.now() - lastMiniClassFabDragEndAt.value < 200) {
     return
   }
-  // 流程3：修改小工具逻辑，跳转到作业回答页面 (JK版)
-  console.log('[PdfViewerViewJK] 点击小工具，跳转到 HomeworkAnswerViewJK 页面')
-  // 进入作业页面前，默认设置为“课前预习”阶段
+  // 流程3：打开全屏作业面板
+  console.log('[PdfViewerViewJK] 打开全屏作业面板')
   homeworkStore.questions = PREVIEW_HOMEWORK.questions
   homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
-  router.push({ 
-    name: 'homeworkAnswerJk',
-    query: { stage: 'preview' } 
-  }) 
+  homeworkOverlayVisible.value = true
+  // 初始状态
+  homeworkCurrentStage.value = 'classroom'
 }
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表
@@ -361,7 +406,6 @@ const chatPanelRef = ref<InstanceType<typeof PdfChatPanel> | null>(null)
 const handleSelectAndAskFromChat = () => {
   showMessage('当前页面不支持框选截图，请使用对话输入直接提问', 'info')
 }
-
 
 // 编辑已挂载截图（从 ChatInput 缩略图点击进入 / 或截图捕获后自动打开）
 const editScreenshotDialogVisible = ref(false)
@@ -403,7 +447,11 @@ const handleScreenshotCaptured = async (blob: Blob) => {
     aiTextbookStore.appendAttachedScreenshots([shot])
     aiTextbookStore.setScreenshotDrawingStates({
       ...aiTextbookStore.screenshotDrawingStates,
-      [shotId]: aiTextbookStore.screenshotDrawingStates[shotId] || { objects: [], history: [], historyIndex: -1 },
+      [shotId]: aiTextbookStore.screenshotDrawingStates[shotId] || {
+        objects: [],
+        history: [],
+        historyIndex: -1,
+      },
     } as any)
 
     lastCapturedShotId.value = shotId
@@ -425,7 +473,7 @@ const handleEditScreenshot = (shotId: string) => {
 
 const handleEditScreenshotConfirm = (
   shots: AttachedScreenshot[],
-  states: Record<string, ScreenshotDrawingState>,
+  states: Record<string, ScreenshotDrawingState>
 ) => {
   if (!shots || shots.length === 0) return
 
@@ -475,7 +523,11 @@ const handleEditScreenshotCancel = () => {
 }
 
 // 从 ChatInput 发送携带截图的消息：复用原 handleScreenshotConfirm 的逻辑
-const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreenshot[], selectedModel?: string) => {
+const handlePdfSendWithScreenshot = async (
+  text: string,
+  shots: AttachedScreenshot[],
+  selectedModel?: string
+) => {
   if (!shots || !shots.length) {
     return
   }
@@ -536,7 +588,7 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
       false,
       false,
       undefined,
-      imageList,
+      imageList
     )
 
     // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
@@ -584,13 +636,12 @@ const handlePdfRemoveScreenshot = (id: string) => {
   }
 }
 
-
 // 生命周期
 onMounted(async () => {
   try {
     // 设置学校类型为经开（使用经开引导语）
     aiTextbookStore.setSchoolType('jk')
-    
+
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
 
@@ -607,7 +658,8 @@ onMounted(async () => {
 
     // 无 PdfPage：只基于路由参数初始化会话上下文
     const currentResourceId = (route.query.resourceId as string) || ''
-    const currentSectionName = (route.query.sectionName as string) || (route.query.textbookName as string) || null
+    const currentSectionName =
+      (route.query.sectionName as string) || (route.query.textbookName as string) || null
     aiTextbookStore.setSectionName(currentSectionName)
 
     const chapterInfo = {
@@ -619,22 +671,27 @@ onMounted(async () => {
     aiTextbookStore.setChapterInfo(
       chapterInfo.grade || chapterInfo.subject || chapterInfo.textbook || chapterInfo.chapter_title
         ? chapterInfo
-        : null,
+        : null
     )
 
     if (currentResourceId) {
       aiTextbookStore.setResourceId(currentResourceId)
       await aiTextbookStore.loadChatHistory(currentResourceId)
     }
+
+    // 如果从其他页面跳转过来要求跳过预习，直接进入聊天流程
+    if (route.query.skipPreview === 'true') {
+      currentFlow.value = 2
+    }
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
 
   await nextTick()
-  
+
   // 初始进入时打开聊天面板
   pdfViewerStore.openChatPanel()
-  
+
   if (miniClassFabPos.value.x === 0 && miniClassFabPos.value.y === 0) {
     const container =
       (document.querySelector('.fullscreen-chat-container') as HTMLElement | null) ||
@@ -643,7 +700,7 @@ onMounted(async () => {
       const rect = container.getBoundingClientRect()
       const btnSize = 56
       miniClassFabPos.value = {
-        x: clamp(16, 8, rect.width - btnSize - 8),
+        x: clamp(rect.width - btnSize * 3, 8, rect.width - btnSize * 3),
         y: clamp(Math.round(rect.height * 0.5 - btnSize), 8, rect.height - btnSize - 8),
       }
     }
@@ -778,7 +835,7 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   width: 30%;
   height: 3px;
-  background: #6E55FF; /* 亮紫色下划线 */
+  background: #6e55ff; /* 亮紫色下划线 */
   border-radius: 2px;
 }
 
@@ -816,7 +873,7 @@ onBeforeUnmount(() => {
 .pdf-viewer-container {
   width: 100%;
   position: relative;
-  background-color: #0A0020;
+  background-color: #0a0020;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -865,34 +922,25 @@ onBeforeUnmount(() => {
 }
 
 .join-class-button.in-class {
-  box-shadow:
-    0 0 0 2px rgba(252, 253, 82, 0.65),
-    0 0 16px rgba(252, 253, 82, 0.75),
+  box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.65), 0 0 16px rgba(252, 253, 82, 0.75),
     0 0 28px rgba(252, 253, 82, 0.4);
   animation: join-class-glow 1.8s ease-in-out infinite;
 }
 
 @keyframes join-class-glow {
   0% {
-    box-shadow:
-      0 0 0 2px rgba(252, 253, 82, 0.6),
-      0 0 12px rgba(252, 253, 82, 0.55),
+    box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6), 0 0 12px rgba(252, 253, 82, 0.55),
       0 0 22px rgba(252, 253, 82, 0.28);
   }
   50% {
-    box-shadow:
-      0 0 0 3px rgba(252, 253, 82, 0.75),
-      0 0 20px rgba(252, 253, 82, 0.85),
+    box-shadow: 0 0 0 3px rgba(252, 253, 82, 0.75), 0 0 20px rgba(252, 253, 82, 0.85),
       0 0 36px rgba(252, 253, 82, 0.45);
   }
   100% {
-    box-shadow:
-      0 0 0 2px rgba(252, 253, 82, 0.6),
-      0 0 12px rgba(252, 253, 82, 0.55),
+    box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6), 0 0 12px rgba(252, 253, 82, 0.55),
       0 0 22px rgba(252, 253, 82, 0.28);
   }
 }
-
 
 @keyframes breathe {
   0% {
@@ -1056,6 +1104,43 @@ onBeforeUnmount(() => {
   transform: scale(0.95);
 }
 
+/* 作业面板切换按钮样式 (简约风格) */
+.stage-toggle {
+  display: flex;
+  gap: 32px;
+}
+
+.stage-toggle .toggle-btn {
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  position: relative;
+}
+
+.stage-toggle .toggle-btn.active {
+  color: white;
+  font-weight: 600;
+}
+
+.stage-toggle .toggle-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #8b80ff;
+  border-radius: 2px;
+}
+
+.stage-toggle .toggle-btn:hover:not(.active) {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 /* 微课浮层按钮 */
 .mini-class-fab {
   position: fixed;
@@ -1167,7 +1252,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   max-width: 300px;
 }
-
 
 /* 当聊天面板隐藏时，让before插槽占据整个宽度 */
 .full-width-before :deep(.q-splitter__before) {

@@ -23,7 +23,7 @@ export interface ExerciseItem {
   structuredContent?: {
     stem: string
     options?: Array<{ label: string, text: string }>
-    blanks?: number
+    blanks?: number | Array<{ index: number, type: string, answer: string }>
     judgmentResult?: boolean
   }
 

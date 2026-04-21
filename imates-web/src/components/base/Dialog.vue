@@ -1,56 +1,63 @@
 <template>
-  <dialog ref="myDialog" id="myDialog">
-    <div class="dialog-inner-content">
-      <div class="dialog-header">
-        <span class="dialog-title">
-          {{ title }}
-        </span>
-        <button @click="closeDialog" class="dialog-close-top" aria-label="关闭">
-          <svg
-            class="icon-close"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+  <Teleport to="body">
+    <dialog ref="myDialog" id="myDialog">
+      <div class="dialog-inner-content">
+        <div class="dialog-header">
+          <span class="dialog-title">
+            {{ title }}
+          </span>
+          <button @click="closeDialog" class="dialog-close-top" aria-label="关闭">
+            <svg
+              class="icon-close"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
 
-      <p class="dialog-content-text">
-        <slot> </slot>
-      </p>
+        <p class="dialog-content-text">
+          <slot> </slot>
+        </p>
 
-      <div class="dialog-actions">
-        <CommonActionButton
-          :label="cancelButtonText"
-          size="mdCompact"
-          variant="ghost"
-          @click="emit('cancel')"
-        />
-        <CommonActionButton
-          :label="confirmButtonText"
-          size="mdCompact"
-          variant="primary"
-          @click="emit('confirm')"
-        />
+        <div class="dialog-actions">
+          <CommonActionButton
+            v-if="showCancelButton"
+            :label="cancelButtonText"
+            size="mdCompact"
+            variant="ghost"
+            @click="emit('cancel')"
+          />
+          <CommonActionButton
+            :label="confirmButtonText"
+            size="mdCompact"
+            variant="primary"
+            @click="emit('confirm')"
+          />
+        </div>
       </div>
-    </div>
-  </dialog>
+    </dialog>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, defineExpose } from 'vue'
+import { ref, defineProps, defineEmits, defineExpose, watch } from 'vue'
 import CommonActionButton from './Button.vue'
 
 // 定义组件属性
 const props = defineProps({
+  modelValue: {
+    type: Boolean,
+    default: false,
+  },
   title: {
     type: String,
     default: '操作确认',
@@ -63,10 +70,14 @@ const props = defineProps({
     type: String,
     default: '取消',
   },
+  showCancelButton: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 定义组件事件
-const emit = defineEmits(['confirm', 'cancel'])
+const emit = defineEmits(['update:modelValue', 'confirm', 'cancel'])
 
 // 引用 <dialog> 元素
 const myDialog = ref(null)
@@ -86,8 +97,18 @@ const openDialog = () => {
 const closeDialog = () => {
   if (myDialog.value) {
     myDialog.value.close()
+    emit('update:modelValue', false)
   }
 }
+
+// 监听 modelValue 变化
+watch(() => props.modelValue, (newVal) => {
+  if (newVal) {
+    openDialog()
+  } else {
+    closeDialog()
+  }
+}, { immediate: true })
 
 // 暴露打开和关闭方法，以便父组件可以控制对话框
 defineExpose({
@@ -110,6 +131,7 @@ defineExpose({
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   background-color: white;
   animation: fadeIn 0.3s ease-out;
+  z-index: 21000;
 }
 
 /* 样式化 backdrop */
@@ -117,6 +139,7 @@ defineExpose({
   /* 黑色半透明遮罩层，不进行模糊处理 */
   background-color: rgba(0, 0, 0, 0.6);
   animation: backdropFadeIn 0.3s ease-out;
+  z-index: 20999;
 }
 
 /* Keyframes */
