@@ -5,7 +5,7 @@
       <div class="fullscreen-header-slot" v-if="$slots.header">
         <slot name="header"></slot>
       </div>
-      <button class="fullscreen-close-btn" @click="localVisible = false">
+      <button v-if="props.showCloseButton" class="fullscreen-close-btn" @click="localVisible = false">
         <q-icon name="close" size="24px" />
       </button>
     </div>
@@ -94,13 +94,15 @@ interface Props {
   classUrl?: string
   questionTitle?: string
   fullscreen?: boolean
+  showCloseButton?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   classUrl: '',
   questionTitle: '',
   modelValue: false,
-  fullscreen: false
+  fullscreen: false,
+  showCloseButton: true
 })
 
 const emit = defineEmits<{

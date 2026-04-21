@@ -1,14 +1,14 @@
 <template>
   <!-- 全屏对话面板 -->
   <div class="fullscreen-chat-container">
-    <PdfChatPanel 
-      ref="chatPanelRef" 
+    <PdfChatPanel
+      ref="chatPanelRef"
       :attached-screenshots="aiTextbookStore.attachedScreenshots"
       :model-options="AI_ROLE_OPTIONS_JK"
       @send-with-screenshot="handlePdfSendWithScreenshot"
       @remove-screenshot="handlePdfRemoveScreenshot"
       @edit-screenshot="handleEditScreenshot"
-      @select-and-ask-click="handleSelectAndAskFromChat" 
+      @select-and-ask-click="handleSelectAndAskFromChat"
     >
       <template #header-actions>
         <button
@@ -21,18 +21,24 @@
         </button>
       </template>
     </PdfChatPanel>
-    
-      <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" fullscreen>
+
+    <MiniClass
+      v-model="showMiniClassDialog"
+      :class-url="miniClassUrl"
+      question-title=" "
+      fullscreen
+      :show-close-button="false"
+    >
       <template #header>
         <div class="sdsf-miniclass-tabs">
-          <button 
+          <button
             class="sdsf-tab-btn"
             :class="{ active: activeMiniClassTab === 'swallow' }"
             @click="switchMiniClass('swallow')"
           >
             燕子互动
           </button>
-          <button 
+          <button
             class="sdsf-tab-btn"
             :class="{ active: activeMiniClassTab === 'basketball' }"
             @click="switchMiniClass('basketball')"
@@ -43,33 +49,33 @@
       </template>
     </MiniClass>
 
-      <div
-        v-if="shouldShowMiniClassFab && miniClassFabReady"
-        class="mini-class-fab"
-        :class="{ 'mini-class-fab--active': isPressingMiniClassFab, 'mini-class-fab--dragging': isDraggingMiniClassFab }"
-        :style="{
-          transform: `translate(${miniClassFabPos.x}px, ${miniClassFabPos.y}px) scale(var(--fab-scale, 1))`,
-        }"
-        @pointerdown="onMiniClassFabPointerDown"
-      >
-        <CommonActionButton
-          label="微课"
-          size="md"
-          :icon="xiaogongjuIcon"
-          @click="onMiniClassFabClick"
-        />
-      </div>
+    <!-- <div
+      v-if="shouldShowMiniClassFab && miniClassFabReady"
+      class="mini-class-fab"
+      :class="{ 'mini-class-fab--active': isPressingMiniClassFab, 'mini-class-fab--dragging': isDraggingMiniClassFab }"
+      :style="{
+        transform: `translate(${miniClassFabPos.x}px, ${miniClassFabPos.y}px) scale(var(--fab-scale, 1))`,
+      }"
+      @pointerdown="onMiniClassFabPointerDown"
+    >
+      <CommonActionButton
+        label="微课"
+        size="md"
+        :icon="xiaogongjuIcon"
+        @click="onMiniClassFabClick"
+      />
+    </div> -->
 
-      <Dialog
-        ref="joinClassDialogRef"
-        :title="isInClass ? '确认退出课堂' : '课堂提示'"
-        :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
-        :cancelButtonText="'取消'"
-        @confirm="confirmJoinClass"
-        @cancel="handleJoinClassDialogCancel"
-      >
-        {{ isInClass ? '确认退出课堂？' : '确认加入课堂？' }}
-      </Dialog>
+    <Dialog
+      ref="joinClassDialogRef"
+      :title="isInClass ? '确认退出课堂' : '课堂提示'"
+      :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
+      :cancelButtonText="'取消'"
+      @confirm="confirmJoinClass"
+      @cancel="handleJoinClassDialogCancel"
+    >
+      {{ isInClass ? '确认退出课堂？' : '确认加入课堂？' }}
+    </Dialog>
   </div>
 </template>
 
@@ -83,13 +89,15 @@ export default {
 import { onMounted, onBeforeUnmount, computed, ref, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
-import { useAiTextbookChatStore, type ScreenshotDrawingState, getMiniClassConfig } from '@/stores/aiTextbookChatStore'
+import {
+  useAiTextbookChatStore,
+  type ScreenshotDrawingState,
+  getMiniClassConfig,
+} from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { showMessage } from '@/utils'
 import type { AiTextbookSession, AttachedScreenshot } from '@/types'
-import {
-  addScreenshotSession,
-} from '@/utils/storage/screenshotSessions'
+import { addScreenshotSession } from '@/utils/storage/screenshotSessions'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import CommonActionButton from '@/components/base/Button.vue'
@@ -100,7 +108,6 @@ import { getUserId } from '@/services/http/auth-service'
 import { AndroidBridge } from '@/services/business/android-bridge'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
-
 
 // 使用 pdfViewerStore 和路由
 const pdfViewerStore = usePdfViewerStore()
@@ -147,7 +154,7 @@ const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 const shouldShowMiniClassFab = computed(() => {
   // 首都师范页面始终显示微课
   if (aiTextbookStore.schoolType === 'sdsf') return true
-  
+
   const info = aiTextbookStore.chapterInfo
   if (!info) return false
   return !!getMiniClassConfig(info)
@@ -193,8 +200,7 @@ const checkClassroomStatus = () => {
   try {
     const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
     isInClass.value = !!status?.isInClass
-  } catch {
-  }
+  } catch {}
 }
 
 const toggleJoinClass = () => {
@@ -264,8 +270,7 @@ const onMiniClassFabPointerUp = (e: PointerEvent) => {
     window.removeEventListener('pointermove', onMiniClassFabPointerMove)
     window.removeEventListener('pointerup', onMiniClassFabPointerUp)
     window.removeEventListener('pointercancel', onMiniClassFabPointerUp)
-  } catch {
-  }
+  } catch {}
 
   miniClassFabPointerId.value = null
   isDraggingMiniClassFab.value = false
@@ -283,8 +288,7 @@ const onMiniClassFabPointerDown = (e: PointerEvent) => {
 
   try {
     ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
-  } catch {
-  }
+  } catch {}
 
   const container =
     (document.querySelector('.fullscreen-chat-container') as HTMLElement | null) ||
@@ -316,8 +320,7 @@ const onMiniClassFabPointerDown = (e: PointerEvent) => {
     window.addEventListener('pointermove', onMiniClassFabPointerMove)
     window.addEventListener('pointerup', onMiniClassFabPointerUp)
     window.addEventListener('pointercancel', onMiniClassFabPointerUp)
-  } catch {
-  }
+  } catch {}
 }
 
 const onMiniClassFabClick = () => {
@@ -341,9 +344,12 @@ const handleSelectAndAskFromChat = () => {
   showMessage('当前页面不支持框选截图，请使用对话输入直接提问', 'info')
 }
 
-
 // 处理截图内容发送逻辑
-const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreenshot[], selectedModel?: string) => {
+const handlePdfSendWithScreenshot = async (
+  text: string,
+  shots: AttachedScreenshot[],
+  selectedModel?: string
+) => {
   if (!shots || !shots.length) return
 
   aiTextbookStore.clearAttachedScreenshots()
@@ -393,7 +399,7 @@ const handlePdfSendWithScreenshot = async (text: string, shots: AttachedScreensh
       false,
       false,
       undefined,
-      imageList,
+      imageList
     )
 
     const newSession: AiTextbookSession = {
@@ -432,18 +438,23 @@ onMounted(async () => {
   try {
     // 设置学校类型为首都师范
     aiTextbookStore.setSchoolType('sdsf')
-    
+
     await aiGeneralStore.loadSessions()
 
     checkClassroomStatus()
-    androidBridge.onClassroomJoined(() => { isInClass.value = true })
-    androidBridge.onClassroomExited(() => { isInClass.value = false })
+    androidBridge.onClassroomJoined(() => {
+      isInClass.value = true
+    })
+    androidBridge.onClassroomExited(() => {
+      isInClass.value = false
+    })
     androidBridge.onClassroomStatusChanged((status: BridgeClassroomStatus) => {
       isInClass.value = !!status?.isInClass
     })
 
     const currentResourceId = (route.query.resourceId as string) || ''
-    const currentSectionName = (route.query.sectionName as string) || (route.query.textbookName as string) || null
+    const currentSectionName =
+      (route.query.sectionName as string) || (route.query.textbookName as string) || null
     aiTextbookStore.setSectionName(currentSectionName)
 
     const chapterInfo = {
@@ -455,7 +466,7 @@ onMounted(async () => {
     aiTextbookStore.setChapterInfo(
       chapterInfo.grade || chapterInfo.subject || chapterInfo.textbook || chapterInfo.chapter_title
         ? chapterInfo
-        : null,
+        : null
     )
 
     if (currentResourceId) {
@@ -473,15 +484,20 @@ onMounted(async () => {
 
     // 初始化微课 URL
     switchMiniClass('swallow')
+
+    // 如果从登录页携带了 openMiniClass 参数，则自动打开微课
+    if (route.query.openMiniClass === 'true') {
+      onMiniClassFabClick()
+    }
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
 
   await nextTick()
   pdfViewerStore.openChatPanel()
-  
+
   if (miniClassFabPos.value.x === 0 && miniClassFabPos.value.y === 0) {
-    const container = (document.querySelector('.fullscreen-chat-container') as HTMLElement | null)
+    const container = document.querySelector('.fullscreen-chat-container') as HTMLElement | null
     if (container) {
       const rect = container.getBoundingClientRect()
       const btnSize = 56
@@ -540,17 +556,21 @@ onBeforeUnmount(() => {
 }
 
 .join-class-button.in-class {
-  box-shadow:
-    0 0 0 2px rgba(252, 253, 82, 0.65),
-    0 0 16px rgba(252, 253, 82, 0.75),
+  box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.65), 0 0 16px rgba(252, 253, 82, 0.75),
     0 0 28px rgba(252, 253, 82, 0.4);
   animation: join-class-glow 1.8s ease-in-out infinite;
 }
 
 @keyframes join-class-glow {
-  0% { box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6); }
-  50% { box-shadow: 0 0 0 3px rgba(252, 253, 82, 0.75); }
-  100% { box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6); }
+  0% {
+    box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(252, 253, 82, 0.75);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(252, 253, 82, 0.6);
+  }
 }
 
 /* 极简微课切换按钮 */
