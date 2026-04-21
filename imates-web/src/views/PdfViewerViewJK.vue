@@ -24,6 +24,18 @@
         ref="chatPanelRef" 
         :attached-screenshots="aiTextbookStore.attachedScreenshots"
         :model-options="AI_ROLE_OPTIONS_JK"
+        :suggestions="[
+          '探究1 0为什么既不是正数也不是负数?',
+          '探究2 负数 and 相反意义的量有什么区别?',
+          '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
+          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?'
+        ]"
+        :suggested-questions="[
+          '探究1 0为什么既不是正数也不是负数?',
+          '探究2 负数 and 相反意义的量有什么区别?',
+          '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
+          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?'
+        ]"
         @send-with-screenshot="handlePdfSendWithScreenshot"
         @remove-screenshot="handlePdfRemoveScreenshot"
         @edit-screenshot="handleEditScreenshot"
@@ -54,7 +66,7 @@
       >
         <CommonActionButton
           label="作业"
-          size="md"
+          size="lg"
           :icon="xiaogongjuIcon"
           @click="onMiniClassFabClick"
         />
@@ -674,7 +686,7 @@ onBeforeUnmount(() => {
 }
 
 .mini-class-fab--dragging {
-  transition: none;
+  transition: none !important;
 }
 
 :deep(.q-splitter),
@@ -1052,7 +1064,6 @@ onBeforeUnmount(() => {
   z-index: 1000;
   user-select: none;
   will-change: transform;
-  transition: transform 0.12s ease;
   touch-action: none;
   cursor: grab;
 }

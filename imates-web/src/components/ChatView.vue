@@ -10,77 +10,19 @@
         :load-top-threshold="100"
         @load-top="handleLoadTop"
       >
-        <!-- 空状态：推荐问题列表（仅 AI 题目场景显示；历史加载完成后才显示，避免切题闪烁） -->
-        <div
+        <!-- 空状态：推荐问题列表（支持多场景配置，历史加载完成后才显示） -->
+        <SuggestedQuestions
           v-if="
             displayedMessages.length === 0 &&
             !aiExerciseStore.isChatLoading &&
-            type === 'ai-exercise'
+            shouldShowInitialSuggestions
           "
-          :class="[
-            'empty-chat-state',
-            props.size === 'small' ? 'empty-chat-state--small' : 'empty-chat-state--large',
-          ]"
-        >
-          <div class="suggestion-header">猜你想问：</div>
-          <div class="suggestion-list">
-            <div v-for="(suggestion, idx) in suggestedQuestions" :key="idx" class="suggestion-item">
-              <!-- 编辑模式：显示输入框 -->
-              <template v-if="editingSuggestionIndex === idx">
-                <input
-                  ref="suggestionInputRef"
-                  v-model="editingSuggestionText"
-                  class="suggestion-input"
-                  placeholder="输入你的常用问题"
-                  @keyup.enter="saveSuggestionEdit(idx)"
-                  @keyup.esc="cancelSuggestionEdit"
-                  @blur="saveSuggestionEdit(idx)"
-                />
-              </template>
-              <!-- 显示模式 -->
-              <template v-else>
-                <!-- 常用问题 -->
-                <span class="suggestion-text" @click="handleSuggestionClick(suggestion)">{{
-                  suggestion
-                }}</span>
-                <!-- 操作按钮 -->
-                <div class="suggestion-actions">
-                  <!-- 编辑按钮 -->
-                  <button
-                    class="suggestion-edit-btn"
-                    @click.stop="startEditSuggestion(idx)"
-                    title="编辑"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                  <!-- 箭头 -->
-                  <svg
-                    class="suggestion-arrow"
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    @click="handleSuggestionClick(suggestion)"
-                  >
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
+          :questions="suggestedQuestions"
+          :size="props.size === 'small' ? 'small' : 'large'"
+          :editable="canEditSuggestedQuestions"
+          @select="handleSuggestionClick"
+          @update="handleUpdateSuggestion"
+        />
 
         <!-- 顶部加载指示器（教师聊天分页加载） -->
         <div v-if="type === 'teacher' && teacherStore.pagination.isLoadingMore"
@@ -127,6 +69,16 @@
             @paste-to-draft="handlePasteToDraft"
           />
         </div>
+
+        <!-- 消息回答后的引导回答建议 - 统一使用 SuggestedQuestions 样式 -->
+        <SuggestedQuestions
+          v-if="!isLoading && props.suggestions && props.suggestions.length > 0 && displayedMessages.length > 0"
+          class="chat-suggestions-after-answer-component"
+          :questions="props.suggestions"
+          title="你可能还想了解"
+          :size="props.size === 'small' ? 'small' : 'large'"
+          @select="handleSuggestionClick"
+        />
       </RubberBandList>
       <!-- 新消息提示按钮 - 当用户不在底部时显示（原生实现） -->
       <button
@@ -409,6 +361,7 @@ import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 import CardStack from './base/CardStack.vue'
 import RubberBandList from './base/VirtualList.vue'
+import SuggestedQuestions from './chat/SuggestedQuestions.vue'
 import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
 import Dialog from './base/Dialog.vue'
 import Checkbox from './base/Checkbox.vue'
@@ -451,6 +404,8 @@ const props = withDefaults(
     showReadStatus?: boolean // 是否显示消息已读状态
     showTime?: boolean // 是否显示消息时间
     modelOptions?: SelectOption[] // AI 角色选项配置
+    suggestions?: string[] // 新增：引导问题建议列表
+    suggestedQuestions?: string[] // 新增：外部传入的默认推荐问题列表（猜你想问）
   }>(),
   {
     inputMode: 'full',
@@ -461,6 +416,8 @@ const props = withDefaults(
     enableLongPress: true, // 默认启用长按功能
     showReadStatus: false, // 默认不显示已读状态
     showTime: false, // 默认不显示消息时间
+    suggestions: () => [], // 默认空数组
+    suggestedQuestions: undefined, // 默认 undefined，以便区分是否传入
   }
 )
 
@@ -1089,21 +1046,58 @@ const DEFAULT_SUGGESTIONS = [
 // 本地存储 key
 const SUGGESTIONS_STORAGE_KEY = 'ai_exercise_suggested_questions'
 
-// 推荐问题列表
-const suggestedQuestions = ref<string[]>([...DEFAULT_SUGGESTIONS])
+// 推荐问题（猜你想问）
+const localSuggestedQuestions = ref<string[]>([...DEFAULT_SUGGESTIONS])
 
-// 编辑状态
+// 控制是否显示初始推荐列表
+const shouldShowInitialSuggestions = computed(() => {
+  // 目前仅支持 AI 题目和 AI 教材场景
+  const supportedTypes: string[] = ['ai-exercise', 'ai-textbook']
+  return supportedTypes.includes(props.type)
+})
+
+// 最终使用的推荐问题列表：
+// 1. 优先使用外部 prop
+// 2. 如果是 ai-exercise 场景且没传 prop，则回退到本地存储的 localSuggestedQuestions
+// 3. 其他场景如果没有 prop 则返回空
+const suggestedQuestions = computed(() => {
+  if (props.suggestedQuestions) return props.suggestedQuestions
+  
+  // ai-exercise 场景特殊支持本地存储/编辑
+  if (props.type === 'ai-exercise') {
+    return localSuggestedQuestions.value
+  }
+  
+  return []
+})
+
+// 是否允许编辑推荐问题
+const canEditSuggestedQuestions = computed(() => {
+  // 只有 ai-exercise 场景且没有外部传参时才允许本地编辑
+  return props.type === 'ai-exercise' && !props.suggestedQuestions
+})
+
+// 处理推荐问题更新
+const handleUpdateSuggestion = (index: number, text: string) => {
+  if (!canEditSuggestedQuestions.value) return
+  
+  localSuggestedQuestions.value[index] = text
+  saveSuggestedQuestions()
+}
+
 const editingSuggestionIndex = ref<number | null>(null)
 const editingSuggestionText = ref('')
 
-// 从本地存储加载推荐问题
+// 从本地存储加载推荐问题 (仅对 ai-exercise 生效)
 const loadSuggestedQuestions = () => {
+  if (props.type !== 'ai-exercise') return
+  
   try {
     const saved = localStorage.getItem(SUGGESTIONS_STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed) && parsed.length === 5) {
-        suggestedQuestions.value = parsed
+        localSuggestedQuestions.value = parsed
       }
     }
   } catch (e) {
@@ -1111,10 +1105,12 @@ const loadSuggestedQuestions = () => {
   }
 }
 
-// 保存推荐问题到本地存储
+// 保存推荐问题到本地存储 (仅对 ai-exercise 生效)
 const saveSuggestedQuestions = () => {
+  if (props.type !== 'ai-exercise') return
+  
   try {
-    localStorage.setItem(SUGGESTIONS_STORAGE_KEY, JSON.stringify(suggestedQuestions.value))
+    localStorage.setItem(SUGGESTIONS_STORAGE_KEY, JSON.stringify(localSuggestedQuestions.value))
   } catch (e) {
     console.error('[ChatView] 保存推荐问题失败:', e)
   }
@@ -1122,8 +1118,11 @@ const saveSuggestedQuestions = () => {
 
 // 开始编辑推荐问题
 const startEditSuggestion = (index: number) => {
+  // 只有 ai-exercise 场景且没有外部传参时才允许本地编辑
+  if (props.type !== 'ai-exercise' || props.suggestedQuestions) return
+
   editingSuggestionIndex.value = index
-  editingSuggestionText.value = suggestedQuestions.value[index]
+  editingSuggestionText.value = localSuggestedQuestions.value[index]
   // 下一帧聚焦输入框
   nextTick(() => {
     const input = document.querySelector('.suggestion-input') as HTMLInputElement
@@ -1138,7 +1137,7 @@ const saveSuggestionEdit = (index: number) => {
 
   const newText = editingSuggestionText.value.trim()
   if (newText) {
-    suggestedQuestions.value[index] = newText
+    localSuggestedQuestions.value[index] = newText
     saveSuggestedQuestions()
   }
   editingSuggestionIndex.value = null
@@ -1166,7 +1165,7 @@ const handleSuggestionClick = (suggestion: string) => {
   }
 
   // 直接发送该问题
-  emit('send-message', suggestion)
+  sendMessage(undefined, suggestion)
 }
 
 // 组件挂载时加载保存的推荐问题
@@ -1579,15 +1578,18 @@ const sendSimpleMessage = async (message: string) => {
 }
 
 // 作用：发送用户消息（策略模式）
-const sendMessage = async (attachedFile?: File) => {
-  const hasText = !!inputMessage.value.trim()
+const sendMessage = async (attachedFile?: File, customContent?: string) => {
+  // 1. 获取消息内容：优先使用传入的自定义内容，否则从 inputMessage 获
+  const content = customContent || inputMessage.value
+  
+  const hasText = !!content.trim()
   const hasFile = !!attachedFile
   const hasImageForAiGeneral =
     props.type === 'ai-general' && localAttachedScreenshots.value.length > 0
 
   if ((!hasText && !hasFile && !hasImageForAiGeneral) || isLoading.value) {
     console.error('[ChatView] ❌ 发送消息失败:', {
-      inputMessage: inputMessage.value,
+      content: content,
       attachedFile: attachedFile,
       hasImageForAiGeneral,
       isLoading: isLoading.value,
@@ -1597,7 +1599,7 @@ const sendMessage = async (attachedFile?: File) => {
 
   // 检查是否在编辑模式
   if (isEditingMessage.value && editingMessageId.value) {
-    await updateEditedMessage(inputMessage.value)
+    await updateEditedMessage(content)
     return
   }
 
@@ -1606,7 +1608,7 @@ const sendMessage = async (attachedFile?: File) => {
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
     const userMessage: ChatBubble = {
       id: Date.now().toString(),
-      content: inputMessage.value || (attachedFile ? '[图片消息]' : ''),
+      content: content || (attachedFile ? '[图片消息]' : ''),
       type: Sender.USER,
       timestamp: '',
       sender: Sender.USER,
@@ -1626,8 +1628,12 @@ const sendMessage = async (attachedFile?: File) => {
     return
   }
 
-  const messageContent = inputMessage.value
-  inputMessage.value = ''
+  const messageContent = content
+  // 如果不是外部传入的内容，则清空输入框
+  if (!customContent) {
+    inputMessage.value = ''
+  }
+  
   isLoading.value = true
 
   try {
@@ -3102,6 +3108,25 @@ defineExpose({
   font-weight: 500;
 }
 
+.chat-suggestions-after-answer-component {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  padding: 0 16px !important;
+  background: transparent !important;
+  align-items: flex-start !important;
+}
+
+:deep(.chat-suggestions-after-answer-component .suggestion-header) {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #94a3b8;
+}
+
+:deep(.chat-suggestions-after-answer-component .suggestion-list) {
+  max-width: 85%;
+}
+
+
 /* ==================== 输入区域容器样式 ==================== */
 .chat-input-area {
   display: flex;
@@ -3139,122 +3164,24 @@ defineExpose({
 }
 
 /* ==================== 空状态推荐问题样式 ==================== */
-.empty-chat-state {
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 70%;
-  background-color: #f6f6f8;
-  border-radius: 10px;
+/* 样式已整合进 SuggestedQuestions.vue，此处仅保留布局微调 */
+:deep(.empty-chat-state) {
+  max-width: 80%;
   margin-left: 10px;
+  background: transparent !important;
+  padding: 16px 0 !important;
+  align-items: flex-start !important;
 }
 
-/* 紧凑版：减小内边距、字体与间距 */
-.empty-chat-state--small {
-  padding: 8px 8px;
-  gap: 6px;
-  max-width: 60%;
-  border-radius: 8px;
+:deep(.empty-chat-state--small) {
+  max-width: 90%;
   margin-left: 6px;
 }
 
-.empty-chat-state--small .suggestion-header {
-  font-size: 12px;
-}
-
-.empty-chat-state--small .suggestion-list {
-  gap: 6px;
-}
-
-.empty-chat-state--small .suggestion-item {
-  padding: 6px 8px;
-  border-radius: 8px;
-}
-
-.empty-chat-state--small .suggestion-text {
-  font-size: 12px;
-}
-
-.empty-chat-state--small .suggestion-edit-btn {
-  width: 20px;
-  height: 20px;
-}
-
-.empty-chat-state--large {
-  /* 保留现有默认样式，可在此覆盖以保证“大”模式与当前一致 */
-}
-
-.suggestion-header {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  padding-left: 2px;
-}
-
-.suggestion-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.suggestion-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: #ffffff;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.suggestion-item:hover {
-  background: #f3f4f6;
-  transform: translateX(2px);
-}
-
-.suggestion-item:active {
-  transform: scale(0.98);
-}
-
-.suggestion-text {
-  flex: 1;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.4;
-}
-
-.suggestion-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.suggestion-edit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #9ca3af;
-  transition: all 0.2s ease;
-  opacity: 1; /* 默认就显示出来 */
-}
-
-.suggestion-item:hover .suggestion-edit-btn {
-  opacity: 1;
-}
 
 .suggestion-edit-btn:hover {
-  background: #e5e7eb;
-  color: #6366f1;
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .suggestion-arrow {

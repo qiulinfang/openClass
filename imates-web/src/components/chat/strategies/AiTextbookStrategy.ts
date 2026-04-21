@@ -46,7 +46,7 @@ export class AiTextbookStrategy implements ChatStrategy {
   
   // 获取欢迎消息
   getWelcomeMessage(): string {
-    return '你好呀，我是你们的学习伙伴小葵，欢迎你们和我交流问题或想法哦～'
+    return '你好！我是你的学习伙伴。有什么问题我可以帮你解答吗？'
   }
   
   // 检查是否需要选择题目

@@ -19,6 +19,8 @@
         type="ai-textbook"
         :compressed-height="360"
         :model-options="props.modelOptions"
+        :suggestions="props.suggestions"
+        :suggested-questions="props.suggestedQuestions"
         @send-with-screenshot="
           (text, shots, selectedModel) => emit('send-with-screenshot', text, shots, selectedModel)
         "
@@ -94,6 +96,10 @@ const props = defineProps<{
   attachedScreenshots?: AttachedScreenshot[]
   // AI 角色选项配置
   modelOptions?: SelectOption[]
+  // 引导问题建议列表
+  suggestions?: string[]
+  // 推荐问题列表（猜你想问）
+  suggestedQuestions?: string[]
 }>()
 
 const emit = defineEmits<{
