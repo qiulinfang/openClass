@@ -183,85 +183,30 @@ export const CORE_EXPLORATION: ExerciseItem[] = [
 export const CLASSROOM_EXERCISE: HomeworkMockData = {
   homeworkName: '负数的认识 - 课堂练习',
   questions: [
-    // 基础题 - 填空题
-    {
-      id: 'exe-base-fill-1',
-      bmNo: 'EXE_BASE_FILL_001',
-      title: '【基础题-填空题】-3读作（ ），+7读作（ ），-1.5读作（ ）',
-      type: 'fill',
-      structuredContent: {
-        stem: '-3读作（ ），+7读作（ ），-1.5读作（ ）',
-        blanks: [
-          { index: 1, type: 'text', answer: '负三' },
-          { index: 2, type: 'text', answer: '正七' },
-          { index: 3, type: 'text', answer: '负一点五' }
-        ]
-      },
-      answer: '-3读作（负三），+7读作($7)，-1.5读作（负一点五）',
-      explanation: '明确正负数的读写规则，“-”读作“负”，“+”读作“正”，数字部分正常读取，小数直接读小数点前后数字；',
-      analysisData: '明确正负数的读写规则，“-”读作“负”，“+”读作“正”，数字部分正常读取，小数直接读小数点前后数字；',
-      subject: 'math',
-    },
-    {
-      id: 'exe-base-fill-2',
-      bmNo: 'EXE_BASE_FILL_002',
-      title: '【基础题-填空题】数轴的三要素是（ ）、（ ）、（ ）',
-      type: 'fill',
-      structuredContent: {
-        stem: '数轴的三要素是（ ）、（ ）、（ ）',
-        blanks: [
-          { index: 1, type: 'text', answer: '原点' },
-          { index: 2, type: 'text', answer: '正方向' },
-          { index: 3, type: 'text', answer: '单位长度' }
-        ]
-      },
-      answer: '原点、正方向、单位长度',
-      explanation: '回忆数轴的核心定义，数轴是规范表示数的直线，必须具备三个缺一不可的要素，分别是基准点、方向和统一单位；',
-      analysisData: '回忆数轴的核心定义，数轴是规范表示数的直线，必须具备三个缺一不可的要素，分别是基准点、方向和统一单位；',
-      subject: 'math',
-    },
-    {
-      id: 'exe-base-fill-3',
-      bmNo: 'EXE_BASE_FILL_003',
-      title: '【基础题-填空题】0既不是（ ），也不是（ ），它是正数和负数的（ ）',
-      type: 'fill',
-      structuredContent: {
-        stem: '0既不是（ ），也不是（ ），它是正数和负数的（ ）',
-        blanks: [
-          { index: 1, type: 'text', answer: '正数' },
-          { index: 2, type: 'text', answer: '负数' },
-          { index: 3, type: 'text', answer: '分界点' }
-        ]
-      },
-      answer: '正数、负数、分界点',
-      explanation: '明确0的归属，正数比0大，负数比0小，0是两者的分界，不属于任何一方；',
-      analysisData: '明确0的归属，正数比0大，负数比0小，0是两者的分界，不属于任何一方；',
-      subject: 'math',
-    },
-    // 基础题 - 选择题
+    // 基础题 (5道) - 选择/判断
     {
       id: 'exe-base-sel-1',
       bmNo: 'EXE_BASE_SEL_001',
-      title: '【基础题-选择题】下列说法正确的是（ ） A. 0是正数 B. 0是负数 C. 0是正负数的分界点 D. 负数比正数大',
+      title: '【基础题】下列说法正确的是（ ）',
       type: 'choice',
       structuredContent: {
         stem: '下列说法正确的是',
         options: [
           { label: 'A', text: '0是正数' },
-          { label: 'B', text: '0是负数' },
+          { label: 'B', text: '0 is 负数' },
           { label: 'C', text: '0是正负数的分界点' },
           { label: 'D', text: '负数比正数大' }
         ]
       },
       answer: 'C',
-      explanation: '逐一分析选项，结合正负数定义，0既不是正数也不是负数，是分界点，负数比正数小，据此判断；',
-      analysisData: '逐一分析选项，结合正负数定义，0既不是正数也不是负数，是分界点，负数比正数小，据此判断；',
+      explanation: '0既不是正数也不是负数，是分界点，负数比正数小。',
+      analysisData: '0既不是正数也不是负数，是分界点，负数比正数小。',
       subject: 'math',
     },
     {
       id: 'exe-base-sel-2',
       bmNo: 'EXE_BASE_SEL_002',
-      title: '【基础题-选择题】下列数中，不是负数的是（ ） A. -3 B. -1.5 C. 0 D. -0.8',
+      title: '【基础题】下列数中，不是负数的是（ ）',
       type: 'choice',
       structuredContent: {
         stem: '下列数中，不是负数的是',
@@ -273,17 +218,45 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
         ]
       },
       answer: 'C',
-      explanation: '负数的特征是带有“-”（0除外），0既不是正数也不是负数，据此筛选选项；',
-      analysisData: '负数的特征是带有“-”（0除外），0既不是正数也不是负数，据此筛选选项；',
+      explanation: '负数必须带有负号且不为0。0既不是正数也不是负数。',
+      analysisData: '负数必须带有负号且不为0。0既不是正数也不是负数。',
+      subject: 'math',
+    },
+    {
+      id: 'exe-base-jud-1',
+      bmNo: 'EXE_BASE_JUD_001',
+      title: '【基础题】0是负数。（ ）',
+      type: 'judgment',
+      structuredContent: {
+        stem: '0是负数',
+        judgmentResult: false
+      },
+      answer: '×',
+      explanation: '0是正负数的分界点，既不是正数也不是负数趋势。',
+      analysisData: '0是正负数的分界点，既不是正数也不是负数趋势。',
+      subject: 'math',
+    },
+    {
+      id: 'exe-base-jud-2',
+      bmNo: 'EXE_BASE_JUD_002',
+      title: '【基础题】负数都比0小。（ ）',
+      type: 'judgment',
+      structuredContent: {
+        stem: '负数都比0小',
+        judgmentResult: true
+      },
+      answer: '√',
+      explanation: '根据负数的定义，所有负数都小于0。',
+      analysisData: '根据负数的定义，所有负数都小于0。',
       subject: 'math',
     },
     {
       id: 'exe-base-sel-3',
       bmNo: 'EXE_BASE_SEL_003',
-      title: '【基础题-选择题】数轴上，正方向通常是（ ） A. 向左 B. 向右 C. 向上 D. 向下',
+      title: '【基础题】数轴上，正方向通常约定为（ ）',
       type: 'choice',
       structuredContent: {
-        stem: '数轴上，正方向通常是',
+        stem: '数轴上，正方向通常约定为',
         options: [
           { label: 'A', text: '向左' },
           { label: 'B', text: '向右' },
@@ -292,111 +265,16 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
         ]
       },
       answer: 'B',
-      explanation: '回忆数轴的规范画法，正方向通常约定为向右，用箭头表示，据此选择；',
-      analysisData: '回忆数轴的规范画法，正方向通常约定为向右，用箭头表示，据此选择；',
+      explanation: '在水平数轴上，通常约定向右的方向为正方向。',
+      analysisData: '在水平数轴上，通常约定向右的方向为正方向。',
       subject: 'math',
     },
-    {
-      id: 'exe-base-sel-4',
-      bmNo: 'EXE_BASE_SEL_004',
-      title: '【基础题-选择题】下列关于“-”号的意义，说法错误的是（ ） A. 表示零下 B. 表示相反意义 C. 表示负数 D. 表示加法',
-      type: 'choice',
-      structuredContent: {
-        stem: '下列关于“-”号的意义，说法错误的是',
-        options: [
-          { label: 'A', text: '表示零下' },
-          { label: 'B', text: '表示相反意义' },
-          { label: 'C', text: '表示负数' },
-          { label: 'D', text: '表示加法' }
-        ]
-      },
-      answer: 'D',
-      explanation: '结合本节课所学，“-”可表示负数、零下温度、相反意义的量，与加法无关，据此判断；',
-      analysisData: '结合本节课所学，“-”可表示负数、零下温度、相反意义的量，与加法无关，据此判断；',
-      subject: 'math',
-    },
-    // 基础题 - 判断题
-    {
-      id: 'exe-base-jud-1',
-      bmNo: 'EXE_BASE_JUD_001',
-      title: '【基础题-判断题】0是负数。（ ）',
-      type: 'judgment',
-      structuredContent: {
-        stem: '0是负数',
-        judgmentResult: false
-      },
-      answer: '×',
-      explanation: '0是正负数的分界点，既不是正数也不是负数，据此判断；',
-      analysisData: '0是正负数的分界点，既不是正数也不是负数，据此判断；',
-      subject: 'math',
-    },
-    {
-      id: 'exe-base-jud-2',
-      bmNo: 'EXE_BASE_JUD_002',
-      title: '【基础题-判断题】数轴只需要原点 和 单位长度就可以。（ ）',
-      type: 'judgment',
-      structuredContent: {
-        stem: '数轴只需要原点 和 单位长度就可以',
-        judgmentResult: false
-      },
-      answer: '×',
-      explanation: '数轴必须具备原点、正方向、单位长度三个要素，缺一不可，据此判断；',
-      analysisData: '数轴必须具备原点、正方向、单位长度三个要素，缺一不可，据此判断；',
-      subject: 'math',
-    },
-    {
-      id: 'exe-base-jud-3',
-      bmNo: 'EXE_BASE_JUD_003',
-      title: '【基础题-判断题】负数都比0小。（ ）',
-      type: 'judgment',
-      structuredContent: {
-        stem: '负数都比0小',
-        judgmentResult: true
-      },
-      answer: '√',
-      explanation: '负数的核心特征是比0小，正数比0大，据此判断；',
-      analysisData: '负数的核心特征是比0小，正数比0大，据此判断；',
-      subject: 'math',
-    },
-    // 提升题 - 填空题
-    {
-      id: 'exe-adv-fill-1',
-      bmNo: 'EXE_ADV_FILL_001',
-      title: '【提升题-填空题】若收入50元记作+50元，则支出30元记作（ ）元',
-      type: 'fill',
-      structuredContent: {
-        stem: '若收入50元记作+50元，则支出30元记作（ ）元',
-        blanks: [
-          { index: 1, type: 'text', answer: '-30' }
-        ]
-      },
-      answer: '-30',
-      explanation: '明确相反意义的量的表示规则，收入记为正数，支出与收入相反，记为负数；',
-      analysisData: '明确相反意义的量的表示规则，收入记为正数，支出与收入相反，记为负数；',
-      subject: 'math',
-    },
-    {
-      id: 'exe-adv-fill-2',
-      bmNo: 'EXE_ADV_FILL_002',
-      title: '【提升题-填空题】在数轴上，原点左边的数是（ ），右边的数是（ ）',
-      type: 'fill',
-      structuredContent: {
-        stem: '在数轴上，原点左边的数是（ ），右边的数是（ ）',
-        blanks: [
-          { index: 1, type: 'text', answer: '负数' },
-          { index: 2, type: 'text', answer: '正数' }
-        ]
-      },
-      answer: '负数、正数',
-      explanation: '回忆数轴规律，“左负右正”，原点左边为负数，右边为正数；',
-      analysisData: '回忆数轴规律，“左负右正”，原点左边为负数，右边为正数；',
-      subject: 'math',
-    },
-    // 提升题 - 选择题
+
+    // 提升题 (3道) - 选择/判断
     {
       id: 'exe-adv-sel-1',
       bmNo: 'EXE_ADV_SEL_001',
-      title: '【提升题-选择题】下列各组中，属于相反意义的量的是（ ） A. 收入100元和支出100元 B. 身高180cm和体重60kg C. 向东走5米和向北走5米 D. 盈利200元和亏损-200元',
+      title: '【提升题】下列各组中，属于相反意义的量的是（ ）',
       type: 'choice',
       structuredContent: {
         stem: '下列各组中，属于相反意义的量的是',
@@ -408,112 +286,78 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
         ]
       },
       answer: 'A',
-      explanation: '相反意义的量需满足“含义相反、单位一致”，逐一分析选项，A符合，B是不同量，C方向不相反，D亏损记为负数，不应加“-”；',
-      analysisData: '相反意义的量需满足“含义相反、单位一致”，逐一分析选项，A符合，B是不同量，C方向不相反，D亏损记为负数，不应加“-”；',
+      explanation: '相反意义的量需要单位一致且含义相反。收入和支出是典型的相反意义。',
+      analysisData: '相反意义的量需要单位一致且含义相反。收入和支出是典型的相反意义。',
       subject: 'math',
     },
     {
       id: 'exe-adv-sel-2',
       bmNo: 'EXE_ADV_SEL_002',
-      title: '【提升题-选择题】数轴上，表示-2 和 1之间的数是（ ） A. -3 B. 2 C. -1 D. 3',
+      title: '【提升题】在数轴上，-2和1之间的整数有（ ）个',
       type: 'choice',
       structuredContent: {
-        stem: '数轴上，表示-2 和 1之间的数是',
+        stem: '在数轴上，-2和1之间的整数有',
         options: [
-          { label: 'A', text: '-3' },
+          { label: 'A', text: '1' },
           { label: 'B', text: '2' },
-          { label: 'C', text: '-1' },
-          { label: 'D', text: '3' }
+          { label: 'C', text: '3' },
+          { label: 'D', text: '4' }
         ]
       },
-      answer: 'C',
-      explanation: '结合数轴“左小右大”规律，-2 和 1之间的数需大于-2、小于1，据此筛选选项；',
-      analysisData: '结合数轴“左小右大”规律，-2 和 1之间的数需大于-2、小于1，据此筛选选项；',
+      answer: 'B',
+      explanation: '-2和1之间的整数有-1和0，共2个。',
+      analysisData: '-2和1之间的整数有-1和0，共2个。',
       subject: 'math',
     },
-    // 提升题 - 判断题
     {
       id: 'exe-adv-jud-1',
       bmNo: 'EXE_ADV_JUD_001',
-      title: '【提升题-判断题】相反意义的量必须用正数和负数表示。（ ）',
+      title: '【提升题】相反意义的量必须用正数和负数表示。（ ）',
       type: 'judgment',
       structuredContent: {
         stem: '相反意义的量必须用正数和负数表示',
         judgmentResult: false
       },
       answer: '×',
-      explanation: '相反意义的量可以用正数和负数表示，也可以用其他方式（如文字描述），并非“必须”，据此判断；',
-      analysisData: '相反意义的量可以用正数和负数表示，也可以用其他方式（如文字描述），并非“必须”，据此判断；',
+      explanation: '相反意义的量可以用正负数表示，也可以用文字描述，并非必须。',
+      analysisData: '相反意义的量可以用正负数表示，也可以用文字描述，并非必须。',
       subject: 'math',
     },
-    // 拓展题 - 填空题
-    {
-      id: 'exe-ext-fill-1',
-      bmNo: 'EXE_EXT_FILL_001',
-      title: '【拓展题-填空题】北斗卫星在太空运行时，温度低至零下200摄氏度，记作（ ）℃',
-      type: 'fill',
-      structuredContent: {
-        stem: '北斗卫星在太空运行时，温度低至零下200摄氏度，记作（ ）℃',
-        blanks: [
-          { index: 1, type: 'text', answer: '-200' }
-        ]
-      },
-      answer: '-200',
-      explanation: '零下温度用负数表示，“零下”对应“-”，数字部分不变；',
-      analysisData: '零下温度用负数表示，“零下”对应“-”，数字部分不变；',
-      subject: 'math',
-    },
-    {
-      id: 'exe-ext-fill-2',
-      bmNo: 'EXE_EXT_FILL_002',
-      title: '【拓展题-填空题】若北斗卫星海拔记作-10000米（以海平面为原点），表示（ ）',
-      type: 'fill',
-      structuredContent: {
-        stem: '若北斗卫星海拔记作-10000米（以海平面为原点），表示（ ）',
-        blanks: [
-          { index: 1, type: 'text', answer: '北斗卫星在海平面以下10000米处' }
-        ]
-      },
-      answer: '北斗卫星在海平面以下10000米处',
-      explanation: '以海平面为原点，海平面以上记为正数，海平面以下记为负数，据此推导含义；',
-      analysisData: '以海平面为原点，海平面以上记为正数，海平面以下记为负数，据此推导含义；',
-      subject: 'math',
-    },
-    // 拓展题 - 选择题
+
+    // 拓展题 (2道) - 选择/判断
     {
       id: 'exe-ext-sel-1',
       bmNo: 'EXE_EXT_SEL_001',
-      title: '【拓展题-选择题】下列关于数轴的画法，正确的是（ ） A. 没有原点 B. 没有正方向 C. 单位长度统一 D. 单位长度不统一',
+      title: '【拓展题】关于数轴的画法，下列说法正确的是（ ）',
       type: 'choice',
       structuredContent: {
-        stem: '下列关于数轴的画法，正确的是',
+        stem: '关于数轴的画法，下列说法正确的是',
         options: [
-          { label: 'A', text: '没有原点' },
-          { label: 'B', text: '没有正方向' },
-          { label: 'C', text: '单位长度统一' },
-          { label: 'D', text: '单位长度不统一' }
+          { label: 'A', text: '只要有原点即可' },
+          { label: 'B', text: '只要有正方向即可' },
+          { label: 'C', text: '必须具备原点、正方向和单位长度' },
+          { label: 'D', text: '单位长度可以不统一' }
         ]
       },
       answer: 'C',
-      explanation: '数轴三要素缺一不可，且单位长度需统一才能规范表示数，据此判断；',
-      analysisData: '数轴三要素缺一不可，且单位长度需统一才能规范表示数，据此判断；',
+      explanation: '数轴三要素：原点、正方向、单位长度，缺一不可。',
+      analysisData: '数轴三要素：原点、正方向、单位长度，缺一不可。',
       subject: 'math',
     },
-    // 拓展题 - 判断题
     {
       id: 'exe-ext-jud-1',
       bmNo: 'EXE_EXT_JUD_001',
-      title: '【拓展题-判断题】用负数表示北斗卫星的温度，数轴上表示的数一定在原点左边。（ ）',
+      title: '【拓展题】在数轴上，离原点越远的数绝对值越大。（ ）',
       type: 'judgment',
       structuredContent: {
-        stem: '用负数表示北斗卫星的温度，数轴上表示的数一定在原点左边',
+        stem: '在数轴上，离原点越远的数绝对值越大',
         judgmentResult: true
       },
       answer: '√',
-      explanation: '负数在数轴上的位置一定在原点左边，北斗卫星的温度用负数表示时，对应数为负数，据此判断；',
-      analysisData: '负数在数轴上的位置一定在原点左边，北斗卫星的温度用负数表示时，对应数为负数，据此判断；',
+      explanation: '数轴上点到原点的距离即为该数的绝对值，因此离原点越远，绝对值越大。',
+      analysisData: '数轴上点到原点的距离即为该数的绝对值，因此离原点越远，绝对值越大。',
       subject: 'math',
-    },
+    }
   ],
 }
 

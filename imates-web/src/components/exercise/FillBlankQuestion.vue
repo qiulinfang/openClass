@@ -11,8 +11,10 @@
               v-model="answers[part.blankIndex]"
               type="text"
               class="blank-input"
+              :class="{ 'is-disabled': disabled }"
               :style="{ width: getBlankWidth(part.blankIndex) }"
               placeholder="填入"
+              :disabled="disabled"
               @input="handleInput"
             />
           </template>
@@ -31,6 +33,7 @@ const props = defineProps<{
   question: any
   modelValue?: string[]
   showTitle?: boolean
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -158,6 +161,12 @@ const handleInput = () => {
     &:focus {
       border-bottom-color: #4f39f6;
       background: rgba(110, 85, 255, 0.05);
+    }
+
+    &.is-disabled {
+      border-bottom-color: #e2e8f0;
+      color: #64748b;
+      cursor: not-allowed;
     }
   }
 }

@@ -103,6 +103,9 @@
         </template>
       <HomeworkAnswerViewJK ref="homeworkRef" is-component />
     </FullscreenOverlay>
+
+    <!-- 调试面板 -->
+    <PracticeDebugPanel />
   </div>
 </template>
 
@@ -139,6 +142,7 @@ import xiaogongjuIcon from '/icons/xiaogongju.svg'
 import zuopinjiIcon from '/icons/zuopinji.svg'
 import { useUIStore } from '@/stores/uiStore'
 import HomeworkPreviewKids from './HomeworkPreviewJK.vue'
+import PracticeDebugPanel from './PracticeDebugPanel.vue'
 import { PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
@@ -187,6 +191,9 @@ const homeworkCurrentStage = ref('classroom')
 
 const switchHomeworkStage = (stage: string) => {
   homeworkCurrentStage.value = stage
+  if (homeworkRef.value) {
+    homeworkRef.value.switchStage(stage)
+  }
 }
 
 const homeworkRef = ref<InstanceType<typeof HomeworkAnswerViewJK> | null>(null)

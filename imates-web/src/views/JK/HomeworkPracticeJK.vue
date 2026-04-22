@@ -40,18 +40,21 @@
             v-if="currentAnswerQuestion.type === 'choice'"
             :question="currentAnswerQuestion"
             v-model="currentQuestionChooseList"
+            :disabled="isCurrentQuestionSubmitted"
             show-title
           />
           <JudgmentQuestion
             v-else-if="currentAnswerQuestion.type === 'judgment'"
             :question="currentAnswerQuestion"
             v-model="currentQuestionJudgment"
+            :disabled="isCurrentQuestionSubmitted"
             show-title
           />
           <FillBlankQuestion
             v-else-if="currentAnswerQuestion.type === 'fill'"
             :question="currentAnswerQuestion"
             v-model="currentQuestionFillList"
+            :disabled="isCurrentQuestionSubmitted"
             show-title
           />
           <BaseQuestion
@@ -59,16 +62,38 @@
             :question="currentAnswerQuestion"
             show-title
           />
+
+          <!-- 单道题提交后的答案和解析 -->
+          <div v-if="isCurrentQuestionSubmitted" class="answer-analysis-wrapper">
+            <div class="divider"></div>
+            <div class="analysis-card answer-card">
+              <div class="card-title">
+                <span>标准答案</span>
+              </div>
+              <div class="card-content" v-html="currentAnswerQuestion.answer"></div>
+            </div>
+            <div class="analysis-card explanation-card">
+              <div class="card-title">
+                <span>题目解析</span>
+              </div>
+              <div class="card-content" v-html="currentAnswerQuestion.explanation"></div>
+            </div>
+          </div>
         </div>
 
         <div class="action-footer" v-if="props.stage === 'classroom'">
           <CommonActionButton
-            label="上传作答"
+            v-if="!isCurrentQuestionSubmitted"
+            label="提交本题"
             variant="primary"
             size="lg"
-            :disabled="!currentAnswerQuestion"
-            @click="handleBoardUpload"
+            :disabled="!isCurrentQuestionAnswered"
+            @click="handleSingleQuestionSubmit"
           />
+          <div v-else class="submitted-tip">
+            <q-icon name="check_circle" color="green" size="24px" />
+            <span>本题已提交</span>
+          </div>
         </div>
       </div>
       <div class="empty-right-panel" v-else>
@@ -123,6 +148,7 @@ const questionSearchQuery = ref('')
 const currentAnswerQuestion = ref<any>(null)
 const showResults = ref(false)
 const practiceResults = ref<any[]>([])
+const submittedQuestionIds = ref<Set<string>>(new Set()) // 已单独提交的题目 ID 集合
 
 // 未完成提示相关
 const showUnfinishedDialog = ref(false)
@@ -192,8 +218,26 @@ const getQuestionStatusText = (q: any) =>
 const getQuestionStatusType = (q: any) =>
   getQuestionStatus(q) === 'answered' ? 'green' : 'yellow'
 
+const isCurrentQuestionAnswered = computed(() => {
+  if (!currentAnswerQuestion.value) return false
+  return getQuestionStatus(currentAnswerQuestion.value) === 'answered'
+})
+
+const isCurrentQuestionSubmitted = computed(() => {
+  if (!currentAnswerQuestion.value) return false
+  const key = getQuestionKey(currentAnswerQuestion.value)
+  return submittedQuestionIds.value.has(key)
+})
+
 const handleStartAnswer = (q: any) => {
   currentAnswerQuestion.value = q
+}
+
+const handleSingleQuestionSubmit = () => {
+  if (!currentAnswerQuestion.value) return
+  const key = getQuestionKey(currentAnswerQuestion.value)
+  submittedQuestionIds.value.add(key)
+  showMessage('提交成功', 'success')
 }
 
 const handleBoardUpload = () => {
@@ -255,10 +299,14 @@ onMounted(() => {
   }
 })
 
-// 监听题目列表变化，自动选中第一题
+// 监听题目列表变化，自动选中第一题，并重置已提交状态
 watch(() => props.externalQuestions, (newVal) => {
-  if (newVal.length > 0 && !currentAnswerQuestion.value) {
+  if (newVal.length > 0) {
     handleStartAnswer(newVal[0])
+    // 切换阶段时重置已提交题目集合
+    submittedQuestionIds.value.clear()
+  } else {
+    currentAnswerQuestion.value = null
   }
 }, { immediate: true })
 </script>
@@ -300,6 +348,50 @@ watch(() => props.externalQuestions, (newVal) => {
   flex: 1;
   padding: 30px;
   overflow-y: auto;
+}
+
+.answer-analysis-wrapper {
+  margin-top: 30px;
+  .divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin-bottom: 24px;
+  }
+}
+
+.analysis-card {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    span {
+      font-weight: 600;
+      font-size: 15px;
+      color: #334155;
+    }
+  }
+
+  .card-content {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #475569;
+    white-space: pre-wrap;
+  }
+}
+
+.submitted-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #10b981;
+  font-weight: 500;
+  font-size: 16px;
 }
 
 .action-footer {

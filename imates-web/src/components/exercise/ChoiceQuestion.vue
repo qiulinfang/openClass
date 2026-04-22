@@ -7,16 +7,16 @@
         class="option-item"
         :class="{ 
           selected: isSelected(opt.label),
-          correct: isCorrect(opt.label) && showResult,
-          wrong: isSelected(opt.label) && !isCorrect(opt.label) && showResult
+          correct: isSelected(opt.label) && isCorrect(opt.label) && disabled,
+          wrong: isSelected(opt.label) && !isCorrect(opt.label) && disabled
         }"
         @click="handleSelect(opt.label)"
       >
         <div class="option-label">{{ opt.label }}</div>
         <div class="option-text" v-html="renderMessageContent(opt.text)"></div>
-        <div class="option-status-icon" v-if="showResult">
-          <img v-if="isCorrect(opt.label)" src="/icons/correct.svg" />
-          <img v-else-if="isSelected(opt.label)" src="/icons/wrong.svg" />
+        <div class="option-status-icon" v-if="disabled && isSelected(opt.label)">
+          <q-icon v-if="isCorrect(opt.label)" name="check_circle" color="green" size="20px" />
+          <q-icon v-else name="cancel" color="red" size="20px" />
         </div>
       </div>
     </div>
@@ -40,7 +40,7 @@ const props = defineProps<{
   modelValue?: string[]
   showTitle?: boolean
   showAnalysis?: boolean
-  showResult?: boolean
+  disabled?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue', 'change'])
@@ -53,7 +53,7 @@ const isSelected = (label: string) => props.modelValue?.includes(label)
 const isCorrect = (label: string) => props.question.answer === label
 
 const handleSelect = (label: string) => {
-  if (props.showResult) return // 已显示结果，禁用交互
+  if (props.disabled) return // 禁用交互
   
   let newValue = [...(props.modelValue || [])]
   const index = newValue.indexOf(label)

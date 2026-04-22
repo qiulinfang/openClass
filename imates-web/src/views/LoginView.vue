@@ -126,7 +126,7 @@ const selectedSchool = ref<'zgc' | 'jk' | 'sdsf'>((localStorage.getItem('selecte
 const schoolOptions = [
   { label: '中关村一小', value: 'zgc' },
   { label: '经开二中', value: 'jk' },
-  { label: '首师大实验附小', value: 'sdsf' }
+  { label: '首都师范大学实验小学', value: 'sdsf' }
 ]
 
 const loginForm = reactive({
