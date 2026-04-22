@@ -20,25 +20,11 @@
       />
     </FullscreenOverlay>
 
-    <!-- 流程1：选择题界面 -->
-    <div v-else-if="currentFlow === 1" class="flow-container flow-choice">
-      <div class="choice-card">
-        <h2 class="choice-title">请选择选项</h2>
-        <div class="choice-options">
-          <button
-            v-for="opt in [1, 2, 3]"
-            :key="opt"
-            class="choice-btn"
-            @click="handleChoiceSelect(opt)"
-          >
-            {{ opt }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- 流程2 & 流程3：PDF 聊天面板内容 -->
-    <template v-if="currentFlow === 2 || currentFlow === 3">
+    <JoinClassroomButton />
+
+    <!-- 流程1：PDF 聊天面板内容 -->
+    <template v-if="currentFlow === 1">
       <PdfChatPanel
         ref="chatPanelRef"
         :attached-screenshots="aiTextbookStore.attachedScreenshots"
@@ -53,48 +39,55 @@
           '探究1 0为什么既不是正数也不是负数?',
           '探究2 负数和相反意义的量有什么区别?',
           '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
-          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?',
+          '探究4 观察数轴上的数，左边 and 右边的数在大小上有什么简单规律(不深入比较大小)?',
         ]"
         @send-with-screenshot="handlePdfSendWithScreenshot"
         @remove-screenshot="handlePdfRemoveScreenshot"
         @edit-screenshot="handleEditScreenshot"
         @select-and-ask-click="handleSelectAndAskFromChat"
       >
-        <template #header-actions>
-          <button
-            type="button"
-            class="join-class-button"
-            :class="{ 'in-class': isInClass }"
-            @click="toggleJoinClass"
-          >
-            加入课堂
-          </button>
-        </template>
       </PdfChatPanel>
 
-      <div
-        v-if="miniClassFabReady"
-        class="mini-class-fab"
-        :class="{
-          'mini-class-fab--active': isPressingMiniClassFab,
-          'mini-class-fab--dragging': isDraggingMiniClassFab,
-        }"
-        :style="{
-          transform: `translate(${miniClassFabPos.x}px, ${miniClassFabPos.y}px) scale(var(--fab-scale, 1))`,
-        }"
-        @pointerdown="onMiniClassFabPointerDown"
-      >
-        <CommonActionButton
-          label="作业"
-          size="lg"
-          :icon="xiaogongjuIcon"
-          @click="onMiniClassFabClick"
-        />
-      </div>
+      <!-- 悬浮按钮组 -->
+      <DraggableFab
+        label="作业"
+        size="md"
+        :icon="xiaogongjuIcon"
+        :initial-pos="{ right: 168, bottom: 442 }"
+        bounds-container=".fullscreen-chat-container"
+        @click="onMiniClassFabClick"
+      />
+
+      <DraggableFab
+        label="作品集"
+        size="xl"
+        :icon="zuopinjiIcon"
+        :initial-pos="{ right: 168, bottom: 360 }"
+        bounds-container=".fullscreen-chat-container"
+        @click="onPortfolioFabClick"
+      />
     </template>
 
+    <!-- 作品集遮罩层 -->
+    <PortfolioOverlay
+      v-model="portfolioVisible"
+      :images="portfolioImages"
+      @image-click="openImageViewer"
+    />
+
+    <!-- 图片查看器 -->
+    <ImageViewer
+      v-model="imageViewerVisible"
+      :images="portfolioImages"
+      :initial-index="imageViewerIndex"
+    />
+
     <!-- 全屏作业面板 -->
-    <FullscreenOverlay v-model="homeworkOverlayVisible" :title="homeworkStore.homeworkName">
+    <FullscreenOverlay
+      v-model="homeworkOverlayVisible"
+      :title="homeworkStore.homeworkName"
+      @close="handleHomeworkClose"
+    >
       <template #header-center>
         <div class="stage-toggle" v-if="homeworkRef">
           <button
@@ -110,17 +103,6 @@
         </template>
       <HomeworkAnswerViewJK ref="homeworkRef" is-component />
     </FullscreenOverlay>
-
-    <Dialog
-      ref="joinClassDialogRef"
-      :title="isInClass ? '确认退出课堂' : '课堂提示'"
-      :confirmButtonText="isInClass ? '确认退出' : '确认加入'"
-      :cancelButtonText="'取消'"
-      @confirm="confirmJoinClass"
-      @cancel="handleJoinClassDialogCancel"
-    >
-      {{ isInClass ? '确认退出课堂？' : '确认加入课堂？' }}
-    </Dialog>
   </div>
 </template>
 
@@ -147,13 +129,15 @@ import type { AiTextbookSession, AttachedScreenshot } from '@/types'
 import { addScreenshotSession } from '@/utils/storage/screenshotSessions'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import CommonActionButton from '@/components/base/Button.vue'
-import Dialog from '@/components/base/Dialog.vue'
+import JoinClassroomButton from '@/components/JoinClassroomButton.vue'
+import PortfolioOverlay from '@/components/PortfolioOverlay.vue'
+import ImageViewer from '@/components/ImageViewer.vue'
+import DraggableFab from '@/components/base/DraggableFab.vue'
 import FullscreenOverlay from '@/components/base/FullscreenOverlay.vue'
 import HomeworkAnswerViewJK from './HomeworkAnswerViewJK.vue'
 import xiaogongjuIcon from '/icons/xiaogongju.svg'
+import zuopinjiIcon from '/icons/zuopinji.svg'
 import { useUIStore } from '@/stores/uiStore'
-import { getUserId } from '@/services/http/auth-service'
-import { AndroidBridge } from '@/services/business/android-bridge'
 import HomeworkPreviewKids from './HomeworkPreviewJK.vue'
 import { PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
@@ -166,34 +150,13 @@ const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
 // 流程控制
-const currentFlow = ref(0) // 0: 课前预习, 1: 选择题, 2: PDF 聊天
+const currentFlow = ref(0) // 0: 课前预习, 1: PDF 聊天, 2: 练习
 const previewOverlayVisible = ref(true)
 
 const handlePreviewSubmit = (checklist: string[]) => {
   console.log('[PdfViewerViewJK] 提交预习结果:', checklist)
   previewOverlayVisible.value = false
-  currentFlow.value = 2 // 预习完成后进入 PDF 聊天流程
-}
-
-const handleChoiceSelect = (option: number) => {
-  console.log('[PdfViewerViewJK] 选择了选项:', option)
-
-  // 根据选项填充对应的 Mock 题目
-  if (option === 1) {
-    // 活动一：课前预习
-    homeworkStore.questions = PREVIEW_HOMEWORK.questions
-    homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
-  } else if (option === 2) {
-    // 活动三：分层练习
-    homeworkStore.questions = EXERCISE_HOMEWORK.questions
-    homeworkStore.homeworkName = EXERCISE_HOMEWORK.homeworkName
-  } else {
-    // 默认清除
-    homeworkStore.questions = []
-    homeworkStore.homeworkName = '负数的认识'
-  }
-
-  currentFlow.value = 2 // 进入流程2
+  currentFlow.value = 1 // 预习完成后进入 PDF 聊天流程
 }
 
 // 使用 exerciseStore 来发送AI消息
@@ -202,201 +165,50 @@ const aiTextbookStore = useAiTextbookChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 
 const uiStore = useUIStore()
-const androidBridge = AndroidBridge.getInstance()
 
-const shouldShowMiniClassFab = computed(() => {
-  const info = aiTextbookStore.chapterInfo
-  if (!info) return false
-  return !!getMiniClassConfig(info)
-})
+// --- 作品集逻辑 ---
+const portfolioVisible = ref(false)
+const imageViewerVisible = ref(false)
+const imageViewerIndex = ref(0)
+const portfolioImages = [
+  { url: 'https://www.imates.com.cn/xuebanImg/img1.png', alt: '作品1' },
+  { url: 'https://www.imates.com.cn/xuebanImg/img2.png', alt: '作品2' },
+  { url: 'https://www.imates.com.cn/xuebanImg/img3.png', alt: '作品3' },
+  { url: 'https://www.imates.com.cn/xuebanImg/img4.png', alt: '作品4' },
+]
 
-const miniClassFabPos = ref({ x: 0, y: 0 })
-const miniClassFabReady = ref(false)
-const isDraggingMiniClassFab = ref(false)
-const isPressingMiniClassFab = ref(false)
+const openImageViewer = (index: number) => {
+  imageViewerIndex.value = index
+  imageViewerVisible.value = true
+}
 
-// 全屏作业面板相关
 const homeworkOverlayVisible = ref(false)
-const homeworkRef = ref<any>(null)
 const homeworkCurrentStage = ref('classroom')
 
 const switchHomeworkStage = (stage: string) => {
-  if (homeworkRef.value) {
-    homeworkRef.value.switchStage(stage)
-    homeworkCurrentStage.value = stage
-  }
+  homeworkCurrentStage.value = stage
 }
 
-const miniClassFabPointerId = ref<number | null>(null)
-const miniClassFabStart = ref({
-  pointerX: 0,
-  pointerY: 0,
-  startX: 0,
-  startY: 0,
-})
-const miniClassFabMoved = ref(false)
-const lastMiniClassFabDragEndAt = ref(0)
-const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+const homeworkRef = ref<InstanceType<typeof HomeworkAnswerViewJK> | null>(null)
 
-const joinClassDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
-const isInClass = ref(false)
-
-const getStudentNameFromStorage = () => {
-  try {
-    const raw = localStorage.getItem('userInfo')
-    if (!raw) return ''
-    const parsed = JSON.parse(raw) as Partial<BridgeUserInfo> & Record<string, unknown>
-    const name =
-      (parsed as any)?.studentName ||
-      (parsed as any)?.realName ||
-      (parsed as any)?.name ||
-      (parsed as any)?.nickName ||
-      (parsed as any)?.account ||
-      ''
-    return typeof name === 'string' ? name : ''
-  } catch {
-    return ''
-  }
-}
-
-const checkClassroomStatus = () => {
-  try {
-    const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
-    isInClass.value = !!status?.isInClass
-  } catch {}
-}
-
-const toggleJoinClass = () => {
-  joinClassDialogRef.value?.openDialog()
-}
-
-const handleJoinClassDialogCancel = () => {
-  joinClassDialogRef.value?.closeDialog()
-}
-
-const confirmJoinClass = () => {
-  try {
-    joinClassDialogRef.value?.closeDialog()
-
-    if (isInClass.value) {
-      const ok = androidBridge.exitClassroom()
-      if (ok) {
-        isInClass.value = false
-      }
-      return
-    }
-
-    const studentId = getUserId() || ''
-    const studentName = getStudentNameFromStorage() || studentId || '用户'
-    const isGuest = !studentId
-    const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
-    if (ok) {
-      isInClass.value = true
-    }
-  } catch (e) {
-    console.error('[PdfViewerView] confirmJoinClass failed:', e)
-  }
-}
-
-const onMiniClassFabPointerMove = (e: PointerEvent) => {
-  if (miniClassFabPointerId.value === null || e.pointerId !== miniClassFabPointerId.value) return
-
-  const dx = e.clientX - miniClassFabStart.value.pointerX
-  const dy = e.clientY - miniClassFabStart.value.pointerY
-
-  if (!miniClassFabMoved.value && Math.hypot(dx, dy) > 4) {
-    miniClassFabMoved.value = true
-  }
-
-  isDraggingMiniClassFab.value = true
-
-  const container =
-    (document.querySelector('.fullscreen-chat-container') as HTMLElement | null) ||
-    (document.querySelector('.pdf-viewer-container') as HTMLElement | null)
-  if (!container) return
-  const rect = container.getBoundingClientRect()
-  const btnSize = 56
-
-  const nextX = miniClassFabStart.value.startX + dx
-  const nextY = miniClassFabStart.value.startY + dy
-
-  miniClassFabPos.value = {
-    x: clamp(nextX, 8, rect.width - btnSize - 8),
-    y: clamp(nextY, 8, rect.height - btnSize - 8),
-  }
-}
-
-const onMiniClassFabPointerUp = (e: PointerEvent) => {
-  if (miniClassFabPointerId.value === null || e.pointerId !== miniClassFabPointerId.value) return
-
-  try {
-    window.removeEventListener('pointermove', onMiniClassFabPointerMove)
-    window.removeEventListener('pointerup', onMiniClassFabPointerUp)
-    window.removeEventListener('pointercancel', onMiniClassFabPointerUp)
-  } catch {}
-
-  miniClassFabPointerId.value = null
-  isDraggingMiniClassFab.value = false
-  isPressingMiniClassFab.value = false
-  if (miniClassFabMoved.value) {
-    lastMiniClassFabDragEndAt.value = Date.now()
-  }
-}
-
-const onMiniClassFabPointerDown = (e: PointerEvent) => {
-  if (miniClassFabPointerId.value !== null) return
-  miniClassFabPointerId.value = e.pointerId
-  miniClassFabMoved.value = false
-  isPressingMiniClassFab.value = true
-
-  try {
-    ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
-  } catch {}
-
-  const container =
-    (document.querySelector('.fullscreen-chat-container') as HTMLElement | null) ||
-    (document.querySelector('.pdf-viewer-container') as HTMLElement | null)
-  if (!container) return
-  const rect = container.getBoundingClientRect()
-  const btnSize = 56
-
-  const current = miniClassFabPos.value
-  const isDefault = current.x === 0 && current.y === 0
-  const defaultX = rect.width - btnSize - 16
-  const defaultY = rect.height - btnSize - 16
-
-  miniClassFabStart.value = {
-    pointerX: e.clientX,
-    pointerY: e.clientY,
-    startX: isDefault ? defaultX : current.x,
-    startY: isDefault ? defaultY : current.y,
-  }
-
-  if (isDefault) {
-    miniClassFabPos.value = {
-      x: clamp(defaultX, 8, rect.width - btnSize - 8),
-      y: clamp(defaultY, 8, rect.height - btnSize - 8),
-    }
-  }
-
-  try {
-    window.addEventListener('pointermove', onMiniClassFabPointerMove)
-    window.addEventListener('pointerup', onMiniClassFabPointerUp)
-    window.addEventListener('pointercancel', onMiniClassFabPointerUp)
-  } catch {}
+const handleHomeworkClose = () => {
+  currentFlow.value = 1
 }
 
 const onMiniClassFabClick = () => {
-  if (Date.now() - lastMiniClassFabDragEndAt.value < 200) {
-    return
-  }
   // 流程3：打开全屏作业面板
   console.log('[PdfViewerViewJK] 打开全屏作业面板')
   homeworkStore.questions = PREVIEW_HOMEWORK.questions
   homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
   homeworkOverlayVisible.value = true
+  // 切换流程状态
+  currentFlow.value = 2
   // 初始状态
   homeworkCurrentStage.value = 'classroom'
+}
+
+const onPortfolioFabClick = () => {
+  portfolioVisible.value = true
 }
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表
@@ -645,17 +457,6 @@ onMounted(async () => {
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
 
-    checkClassroomStatus()
-    androidBridge.onClassroomJoined(() => {
-      isInClass.value = true
-    })
-    androidBridge.onClassroomExited(() => {
-      isInClass.value = false
-    })
-    androidBridge.onClassroomStatusChanged((status: BridgeClassroomStatus) => {
-      isInClass.value = !!status?.isInClass
-    })
-
     // 无 PdfPage：只基于路由参数初始化会话上下文
     const currentResourceId = (route.query.resourceId as string) || ''
     const currentSectionName =
@@ -681,7 +482,7 @@ onMounted(async () => {
 
     // 如果从其他页面跳转过来要求跳过预习，直接进入聊天流程
     if (route.query.skipPreview === 'true') {
-      currentFlow.value = 2
+      currentFlow.value = 1
     }
   } catch (err) {
     console.error('PDF 加载失败:', err)
@@ -691,22 +492,6 @@ onMounted(async () => {
 
   // 初始进入时打开聊天面板
   pdfViewerStore.openChatPanel()
-
-  if (miniClassFabPos.value.x === 0 && miniClassFabPos.value.y === 0) {
-    const container =
-      (document.querySelector('.fullscreen-chat-container') as HTMLElement | null) ||
-      (document.querySelector('.pdf-viewer-container') as HTMLElement | null)
-    if (container) {
-      const rect = container.getBoundingClientRect()
-      const btnSize = 56
-      miniClassFabPos.value = {
-        x: clamp(rect.width - btnSize * 3, 8, rect.width - btnSize * 3),
-        y: clamp(Math.round(rect.height * 0.5 - btnSize), 8, rect.height - btnSize - 8),
-      }
-    }
-  }
-
-  miniClassFabReady.value = true
 })
 
 // 页面卸载前清理
@@ -1045,66 +830,7 @@ onBeforeUnmount(() => {
   background-color: #f9fafb;
 }
 
-/* 流程1：选择题样式 */
-.flow-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #e8e9ff;
-}
-
-.choice-card {
-  background: white;
-  padding: 40px;
-  border-radius: 24px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  width: 400px;
-}
-
-.choice-title {
-  font-size: 24px;
-  color: #2f2a45;
-  margin-bottom: 32px;
-  font-weight: 600;
-}
-
-.choice-options {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.choice-btn {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  border: 2px solid #615efe;
-  background: white;
-  color: #615efe;
-  font-size: 24px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.choice-btn:hover {
-  background: #615efe;
-  color: white;
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(97, 94, 254, 0.3);
-}
-
-.choice-btn:active {
-  transform: scale(0.95);
-}
-
-/* 作业面板切换按钮样式 (简约风格) */
+/* 全屏作业面板相关样式保持 */
 .stage-toggle {
   display: flex;
   gap: 32px;
@@ -1155,6 +881,14 @@ onBeforeUnmount(() => {
 
 .mini-class-fab:active {
   cursor: grabbing;
+}
+
+.mini-class-fab:active {
+  cursor: grabbing;
+}
+
+.portfolio-fab {
+  z-index: 1001; /* 略高于作业按钮 */
 }
 
 /* 原有样式保留（以防其他地方引用） */

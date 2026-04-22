@@ -65,7 +65,7 @@ const close = () => {
 }
 
 .overlay-header {
-  height: 64px;
+  height: 54px;
   background: #0f002e;
   display: flex;
   align-items: center;

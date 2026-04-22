@@ -5,7 +5,7 @@ const props = defineProps<{
   label: string
   loading?: boolean
   disabled?: boolean
-  size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg' | 'xl'
   variant?: 'primary' | 'outline' | 'ghost' | 'danger' | 'expired'  // 按钮样式变体
   icon?: string  // 图标路径，如果提供则显示图标而不是文字
 }>()
@@ -126,6 +126,16 @@ const handleClick = (evt: MouseEvent) => {
 
 .common-action-btn--lg .label {
   font-size: 16px;
+}
+
+.common-action-btn--xl {
+  min-width: 120px;
+  min-height: 52px;
+  font-size: 20px;
+}
+
+.common-action-btn--xl .label {
+  font-size: 18px;
 }
 
 .common-action-btn .label {
@@ -256,6 +266,11 @@ const handleClick = (evt: MouseEvent) => {
 .icon-button.common-action-btn--lg {
   border-radius: 10px;
   height: 56px;
+}
+
+.icon-button.common-action-btn--xl {
+  border-radius: 12px;
+  height: 80px;
 }
 
 /* 图标按钮样式 */
