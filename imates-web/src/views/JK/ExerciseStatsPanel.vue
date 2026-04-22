@@ -1,6 +1,39 @@
 <template>
   <div class="stats-fullscreen-content">
     <div class="stats-container">
+      <!-- 统计控制栏（排序与筛选） -->
+      <div class="stats-controls-row q-mb-lg">
+        <div class="control-group">
+          <span class="control-label">排序:</span>
+          <div class="btn-toggle">
+            <button 
+              v-for="opt in sortOptions" 
+              :key="opt.value"
+              class="toggle-btn"
+              :class="{ active: currentSort === opt.value }"
+              @click="emit('update:currentSort', opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">题型:</span>
+          <div class="btn-toggle">
+            <button 
+              v-for="opt in filterOptions" 
+              :key="opt.value"
+              class="toggle-btn"
+              :class="{ active: currentFilter === opt.value }"
+              @click="emit('update:currentFilter', opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="stats-summary q-mb-md">
         <div class="summary-item">
           <div class="label">当前学生层次</div>
@@ -174,6 +207,24 @@ const props = defineProps<{
   currentFilter: string
 }>()
 
+const emit = defineEmits<{
+  (e: 'update:currentSort', value: string): void
+  (e: 'update:currentFilter', value: string): void
+}>()
+
+// --- 配置项 ---
+const sortOptions = [
+  { label: '题号顺序', value: 'index' },
+  { label: '正确率低→高', value: 'accuracy-asc' },
+  { label: '正确率高→低', value: 'accuracy-desc' }
+]
+
+const filterOptions = [
+  { label: '全部', value: 'all' },
+  { label: '选择题', value: 'choice' },
+  { label: '判断题', value: 'judgment' }
+]
+
 // --- 统计逻辑 ---
 const expandedLayerKey = ref<string | null>(null)
 const layers = ['1', '2', '3']
@@ -331,6 +382,59 @@ const filteredAndSortedStats = computed(() => {
   max-width: 1200px;
 }
 
+.stats-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  background: white;
+  padding: 16px 24px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .control-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #64748b;
+    }
+
+    .btn-toggle {
+      display: flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+
+      .toggle-btn {
+        border: none;
+        background: transparent;
+        padding: 6px 14px;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover {
+          color: #1e293b;
+        }
+
+        &.active {
+          background: white;
+          color: #6e55ff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+      }
+    }
+  }
+}
+
 .stats-summary {
   background: white;
   padding: 16px 20px;
@@ -355,7 +459,7 @@ const filteredAndSortedStats = computed(() => {
 
 .question-stats-list {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   padding-bottom: 40px;
 }
@@ -368,6 +472,7 @@ const filteredAndSortedStats = computed(() => {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   transition: all 0.2s;
   display: flex;
+  flex-direction: column; // 纵向排列以适应窄列
   overflow: hidden;
 
   &:hover {
@@ -375,16 +480,15 @@ const filteredAndSortedStats = computed(() => {
   }
 
   .card-left-panel {
-    flex: 1.2;
     padding: 24px;
-    border-right: 1px solid #f1f5f9;
+    border-right: none;
+    border-bottom: 1px solid #f1f5f9;
     background: #ffffff;
     display: flex;
     flex-direction: column;
   }
 
   .card-right-panel {
-    flex: 1;
     padding: 24px;
     background: #fcfcfd;
   }

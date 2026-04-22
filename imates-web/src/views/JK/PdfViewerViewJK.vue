@@ -6,44 +6,22 @@
       title="课堂练习作答统计"
       @close="statsOverlayVisible = false"
     >
-      <template #header-center>
-        <!-- 统计控制栏（排序与筛选） -->
-        <div class="stats-controls">
-          <div class="control-group">
-            <span class="control-label">排序:</span>
-            <div class="btn-toggle">
-              <button 
-                v-for="opt in sortOptions" 
-                :key="opt.value"
-                class="toggle-btn"
-                :class="{ active: currentSort === opt.value }"
-                @click="currentSort = opt.value"
-              >
-                {{ opt.label }}
-              </button>
-            </div>
-          </div>
-
-          <div class="control-group">
-            <span class="control-label">题型:</span>
-            <div class="btn-toggle">
-              <button 
-                v-for="opt in filterOptions" 
-                :key="opt.value"
-                class="toggle-btn"
-                :class="{ active: currentFilter === opt.value }"
-                @click="currentFilter = opt.value"
-              >
-                {{ opt.label }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
-
       <ExerciseStatsPanel 
-        :current-sort="currentSort" 
-        :current-filter="currentFilter" 
+        v-if="statsOverlayVisible"
+        v-model:current-sort="currentSort" 
+        v-model:current-filter="currentFilter" 
+      />
+    </FullscreenOverlay>
+
+    <!-- 班级分层统计全屏遮罩 -->
+    <FullscreenOverlay
+      v-model="layerStatsOverlayVisible"
+      title="班级分层结果"
+      @close="layerStatsOverlayVisible = false"
+    >
+      <ClassLayerStatsPanel 
+        v-if="layerStatsOverlayVisible"
+        :preview-results="PREVIEW_HOMEWORK.questions" 
       />
     </FullscreenOverlay>
 
@@ -125,6 +103,17 @@
           bounds-container=".fullscreen-chat-container"
           @click="statsOverlayVisible = true"
         />
+
+        <!-- 分层按钮 -->
+        <DraggableFab
+          v-if="isDev"
+          label="分层"
+          size="md"
+          icon="layers"
+          :initial-pos="{ right: 168, bottom: 606 }"
+          bounds-container=".fullscreen-chat-container"
+          @click="layerStatsOverlayVisible = true"
+        />
       </template>
 
       <!-- 作品集遮罩层 -->
@@ -196,6 +185,7 @@ import DraggableFab from '@/components/base/DraggableFab.vue'
 import FullscreenOverlay from '@/components/base/FullscreenOverlay.vue'
 import HomeworkAnswerViewJK from './HomeworkAnswerViewJK.vue'
 import ExerciseStatsPanel from './ExerciseStatsPanel.vue'
+import ClassLayerStatsPanel from './ClassLayerStatsPanel.vue'
 import xiaogongjuIcon from '/icons/xiaogongju.svg'
 import zuopinjiIcon from '/icons/zuopinji.svg'
 import tongjiIcon from '/icons/paizuoye.svg'
@@ -211,18 +201,6 @@ const isDev = import.meta.env.DEV
 // 排序与筛选状态（用于统计面板）
 const currentSort = ref('index')
 const currentFilter = ref('all')
-
-const sortOptions = [
-  { label: '题号顺序', value: 'index' },
-  { label: '正确率从低到高', value: 'accuracy-asc' },
-  { label: '正确率从高到低', value: 'accuracy-desc' }
-]
-
-const filterOptions = [
-  { label: '全部', value: 'all' },
-  { label: '选择题', value: 'choice' },
-  { label: '判断题', value: 'judgment' }
-]
 
 // 使用 pdfViewerStore 和路由
 const pdfViewerStore = usePdfViewerStore()
@@ -265,6 +243,7 @@ const openImageViewer = (index: number) => {
 
 const homeworkOverlayVisible = ref(false)
 const statsOverlayVisible = ref(false)
+const layerStatsOverlayVisible = ref(false)
 const homeworkCurrentStage = ref('classroom')
 
 const switchHomeworkStage = (stage: string) => {

@@ -24,7 +24,11 @@
 
     <div class="right-panel">
       <div class="interactive-container" v-if="showResults">
-        <PracticeResultStatistics :results="practiceResults" />
+        <div class="results-placeholder">
+          <q-icon name="assignment_turned_in" size="64px" color="primary" />
+          <h3>练习已完成</h3>
+          <p>请点击主页上的“结果”按钮查看详细统计</p>
+        </div>
         <div class="action-footer">
           <CommonActionButton
             label="重新练习"
@@ -129,7 +133,6 @@ import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
-import PracticeResultStatistics from './PracticeResultStatistics.vue'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 
 const props = defineProps<{
@@ -342,6 +345,27 @@ watch(() => props.externalQuestions, (newVal) => {
   display: flex;
   flex-direction: column;
   min-height: 0; // 确保子元素溢出时能够正确触发滚动
+}
+
+.results-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  text-align: center;
+  padding: 40px;
+
+  h3 {
+    margin: 16px 0 8px;
+    font-size: 24px;
+    color: #1e293b;
+  }
+
+  p {
+    font-size: 16px;
+  }
 }
 
 .question-render-area {
