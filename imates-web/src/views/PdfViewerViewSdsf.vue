@@ -33,21 +33,27 @@
       :show-close-button="false"
     >
       <template #header>
-        <div class="sdsf-miniclass-tabs">
-          <button
-            class="sdsf-tab-btn"
-            :class="{ active: activeMiniClassTab === 'swallow' }"
-            @click="switchMiniClass('swallow')"
-          >
-            燕子互动
-          </button>
-          <button
-            class="sdsf-tab-btn"
-            :class="{ active: activeMiniClassTab === 'basketball' }"
-            @click="switchMiniClass('basketball')"
-          >
-            篮球拼图
-          </button>
+        <div class="sdsf-miniclass-tabs-container">
+          <div class="sdsf-miniclass-tabs">
+            <button
+              class="sdsf-tab-btn"
+              :class="{ active: activeMiniClassTab === 'swallow' }"
+              @click="switchMiniClass('swallow')"
+            >
+              燕子互动
+            </button>
+            <!-- <button
+              class="sdsf-tab-btn"
+              :class="{ active: activeMiniClassTab === 'basketball' }"
+              @click="switchMiniClass('basketball')"
+            >
+              篮球拼图
+            </button> -->
+          </div>
+          <div class="user-account-info" v-if="userInfo">
+            <span class="account-value">{{ userInfo.name || userInfo.userId || '未登录' }}</span>
+          </div>
+          <div class="placeholder"></div>
         </div>
       </template>
     </MiniClass>
@@ -88,6 +94,7 @@ import {
 } from '@/stores/aiTextbookChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { showMessage } from '@/utils'
+import { getUserInfo } from '@/services'
 import type { AiTextbookSession, AttachedScreenshot } from '@/types'
 import { addScreenshotSession } from '@/utils/storage/screenshotSessions'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
@@ -109,6 +116,7 @@ const aiTextbookStore = useAiTextbookChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 
 const uiStore = useUIStore()
+const userInfo = computed(() => getUserInfo())
 const showMiniClassDialog = computed({
   get: () => uiStore.showMiniClassDialog,
   set: (value) => {
@@ -341,12 +349,41 @@ onBeforeUnmount(() => {
   cursor: grabbing;
 }
 
-/* 极简微课切换按钮 */
+.sdsf-miniclass-tabs-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
 .sdsf-miniclass-tabs {
   display: inline-flex;
   align-items: center;
   gap: 24px;
-  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.user-account-info {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.placeholder {
+  flex-shrink: 0;
+  width: 1px;
+}
+
+.account-value {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
 }
 
 .sdsf-tab-btn {

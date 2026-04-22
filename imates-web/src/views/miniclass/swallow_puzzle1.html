@@ -28,7 +28,7 @@
 
     h1 {
       text-align: center;
-      font-size: 28px; /* 调小基础字号 */
+      font-size: 24px; /* 调小标题字号 (原28px) */
       font-weight: 700;
       color: #8f6b11;
       letter-spacing: 4px;
@@ -49,7 +49,7 @@
 
     .grid-wrap {
       position: relative;
-      flex: 2 1 0; /* 再次增加左侧画布的权重，从 1.4 提升到 2 */
+      flex: 2 1 0; /* 减小左侧权重 (原 2) */
       min-width: 0;
       min-height: 0;
       display: flex;
@@ -64,7 +64,7 @@
     }
 
     .right-col {
-      flex: 1 1 0;
+      flex: 1.2 1 0; /* 增加右侧聊天区权重 (原 1) */
       min-width: 200px; /* 稍微缩小右侧最小宽度以腾出更多空间给左侧 */
       display: flex;
       flex-direction: column;
@@ -272,7 +272,7 @@
       box-shadow: 0 0 6px rgba(240,192,64,0.6);
     }
     .chatbot-header-label {
-      font-size: 20px; /* 调大页眉字号 */
+      font-size: 18px; /* 调小页眉字号 (原20px) */
       font-weight: 700;
       letter-spacing: 0.5px;
       color: #64748b;
@@ -352,7 +352,7 @@
     .chat-row.student { flex-direction: row-reverse; }
 
     .chat-avatar {
-      width: 40px; height: 40px;
+      width: 48px; height: 48px;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
@@ -362,9 +362,9 @@
 
     .chat-bubble {
       max-width: 90%;
-      padding: 10px 14px;
+      padding: 14px 18px;
       border-radius: 12px;
-      font-size: 17px; /* 调大聊天气泡字号 */
+      font-size: 24px; /* 进一步调大聊天气泡字号 (原20px) */
       line-height: 1.5;
       word-break: break-word;
     }
@@ -418,9 +418,9 @@
 
     /* ─── 移动端字体与间距适配 ─────────────────────────── */
     @media (max-width: 768px) {
-      h1 { font-size: 22px; letter-spacing: 2px; }
-      .chatbot-header-label { font-size: 17px; }
-      .chat-bubble { font-size: 15px; padding: 8px 12px; }
+      h1 { font-size: 20px; letter-spacing: 2px; }
+      .chatbot-header-label { font-size: 16px; }
+      .chat-bubble { font-size: 16px; padding: 10px 14px; }
       .sdsf-tab-btn { padding: 4px 12px; font-size: 13px; }
       textarea { font-size: 14px; }
       .btn { font-size: 13px; padding: 6px 14px; }
@@ -453,8 +453,7 @@
         <!-- Chatbot panel (含输入区) -->
         <div class="chatbot-card">
           <div class="chatbot-header">
-            <span class="chatbot-header-dot"></span>
-            <span id="llmStatus" class="chatbot-header-label info">你有移动燕子到空缺方块的方案吗？</span>
+            <span id="llmStatus" class="chatbot-header-label info"></span>
           </div>
           <div class="chatbot-messages" id="chatMessages">
             <div class="chat-empty" id="chatEmpty">对话记录展示区</div>

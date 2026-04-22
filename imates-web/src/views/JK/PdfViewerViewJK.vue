@@ -1,111 +1,168 @@
 <template>
-  <!-- 全屏对话面板 -->
-  <div class="fullscreen-chat-container">
-    <!-- 流程0：课前预习环节 -->
+  <div class="main-page-wrapper">
+    <!-- 统计详情全屏遮罩 -->
     <FullscreenOverlay
-      v-if="currentFlow === 0"
-      v-model="previewOverlayVisible"
-      title="课前预习"
-      :show-header="true"
-    >
-      <template #header-left>
-        <div style="width: 40px"></div>
-      </template>
-      <template #header-right>
-        <div style="width: 40px"></div>
-      </template>
-      <HomeworkPreviewKids
-        :external-questions="PREVIEW_HOMEWORK.questions"
-        @submit="handlePreviewSubmit"
-      />
-    </FullscreenOverlay>
-
-    <!-- 流程2 & 流程3：PDF 聊天面板内容 -->
-    <JoinClassroomButton />
-
-    <!-- 流程1：PDF 聊天面板内容 -->
-    <template v-if="currentFlow === 1">
-      <PdfChatPanel
-        ref="chatPanelRef"
-        :attached-screenshots="aiTextbookStore.attachedScreenshots"
-        :model-options="AI_ROLE_OPTIONS_JK"
-        :suggestions="[
-          '探究1 0为什么既不是正数也不是负数?',
-          '探究2 负数和相反意义的量有什么区别?',
-          '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
-          '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?',
-        ]"
-        :suggested-questions="[
-          '探究1 0为什么既不是正数也不是负数?',
-          '探究2 负数和相反意义的量有什么区别?',
-          '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
-          '探究4 观察数轴上的数，左边 and 右边的数在大小上有什么简单规律(不深入比较大小)?',
-        ]"
-        @send-with-screenshot="handlePdfSendWithScreenshot"
-        @remove-screenshot="handlePdfRemoveScreenshot"
-        @edit-screenshot="handleEditScreenshot"
-        @select-and-ask-click="handleSelectAndAskFromChat"
-      >
-      </PdfChatPanel>
-
-      <!-- 悬浮按钮组 -->
-      <DraggableFab
-        label="作业"
-        size="md"
-        :icon="xiaogongjuIcon"
-        :initial-pos="{ right: 168, bottom: 442 }"
-        bounds-container=".fullscreen-chat-container"
-        @click="onMiniClassFabClick"
-      />
-
-      <DraggableFab
-        label="作品集"
-        size="xl"
-        :icon="zuopinjiIcon"
-        :initial-pos="{ right: 168, bottom: 360 }"
-        bounds-container=".fullscreen-chat-container"
-        @click="onPortfolioFabClick"
-      />
-    </template>
-
-    <!-- 作品集遮罩层 -->
-    <PortfolioOverlay
-      v-model="portfolioVisible"
-      :images="portfolioImages"
-      @image-click="openImageViewer"
-    />
-
-    <!-- 图片查看器 -->
-    <ImageViewer
-      v-model="imageViewerVisible"
-      :images="portfolioImages"
-      :initial-index="imageViewerIndex"
-    />
-
-    <!-- 全屏作业面板 -->
-    <FullscreenOverlay
-      v-model="homeworkOverlayVisible"
-      :title="homeworkStore.homeworkName"
-      @close="handleHomeworkClose"
+      v-model="statsOverlayVisible"
+      title="课堂练习作答统计"
+      @close="statsOverlayVisible = false"
     >
       <template #header-center>
-        <div class="stage-toggle" v-if="homeworkRef">
-          <button
-            v-for="(label, key) in homeworkRef.stageNameMap"
-            :key="key"
-            class="toggle-btn"
-            :class="{ active: homeworkCurrentStage === key }"
-            @click="switchHomeworkStage(String(key))"
-          >
-            {{ label }}
-          </button>
+        <!-- 统计控制栏（排序与筛选） -->
+        <div class="stats-controls">
+          <div class="control-group">
+            <span class="control-label">排序:</span>
+            <div class="btn-toggle">
+              <button 
+                v-for="opt in sortOptions" 
+                :key="opt.value"
+                class="toggle-btn"
+                :class="{ active: currentSort === opt.value }"
+                @click="currentSort = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
           </div>
-        </template>
-      <HomeworkAnswerViewJK ref="homeworkRef" is-component />
+
+          <div class="control-group">
+            <span class="control-label">题型:</span>
+            <div class="btn-toggle">
+              <button 
+                v-for="opt in filterOptions" 
+                :key="opt.value"
+                class="toggle-btn"
+                :class="{ active: currentFilter === opt.value }"
+                @click="currentFilter = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <ExerciseStatsPanel 
+        :current-sort="currentSort" 
+        :current-filter="currentFilter" 
+      />
     </FullscreenOverlay>
 
-    <!-- 调试面板 -->
-    <PracticeDebugPanel />
+    <!-- 全屏对话面板 -->
+    <div class="fullscreen-chat-container">
+      <!-- 流程0：课前预习环节 -->
+      <FullscreenOverlay
+        v-if="currentFlow === 0"
+        v-model="previewOverlayVisible"
+        title="课前预习"
+        :show-header="true"
+      >
+        <template #header-left>
+          <div style="width: 40px"></div>
+        </template>
+        <template #header-right>
+          <div style="width: 40px"></div>
+        </template>
+        <HomeworkPreviewKids
+          :external-questions="PREVIEW_HOMEWORK.questions"
+          @submit="handlePreviewSubmit"
+        />
+      </FullscreenOverlay>
+
+      <!-- 流程2 & 流程3：PDF 聊天面板内容 -->
+      <JoinClassroomButton />
+
+      <!-- 流程1：PDF 聊天面板内容 -->
+      <template v-if="currentFlow === 1">
+        <PdfChatPanel
+          ref="chatPanelRef"
+          :attached-screenshots="aiTextbookStore.attachedScreenshots"
+          :model-options="AI_ROLE_OPTIONS_JK"
+          :suggestions="[
+            '探究1 0为什么既不是正数也不是负数?',
+            '探究2 负数和相反意义的量有什么区别?',
+            '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
+            '探究4 观察数轴上的数，左边和右边的数在大小上有什么简单规律(不深入比较大小)?',
+          ]"
+          :suggested-questions="[
+            '探究1 0为什么既不是正数也不是负数?',
+            '探究2 负数和相反意义的量有什么区别?',
+            '探究3 怎样规范标记表示温度的直线(数轴)，它有哪些核心要素?',
+            '探究4 观察数轴上的数，左边 and 右边的数在大小上有什么简单规律(不深入比较大小)?',
+          ]"
+          @send-with-screenshot="handlePdfSendWithScreenshot"
+          @remove-screenshot="handlePdfRemoveScreenshot"
+          @edit-screenshot="handleEditScreenshot"
+          @select-and-ask-click="handleSelectAndAskFromChat"
+        >
+        </PdfChatPanel>
+
+        <!-- 悬浮按钮组 -->
+        <DraggableFab
+          label="作业"
+          size="md"
+          :icon="xiaogongjuIcon"
+          :initial-pos="{ right: 168, bottom: 442 }"
+          bounds-container=".fullscreen-chat-container"
+          @click="onMiniClassFabClick"
+        />
+
+        <DraggableFab
+          label="作品集"
+          size="xl"
+          :icon="zuopinjiIcon"
+          :initial-pos="{ right: 168, bottom: 360 }"
+          bounds-container=".fullscreen-chat-container"
+          @click="onPortfolioFabClick"
+        />
+
+        <!-- 统计按钮 -->
+        <DraggableFab
+          v-if="isDev"
+          label="统计"
+          size="md"
+          :icon="tongjiIcon"
+          :initial-pos="{ right: 168, bottom: 524 }"
+          bounds-container=".fullscreen-chat-container"
+          @click="statsOverlayVisible = true"
+        />
+      </template>
+
+      <!-- 作品集遮罩层 -->
+      <PortfolioOverlay
+        v-model="portfolioVisible"
+        :images="portfolioImages"
+        @image-click="openImageViewer"
+      />
+
+      <!-- 图片查看器 -->
+      <ImageViewer
+        v-model="imageViewerVisible"
+        :images="portfolioImages"
+        :initial-index="imageViewerIndex"
+      />
+
+      <!-- 全屏作业面板 -->
+      <FullscreenOverlay
+        v-model="homeworkOverlayVisible"
+        :title="homeworkStore.homeworkName"
+        @close="handleHomeworkClose"
+      >
+        <template #header-center>
+          <div class="stage-toggle" v-if="homeworkRef">
+            <button
+              v-for="(label, key) in homeworkRef.stageNameMap"
+              :key="key"
+              class="toggle-btn"
+              :class="{ active: homeworkCurrentStage === key }"
+              @click="switchHomeworkStage(String(key))"
+            >
+              {{ label }}
+            </button>
+          </div>
+        </template>
+        <HomeworkAnswerViewJK ref="homeworkRef" is-component />
+      </FullscreenOverlay>
+    </div>
   </div>
 </template>
 
@@ -138,14 +195,34 @@ import ImageViewer from '@/components/ImageViewer.vue'
 import DraggableFab from '@/components/base/DraggableFab.vue'
 import FullscreenOverlay from '@/components/base/FullscreenOverlay.vue'
 import HomeworkAnswerViewJK from './HomeworkAnswerViewJK.vue'
+import ExerciseStatsPanel from './ExerciseStatsPanel.vue'
 import xiaogongjuIcon from '/icons/xiaogongju.svg'
 import zuopinjiIcon from '/icons/zuopinji.svg'
+import tongjiIcon from '/icons/paizuoye.svg'
 import { useUIStore } from '@/stores/uiStore'
 import HomeworkPreviewKids from './HomeworkPreviewJK.vue'
-import PracticeDebugPanel from './PracticeDebugPanel.vue'
-import { PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
+import { CLASSROOM_EXERCISE, PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
+
+// 环境判断
+const isDev = import.meta.env.DEV
+
+// 排序与筛选状态（用于统计面板）
+const currentSort = ref('index')
+const currentFilter = ref('all')
+
+const sortOptions = [
+  { label: '题号顺序', value: 'index' },
+  { label: '正确率从低到高', value: 'accuracy-asc' },
+  { label: '正确率从高到低', value: 'accuracy-desc' }
+]
+
+const filterOptions = [
+  { label: '全部', value: 'all' },
+  { label: '选择题', value: 'choice' },
+  { label: '判断题', value: 'judgment' }
+]
 
 // 使用 pdfViewerStore 和路由
 const pdfViewerStore = usePdfViewerStore()
@@ -187,6 +264,7 @@ const openImageViewer = (index: number) => {
 }
 
 const homeworkOverlayVisible = ref(false)
+const statsOverlayVisible = ref(false)
 const homeworkCurrentStage = ref('classroom')
 
 const switchHomeworkStage = (stage: string) => {
@@ -198,25 +276,58 @@ const switchHomeworkStage = (stage: string) => {
 
 const homeworkRef = ref<InstanceType<typeof HomeworkAnswerViewJK> | null>(null)
 
-const handleHomeworkClose = () => {
-  currentFlow.value = 1
-}
+// 生命周期
+onMounted(async () => {
+  try {
+    // 设置学校类型为经开（使用经开引导语）
+    aiTextbookStore.setSchoolType('jk')
 
-const onMiniClassFabClick = () => {
-  // 流程3：打开全屏作业面板
-  console.log('[PdfViewerViewJK] 打开全屏作业面板')
-  homeworkStore.questions = PREVIEW_HOMEWORK.questions
-  homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
-  homeworkOverlayVisible.value = true
-  // 切换流程状态
-  currentFlow.value = 2
-  // 初始状态
-  homeworkCurrentStage.value = 'classroom'
-}
+    // 加载 aiGeneral 会话列表
+    await aiGeneralStore.loadSessions()
 
-const onPortfolioFabClick = () => {
-  portfolioVisible.value = true
-}
+    // 无 PdfPage：只基于路由参数初始化会话上下文
+    const currentResourceId = (route.query.resourceId as string) || ''
+    const currentSectionName =
+      (route.query.sectionName as string) || (route.query.textbookName as string) || null
+    aiTextbookStore.setSectionName(currentSectionName)
+
+    const chapterInfo = {
+      grade: (route.query.chapterGrade as string) || '',
+      subject: (route.query.chapterSubject as string) || '',
+      textbook: (route.query.chapterTextbook as string) || '',
+      chapter_title: (route.query.chapterTitle as string) || '',
+    }
+    aiTextbookStore.setChapterInfo(
+      chapterInfo.grade || chapterInfo.subject || chapterInfo.textbook || chapterInfo.chapter_title
+        ? chapterInfo
+        : null
+    )
+
+    if (currentResourceId) {
+      aiTextbookStore.setResourceId(currentResourceId)
+      await aiTextbookStore.loadChatHistory(currentResourceId)
+    }
+
+    // 如果从其他页面跳转过来要求跳过预习，直接进入聊天流程
+    if (route.query.skipPreview === 'true') {
+      currentFlow.value = 1
+    }
+  } catch (err) {
+    console.error('PDF 加载失败:', err)
+  }
+
+  await nextTick()
+
+  // 初始进入时打开聊天面板
+  pdfViewerStore.openChatPanel()
+})
+
+// 页面卸载前清理
+onBeforeUnmount(() => {
+  // 退出 PDF 页面时清空当前工具，避免影响其它页面
+  pdfViewerStore.selectedTool = '' as any
+  pdfViewerStore.closeChatPanel()
+})
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表
 const chatPanelRef = ref<InstanceType<typeof PdfChatPanel> | null>(null)
@@ -455,61 +566,28 @@ const handlePdfRemoveScreenshot = (id: string) => {
   }
 }
 
-// 生命周期
-onMounted(async () => {
-  try {
-    // 设置学校类型为经开（使用经开引导语）
-    aiTextbookStore.setSchoolType('jk')
+const handleHomeworkClose = () => {
+  currentFlow.value = 1
+}
 
-    // 加载 aiGeneral 会话列表
-    await aiGeneralStore.loadSessions()
+const onMiniClassFabClick = () => {
+  // 流程3：打开全屏作业面板
+  console.log('[PdfViewerViewJK] 打开全屏作业面板')
+  homeworkStore.questions = PREVIEW_HOMEWORK.questions
+  homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
+  homeworkOverlayVisible.value = true
+  // 切换流程状态
+  currentFlow.value = 2
+  // 初始状态
+  homeworkCurrentStage.value = 'classroom'
+}
 
-    // 无 PdfPage：只基于路由参数初始化会话上下文
-    const currentResourceId = (route.query.resourceId as string) || ''
-    const currentSectionName =
-      (route.query.sectionName as string) || (route.query.textbookName as string) || null
-    aiTextbookStore.setSectionName(currentSectionName)
-
-    const chapterInfo = {
-      grade: (route.query.chapterGrade as string) || '',
-      subject: (route.query.chapterSubject as string) || '',
-      textbook: (route.query.chapterTextbook as string) || '',
-      chapter_title: (route.query.chapterTitle as string) || '',
-    }
-    aiTextbookStore.setChapterInfo(
-      chapterInfo.grade || chapterInfo.subject || chapterInfo.textbook || chapterInfo.chapter_title
-        ? chapterInfo
-        : null
-    )
-
-    if (currentResourceId) {
-      aiTextbookStore.setResourceId(currentResourceId)
-      await aiTextbookStore.loadChatHistory(currentResourceId)
-    }
-
-    // 如果从其他页面跳转过来要求跳过预习，直接进入聊天流程
-    if (route.query.skipPreview === 'true') {
-      currentFlow.value = 1
-    }
-  } catch (err) {
-    console.error('PDF 加载失败:', err)
-  }
-
-  await nextTick()
-
-  // 初始进入时打开聊天面板
-  pdfViewerStore.openChatPanel()
-})
-
-// 页面卸载前清理
-onBeforeUnmount(() => {
-  // 退出 PDF 页面时清空当前工具，避免影响其它页面
-  pdfViewerStore.selectedTool = '' as any
-  pdfViewerStore.closeChatPanel()
-})
+const onPortfolioFabClick = () => {
+  portfolioVisible.value = true
+}
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .content-layout {
   flex: 1;
   display: flex;
@@ -1055,14 +1133,60 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 返回按钮样式 */
-.goback-btn {
-  padding: 8px;
+.main-page-wrapper {
+  width: 100%;
+  height: 100%;
 }
 
-.goback-icon {
-  width: 24px;
-  height: 24px;
-  display: block;
+.stats-controls {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  // 放在面板头部中心，不需要背景和边框
+  padding: 0;
+  border: none;
+  margin-bottom: 0;
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .control-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.8); // 适应深色头部
+    }
+
+    .btn-toggle {
+      display: flex;
+      background: rgba(255, 255, 255, 0.15); // 半透明背景
+      padding: 3px;
+      border-radius: 8px;
+      gap: 2px;
+
+      .toggle-btn {
+        border: none;
+        background: transparent;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover {
+          color: white;
+        }
+
+        &.active {
+          background: white;
+          color: #6e55ff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+      }
+    }
+  }
 }
 </style>

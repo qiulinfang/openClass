@@ -1,120 +1,113 @@
 <template>
-  <div class="practice-debug-panel" :class="{ 'is-collapsed': isCollapsed }">
-    <div class="panel-header" @click="isCollapsed = !isCollapsed">
-      <div class="header-title">
-        <q-icon name="analytics" size="20px" />
-        <span>作答情况统计 (Debug)</span>
-      </div>
-      <q-btn
-        flat
-        round
-        dense
-        :icon="isCollapsed ? 'expand_less' : 'expand_more'"
-        size="sm"
-      />
-    </div>
-
-    <div class="panel-content" v-if="!isCollapsed">
-      <div class="stats-summary q-mb-md">
-        <div class="summary-item">
-          <div class="label">当前学生层次</div>
-          <div class="value" :class="'layer-' + mockStudentInfo.layer">
-            {{ layerLabelMap[mockStudentInfo.layer] }}
-          </div>
+  <div class="stats-container">
+    <div class="stats-summary q-mb-md">
+      <div class="summary-item">
+        <div class="label">当前学生层次</div>
+        <div class="value" :class="'layer-' + mockStudentInfo.layer">
+          {{ layerLabelMap[mockStudentInfo.layer] }}
         </div>
       </div>
+    </div>
 
-          <div class="question-stats-list">
-        <div 
-          v-for="stat in mockStatsData" 
-          :key="stat.questionId" 
-          class="question-stat-card"
-          :class="{ 'needs-review': getMinAccuracy(stat) < 60 }"
-        >
-          <div class="question-header">
-            <div class="q-title-row">
-              <span class="q-index">题{{ stat.index }}</span>
-              <span class="q-type-tag" :class="stat.type">{{ stat.type === 'choice' ? '选择' : '判断' }}</span>
-              <q-badge v-if="getMinAccuracy(stat) < 60" color="red" label="需讲评" pulse />
-            </div>
-            <span class="q-id">{{ stat.bmNo }}</span>
+    <div class="question-stats-list">
+      <div 
+        v-for="stat in mockStatsData" 
+        :key="stat.questionId" 
+        class="question-stat-card"
+      >
+        <div class="question-header">
+          <div class="q-title-row">
+            <span class="q-index">题{{ stat.index }}</span>
+            <span class="q-type-tag" :class="stat.type">{{ stat.type === 'choice' ? '选择' : '判断' }}</span>
           </div>
-          
-          <div class="layer-stats-grid">
+          <span class="q-id">{{ stat.bmNo }}</span>
+        </div>
+
+        <!-- 全班正确率展示 -->
+        <div class="class-accuracy-section q-mb-md">
+          <div class="class-label">全班正确率</div>
+          <div class="class-bar-container">
             <div 
-              v-for="layer in layers" 
-              :key="layer" 
-              class="layer-stat-container"
+              class="class-bar" 
+              :style="{ 
+                width: stat.classAccuracy + '%',
+                backgroundColor: '#6e55ff'
+              }"
+            ></div>
+            <span class="class-val">{{ stat.classAccuracy }}%</span>
+          </div>
+        </div>
+        
+        <div class="layer-stats-accordion">
+          <div class="accordion-title">分层作答详情</div>
+          <div 
+            v-for="layer in layers" 
+            :key="layer" 
+            class="accordion-item"
+            :class="{ 
+              'is-expanded': expandedLayerKey === `${stat.questionId}-${layer}`
+            }"
+          >
+            <!-- 手风琴头部 -->
+            <div 
+              class="accordion-header"
+              @click="toggleLayerDetail(stat.questionId, layer)"
             >
-              <div 
-                class="layer-stat-item"
-                :class="{ 
-                  'is-current': mockStudentInfo.layer === layer,
-                  'is-expanded': expandedLayerKey === `${stat.questionId}-${layer}`
-                }"
-                @click="toggleLayerDetail(stat.questionId, layer)"
-              >
-                <div class="layer-name-cell">
-                  <div class="layer-dot" :style="{ backgroundColor: getLayerColor(layer) }"></div>
-                  <span>{{ layerLabelMap[layer] }}</span>
-                </div>
-                <div class="accuracy-bar-container">
+              <div class="header-left">
+                <div class="layer-dot" :style="{ backgroundColor: getLayerColor(layer) }"></div>
+                <span class="layer-label">{{ layerLabelMap[layer] }}</span>
+              </div>
+              
+              <div class="header-center">
+                <div class="mini-bar-bg">
                   <div 
-                    class="accuracy-bar" 
+                    class="mini-bar-fill" 
                     :style="{ 
                       width: stat.layerStats[layer].accuracy + '%',
                       backgroundColor: getBarColor(stat.layerStats[layer].accuracy)
                     }"
                   ></div>
                 </div>
-                <div class="accuracy-text-cell">
-                  <span class="val">{{ stat.layerStats[layer].accuracy }}%</span>
-                  <q-icon 
-                    :name="expandedLayerKey === `${stat.questionId}-${layer}` ? 'keyboard_arrow_up' : 'keyboard_arrow_down'" 
-                    size="16px"
-                  />
-                </div>
+                <span class="accuracy-val">{{ stat.layerStats[layer].accuracy }}%</span>
               </div>
 
-              <!-- 选项分布详情 (教师诊断视角) -->
-              <transition name="fade">
-                <div 
-                  v-if="expandedLayerKey === `${stat.questionId}-${layer}`" 
-                  class="option-dist-detail"
-                >
-                  <div class="dist-header">
-                    <span>选项分布</span>
-                    <span class="correct-hint">正确答案: {{ getCorrectAnswer(stat.questionId) }}</span>
-                  </div>
+              <div class="header-right">
+                <q-icon 
+                  name="keyboard_arrow_down" 
+                  size="20px"
+                  class="arrow-icon"
+                />
+              </div>
+            </div>
+
+            <!-- 手风琴内容 (选项分布) -->
+            <div class="accordion-content">
+              <div class="dist-header">
+                <span>选项分布统计</span>
+                <span class="correct-ans">正确答案: {{ getCorrectAnswer(stat.questionId) }}</span>
+              </div>
+              
+              <div 
+                v-for="opt in stat.layerStats[layer].optionDist" 
+                :key="opt.label"
+                class="opt-row"
+                :class="{ 'is-correct': opt.label === getCorrectAnswer(stat.questionId) }"
+              >
+                <div class="opt-id">{{ opt.label }}</div>
+                <div class="opt-bar-wrapper">
                   <div 
-                    v-for="opt in stat.layerStats[layer].optionDist" 
-                    :key="opt.label"
-                    class="opt-item"
-                    :class="{ 
-                      'is-correct-opt': opt.label === getCorrectAnswer(stat.questionId),
-                      'is-common-error': opt.label !== getCorrectAnswer(stat.questionId) && opt.percent > 30
+                    class="opt-bar-fill" 
+                    :style="{ 
+                      width: opt.percent + '%',
+                      backgroundColor: opt.label === getCorrectAnswer(stat.questionId) ? '#10b981' : '#e2e8f0'
                     }"
-                  >
-                    <div class="opt-info">
-                      <span class="opt-label">{{ opt.label }}</span>
-                      <q-icon v-if="opt.label === getCorrectAnswer(stat.questionId)" name="check" color="positive" size="12px" />
-                    </div>
-                    <div class="opt-bar-bg">
-                      <div 
-                        class="opt-bar-fill" 
-                        :style="{ 
-                          width: opt.percent + '%',
-                          backgroundColor: getOptBarColor(opt.label, stat.questionId, opt.percent)
-                        }"
-                      ></div>
-                    </div>
-                    <div class="opt-data">
-                      <span class="p">{{ opt.percent }}%</span>
-                      <span class="c">{{ opt.count }}人</span>
-                    </div>
-                  </div>
+                  ></div>
                 </div>
-              </transition>
+                <div class="opt-stats">
+                  <span class="p">{{ opt.percent }}%</span>
+                  <span class="c">{{ opt.count }}人</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -145,10 +138,10 @@ interface QuestionStat {
   questionId: string
   bmNo: string
   type: 'choice' | 'judgment'
+  classAccuracy: number // 新增：全班正确率
   layerStats: Record<string, LayerStat>
 }
 
-const isCollapsed = ref(false)
 const expandedLayerKey = ref<string | null>(null)
 
 const layers = ['1', '2', '3']
@@ -168,15 +161,8 @@ const getMinAccuracy = (stat: QuestionStat) => {
 }
 
 const getLayerColor = (layer: string) => {
-  const colors: any = { '1': '#ef4444', '2': '#f59e0b', '3': '#3b82f6' }
+  const colors: any = { '1': '#475569', '2': '#64748b', '3': '#94a3b8' }
   return colors[layer]
-}
-
-const getOptBarColor = (label: string, questionId: string, percent: number) => {
-  const correct = getCorrectAnswer(questionId)
-  if (label === correct) return '#10b981' // 正确选项绿色
-  if (percent > 30) return '#ef4444' // 高频错误选项红色
-  return '#cbd5e1' // 普通错误选项灰色
 }
 
 const toggleLayerDetail = (questionId: string, layer: string) => {
@@ -197,6 +183,7 @@ const mockStatsData = ref<QuestionStat[]>([
     questionId: 'exe-base-sel-1',
     bmNo: 'EXE_BASE_SEL_001',
     type: 'choice',
+    classAccuracy: 78, // 全班正确率
     layerStats: {
       '1': { 
         accuracy: 95, correctCount: 19, totalCount: 20,
@@ -232,6 +219,7 @@ const mockStatsData = ref<QuestionStat[]>([
     questionId: 'exe-base-jud-1',
     bmNo: 'EXE_BASE_JUD_001',
     type: 'judgment',
+    classAccuracy: 62, // 全班正确率
     layerStats: {
       '1': { 
         accuracy: 90, correctCount: 18, totalCount: 20,
@@ -259,66 +247,15 @@ const mockStatsData = ref<QuestionStat[]>([
 ])
 
 const getBarColor = (accuracy: number) => {
-  if (accuracy >= 85) return '#10b981'
-  if (accuracy >= 60) return '#6e55ff'
-  return '#f59e0b'
+  return '#6e55ff' // 统一使用主题紫，不进行颜色评价
 }
 </script>
 
 <style scoped lang="scss">
-.practice-debug-panel {
-  position: fixed;
-  right: 20px;
-  top: 80px;
-  width: 340px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-  min-height: 0;
-  border: 1px solid #e2e8f0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &.is-collapsed {
-    height: 48px;
-    overflow: hidden;
-    width: 200px;
-  }
-}
-
-.panel-header {
-  padding: 0 16px;
-  height: 48px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  border-radius: 12px 12px 0 0;
-
-  .header-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    color: #334155;
-    font-size: 14px;
-  }
-}
-
-.panel-content {
-  padding: 16px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  background: #fdfdfd;
-
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+.stats-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .stats-summary {
@@ -349,11 +286,6 @@ const getBarColor = (accuracy: number) => {
   margin-bottom: 16px;
   transition: all 0.2s;
 
-  &.needs-review {
-    border-color: #fee2e2;
-    background: #fffafa;
-  }
-
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   }
@@ -380,75 +312,221 @@ const getBarColor = (accuracy: number) => {
   }
 }
 
-.layer-stat-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
+.class-accuracy-section {
+  background: #f1f0ff;
+  padding: 10px 12px;
   border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 2px;
+  
+  .class-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6e55ff;
+    margin-bottom: 6px;
+  }
 
-  &:hover { background: #f1f5f9; }
-  &.is-current { background: #f8fafc; border: 1px solid #6e55ff; }
-  &.is-expanded { background: #f1f5f9; }
-
-  .layer-name-cell {
+  .class-bar-container {
     display: flex;
     align-items: center;
-    gap: 6px;
-    width: 60px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #475569;
-    .layer-dot { width: 6px; height: 6px; border-radius: 50%; }
-  }
-
-  .accuracy-bar-container {
-    flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;
-    .accuracy-bar { height: 100%; transition: width 0.6s ease; }
-  }
-
-  .accuracy-text-cell {
-    width: 65px; display: flex; align-items: center; justify-content: flex-end; gap: 4px;
-    .val { font-size: 13px; font-weight: 700; color: #1e293b; }
+    gap: 10px;
+    
+    .class-bar {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+    
+    .class-val {
+      font-size: 14px;
+      font-weight: 800;
+      color: #6e55ff;
+      width: 40px;
+      text-align: right;
+    }
   }
 }
 
-.option-dist-detail {
-  margin: 6px 4px 10px 40px;
-  padding: 12px;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #f1f5f9;
+.layer-stats-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 
-  .dist-header {
-    display: flex; justify-content: space-between; font-size: 11px; font-weight: 600;
-    color: #94a3b8; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dashed #f1f5f9;
-    .correct-hint { color: #10b981; }
+  .accordion-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin: 8px 0 2px 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .opt-item {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
-    
-    &:last-child { margin-bottom: 0; }
-    &.is-correct-opt .opt-label { color: #10b981; }
-    &.is-common-error .opt-label { color: #ef4444; }
+  .accordion-item {
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    .opt-info {
-      width: 24px; display: flex; align-items: center; gap: 2px;
-      .opt-label { font-size: 12px; font-weight: 700; color: #64748b; }
+    &.is-expanded {
+      border-color: #e2e8f0;
+      background: #fcfcfd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+      
+      .accordion-header .arrow-icon {
+        transform: rotate(180deg);
+      }
+      
+      .accordion-content {
+        max-height: 500px;
+        opacity: 1;
+        padding: 12px;
+      }
+    }
+  }
+
+  .accordion-header {
+    height: 44px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    background: white;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #f8fafc;
     }
 
-    .opt-bar-bg {
-      flex: 1; height: 5px; background: #f8fafc; border-radius: 3px; overflow: hidden;
-      .opt-bar-fill { height: 100%; transition: width 0.5s; }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 80px;
+      
+      .layer-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .layer-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #475569;
+      }
     }
 
-    .opt-data {
-      display: flex; flex-direction: column; align-items: flex-end; width: 45px;
-      .p { font-size: 11px; font-weight: 700; color: #475569; line-height: 1; }
-      .c { font-size: 9px; color: #94a3b8; }
+    .header-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 8px;
+
+      .mini-bar-bg {
+        flex: 1;
+        height: 6px;
+        background: #f1f5f9;
+        border-radius: 3px;
+        overflow: hidden;
+        
+        .mini-bar-fill {
+          height: 100%;
+          transition: width 0.6s ease;
+        }
+      }
+      
+      .accuracy-val {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1e293b;
+        width: 38px;
+        text-align: right;
+      }
+    }
+
+    .header-right {
+      .arrow-icon {
+        color: #94a3b8;
+        transition: transform 0.3s;
+      }
+    }
+  }
+
+  .accordion-content {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    padding: 0 12px;
+    border-top: 1px solid #f8fafc;
+
+    .dist-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed #f1f5f9;
+      
+      .correct-ans {
+        color: #10b981;
+      }
+    }
+
+    .opt-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      
+      &:last-child {
+        margin-bottom: 4px;
+      }
+
+      &.is-correct {
+        .opt-id { color: #10b981; }
+      }
+
+      .opt-id {
+        width: 16px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #64748b;
+      }
+
+      .opt-bar-wrapper {
+        flex: 1;
+        height: 5px;
+        background: #f8fafc;
+        border-radius: 2.5px;
+        overflow: hidden;
+        
+        .opt-bar-fill {
+          height: 100%;
+          transition: width 0.5s;
+        }
+      }
+
+      .opt-stats {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        width: 45px;
+        
+        .p {
+          font-size: 11px;
+          font-weight: 700;
+          color: #475569;
+          line-height: 1;
+        }
+        .c {
+          font-size: 9px;
+          color: #94a3b8;
+        }
+      }
     }
   }
 }
