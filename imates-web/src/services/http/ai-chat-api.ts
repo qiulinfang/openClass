@@ -9,6 +9,10 @@ import type {
 } from '@/types'
 import { getApiPaths } from '@/config/env-config'
 
+/**
+ * AI 聊天 API 服务类
+ * 职责：处理与 AI 后端的通信，支持基于 HTTP 轮询的流式 (SSE) 响应模拟。
+ */
 export class AiChatApi {
   private readonly androidBridge: AndroidBridge
   private readonly pollIntervalMs = 500
@@ -17,6 +21,11 @@ export class AiChatApi {
     this.androidBridge = AndroidBridge.getInstance()
   }
 
+  /**
+   * 发送原始聊天请求
+   * @param url 请求地址
+   * @param requestBody 请求体
+   */
   public async sendChatRequest(url: string, requestBody: any) {
     const timeout = requestBody.reason === 'continue' ? 60000 : 60000
 
@@ -30,6 +39,13 @@ export class AiChatApi {
     })
   }
 
+  /**
+   * 发送聊天消息（外部调用入口）
+   * @param message 聊天请求对象
+   * @param onComplete 完成回调
+   * @param onStream 流式内容回调
+   * @param onHistoryUpdate 历史消息更新回调
+   */
   public async sendChatMessage(
     message: AiChatMessageRequest,
     onComplete?: (response: any) => void | Promise<void>,
@@ -64,6 +80,16 @@ export class AiChatApi {
     }
   }
 
+  /**
+   * 递归轮询聊天消息
+   * @param message 聊天请求对象
+   * @param url 请求地址
+   * @param onComplete 完成回调
+   * @param onStream 流式内容回调
+   * @param accumulatedContent 已累积的内容
+   * @param messageId 消息 ID
+   * @param onHistoryUpdate 历史消息更新回调
+   */
   private async pollChatMessage(
     message: AiChatMessageRequest,
     url: string,
@@ -102,6 +128,10 @@ export class AiChatApi {
     }
   }
 
+  /**
+   * 处理聊天响应
+   * 负责分发 SSE 格式、非 SSE 格式以及异常情况的处理逻辑
+   */
   private async handleChatResponse(
     response: any,
     message: AiChatMessageRequest,
@@ -167,6 +197,10 @@ export class AiChatApi {
     })
   }
 
+  /**
+   * 处理非 SSE 格式的响应
+   * 兼容后端在轮询模式下返回的“成功”占位帧、单帧结束信号等
+   */
   private handleNonSseResponse(params: {
     raw: string
     trimmedChunk: string
@@ -234,6 +268,10 @@ export class AiChatApi {
     return null
   }
 
+  /**
+   * 处理标准的 SSE 格式响应
+   * 提取流式内容、历史记录更新和 Agent 状态
+   */
   private handleSseResponse(params: {
     parsed: ReturnType<AiChatApi['parseSseText']>
     message: AiChatMessageRequest
@@ -290,6 +328,10 @@ export class AiChatApi {
     return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
   }
 
+  /**
+   * 处理不包含 data 标记的响应
+   * 兼容后端在同一帧文本末尾拼接 end 的情况
+   */
   private handleNonDataResponse(params: {
     rawMessage: string
     message: AiChatMessageRequest
@@ -334,6 +376,10 @@ export class AiChatApi {
     return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId, onHistoryUpdate)
   }
 
+  /**
+   * 解析 SSE 格式的文本内容
+   * 将 data: 格式的字符串解析为结构化数据，提取内容、历史记录和 Agent 状态
+   */
   private parseSseText(raw: string): {
     hasData: boolean
     ended: boolean
@@ -443,7 +489,8 @@ export class AiChatApi {
   }
 
   /**
-   * 去掉尾部的 end 标记（后端可能在文本末尾附带 end）
+   * 去掉尾部的 end 标记
+   * 后端可能在文本末尾附带 end 字符串表示结束
    */
   private stripTrailingEnd(text: string): string {
     const input = String(text ?? '')
@@ -455,10 +502,8 @@ export class AiChatApi {
   }
 
   /**
-   * 兼容：部分后端会把多个 JSON 对象直接拼接返回（例如：{...}{...}）
-   * 这种情况下我们需要按大括号配对切分并提取每个对象的 message 字段。
-   *
-   * 返回 null 表示“不像拼接 JSON”或无法解析，让上层走原逻辑。
+   * 兼容性处理：提取拼接的多个 JSON 对象
+   * 部分后端会将多个 JSON 对象直接拼接返回，需要按大括号配对切分并提取
    */
   private extractMessageFromConcatenatedJson(text: string): string | null {
     const input = String(text || '').trim()
@@ -528,6 +573,10 @@ export class AiChatApi {
     return messages.join('\n')
   }
 
+  /**
+   * 处理轮询结束
+   * 触发完成回调并关闭流式状态
+   */
   private async handlePollingEnd(
     messageId: string,
     accumulatedContent: string,
@@ -555,6 +604,10 @@ export class AiChatApi {
     return finalResult
   }
 
+  /**
+   * 处理新收到的内容
+   * 累积内容并继续发起下一轮“continue”请求
+   */
   private async handleNewContent(
     chunk: string,
     message: AiChatMessageRequest,
@@ -590,6 +643,10 @@ export class AiChatApi {
     )
   }
 
+  /**
+   * 处理空内容响应
+   * 即使响应为空，也需要继续发起下一轮“continue”请求，直到收到内容或 end
+   */
   private async handleEmptyContent(
     message: AiChatMessageRequest,
     url: string,
@@ -610,6 +667,9 @@ export class AiChatApi {
     )
   }
 
+  /**
+   * 处理聊天过程中发生的错误
+   */
   private handleChatError(
     error: any,
     messageId: string,
@@ -629,6 +689,9 @@ export class AiChatApi {
     return this.createErrorResult(messageId, errorMessage, onComplete, onStream)
   }
 
+  /**
+   * 创建统一的错误结果对象
+   */
   private createErrorResult(
     messageId: string,
     errorMessage: string,
@@ -657,6 +720,10 @@ export class AiChatApi {
   }
 
 
+  /**
+   * 管理会话记忆（删除会话、删除消息等）
+   * @param payload 记忆管理请求对象
+   */
   public async manageConversationMemory(payload: ManageConversationMemoryRequest): Promise<any> {
     const response = await httpClient.post<any>('/history_manage', payload, {
       headers: {
