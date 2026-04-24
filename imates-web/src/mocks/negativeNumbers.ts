@@ -193,7 +193,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
         stem: '下列说法正确的是',
         options: [
           { label: 'A', text: '0是正数' },
-          { label: 'B', text: '0 is 负数' },
+          { label: 'B', text: '0是负数' },
           { label: 'C', text: '0是正负数的分界点' },
           { label: 'D', text: '负数比正数大' }
         ]
@@ -581,7 +581,7 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     {
       id: 'post-ext-app-2',
       bmNo: 'POST_EXT_APP_002',
-      title: '【拓展层-综合应用】把上题中四个温度对应的数，标注 in 同一条数轴上（单位长度为50℃）',
+      title: '【拓展层-综合应用】把上题中四个温度对应的数，标注在同一条数轴上（单位长度为50℃）',
       type: 'essay',
       structuredContent: {
         stem: '把上题中四个温度对应的数，标注在同一条数轴上（单位长度为50℃）'

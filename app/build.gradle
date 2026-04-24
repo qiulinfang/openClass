@@ -15,8 +15,8 @@ android {
         applicationId "com.cosinetech.imates.openclass"
         minSdk 24
         targetSdk 34
-        versionCode 44
-        versionName "1.0.44"
+        versionCode 45
+        versionName "1.0.45"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -49,14 +49,14 @@ android {
         dev {
             dimension "version"
             applicationIdSuffix ".dev" 
-            resValue "string", "app_name", "开发版公开课"
+            resValue "string", "app_name", "开发版学伴课堂"
             buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/openclass-dev.json"'
             signingConfig signingConfigs.debug
         }
         // 正式发布版本（默认）
         production {
             dimension "version"
-            resValue "string", "app_name", "公开课"
+            resValue "string", "app_name", "学伴课堂"
             buildConfigField "String", "UPDATE_URL", '"https://www.imates.com.cn/bj101/openclass.json"'
             signingConfig signingConfigs.release
         }
