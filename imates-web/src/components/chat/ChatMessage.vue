@@ -1637,14 +1637,14 @@ onUnmounted(() => {
             :deep(h4),
             :deep(h5),
             :deep(h6) {
-              font-size: 16px;
+              font-size: 20px;
               line-height: 1.5;
               font-weight: 600;
               margin: 8px 0;
             }
 
             :deep(li) {
-              font-size: 16px;
+              font-size: 19px;
               line-height: 1.5;
               font-weight: 400;
             }
@@ -1826,7 +1826,7 @@ onUnmounted(() => {
           :deep(h4),
           :deep(h5),
           :deep(h6) {
-            font-size: 16px;
+            font-size: 20px;
             line-height: 1.5;
             font-weight: 600;
             margin: 8px 0;
