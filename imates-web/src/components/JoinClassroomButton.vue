@@ -140,7 +140,7 @@ const handleConfirm = () => {
   position: fixed;
   top: 12px;
   right: 12px;
-  z-index: 999999;
+  z-index: 12500;
 }
 
 .join-class-button {
