@@ -137,7 +137,7 @@ const handleCancel = () => {
 }
 
 .suggestion-header {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
   color: #64748b;
   margin-bottom: 20px;
@@ -147,7 +147,7 @@ const handleCancel = () => {
 }
 
 .header-icon {
-  font-size: 18px;
+  font-size: 22px;
   opacity: 0.8;
 }
 
@@ -198,7 +198,7 @@ const handleCancel = () => {
 }
 
 .suggestion-text {
-  font-size: 14px;
+  font-size: 19px;
   color: #334155;
   font-weight: 500;
   line-height: 1.5;
@@ -254,7 +254,7 @@ const handleCancel = () => {
   width: 100%;
   border: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 19px;
   font-weight: 500;
   color: #334155;
   outline: none;
@@ -267,10 +267,10 @@ const handleCancel = () => {
 }
 
 .empty-chat-state--small .suggestion-text {
-  font-size: 14px;
+  font-size: 18px;
 }
 
 .empty-chat-state--small .suggestion-header {
-  font-size: 18px;
+  font-size: 20px;
 }
 </style>
