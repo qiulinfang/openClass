@@ -193,10 +193,14 @@ import { useUIStore } from '@/stores/uiStore'
 import HomeworkPreviewKids from './HomeworkPreviewJK.vue'
 import { CLASSROOM_EXERCISE, PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import { useUserClientStore } from '@/stores/userClientStore'
 import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
+import { ADDRESS_CATALOG } from '@/config/env-config'
 
 // 环境判断
 const isDev = import.meta.env.DEV
+
+const userClientStore = useUserClientStore()
 
 // 排序与筛选状态（用于统计面板）
 const currentSort = ref('index')
@@ -212,10 +216,41 @@ const homeworkStore = useHomeworkStore()
 const currentFlow = ref(0) // 0: 课前预习, 1: PDF 聊天, 2: 练习
 const previewOverlayVisible = ref(true)
 
-const handlePreviewSubmit = (checklist: string[]) => {
-  console.log('[PdfViewerViewJK] 提交预习结果:', checklist)
-  previewOverlayVisible.value = false
-  currentFlow.value = 1 // 预习完成后进入 PDF 聊天流程
+const handlePreviewSubmit = async (data: any) => {
+  try {
+    // 1. 模拟判分
+    let answeredCount = 0;
+    if (data && typeof data === 'object') {
+      answeredCount = Object.keys(data).length;
+    }
+    const correctCount = answeredCount > 0 ? answeredCount : Math.floor(Math.random() * 9);
+
+    // 关键点：显式从 localStorage 获取并打印
+    const storageId = localStorage.getItem('xuebanuserid');
+    console.log('[PdfViewerViewJK] 准备提交预习，localStorage 中的 xuebanuserid:', storageId);
+    
+    const finalStudentId = storageId || 'guest';
+
+    // 2. 调用 Node.js 专用的预习提交接口
+    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/preview-submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: finalStudentId,
+        homeworkId: 'H123',
+        correctCount: correctCount,
+        date: new Date().toISOString().split('T')[0]
+      })
+    });
+    const result = await response.json();
+    console.log('[PdfViewerViewJK] 预习提交成功:', result);
+    
+    // 提交成功后切换流程
+    currentFlow.value = 1;
+    previewOverlayVisible.value = false;
+  } catch (error) {
+    console.error('[PdfViewerViewJK] 预习提交失败:', error);
+  }
 }
 
 // 使用 exerciseStore 来发送AI消息
@@ -263,6 +298,23 @@ onMounted(async () => {
 
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
+
+    // 检查今天是否已提交过预习
+    // 回退：不再根据提交状态自动跳过预习页面，仅保留环境初始化
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const currentUserId = localStorage.getItem('xuebanuserid') || 'guest'
+      const checkRes = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/preview-check?studentId=${currentUserId}&date=${today}`)
+      const checkData = await checkRes.json()
+      console.log('[PdfViewerViewJK] 当前用户今日预习状态:', checkData.hasSubmitted)
+      // if (checkData.success && checkData.hasSubmitted) {
+      //   console.log('[PdfViewerViewJK] 今天已提交过预习，直接进入聊天流程')
+      //   currentFlow.value = 1
+      //   previewOverlayVisible.value = false
+      // }
+    } catch (err) {
+      console.error('[PdfViewerViewJK] 检查预习状态失败:', err)
+    }
 
     // 无 PdfPage：只基于路由参数初始化会话上下文
     const currentResourceId = (route.query.resourceId as string) || ''

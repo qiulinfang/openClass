@@ -34,15 +34,6 @@
         </div>
       </div>
 
-      <div class="stats-summary q-mb-md">
-        <div class="summary-item">
-          <div class="label">当前学生层次</div>
-          <div class="value" :class="'layer-' + mockStudentInfo.layer">
-            {{ layerLabelMap[mockStudentInfo.layer] }}
-          </div>
-        </div>
-      </div>
-
       <div class="question-stats-list">
         <div 
           v-for="stat in filteredAndSortedStats" 
@@ -78,7 +69,10 @@
 
             <!-- 全班正确率展示 -->
             <div class="class-accuracy-section">
-              <div class="class-label">全班正确率</div>
+              <div class="class-info-header">
+                <div class="class-label">全班正确率</div>
+                <div class="submit-count">提交人数: <span>{{ stat.submitCount }}</span></div>
+              </div>
               <div class="class-bar-container">
                 <div 
                   class="class-bar" 
@@ -94,7 +88,7 @@
           
           <div class="card-right-panel">
             <div class="layer-stats-accordion">
-              <div class="accordion-title">分层作答详情</div>
+              <div class="accordion-title">分层作答正确率</div>
               <div 
                 v-for="layer in layers" 
                 :key="layer" 
@@ -173,9 +167,16 @@
   </div>
 </template>
 
+<script lang="ts">
+export default {
+  name: 'ExerciseStatsPanel'
+}
+</script>
+
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { CLASSROOM_EXERCISE } from '@/mocks/negativeNumbers'
+import { ADDRESS_CATALOG } from '@/config/env-config'
 
 // 统计相关接口定义
 interface OptionDist {
@@ -199,12 +200,14 @@ interface QuestionStat {
   options?: { label: string; text: string }[]
   type: 'choice' | 'judgment'
   classAccuracy: number
+  submitCount: number
   layerStats: Record<string, LayerStat>
 }
 
 const props = defineProps<{
   currentSort: string
   currentFilter: string
+  date?: string // 外部传入的过滤日期
 }>()
 
 const emit = defineEmits<{
@@ -225,15 +228,13 @@ const filterOptions = [
   { label: '判断题', value: 'judgment' }
 ]
 
-// --- 统计逻辑 ---
-const expandedLayerKey = ref<string | null>(null)
-const layers = ['1', '2', '3']
-const layerLabelMap: Record<string, string> = {
-  '1': '冲刺层',
-  '2': '提升层',
-  '3': '基础层'
+// Mock 当前学生信息
+const mockStudentInfo = {
+  name: '张同学',
+  layer: '2'
 }
 
+// --- 辅助函数 ---
 const getCorrectAnswer = (questionId: string) => {
   const q = CLASSROOM_EXERCISE.questions.find(item => item.id === questionId)
   return q?.answer || ''
@@ -263,84 +264,61 @@ const toggleLayerDetail = (questionId: string, layer: string) => {
   expandedLayerKey.value = expandedLayerKey.value === key ? null : key
 }
 
-// Mock 当前学生信息
-const mockStudentInfo = {
-  name: '张同学',
-  layer: '2'
+// --- 统计逻辑 ---
+const expandedLayerKey = ref<string | null>(null)
+const layers = ['1', '2', '3']
+const layerLabelMap: Record<string, string> = {
+  '1': '冲刺层',
+  '2': '提升层',
+  '3': '基础层'
 }
 
-// Mock 统计数据
-const mockStatsData = ref<QuestionStat[]>(
-  CLASSROOM_EXERCISE.questions.map((q, index) => {
-    // 为每道题生成一些随机但合理的统计数据
-    const classAccuracy = Math.floor(Math.random() * 40) + 50 // 50-90%
-    
-    // 分层数据生成
-    const generateLayerStat = (baseAcc: number) => {
-      const accuracy = Math.min(100, Math.max(0, baseAcc + Math.floor(Math.random() * 10) - 5))
-      const totalCount = [20, 50, 100][Math.floor(Math.random() * 3)] // 模拟不同层级人数
-      const correctCount = Math.round((totalCount * accuracy) / 100)
-      
-      let optionDist: OptionDist[] = []
-      if (q.type === 'choice') {
-        const options = q.structuredContent?.options || []
-        const correctLabel = q.answer
-        let remainingCount = totalCount - correctCount
-        
-        optionDist = options.map((opt: any) => {
-          if (opt.label === correctLabel) {
-            return { label: opt.label, count: correctCount, percent: Math.round((correctCount / totalCount) * 100) }
-          } else {
-            // 剩余人数随机分配给错误选项
-            const count = Math.floor(Math.random() * remainingCount)
-            remainingCount -= count
-            return { label: opt.label, count, percent: Math.round((count / totalCount) * 100) }
-          }
-        })
-        // 如果还有剩余人数（由于随机数向下取整），加到第一个错误选项上
-        if (remainingCount > 0) {
-          const firstWrong = optionDist.find(o => o.label !== correctLabel)
-          if (firstWrong) {
-            firstWrong.count += remainingCount
-            firstWrong.percent = Math.round((firstWrong.count / totalCount) * 100)
-          }
+const mockStatsData = ref<QuestionStat[]>([])
+const isLoading = ref(false)
+
+// 从后端加载统计数据
+const fetchExerciseStats = async () => {
+  isLoading.value = true
+  try {
+    const filterDate = props.date || new Date().toISOString().split('T')[0]
+    const sortParam = props.currentSort === 'accuracy-asc' ? 'accuracy_asc' : props.currentSort === 'accuracy-desc' ? 'accuracy_desc' : 'index'
+    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/exercise/stats?lessonId=L123&sort=${sortParam}&date=${filterDate}`)
+    const result = await response.json()
+    if (result.success) {
+      // 将后端模拟数据映射到前端展示格式
+      mockStatsData.value = result.data.map((item: any, idx: number) => {
+        const originalQ = CLASSROOM_EXERCISE.questions.find(q => q.id === item.questionId) || CLASSROOM_EXERCISE.questions[0]
+        return {
+          index: idx + 1,
+          questionId: item.questionId,
+          bmNo: originalQ.bmNo,
+          title: originalQ.title,
+          options: originalQ.structuredContent?.options || [
+            { label: '对', text: '对' },
+            { label: '错', text: '错' }
+          ],
+          type: originalQ.type as any,
+          classAccuracy: item.classAccuracy,
+          submitCount: item.submitCount || 0,
+          layerStats: item.layerStats // 直接使用后端的真实计算结果
         }
-      } else if (q.type === 'judgment') {
-        const correctLabel = q.answer === '√' ? '对' : '错'
-        const wrongLabel = correctLabel === '对' ? '错' : '对'
-        const wrongCount = totalCount - correctCount
-        optionDist = [
-          { label: correctLabel, count: correctCount, percent: Math.round((correctCount / totalCount) * 100) },
-          { label: wrongLabel, count: wrongCount, percent: Math.round((wrongCount / totalCount) * 100) }
-        ].sort((a, b) => (a.label === '对' ? -1 : 1)) // 统一顺序：对、错
-      }
-
-      return { accuracy, correctCount, totalCount, optionDist }
+      })
     }
+  } catch (error) {
+    console.error('[ExerciseStatsPanel] 加载失败:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
 
-    return {
-      index: index + 1,
-      questionId: q.id,
-      bmNo: q.bmNo,
-      title: q.title,
-      options: q.type === 'choice' 
-        ? q.structuredContent?.options 
-        : q.type === 'judgment'
-          ? [
-              { label: '对', text: '对' },
-              { label: '错', text: '错' }
-            ]
-          : undefined,
-      type: q.type as any,
-      classAccuracy,
-      layerStats: {
-        '1': generateLayerStat(Math.min(100, classAccuracy + 15)), // 冲刺层通常更高
-        '2': generateLayerStat(classAccuracy),             // 提升层接近平均
-        '3': generateLayerStat(Math.max(0, classAccuracy - 15))  // 基础层较低
-      }
-    }
-  })
-)
+onMounted(() => {
+  fetchExerciseStats()
+})
+
+// 监听排序和日期变化
+watch(() => [props.currentSort, props.date], () => {
+  fetchExerciseStats()
+}, { deep: true })
 
 const filteredAndSortedStats = computed(() => {
   let result = [...mockStatsData.value]
@@ -561,11 +539,28 @@ const filteredAndSortedStats = computed(() => {
   border-radius: 12px;
   border: 1px solid #ddd6fe;
   
-  .class-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: #6e55ff;
+  .class-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 10px;
+
+    .class-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #6e55ff;
+    }
+
+    .submit-count {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 600;
+      span {
+        color: #6e55ff;
+        font-weight: 800;
+        margin-left: 2px;
+      }
+    }
   }
 
   .class-bar-container {

@@ -70,7 +70,8 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
+import { ADDRESS_CATALOG } from '@/config/env-config'
 
 // 班级分层数据接口
 interface Student {
@@ -87,10 +88,13 @@ interface LayerInfo {
 
 const props = defineProps<{
   previewResults: any[] // 课前预习结果（Mock）
+  date?: string // 外部传入的过滤日期
 }>()
 
 // 控制三列的手风琴状态，默认全部收起
 const expandedLayerIds = ref<string[]>([])
+const layerDetails = ref<LayerInfo[]>([])
+const isLoading = ref(false)
 
 const toggleLayer = (id: string) => {
   const index = expandedLayerIds.value.indexOf(id)
@@ -101,42 +105,38 @@ const toggleLayer = (id: string) => {
   }
 }
 
-// 基于预习结果生成的 Mock 分层数据
-const layerDetails = computed<LayerInfo[]>(() => [
-  {
-    id: '1',
-    name: '冲刺层',
-    color: '#6e55ff',
-    students: [
-      { id: 's1', name: '张三' },
-      { id: 's2', name: '李四' },
-      { id: 's3', name: '王五' },
-      { id: 's4', name: '赵六' },
-    ]
-  },
-  {
-    id: '2',
-    name: '提升层',
-    color: '#10b981',
-    students: [
-      { id: 's5', name: '孙七' },
-      { id: 's6', name: '周八' },
-      { id: 's7', name: '吴九' },
-      { id: 's8', name: '郑十' },
-      { id: 's9', name: '陈十一' },
-    ]
-  },
-  {
-    id: '3',
-    name: '基础层',
-    color: '#f59e0b',
-    students: [
-      { id: 's10', name: '林十二' },
-      { id: 's11', name: '黄十三' },
-      { id: 's12', name: '朱十四' },
-    ]
+// 从后端加载数据
+const fetchLayerStats = async () => {
+  isLoading.value = true
+  try {
+    const filterDate = props.date || new Date().toISOString().split('T')[0]
+    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/layer-stats?homeworkId=H123&date=${filterDate}`)
+    const result = await response.json()
+    if (result.success) {
+      // 转换后端数据到前端视图模型
+      const colors = ['#6e55ff', '#10b981', '#f59e0b', '#94a3b8']
+      layerDetails.value = result.data.layers.map((layer: any, index: number) => ({
+        id: layer.level,
+        name: layer.level === 'A' ? '冲刺层' : layer.level === 'B' ? '提升层' : layer.level === 'C' ? '基础层' : '待提升',
+        color: colors[index] || '#64748b',
+        students: layer.students.map((id: string) => ({ id, name: id.replace('S', '学生') }))
+      }))
+    }
+  } catch (error) {
+    console.error('[ClassLayerStatsPanel] 加载失败:', error)
+  } finally {
+    isLoading.value = false
   }
-])
+}
+
+onMounted(() => {
+  fetchLayerStats()
+})
+
+// 监听日期变化并刷新
+watch(() => props.date, () => {
+  fetchLayerStats()
+})
 
 const layerSummary = computed(() => {
   const total = layerDetails.value.reduce((acc, layer) => acc + layer.students.length, 0)

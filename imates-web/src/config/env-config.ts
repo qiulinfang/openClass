@@ -93,6 +93,7 @@ export const ADDRESS_CATALOG = {
   HISTORY_MANAGE: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
   ZAMMAD_API: 'http://app.imates.com.cn:8080',
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
+  OPEN_CLASS_API: 'https://www.imates.com.cn/openclass',
 } as const
 
 // localStorage 键名

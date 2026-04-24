@@ -125,6 +125,7 @@
 import { showMessage } from '@/utils'
 import { ref, computed, watch, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
+import { ADDRESS_CATALOG } from '@/config/env-config'
 import QuestionList from '@/components/QuestionList.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
 import CommonActionButton from '@/components/base/Button.vue'
@@ -236,11 +237,59 @@ const handleStartAnswer = (q: any) => {
   currentAnswerQuestion.value = q
 }
 
-const handleSingleQuestionSubmit = () => {
+const handleSingleQuestionSubmit = async () => {
   if (!currentAnswerQuestion.value) return
   const key = getQuestionKey(currentAnswerQuestion.value)
-  submittedQuestionIds.value.add(key)
-  showMessage('提交成功', 'success')
+  
+  // 1. 准备作答结果
+  const cache = (answerDataCache.value as any)[key] || {}
+  let userAnswer: any = null
+  let isCorrect = false
+
+  if (currentAnswerQuestion.value.type === 'choice') {
+    userAnswer = cache.chooseList || []
+    isCorrect = userAnswer.length === 1 && userAnswer[0] === currentAnswerQuestion.value.answer
+  } else if (currentAnswerQuestion.value.type === 'judgment') {
+    userAnswer = cache.judgmentValue
+    const correctVal = currentAnswerQuestion.value.structuredContent?.judgmentResult
+    const mappedUserAnswer = userAnswer === '对' ? 'true' : (userAnswer === '错' ? 'false' : String(userAnswer))
+    isCorrect = mappedUserAnswer === String(correctVal)
+  } else if (currentAnswerQuestion.value.type === 'fill') {
+    userAnswer = cache.fillList || []
+    const correctAnswers = Array.isArray(currentAnswerQuestion.value.structuredContent?.blanks) 
+      ? currentAnswerQuestion.value.structuredContent.blanks.map((b: any) => b.answer)
+      : []
+    isCorrect = userAnswer.length === correctAnswers.length && 
+                userAnswer.every((v: string, i: number) => v && v.trim() === correctAnswers[i])
+  }
+
+  // 2. 调用 Node.js 练习提交接口
+  try {
+    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/exercise-submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: localStorage.getItem('xuebanuserid') || 'guest', // 同步修改为使用 localStorage ID
+        lessonId: 'L123',
+        results: [{
+          questionId: currentAnswerQuestion.value.id,
+          isCorrect,
+          selectedOption: Array.isArray(userAnswer) ? userAnswer[0] : userAnswer,
+          type: currentAnswerQuestion.value.type
+        }],
+        date: new Date().toISOString().split('T')[0] // 传递当前日期 YYYY-MM-DD
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      submittedQuestionIds.value.add(key)
+      showMessage('提交成功', 'success')
+    }
+  } catch (error) {
+    console.error('[HomeworkPracticeJK] 练习提交失败:', error)
+    showMessage('提交失败，请重试', 'error')
+  }
 }
 
 const handleBoardUpload = () => {

@@ -201,6 +201,10 @@ export default defineConfig(() => {
       sourcemap: true,
       // 优化chunk分割
       rollupOptions: {
+        input: {
+          main: fileURLToPath(new URL('./index.html', import.meta.url)),
+          stats: fileURLToPath(new URL('./stats.html', import.meta.url))
+        },
         output: {
           // 确保文件名不包含特殊字符
           entryFileNames: 'assets/[name].[hash].js',

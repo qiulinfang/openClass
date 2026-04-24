@@ -21,6 +21,7 @@ import MyHomeworkView from '@/views/MyHomeworkView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import HomeworkAnswerViewJK from '@/views/JK/HomeworkAnswerViewJK.vue'
 import HomeworkPreviewAnalysisView from '@/views/JK/HomeworkPreviewAnalysisView.vue'
+import JKStatsDashboard from '@/views/JK/JKStatsDashboard.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
@@ -160,6 +161,12 @@ const router = createRouter({
           path: 'homework-preview-analysis/:homeworkId?',
           name: 'homeworkPreviewAnalysis',
           component: HomeworkPreviewAnalysisView
+        },
+        // 经开二中综合统计分析看板路由
+        {
+          path: 'jk-stats-dashboard/:homeworkId?',
+          name: 'jkStatsDashboard',
+          component: JKStatsDashboard
         },
         // 作业答题跳转到学伴（从 homeworkAnswer 跳转专用）
         {

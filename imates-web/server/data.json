@@ -1,0 +1,305 @@
+[
+  {
+    "studentId": "guest046",
+    "homeworkId": "H123",
+    "correctCount": 8,
+    "layer": "A",
+    "date": "2026-04-23",
+    "type": "preview",
+    "submittedAt": "2026-04-23T13:31:47.804Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-sel-1",
+        "isCorrect": true,
+        "selectedOption": "C",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:31:50.340Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-sel-2",
+        "isCorrect": true,
+        "selectedOption": "C",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:31:59.803Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-jud-1",
+        "isCorrect": false,
+        "selectedOption": "对",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:01.042Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-jud-2",
+        "isCorrect": false,
+        "selectedOption": "错",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:03.248Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-sel-3",
+        "isCorrect": false,
+        "selectedOption": "A",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:05.033Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-adv-sel-1",
+        "isCorrect": false,
+        "selectedOption": "C",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:06.228Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-adv-sel-2",
+        "isCorrect": true,
+        "selectedOption": "B",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:08.387Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-adv-jud-1",
+        "isCorrect": false,
+        "selectedOption": "对",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:09.804Z"
+  },
+  {
+    "studentId": "guest046",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-ext-sel-1",
+        "isCorrect": false,
+        "selectedOption": "B",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:11.214Z"
+  },
+  {
+    "studentId": "guest047",
+    "homeworkId": "H123",
+    "correctCount": 4,
+    "layer": "B",
+    "date": "2026-04-23",
+    "type": "preview",
+    "submittedAt": "2026-04-23T13:32:47.194Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-sel-1",
+        "isCorrect": false,
+        "selectedOption": "A",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:50.190Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-sel-2",
+        "isCorrect": true,
+        "selectedOption": "C",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:52.866Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-jud-1",
+        "isCorrect": false,
+        "selectedOption": "对",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:54.199Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-jud-2",
+        "isCorrect": true,
+        "selectedOption": "对",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:55.741Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-base-sel-3",
+        "isCorrect": false,
+        "selectedOption": "A",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:57.513Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-adv-sel-1",
+        "isCorrect": true,
+        "selectedOption": "A",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:32:59.236Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-adv-sel-2",
+        "isCorrect": false,
+        "selectedOption": "A",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:33:00.448Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-adv-jud-1",
+        "isCorrect": false,
+        "selectedOption": "对",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:33:02.457Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-ext-sel-1",
+        "isCorrect": false,
+        "selectedOption": "A",
+        "type": "choice"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:33:04.188Z"
+  },
+  {
+    "studentId": "guest047",
+    "lessonId": "L123",
+    "results": [
+      {
+        "questionId": "exe-ext-jud-1",
+        "isCorrect": true,
+        "selectedOption": "对",
+        "type": "judgment"
+      }
+    ],
+    "date": "2026-04-23",
+    "type": "exercise",
+    "submittedAt": "2026-04-23T13:33:06.359Z"
+  }
+]
