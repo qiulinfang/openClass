@@ -95,7 +95,7 @@
 
         <!-- 统计按钮 -->
         <DraggableFab
-          v-if="isDev"
+          v-if="currentEnv !== 'prod'"
           label="统计"
           size="md"
           :icon="tongjiIcon"
@@ -106,7 +106,7 @@
 
         <!-- 分层按钮 -->
         <DraggableFab
-          v-if="isDev"
+          v-if="currentEnv !== 'prod'"
           label="分层"
           size="md"
           icon="layers"
@@ -137,9 +137,9 @@
         @close="handleHomeworkClose"
       >
         <template #header-center>
-          <div class="stage-toggle" v-if="homeworkRef">
+          <div class="stage-toggle">
             <button
-              v-for="(label, key) in homeworkRef.stageNameMap"
+              v-for="(label, key) in stageNameMap"
               :key="key"
               class="toggle-btn"
               :class="{ active: homeworkCurrentStage === key }"
@@ -149,7 +149,14 @@
             </button>
           </div>
         </template>
-        <HomeworkAnswerViewJK ref="homeworkRef" is-component />
+        <!-- 流程2使用 ExerciseSolveViewNewJK 替换 HomeworkAnswerViewJK -->
+        <ExerciseSolveViewNewJK 
+          v-if="currentFlow === 2" 
+          is-component 
+          :external-questions="homeworkStore.questions"
+          :stage="homeworkCurrentStage"
+        />
+        <HomeworkAnswerViewJK v-else ref="homeworkRef" is-component />
       </FullscreenOverlay>
     </div>
   </div>
@@ -181,6 +188,7 @@ import CommonActionButton from '@/components/base/Button.vue'
 import JoinClassroomButton from '@/components/JoinClassroomButton.vue'
 import PortfolioOverlay from '@/components/PortfolioOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
+import ExerciseSolveViewNewJK from './ExerciseSolveViewNewJK.vue'
 import DraggableFab from '@/components/base/DraggableFab.vue'
 import FullscreenOverlay from '@/components/base/FullscreenOverlay.vue'
 import HomeworkAnswerViewJK from './HomeworkAnswerViewJK.vue'
@@ -191,14 +199,15 @@ import zuopinjiIcon from '/icons/zuopinji.svg'
 import tongjiIcon from '/icons/paizuoye.svg'
 import { useUIStore } from '@/stores/uiStore'
 import HomeworkPreviewKids from './HomeworkPreviewJK.vue'
-import { CLASSROOM_EXERCISE, PREVIEW_HOMEWORK, EXERCISE_HOMEWORK } from '@/mocks/negativeNumbers'
+import { CLASSROOM_EXERCISE, PREVIEW_HOMEWORK, EXERCISE_HOMEWORK, POST_SCHOOL_HOMEWORK } from '@/mocks/negativeNumbers'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
 import { ADDRESS_CATALOG } from '@/config/env-config'
 
-// 环境判断
-const isDev = import.meta.env.DEV
+// --- 配置项 ---
+type EnvType = 'mock' | 'dev' | 'prod'
+const currentEnv = ref<EnvType>('dev') // 可在此处切换环境: 'mock', 'dev', 'prod'
 
 const userClientStore = useUserClientStore()
 
@@ -232,7 +241,11 @@ const handlePreviewSubmit = async (data: any) => {
     const finalStudentId = storageId || 'guest';
 
     // 2. 调用 Node.js 专用的预习提交接口
-    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/preview-submit`, {
+    const baseUrl = currentEnv.value === 'dev' 
+      ? 'http://localhost:36565' 
+      : ADDRESS_CATALOG.OPEN_CLASS_API
+
+    const response = await fetch(`${baseUrl}/api/homework/preview-submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -283,12 +296,29 @@ const homeworkCurrentStage = ref('classroom')
 
 const switchHomeworkStage = (stage: string) => {
   homeworkCurrentStage.value = stage
+  
+  // 直接根据 stage 写死加载 negativeNumbers.ts 中的数据
+  if (stage === 'classroom') {
+    console.log('[PdfViewerViewJK] 切换到：课堂练习')
+    homeworkStore.questions = CLASSROOM_EXERCISE.questions
+    homeworkStore.homeworkName = CLASSROOM_EXERCISE.homeworkName
+  } else if (stage === 'postSchool') {
+    console.log('[PdfViewerViewJK] 切换到：课后作业')
+    homeworkStore.questions = POST_SCHOOL_HOMEWORK.questions
+    homeworkStore.homeworkName = POST_SCHOOL_HOMEWORK.homeworkName
+  }
+
   if (homeworkRef.value) {
     homeworkRef.value.switchStage(stage)
   }
 }
 
 const homeworkRef = ref<InstanceType<typeof HomeworkAnswerViewJK> | null>(null)
+
+const stageNameMap = {
+  classroom: '课堂练习',
+  postSchool: '课后作业'
+}
 
 // 生命周期
 onMounted(async () => {
@@ -299,12 +329,21 @@ onMounted(async () => {
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
 
+    // 默认加载课堂练习数据
+    homeworkStore.questions = CLASSROOM_EXERCISE.questions
+    homeworkStore.homeworkName = CLASSROOM_EXERCISE.homeworkName
+
     // 检查今天是否已提交过预习
     // 回退：不再根据提交状态自动跳过预习页面，仅保留环境初始化
     try {
       const today = new Date().toISOString().split('T')[0]
       const currentUserId = localStorage.getItem('xuebanuserid') || 'guest'
-      const checkRes = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/preview-check?studentId=${currentUserId}&date=${today}`)
+      
+      const baseUrl = currentEnv.value === 'dev' 
+        ? 'http://localhost:36565' 
+        : ADDRESS_CATALOG.OPEN_CLASS_API
+
+      const checkRes = await fetch(`${baseUrl}/api/homework/preview-check?studentId=${currentUserId}&date=${today}`)
       const checkData = await checkRes.json()
       console.log('[PdfViewerViewJK] 当前用户今日预习状态:', checkData.hasSubmitted)
       // if (checkData.success && checkData.hasSubmitted) {
@@ -604,8 +643,9 @@ const handleHomeworkClose = () => {
 const onMiniClassFabClick = () => {
   // 流程3：打开全屏作业面板
   console.log('[PdfViewerViewJK] 打开全屏作业面板')
-  homeworkStore.questions = PREVIEW_HOMEWORK.questions
-  homeworkStore.homeworkName = PREVIEW_HOMEWORK.homeworkName
+  // 初始加载课堂练习数据，与初始 stage ('classroom') 保持一致
+  homeworkStore.questions = CLASSROOM_EXERCISE.questions
+  homeworkStore.homeworkName = CLASSROOM_EXERCISE.homeworkName
   homeworkOverlayVisible.value = true
   // 切换流程状态
   currentFlow.value = 2

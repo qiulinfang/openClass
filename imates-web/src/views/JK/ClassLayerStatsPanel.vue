@@ -1,59 +1,59 @@
 <template>
   <div class="class-layer-stats-wrapper">
     <div class="stats-content">
-      <!-- 顶部概览卡片 -->
-      <div class="overview-section q-mb-xl">
-        <div class="overview-card">
-          <div class="card-header">
-            <q-icon name="groups" size="32px" color="primary" />
-            <div class="header-text">
-              <h3>班级分层结果概览</h3>
-              <p>基于课前预习完成情况自动生成</p>
-            </div>
-          </div>
-          <div class="stats-row">
-            <div 
-              v-for="layer in layerSummary" 
-              :key="layer.id" 
-              class="stat-item"
-            >
-              <div class="stat-value" :style="{ color: layer.color }">{{ layer.count }}<span>人</span></div>
-              <div class="stat-label">{{ layer.name }}</div>
-              <div class="stat-percent">{{ layer.percent }}%</div>
-            </div>
-          </div>
+      <!-- 顶部概览：突出百分比 -->
+      <div class="dashboard-header q-mb-xl">
+        <div 
+          v-for="layer in layerSummary" 
+          :key="layer.id" 
+          class="metric-card-vertical"
+          :style="{ borderTop: `4px solid ${layer.color}` }"
+        >
+          <div class="metric-percent" :style="{ color: layer.color }">{{ layer.percent }}%</div>
+          <div class="metric-label">{{ layer.name }}</div>
+          <div class="metric-value">{{ layer.count }}<span class="unit">人</span></div>
         </div>
       </div>
 
-      <!-- 底部三列布局：展示每个层级的详细名单（带手风琴功能） -->
-      <div class="layers-detail-grid">
+      <!-- 详细名单：手风琴模式 (原生实现) -->
+      <div class="layers-accordion">
         <div 
           v-for="layer in layerDetails" 
           :key="layer.id" 
-          class="layer-detail-column"
-          :class="{ 'is-expanded': expandedLayerIds.includes(layer.id) }"
-          :style="{ borderTopColor: layer.color }"
+          class="accordion-item-native"
+          :class="{ active: expandedLayerIds.includes(layer.id) }"
         >
-          <div class="column-header" @click="toggleLayer(layer.id)">
-            <div class="title-info">
-              <span class="l-name" :style="{ color: layer.color }">{{ layer.name }}</span>
-              <div class="header-right">
-                <span class="l-count">{{ layer.students.length }}人</span>
-                <q-icon 
-                  name="keyboard_arrow_down" 
-                  size="20px" 
-                  class="arrow-icon"
-                />
-              </div>
+          <div class="accordion-header-native" @click="toggleLayer(layer.id)">
+            <div class="header-left">
+              <div class="layer-dot" :style="{ backgroundColor: layer.color }"></div>
+              <span class="layer-name">{{ layer.name }}</span>
+              <span class="layer-count">{{ layer.students.length }}人</span>
+            </div>
+            <div class="expand-icon" :class="{ rotated: expandedLayerIds.includes(layer.id) }">
+              <q-icon name="keyboard_arrow_down" size="24px" color="grey-6" />
             </div>
           </div>
-          <div class="student-list-wrapper">
-            <div class="student-list">
-              <div v-for="student in layer.students" :key="student.id" class="student-tag">
-                <q-avatar size="28px" :style="{ backgroundColor: layer.color + '15', color: layer.color }">
-                  {{ student.name.charAt(0) }}
-                </q-avatar>
-                <span class="student-name">{{ student.name }}</span>
+          
+          <div 
+            class="accordion-content-wrapper" 
+            :style="{ 
+              gridTemplateRows: expandedLayerIds.includes(layer.id) ? '1fr' : '0fr',
+              opacity: expandedLayerIds.includes(layer.id) ? 1 : 0
+            }"
+          >
+            <div class="accordion-content-inner">
+              <div class="student-grid">
+                <div 
+                  v-for="student in layer.students" 
+                  :key="student.id"
+                  class="student-item-mini"
+                >
+                  <div class="avatar">{{ student.id.charAt(0).toUpperCase() }}</div>
+                  <span class="name">{{ student.id }}</span>
+                </div>
+              </div>
+              <div v-if="layer.students.length === 0" class="empty-state">
+                暂无学生
               </div>
             </div>
           </div>
@@ -152,143 +152,194 @@ const layerSummary = computed(() => {
 
 <style lang="scss" scoped>
 .class-layer-stats-wrapper {
-  padding: 40px 24px;
+  padding: 24px;
   background: #f8fafc;
   height: 100%;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .stats-content {
-  width: 100%;
   max-width: 1200px;
+  margin: 0 auto;
 }
 
-.overview-card {
-  background: white;
-  padding: 32px;
-  border-radius: 24px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 32px;
-    
-    h3 { margin: 0; font-size: 24px; font-weight: 800; color: #1e293b; }
-    p { margin: 4px 0 0; color: #64748b; font-size: 14px; }
-  }
-
-  .stats-row {
-    display: flex;
-    justify-content: space-around;
-    
-    .stat-item {
-      text-align: center;
-      padding: 16px 32px;
-      border-radius: 20px;
-      transition: all 0.3s;
-      position: relative;
-
-      .stat-value {
-        font-size: 42px;
-        font-weight: 900;
-        line-height: 1;
-        span { font-size: 16px; margin-left: 4px; color: #94a3b8; }
-      }
-      .stat-label { margin-top: 8px; font-weight: 700; color: #475569; }
-      .stat-percent { margin-top: 4px; font-size: 13px; color: #94a3b8; font-weight: 600; }
-    }
-  }
-}
-
-.layers-detail-grid {
+/* 顶部指标卡片 - 突出百分比 */
+.dashboard-header {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  align-items: start;
 }
 
-.layer-detail-column {
+.metric-card-vertical {
   background: white;
-  border-radius: 24px;
-  border: 1px solid #e2e8f0;
-  border-top: 6px solid #6e55ff;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  padding: 32px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
-  height: fit-content;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+  text-align: center;
+  transition: transform 0.2s;
 
-  &.is-expanded {
-    .student-list-wrapper {
-      max-height: 1000px;
-      opacity: 1;
-      margin-top: 20px;
+  &:hover {
+    transform: translateY(-4px);
+  }
+
+  .metric-percent {
+    font-size: 48px;
+    font-weight: 900;
+    font-family: 'Din Alternate', sans-serif;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .metric-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+
+  .metric-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+    
+    .unit {
+      font-size: 14px;
+      font-weight: 600;
+      margin-left: 4px;
+      color: #94a3b8;
     }
-    .arrow-icon {
+  }
+}
+
+/* 手风琴列表优化 - 原生 CSS Grid 动画提升性能 */
+.layers-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.accordion-item-native {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &.active {
+    border-color: #6e55ff30;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  }
+}
+
+.accordion-header-native {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  background: white;
+  user-select: none;
+
+  &:hover {
+    background: #fcfcfd;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .layer-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .layer-name {
+      font-weight: 800;
+      font-size: 18px;
+      color: #1e293b;
+    }
+
+    .layer-count {
+      font-size: 13px;
+      font-weight: 700;
+      color: #94a3b8;
+      background: #f1f5f9;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+  }
+
+  .expand-icon {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    
+    &.rotated {
       transform: rotate(180deg);
     }
   }
+}
 
-  .column-header {
-    cursor: pointer;
-    user-select: none;
-    
-    .title-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      .l-name { font-size: 18px; font-weight: 800; }
-      
-      .header-right {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        
-        .l-count { font-size: 13px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 6px; }
-        .arrow-icon { color: #94a3b8; transition: transform 0.3s ease; }
-      }
-    }
-  }
+/* 使用 CSS Grid 实现平滑高度动画 */
+.accordion-content-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease, opacity 0.3s ease;
+  background: #fcfcfd;
+}
 
-  .student-list-wrapper {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+.accordion-content-inner {
+  overflow: hidden;
+}
 
-  .student-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-bottom: 8px;
-  }
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 0 24px 24px;
+  /* 开启 GPU 加速 */
+  transform: translateZ(0);
+}
 
-  .student-tag {
+.student-item-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  contain: content;
+  
+  .avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #f1f5f9;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: #f8fafc;
-    border-radius: 12px;
-    border: 1px solid #f1f5f9;
-    transition: all 0.2s;
-
-    &:hover {
-      transform: translateX(4px);
-      background: white;
-      border-color: #e2e8f0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-    
-    .student-name { font-size: 14px; font-weight: 600; color: #334155; }
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
   }
+
+  .name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
+.empty-state {
+  padding: 0 24px 32px;
+  text-align: center;
+  color: #cbd5e1;
+  font-size: 14px;
 }
 </style>

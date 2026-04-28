@@ -11,9 +11,16 @@
               :key="opt.value"
               class="toggle-btn"
               :class="{ active: currentSort === opt.value }"
-              @click="emit('update:currentSort', opt.value)"
+              @click="handleSortChange(opt.value)"
             >
               {{ opt.label }}
+              <q-icon 
+                v-if="currentSort === opt.value"
+                name="unfold_more" 
+                size="12px"
+                class="q-ml-xs"
+                :style="{ transform: sortOrder === 'asc' ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }"
+              />
             </button>
           </div>
         </div>
@@ -34,130 +41,69 @@
         </div>
       </div>
 
-      <div class="question-stats-list">
+      <div class="question-stats-grid">
         <div 
           v-for="stat in filteredAndSortedStats" 
           :key="stat.questionId" 
-          class="question-stat-card"
+          class="question-stat-compact-card"
         >
-          <div class="card-left-panel">
-            <div class="question-header">
-              <div class="q-title-row">
-                <span class="q-index">题{{ stat.index }}</span>
-                <span class="q-type-tag" :class="stat.type">{{ stat.type === 'choice' ? '选择' : '判断' }}</span>
-              </div>
-              <span class="q-id">{{ stat.bmNo }}</span>
+          <div class="card-main">
+            <div class="q-header">
+              <span class="q-index">Q{{ stat.index }}</span>
+              <span class="q-type-tag" :class="stat.type">{{ stat.type === 'choice' ? '选择' : '判断' }}</span>
             </div>
 
-            <!-- 题目内容展示 -->
-            <div class="question-content q-mb-md">
-              <div class="q-title">{{ stat.title }}</div>
-              
-              <!-- 选择题/判断题选项展示 -->
-              <div v-if="(stat.type === 'choice' || stat.type === 'judgment') && stat.options" class="q-options-list q-mt-sm">
+            <!-- 全班正确率展示：采用与分层相同的布局 -->
+            <div class="class-accuracy-minimal">
+              <div class="accuracy-bar-container">
                 <div 
-                  v-for="opt in stat.options" 
-                  :key="opt.label"
-                  class="q-option-item"
-                  :class="{ 'is-correct': opt.label === getCorrectAnswerLabel(stat) }"
-                >
-                  <span class="opt-label">{{ opt.label === '对' || opt.label === '错' ? '' : opt.label + '.' }}</span>
-                  <span class="opt-text">{{ opt.text }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 全班正确率展示 -->
-            <div class="class-accuracy-section">
-              <div class="class-info-header">
-                <div class="class-label">全班正确率</div>
-                <div class="submit-count">提交人数: <span>{{ stat.submitCount }}</span></div>
-              </div>
-              <div class="class-bar-container">
-                <div 
-                  class="class-bar" 
+                  class="accuracy-bar" 
                   :style="{ 
                     width: stat.classAccuracy + '%',
                     backgroundColor: '#6e55ff'
                   }"
                 ></div>
-                <span class="class-val">{{ stat.classAccuracy }}%</span>
+              </div>
+              <div class="accuracy-info">
+                <span class="accuracy-val">{{ stat.classAccuracy }}%</span>
+                <span class="submit-count">{{ stat.submitCount }}人</span>
               </div>
             </div>
+
+            <!-- 详情展开按钮 -->
+            <button class="detail-toggle-btn" @click="toggleLayerDetail(stat.questionId, 'all')">
+              <span>分层详情</span>
+              <q-icon 
+                name="keyboard_arrow_down" 
+                size="16px"
+                :class="{ 'is-rotated': expandedLayerKey?.startsWith(stat.questionId) }"
+              />
+            </button>
           </div>
           
-          <div class="card-right-panel">
-            <div class="layer-stats-accordion">
-              <div class="accordion-title">分层作答正确率</div>
-              <div 
-                v-for="layer in layers" 
-                :key="layer" 
-                class="accordion-item"
-                :class="{ 
-                  'is-expanded': expandedLayerKey === `${stat.questionId}-${layer}`
-                }"
-              >
-                <!-- 手琴头部 -->
+          <!-- 展开的内容：分层统计 -->
+          <div v-if="expandedLayerKey?.startsWith(stat.questionId)" class="card-details">
+            <div 
+              v-for="layer in layers" 
+              :key="layer" 
+              class="layer-row"
+            >
+              <div class="layer-info">
+                <div class="layer-dot" :style="{ backgroundColor: getLayerColor(layer) }"></div>
+                <span class="layer-label">{{ layerLabelMap[layer] }}</span>
+              </div>
+              <div class="layer-bar-wrapper">
                 <div 
-                  class="accordion-header"
-                  @click="toggleLayerDetail(stat.questionId, layer)"
-                >
-                  <div class="header-left">
-                    <div class="layer-dot" :style="{ backgroundColor: getLayerColor(layer) }"></div>
-                    <span class="layer-label">{{ layerLabelMap[layer] }}</span>
-                  </div>
-                  
-                  <div class="header-center">
-                    <div class="mini-bar-bg">
-                      <div 
-                        class="mini-bar-fill" 
-                        :style="{ 
-                          width: stat.layerStats[layer].accuracy + '%',
-                          backgroundColor: getBarColor(stat.layerStats[layer].accuracy)
-                        }"
-                      ></div>
-                    </div>
-                    <span class="accuracy-val">{{ stat.layerStats[layer].accuracy }}%</span>
-                  </div>
-
-                  <div class="header-right">
-                    <q-icon 
-                      name="keyboard_arrow_down" 
-                      size="20px"
-                      class="arrow-icon"
-                    />
-                  </div>
-                </div>
-
-                <!-- 手风琴内容 (选项分布) -->
-                <div class="accordion-content">
-                  <div class="dist-header">
-                    <span>选项分布统计</span>
-                    <span class="correct-ans">正确答案: {{ getCorrectAnswer(stat.questionId) }}</span>
-                  </div>
-                  
-                  <div 
-                    v-for="opt in stat.layerStats[layer].optionDist" 
-                    :key="opt.label"
-                    class="opt-row"
-                    :class="{ 'is-correct': opt.label === getCorrectAnswerLabel(stat) }"
-                  >
-                    <div class="opt-id">{{ opt.label }}</div>
-                    <div class="opt-bar-wrapper">
-                      <div 
-                        class="opt-bar-fill" 
-                        :style="{ 
-                          width: opt.percent + '%',
-                          backgroundColor: opt.label === getCorrectAnswerLabel(stat) ? '#10b981' : '#e2e8f0'
-                        }"
-                      ></div>
-                    </div>
-                    <div class="opt-stats">
-                      <span class="p">{{ opt.percent }}%</span>
-                      <span class="c">{{ opt.count }}人</span>
-                    </div>
-                  </div>
-                </div>
+                  class="layer-bar-fill" 
+                  :style="{ 
+                    width: stat.layerStats[layer].accuracy + '%',
+                    backgroundColor: getBarColor(stat.layerStats[layer].accuracy)
+                  }"
+                ></div>
+              </div>
+              <div class="layer-stats-info">
+                <span class="layer-val">{{ stat.layerStats[layer].accuracy }}%</span>
+                <span class="layer-count">{{ stat.layerStats[layer].totalCount }}人</span>
               </div>
             </div>
           </div>
@@ -216,11 +162,27 @@ const emit = defineEmits<{
 }>()
 
 // --- 配置项 ---
+type EnvType = 'mock' | 'dev' | 'prod'
+const currentEnv = ref<EnvType>('dev') // 可在此处切换环境
+
 const sortOptions = [
-  { label: '题号顺序', value: 'index' },
-  { label: '正确率低→高', value: 'accuracy-asc' },
-  { label: '正确率高→低', value: 'accuracy-desc' }
+  { label: '题号', value: 'index' },
+  { label: '正确率', value: 'accuracy' },
+  { label: '提交人数', value: 'count' }
 ]
+
+const sortOrder = ref<'asc' | 'desc'>('asc')
+
+const handleSortChange = (val: string) => {
+  if (props.currentSort === val) {
+    // 如果点击的是当前已选中的排序字段，则切换升降序
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    // 如果点击的是新字段，默认降序（通常用户更关心高数据）
+    emit('update:currentSort', val)
+    sortOrder.value = 'desc'
+  }
+}
 
 const filterOptions = [
   { label: '全部', value: 'all' },
@@ -279,18 +241,18 @@ const isLoading = ref(false)
 // 从后端加载统计数据
 const fetchExerciseStats = async () => {
   isLoading.value = true
-  try {
-    const filterDate = props.date || new Date().toISOString().split('T')[0]
-    const sortParam = props.currentSort === 'accuracy-asc' ? 'accuracy_asc' : props.currentSort === 'accuracy-desc' ? 'accuracy_desc' : 'index'
-    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/exercise/stats?lessonId=L123&sort=${sortParam}&date=${filterDate}`)
-    const result = await response.json()
-    if (result.success) {
-      // 将后端模拟数据映射到前端展示格式
-      mockStatsData.value = result.data.map((item: any, idx: number) => {
-        const originalQ = CLASSROOM_EXERCISE.questions.find(q => q.id === item.questionId) || CLASSROOM_EXERCISE.questions[0]
+  
+  if (currentEnv.value === 'mock') {
+    setTimeout(() => {
+      const targetQuestionIds = CLASSROOM_EXERCISE.questions.slice(0, 10).map(q => q.id)
+      mockStatsData.value = targetQuestionIds.map((qId, idx) => {
+        const originalQ = CLASSROOM_EXERCISE.questions.find(q => q.id === qId)!
+        // 生成模拟的正确率
+        const mockAccuracy = Math.floor(Math.random() * 40) + 60; // 60-100%
+        
         return {
           index: idx + 1,
-          questionId: item.questionId,
+          questionId: qId,
           bmNo: originalQ.bmNo,
           title: originalQ.title,
           options: originalQ.structuredContent?.options || [
@@ -298,9 +260,57 @@ const fetchExerciseStats = async () => {
             { label: '错', text: '错' }
           ],
           type: originalQ.type as any,
-          classAccuracy: item.classAccuracy,
-          submitCount: item.submitCount || 0,
-          layerStats: item.layerStats // 直接使用后端的真实计算结果
+          classAccuracy: mockAccuracy,
+          submitCount: 45,
+          layerStats: {
+            '1': { accuracy: Math.min(100, mockAccuracy + 15), correctCount: 15, totalCount: 15, optionDist: [] },
+            '2': { accuracy: mockAccuracy, correctCount: 12, totalCount: 15, optionDist: [] },
+            '3': { accuracy: Math.max(0, mockAccuracy - 15), correctCount: 8, totalCount: 15, optionDist: [] }
+          }
+        }
+      })
+      isLoading.value = false
+    }, 500)
+    return
+  }
+
+  try {
+    const filterDate = props.date || new Date().toISOString().split('T')[0]
+    
+    // 强制只展示 CLASSROOM_EXERCISE 的前10道题，并保持顺序
+    const targetQuestionIds = CLASSROOM_EXERCISE.questions.slice(0, 10).map(q => q.id)
+    const questionIdsParam = targetQuestionIds.join(',')
+
+    const baseUrl = currentEnv.value === 'dev' 
+      ? 'http://localhost:36565' 
+      : ADDRESS_CATALOG.OPEN_CLASS_API
+
+    const response = await fetch(`${baseUrl}/api/exercise/stats/batch?lessonId=L123&questionIds=${questionIdsParam}&date=${filterDate}`)
+    const result = await response.json()
+    
+    if (result.success) {
+      // 按照 targetQuestionIds 的顺序映射数据
+      mockStatsData.value = targetQuestionIds.map((qId, idx) => {
+        const item = result.data.find((d: any) => d.questionId === qId)
+        const originalQ = CLASSROOM_EXERCISE.questions.find(q => q.id === qId)!
+        
+        return {
+          index: idx + 1,
+          questionId: qId,
+          bmNo: originalQ.bmNo,
+          title: originalQ.title,
+          options: originalQ.structuredContent?.options || [
+            { label: '对', text: '对' },
+            { label: '错', text: '错' }
+          ],
+          type: originalQ.type as any,
+          classAccuracy: item?.classAccuracy || 0,
+          submitCount: item?.submitCount || 0,
+          layerStats: item?.layerStats || {
+            '1': { accuracy: 0, correctCount: 0, totalCount: 0, optionDist: [] },
+            '2': { accuracy: 0, correctCount: 0, totalCount: 0, optionDist: [] },
+            '3': { accuracy: 0, correctCount: 0, totalCount: 0, optionDist: [] }
+          }
         }
       })
     }
@@ -330,12 +340,13 @@ const filteredAndSortedStats = computed(() => {
 
   // 2. 排序
   result.sort((a, b) => {
+    const order = sortOrder.value === 'asc' ? 1 : -1
     if (props.currentSort === 'index') {
-      return a.index - b.index
-    } else if (props.currentSort === 'accuracy-asc') {
-      return a.classAccuracy - b.classAccuracy
-    } else if (props.currentSort === 'accuracy-desc') {
-      return b.classAccuracy - a.classAccuracy
+      return (a.index - b.index) * order
+    } else if (props.currentSort === 'accuracy') {
+      return (a.classAccuracy - b.classAccuracy) * order
+    } else if (props.currentSort === 'count') {
+      return (a.submitCount - b.submitCount) * order
     }
     return 0
   })
@@ -345,38 +356,239 @@ const filteredAndSortedStats = computed(() => {
 </script>
 
 <style lang="scss" scoped>
+.question-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.question-stat-compact-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #6e55ff;
+    box-shadow: 0 4px 12px rgba(110, 85, 255, 0.08);
+  }
+
+  .card-main {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .q-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 48px;
+    
+    .q-index {
+      font-weight: 800;
+      font-size: 16px;
+      color: #1e293b;
+    }
+    
+    .q-type-tag {
+      font-size: 10px;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 600;
+      &.choice { background: #eff6ff; color: #3b82f6; }
+      &.judgment { background: #f5f3ff; color: #8b5cf6; }
+    }
+  }
+
+  .class-accuracy-minimal {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    padding: 8px 12px;
+    border-radius: 8px;
+
+    .accuracy-bar-container {
+      flex: 1;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      
+      .accuracy-bar {
+        height: 100%;
+        transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+    }
+
+    .accuracy-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 65px;
+      justify-content: flex-end;
+
+      .accuracy-val {
+        font-size: 16px;
+        font-weight: 800;
+        color: #6e55ff;
+        text-align: right;
+      }
+      
+      .submit-count {
+        font-size: 10px;
+        font-weight: 600;
+        color: #94a3b8;
+        background: #f1f5f9;
+        padding: 1px 4px;
+        border-radius: 4px;
+        min-width: 28px;
+        text-align: center;
+      }
+    }
+  }
+
+  .detail-toggle-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    
+    &:hover {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    span {
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .arrow-icon {
+      transition: transform 0.3s;
+      &.is-rotated {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
+  .card-details {
+    padding: 12px 16px;
+    background: #fcfcfd;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .layer-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .layer-info {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 60px;
+        
+        .layer-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+        }
+        .layer-label {
+          font-size: 11px;
+          font-weight: 600;
+          color: #64748b;
+        }
+      }
+
+      .layer-bar-wrapper {
+        flex: 1;
+        height: 4px;
+        background: #f1f5f9;
+        border-radius: 2px;
+        overflow: hidden;
+        
+        .layer-bar-fill {
+          height: 100%;
+        }
+      }
+
+      .layer-stats-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 65px;
+        justify-content: flex-end;
+
+        .layer-val {
+          font-size: 11px;
+          font-weight: 700;
+          color: #475569;
+          text-align: right;
+        }
+
+        .layer-count {
+          font-size: 9px;
+          font-weight: 600;
+          color: #94a3b8;
+          background: #f1f5f9;
+          padding: 1px 4px;
+          border-radius: 4px;
+          min-width: 28px;
+          text-align: center;
+        }
+      }
+    }
+  }
+}
+
 .stats-fullscreen-content {
-  padding: 40px 24px;
+  padding: 24px;
   background: #f8fafc;
   height: 100%;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .stats-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .stats-controls-row {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
   background: white;
-  padding: 16px 24px;
-  border-radius: 16px;
+  padding: 12px 20px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 20px;
 
   .control-group {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 
     .control-label {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       color: #64748b;
     }
@@ -384,16 +596,16 @@ const filteredAndSortedStats = computed(() => {
     .btn-toggle {
       display: flex;
       background: #f1f5f9;
-      padding: 4px;
-      border-radius: 10px;
-      gap: 4px;
+      padding: 2px;
+      border-radius: 8px;
+      gap: 2px;
 
       .toggle-btn {
         border: none;
         background: transparent;
-        padding: 6px 14px;
-        border-radius: 7px;
-        font-size: 13px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 12px;
         font-weight: 600;
         color: #64748b;
         cursor: pointer;
@@ -406,367 +618,7 @@ const filteredAndSortedStats = computed(() => {
         &.active {
           background: white;
           color: #6e55ff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-      }
-    }
-  }
-}
-
-.stats-summary {
-  background: white;
-  padding: 16px 20px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-  margin-bottom: 24px;
-  
-  .summary-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    .label { font-size: 14px; font-weight: 600; color: #64748b; }
-    .value {
-      font-weight: 800; font-size: 16px;
-      &.layer-1 { color: #475569; }
-      &.layer-2 { color: #64748b; }
-      &.layer-3 { color: #94a3b8; }
-    }
-  }
-}
-
-.question-stats-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  padding-bottom: 40px;
-}
-
-.question-stat-card {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s;
-  display: flex;
-  flex-direction: column; // 纵向排列以适应窄列
-  overflow: hidden;
-
-  &:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-  }
-
-  .card-left-panel {
-    padding: 24px;
-    border-right: none;
-    border-bottom: 1px solid #f1f5f9;
-    background: #ffffff;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .card-right-panel {
-    padding: 24px;
-    background: #fcfcfd;
-  }
-
-  .question-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    .q-title-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      
-      .q-index { font-weight: 800; color: #1e293b; font-size: 18px; }
-      .q-type-tag {
-        font-size: 12px; padding: 2px 8px; border-radius: 6px; font-weight: 600;
-        &.choice { background: #eff6ff; color: #3b82f6; }
-        &.judgment { background: #f5f3ff; color: #8b5cf6; }
-      }
-    }
-    .q-id { color: #94a3b8; font-size: 12px; font-family: monospace; }
-  }
-
-  .question-content {
-    font-size: 15px;
-    line-height: 1.6;
-    color: #334155;
-    background: #f8fafc;
-    padding: 12px 16px;
-    border-radius: 8px;
-    border-left: 4px solid #e2e8f0;
-    word-break: break-all;
-
-    .q-title {
-      font-weight: 600;
-    }
-
-    .q-options-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      
-      .q-option-item {
-        display: flex;
-        gap: 8px;
-        font-size: 14px;
-        color: #64748b;
-        padding: 4px 8px;
-        border-radius: 4px;
-
-        &.is-correct {
-          background: rgba(16, 185, 129, 0.1);
-          color: #10b981;
-          font-weight: 700;
-        }
-
-        .opt-label {
-          flex-shrink: 0;
-        }
-      }
-    }
-  }
-}
-
-.class-accuracy-section {
-  background: #f5f3ff;
-  padding: 16px 20px;
-  border-radius: 12px;
-  border: 1px solid #ddd6fe;
-  
-  .class-info-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-
-    .class-label {
-      font-size: 13px;
-      font-weight: 700;
-      color: #6e55ff;
-    }
-
-    .submit-count {
-      font-size: 12px;
-      color: #94a3b8;
-      font-weight: 600;
-      span {
-        color: #6e55ff;
-        font-weight: 800;
-        margin-left: 2px;
-      }
-    }
-  }
-
-  .class-bar-container {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    
-    .class-bar {
-      flex: 1;
-      height: 10px;
-      border-radius: 5px;
-      transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    
-    .class-val {
-      font-size: 18px;
-      font-weight: 900;
-      color: #6e55ff;
-      width: 50px;
-      text-align: right;
-    }
-  }
-}
-
-.layer-stats-accordion {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-
-  .accordion-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #94a3b8;
-    margin: 0 0 8px 4px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .accordion-item {
-    border: 1px solid #f1f5f9;
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    &.is-expanded {
-      border-color: #e2e8f0;
-      background: #fcfcfd;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-      
-      .accordion-header {
-        background: #f8fafc;
-        .arrow-icon {
-          transform: rotate(180deg);
-        }
-      }
-      
-      .accordion-content {
-        max-height: 800px;
-        opacity: 1;
-        padding: 20px;
-      }
-    }
-  }
-
-  .accordion-header {
-    height: 52px;
-    padding: 0 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    background: white;
-    transition: background 0.2s;
-
-    &:hover {
-      background: #f8fafc;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100px;
-      
-      .layer-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-      }
-      .layer-label {
-        font-size: 14px;
-        font-weight: 700;
-        color: #475569;
-      }
-    }
-
-    .header-center {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 0 12px;
-
-      .mini-bar-bg {
-        flex: 1;
-        height: 8px;
-        background: #f1f5f9;
-        border-radius: 4px;
-        overflow: hidden;
-        
-        .mini-bar-fill {
-          height: 100%;
-          transition: width 0.6s ease;
-        }
-      }
-      
-      .accuracy-val {
-        font-size: 14px;
-        font-weight: 800;
-        color: #1e293b;
-        width: 45px;
-        text-align: right;
-      }
-    }
-
-    .header-right {
-      .arrow-icon {
-        color: #94a3b8;
-        transition: transform 0.3s;
-      }
-    }
-  }
-
-  .accordion-content {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    background: white;
-    padding: 0 20px;
-    border-top: 1px solid #f8fafc;
-
-    .dist-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      font-weight: 700;
-      color: #94a3b8;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px dashed #f1f5f9;
-      
-      .correct-ans {
-        color: #10b981;
-      }
-    }
-
-    .opt-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 12px;
-      
-      &:last-child {
-        margin-bottom: 4px;
-      }
-
-      &.is-correct {
-        .opt-id { color: #10b981; }
-      }
-
-      .opt-id {
-        width: 20px;
-        font-size: 14px;
-        font-weight: 800;
-        color: #64748b;
-      }
-
-      .opt-bar-wrapper {
-        flex: 1;
-        height: 6px;
-        background: #f8fafc;
-        border-radius: 3px;
-        overflow: hidden;
-        
-        .opt-bar-fill {
-          height: 100%;
-          transition: width 0.5s;
-        }
-      }
-
-      .opt-stats {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        width: 50px;
-        
-        .p {
-          font-size: 12px;
-          font-weight: 800;
-          color: #475569;
-          line-height: 1.2;
-        }
-        .c {
-          font-size: 10px;
-          color: #94a3b8;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
       }
     }

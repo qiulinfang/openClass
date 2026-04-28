@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = 36565;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 app.use(cors());
@@ -157,7 +157,99 @@ app.post('/api/homework/exercise-submit', (req, res) => {
 });
 
 /**
- * 4. 获取题目详细作答统计 (更新接口)
+ * 4. 批量获取题目统计数据 (新接口)
+ * 逻辑：支持传入指定的 questionIds 列表，并按该顺序返回统计数据
+ */
+app.get('/api/exercise/stats/batch', (req, res) => {
+    const { lessonId, questionIds, date } = req.query;
+    
+    if (!questionIds) {
+        return res.status(400).json({ success: false, message: 'Missing questionIds' });
+    }
+
+    const targetIds = questionIds.split(',');
+
+    // 1. 获取该课节的练习记录
+    const exerciseRecords = answerRecords.filter(r => {
+        const matchLesson = r.lessonId === lessonId;
+        const matchType = r.type === 'exercise';
+        
+        // 直接解析 submittedAt 提取 yyyy-mm-dd
+        let recordDate = null;
+        if (r.submittedAt) {
+            const dateObj = typeof r.submittedAt === 'string' 
+                ? new Date(r.submittedAt) 
+                : r.submittedAt;
+            
+            // 确保是一个有效的日期对象
+            if (!isNaN(dateObj.getTime())) {
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                recordDate = `${year}-${month}-${day}`;
+            }
+        }
+        
+        const matchDate = date ? recordDate === date : true;
+        return matchLesson && matchType && matchDate;
+    });
+
+    // 2. 获取预习分层信息
+    const previewRecords = answerRecords.filter(r => r.type === 'preview' && (date ? r.date === date : true));
+    const studentLayerMap = {};
+    previewRecords.forEach(r => {
+        studentLayerMap[r.studentId] = r.layer;
+    });
+
+    // 3. 计算请求中每个题目的统计指标
+    const stats = targetIds.map(qId => {
+        const qRecords = exerciseRecords.map(r => ({
+            layer: studentLayerMap[r.studentId] || 'C',
+            result: r.results.find(res => res.questionId === qId)
+        })).filter(item => item.result);
+
+        const totalCount = qRecords.length;
+        const correctCount = qRecords.filter(item => item.result.isCorrect).length;
+
+        const layerStats = {};
+        ['A', 'B', 'C'].forEach(lKey => {
+            const lRecords = qRecords.filter(item => item.layer === lKey);
+            const lTotal = lRecords.length;
+            const lCorrect = lRecords.filter(item => item.result.isCorrect).length;
+            
+            const optionMap = {};
+            lRecords.forEach(item => {
+                const opt = item.result.selectedOption;
+                optionMap[opt] = (optionMap[opt] || 0) + 1;
+            });
+
+            layerStats[lKey === 'A' ? '1' : lKey === 'B' ? '2' : '3'] = {
+                accuracy: lTotal > 0 ? Math.round((lCorrect / lTotal) * 100) : 0,
+                totalCount: lTotal,
+                optionDist: Object.keys(optionMap).map(opt => ({
+                    label: opt,
+                    count: optionMap[opt],
+                    percent: lTotal > 0 ? Math.round((optionMap[opt] / lTotal) * 100) : 0
+                }))
+            };
+        });
+
+        return {
+            questionId: qId,
+            classAccuracy: totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0,
+            submitCount: totalCount,
+            layerStats
+        };
+    });
+
+    res.json({
+        success: true,
+        data: stats
+    });
+});
+
+/**
+ * 5. 获取题目详细作答统计 (更新接口)
  * 逻辑：基于 data.json 中的真实练习数据和预习分层进行聚合计算
  */
 app.get('/api/exercise/stats', (req, res) => {

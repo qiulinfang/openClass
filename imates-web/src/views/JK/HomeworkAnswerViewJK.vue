@@ -27,8 +27,9 @@
     </header>
     
     <div class="answer-body">
-      <!-- 课堂练习/课后作业阶段：原有 QuestionList + 画布 -->
-      <HomeworkPracticeKids
+      <!-- 课堂练习/课后作业阶段：使用 ExerciseSolveViewNewJK 替换 HomeworkPracticeKids -->
+      <ExerciseSolveViewNewJK 
+        is-component 
         :external-questions="filteredQuestions"
         :stage="currentStage"
       />
@@ -61,7 +62,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { getUserId } from '@/services'
 import Dialog from '@/components/base/Dialog.vue'
-import HomeworkPracticeKids from './HomeworkPracticeJK.vue'
+import ExerciseSolveViewNewJK from './ExerciseSolveViewNewJK.vue'
 import goBackIcon from '/icons/goback.svg'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { CLASSROOM_EXERCISE, POST_SCHOOL_HOMEWORK } from '../../mocks/negativeNumbers'
