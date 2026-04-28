@@ -21,6 +21,7 @@ import RenderTestView from '@/views/RenderTestView.vue'
 import LottieTest from '@/views/LottieTest.vue'
 import ExerciseSolveViewNew from '@/views/ExerciseSolveViewNew.vue'
 import InteractiveCanvasView from '@/views/InteractiveCanvasView.vue'
+import TeacherDebugView from '@/views/TeacherDebugView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -163,6 +164,11 @@ const router = createRouter({
       name: 'interactiveCanvas',
       component: InteractiveCanvasView
     },
+    {
+      path: '/teacher-debug',
+      name: 'teacherDebug',
+      component: TeacherDebugView
+    },
     // 重定向旧路由到新路由
     {
       path: '/exercise-solve',
@@ -200,6 +206,8 @@ router.beforeEach(async (to, from, next) => {
     to.path === '/chat-session-test' ||
     to.name === 'debugApi' ||
     to.path === '/debug-api' ||
+    to.name === 'teacherDebug' ||
+    to.path === '/teacher-debug' ||
     to.name === 'renderTest' ||
     to.path === '/render-test'
   ) {

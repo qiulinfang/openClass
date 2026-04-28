@@ -4,7 +4,7 @@
  */
 
 import { getUserId } from '../http/auth-service'
-import { getYanbanBaseUrl } from '@/config/env-config'
+import { getYanbanBaseUrl, getApiPaths } from '@/config/env-config'
 
 export interface TeacherWebSocketMessage {
   type: 'CHAT' | 'SYSTEM' | 'ERROR' | 'TEACHER_RESPONSE' | 'SESSION_UPDATE'
@@ -34,19 +34,29 @@ export class TeacherWebSocketService {
   /**
    * 连接到WebSocket服务器
    */
-  private connect(): void {
+  public connect(overrideUserId?: string): void {
     try {
-      const yanbanBaseUrl = getYanbanBaseUrl()
-      // 将HTTP/HTTPS URL转换为WebSocket URL
-      const wsUrl = yanbanBaseUrl
-        .replace('https://', 'wss://')
-        .replace('http://', 'ws://') + '/teacher/ws'
+      const apiPaths = getApiPaths()
+      const wsPath = apiPaths.yanban.teacher.wsPath
+      const userId = overrideUserId || getUserId() || 'unknown'
 
-      console.log('[TeacherWebSocket] 连接到:', wsUrl)
+      let wsUrl = ''
+      // 如果是在本地开发环境（localhost/127.0.0.1），连接到当前前端服务的 host
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+        wsUrl = `${protocol}${window.location.host}${wsPath}?userId=${userId}`
+      } else {
+        const yanbanBaseUrl = getYanbanBaseUrl()
+        wsUrl = yanbanBaseUrl
+          .replace('https://', 'wss://')
+          .replace('http://', 'ws://') + wsPath + `?userId=${userId}`
+      }
+
+      console.log(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] WebSocket URL: ${wsUrl}`)
       this.socket = new WebSocket(wsUrl)
 
       this.socket.onopen = () => {
-        console.log('[TeacherWebSocket] 连接成功')
+        console.log(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 连接建立成功 ✅`)
         this.reconnectAttempts = 0
         this.onConnected()
       }
@@ -54,21 +64,21 @@ export class TeacherWebSocketService {
       this.socket.onmessage = (event) => {
         try {
           const message: TeacherWebSocketMessage = JSON.parse(event.data)
-          console.log('[TeacherWebSocket] 收到消息:', message)
+          console.log(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 收到消息 📥 类型: ${message.type}`, message)
           this.handleMessage(message)
         } catch (error) {
-          console.error('[TeacherWebSocket] 消息解析失败:', error, event.data)
+          console.error(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 消息解析失败 ❌ 内容:`, event.data, '错误:', error)
         }
       }
 
       this.socket.onclose = (event) => {
-        console.log('[TeacherWebSocket] 连接断开:', event.code, event.reason)
+        console.warn(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 连接已断开 🔌 代码: ${event.code}, 原因: ${event.reason || '无'}`)
         this.onDisconnected()
         this.attemptReconnect()
       }
 
       this.socket.onerror = (error) => {
-        console.error('[TeacherWebSocket] 连接错误:', error)
+        console.error(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 发生错误 🛑`, error)
         this.onError(error)
       }
 
@@ -82,7 +92,7 @@ export class TeacherWebSocketService {
    */
   sendMessage(message: TeacherWebSocketMessage): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('[TeacherWebSocket] WebSocket未连接，无法发送消息')
+      console.error(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 发送失败 ❌ WebSocket 当前未处于连接状态 (readyState: ${this.socket?.readyState})`)
       return
     }
 
@@ -93,10 +103,10 @@ export class TeacherWebSocketService {
         from: getUserId() || 'unknown',
       }
 
+      console.log(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 发送消息 📤 类型: ${message.type}`, messageToSend)
       this.socket.send(JSON.stringify(messageToSend))
-      console.log('[TeacherWebSocket] 发送消息:', messageToSend)
     } catch (error) {
-      console.error('[TeacherWebSocket] 发送消息失败:', error)
+      console.error(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 发送消息异常 ❌`, error)
     }
   }
 
@@ -210,12 +220,12 @@ export class TeacherWebSocketService {
    */
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('[TeacherWebSocket] 达到最大重连次数，停止重连')
+      console.error(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 达到最大重连次数 (${this.maxReconnectAttempts})，放弃重连 🏳️`)
       return
     }
 
     this.reconnectAttempts++
-    console.log(`[TeacherWebSocket] ${this.reconnectDelay}ms后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+    console.log(`[TeacherWebSocket][${new Date().toLocaleTimeString()}] 准备进行第 ${this.reconnectAttempts} 次重连... 将在 ${this.reconnectDelay}ms 后执行`)
 
     this.reconnectTimer = window.setTimeout(() => {
       this.connect()

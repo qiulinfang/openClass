@@ -149,6 +149,25 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/bj101')
           },
         },
+        // 教师 WebSocket 代理
+        '/teacher-ws-test': {
+          target: ADDRESS_CATALOG.IMATES_HTTP,
+          changeOrigin: true,
+          secure: false,
+          ws: true,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/teacher-ws-test')
+          },
+        },
+        '/teacher-ws-release': {
+          target: ADDRESS_CATALOG.IMATES_HTTP,
+          changeOrigin: true,
+          secure: false,
+          ws: true,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/teacher-ws-release')
+          },
+        },
         '/history_manage': {
           target: ADDRESS_CATALOG.HISTORY_MANAGE,
           changeOrigin: true,
