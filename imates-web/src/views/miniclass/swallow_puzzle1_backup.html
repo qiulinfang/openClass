@@ -544,13 +544,6 @@
     const SWALLOW_START = { row: 1, col: 1 };
     const TARGET        = { row: 3, col: 5 };
 
-    // --- API Configuration (New) ---
-    const API_BASE = 'https://kelvin-cosin.cloud'; // 替换为真实的 Agent 地址
-    const THREAD_ID = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    const USER_ID = 'kelvin';
-    const CANVAS_ID = 'swallow_puzzle_1';
-    let sseSource = null;
-
     const DIR_DELTA = {
       '上': { dr:  1, dc:  0 },
       '下': { dr: -1, dc:  0 },
@@ -580,186 +573,21 @@
     let pendingCoachMessages = [];
 
     // ═══════════════════════════════════════════════════════
-    //  API Layer (Restructured based on canvas_router_api.md)
+    //  WebSocket Layer
     // ═══════════════════════════════════════════════════════
-
-    /**
-     * 初始化 SSE 连接接收指令
-     */
-    function initCanvasSSE() {
-      if (sseSource) {
-        sseSource.close();
-      }
-
-      console.log(`[SSE] 建立连接, thread_id: ${THREAD_ID}`);
-      sseSource = new EventSource(`${API_BASE}/canvas/sse/${THREAD_ID}`);
-
-      sseSource.onopen = () => {
-        console.log('[SSE] 连接成功 ✅');
-        setStatus('llmStatus', 'ok', '已连接画布助手');
-        wsConnected = true;
-        updateSendButtonState();
-      };
-
-      sseSource.onmessage = (e) => {
-        if (e.data === ': keepalive') return;
-        
-        try {
-          const data = JSON.parse(e.data);
-          console.log('[SSE] 收到指令:', data);
-          
-          if (data.cmd_id && data.command) {
-            handleCanvasCommand(data.cmd_id, data.command);
-          }
-        } catch (err) {
-          console.error('[SSE] 解析数据失败', err, e.data);
-        }
-      };
-
-      sseSource.onerror = (e) => {
-        console.error('[SSE] 连接错误', e);
-        wsConnected = false;
-        updateSendButtonState();
-        setStatus('llmStatus', 'err', '助手连接断开，正在尝试重连...');
-      };
-    }
-
-    /**
-     * 处理具体的画布指令
-     */
-    function handleCanvasCommand(cmd_id, command) {
-      const { action, params } = command;
-      
-      if (action === 'demo_moves') {
-        // 渲染路径指令消息到聊天框
-        const currentPlanJson = JSON.stringify(params);
-        lastPlanJson = currentPlanJson;
-        
-        const movesDesc = params.moves.map(m => `向${m.dir}走${m.steps}步`).join('，然后');
-        let displayMsg = `我先${movesDesc}。`;
-        
-        if (params.highlight) {
-          displayMsg += `（小技巧：我们可以看着方块的<strong>${params.highlight}</strong>来数格数哦！）`;
-        }
-        
-        appendChatMessage('coach', displayMsg, true, currentPlanJson);
-
-        if (loadPlan(currentPlanJson)) {
-          setStatus('llmStatus', 'ok', '收到演示指令，正在播放…');
-          togglePlay();
-          // 指令执行开始，稍后回调（或者等播放完回调，根据业务需求）
-          // 这里我们选择播放完后回调，见 schedule 函数末尾
-          window.currentCmdId = cmd_id; 
-        } else {
-          sendCallback(cmd_id, 'error', '解析移动指令失败');
-        }
-      } else {
-        console.warn('[Canvas] 未知 action:', action);
-        sendCallback(cmd_id, 'error', `未知指令 action: ${action}`);
-      }
-    }
-
-    /**
-     * 执行结果回调给 Agent
-     */
-    async function sendCallback(cmdId, status, message = '', data = {}) {
-      try {
-        const response = await fetch(`${API_BASE}/canvas/callback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cmd_id: cmdId,
-            status: status,
-            message: message,
-            data: data
-          })
-        });
-        const result = await response.json();
-        console.log('[Callback] 结果已返回:', result);
-      } catch (err) {
-        console.error('[Callback] 发送失败', err);
-      }
-    }
-
-    /**
-     * 发送用户对话内容到画布助手
-     */
-    async function sendUserInput() {
-      const text = document.getElementById('nlInput').value.trim();
-      if (!text) { 
-        setStatus('llmStatus', 'err', '请输入移动方案描述'); 
-        return; 
-      }
-
-      appendChatMessage('student', text);
-      document.getElementById('nlInput').value = '';
-      
-      waitingResponse = true;
-      updateSendButtonState();
-      showThinkingBubble();
-
-      try {
-        const response = await fetch(`${API_BASE}/canvas_bot`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inputs: {
-              message: text,
-              name: USER_ID,
-              canvas_id: CANVAS_ID
-            },
-            config: {
-              configurable: {
-                thread_id: THREAD_ID,
-                user_id: USER_ID
-              }
-            }
-          })
-        });
-
-        // 处理流式响应 (目前仅简单处理，可根据需求扩展流式渲染)
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let partialText = '';
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                removeThinkingBubble();
-                if (data.content) {
-                  // 这里简单处理：每次 content 变化覆盖之前气泡或追加
-                  // 实际上现在的对话接口会完整返回 content
-                  appendChatMessage('coach', data.content, false);
-                }
-              } catch (e) {}
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[Bot] 请求失败', err);
-        removeThinkingBubble();
-        setStatus('llmStatus', 'err', '对话助手响应失败');
-      } finally {
-        waitingResponse = false;
-        updateSendButtonState();
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════
-    //  Legacy WebSocket Logic (Replaced by API Layer)
-    // ═══════════════════════════════════════════════════════
+    let ws               = null;
     let wsConnected      = false;
-    let waitingResponse  = false;
-    let thinkingMsgEl    = null;
-    let lastPlanJson     = null;
+    let wsManualClose    = false;   // true when user explicitly disconnects
+    let wsReconnectTimer = null;
+    let waitingResponse  = false;   // true while waiting for server reply
+    let thinkingMsgEl    = null;    // 存储当前思考中气泡的引用
+    // 每次页面加载生成一个新的会话 ID；刷新页面会更换 ID。
+    let lastPlanJson     = null;    // 存储最后一次收到的指令 JSON
+    let pageSessionId    = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+    function getWsUrl() {
+      return `wss://kelvin-cosin.cloud/puzzle/ws/${encodeURIComponent(pageSessionId)}`;
+    }
 
     function updateSendButtonState() {
       const input = document.getElementById('nlInput');
@@ -778,6 +606,141 @@
         if (btn && !btn.disabled) {
           sendUserInput();
         }
+      }
+    }
+
+    function connectWS() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      clearTimeout(wsReconnectTimer);
+      wsManualClose = false;
+
+      ws = new WebSocket(getWsUrl());
+
+      ws.onopen = () => {
+        wsConnected = true;
+        updateSendButtonState();
+      };
+
+      ws.onclose = () => {
+        wsConnected = false;
+        waitingResponse = false;
+        updateSendButtonState();
+
+        if (!wsManualClose) {
+          wsReconnectTimer = setTimeout(connectWS, 5000);
+        }
+      };
+
+      ws.onerror = () => {
+        console.error('[WS] 连接失败');
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          handleServerEvent(JSON.parse(e.data));
+        } catch (err) {
+          console.error('[WS] 解析服务端消息失败', err, e.data);
+        }
+      };
+    }
+
+    function manualDisconnect() {
+      wsManualClose = true;
+      clearTimeout(wsReconnectTimer);
+      if (ws) { ws.close(); ws = null; }
+      wsConnected = false;
+      updateSendButtonState();
+    }
+
+    function toggleWsConnection() {
+      if (wsConnected) {
+        manualDisconnect();
+      } else {
+        connectWS();
+      }
+    }
+
+    function sendWS(type, payload) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setStatus('llmStatus', 'err', '服务器未连接，请先点击「连接」');
+        return false;
+      }
+      const msg = JSON.stringify({ type, payload });
+      addDebugLog('sent', msg);
+      ws.send(msg);
+      return true;
+    }
+
+    // ─── Debug Log Functions ──────────────────────────────
+    function addDebugLog(dir, content) {
+      const time = new Date().toLocaleTimeString('zh-CN', { hour12: false, fractionalSecondDigits: 3 });
+      const prefix = dir === 'sent' ? '>> [SEND]' : '<< [RECV]';
+      console.log(`[${time}] ${prefix} ${content}`);
+    }
+
+    // ─── Server event dispatcher ───────────────────────────
+    function handleServerEvent(evt) {
+      addDebugLog('received', JSON.stringify(evt));
+      const { type, eventId, payload } = evt;
+
+      // ACK every received event
+      if (eventId) sendWS('ack', { eventId });
+
+      switch (type) {
+        case 'connected':
+          break;
+
+        case 'instruction':
+          // 存储并加载指令
+          const currentPlanJson = JSON.stringify(payload);
+          lastPlanJson = currentPlanJson;
+          
+          // 渲染路径指令消息到聊天框，将当前指令 JSON 传给 appendChatMessage
+          const movesDesc = payload.moves.map(m => `向${m.dir}走${m.steps}步`).join('，然后');
+          let displayMsg = `我先${movesDesc}。`;
+          
+          // 如果有 highlight 提示，则拼接到消息中
+          if (payload.highlight) {
+            displayMsg += `（小技巧：我们可以看着方块的<strong>${payload.highlight}</strong>来数格数哦！）`;
+          }
+          
+          appendChatMessage('coach', displayMsg, true, currentPlanJson);
+
+          if (loadPlan(currentPlanJson)) {
+            setStatus('llmStatus', 'ok', '收到指令，正在播放…');
+            togglePlay();
+          } else {
+            _enableSendBtn();
+          }
+          break;
+
+        case 'coach_message':
+          removeThinkingBubble();
+          if (playing) {
+            pendingCoachMessages.push(payload.text);
+          } else {
+            // 普通对话消息不强制显示重播按钮，除非它自己带有指令信息
+            appendChatMessage('coach', payload.text, false);
+            _enableSendBtn();
+          }
+          break;
+
+        case 'sync_snapshot':
+          setStatus('llmStatus', 'info', payload.message || '会话已同步');
+          _enableSendBtn();
+          break;
+
+        case 'error':
+          removeThinkingBubble();
+          setStatus('llmStatus', 'err', payload.message || '未知错误');
+          _enableSendBtn();
+          break;
+
+        case 'pong':
+          break;
+
+        default:
+          console.warn('[WS] 未知事件类型', type, payload);
       }
     }
 
@@ -1226,20 +1189,10 @@
       if (stepIdx >= flatSteps.length) {
         if (checkSuccess()) {
           stopPlay();
-          // 如果有挂起的 cmd_id，发送成功回调
-          if (window.currentCmdId) {
-            sendCallback(window.currentCmdId, 'success', '拼图还原成功');
-            window.currentCmdId = null;
-          }
           return;
         }
         stopPlay();
         setStatus('llmStatus', 'ok', '全部步骤执行完毕！');
-        // 发送执行完毕回调
-        if (window.currentCmdId) {
-          sendCallback(window.currentCmdId, 'success', '执行完毕');
-          window.currentCmdId = null;
-        }
         return;
       }
       if (doStep()) {
@@ -1301,8 +1254,10 @@
       setStatus('llmStatus', 'info', '已重置，等待新的输入。');
       _enableSendBtn();
 
-      // 重新启动会话 (重新建立 SSE 即可)
-      initCanvasSSE();
+      // 清空后端会话缓存
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'reset_session', payload: {} }));
+      }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -1352,8 +1307,8 @@
       // 初始显示欢迎语（不传模型）
       showCoachMessage("同学你好，我是果果。请告诉我你认为符合成功标准的移动方式吧？");
 
-      // 初始化 SSE 连接
-      initCanvasSSE();
+      // Auto-connect on page load
+      connectWS();
     })();
   </script>
 </body>
