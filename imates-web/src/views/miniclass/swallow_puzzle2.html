@@ -545,11 +545,18 @@
     const TARGET        = { row: 3, col: 5 };
 
     // --- API Configuration (New) ---
-    const API_BASE = 'https://kelvin-cosin.cloud'; // 替换为真实的 Agent 地址
-    const THREAD_ID = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const API_BASE = 'https://kelvin-cosin.cloud/test/api'; // 替换为真实的 Agent 地址
+    let THREAD_ID = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const USER_ID = 'kelvin';
     const CANVAS_ID = 'swallow_puzzle_1';
     let sseSource = null;
+
+    /**
+     * 生成新的会话 ID
+     */
+    function generateThreadId() {
+      return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    }
 
     const DIR_DELTA = {
       '上': { dr:  1, dc:  0 },
@@ -628,7 +635,32 @@
      * 处理具体的画布指令
      */
     function handleCanvasCommand(cmd_id, command) {
+      console.log('[SSE] 收到指令并加入队列:', cmd_id);
+      pendingCommands.push({ cmd_id, command });
+      
+      // 如果当前没有正在执行的指令，且不是正在等待对话响应，则开始执行
+      if (!currentExecutingCommand && !waitingResponse && !playing) {
+        processNextCommand();
+      }
+    }
+
+    /**
+     * 从队列中取出并执行下一个指令
+     */
+    function processNextCommand() {
+      if (pendingCommands.length === 0) return;
+      if (waitingResponse || playing) return;
+
+      const { cmd_id, command } = pendingCommands.shift();
+      executeCanvasCommand(cmd_id, command);
+    }
+
+    /**
+     * 实际执行画布指令逻辑
+     */
+    function executeCanvasCommand(cmd_id, command) {
       const { action, params } = command;
+      currentExecutingCommand = { cmd_id, command };
       
       if (action === 'demo_moves') {
         // 渲染路径指令消息到聊天框
@@ -647,15 +679,16 @@
         if (loadPlan(currentPlanJson)) {
           setStatus('llmStatus', 'ok', '收到演示指令，正在播放…');
           togglePlay();
-          // 指令执行开始，稍后回调（或者等播放完回调，根据业务需求）
-          // 这里我们选择播放完后回调，见 schedule 函数末尾
-          window.currentCmdId = cmd_id; 
         } else {
           sendCallback(cmd_id, 'error', '解析移动指令失败');
+          currentExecutingCommand = null;
+          processNextCommand();
         }
       } else {
         console.warn('[Canvas] 未知 action:', action);
         sendCallback(cmd_id, 'error', `未知指令 action: ${action}`);
+        currentExecutingCommand = null;
+        processNextCommand();
       }
     }
 
@@ -717,14 +750,17 @@
           })
         });
 
-        // 处理流式响应 (目前仅简单处理，可根据需求扩展流式渲染)
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let partialText = '';
+        let coachBubble = null;
+        let fullContent = "";
 
         while (true) {
           const { value, done } = await reader.read();
-          if (done) break;
+          if (done) {
+            console.log('[Bot] 流读取完成');
+            break;
+          }
           
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n');
@@ -733,11 +769,24 @@
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                removeThinkingBubble();
+                
+                // 1. 渲染文本内容
                 if (data.content) {
-                  // 这里简单处理：每次 content 变化覆盖之前气泡或追加
-                  // 实际上现在的对话接口会完整返回 content
-                  appendChatMessage('coach', data.content, false);
+                  removeThinkingBubble();
+                  fullContent += data.content;
+                  
+                  if (!coachBubble) {
+                    coachBubble = appendChatMessage('coach', fullContent, false);
+                  } else {
+                    updateCoachBubbleContent(coachBubble, fullContent);
+                  }
+                }
+
+                // 2. 检查流是否应该结束 (根据 history_messages 或特定的结束标识)
+                if (data.history_messages && Array.isArray(data.history_messages) && data.history_messages.length > 0) {
+                   // 注意：这里不要直接 break，因为最后一个 chunk 可能还有 content
+                   // 我们标记一下，在当前 chunk 处理完后退出
+                   console.log('[Bot] 收到历史消息，准备结束流接收');
                 }
               } catch (e) {}
             }
@@ -750,16 +799,42 @@
       } finally {
         waitingResponse = false;
         updateSendButtonState();
+
+        // 对话响应结束，自动触发处理指令队列
+        processNextCommand();
+      }
+    }
+
+    /**
+     * 更新已有教练气泡的内容
+     */
+    function updateCoachBubbleContent(bubbleEl, text) {
+      const bubble = bubbleEl.querySelector('.chat-bubble.coach');
+      if (!bubble) return;
+      
+      // 复用之前的格式化逻辑
+      let formattedText = text.replace(/(（[^）]+）|_{2,})/g, '<strong>$1</strong>');
+      const textWrapper = bubble.querySelector('div:first-child');
+      if (textWrapper) {
+        textWrapper.innerHTML = formattedText;
+      }
+      
+      // 保持滚动到底部
+      const container = document.getElementById('chatMessages');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
       }
     }
 
     // ═══════════════════════════════════════════════════════
     //  Legacy WebSocket Logic (Replaced by API Layer)
     // ═══════════════════════════════════════════════════════
-    let wsConnected      = false;
+    let wsConnected      = true;
     let waitingResponse  = false;
     let thinkingMsgEl    = null;
     let lastPlanJson     = null;
+    let pendingCommands  = []; // 存储待执行的指令队列 { cmd_id, command }
+    let currentExecutingCommand = null; // 当前正在执行的指令
 
     function updateSendButtonState() {
       const input = document.getElementById('nlInput');
@@ -783,7 +858,7 @@
 
     function appendChatMessage(role, text, showReplay = false, planJson = null) {
       const container = document.getElementById('chatMessages');
-      if (!container) return;
+      if (!container) return null;
 
       const empty = document.getElementById('chatEmpty');
       if (empty) empty.remove();
@@ -845,6 +920,7 @@
       row.appendChild(bubble);
       container.appendChild(row);
       container.scrollTop = container.scrollHeight;
+      return row;
     }
 
     function showCoachMessage(text) {
@@ -903,22 +979,6 @@
     function _setWsDot(_state) { /* UI element removed */ }
 
     function _setWsText(_cls, _msg) { /* UI element removed */ }
-
-    // ═══════════════════════════════════════════════════════
-    //  Student Input → WebSocket
-    // ═══════════════════════════════════════════════════════
-    function sendUserInput() {
-      const text = document.getElementById('nlInput').value.trim();
-      if (!text) { setStatus('llmStatus', 'err', '请输入移动方案描述'); return; }
-      if (!sendWS('user_input', { text })) return;
-
-      appendChatMessage('student', text);
-      document.getElementById('nlInput').value = '';
-
-      waitingResponse = true;
-      updateSendButtonState();
-      showThinkingBubble();
-    }
 
     // ═══════════════════════════════════════════════════════
     //  Grid Initialization
@@ -1226,20 +1286,22 @@
       if (stepIdx >= flatSteps.length) {
         if (checkSuccess()) {
           stopPlay();
-          // 如果有挂起的 cmd_id，发送成功回调
-          if (window.currentCmdId) {
-            sendCallback(window.currentCmdId, 'success', '拼图还原成功');
-            window.currentCmdId = null;
+          // 如果有正在执行的指令，发送成功回调
+          if (currentExecutingCommand) {
+            sendCallback(currentExecutingCommand.cmd_id, 'success', '拼图还原成功');
+            currentExecutingCommand = null;
           }
+          processNextCommand(); // 执行下一个任务
           return;
         }
         stopPlay();
         setStatus('llmStatus', 'ok', '全部步骤执行完毕！');
         // 发送执行完毕回调
-        if (window.currentCmdId) {
-          sendCallback(window.currentCmdId, 'success', '执行完毕');
-          window.currentCmdId = null;
+        if (currentExecutingCommand) {
+          sendCallback(currentExecutingCommand.cmd_id, 'success', '执行完毕');
+          currentExecutingCommand = null;
         }
+        processNextCommand(); // 执行下一个任务
         return;
       }
       if (doStep()) {
@@ -1279,6 +1341,10 @@
 
     function restartPuzzleSession() {
       stopPlay(false);
+
+      // 生成新的会话 ID 以开始全新对话
+      THREAD_ID = generateThreadId();
+      console.log(`[Session] 重置会话, 新 thread_id: ${THREAD_ID}`);
 
       // 清空前端播放状态与上下文展示
       pos = { ...SWALLOW_START };
