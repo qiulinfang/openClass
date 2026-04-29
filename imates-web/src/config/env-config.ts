@@ -95,6 +95,7 @@ export const ADDRESS_CATALOG = {
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
   HW_FORMULA_RECOGNIZE: 'http://49.232.39.212:9012',
+  QUESTION_STRUCTURER: 'http://49.232.39.212:8055',
 } as const
 
 // localStorage 键名
@@ -246,6 +247,10 @@ export function getGaokaoAgentBaseUrl(): string {
 
 export function getHwFormulaRecognizeBaseUrl(): string {
   return ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE
+}
+
+export function getQuestionStructurerBaseUrl(): string {
+  return ADDRESS_CATALOG.QUESTION_STRUCTURER
 }
 
 /**

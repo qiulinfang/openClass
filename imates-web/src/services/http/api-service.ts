@@ -7,6 +7,7 @@ import { AndroidBridge } from '../business/android-bridge'
 
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
+import { QuestionStructurerApi, type StructureQuestionReq, type StructureQuestionBatchReq } from './question-structurer-api'
 import { getApiPaths, getImBaseUrl, getTeacherWsUrl } from '@/config/env-config'
 import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
@@ -51,6 +52,7 @@ export class ApiService {
   private questionSearchApi: QuestionSearchApi
   private textbookDownloadApi: TextbookDownloadApi
   private homeworkApi: HomeworkApi
+  private questionStructurerApi: QuestionStructurerApi
 
   private constructor() {
     const androidBridge = AndroidBridge.getInstance()
@@ -59,6 +61,7 @@ export class ApiService {
     this.questionSearchApi = new QuestionSearchApi()
     this.textbookDownloadApi = new TextbookDownloadApi(androidBridge)
     this.homeworkApi = new HomeworkApi()
+    this.questionStructurerApi = new QuestionStructurerApi()
   }
 
   // ========== 对话记忆管理相关接口 ==========
@@ -318,6 +321,36 @@ export class ApiService {
    */
   public async recognizeHandwrittenFormula(image: string): Promise<RecognizeHandwrittenFormulaResponse | null> {
     return this.homeworkApi.recognizeHandwrittenFormula(image)
+  }
+
+  // ========== 题目结构化服务相关接口 ==========
+
+  /**
+   * 单道题结构化
+   */
+  public async structureQuestion(req: StructureQuestionReq) {
+    return this.questionStructurerApi.structureQuestion(req)
+  }
+
+  /**
+   * 批量题目结构化
+   */
+  public async structureQuestionBatch(req: StructureQuestionBatchReq) {
+    return this.questionStructurerApi.structureQuestionBatch(req)
+  }
+
+  /**
+   * 题目结构化服务健康检查
+   */
+  public async checkQuestionStructurerHealth() {
+    return this.questionStructurerApi.checkHealth()
+  }
+
+  /**
+   * 获取题目结构化服务信息
+   */
+  public async getQuestionStructurerInfo() {
+    return this.questionStructurerApi.getServiceInfo()
   }
 
   // ========== 图片上传相关接口 ==========
