@@ -695,6 +695,11 @@ export class AiExerciseStrategy implements ChatStrategy {
     }
   }
 
+  // 获取当前会话ID
+  getCurrentSessionId(): string | null {
+    return this.aiExerciseStore.currentSessionId || null
+  }
+
   // 获取会话卡片列表
   getSessionCards(): unknown[] {
     if (typeof this.aiExerciseStore.getSessionCards === 'function') {

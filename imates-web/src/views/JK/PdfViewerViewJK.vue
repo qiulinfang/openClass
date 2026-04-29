@@ -93,7 +93,7 @@
           @click="onPortfolioFabClick"
         />
 
-        <!-- 统计按钮 -->
+        <!-- 统计按钮 (指向看板) -->
         <DraggableFab
           v-if="currentEnv !== 'prod'"
           label="统计"
@@ -101,18 +101,7 @@
           :icon="tongjiIcon"
           :initial-pos="{ right: 168, bottom: 524 }"
           bounds-container=".fullscreen-chat-container"
-          @click="statsOverlayVisible = true"
-        />
-
-        <!-- 分层按钮 -->
-        <DraggableFab
-          v-if="currentEnv !== 'prod'"
-          label="分层"
-          size="md"
-          icon="layers"
-          :initial-pos="{ right: 168, bottom: 606 }"
-          bounds-container=".fullscreen-chat-container"
-          @click="layerStatsOverlayVisible = true"
+          @click="goToStatsDashboard"
         />
       </template>
 
@@ -149,14 +138,13 @@
             </button>
           </div>
         </template>
-        <!-- 流程2使用 ExerciseSolveViewNewJK 替换 HomeworkAnswerViewJK -->
+        <!-- 核心业务流程展示区 -->
         <ExerciseSolveViewNewJK 
-          v-if="currentFlow === 2" 
           is-component 
           :external-questions="homeworkStore.questions"
           :stage="homeworkCurrentStage"
+          :show-submit-btn="homeworkCurrentStage !== 'postSchool'"
         />
-        <HomeworkAnswerViewJK v-else ref="homeworkRef" is-component />
       </FullscreenOverlay>
     </div>
   </div>
@@ -191,7 +179,6 @@ import ImageViewer from '@/components/ImageViewer.vue'
 import ExerciseSolveViewNewJK from './ExerciseSolveViewNewJK.vue'
 import DraggableFab from '@/components/base/DraggableFab.vue'
 import FullscreenOverlay from '@/components/base/FullscreenOverlay.vue'
-import HomeworkAnswerViewJK from './HomeworkAnswerViewJK.vue'
 import ExerciseStatsPanel from './ExerciseStatsPanel.vue'
 import ClassLayerStatsPanel from './ClassLayerStatsPanel.vue'
 import xiaogongjuIcon from '/icons/xiaogongju.svg'
@@ -307,13 +294,7 @@ const switchHomeworkStage = (stage: string) => {
     homeworkStore.questions = POST_SCHOOL_HOMEWORK.questions
     homeworkStore.homeworkName = POST_SCHOOL_HOMEWORK.homeworkName
   }
-
-  if (homeworkRef.value) {
-    homeworkRef.value.switchStage(stage)
-  }
 }
-
-const homeworkRef = ref<InstanceType<typeof HomeworkAnswerViewJK> | null>(null)
 
 const stageNameMap = {
   classroom: '课堂练习',
@@ -655,6 +636,13 @@ const onMiniClassFabClick = () => {
 
 const onPortfolioFabClick = () => {
   portfolioVisible.value = true
+}
+
+const goToStatsDashboard = () => {
+  router.push({
+    name: 'jkStatsDashboard',
+    params: { homeworkId: 'H123' } // 默认 homeworkId
+  })
 }
 </script>
 

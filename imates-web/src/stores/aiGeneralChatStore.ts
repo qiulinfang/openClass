@@ -781,7 +781,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       const key = `chat_history_session_${sessionId}`
       await localforage.removeItem(key)
 
-      // 同步删除后端记忆（chatbot 线程）
+      // 注意：这里不再调用后端接口删除 thread，因为该后端接口可能未部署或地址不对导致 404
+      // 后端记忆由其自身 TTL 或其他机制管理，前端仅负责清理本地展示和存储
+      /*
       try {
         await apiService.manageConversationMemory({
           command: 'delete_thread',
@@ -791,6 +793,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       } catch (error) {
         console.warn('[AI_GENERAL] 删除会话时同步后端记忆失败:', error)
       }
+      */
       
       // 保存会话列表
       await saveSessions()

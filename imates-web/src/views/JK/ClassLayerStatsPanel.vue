@@ -89,6 +89,7 @@ interface LayerInfo {
 const props = defineProps<{
   previewResults: any[] // 课前预习结果（Mock）
   date?: string // 外部传入的过滤日期
+  env?: 'dev' | 'prod'
 }>()
 
 // 控制三列的手风琴状态，默认全部收起
@@ -110,7 +111,12 @@ const fetchLayerStats = async () => {
   isLoading.value = true
   try {
     const filterDate = props.date || new Date().toISOString().split('T')[0]
-    const response = await fetch(`${ADDRESS_CATALOG.OPEN_CLASS_API}/api/homework/layer-stats?homeworkId=H123&date=${filterDate}`)
+    
+    const baseUrl = props.env === 'prod' 
+      ? ADDRESS_CATALOG.OPEN_CLASS_API 
+      : 'http://localhost:36565'
+
+    const response = await fetch(`${baseUrl}/api/homework/layer-stats?homeworkId=H123&date=${filterDate}`)
     const result = await response.json()
     if (result.success) {
       // 转换后端数据到前端视图模型
@@ -133,8 +139,8 @@ onMounted(() => {
   fetchLayerStats()
 })
 
-// 监听日期变化并刷新
-watch(() => props.date, () => {
+// 监听日期或环境变化并刷新
+watch(() => [props.date, props.env], () => {
   fetchLayerStats()
 })
 
@@ -144,7 +150,7 @@ const layerSummary = computed(() => {
     id: layer.id,
     name: layer.name,
     count: layer.students.length,
-    percent: Math.round((layer.students.length / total) * 100),
+    percent: total > 0 ? Math.round((layer.students.length / total) * 100) : 0,
     color: layer.color
   }))
 })

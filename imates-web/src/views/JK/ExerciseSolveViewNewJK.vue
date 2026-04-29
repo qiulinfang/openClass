@@ -101,7 +101,7 @@
               </div>
 
               <!-- 底部操作区 -->
-              <div class="action-footer" v-if="currentQuestion">
+              <div class="action-footer" v-if="currentQuestion && props.showSubmitBtn">
                 <div v-if="!isCurrentQuestionSubmitted" class="submit-action-wrapper">
                   <button 
                     class="ai-action-btn submit-btn" 
@@ -120,7 +120,7 @@
                       <span class="submitted-text">本题已提交</span>
                     </div>
                     <div class="divider"></div>
-                    <button class="ai-action-btn" @click="handleToggle">
+                    <button class="ai-action-btn" @click="mode === 'left' ? handleAskAiClick() : handleToggle()">
                       <span class="btn-text">{{ mode === 'left' ? '问问AI' : '返回作答' }}</span>
                       <q-icon 
                         :name="mode === 'left' ? 'auto_awesome' : 'keyboard_return'" 
@@ -155,17 +155,13 @@
             >
               <div class="panel-card ai-chat-card">
                 <div class="panel-card-body">
-                  <ExerciseChatPanelNew
-                    ref="exerciseChatPanelRef"
-                    :question="currentQuestion"
-                    :sessions="aiExerciseStore.sessions"
-                    :show-close-button="true"
-                    @close="handleCloseChatPanel"
-                    @scroll-to-bottom="scrollToBottom"
-                    @send-message="handleSendSuggestion"
+                  <ChatView
+                    ref="aiGeneralChatViewRef"
+                    type="ai-general"
+                    :compressed-height="360"
+                    :model-options="AI_ROLE_OPTIONS_JK"
                     @open-teacher-dialog="handleOpenTeacherDialog"
                     @switch-to-teacher="handleSwitchToTeacher"
-                    @add-session="handleAddSessionCard"
                   />
                 </div>
               </div>
@@ -191,11 +187,12 @@ import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
-import ExerciseChatPanelNew from '@/components/ExerciseChatPanelNew.vue'
+import ChatView from '@/components/ChatView.vue'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import FloatBubble from '@/components/base/FloatBubble.vue'
 import CommonSelect from '@/components/base/Select.vue'
 import CommonActionButton from '@/components/base/Button.vue'
-import { SUBJECT_OPTIONS } from '@/constants/subjects'
+import { AI_ROLE_OPTIONS_JK } from '@/constants/options'
 import { useQuestionStore } from '@/stores/questionStore'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
@@ -235,16 +232,23 @@ watch(isExerciseChatPanelVisible, (visible) => {
   }
 })
 
-const props = defineProps<{
-  isComponent?: boolean;
-  externalQuestions?: any[];
-  stage?: string;
-}>()
+const props = withDefaults(
+  defineProps<{
+    isComponent?: boolean;
+    externalQuestions?: any[];
+    stage?: string;
+    showSubmitBtn?: boolean;
+  }>(),
+  {
+    showSubmitBtn: true
+  }
+)
 
 // Refs
 const splitPanelRef = ref<InstanceType<typeof SplitPanel> | null>(null)
 const questionListRef = ref(null)
-const exerciseChatPanelRef = ref<InstanceType<typeof ExerciseChatPanelNew> | null>(null)
+const aiGeneralStore = useAiGeneralChatStore()
+const aiGeneralChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 
 // Router & Route
 const router = useRouter()
@@ -435,9 +439,9 @@ const handleToggle = () => {
 // SplitPanel 事件
 const handleModeChange = (newMode: 'left' | 'right') => {
   mode.value = newMode
-  // 切换到 AI 模式时，自动切换到 AI 问答 Tab
+  // 切换到 AI 模式时，自动刷新通用对话列表
   if (newMode === 'right') {
-    exerciseChatPanelRef.value?.switchToAiChat?.()
+    aiGeneralStore.loadSessions()
   }
 }
 
@@ -456,6 +460,32 @@ const handleQuestionSelected = async () => {
   const contentEl = document.querySelector('.question-render-area')
   if (contentEl) {
     await MathJaxUtils.renderMathAndWait(contentEl as HTMLElement)
+  }
+
+  // 同步 AI 会话：切换题目时，自动加载该题目的专用会话，实现会话隔离
+  const questionBmNo = currentQuestion.value?.bmNo
+  if (questionBmNo) {
+    const sessionId = `q-session-${questionBmNo}`
+    const existingSession = aiGeneralStore.sessions.find(s => s.sessionId === sessionId)
+    
+    if (existingSession) {
+      // 如果已有会话，切换过去
+      await aiGeneralStore.switchSession(sessionId)
+    } else {
+      // 如果没有会话，创建一个以题目 ID 命名的专用会话
+      // 避免污染通用会话列表，这里我们直接手动初始化 store 状态或调用一个专门的初始化方法
+      // 但为了简单且符合当前 Store 设计，我们直接重置消息并设置当前会话
+      aiGeneralStore.messages = []
+      aiGeneralStore.currentSession = {
+        sessionId: sessionId,
+        sessionName: `题目: ${currentQuestion.value?.title || questionBmNo}`,
+        createTime: Date.now(),
+        updateTime: Date.now(),
+        msgCount: 0
+      }
+      // 加载历史（如果本地有存储但不在 sessions 列表中）
+      await aiGeneralStore.loadChatHistory(sessionId)
+    }
   }
 }
 
@@ -483,11 +513,10 @@ const scrollToBottom = () => {
 
 // 处理推荐问题点击：直接发送消息
 const handleSendSuggestion = (message: string) => {
-  const chatViewRef = exerciseChatPanelRef.value?.getChatViewRef?.() as any
-  if (chatViewRef?.sendMessage) {
+  if (aiGeneralChatViewRef.value?.sendMessage) {
     // 设置输入内容并发送
-    chatViewRef.inputMessage = message
-    chatViewRef.sendMessage()
+    ;(aiGeneralChatViewRef.value as any).inputMessage = message
+    ;(aiGeneralChatViewRef.value as any).sendMessage()
   }
 }
 
@@ -555,60 +584,75 @@ const sendToAi = async (question: any) => {
   }
 }
 
-// 问AI按钮点击处理 - 直接截图并放入 Chat Input
+// 问AI按钮点击处理 - 针对不同题型构造精细化的内容
 const handleAskAiClick = async () => {
   try {
-    // 1. 直接调用底层安卓原生API截图
-    const { dataUrl, width, height } = await captureScreenSnapshot()
-    if (!dataUrl) {
-      showMessage('截图失败，请重试', 'warning')
-      return
-    }
-
-    // 2. 显示 AI 面板
+    // 1. 显示 AI 面板
     if (mode.value === 'left' && splitPanelRef.value) {
       splitPanelRef.value.toggle()
     }
 
-    // 3. 将截图放入 chat input 截图区域
-    nextTick(() => {
-      const chatView = exerciseChatPanelRef.value?.getChatViewRef?.() as any
-      if (chatView?.onImageSelected) {
-        chatView.onImageSelected({
-          base64DataUrl: dataUrl,
-          filePath: '',
-          width: width || 0,
-          height: height || 0,
-          fileSize: Math.round(dataUrl.length * 0.75),
-        })
-      } else {
-        // 如果 chatView 还没准备好，等待一下再试
-        setTimeout(() => {
-          const chatViewRetry = exerciseChatPanelRef.value?.getChatViewRef?.() as any
-          if (chatViewRetry?.onImageSelected) {
-            chatViewRetry.onImageSelected({
-              base64DataUrl: dataUrl,
-              filePath: '',
-              width: width || 0,
-              height: height || 0,
-              fileSize: Math.round(dataUrl.length * 0.75),
+    // 2. 构造精细化的题目内容
+    nextTick(async () => {
+      const chatView = aiGeneralChatViewRef.value as any
+      if (!chatView) return
+
+      const q = currentQuestion.value
+      if (!q) return
+
+      let questionContext = ''
+      const title = q.title || ''
+      const stem = q.structuredContent?.stem || ''
+
+      // 根据题型构造不同的上下文
+      switch (q.type) {
+        case 'choice': {
+          const options = q.structuredContent?.options || q.options || []
+          const optionsText = options
+            .map((opt: any) => {
+              const label = opt.label || ''
+              const content = opt.text || opt.content || ''
+              return `${label}. ${content}`
             })
-          } else {
-            showMessage('聊天功能暂不可用', 'warning')
-          }
-        }, 300)
+            .filter((t: string) => t !== '. ')
+            .join('\n')
+          questionContext = `【选择题】\n题干：${title}\n${stem}\n\n选项：\n${optionsText}`
+          break
+        }
+        case 'judgment': {
+          questionContext = `【判断题】\n题干：${stem}\n\n请判断上述说法是否正确。`
+          break
+        }
+        case 'fill': {
+          const blanks = q.structuredContent?.blanks || []
+          const blanksCount = blanks.length
+          questionContext = `【填空题】\n题干：${title}\n${stem}\n\n注：本题共有 ${blanksCount} 个空格。`
+          break
+        }
+        default: {
+          questionContext = `【题目】\n${title}\n${stem}`
+          break
+        }
+      }
+
+      const fullText = `能帮我讲讲这道题吗？\n\n${questionContext.trim()}`
+
+      // 3. 调用 sendMessage 发送内容
+      if (chatView.sendMessage) {
+        await chatView.sendMessage(undefined, fullText)
+      } else {
+        showMessage('聊天功能暂不可用', 'warning')
       }
     })
   } catch (error) {
-    console.error('截图失败:', error)
-    showMessage('截图失败，请重试', 'warning')
+    console.error('启动AI指导失败:', error)
+    showMessage('启动失败，请重试', 'warning')
   }
 }
 
 const handleAddSessionCard = async () => {
-  const chatView = exerciseChatPanelRef.value?.getChatViewRef?.() as any
-  if (chatView?.addSessionCard) {
-    await chatView.addSessionCard()
+  if (aiGeneralChatViewRef.value?.addSessionCard) {
+    await (aiGeneralChatViewRef.value as any).addSessionCard()
   }
 }
 

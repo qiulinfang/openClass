@@ -31,6 +31,20 @@
           />
           <q-btn flat round icon="chevron_right" @click="changeDate(1)" />
         </div>
+
+        <!-- 环境切换按钮 (仅在开发环境展示) -->
+        <div v-if="isDev" class="env-switcher q-ml-md">
+          <q-btn 
+            unelevated 
+            rounded 
+            :color="currentEnv === 'dev' ? 'orange-8' : 'blue-8'"
+            size="sm"
+            @click="toggleEnv"
+          >
+            <q-icon :name="currentEnv === 'dev' ? 'terminal' : 'cloud'" size="16px" class="q-mr-xs" />
+            {{ currentEnv === 'dev' ? '本地环境' : '线上环境' }}
+          </q-btn>
+        </div>
       </div>
     </div>
 
@@ -43,6 +57,7 @@
             v-if="currentTab === 'layer'" 
             :preview-results="[]"
             :date="selectedDate"
+            :env="currentEnv"
           />
           
           <!-- 课堂练习详情 -->
@@ -51,6 +66,7 @@
             v-model:current-sort="exerciseSort"
             v-model:current-filter="exerciseFilter"
             :date="selectedDate"
+            :env="currentEnv"
           />
         </div>
       </transition>
@@ -59,10 +75,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import DatePicker from '@/components/base/DatePicker.vue'
 import ClassLayerStatsPanel from './ClassLayerStatsPanel.vue'
 import ExerciseStatsPanel from './ExerciseStatsPanel.vue'
+
+// 环境检测与切换逻辑
+const isDev = ref(import.meta.env.DEV)
+type EnvType = 'dev' | 'prod'
+const currentEnv = ref<EnvType>((localStorage.getItem('jk_stats_env') as EnvType) || 'dev')
+
+const toggleEnv = () => {
+  currentEnv.value = currentEnv.value === 'dev' ? 'prod' : 'dev'
+  localStorage.setItem('jk_stats_env', currentEnv.value)
+  // 环境切换后，通知子组件刷新（由于子组件可能也持有自己的 env 状态，建议统一通过 props 或注入）
+}
 
 const currentTab = ref('layer') // 'layer' | 'exercise'
 const exerciseSort = ref('index')
@@ -178,6 +205,16 @@ export default {
 .content-container {
   height: 100%;
   overflow: hidden;
+}
+
+.date-display {
+  display: flex;
+  align-items: center;
+}
+
+.env-switcher {
+  display: flex;
+  align-items: center;
 }
 
 /* 切换动画 */

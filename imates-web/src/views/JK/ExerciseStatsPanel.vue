@@ -154,6 +154,7 @@ const props = defineProps<{
   currentSort: string
   currentFilter: string
   date?: string // 外部传入的过滤日期
+  env?: 'dev' | 'prod'
 }>()
 
 const emit = defineEmits<{
@@ -162,8 +163,9 @@ const emit = defineEmits<{
 }>()
 
 // --- 配置项 ---
-type EnvType = 'mock' | 'dev' | 'prod'
-const currentEnv = ref<EnvType>('dev') // 可在此处切换环境
+// 注释掉内部的 currentEnv，使用外部传入的 env prop
+// type EnvType = 'mock' | 'dev' | 'prod'
+// const currentEnv = ref<EnvType>('dev') 
 
 const sortOptions = [
   { label: '题号', value: 'index' },
@@ -242,7 +244,10 @@ const isLoading = ref(false)
 const fetchExerciseStats = async () => {
   isLoading.value = true
   
-  if (currentEnv.value === 'mock') {
+  // 如果没有 env prop，默认行为（可根据需要调整）
+  const targetEnv = props.env || 'dev'
+
+  if (targetEnv === ( 'mock' as any)) {
     setTimeout(() => {
       const targetQuestionIds = CLASSROOM_EXERCISE.questions.slice(0, 10).map(q => q.id)
       mockStatsData.value = targetQuestionIds.map((qId, idx) => {
@@ -281,7 +286,7 @@ const fetchExerciseStats = async () => {
     const targetQuestionIds = CLASSROOM_EXERCISE.questions.slice(0, 10).map(q => q.id)
     const questionIdsParam = targetQuestionIds.join(',')
 
-    const baseUrl = currentEnv.value === 'dev' 
+    const baseUrl = targetEnv === 'dev' 
       ? 'http://localhost:36565' 
       : ADDRESS_CATALOG.OPEN_CLASS_API
 
@@ -325,8 +330,8 @@ onMounted(() => {
   fetchExerciseStats()
 })
 
-// 监听排序和日期变化
-watch(() => [props.currentSort, props.date], () => {
+// 监听排序、日期、环境变化
+watch(() => [props.currentSort, props.date, props.env], () => {
   fetchExerciseStats()
 }, { deep: true })
 

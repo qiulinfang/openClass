@@ -177,6 +177,9 @@ export interface ChatStrategy {
   // 删除指定会话（可选，仅部分策略需要）
   deleteSession?(sessionId: string, options?: { currentQuestion?: unknown }): Promise<void>
 
+  // 获取当前会话ID（可选）
+  getCurrentSessionId?(): string | null
+
   // 获取联网搜索状态（可选）
   getEnableWebSearch?(): boolean
 

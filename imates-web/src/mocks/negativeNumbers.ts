@@ -10,8 +10,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
   homeworkName: '负数的认识 - 课前预习',
   questions: [
     {
-      id: 'pre-1',
-      bmNo: 'PRE_MATH_001',
+      id: '10221',
+      bmNo: '10221',
       title: '写出下列温度的负数表示：零上15℃（  ）、零下8℃（  ）',
       type: 'fill',
       structuredContent: {
@@ -24,8 +24,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-2',
-      bmNo: 'PRE_MATH_002',
+      id: '10222',
+      bmNo: '10222',
       title: '判断：0是正数（  ）（对/错）',
       type: 'judgment',
       structuredContent: {
@@ -38,8 +38,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-3',
-      bmNo: 'PRE_MATH_003',
+      id: '10223',
+      bmNo: '10223',
       title: '判断：负数都比0小（  ）（对/错）',
       type: 'judgment',
       structuredContent: {
@@ -52,8 +52,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-4',
-      bmNo: 'PRE_MATH_004',
+      id: '10224',
+      bmNo: '10224',
       title: '数轴的核心要素有（  ）、（  ）、（  ）',
       type: 'fill',
       structuredContent: {
@@ -66,8 +66,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-5',
-      bmNo: 'PRE_MATH_005',
+      id: '10225',
+      bmNo: '10225',
       title: '用负数表示：支出20元（  ）、下降5米（  ）',
       type: 'fill',
       structuredContent: {
@@ -80,8 +80,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-6',
-      bmNo: 'PRE_MATH_006',
+      id: '10226',
+      bmNo: '10226',
       title: '判断：“收入100元”和“支出50元”是相反意义的量（ ）（对/错）',
       type: 'judgment',
       structuredContent: {
@@ -94,8 +94,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-7',
-      bmNo: 'PRE_MATH_007',
+      id: '10227',
+      bmNo: '10227',
       title: '北斗卫星在太空的温度为零下23℃，用负数表示为（  ），它在数轴上的位置在0的（  ）边',
       type: 'fill',
       structuredContent: {
@@ -108,8 +108,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'pre-8',
-      bmNo: 'PRE_MATH_008',
+      id: '10228',
+      bmNo: '10228',
       title: '简单画出一条数轴，标注出0和-3的位置',
       type: 'essay',
       structuredContent: {
@@ -126,8 +126,8 @@ export const PREVIEW_HOMEWORK: HomeworkMockData = {
 // 核心探究
 export const CORE_EXPLORATION: ExerciseItem[] = [
   {
-    id: 'core-1',
-    bmNo: 'CORE_MATH_001',
+    id: '10231',
+    bmNo: '10231',
     title: '0为什么既不是正数也不是负数？',
     type: 'essay',
     structuredContent: {
@@ -139,8 +139,8 @@ export const CORE_EXPLORATION: ExerciseItem[] = [
     subject: 'math',
   },
   {
-    id: 'core-2',
-    bmNo: 'CORE_MATH_002',
+    id: '10243',
+    bmNo: '10243',
     title: '负数和相反意义的量有什么区别？',
     type: 'essay',
     structuredContent: {
@@ -152,8 +152,8 @@ export const CORE_EXPLORATION: ExerciseItem[] = [
     subject: 'math',
   },
   {
-    id: 'core-3',
-    bmNo: 'CORE_MATH_003',
+    id: '10230',
+    bmNo: '10230',
     title: '怎样规范标记表示温度的直线（数轴），它有哪些核心要素？',
     type: 'essay',
     structuredContent: {
@@ -165,8 +165,8 @@ export const CORE_EXPLORATION: ExerciseItem[] = [
     subject: 'math',
   },
   {
-    id: 'core-4',
-    bmNo: 'CORE_MATH_004',
+    id: '10264',
+    bmNo: '10264',
     title: '观察数轴上的数，左边和右边的数在大小上有什么简单规律（不深入比较大小）？',
     type: 'essay',
     structuredContent: {
@@ -185,8 +185,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
   questions: [
     // 基础题 (5道) - 选择/判断
     {
-      id: 'exe-base-sel-1',
-      bmNo: 'EXE_BASE_SEL_001',
+      id: '10232',
+      bmNo: '10232',
       title: '【基础题】下列说法正确的是（ ）',
       type: 'choice',
       structuredContent: {
@@ -204,8 +204,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-base-sel-2',
-      bmNo: 'EXE_BASE_SEL_002',
+      id: '10233',
+      bmNo: '10233',
       title: '【基础题】下列数中，不是负数的是（ ）',
       type: 'choice',
       structuredContent: {
@@ -223,8 +223,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-base-jud-1',
-      bmNo: 'EXE_BASE_JUD_001',
+      id: '10236',
+      bmNo: '10236',
       title: '【基础题】0是负数。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -237,8 +237,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-base-jud-2',
-      bmNo: 'EXE_BASE_JUD_002',
+      id: '10238',
+      bmNo: '10238',
       title: '【基础题】负数都比0小。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -251,8 +251,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-base-sel-3',
-      bmNo: 'EXE_BASE_SEL_003',
+      id: '10234',
+      bmNo: '10234',
       title: '【基础题】数轴上，正方向通常约定为（ ）',
       type: 'choice',
       structuredContent: {
@@ -272,8 +272,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
 
     // 提升题 (3道) - 选择/判断
     {
-      id: 'exe-adv-sel-1',
-      bmNo: 'EXE_ADV_SEL_001',
+      id: '10241',
+      bmNo: '10241',
       title: '【提升题】下列各组中，属于相反意义的量的是（ ）',
       type: 'choice',
       structuredContent: {
@@ -291,8 +291,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-adv-sel-2',
-      bmNo: 'EXE_ADV_SEL_002',
+      id: '10242',
+      bmNo: '10242',
       title: '【提升题】在数轴上，-2和1之间的整数有（ ）个',
       type: 'choice',
       structuredContent: {
@@ -310,8 +310,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-adv-jud-1',
-      bmNo: 'EXE_ADV_JUD_001',
+      id: '10243',
+      bmNo: '10243',
       title: '【提升题】相反意义的量必须用正数和负数表示。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -326,8 +326,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
 
     // 拓展题 (2道) - 选择/判断
     {
-      id: 'exe-ext-sel-1',
-      bmNo: 'EXE_EXT_SEL_001',
+      id: '10246',
+      bmNo: '10246',
       title: '【拓展题】关于数轴的画法，下列说法正确的是（ ）',
       type: 'choice',
       structuredContent: {
@@ -345,8 +345,8 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'exe-ext-jud-1',
-      bmNo: 'EXE_EXT_JUD_001',
+      id: '10247',
+      bmNo: '10247',
       title: '【拓展题】在数轴上，离原点越远的数绝对值越大。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -370,8 +370,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
   questions: [
     // 基础层 - 读写负数
     {
-      id: 'post-base-read-1',
-      bmNo: 'POST_BASE_READ_001',
+      id: '10248',
+      bmNo: '10248',
       title: '【基础层-读写负数】读出下列负数：-5（ ）、-12.8（ ）、+9（ ）、-3/5（ ）',
       type: 'fill',
       structuredContent: {
@@ -384,8 +384,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-base-read-2',
-      bmNo: 'POST_BASE_READ_002',
+      id: '10249',
+      bmNo: '10249',
       title: '【基础层-读写负数】写出下列描述对应的负数/正数：零上12℃（ ）、零下7℃（ ）、支出45元（ ）、收入30元（ ）',
       type: 'fill',
       structuredContent: {
@@ -398,8 +398,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-base-read-3',
-      bmNo: 'POST_BASE_READ_003',
+      id: '10250',
+      bmNo: '10250',
       title: '【基础层-读写负数】读出数轴上标注的数：（数轴提示：原点0，正方向向右，单位长度1，标注数：-4、+2、-1.5、0），分别读出这四个数',
       type: 'fill',
       structuredContent: {
@@ -413,8 +413,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     },
     // 基础层 - 判断题
     {
-      id: 'post-base-jud-1',
-      bmNo: 'POST_BASE_JUD_001',
+      id: '10251',
+      bmNo: '10251',
       title: '【基础层-判断题】0既不是正数，也不是负数，是正负数的分界点。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -427,8 +427,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-base-jud-2',
-      bmNo: 'POST_BASE_JUD_002',
+      id: '10252',
+      bmNo: '10252',
       title: '【基础层-判断题】数轴只要有原点 和 单位长度，就可以规范表示数。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -441,8 +441,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-base-jud-3',
-      bmNo: 'POST_BASE_JUD_003',
+      id: '10253',
+      bmNo: '10253',
       title: '【基础层-判断题】-10读作负十，+6读作正六，正数的“+”不能省略。（ ）',
       type: 'judgment',
       structuredContent: {
@@ -456,8 +456,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     },
     // 基础层 - 规范画数轴
     {
-      id: 'post-base-draw-1',
-      bmNo: 'POST_BASE_DRAW_001',
+      id: '10254',
+      bmNo: '10254',
       title: '【基础层-规范画数轴】画一条规范的数轴，标注出原点、正方向、单位长度（单位长度为1）',
       type: 'essay',
       structuredContent: {
@@ -469,8 +469,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-base-draw-2',
-      bmNo: 'POST_BASE_DRAW_002',
+      id: '10255',
+      bmNo: '10255',
       title: '【基础层-规范画数轴】画一条数轴，标注出0、-2、+3三个数的位置',
       type: 'essay',
       structuredContent: {
@@ -483,8 +483,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     },
     // 提升层 - 举例说明
     {
-      id: 'post-adv-ex-1',
-      bmNo: 'POST_ADV_EX_001',
+      id: '10256',
+      bmNo: '10256',
       title: '【提升层-举例说明】请写出3组成对的相反意义的量，并用正数、负数分别表示出来',
       type: 'essay',
       structuredContent: {
@@ -496,8 +496,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-adv-ex-2',
-      bmNo: 'POST_ADV_EX_002',
+      id: '10257',
+      bmNo: '10257',
       title: '【提升层-举例说明】判断下列各组是否为相反意义的量，说明理由：（1）身高170cm 和 身高160cm；（2）收入500元 和 支出200元',
       type: 'essay',
       structuredContent: {
@@ -510,8 +510,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     },
     // 提升层 - 数轴表示
     {
-      id: 'post-adv-axis-1',
-      bmNo: 'POST_ADV_AXIS_001',
+      id: '10258',
+      bmNo: '10258',
       title: '【提升层-数轴表示】画一条数轴，标注出-4、-1、0、+1、+5五个数的位置',
       type: 'essay',
       structuredContent: {
@@ -523,8 +523,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-adv-axis-2',
-      bmNo: 'POST_ADV_AXIS_002',
+      id: '10259',
+      bmNo: '10259',
       title: '【提升层-数轴表示】写出数轴上A、B、C、D四个点表示的数（数轴提示：原点0，正方向向右，单位长度1，A在0左边3个单位，B在0左边1个单位，C在0右边2个单位，D在0右边4个单位）',
       type: 'fill',
       structuredContent: {
@@ -537,8 +537,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-adv-axis-3',
-      bmNo: 'POST_ADV_AXIS_003',
+      id: '10260',
+      bmNo: '10260',
       title: '【提升层-数轴表示】在数轴上找出表示-2.5 和 +1.5的位置，标注清楚并说明理由',
       type: 'essay',
       structuredContent: {
@@ -551,8 +551,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     },
     // 拓展层 - 搜集案例
     {
-      id: 'post-ext-case-1',
-      bmNo: 'POST_EXT_CASE_001',
+      id: '10261',
+      bmNo: '10261',
       title: '【拓展层-搜集案例】搜集3个生活或科技中负数的应用案例，简要描述案例内容，并说明负数表示的含义',
       type: 'essay',
       structuredContent: {
@@ -565,8 +565,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
     },
     // 拓展层 - 综合应用
     {
-      id: 'post-ext-app-1',
-      bmNo: 'POST_EXT_APP_001',
+      id: '10262',
+      bmNo: '10262',
       title: '【拓展层-综合应用】北斗卫星在太空运行时，某时段温度分别为：零下190℃、0℃、零下210℃、零上5℃，用负数/正数表示这四个温度',
       type: 'fill',
       structuredContent: {
@@ -579,8 +579,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-ext-app-2',
-      bmNo: 'POST_EXT_APP_002',
+      id: '10263',
+      bmNo: '10263',
       title: '【拓展层-综合应用】把上题中四个温度对应的数，标注在同一条数轴上（单位长度为50℃）',
       type: 'essay',
       structuredContent: {
@@ -592,8 +592,8 @@ export const POST_SCHOOL_HOMEWORK: HomeworkMockData = {
       subject: 'math',
     },
     {
-      id: 'post-ext-app-3',
-      bmNo: 'POST_EXT_APP_003',
+      id: '10264',
+      bmNo: '10264',
       title: '【拓展层-综合应用】结合数轴上标注的北斗卫星温度数据，简要说明“左小右大”的规律（不深入比较大小）',
       type: 'essay',
       structuredContent: {

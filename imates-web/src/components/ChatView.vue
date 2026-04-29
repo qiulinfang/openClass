@@ -247,7 +247,18 @@
           </template>
           <!-- 前置区域：最前面的按钮，如“选中并问”等 -->
           <template #header-prefix>
-            <slot name="header-prefix"></slot>
+            <div class="header-left-actions">
+              <button 
+                v-if="type === 'ai-general' || type === 'ai-exercise'" 
+                class="header-action-btn delete-btn mini-btn" 
+                title="清除当前会话历史"
+                @click="handleClearCurrentSession"
+              >
+                <q-icon name="delete_sweep" size="14px" />
+                <span class="btn-label">清除记录</span>
+              </button>
+              <slot name="header-prefix"></slot>
+            </div>
           </template>
 
           <!-- 中间工具条：允许上层直接覆盖中间按钮（如公式/问老师） -->
@@ -260,9 +271,11 @@
             <slot name="header-suffix"></slot>
           </template>
 
-          <!-- 右侧额外区域：右上角单独按钮（如新增会话） -->
+          <!-- 右侧额外区域：右上角单独按钮（如新增会话、清除历史） -->
           <template #header-right>
-            <slot name="header-right"></slot>
+            <div class="header-right-actions">
+              <slot name="header-right"></slot>
+            </div>
           </template>
         </ChatInput>
 
@@ -1208,7 +1221,22 @@ const addMessagesToStore = async (messages: ChatBubble[]) => {
 const uploadedFiles = ref<Array<{ id: string; name: string; file: File }>>([]) // 已上传的文件列表
 const activeMode = ref<{ label: string; icon: string; color: string } | null>(null) // 当前激活的模式
 
-// 全局图片选择器
+const handleClearCurrentSession = async () => {
+  if (!chatStrategy.value?.deleteSession || !chatStrategy.value?.getCurrentSessionId?.()) {
+    showMessage('当前暂不支持清除历史', 'warning')
+    return
+  }
+  
+  const sessionId = chatStrategy.value.getCurrentSessionId()
+  const cards = sessionCards.value as Array<{ id: string; title?: string }>
+  const session = cards.find((s) => s.id === sessionId)
+  
+  pendingDeleteSessionId.value = sessionId
+  pendingDeleteSessionTitle.value = session?.title || '当前会话'
+  deleteSessionDialogRef.value?.openDialog()
+}
+
+// 显示图片选择器处理
 const { pickImage } = useImagePicker()
 
 // 图片裁剪相关状态
@@ -1579,7 +1607,7 @@ const sendSimpleMessage = async (message: string) => {
 
 // 作用：发送用户消息（策略模式）
 const sendMessage = async (attachedFile?: File, customContent?: string) => {
-  // 1. 获取消息内容：优先使用传入的自定义内容，否则从 inputMessage 获
+  // 1. 获取消息内容：优先使用传入的自定义内容，否则从 inputMessage 获取
   const content = customContent || inputMessage.value
   
   const hasText = !!content.trim()
@@ -1597,11 +1625,6 @@ const sendMessage = async (attachedFile?: File, customContent?: string) => {
     return
   }
 
-  // 检查是否在编辑模式
-  if (isEditingMessage.value && editingMessageId.value) {
-    await updateEditedMessage(content)
-    return
-  }
 
   // 检查是否需要选择题目（策略模式重构版）
   // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
@@ -2851,10 +2874,88 @@ defineExpose({
   handleSwitchSession,
   handleDeleteSessionRequest,
   sessionCards,
+  handleClearCurrentSession,
 })
 </script>
 
 <style scoped>
+.header-left-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #edf2f7;
+  background: #ffffff;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  box-shadow: none;
+}
+
+.header-action-btn:hover {
+  background: #f8fafc;
+  color: #64748b;
+  border-color: #e2e8f0;
+  transform: translateY(-1.5px);
+}
+
+.header-action-btn:active {
+  transform: translateY(0);
+}
+
+.header-action-btn.delete-btn {
+  color: #64748b;
+  border-color: #edf2f7;
+  background: #ffffff;
+}
+
+.header-action-btn.delete-btn .q-icon {
+  color: #ef4444;
+}
+
+.header-action-btn.delete-btn:hover {
+  color: #ef4444;
+  background: #fff5f5;
+  border-color: #fee2e2;
+}
+
+.header-action-btn.delete-btn:hover .btn-label {
+  color: #ef4444;
+}
+
+.header-action-btn.mini-btn {
+  width: auto;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  gap: 4px;
+}
+
+.header-action-btn.mini-btn .btn-label {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #64748b;
+}
+
+.header-action-btn .q-icon {
+  transition: transform 0.2s ease;
+}
 /* ==================== 主容器样式 ==================== */
 /* 聊天视图主容器 - 使用flex布局，占据全高度 */
 .chat-view {

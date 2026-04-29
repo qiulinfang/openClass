@@ -68,6 +68,16 @@ export class AiGeneralStrategy implements ChatStrategy {
     return 'ai'
   }
   
+  // 删除会话
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.aiGeneralStore.deleteSession(sessionId)
+  }
+
+  // 获取当前会话ID
+  getCurrentSessionId(): string | null {
+    return this.aiGeneralStore.currentSession?.sessionId || null
+  }
+  
   // 保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.aiGeneralStore.saveChatHistory()
