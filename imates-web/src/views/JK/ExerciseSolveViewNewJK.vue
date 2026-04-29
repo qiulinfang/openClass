@@ -221,7 +221,7 @@ const mode = ref<'left' | 'right'>('left')
 
 // --- 环境配置 ---
 type EnvType = 'mock' | 'dev' | 'prod'
-const currentEnv = ref<EnvType>('dev') // 可在此处切换环境: 'mock', 'dev', 'prod'
+const currentEnv = ref<EnvType>('prod') // 可在此处切换环境: 'mock', 'dev', 'prod'
 
 // ExerciseChatPanel 全局状态同步
 const { isExerciseChatPanelVisible } = useExerciseChatPanel()
@@ -400,9 +400,9 @@ const handleSingleQuestionSubmit = async () => {
 
   // 2. 调用 Node.js 练习提交接口
   try {
-    const baseUrl = currentEnv.value === 'dev' 
-      ? 'http://localhost:36565' 
-      : ADDRESS_CATALOG.OPEN_CLASS_API
+    const baseUrl = currentEnv.value === 'prod' 
+      ? ADDRESS_CATALOG.OPEN_CLASS_API 
+      : 'http://localhost:36565'
 
     const response = await fetch(`${baseUrl}/api/homework/exercise-submit`, {
       method: 'POST',

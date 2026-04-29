@@ -106,13 +106,31 @@ const toggleLayer = (id: string) => {
   }
 }
 
+// --- 配置项 ---
+type EnvType = 'mock' | 'dev' | 'prod'
+const currentEnv = ref<EnvType>('prod') // 可在此处切换环境: 'mock', 'dev', 'prod'
+
 // 从后端加载数据
 const fetchLayerStats = async () => {
   isLoading.value = true
   try {
     const filterDate = props.date || new Date().toISOString().split('T')[0]
     
-    const baseUrl = props.env === 'prod' 
+    // 优先使用内部的 currentEnv，如果是 mock 则返回 mock 数据
+    if (currentEnv.value === 'mock') {
+      setTimeout(() => {
+        layerDetails.value = [
+          { id: 'A', name: '冲刺层', color: '#6e55ff', students: [] },
+          { id: 'B', name: '提升层', color: '#10b981', students: [] },
+          { id: 'C', name: '基础层', color: '#f59e0b', students: [] },
+          { id: 'D', name: '待提升', color: '#94a3b8', students: [] }
+        ]
+        isLoading.value = false
+      }, 500)
+      return
+    }
+
+    const baseUrl = currentEnv.value === 'prod' 
       ? ADDRESS_CATALOG.OPEN_CLASS_API 
       : 'http://localhost:36565'
 

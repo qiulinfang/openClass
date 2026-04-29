@@ -163,9 +163,8 @@ const emit = defineEmits<{
 }>()
 
 // --- 配置项 ---
-// 注释掉内部的 currentEnv，使用外部传入的 env prop
-// type EnvType = 'mock' | 'dev' | 'prod'
-// const currentEnv = ref<EnvType>('dev') 
+type EnvType = 'mock' | 'dev' | 'prod'
+const currentEnv = ref<EnvType>('prod') // 可在此处切换环境: 'mock', 'dev', 'prod'
 
 const sortOptions = [
   { label: '题号', value: 'index' },
@@ -244,8 +243,8 @@ const isLoading = ref(false)
 const fetchExerciseStats = async () => {
   isLoading.value = true
   
-  // 如果没有 env prop，默认行为（可根据需要调整）
-  const targetEnv = props.env || 'dev'
+  // 优先使用内部的 currentEnv，如果需要也可以根据 props.env 覆盖
+  const targetEnv = currentEnv.value || props.env || 'dev'
 
   if (targetEnv === ( 'mock' as any)) {
     setTimeout(() => {
@@ -286,9 +285,9 @@ const fetchExerciseStats = async () => {
     const targetQuestionIds = CLASSROOM_EXERCISE.questions.slice(0, 10).map(q => q.id)
     const questionIdsParam = targetQuestionIds.join(',')
 
-    const baseUrl = targetEnv === 'dev' 
-      ? 'http://localhost:36565' 
-      : ADDRESS_CATALOG.OPEN_CLASS_API
+    const baseUrl = targetEnv === 'prod' 
+      ? ADDRESS_CATALOG.OPEN_CLASS_API 
+      : 'http://localhost:36565'
 
     const response = await fetch(`${baseUrl}/api/exercise/stats/batch?lessonId=L123&questionIds=${questionIdsParam}&date=${filterDate}`)
     const result = await response.json()
