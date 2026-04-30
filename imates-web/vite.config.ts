@@ -222,6 +222,15 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/api/recognize-handwritten-formula-image')
           }
         },
+        // 题目结构化接口代理
+        '/structure': {
+          target: ADDRESS_CATALOG.IMATES_HTTP,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/structure')
+          }
+        },
       },
     },
     // 为Android WebView优化构建配置

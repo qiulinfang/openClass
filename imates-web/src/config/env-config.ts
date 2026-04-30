@@ -95,7 +95,6 @@ export const ADDRESS_CATALOG = {
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
   HW_FORMULA_RECOGNIZE: 'http://49.232.39.212:9012',
-  QUESTION_STRUCTURER: 'http://49.232.39.212:8055',
 } as const
 
 // localStorage 键名
@@ -250,7 +249,7 @@ export function getHwFormulaRecognizeBaseUrl(): string {
 }
 
 export function getQuestionStructurerBaseUrl(): string {
-  return ADDRESS_CATALOG.QUESTION_STRUCTURER
+  return ADDRESS_CATALOG.IMATES_HTTP
 }
 
 /**
@@ -414,5 +413,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
     // recognize-handwritten-formula-image 服务
     '/api/recognize-handwritten-formula-image': ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE,
+    // 题目结构化服务
+    '/structure': ADDRESS_CATALOG.IMATES_HTTP,
   }
 }
