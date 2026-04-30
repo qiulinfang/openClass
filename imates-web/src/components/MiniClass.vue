@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, onMounted, nextTick } from 'vue'
 import Modal from './base/Modal.vue'
 import Loading from './base/Loading.vue'
 
@@ -344,6 +344,24 @@ watch(
 )
 
 // 清理资源
+// 处理安卓原生事件转发
+function handleNativeImageResult(e: any) {
+  console.log('[MiniClass] 捕获到原生图片事件，准备广播给 iframe:', e.detail);
+  const iframes = document.querySelectorAll('iframe');
+  iframes.forEach((iframe) => {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: 'nativeImageCaptureResult',
+        detail: e.detail
+      }, '*');
+    }
+  });
+}
+
+onMounted(() => {
+  window.addEventListener('nativeImageCaptureResult', handleNativeImageResult);
+})
+
 onUnmounted(() => {
   if (loadTimeout) {
     clearTimeout(loadTimeout)
@@ -353,6 +371,7 @@ onUnmounted(() => {
     clearTimeout(check404Timeout)
     check404Timeout = null
   }
+  window.removeEventListener('nativeImageCaptureResult', handleNativeImageResult);
 })
 </script>
 

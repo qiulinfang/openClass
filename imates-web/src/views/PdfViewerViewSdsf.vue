@@ -135,7 +135,7 @@ function switchMiniClass(tab: MiniClassTab) {
   activeMiniClassTab.value = tab
   let url = ''
   if (tab === 'swallow') {
-    url = 'https://www.imates.com.cn/wk/math/swallow_puzzle1.html'
+    url = 'https://www.imates.com.cn/wk/math/swallow_puzzle3.html'
   } else {
     url = 'https://www.imates.com.cn/wk/math/basketball2.html'
   }

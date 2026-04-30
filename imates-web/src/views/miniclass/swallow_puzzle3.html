@@ -1833,13 +1833,27 @@
         }
       }
 
-      // 1. 监听 Android 原生直接派发的事件 (仅当同窗口触发时)
+      // 1. 监听 Android 原生直接派发的事件 (当前窗口)
       window.addEventListener('nativeImageCaptureResult', function(e) {
         console.log(`${getLogPrefix()} [Event] window 捕获到 nativeImageCaptureResult:`, e.detail);
         handleNativeImageData(e.detail);
       });
 
-      // 2. 监听通过 postMessage 转发的事件 (解决 iframe 跨域隔离问题)
+      // 1.1 尝试直接监听顶层窗口 (解决 iframe 捕获不到原生事件的问题)
+      // 只要是同源 URL，这段代码就能成功执行
+      try {
+        if (window.top && window.top !== window) {
+          console.log(`${getLogPrefix()} [Event] 尝试在 window.top 挂载监听器`);
+          window.top.addEventListener('nativeImageCaptureResult', function(e) {
+            console.log(`${getLogPrefix()} [Event] window.top 捕获到事件，准备处理`);
+            handleNativeImageData(e.detail);
+          });
+        }
+      } catch (err) {
+        console.warn(`${getLogPrefix()} [Event] 跨域限制或顶层访问失败:`, err);
+      }
+
+      // 2. 监听可能通过 postMessage 转发的事件
       window.addEventListener('message', function(e) {
         console.log(`${getLogPrefix()} [Message] window 收到 postMessage:`, e.data);
         if (e.data && e.data.type === 'nativeImageCaptureResult') {
