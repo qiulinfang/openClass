@@ -591,6 +591,15 @@
     // ═══════════════════════════════════════════════════════
 
     /**
+     * 获取带时间戳的日志前缀
+     */
+    function getLogPrefix() {
+      const now = new Date();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+      return `[${timeStr}]`;
+    }
+
+    /**
      * 初始化 SSE 连接接收指令
      */
     function initCanvasSSE() {
@@ -598,11 +607,12 @@
         sseSource.close();
       }
 
-      console.log(`[SSE] 建立连接, thread_id: ${THREAD_ID}`);
-      sseSource = new EventSource(`${API_BASE}/canvas/sse/${THREAD_ID}`);
+      const sseUrl = `${API_BASE}/canvas/sse/${THREAD_ID}`;
+      console.log(`${getLogPrefix()} [接口请求] SSE 建立连接: GET ${sseUrl}`);
+      sseSource = new EventSource(sseUrl);
 
       sseSource.onopen = () => {
-        console.log('[SSE] 连接成功 ✅');
+        console.log(`${getLogPrefix()} [接口响应] SSE 连接成功 ✅`);
         setStatus('llmStatus', 'ok', '已连接画布助手');
         wsConnected = true;
         updateSendButtonState();
@@ -611,15 +621,14 @@
       sseSource.onmessage = (e) => {
         if (e.data === ': keepalive') return;
         
+        console.log(`${getLogPrefix()} [接口数据] SSE 收到消息:`, e.data);
         try {
           const data = JSON.parse(e.data);
-          console.log('[SSE] 收到指令:', data);
-          
           if (data.cmd_id && data.command) {
             handleCanvasCommand(data.cmd_id, data.command);
           }
         } catch (err) {
-          console.error('[SSE] 解析数据失败', err, e.data);
+          console.error(`${getLogPrefix()} [SSE] 解析数据失败`, err, e.data);
         }
       };
 
@@ -635,11 +644,11 @@
      * 处理具体的画布指令
      */
     function handleCanvasCommand(cmd_id, command) {
-      console.log('[SSE] 收到指令并加入队列:', cmd_id);
+      console.log(`${getLogPrefix()} [SSE] 收到指令并加入队列:`, cmd_id);
       pendingCommands.push({ cmd_id, command });
       
-      // 如果当前没有正在执行的指令，且不是正在等待对话响应，则开始执行
-      if (!currentExecutingCommand && !waitingResponse && !playing) {
+      // 只要当前没有正在执行的指令且不在播放中，就立刻开始执行（不再等待对话响应结束）
+      if (!currentExecutingCommand && !playing) {
         processNextCommand();
       }
     }
@@ -649,7 +658,7 @@
      */
     function processNextCommand() {
       if (pendingCommands.length === 0) return;
-      if (waitingResponse || playing) return;
+      if (playing) return;
 
       const { cmd_id, command } = pendingCommands.shift();
       executeCanvasCommand(cmd_id, command);
@@ -663,7 +672,6 @@
       currentExecutingCommand = { cmd_id, command };
       
       if (action === 'demo_moves') {
-        // 渲染路径指令消息到聊天框
         const currentPlanJson = JSON.stringify(params);
         lastPlanJson = currentPlanJson;
         
@@ -674,6 +682,7 @@
           displayMsg += `（小技巧：我们可以看着方块的<strong>${params.highlight}</strong>来数格数哦！）`;
         }
         
+        // 直接创建一个独立的指令气泡
         appendChatMessage('coach', displayMsg, true, currentPlanJson);
 
         if (loadPlan(currentPlanJson)) {
@@ -696,21 +705,26 @@
      * 执行结果回调给 Agent
      */
     async function sendCallback(cmdId, status, message = '', data = {}) {
+      const url = `${API_BASE}/canvas/callback`;
+      const body = {
+        cmd_id: cmdId,
+        status: status,
+        message: message,
+        data: data
+      };
+      
+      console.log(`${getLogPrefix()} [接口请求] Callback 发送: POST ${url}`, body);
+      
       try {
-        const response = await fetch(`${API_BASE}/canvas/callback`, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cmd_id: cmdId,
-            status: status,
-            message: message,
-            data: data
-          })
+          body: JSON.stringify(body)
         });
         const result = await response.json();
-        console.log('[Callback] 结果已返回:', result);
+        console.log(`${getLogPrefix()} [接口响应] Callback 结果:`, result);
       } catch (err) {
-        console.error('[Callback] 发送失败', err);
+        console.error(`${getLogPrefix()} [接口错误] Callback 发送失败`, err);
       }
     }
 
@@ -731,34 +745,41 @@
       updateSendButtonState();
       showThinkingBubble();
 
+      const url = `${API_BASE}/canvas_bot`;
+      const body = {
+        inputs: {
+          message: text,
+          name: USER_ID,
+          canvas_id: CANVAS_ID
+        },
+        config: {
+          configurable: {
+            thread_id: THREAD_ID,
+            user_id: USER_ID
+          }
+        }
+      };
+
+      console.log(`${getLogPrefix()} [接口请求] ChatBot 发送: POST ${url}`, body);
+
       try {
-        const response = await fetch(`${API_BASE}/canvas_bot`, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inputs: {
-              message: text,
-              name: USER_ID,
-              canvas_id: CANVAS_ID
-            },
-            config: {
-              configurable: {
-                thread_id: THREAD_ID,
-                user_id: USER_ID
-              }
-            }
-          })
+          body: JSON.stringify(body)
         });
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let coachBubble = null;
+        let coachBubble = null; // 用于本次对话的独立文字气泡
         let fullContent = "";
+
+        console.log(`${getLogPrefix()} [接口响应] ChatBot 流式传输开始...`);
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) {
-            console.log('[Bot] 流读取完成');
+            console.log(`${getLogPrefix()} [接口完成] ChatBot 流读取完成`);
             break;
           }
           
@@ -767,6 +788,7 @@
           
           for (const line of lines) {
             if (line.startsWith('data: ')) {
+              console.log(`${getLogPrefix()} [接口数据] ChatBot Chunk:`, line);
               try {
                 const data = JSON.parse(line.slice(6));
                 
@@ -776,6 +798,7 @@
                   fullContent += data.content;
                   
                   if (!coachBubble) {
+                    // 文字流到达时，创建一个全新的独立气泡
                     coachBubble = appendChatMessage('coach', fullContent, false);
                   } else {
                     updateCoachBubbleContent(coachBubble, fullContent);
@@ -812,11 +835,10 @@
       const bubble = bubbleEl.querySelector('.chat-bubble.coach');
       if (!bubble) return;
       
-      // 复用之前的格式化逻辑
       let formattedText = text.replace(/(（[^）]+）|_{2,})/g, '<strong>$1</strong>');
-      const textWrapper = bubble.querySelector('div:first-child');
-      if (textWrapper) {
-        textWrapper.innerHTML = formattedText;
+      const textContainer = bubble.querySelector('div:first-child');
+      if (textContainer) {
+        textContainer.innerHTML = formattedText;
       }
       
       // 保持滚动到底部
@@ -888,29 +910,11 @@
       bubble.className = `chat-bubble ${isCoach ? 'coach' : 'student'}`;
       
       if (isCoach) {
-        // 将形如 "（请回答）" 或 "____" 的占位符包裹在 strong 标签中
         let formattedText = text.replace(/(（[^）]+）|_{2,})/g, '<strong>$1</strong>');
-        bubble.innerHTML = `<div>${formattedText}</div>`; // 包裹文字
+        bubble.innerHTML = `<div>${formattedText}</div>`;
 
-        // 只要是老师的消息且传入了特定的指令快照，就显示重播按钮
         if (showReplay && planJson) {
-          const replayBtn = document.createElement('button');
-          replayBtn.className = 'replay-btn-inline';
-          replayBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            <span>点击查看演示</span>
-          `;
-          // 关键：这里捕获的是传进来的 planJson，而不是全局的 lastPlanJson
-          replayBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (playing) return;
-            if (loadPlan(planJson)) {
-              togglePlay();
-            }
-          };
-          bubble.appendChild(replayBtn);
+          addReplayButtonToBubble(bubble, planJson);
         }
       } else {
         bubble.textContent = text;
@@ -918,9 +922,41 @@
 
       row.appendChild(avatar);
       row.appendChild(bubble);
-      container.appendChild(row);
+
+      // 关键修改：如果当前有“思考中”气泡，则将新消息插入到它之前
+      if (thinkingMsgEl && container.contains(thinkingMsgEl)) {
+        container.insertBefore(row, thinkingMsgEl);
+      } else {
+        container.appendChild(row);
+      }
+
       container.scrollTop = container.scrollHeight;
       return row;
+    }
+
+    /**
+     * 向气泡添加重播按钮
+     */
+    function addReplayButtonToBubble(bubbleEl, planJson) {
+      // 检查是否已经存在按钮，避免重复添加
+      if (bubbleEl.querySelector('.replay-btn-inline')) return;
+
+      const replayBtn = document.createElement('button');
+      replayBtn.className = 'replay-btn-inline';
+      replayBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>点击查看演示</span>
+      `;
+      replayBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (playing) return;
+        if (loadPlan(planJson)) {
+          togglePlay();
+        }
+      };
+      bubbleEl.appendChild(replayBtn);
     }
 
     function showCoachMessage(text) {
