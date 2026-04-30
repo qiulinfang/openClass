@@ -157,7 +157,15 @@ const resetForNewLoad = () => {
 }
 
 const setIframeSrcAndTriggerLoad = (src: string) => {
-  const target = src
+  let target = src
+  
+  // 注入用户信息参数 (使用 localStorage 中的 xuebanuserid)
+  const userId = localStorage.getItem('xuebanuserid')
+  if (userId) {
+    const separator = target.includes('?') ? '&' : '?'
+    target = `${target}${separator}userName=${encodeURIComponent(userId)}`
+  }
+
   iframeSrc.value = 'about:blank'
   nextTick(() => {
     iframeSrc.value = target

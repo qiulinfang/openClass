@@ -637,14 +637,11 @@
           <div class="chatbot-messages" id="chatMessages">
             <div class="chat-empty" id="chatEmpty">对话记录展示区</div>
           </div>
-          <div class="chatbot-toolbar" style="display: none;">
-            <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
-          </div>
           <div class="image-preview-area" id="imagePreviewArea"></div>
           <div class="chatbot-footer" style="position: relative;">
             <!-- 初始引导层 -->
-            <div class="input-lock-overlay" id="inputLockOverlay">
-              <button class="onboarding-btn" onclick="document.getElementById('imageInput').click()">
+            <div class="input-lock-overlay" id="inputLockOverlay" onclick="triggerImageInput()">
+              <button class="onboarding-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -672,6 +669,9 @@
     </div>
 
   </div>
+
+  <!-- 隐藏的文件输入框，使用更稳健的隐藏方式 -->
+  <input type="file" id="imageInput" accept="image/*" style="position:fixed; top:-500px; left:-100px; width:40px; height:40px; opacity:0.01; z-index:9999;" onchange="handleImageSelect(event)">
 
   <script>
     // ═══════════════════════════════════════════════════════
@@ -706,6 +706,43 @@
      */
     function generateThreadId() {
       return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
+    /**
+     * 稳健触发图片选择逻辑
+     */
+    function triggerImageInput() {
+      console.log(`${getLogPrefix()} [UI] 尝试触发图片选择 (triggerImageInput)`);
+      
+      // 获取原生桥接对象（兼容大小写）
+      const bridge = window.AndroidBridge || window.androidBridge;
+      
+      // 1. 优先尝试调用 Android 原生桥接方法（如果存在）
+      if (bridge) {
+        // 根据 WebAppInterface.java 实际定义的方法名
+        if (typeof bridge.captureImageFromCamera === 'function') {
+          console.log(`${getLogPrefix()} [UI] 检测到 AndroidBridge，调用 captureImageFromCamera`);
+          bridge.captureImageFromCamera();
+          return;
+        } else if (typeof bridge.selectImageFromGallery === 'function') {
+          console.log(`${getLogPrefix()} [UI] 检测到 AndroidBridge，调用 selectImageFromGallery`);
+          bridge.selectImageFromGallery();
+          return;
+        } else if (typeof bridge.takePhoto === 'function') {
+          console.log(`${getLogPrefix()} [UI] 检测到 AndroidBridge，调用 takePhoto`);
+          bridge.takePhoto();
+          return;
+        }
+      }
+
+      // 2. 备选方案：触发隐藏的 input[type="file"]
+      const input = document.getElementById('imageInput');
+      if (input) {
+        console.log(`${getLogPrefix()} [UI] 触发 input.click()`);
+        input.click();
+      } else {
+        console.error(`${getLogPrefix()} [UI] 找不到 imageInput 元素`);
+      }
     }
 
     const DIR_DELTA = {
@@ -941,8 +978,24 @@
      * 上传单张图片并获取 URL
      */
     async function uploadSingleImage(imageObj) {
+      console.log(`${getLogPrefix()} [Upload] 准备上传图片, 大小约为: ${Math.round(imageObj.previewUrl.length * 0.75 / 1024)} KB`);
       const formData = new FormData();
-      formData.append('file', imageObj.file);
+      
+      if (imageObj.file) {
+        formData.append('file', imageObj.file);
+      } else if (imageObj.previewUrl && imageObj.previewUrl.startsWith('data:')) {
+        // 处理 Base64 转换
+        console.log(`${getLogPrefix()} [Upload] 检测到 Base64 数据，正在转换为 Blob`);
+        const byteString = atob(imageObj.previewUrl.split(',')[1]);
+        const mimeString = imageObj.previewUrl.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], {type: mimeString});
+        formData.append('file', blob, 'camera_capture.jpg');
+      }
 
       // 注意：根据 getRouteBaseMap，/api/images/upload 映射到 ADDRESS_CATALOG.CLIENT_HTTP (https://www.imates.com.cn:8200)
       // 如果是在本地测试，可能需要直接使用完整 URL
@@ -1761,6 +1814,39 @@
       updateSendButtonState();
       syncResponsiveLayout();
       window.addEventListener('resize', syncResponsiveLayout);
+      
+      /**
+       * 统一处理图片数据并发送
+       */
+      function handleNativeImageData(data) {
+        console.log(`${getLogPrefix()} [UI] 处理图片数据:`, data);
+        if (data && data.success && data.base64DataUrl) {
+          const newImageData = {
+            file: null,
+            previewUrl: data.base64DataUrl
+          };
+          selectedImages = [newImageData];
+          // 延迟一小会儿确保状态更新
+          setTimeout(() => {
+            sendUserInput();
+          }, 100);
+        }
+      }
+
+      // 1. 监听 Android 原生直接派发的事件 (仅当同窗口触发时)
+      window.addEventListener('nativeImageCaptureResult', function(e) {
+        console.log(`${getLogPrefix()} [Event] window 捕获到 nativeImageCaptureResult:`, e.detail);
+        handleNativeImageData(e.detail);
+      });
+
+      // 2. 监听通过 postMessage 转发的事件 (解决 iframe 跨域隔离问题)
+      window.addEventListener('message', function(e) {
+        console.log(`${getLogPrefix()} [Message] window 收到 postMessage:`, e.data);
+        if (e.data && e.data.type === 'nativeImageCaptureResult') {
+          console.log(`${getLogPrefix()} [Message] 识别为拍照结果，准备处理`);
+          handleNativeImageData(e.data.detail);
+        }
+      });
       
       // 初始显示欢迎语
       showCoachMessage("同学你好，我是果果。成功的标准是按照规则将小燕子方块移回原位。请先拍下你的作答方案，我们一起探讨吧！");

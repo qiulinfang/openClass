@@ -1,0 +1,14 @@
+{
+  "name": "sdsf-server",
+  "version": "1.0.0",
+  "description": "SDSF 统计服务端",
+  "main": "index.cjs",
+  "scripts": {
+    "start": "node index.cjs"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}

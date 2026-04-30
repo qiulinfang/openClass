@@ -42,13 +42,13 @@
             >
               燕子互动
             </button>
-            <!-- <button
+            <button
               class="sdsf-tab-btn"
               :class="{ active: activeMiniClassTab === 'basketball' }"
               @click="switchMiniClass('basketball')"
             >
               篮球拼图
-            </button> -->
+            </button>
           </div>
           <div class="user-account-info" v-if="userInfo">
             <span class="account-value">{{ userInfo.name || userInfo.userId || '未登录' }}</span>
@@ -135,9 +135,9 @@ function switchMiniClass(tab: MiniClassTab) {
   activeMiniClassTab.value = tab
   let url = ''
   if (tab === 'swallow') {
-    url = 'https://www.imates.com.cn:9099/wk/math/swallow_puzzle1.html'
+    url = 'https://www.imates.com.cn/wk/math/swallow_puzzle1.html'
   } else {
-    url = 'https://www.imates.com.cn:9099/wk/math/basketball1.html'
+    url = 'https://www.imates.com.cn/wk/math/basketball2.html'
   }
   miniClassUrl.value = url
   // 如果对话框已经打开，通知 store 更新 URL 以触发 MiniClass 内部的 watch
