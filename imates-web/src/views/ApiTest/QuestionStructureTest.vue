@@ -25,6 +25,8 @@
               label="类型建议 (type_hint)"
               outlined
               dense
+              emit-value
+              map-options
               class="q-mb-md"
               clearable
             />
@@ -46,6 +48,18 @@
               class="q-mb-md"
               placeholder="请输入答案原文..."
             />
+            
+            <div class="q-gutter-sm q-mb-md">
+              <q-toggle
+                v-model="useDirectUrl"
+                label="直接调用后端 IP (跳过代理)"
+                color="orange"
+                dense
+              />
+              <div class="text-caption text-grey-7 q-ml-md" v-if="useDirectUrl">
+                目标: http://49.232.39.212:8055/structure_question
+              </div>
+            </div>
           </q-card-section>
 
           <q-card-actions align="right" class="q-pb-md q-px-md">
@@ -140,6 +154,7 @@ const BaseQuestion = defineAsyncComponent(() => import('@/components/exercise/Ba
 
 const loading = ref(false)
 const result = ref<any>(null)
+const useDirectUrl = ref(false) // 新增控制变量
 
 const subjectOptions = ['math', 'physics', 'chemistry', 'english', 'chinese']
 const typeOptions = [
@@ -179,10 +194,37 @@ const handleTest = async () => {
   result.value = null
   
   try {
-    const res = await apiService.structureQuestion({
-      ...form,
-      id: 'test_' + Date.now()
-    })
+    let res;
+    if (useDirectUrl.value) {
+      // 直接调用完整路径 (绕过 apiService 内部的相对路径逻辑)
+      const directUrl = 'http://49.232.39.212:8055/structure/structure_question';
+      // 注意：httpClient.post 第三个参数可以传入 config，但这里我们直接传 URL
+      // 由于 HttpClient.buildFullUrl 会处理 http 开头的绝对路径，所以这里直接传是可以的
+      // 但为了保证能访问到 httpClient，我们需要从 apiService 中间接获取或直接导入
+      res = await apiService.structureQuestion({
+        ...form,
+        id: 'test_' + Date.now()
+      });
+      
+      // 这里的逻辑有点微妙：apiService 内部写死了相对路径。
+      // 如果要真正“直接”调用，应该直接用 fetch 或导入 httpClient。
+      // 这里我改为直接构造请求以实现真正的“直接调用”。
+      const response = await fetch(directUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          id: 'test_' + Date.now()
+        })
+      });
+      const data = await response.json();
+      res = { success: response.ok, data };
+    } else {
+      res = await apiService.structureQuestion({
+        ...form,
+        id: 'test_' + Date.now()
+      })
+    }
     result.value = res
   } catch (error: any) {
     result.value = {
