@@ -1128,9 +1128,17 @@
                 // 1. 渲染文本内容
                 if (data.content) {
                   const isSpecificAnswer = data.content.includes("the answer is right");
+                  // 检查是否包含 "bubble" 关键词（不分大小写）
+                  const isBubbleBreak = data.content.toLowerCase().includes("bubble");
+                  
                   if (isSpecificAnswer) {
                     console.log('[Bot] 识别到特定判定内容，不进行渲染并标记成功');
                     currentResponseIsRight = true;
+                  } else if (isBubbleBreak) {
+                    console.log('[Bot] 识别到 bubble 关键词，准备切分气泡');
+                    // 清空当前内容累积，强制下一个 content chunk 创建新气泡
+                    fullContent = "";
+                    coachBubble = null;
                   } else {
                     removeThinkingBubble();
                     fullContent += data.content;
