@@ -443,14 +443,27 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.9);
       z-index: 9999;
-      cursor: zoom-out;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+      touch-action: none; /* 防止移动端默认滚动 */
     }
     .image-modal.visible {
       display: flex;
+    }
+    .image-modal-content {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    .image-modal-content:active {
+      cursor: grabbing;
     }
     .image-modal img {
       max-width: 90%;
@@ -458,6 +471,59 @@
       object-fit: contain;
       box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
       border-radius: 4px;
+      transition: transform 0.1s ease-out;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .image-modal-tools {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      padding: 10px 20px;
+      border-radius: 30px;
+      z-index: 10000;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .image-modal-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+    .image-modal-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .image-modal-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+    .image-modal-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: rgba(0, 0, 0, 0.3);
+      border: none;
+      cursor: pointer;
+      border-radius: 50%;
+      z-index: 10001;
     }
 
     /* ─── Toolbar ───────────────────────────────────────── */
@@ -700,8 +766,39 @@
   </div>
 
   <!-- 图片大图预览模态框 -->
-  <div id="imageModal" class="image-modal" onclick="closeImageModal()">
-    <img id="modalImg" src="" alt="大图预览">
+  <div id="imageModal" class="image-modal">
+    <button class="image-modal-close" onclick="closeImageModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+    <div class="image-modal-content" id="imageModalContent">
+      <img id="modalImg" src="" alt="大图预览">
+    </div>
+    <div class="image-modal-tools">
+      <button class="image-modal-btn" onclick="zoomImage(0.2)" title="放大">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <line x1="11" y1="8" x2="11" y2="14"></line>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+      </button>
+      <button class="image-modal-btn" onclick="zoomImage(-0.2)" title="缩小">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+      </button>
+      <button class="image-modal-btn" onclick="rotateImage(90)" title="旋转">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 4v6h-6"></path>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <!-- 隐藏的文件输入框，使用更稳健的隐藏方式 -->
@@ -1095,6 +1192,7 @@
       const modalImg = document.getElementById('modalImg');
       if (modal && modalImg) {
         modalImg.src = src;
+        resetImageZoom(); // 打开时重置状态
         modal.classList.add('visible');
       }
     }
@@ -1382,6 +1480,135 @@
     let lastPlanJson     = null;
     let pendingCommands  = []; // 存储待执行的指令队列 { cmd_id, command }
     let currentExecutingCommand = null; // 当前正在执行的指令
+
+    // 图片预览缩放与平移状态
+    let imgModalState = {
+      scale: 1,
+      translateX: 0,
+      translateY: 0,
+      rotate: 0,
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+      lastPinchDistance: 0 // 用于记录双指缩放的距离
+    };
+
+    function updateImageTransform() {
+      const img = document.getElementById('modalImg');
+      if (img) {
+        // 先旋转，再平移和缩放，避免坐标轴随旋转而改变导致平移方向错误
+        img.style.transform = `translate(${imgModalState.translateX}px, ${imgModalState.translateY}px) scale(${imgModalState.scale}) rotate(${imgModalState.rotate}deg)`;
+      }
+    }
+
+    function zoomImage(delta) {
+      const newScale = imgModalState.scale + delta;
+      if (newScale >= 0.2 && newScale <= 10) {
+        imgModalState.scale = newScale;
+        updateImageTransform();
+      }
+    }
+
+    function rotateImage(delta) {
+      imgModalState.rotate = imgModalState.rotate + delta;
+      updateImageTransform();
+    }
+
+    function resetImageZoom() {
+      imgModalState.scale = 1;
+      imgModalState.translateX = 0;
+      imgModalState.translateY = 0;
+      imgModalState.rotate = 0;
+      updateImageTransform();
+    }
+
+    // 初始化图片预览交互
+    function initImageModalEvents() {
+      const content = document.getElementById('imageModalContent');
+      if (!content) return;
+
+      // 滚轮缩放
+      content.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        zoomImage(delta);
+      }, { passive: false });
+
+      // 双击重置
+      content.addEventListener('dblclick', (e) => {
+        resetImageZoom();
+      });
+
+      // 拖拽平移
+      content.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // 仅左键
+        imgModalState.isDragging = true;
+        imgModalState.startX = e.clientX - imgModalState.translateX;
+        imgModalState.startY = e.clientY - imgModalState.translateY;
+        content.style.cursor = 'grabbing';
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!imgModalState.isDragging) return;
+        imgModalState.translateX = e.clientX - imgModalState.startX;
+        imgModalState.translateY = e.clientY - imgModalState.startY;
+        updateImageTransform();
+      });
+
+      window.addEventListener('mouseup', () => {
+        imgModalState.isDragging = false;
+        if (content) content.style.cursor = 'grab';
+      });
+
+      // 移动端触摸处理
+      content.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          // 单指拖拽
+          imgModalState.isDragging = true;
+          imgModalState.startX = e.touches[0].clientX - imgModalState.translateX;
+          imgModalState.startY = e.touches[0].clientY - imgModalState.translateY;
+        } else if (e.touches.length === 2) {
+          // 双指缩放初始化
+          imgModalState.isDragging = false;
+          imgModalState.lastPinchDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+        }
+      });
+
+      content.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && imgModalState.isDragging) {
+          // 单指平移
+          e.preventDefault();
+          imgModalState.translateX = e.touches[0].clientX - imgModalState.startX;
+          imgModalState.translateY = e.touches[0].clientY - imgModalState.startY;
+          updateImageTransform();
+        } else if (e.touches.length === 2) {
+          // 双指缩放
+          e.preventDefault();
+          const distance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          if (imgModalState.lastPinchDistance > 0) {
+            const ratio = distance / imgModalState.lastPinchDistance;
+            const delta = (ratio - 1) * 0.5; // 适当减小缩放敏感度
+            zoomImage(delta);
+          }
+          imgModalState.lastPinchDistance = distance;
+        }
+      }, { passive: false });
+
+      content.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          imgModalState.lastPinchDistance = 0;
+        }
+        if (e.touches.length === 0) {
+          imgModalState.isDragging = false;
+        }
+      });
+    }
 
     function updateSendButtonState() {
       const input = document.getElementById('nlInput');
@@ -2003,6 +2230,7 @@
       updateSendButtonState();
       syncResponsiveLayout();
       window.addEventListener('resize', syncResponsiveLayout);
+      initImageModalEvents(); // 初始化图片查看器的交互
       
       /**
        * 统一处理图片数据并发送
