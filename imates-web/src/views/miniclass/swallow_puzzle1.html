@@ -1404,13 +1404,21 @@
           setStatus('llmStatus', 'ok', '收到演示指令，正在播放…');
           togglePlay();
         } else {
-          sendCallback(cmd_id, 'error', '解析移动指令失败', { result: 'no' });
+          sendCallback(cmd_id, 'error', '解析移动指令失败', { 
+            result: 'no',
+            current_position: { x: pos.col, y: pos.row },
+            target_position: { x: TARGET.col, y: TARGET.row }
+          });
           currentExecutingCommand = null;
           processNextCommand();
         }
       } else {
         console.warn('[Canvas] 未知 action:', action);
-        sendCallback(cmd_id, 'error', `未知指令 action: ${action}`, { result: 'no' });
+        sendCallback(cmd_id, 'error', `未知指令 action: ${action}`, { 
+          result: 'no',
+          current_position: { x: pos.col, y: pos.row },
+          target_position: { x: TARGET.col, y: TARGET.row }
+        });
         currentExecutingCommand = null;
         processNextCommand();
       }
@@ -2339,7 +2347,11 @@
         
         // 如果有正在执行的指令，发送错误回调
         if (currentExecutingCommand) {
-          sendCallback(currentExecutingCommand.cmd_id, 'error', errMsg, { result: 'no' });
+          sendCallback(currentExecutingCommand.cmd_id, 'error', errMsg, { 
+            result: 'no',
+            current_position: { x: pos.col, y: pos.row },
+            target_position: { x: TARGET.col, y: TARGET.row }
+          });
           currentExecutingCommand = null;
         }
         processNextCommand(); // 尝试执行下一个任务
@@ -2392,7 +2404,11 @@
           stopPlay();
           // 如果有正在执行的指令，发送成功回调
           if (currentExecutingCommand) {
-            sendCallback(currentExecutingCommand.cmd_id, 'success', '拼图还原成功', { result: 'yes' });
+            sendCallback(currentExecutingCommand.cmd_id, 'success', '拼图还原成功', { 
+              result: 'yes',
+              current_position: { x: pos.col, y: pos.row },
+              target_position: { x: TARGET.col, y: TARGET.row }
+            });
             currentExecutingCommand = null;
           }
           processNextCommand(); // 执行下一个任务
@@ -2402,7 +2418,11 @@
         setStatus('llmStatus', 'ok', '全部步骤执行完毕！');
         // 发送执行完毕回调
         if (currentExecutingCommand) {
-          sendCallback(currentExecutingCommand.cmd_id, 'success', '执行完毕', { result: 'no' });
+          sendCallback(currentExecutingCommand.cmd_id, 'success', '执行完毕', { 
+            result: 'no',
+            current_position: { x: pos.col, y: pos.row },
+            target_position: { x: TARGET.col, y: TARGET.row }
+          });
           currentExecutingCommand = null;
         }
         processNextCommand(); // 执行下一个任务
