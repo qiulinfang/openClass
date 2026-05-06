@@ -429,6 +429,35 @@
       border-radius: 8px;
       margin-top: 8px;
       cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .chat-bubble-image:hover {
+      transform: scale(1.02);
+    }
+
+    /* ─── Image Modal ────────────────────────────────────── */
+    .image-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      cursor: zoom-out;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-modal.visible {
+      display: flex;
+    }
+    .image-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      object-fit: contain;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
     }
 
     /* ─── Toolbar ───────────────────────────────────────── */
@@ -670,6 +699,11 @@
 
   </div>
 
+  <!-- 图片大图预览模态框 -->
+  <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+    <img id="modalImg" src="" alt="大图预览">
+  </div>
+
   <!-- 隐藏的文件输入框，使用更稳健的隐藏方式 -->
   <input type="file" id="imageInput" accept="image/*" style="position:fixed; top:-500px; left:-100px; width:40px; height:40px; opacity:0.01; z-index:9999;" onchange="handleImageSelect(event)">
 
@@ -698,6 +732,10 @@
     console.log('[SDSF] 初始 DISPLAY_NAME:', DISPLAY_NAME);
 
     let sseSource = null;
+    let lastKeepAlive = Date.now(); // 记录最后一次活跃时间
+    let isReconnecting = false; // 防止定时器和事件冲突
+    let manualClosed = false; // 记录是否是手动关闭，如果是，则停止所有自动重连
+    let currentAbortController = null; // 用于取消正在进行的对话请求
     let selectedImages = []; // { file, previewUrl }
     let hasSentFirstImage = false; // 是否已发送过第一张图片
 
@@ -760,6 +798,44 @@
     };
 
     // ═══════════════════════════════════════════════════════
+    //  Watchdog Timer (保活监控定时器)
+    // ═══════════════════════════════════════════════════════
+    setInterval(() => {
+      const now = Date.now();
+      const idleTime = now - lastKeepAlive;
+      
+      // 如果断开了，或者超过 45 秒没收到心跳包
+      if (!wsConnected || idleTime > 45000) {
+        if (!isReconnecting && !manualClosed) {
+          console.log(`${getLogPrefix()} [Watchdog] 检测到连接异常(空闲${Math.round(idleTime/1000)}s)，启动保活重连...`);
+          isReconnecting = true;
+          initCanvasSSE();
+        }
+      }
+    }, 5000); // 每 5 秒检查一次
+
+    // ═══════════════════════════════════════════════════════
+    //  Visibility & Reconnect Logic (处理息屏唤醒)
+    // ═══════════════════════════════════════════════════════
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        const idleTime = now - lastKeepAlive;
+        
+        console.log(`${getLogPrefix()} [系统] 页面重回前台。当前状态: ${wsConnected ? '已连接' : '断开'}, 手动关闭: ${manualClosed}, 空闲时间: ${Math.round(idleTime/1000)}s`);
+
+        // 如果手动关闭了，不再执行亮屏自动重连
+        if (manualClosed) return;
+
+        // 如果已经断开，或者超过45秒没有收到任何心跳/数据，强制重连
+        if (!wsConnected || idleTime > 45000) {
+          console.log(`${getLogPrefix()} [系统] 亮屏自动重连中...`);
+          initCanvasSSE();
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════
     //  Playback State
     // ═══════════════════════════════════════════════════════
     let pos                  = { ...SWALLOW_START };
@@ -790,9 +866,25 @@
      * 初始化 SSE 连接接收指令
      */
     function initCanvasSSE() {
-      if (sseSource) {
-        sseSource.close();
+      // 1. 检查是否已经有一个正常的连接，防止重复创建
+      if (sseSource && sseSource.readyState === 1) {
+        console.log(`${getLogPrefix()} [SSE] 检查到已有活跃连接，跳过创建`);
+        wsConnected = true;
+        isReconnecting = false;
+        return;
       }
+
+      // 2. 彻底清理旧连接
+      if (sseSource) {
+        console.log(`${getLogPrefix()} [SSE] 清理旧连接对象`);
+        sseSource.onopen = null;
+        sseSource.onmessage = null;
+        sseSource.onerror = null;
+        sseSource.close();
+        sseSource = null;
+      }
+
+      isReconnecting = true; // 锁定重连状态
 
       const sseUrl = `${API_BASE}/canvas/sse/${THREAD_ID}`;
       console.log(`${getLogPrefix()} [接口请求] SSE 建立连接: GET ${sseUrl}`);
@@ -800,12 +892,14 @@
 
       sseSource.onopen = () => {
         console.log(`${getLogPrefix()} [接口响应] SSE 连接成功 ✅`);
-        // setStatus('llmStatus', 'ok', '已连接画布助手'); // 不再渲染状态文字
         wsConnected = true;
+        isReconnecting = false; // 解锁
+        lastKeepAlive = Date.now(); // 关键修复：连接成功时立即刷新活跃时间，防止 Watchdog 误判
         updateSendButtonState();
       };
 
       sseSource.onmessage = (e) => {
+        lastKeepAlive = Date.now(); // 刷新活跃时间
         if (e.data === ': keepalive') return;
         
         console.log(`${getLogPrefix()} [接口数据] SSE 收到消息:`, e.data);
@@ -820,10 +914,29 @@
       };
 
       sseSource.onerror = (e) => {
-        console.error('[SSE] 连接错误', e);
+        console.error(`${getLogPrefix()} [SSE] 连接错误或中断:`, e);
         wsConnected = false;
         updateSendButtonState();
-        setStatus('llmStatus', 'err', '助手连接断开，正在尝试重连...');
+        
+        // 关闭旧连接
+        if (sseSource) {
+          sseSource.close();
+          sseSource = null;
+        }
+
+        // 移除 setStatus 显式文字提示，改为后台静默重连
+        console.log(`${getLogPrefix()} [SSE] 助手连接已断开，准备自动重连...`);
+        
+        // 如果是手动关闭的，不要启动定时器自动重连
+        if (manualClosed) return;
+
+        // 3秒后尝试重连
+        setTimeout(() => {
+          if (!sseSource) {
+            console.log(`${getLogPrefix()} [SSE] 正在尝试自动重连...`);
+            initCanvasSSE();
+          }
+        }, 3000);
       };
     }
 
@@ -975,6 +1088,28 @@
     }
 
     /**
+     * 打开大图预览
+     */
+    function openImageModal(src) {
+      const modal = document.getElementById('imageModal');
+      const modalImg = document.getElementById('modalImg');
+      if (modal && modalImg) {
+        modalImg.src = src;
+        modal.classList.add('visible');
+      }
+    }
+
+    /**
+     * 关闭大图预览
+     */
+    function closeImageModal() {
+      const modal = document.getElementById('imageModal');
+      if (modal) {
+        modal.classList.remove('visible');
+      }
+    }
+
+    /**
      * 上传单张图片并获取 URL
      */
     async function uploadSingleImage(imageObj) {
@@ -1022,6 +1157,14 @@
      * 发送用户对话内容到画布助手
      */
     async function sendUserInput() {
+      if (waitingResponse || playing) return;
+
+      // 发送前双重检查：如果 SSE 连接断了，且不是手动关闭的，立即尝试重连
+      if ((!wsConnected || !sseSource) && !manualClosed) {
+        console.log(`${getLogPrefix()} [系统] 发送消息前检测到连接异常，正在尝试重连助手...`);
+        initCanvasSSE();
+      }
+
       const text = document.getElementById('nlInput').value.trim();
       const hasImages = selectedImages.length > 0;
       
@@ -1037,6 +1180,7 @@
           const imgEl = document.createElement('img');
           imgEl.src = img.previewUrl;
           imgEl.className = 'chat-bubble-image';
+          imgEl.onclick = () => openImageModal(img.previewUrl);
           userBubble.querySelector('.chat-bubble').appendChild(imgEl);
         });
       }
@@ -1095,17 +1239,25 @@
 
       console.log(`${getLogPrefix()} [接口请求] ChatBot 发送: POST ${url}`, body);
 
+      // 如果之前有正在进行的请求，先取消它
+      if (currentAbortController) {
+        currentAbortController.abort();
+      }
+      currentAbortController = new AbortController();
+
       try {
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+          body: JSON.stringify(body),
+          signal: currentAbortController.signal
         });
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let coachBubble = null; // 用于本次对话的独立文字气泡
         let fullContent = "";
+        let hasReportedInThisTurn = false; // 标记本轮对话是否已经触发过 SDSF 上报
 
         console.log(`${getLogPrefix()} [接口响应] ChatBot 流式传输开始...`);
 
@@ -1128,15 +1280,16 @@
                 // 1. 渲染文本内容
                 if (data.content) {
                   const isSpecificAnswer = data.content.includes("the answer is right");
-                  // 检查是否包含 "bubble" 关键词（不分大小写）
                   const isBubbleBreak = data.content.toLowerCase().includes("bubble");
                   
                   if (isSpecificAnswer) {
-                    console.log('[Bot] 识别到特定判定内容，不进行渲染并标记成功');
+                    console.log(`${getLogPrefix()} [Bot] 识别到特定判定内容，不进行渲染并标记成功`);
                     currentResponseIsRight = true;
-                  } else if (isBubbleBreak) {
+                    continue;
+                  }
+
+                  if (isBubbleBreak) {
                     console.log('[Bot] 识别到 bubble 关键词，准备切分气泡');
-                    // 清空当前内容累积，强制下一个 content chunk 创建新气泡
                     fullContent = "";
                     coachBubble = null;
                   } else {
@@ -1144,7 +1297,6 @@
                     fullContent += data.content;
                     
                     if (!coachBubble) {
-                      // 文字流到达时，创建一个全新的独立气泡
                       coachBubble = appendChatMessage('coach', fullContent, false);
                     } else {
                       updateCoachBubbleContent(coachBubble, fullContent);
@@ -1154,15 +1306,41 @@
 
                 // 2. 检查流是否应该结束 (根据 history_messages 或特定的结束标识)
                 if (data.history_messages && Array.isArray(data.history_messages) && data.history_messages.length > 0) {
-                   // 注意：这里不要直接 break，因为最后一个 chunk 可能还有 content
-                   // 我们标记一下，在当前 chunk 处理完后退出
-                   console.log('[Bot] 收到历史消息，准备结束流接收');
+                   
+                   // --- 在整个流结束时，判定是否为整个会话的“第一次”交互 ---
+                   if (DISPLAY_NAME && !hasReportedInThisTurn) {
+                     console.log('[Bot] 收到历史消息，准备结束流接收并判定上报');
+                     hasReportedInThisTurn = true;
+                     
+                     // 如果 history_messages 的长度等于 2，说明这是本会话的【第一轮完整对话】(1条用户消息 + 1条AI消息)
+                     // 结构示例：[ {type: "human", ...}, {type: "ai", ...} ]
+                     if (data.history_messages.length === 2) {
+                       const isSuccess = currentResponseIsRight; // 只有在这第一轮对话中检测到关键词才算成功
+                       console.log(`${getLogPrefix()} [SDSF] 首次互动结束，上报状态 isSuccess: ${isSuccess}`);
+                       fetch('https://www.imates.com.cn/openclassSDSF/api/sdsf/submit', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({
+                           studentId: DISPLAY_NAME,
+                           studentName: DISPLAY_NAME,
+                           isSuccess: isSuccess 
+                         })
+                       }).catch(e => console.error('[SDSF] 首次互动上报失败:', e));
+                     } else {
+                       console.log(`${getLogPrefix()} [SDSF] 当前 history_messages 长度为 ${data.history_messages.length}，非首次互动，跳过上报`);
+                     }
+                   }
+                   // ---------------------------------------
                 }
               } catch (e) {}
             }
           }
         }
       } catch (err) {
+        if (err.name === 'AbortError') {
+          console.log(`${getLogPrefix()} [Bot] 旧请求已取消，停止后续渲染逻辑`);
+          return;
+        }
         console.error('[Bot] 请求失败', err);
         removeThinkingBubble();
         setStatus('llmStatus', 'err', '对话助手响应失败');
@@ -1172,24 +1350,6 @@
 
         // 对话响应结束，自动触发处理指令队列
         processNextCommand();
-
-        // 自动上报结果到 SDSF Server (模拟逻辑)
-        if (DISPLAY_NAME) {
-          // 逻辑更新：优先使用接口判定的 currentResponseIsRight，否则回退到拼图状态判定
-          const isGameSuccess = currentResponseIsRight || document.getElementById('successBanner').classList.contains('visible');
-          
-          fetch('https://www.imates.com.cn/openclassSDSF/api/sdsf/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              studentName: DISPLAY_NAME,
-              studentId: DISPLAY_NAME,
-              isSuccess: isGameSuccess,
-              timestamp: new Date().toISOString()
-            })
-          })
-          .catch(err => console.error('[SDSF] 上报作答状态失败:', err));
-        }
       }
     }
 
@@ -1639,8 +1799,16 @@
       const nc = pos.col + dc;
 
       if (nr < 1 || nr > ROWS || nc < 1 || nc > COLS) {
-        setStatus('llmStatus', 'err', `越界！（向${dir}移动超出网格范围）`);
+        const errMsg = `越界！（向${dir}移动超出网格范围）`;
+        setStatus('llmStatus', 'err', errMsg);
         stopPlay();
+        
+        // 如果有正在执行的指令，发送错误回调
+        if (currentExecutingCommand) {
+          sendCallback(currentExecutingCommand.cmd_id, 'error', errMsg);
+          currentExecutingCommand = null;
+        }
+        processNextCommand(); // 尝试执行下一个任务
         return false;
       }
 
@@ -1738,44 +1906,57 @@
       container.innerHTML = '<div class="chat-empty" id="chatEmpty">对话记录展示区</div>';
       container.scrollTop = 0;
       // 重置后显示初始欢迎语（不传模型）
-      showCoachMessage("同学你好，我是果果。成功的标准是按照规则将小燕子方块移回原位。请先拍下你的作答方案，我们一起探讨吧！");
+      showCoachMessage("同学你好，我是果果，请先拍下你的作品，我们一起交流吧！");
     }
 
     function restartPuzzleSession() {
+      // 1. 立即取消正在进行的对话请求
+      if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+      }
+
+      // 2. 彻底断开旧连接，确保绕过 initCanvasSSE 的活跃检查
+      if (sseSource) {
+        console.log(`${getLogPrefix()} [Session] 手动重置，关闭旧 SSE`);
+        sseSource.onopen = null;
+        sseSource.onmessage = null;
+        sseSource.onerror = null;
+        sseSource.close();
+        sseSource = null;
+      }
+
       stopPlay(false);
 
-      // 生成新的会话 ID 以开始全新对话
+      // 3. 生成全新的 Thread ID
       THREAD_ID = generateThreadId();
-      console.log(`[Session] 重置会话, 新 thread_id: ${THREAD_ID}`);
+      console.log(`${getLogPrefix()} [Session] 重置会话, 新 thread_id: ${THREAD_ID}`);
 
-      // 清空前端播放状态与上下文展示
-      pos = { ...SWALLOW_START };
+      // 4. 重置所有前端游戏状态
+      resetSwallowToStart();
       flatSteps = [];
       moveEnds = [];
       stepIdx = 0;
+      trail = [];
       activeCorner = null;
-      clearTrail();
-      renderSwallow(false);
-      pendingCoachMessages = [];
-      waitingResponse = false;
+      pendingCommands = [];
+      currentExecutingCommand = null;
 
-      document.getElementById('nlInput').value = '';
-      document.getElementById('targetCell')?.classList.add('empty-target');
-      document.getElementById('swallowPiece').classList.remove('arrived');
       document.getElementById('successBanner').classList.remove('visible');
-      const replayBtn = document.getElementById('btnReplay');
-      if (replayBtn) replayBtn.disabled = true;
+      document.getElementById('swallowPiece').classList.remove('arrived');
+      
+      // 重置聊天面板并显示欢迎语
       resetChatPanel();
-      setStatus('llmStatus', 'info', '已重置，等待新的输入。');
+      
       _enableSendBtn();
 
+      // 5. 重新建立全新的 SSE 连接
+      initCanvasSSE();
+      
       // 重置引导锁定状态
       hasSentFirstImage = false;
       const overlay = document.getElementById('inputLockOverlay');
       if (overlay) overlay.classList.remove('hidden');
-
-      // 重新启动会话 (重新建立 SSE 即可)
-      initCanvasSSE();
     }
 
     // ═══════════════════════════════════════════════════════
@@ -1871,7 +2052,7 @@
       });
       
       // 初始显示欢迎语
-      showCoachMessage("同学你好，我是果果。成功的标准是按照规则将小燕子方块移回原位。请先拍下你的作答方案，我们一起探讨吧！");
+      showCoachMessage("同学你好，我是果果，请先拍下你的作品，我们一起交流吧！");
 
       // 自动登记学生信息到 SDSF 统计服务器
       if (DISPLAY_NAME) {

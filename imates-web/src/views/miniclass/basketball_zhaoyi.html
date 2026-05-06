@@ -29,14 +29,15 @@
         }
 
         .piece {
-            transition: top 0.2s linear, left 0.2s linear, box-shadow 0.3s ease;
+            /* 协调性优化：使用标准 Material 缓动曲线，让起停更自然 */
+            transition: top 0.18s cubic-bezier(0.4, 0, 0.2, 1), left 0.18s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
             cursor: pointer;
             user-select: none;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
 
         .piece.selected {
-            box-shadow: 0 0 25px rgba(249, 115, 22, 0.4);
             outline: 3px solid #f97316;
             z-index: 20;
         }
@@ -54,6 +55,12 @@
 
         .control-btn:active {
             transform: scale(0.92);
+        }
+
+        /* 引导性样式：未到该步骤时降低亮度 */
+        .step-locked {
+            opacity: 0.3 !important;
+            pointer-events: none;
         }
 
         .num-btn.active {
@@ -112,34 +119,24 @@
 
     <div id="toast" class="toast"></div>
 
-    <!-- 顶部标题栏 -->
-    <header class="bg-white border-b border-gray-100 py-3 px-6 flex justify-between items-center shrink-0">
-        <h1 class="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-            <span class="text-orange-500">🏀</span> 篮球拼图挑战赛
-        </h1>
-        <div class="flex gap-4 items-center">
-            <!-- 步数和重置按钮已移到下方控制区 -->
-        </div>
-    </header>
-
     <main class="flex flex-col lg:flex-row flex-1 overflow-hidden">
         
         <!-- 左侧：状态与轨迹面板 -->
-        <aside class="w-full lg:w-72 bg-white border-r border-gray-100 flex flex-col shrink-0 overflow-hidden">
+        <aside class="w-full lg:w-96 bg-white border-r border-gray-100 flex flex-col shrink-0 overflow-hidden">
             <!-- 目标图 -->
             <div class="p-6 border-b border-gray-50 text-center">
-                <h3 class="text-sm text-gray-400 font-black uppercase tracking-[0.2em] mb-4">目标参考</h3>
+                <h3 class="text-sm text-gray-400 font-black uppercase tracking-[0.2em] mb-4"></h3>
                 <div class="relative inline-block border-2 border-dashed border-gray-100 p-2 rounded-2xl bg-gray-50/30">
-                    <img src="https://www.imates.com.cn/xuebanImg/basketball-full.webp" alt="Full Basketball" class="w-32 h-32 object-contain opacity-90">
+                    <img src="https://www.imates.com.cn/xuebanImg/basketball-full.webp" alt="Full Basketball" class="w-40 h-40 object-contain opacity-90">
                 </div>
             </div>
 
             <!-- ABCD 移动轨迹 -->
             <div class="flex-1 flex flex-col overflow-hidden">
-                <div class="px-6 py-4 flex justify-between items-center">
-                    <h3 class="text-sm text-gray-400 font-black uppercase tracking-[0.2em]">移动轨迹 (A/B/C/D)</h3>
+                <div class="px-6 py-2 flex justify-between items-center">
+                    <h3 class="text-xs text-gray-400 font-black uppercase tracking-[0.2em]"></h3>
                 </div>
-                <div id="piece-history-container" class="flex-1 overflow-y-auto px-4 pb-6 space-y-3 no-scrollbar">
+                <div id="piece-history-container" class="flex-1 overflow-y-auto px-4 pb-4 space-y-2 no-scrollbar">
                     <!-- 动态生成 -->
                 </div>
             </div>
@@ -149,14 +146,14 @@
         <section class="flex-1 flex flex-col items-center justify-center p-4 lg:p-8 bg-slate-50 relative overflow-hidden">
             
             <div id="game-board-container" class="relative w-full bg-white">
-                <!-- 棋盘网格 -->
+                <!-- 网格层 -->
                 <div id="grid" class="grid grid-cols-6 grid-rows-4 gap-0 w-full aspect-[6/4]">
                     <!-- 动态网格背景 -->
                 </div>
                 
-                <!-- 拼图碎片层 -->
+                <!-- 容器层 -->
                 <div id="pieces-container" class="absolute inset-0 pointer-events-none">
-                    <!-- 碎片将动态生成在此 -->
+                    <!-- 内容将动态生成在此 -->
                 </div>
             </div>
 
@@ -173,7 +170,7 @@
                 </div>
 
                 <!-- 步数键 -->
-                <div class="grid grid-cols-3 gap-2">
+                <div id="step-container" class="grid grid-cols-3 gap-2 step-locked">
                     <button onclick="setStep(1)" class="num-btn control-btn w-14 h-14 bg-blue-50 text-blue-600 font-black rounded-xl text-xl hover:bg-blue-100">1</button>
                     <button onclick="setStep(2)" class="num-btn control-btn w-14 h-14 bg-blue-50 text-blue-600 font-black rounded-xl text-xl hover:bg-blue-100">2</button>
                     <button onclick="setStep(3)" class="num-btn control-btn w-14 h-14 bg-blue-50 text-blue-600 font-black rounded-xl text-xl hover:bg-blue-100">3</button>
@@ -184,20 +181,11 @@
 
                 <!-- 重置游戏按钮 -->
                 <button onclick="resetGame()" class="control-btn w-28 h-14 bg-red-50 text-red-500 font-bold rounded-xl text-base hover:bg-red-100 flex items-center justify-center">复原</button>
-
-                <div class="hidden sm:block h-12 w-[1px] bg-gray-100"></div>
-
-                <!-- 指令说明 -->
-                <div class="hidden md:flex flex-col text-xs text-gray-400 font-bold uppercase tracking-widest gap-1">
-                    <span>1. 点击选择碎片</span>
-                    <span>2. 选择移动方向</span>
-                    <span>3. 选择移动步数</span>
-                </div>
             </div>
         </section>
 
         <!-- 右侧：方案记录 (可选，若不需要可删除或隐藏) -->
-        <aside class="w-full lg:w-64 bg-white border-l border-gray-100 flex flex-col shrink-0 overflow-hidden">
+        <aside class="w-full lg:w-48 bg-white border-l border-gray-100 flex flex-col shrink-0 overflow-hidden">
             <div class="p-6 border-b border-gray-50 flex justify-between items-center">
                 <h3 class="text-sm text-gray-400 font-black uppercase tracking-[0.2em]">历史方案</h3>
                 <button onclick="clearSchemes()" class="text-xs text-gray-300 hover:text-red-500 transition-colors">清空</button>
@@ -311,6 +299,10 @@
                 if(!selectedId) showToast("请先点击选择一个拼图块");
                 return;
             }
+            if (!pendingDir) {
+                showToast("请先选择移动方向");
+                return;
+            }
             pendingStep = n;
             updateControlUI();
             checkTrigger();
@@ -328,6 +320,12 @@
         }
 
         function updateControlUI() {
+            // 步数区域的锁定逻辑
+            const stepContainer = document.getElementById('step-container');
+            if (stepContainer) {
+                stepContainer.classList.toggle('step-locked', !pendingDir);
+            }
+
             document.querySelectorAll('.num-btn').forEach((b, i) => b.classList.toggle('active', pendingStep === i + 1));
             document.querySelectorAll('.dir-btn').forEach(b => {
                 const d = b.getAttribute('onclick').match(/'(\w+)'/)?.[1];
@@ -376,7 +374,7 @@
             for (const [r, c] of path) {
                 el.style.top = `${r * cellH}%`;
                 el.style.left = `${c * cellW}%`;
-                await sleep(180); 
+                await sleep(300); 
             }
 
             if (collided) {
@@ -410,14 +408,13 @@
                 const moves = pieceSpecificMoves[id];
                 const active = selectedId === id ? 'active shadow-md' : '';
                 return `
-                    <div class="history-card p-4 rounded-2xl border border-gray-100 ${active}">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="font-black text-slate-700 text-base">碎片 ${id}</span>
-                            <span class="text-xs bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">${moves.length} 步</span>
+                    <div class="history-card p-4 rounded-xl border border-gray-100 ${active} flex items-center gap-5">
+                        <div class="shrink-0">
+                            <span class="font-black text-slate-700 text-4xl">${id}</span>
                         </div>
-                        <div class="flex flex-wrap gap-1.5 min-h-[24px]">
-                            ${moves.length === 0 ? '<span class="text-gray-300 italic text-xs">待命中...</span>' :
-                                moves.map(m => `<span class="bg-white px-2 py-1 rounded-lg border border-slate-100 font-bold text-slate-600 text-xs shadow-sm">${dIcons[m.dir]} ${m.steps}</span>`).join('')
+                        <div class="flex-1 flex flex-wrap gap-2.5 min-h-[40px] items-center">
+                            ${moves.length === 0 ? '<span class="text-gray-300 italic text-xl">等待移动...</span>' :
+                                moves.map(m => `<span class="bg-white px-4 py-2 rounded-lg border border-slate-100 font-black text-slate-600 text-2xl shadow-sm">${dIcons[m.dir]} ${m.steps}</span>`).join('')
                             }
                         </div>
                     </div>

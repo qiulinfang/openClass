@@ -23,11 +23,26 @@ try {
     console.error('[Storage] Error loading data:', error);
 }
 
-const saveToDisk = () => {
+// 异步保存数据，避免阻塞事件循环
+let isSaving = false;
+let pendingSave = false;
+
+const saveToDisk = async () => {
+    if (isSaving) {
+        pendingSave = true;
+        return;
+    }
+    isSaving = true;
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(studentRecords, null, 2));
+        await fs.promises.writeFile(DATA_FILE, JSON.stringify(studentRecords, null, 2));
     } catch (error) {
         console.error('[Storage] Error saving data:', error);
+    } finally {
+        isSaving = false;
+        if (pendingSave) {
+            pendingSave = false;
+            saveToDisk(); // 处理积压的写入请求
+        }
     }
 };
 
@@ -75,6 +90,16 @@ app.get('/api/sdsf/stats', (req, res) => {
             totalCount: studentRecords.length
         }
     });
+});
+
+/**
+ * 3. 清除所有数据
+ */
+app.post('/api/sdsf/clear', (req, res) => {
+    studentRecords = [];
+    saveToDisk();
+    console.log(`[SDSF] Data cleared.`);
+    res.json({ success: true, message: '数据已清除' });
 });
 
 app.listen(PORT, () => {
