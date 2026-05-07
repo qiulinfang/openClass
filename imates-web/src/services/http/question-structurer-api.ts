@@ -34,7 +34,7 @@ export class QuestionStructurerApi {
    * @param req 请求参数
    */
   public async structureQuestion(req: StructureQuestionReq): Promise<ApiResponse<any>> {
-    const url = `/structure/structure_question`
+    const url = `${this.baseUrl}/structure_question`
     return httpClient.post<any>(url, req)
   }
 
@@ -43,7 +43,7 @@ export class QuestionStructurerApi {
    * @param req 请求参数
    */
   public async structureQuestionBatch(req: StructureQuestionBatchReq): Promise<ApiResponse<any>> {
-    const url = `/structure/structure_question_batch`
+    const url = `${this.baseUrl}/structure_question_batch`
     return httpClient.post<any>(url, req)
   }
 
@@ -51,7 +51,7 @@ export class QuestionStructurerApi {
    * 健康检查
    */
   public async checkHealth(): Promise<ApiResponse<any>> {
-    const url = `/structure/health`
+    const url = `${this.baseUrl}/health`
     return httpClient.get<any>(url)
   }
 
@@ -59,7 +59,7 @@ export class QuestionStructurerApi {
    * 查看服务配置和可用接口
    */
   public async getServiceInfo(): Promise<ApiResponse<any>> {
-    const url = `/structure/service_info`
+    const url = `${this.baseUrl}/service_info`
     return httpClient.get<any>(url)
   }
 }
