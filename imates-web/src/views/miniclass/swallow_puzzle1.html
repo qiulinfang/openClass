@@ -803,7 +803,8 @@
         <!-- Chatbot panel (含输入区) -->
         <div class="chatbot-card">
           <div class="chatbot-header">
-            <span id="llmStatus" class="chatbot-header-label info"></span>
+            <div class="chatbot-header-dot" id="llmDot"></div>
+            <div class="chatbot-header-label" id="llmStatus">画布助手</div>
           </div>
           <div class="chatbot-messages" id="chatMessages">
             <div class="chat-empty" id="chatEmpty">对话记录展示区</div>
@@ -1252,24 +1253,24 @@
     };
 
     // ═══════════════════════════════════════════════════════
-    //  Watchdog Timer (保活监控定时器)
+    //  Network Status Monitoring (监听系统网络变化)
     // ═══════════════════════════════════════════════════════
-    setInterval(() => {
-      const now = Date.now();
-      const idleTime = now - lastKeepAlive;
-      
-      // 如果断开了，或者超过 45 秒没收到心跳包
-      if (!wsConnected || idleTime > 45000) {
-        if (!isReconnecting && !manualClosed) {
-          console.log(`${getLogPrefix()} [Watchdog] 检测到连接异常(空闲${Math.round(idleTime/1000)}s)，启动保活重连...`);
-          isReconnecting = true;
-          initCanvasSSE();
-        }
+    window.addEventListener('online', () => {
+      console.log(`${getLogPrefix()} [系统] 网络已恢复 (online)`);
+      // 网络恢复时，如果当前是断开状态，尝试重连
+      if (!wsConnected) {
+        initCanvasSSE();
       }
-    }, 5000); // 每 5 秒检查一次
+    });
+
+    window.addEventListener('offline', () => {
+      console.log(`${getLogPrefix()} [系统] 网络已断开 (offline)`);
+      wsConnected = false;
+      updateSendButtonState();
+    });
 
     // ═══════════════════════════════════════════════════════
-    //  Visibility & Reconnect Logic (处理息屏唤醒)
+    //  Visibility Logic (仅记录状态，不主动重连)
     // ═══════════════════════════════════════════════════════
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
@@ -1277,15 +1278,6 @@
         const idleTime = now - lastKeepAlive;
         
         console.log(`${getLogPrefix()} [系统] 页面重回前台。当前状态: ${wsConnected ? '已连接' : '断开'}, 手动关闭: ${manualClosed}, 空闲时间: ${Math.round(idleTime/1000)}s`);
-
-        // 如果手动关闭了，不再执行亮屏自动重连
-        if (manualClosed) return;
-
-        // 如果已经断开，或者超过45秒没有收到任何心跳/数据，强制重连
-        if (!wsConnected || idleTime > 45000) {
-          console.log(`${getLogPrefix()} [系统] 亮屏自动重连中...`);
-          initCanvasSSE();
-        }
       }
     });
 
@@ -1320,11 +1312,14 @@
      * 初始化 SSE 连接接收指令
      */
     function initCanvasSSE() {
-      // 1. 检查是否已经有一个正常的连接，防止重复创建
+      // 1. 检查是否正在连接中或已经连接，防止重复创建
+      if (isReconnecting) {
+        console.log(`${getLogPrefix()} [SSE] 正在建立连接中，跳过重复请求`);
+        return;
+      }
       if (sseSource && sseSource.readyState === 1) {
         console.log(`${getLogPrefix()} [SSE] 检查到已有活跃连接，跳过创建`);
         wsConnected = true;
-        isReconnecting = false;
         return;
       }
 
@@ -1368,29 +1363,14 @@
       };
 
       sseSource.onerror = (e) => {
-        console.error(`${getLogPrefix()} [SSE] 连接错误或中断:`, e);
+        console.error(`${getLogPrefix()} [SSE] 连接错误或中断 (浏览器正在尝试原生重连...):`, e);
         wsConnected = false;
+        isReconnecting = false;
         updateSendButtonState();
         
-        // 关闭旧连接
-        if (sseSource) {
-          sseSource.close();
-          sseSource = null;
-        }
-
-        // 移除 setStatus 显式文字提示，改为后台静默重连
-        console.log(`${getLogPrefix()} [SSE] 助手连接已断开，准备自动重连...`);
-        
-        // 如果是手动关闭的，不要启动定时器自动重连
-        if (manualClosed) return;
-
-        // 3秒后尝试重连
-        setTimeout(() => {
-          if (!sseSource) {
-            console.log(`${getLogPrefix()} [SSE] 正在尝试自动重连...`);
-            initCanvasSSE();
-          }
-        }, 3000);
+        // 注意：这里不再 close sseSource，也不再手动调用 initCanvasSSE
+        // EventSource 内部会根据默认或服务器指定的 retry 时间自动重连
+        // 重连成功后，会自动触发上方的 sseSource.onopen 回调
       };
     }
 
@@ -1622,10 +1602,10 @@
     async function sendUserInput() {
       if (waitingResponse || playing) return;
 
-      // 发送前双重检查：如果 SSE 连接断了，且不是手动关闭的，立即尝试重连
+      // 发送前仅检查状态，不主动触发重连（交给 onerror 的自动重连机制）
       if ((!wsConnected || !sseSource) && !manualClosed) {
-        console.log(`${getLogPrefix()} [系统] 发送消息前检测到连接异常，正在尝试重连助手...`);
-        initCanvasSSE();
+        console.log(`${getLogPrefix()} [系统] 发送消息前检测到连接异常，等待自动重连中...`);
+        return; // 或者根据业务决定是否拦截发送
       }
 
       const text = document.getElementById('nlInput').value.trim();
@@ -2676,5 +2656,7 @@
       initCanvasSSE();
     })();
   </script>
+  <!-- 版本标识 -->
+  <div style="position: fixed; bottom: 2px; right: 4px; font-size: 9px; color: #94a3b8; opacity: 0.2; pointer-events: none; z-index: 9999; font-family: monospace;">v1.0.82-native</div>
 </body>
 </html>
