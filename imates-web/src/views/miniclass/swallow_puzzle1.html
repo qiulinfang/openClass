@@ -435,7 +435,7 @@
       transform: scale(1.02);
     }
 
-    /* ─── Crop Modal (Style consistent with Image Modal) ─── */
+    /* ─── Crop Modal (Drawing Mode) ─── */
     .crop-modal {
       display: none;
       position: fixed;
@@ -443,7 +443,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: #000; /* 纯黑背景，不透明 */
+      background: #000;
       z-index: 10000;
       flex-direction: column;
       align-items: center;
@@ -457,48 +457,16 @@
       position: relative;
       width: 100%;
       height: 100%;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: move;
-      overflow: hidden;
     }
     #cropCanvas {
       display: block;
+      cursor: crosshair;
     }
-    /* 裁剪框与遮罩 */
-    .crop-overlay-fixed {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .crop-frame-fixed {
-      width: 85vw; /* 适配移动端的裁剪区域 */
-      height: 85vw;
-      max-width: 500px;
-      max-height: 500px;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 5000px rgba(0, 0, 0, 0.85); /* 外部遮罩：深色但不全黑以便看到周围 */
-      position: relative;
-    }
-    .crop-frame-fixed::after {
-      content: '请将图片移至框内';
-      position: absolute;
-      bottom: -30px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #fff;
-      font-size: 14px;
-      white-space: nowrap;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-    }
-
+    
     .crop-tools {
       position: absolute;
       bottom: 40px;
@@ -875,41 +843,23 @@
 
   <!-- 图片裁剪模态框 (纯 Canvas 原生实现) -->
   <div id="cropModal" class="crop-modal">
+    <button class="crop-tool-btn cancel" onclick="closeCropModal()" title="取消">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
     <div class="crop-container" id="cropContainer">
       <canvas id="cropCanvas"></canvas>
-      <div class="crop-overlay-fixed">
-        <div class="crop-frame-fixed" id="cropFrame"></div>
-      </div>
     </div>
     <div class="crop-tools">
-      <button class="crop-tool-btn cancel" onclick="closeCropModal()" title="取消">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-      <button class="crop-tool-btn" onclick="zoomCrop(0.1)" title="放大">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          <line x1="11" y1="8" x2="11" y2="14"></line>
-          <line x1="8" y1="11" x2="14" y2="11"></line>
-        </svg>
-      </button>
-      <button class="crop-tool-btn" onclick="zoomCrop(-0.1)" title="缩小">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          <line x1="8" y1="11" x2="14" y2="11"></line>
-        </svg>
-      </button>
-      <button class="crop-tool-btn" onclick="rotateCrop(90)" title="旋转">
+      <button class="crop-tool-btn" onclick="rotateCrop(90)" title="旋转图片">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M23 4v6h-6"></path>
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
         </svg>
       </button>
-      <button class="crop-tool-btn confirm" onclick="confirmCrop()">确认并发送</button>
+      <button class="crop-tool-btn confirm" onclick="confirmCrop()">确认裁剪并发送</button>
     </div>
   </div>
 
@@ -984,166 +934,255 @@
     let selectedImages = []; // { file, previewUrl }
     let hasSentFirstImage = false; // 是否已发送过第一张图片
 
-    // --- 原生裁剪状态与逻辑 ---
+    // --- 原生绘制式裁剪 (支持缩放和平移) ---
     let cropState = {
       img: null,
-      x: 0, y: 0, scale: 1, rotate: 0,
-      isDragging: false,
-      lastX: 0, lastY: 0,
-      canvas: null, ctx: null,
+      rotate: 0,
+      zoom: 1,      // 用户缩放
+      offsetX: 0,   // 用户平移 X
+      offsetY: 0,   // 用户平移 Y
+      canvas: null,
+      ctx: null,
+      isDrawing: false, // 正在画框
+      isPanning: false, // 正在平移
+      startX: 0,
+      startY: 0,
+      rect: { x: 0, y: 0, w: 0, h: 0 }, // 绘制的矩形 (Canvas 坐标)
+      imgDisplayScale: 1, // 基础 contain 缩放比例
       lastPinchDist: 0
     };
 
     function openCropModal(src) {
       const modal = document.getElementById('cropModal');
       const canvas = document.getElementById('cropCanvas');
-      if (!modal || !canvas) return;
+      const container = document.getElementById('cropContainer');
+      if (!modal || !canvas || !container) return;
 
       const image = new Image();
       image.onload = () => {
+        modal.style.display = 'flex';
+        modal.classList.add('visible');
+
         cropState.img = image;
         cropState.canvas = canvas;
         cropState.ctx = canvas.getContext('2d');
-        
-        // 初始化：图片居中并缩放至适合裁剪框
-        const frame = document.getElementById('cropFrame');
-        const frameRect = frame.getBoundingClientRect();
-        
         cropState.rotate = 0;
-        cropState.x = 0;
-        cropState.y = 0;
-        
-        // 自动计算初始缩放，使图片覆盖裁剪框
-        const s = Math.max(frameRect.width / image.width, frameRect.height / image.height);
-        cropState.scale = s * 1.1; // 稍微大一点点
+        cropState.zoom = 1;
+        cropState.offsetX = 0;
+        cropState.offsetY = 0;
+        cropState.rect = { x: 0, y: 0, w: 0, h: 0 };
 
-        initCropInteraction();
-        renderCropCanvas();
-        modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+          initCropInteraction();
+          renderCropCanvas();
+        });
       };
       image.src = src;
     }
 
+    /**
+     * 关闭裁剪对话框
+     */
     function closeCropModal() {
-      document.getElementById('cropModal').style.display = 'none';
+      const modal = document.getElementById('cropModal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('visible');
+      }
       cropState.img = null;
     }
 
     function renderCropCanvas() {
-      const { img, canvas, ctx, x, y, scale, rotate } = cropState;
+      const { img, canvas, ctx, rotate, zoom, offsetX, offsetY, rect } = cropState;
       if (!img || !canvas || !ctx) return;
 
-      // 画布大小始终跟随窗口/容器大小
       const container = document.getElementById('cropContainer');
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+      canvas.width = container.clientWidth || window.innerWidth;
+      canvas.height = container.clientHeight || window.innerHeight;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 1. 计算基础 contain 缩放
+      const isVertical = (rotate / 90) % 2 !== 0;
+      const srcW = isVertical ? img.height : img.width;
+      const srcH = isVertical ? img.width : img.height;
+      const baseScale = Math.min(canvas.width / srcW, canvas.height / srcH);
+      cropState.imgDisplayScale = baseScale;
+
+      // 2. 绘制图片 (应用缩放、旋转、平移)
       ctx.save();
-      
-      // 核心：先平移到画布中心，再应用用户位移，再旋转，最后缩放绘制
-      ctx.translate(canvas.width / 2 + x, canvas.height / 2 + y);
+      ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
       ctx.rotate((rotate * Math.PI) / 180);
-      ctx.scale(scale, scale);
-      
+      ctx.scale(baseScale * zoom, baseScale * zoom);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
       ctx.restore();
-    }
 
-    function zoomCrop(delta) {
-      const ns = cropState.scale + delta;
-      if (ns > 0.05 && ns < 10) {
-        cropState.scale = ns;
-        renderCropCanvas();
+      // 3. 绘制遮罩层
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      if (rect.w !== 0 && rect.h !== 0) {
+        ctx.beginPath();
+        ctx.rect(0, 0, canvas.width, canvas.height);
+        ctx.moveTo(rect.x, rect.y);
+        ctx.lineTo(rect.x, rect.y + rect.h);
+        ctx.lineTo(rect.x + rect.w, rect.y + rect.h);
+        ctx.lineTo(rect.x + rect.w, rect.y);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+      } else {
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // 添加滑动裁剪提示
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('请滑动手指，选择裁剪区域', canvas.width / 2, canvas.height / 2);
       }
     }
 
     function rotateCrop(deg) {
-      cropState.rotate += deg;
+      cropState.rotate = (cropState.rotate + deg) % 360;
+      cropState.rect = { x: 0, y: 0, w: 0, h: 0 }; // 旋转后重置选择
       renderCropCanvas();
     }
 
     function initCropInteraction() {
-      const container = document.getElementById('cropContainer');
+      const canvas = cropState.canvas;
       
-      const onStart = (clientX, clientY) => {
-        cropState.isDragging = true;
-        cropState.lastX = clientX;
-        cropState.lastY = clientY;
+      const getPos = (e) => {
+        const r = canvas.getBoundingClientRect();
+        const t = e.touches ? e.touches[0] : e;
+        return { x: t.clientX - r.left, y: t.clientY - r.top };
       };
-      
-      const onMove = (clientX, clientY) => {
-        if (!cropState.isDragging) return;
-        cropState.x += (clientX - cropState.lastX);
-        cropState.y += (clientY - cropState.lastY);
-        cropState.lastX = clientX;
-        cropState.lastY = clientY;
+
+      // 鼠标滚轮缩放
+      canvas.onwheel = (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        cropState.zoom *= delta;
+        cropState.zoom = Math.max(0.1, Math.min(20, cropState.zoom));
         renderCropCanvas();
       };
 
-      container.onmousedown = (e) => onStart(e.clientX, e.clientY);
-      window.onmousemove = (e) => onMove(e.clientX, e.clientY);
-      window.onmouseup = () => cropState.isDragging = false;
+      canvas.onmousedown = (e) => {
+        const pos = getPos(e);
+        if (e.button === 0) { // 左键：画框
+          cropState.isDrawing = true;
+          cropState.startX = pos.x;
+          cropState.startY = pos.y;
+          cropState.rect = { x: pos.x, y: pos.y, w: 0, h: 0 };
+        } else { // 右键或中键：平移
+          cropState.isPanning = true;
+          cropState.startX = e.clientX - cropState.offsetX;
+          cropState.startY = e.clientY - cropState.offsetY;
+        }
+      };
 
-      container.ontouchstart = (e) => {
+      window.onmousemove = (e) => {
+        if (cropState.isDrawing) {
+          const pos = getPos(e);
+          cropState.rect = {
+            x: Math.min(pos.x, cropState.startX),
+            y: Math.min(pos.y, cropState.startY),
+            w: Math.abs(pos.x - cropState.startX),
+            h: Math.abs(pos.y - cropState.startY)
+          };
+          renderCropCanvas();
+        } else if (cropState.isPanning) {
+          cropState.offsetX = e.clientX - cropState.startX;
+          cropState.offsetY = e.clientY - cropState.startY;
+          renderCropCanvas();
+        }
+      };
+
+      window.onmouseup = () => {
+        cropState.isDrawing = false;
+        cropState.isPanning = false;
+      };
+
+      canvas.oncontextmenu = (e) => e.preventDefault(); // 禁用右键菜单
+
+      // 触摸事件 (移动端)
+      canvas.ontouchstart = (e) => {
         if (e.touches.length === 1) {
-          onStart(e.touches[0].clientX, e.touches[0].clientY);
+          const pos = getPos(e);
+          cropState.isDrawing = true;
+          cropState.startX = pos.x;
+          cropState.startY = pos.y;
+          cropState.rect = { x: pos.x, y: pos.y, w: 0, h: 0 };
         } else if (e.touches.length === 2) {
+          cropState.isDrawing = false;
+          cropState.isPanning = true;
           cropState.lastPinchDist = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
             e.touches[0].clientY - e.touches[1].clientY
           );
+          cropState.startX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - cropState.offsetX;
+          cropState.startY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - cropState.offsetY;
         }
       };
-      container.ontouchmove = (e) => {
+
+      canvas.ontouchmove = (e) => {
         e.preventDefault();
-        if (e.touches.length === 1) {
-          onMove(e.touches[0].clientX, e.touches[0].clientY);
-        } else if (e.touches.length === 2) {
+        if (e.touches.length === 1 && cropState.isDrawing) {
+          const pos = getPos(e);
+          cropState.rect = {
+            x: Math.min(pos.x, cropState.startX),
+            y: Math.min(pos.y, cropState.startY),
+            w: Math.abs(pos.x - cropState.startX),
+            h: Math.abs(pos.y - cropState.startY)
+          };
+          renderCropCanvas();
+        } else if (e.touches.length === 2 && cropState.isPanning) {
           const dist = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
             e.touches[0].clientY - e.touches[1].clientY
           );
-          if (cropState.lastPinchDist > 0) {
-            const ratio = dist / cropState.lastPinchDist;
-            zoomCrop((ratio - 1) * 0.2);
-          }
+          // 缩放
+          const ratio = dist / cropState.lastPinchDist;
+          cropState.zoom *= ratio;
           cropState.lastPinchDist = dist;
+          // 平移
+          const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          cropState.offsetX = centerX - cropState.startX;
+          cropState.offsetY = centerY - cropState.startY;
+          renderCropCanvas();
         }
       };
-      container.ontouchend = () => {
-        cropState.isDragging = false;
-        cropState.lastPinchDist = 0;
-      };
-      
-      container.onwheel = (e) => {
-        e.preventDefault();
-        zoomCrop(e.deltaY > 0 ? -0.05 : 0.05);
+
+      canvas.ontouchend = () => {
+        cropState.isDrawing = false;
+        cropState.isPanning = false;
       };
     }
 
     function confirmCrop() {
-      const frame = document.getElementById('cropFrame');
-      const container = document.getElementById('cropContainer');
-      if (!frame || !container || !cropState.img) return;
+      const { img, rotate, zoom, offsetX, offsetY, rect, canvas } = cropState;
+      if (!img || rect.w < 5 || rect.h < 5) {
+        alert('请先拖拽选择一个有效的裁剪区域');
+        return;
+      }
 
-      const fRect = frame.getBoundingClientRect();
-      const cRect = container.getBoundingClientRect();
-
-      // 创建一个离屏画布
+      // 1. 创建最终输出画布
       const out = document.createElement('canvas');
-      out.width = fRect.width * 2; // 导出两倍大小以保证清晰度
-      out.height = fRect.height * 2;
-      const oCtx = out.getContext('2d');
-
-      // 将主预览画布中裁剪框对应的部分绘制到输出画布
-      const sourceX = fRect.left - cRect.left;
-      const sourceY = fRect.top - cRect.top;
+      out.width = rect.w * (2048 / Math.max(rect.w, rect.h)); // 保持高质量
+      if (out.width > 2048) out.width = 2048;
+      out.height = rect.h * (out.width / rect.w);
       
+      const oCtx = out.getContext('2d');
+      oCtx.imageSmoothingEnabled = true;
+      oCtx.imageSmoothingQuality = 'high';
+
+      // 2. 直接从预览画布裁剪 (最简单且兼容缩放平移的方式)
+      // 注意：这种方式依赖预览画布的当前像素。如果想要极高精度，需要复杂的坐标逆矩阵变换，
+      // 但对于 99% 的场景，从预览画布直接提取已经足够。
       oCtx.drawImage(
-        cropState.canvas,
-        sourceX, sourceY, fRect.width, fRect.height, // 源
-        0, 0, out.width, out.height // 目标
+        canvas,
+        rect.x, rect.y, rect.w, rect.h,
+        0, 0, out.width, out.height
       );
 
       const dataUrl = out.toDataURL('image/jpeg', 0.9);
@@ -1458,12 +1497,23 @@
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
-      const file = files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        openCropModal(event.target.result);
-      };
-      reader.readAsDataURL(file);
+      const filePromises = Array.from(files).map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            resolve({
+              file: file,
+              previewUrl: event.target.result
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(filePromises).then(newImages => {
+        selectedImages = newImages; // 替换当前选择，直接发送
+        sendUserInput();
+      });
       
       e.target.value = ''; // 清空以支持重复选择同一文件
     }
@@ -2565,7 +2615,15 @@
       function handleNativeImageData(data) {
         console.log(`${getLogPrefix()} [UI] 处理图片数据:`, data);
         if (data && data.success && data.base64DataUrl) {
-          openCropModal(data.base64DataUrl);
+          const newImageData = {
+            file: null,
+            previewUrl: data.base64DataUrl
+          };
+          selectedImages = [newImageData];
+          // 延迟一小会儿确保状态更新
+          setTimeout(() => {
+            sendUserInput();
+          }, 100);
         }
       }
 
