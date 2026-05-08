@@ -271,11 +271,11 @@ const showDebugPanel = ref(false)
 
 const backgroundImg = ref<HTMLImageElement | null>(null)
 const backgroundLoaded = ref(false)
-const backgroundOrigin = reactive({ x: 120, y: 120 })
+const backgroundOrigin = reactive({ x: 130, y: 120 })
 
 function updateBackgroundOrigin() {
   if (!liveCanvasRef.value || !backgroundImg.value || !backgroundLoaded.value) return
-  backgroundOrigin.x = 100
+  backgroundOrigin.x = 130
   backgroundOrigin.y = 120
 }
 
