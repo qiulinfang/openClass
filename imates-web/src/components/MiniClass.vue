@@ -341,6 +341,7 @@ watch(
       })
     }
   },
+  { immediate: true }
 )
 
 // 清理资源

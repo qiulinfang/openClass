@@ -8,6 +8,7 @@ import MyResourcesView from '@/views/MyResourcesView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
 import PdfViewerViewZGC from '@/views/PdfViewerViewZGC.vue'
 import PdfViewerViewJK from '@/views/JK/PdfViewerViewJK.vue'
+import PdfViewerViewJK2 from '@/views/JK/PdfViewerViewJK2.vue'
 import PdfViewerViewSdsf from '@/views/PdfViewerViewSdsf.vue'
 import HtmlViewerView from '@/views/HtmlViewerView.vue'
 import HtmlPreviewView from '@/views/HtmlPreviewView.vue'
@@ -26,6 +27,7 @@ import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
 import RenderTestView from '@/views/RenderTestView.vue'
 import LottieTest from '@/views/LottieTest.vue'
+import MiniExerciseView from '@/views/MiniExerciseView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -201,6 +203,16 @@ const router = createRouter({
       name: 'lottieTest',
       component: LottieTest
     },
+    {
+      path: '/mini-exercise',
+      name: 'miniExercise',
+      component: MiniExerciseView
+    },
+    {
+      path: '/pdf-viewer-jk2',
+      name: 'pdfViewerJk2',
+      component: PdfViewerViewJK2
+    },
     // 重定向旧路由到新路由
     {
       path: '/exercise-solve',
@@ -234,6 +246,10 @@ router.beforeEach(async (to, from, next) => {
   if (
     to.name === 'login' ||
     to.path === '/login' ||
+    to.name === 'miniExercise' ||
+    to.path === '/mini-exercise' ||
+    to.name === 'pdfViewerJk2' ||
+    to.path === '/pdf-viewer-jk2' ||
     to.name === 'chatSessionTest' ||
     to.path === '/chat-session-test' ||
     to.name === 'debugApi' ||

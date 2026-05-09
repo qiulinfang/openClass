@@ -59,6 +59,9 @@
               <span v-else>登 录</span>
             </button>
 
+            <!-- 加入课堂按钮 -->
+            <JoinClassroomButton />
+
             <!-- 错误提示 -->
             <div v-if="errorMessage" class="error-banner">
               {{ errorMessage }}
@@ -104,6 +107,7 @@ import { authService, getUserId, getPassword, httpClient } from '../services'
 import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
 import Dialog from '../components/base/Dialog.vue'
 import Select from '@/components/base/Select.vue'
+import JoinClassroomButton from '@/components/JoinClassroomButton.vue'
 import { ZGC_JUMP_QUERY, SDSF_JUMP_QUERY, JK_JUMP_QUERY } from '@/constants/jump-configs'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { chatStorage } from '../services/storage/chat-storage'
@@ -120,13 +124,15 @@ const virtualTextbookId = `${getUserId()}_35943sdfsf0640`
 const virtualTextbookIdSdsf = `${getUserId()}_35943sdsf0640`
 
 // 学校选择
-const selectedSchool = ref<'zgc' | 'jk' | 'sdsf'>((localStorage.getItem('selected_school') as 'zgc' | 'jk' | 'sdsf') || 'zgc')
+const selectedSchool = ref<'zgc' | 'jk' | 'jk2' | 'sdsf' | 'mini-exercise'>((localStorage.getItem('selected_school') as 'zgc' | 'jk' | 'jk2' | 'sdsf' | 'mini-exercise') || 'zgc')
 
 // 学校选项
 const schoolOptions = [
   { label: '中关村一小', value: 'zgc' },
   { label: '经开二中', value: 'jk' },
-  { label: '首都师范大学实验小学', value: 'sdsf' }
+  { label: '经开二中2', value: 'jk2' },
+  { label: '首都师范大学实验小学', value: 'sdsf' },
+  { label: '小练习', value: 'mini-exercise' }
 ]
 
 const loginForm = reactive({
@@ -428,7 +434,13 @@ const handleLogin = async () => {
     localStorage.setItem('selected_school', selectedSchool.value)
 
     // 根据学校选择跳转到不同的页面
-    if (selectedSchool.value === 'jk') {
+    if (selectedSchool.value === 'mini-exercise') {
+      // 小练习选项：直接跳转到小练习页面
+      await router.push({ name: 'miniExercise' })
+    } else if (selectedSchool.value === 'jk2') {
+      // 经开二中2：跳转到渲染 iframe 的新页面
+      await router.push({ name: 'pdfViewerJk2' })
+    } else if (selectedSchool.value === 'jk') {
       // 经开二中
       await router.replace({
         name: 'pdfViewerJk',
