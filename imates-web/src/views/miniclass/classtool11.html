@@ -9,30 +9,26 @@
       box-sizing: border-box;
     }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-
     body {
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       background: #f7f7f7;
       color: #111;
       font-family: "Microsoft YaHei", Arial, sans-serif;
+      overflow: hidden;
+      touch-action: none;
     }
 
-    #app-container {
-      width: 920px;
-      height: 820px;
+    #app {
+      width: 920px; /* 900px canvas + padding */
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       padding: 10px;
       transform-origin: center center;
       flex-shrink: 0;
@@ -42,32 +38,27 @@
       width: 900px;
       height: 675px;
       display: block;
+      border: 2px solid #222;
       background: #fff;
       touch-action: none;
     }
 
-    .canvas-wrapper {
-      border: 2px solid #222;
-      background: #fff;
-      line-height: 0;
-    }
-
     .pen-toolbar {
-      width: 900px;
+      width: 100%;
       display: flex;
       justify-content: center;
       gap: 8px;
     }
 
     .action-toolbar {
-      width: 900px;
+      width: 100%;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
     }
 
     .pen-toolbar button {
-      width: 180px;
+      width: 220px;
     }
 
     button {
@@ -122,39 +113,23 @@
       pointer-events: none;
       transition: opacity 220ms ease, transform 220ms ease;
       z-index: 1000;
-      max-width: 80%;
-      line-height: 1.4;
-      text-align: center;
+      white-space: nowrap;
     }
 
     #toast.show {
       opacity: 1;
       transform: translate(-50%, -50%) scale(1);
     }
-
-    #version-tag {
-      position: fixed;
-      right: 4px;
-      bottom: 2px;
-      font-size: 10px;
-      color: rgba(0, 0, 0, 0.15);
-      font-family: monospace;
-      pointer-events: none;
-      user-select: none;
-      z-index: 9999;
-    }
   </style>
 </head>
 <body>
-  <div id="app-container">
+  <div id="app">
     <div class="pen-toolbar">
       <button id="bluePen" class="blue active" type="button">底：蓝笔</button>
       <button id="redPen" class="red" type="button">高：红笔</button>
     </div>
 
-    <div class="canvas-wrapper">
-      <canvas id="board" width="900" height="675"></canvas>
-    </div>
+    <canvas id="board" width="900" height="675"></canvas>
 
     <div class="action-toolbar">
       <button id="undoBtn" type="button">撤销</button>
@@ -164,9 +139,36 @@
   </div>
 
   <div id="toast" aria-live="polite"></div>
-  <div id="version-tag">v1.0.8</div>
 
   <script>
+    // 屏幕适配缩放逻辑
+    function handleResize() {
+      const app = document.getElementById('app');
+      if (!app) return;
+      
+      const padding = 20; // 左右边距总和
+      const designWidth = 920; 
+      const designHeight = app.offsetHeight;
+      
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      
+      const scaleX = windowWidth / designWidth;
+      const scaleY = windowHeight / designHeight;
+      const scale = Math.min(scaleX, scaleY, 1);
+      
+      app.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener('resize', handleResize);
+    // 使用 MutationObserver 监听高度变化，确保内容加载后也能正确缩放
+    const observer = new MutationObserver(handleResize);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // 初始化
+    handleResize();
+    setTimeout(handleResize, 100); // 兜底
+
     const canvas = document.getElementById("board");
     const ctx = canvas.getContext("2d");
     const bluePen = document.getElementById("bluePen");
@@ -175,31 +177,12 @@
     const clearBtn = document.getElementById("clearBtn");
     const submitBtn = document.getElementById("submitBtn");
     const toast = document.getElementById("toast");
-    const appContainer = document.getElementById("app-container");
 
-    // --- API Configuration ---
-    const API_URL = 'https://kelvin-cosin.cloud/puzzle/chatbot';
-    const urlParams = new URLSearchParams(window.location.search);
-    const THREAD_ID = urlParams.get('threadId') || `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    const USER_ID = urlParams.get('userId') || 'default_user';
-    const CANVAS_ID = 'draw_height_tool_1';
-    const DISPLAY_NAME = urlParams.get('userName') || 'student';
-
-    const BASE_CANVAS_WIDTH = 900;
-    const BASE_CANVAS_HEIGHT = 675;
-    const BASE_ENDPOINT_TOLERANCE = 72;
-    const BASE_MIN_LINE_LENGTH = 8;
-    const BASE_POINTS = {
+    const points = {
       A: { x: 260, y: 185 },
       B: { x: 720, y: 185 },
       C: { x: 500, y: 530 },
       D: { x: 40, y: 530 }
-    };
-    const points = {
-      A: { x: 0, y: 0 },
-      B: { x: 0, y: 0 },
-      C: { x: 0, y: 0 },
-      D: { x: 0, y: 0 }
     };
 
     let currentPen = "blue";
@@ -211,8 +194,8 @@
       red: null
     };
     let history = [];
-    const AREA_TOLERANCE_RATIO = 0.1;
-    const HEIGHT_PERPENDICULAR_TOLERANCE_DEG = 5;
+    const AREA_TOLERANCE_RATIO = 0.06;
+    const HEIGHT_PERPENDICULAR_TOLERANCE_DEG = 12;
     let toastTimer = null;
 
     function makeLine(a, b, name = "") {
@@ -224,34 +207,6 @@
         name
       };
     }
-
-    function scaledValue(baseValue) {
-      return baseValue;
-    }
-
-    function updatePointsByCanvasSize() {
-      Object.keys(BASE_POINTS).forEach((name) => {
-        points[name].x = BASE_POINTS[name].x;
-        points[name].y = BASE_POINTS[name].y;
-      });
-    }
-
-    function handleResize() {
-      const designWidth = 920;
-      const designHeight = 820;
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-      
-      const scaleX = windowWidth / designWidth;
-      const scaleY = windowHeight / designHeight;
-      const scale = Math.min(scaleX, scaleY);
-      
-      appContainer.style.transform = `scale(${scale})`;
-    }
-
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
-    handleResize();
 
     function projectPointToLine(point, baseLine) {
       const vx = baseLine.x2 - baseLine.x1;
@@ -339,7 +294,7 @@
       const endPoint = canvasPoint(event);
       const newLine = makeLine(startPoint, endPoint);
 
-      if (lineLength(newLine) > scaledValue(BASE_MIN_LINE_LENGTH)) {
+      if (lineLength(newLine) > 8) {
         history.push({
           type: "replace",
           color: currentPen,
@@ -432,43 +387,6 @@
       drawStroke(previewLine, currentPen, true);
     }
 
-    async function sendResultToAgent(outputMessage) {
-      showPersistentToast("判断中...");
-      const body = {
-        inputs: {
-          message: " ", // 学生不必输入，传入空即可
-          add_message: { drawing_board_output: outputMessage }
-        },
-        config: {
-          configurable: {
-            thread_id: THREAD_ID,
-            user_id: USER_ID
-          }
-        }
-      };
-
-      console.log('[API] 发送判罚结果:', body);
-
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log('[API] 发送成功，返回数据:', data);
-        if (data && data.coach_text) {
-          showPersistentToast(data.coach_text);
-        }
-      } catch (err) {
-        console.error('[API] 发送失败:', err);
-        showPersistentToast("网络好像有点问题，请稍后再试");
-      }
-    }
-
     function classify() {
       if (!strokes.blue || !strokes.red) {
         if (!strokes.blue) {
@@ -488,7 +406,7 @@
 
       const baseOption = pickBestMatchedBase(matchedBases, strokes.blue);
       const baseLen = lineLength(baseOption.line);
-      if (baseLen === 0 || lineLength(strokes.red) <= scaledValue(BASE_MIN_LINE_LENGTH)) {
+      if (baseLen === 0 || lineLength(strokes.red) <= 8) {
         suggestRedraw(baseLen === 0 ? "both" : "height");
         return;
       }
@@ -501,7 +419,7 @@
       const nearPerpendicular = Math.abs(90 - angleToBase) <= HEIGHT_PERPENDICULAR_TOLERANCE_DEG;
 
       if (areaClose && nearPerpendicular) {
-        sendResultToAgent("你的高画的正确");
+        showPersistentToast("你的高画的正确");
         return;
       }
 
@@ -510,7 +428,7 @@
       );
 
       if (neighborMistake) {
-        sendResultToAgent("你的高画的，其实是底边邻边");
+        showPersistentToast("你的高画的，其实是底边邻边");
         return;
       }
 
@@ -605,11 +523,11 @@
       if (targetLength === 0) return false;
 
       const actualLength = lineLength(actual);
-      const endpointTolerance = scaledValue(BASE_ENDPOINT_TOLERANCE);
+      const endpointTolerance = Math.max(72, targetLength * 0.22);
       const endpointDistance = directedLineDistance(actual, target);
       const lengthErrorRatio = Math.abs(actualLength - targetLength) / targetLength;
 
-      return endpointDistance <= endpointTolerance && lengthErrorRatio <= 0.1;
+      return endpointDistance <= endpointTolerance && lengthErrorRatio <= 0.45;
     }
 
     function directedLineDistance(actual, target) {
@@ -663,7 +581,6 @@
     canvas.addEventListener("touchend", endDraw, { passive: false });
     canvas.addEventListener("touchcancel", cancelDraw, { passive: false });
 
-    updatePointsByCanvasSize();
     updateSubmitState();
     draw();
   </script>

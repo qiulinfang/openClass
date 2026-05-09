@@ -14,16 +14,27 @@
 
     <JoinClassroomButton />
 
-    <!-- 微课悬浮按钮 -->
+    <!-- 微课悬浮按钮
     <DraggableFab
       v-if="shouldShowMiniClassFab"
-      label="微课"
+      label="小框架"
       size="md"
-      :icon="xiaogongjuIcon"
+      :icon="xiaogongju1Icon"
       :initial-pos="{ left: 16, bottom: 200 }"
       bounds-container=".fullscreen-chat-container"
       @click="onMiniClassFabClick"
     />
+
+    新增悬浮按钮 (小工具11) -->
+    <DraggableFab
+      v-if="shouldShowMiniClassFab"
+      label="画出高"
+      size="md"
+      :icon="xiaogongju2Icon"
+      :initial-pos="{ left: 16, bottom: 280 }"
+      bounds-container=".fullscreen-chat-container"
+      @click="onTool11Click"
+    /> 
 
     <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" />
   </div>
@@ -50,7 +61,8 @@ import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import JoinClassroomButton from '@/components/JoinClassroomButton.vue'
 import DraggableFab from '@/components/base/DraggableFab.vue'
-import xiaogongjuIcon from '/icons/xiaogongju.svg'
+import xiaogongju1Icon from '/icons/xiaogongju1.svg'
+import xiaogongju2Icon from '/icons/xiaogongju2.svg'
 import { useUIStore } from '@/stores/uiStore'
 import { AI_ROLE_OPTIONS } from '@/constants/options'
 
@@ -84,6 +96,10 @@ const onMiniClassFabClick = () => {
   const matched = getMiniClassConfig(aiTextbookStore.chapterInfo)
   if (!matched) return
   uiStore.openMiniClassDialog(matched.url, matched.title)
+}
+
+const onTool11Click = () => {
+  uiStore.openMiniClassDialog('https://www.imates.com.cn/wk/math/classtool11.html', '画出高')
 }
 
 // ChatPanel 实例引用，用于在新增截图会话后刷新列表

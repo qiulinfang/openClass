@@ -484,7 +484,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   // 不同学校的引导语配置
   const WELCOME_MESSAGES: Record<'jk' | 'zgc' | 'sdsf', string> = {
     jk: '你好呀😊 咱们今天来探究平行四边形的面积问题，你有什么想问的或者想分享的想法吗？',
-    zgc: '你好呀！咱们继续探索平行四边形的面积吧！能大胆猜想一下你认为平行四边形面积和什么有关吗？',
+    zgc: '你好呀！咱们继续探索平行四边形的面积吧！能说说你遇到了什么问题吗？',
     sdsf: '你好呀！我是你的AI助手，咱们今天来一起学习吧，你有什么想法吗？'
   }
 
@@ -760,7 +760,86 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     try {
       // 获取用户信息和科目
       const userInfo = getUserInfo()
-      
+      const currentSchoolType = schoolType.value
+
+      // 如果是中关村一小 (zgc)，使用特殊的拼图机器人接口
+      if (currentSchoolType === 'zgc') {
+        const puzzleApiUrl = 'https://kelvin-cosin.cloud/puzzle/chatbot'
+
+        // 处理图片上传：如果是 ZGC 场景，先将图片上传到服务器获取 URL
+        let uploadedImageUrls: string[] = []
+        const base64Images = imageList && imageList.length > 0 
+          ? imageList.map(img => img.base64DataUrl).filter(Boolean) as string[]
+          : (imageData?.base64DataUrl ? [imageData.base64DataUrl] : [])
+
+        if (base64Images.length > 0) {
+          try {
+            // 显示上传中状态气泡内容
+            updateMessage(tempReplyId, { content: '正在上传图片...' })
+            
+            // 并行上传所有图片
+            uploadedImageUrls = await Promise.all(
+              base64Images.map(base64 => apiService.uploadImageAndGetUrl(base64))
+            )
+            console.log('[ZGC API] 图片上传成功:', uploadedImageUrls)
+            
+            // 上传成功后清空提示，准备显示 AI 回复
+            updateMessage(tempReplyId, { content: '' })
+          } catch (uploadError) {
+            console.error('[ZGC API] 图片上传失败:', uploadError)
+            const errorMessage = updateMessageError(
+              tempReply,
+              '图片上传失败，请检查网络连接后重试。',
+              content,
+              imageData
+            )
+            updateMessage(tempReplyId, errorMessage)
+            return
+          }
+        }
+
+        const puzzleBody = {
+          inputs: {
+            message: content,
+            image_url: uploadedImageUrls,
+            add_message: {} // 对齐新格式，主对话暂无工具结果
+          },
+          config: {
+            configurable: {
+              thread_id: currentSessionId.value || `t_${Date.now()}`,
+              user_id: getUserId() || 'default_user'
+            }
+          }
+        }
+
+        console.log('[ZGC API] 发送消息:', puzzleBody)
+
+        const response = await fetch(puzzleApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(puzzleBody)
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log('[ZGC API] 响应:', data)
+
+        if (data && data.coach_text) {
+          updateMessage(tempReplyId, {
+            content: data.coach_text,
+            isStreaming: false
+          })
+          chatResponseTimes.value++
+          await saveChatHistory()
+        } else {
+          throw new Error('接口未返回有效内容')
+        }
+        return
+      }
+
       // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
       const sessionIdForBackend = ensureTopGeneralSession()
       console.log("sessionIdForBackend",sessionIdForBackend)
