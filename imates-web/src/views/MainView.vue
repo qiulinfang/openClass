@@ -222,6 +222,7 @@ import { androidBridge } from '@/services/business/android-bridge'
 import { getUserId } from '@/services'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
+import { useClassroomStore } from '@/stores/classroomStore'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import type { ChatEntry } from '../types/chat'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
@@ -280,6 +281,7 @@ const pdfViewerStore = usePdfViewerStore()
 const resourceStore = useResourceStore()
 const teacherStore = useTeacherChatStore()
 const userClientStore = useUserClientStore()
+const classroomStore = useClassroomStore()
 
 const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
 
@@ -289,7 +291,8 @@ const createFabTraceId = (prefix: string) => {
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
-const isInClass = ref(false)
+const isInClass = computed(() => classroomStore.isInClass)
+const connectionHealth = computed(() => classroomStore.connectionHealth)
 
 type NavKey =
   | 'toolbox'
@@ -956,25 +959,14 @@ onMounted(async () => {
   // 加载用户信息
   updateCurrentUserInfo()
 
+  // 初始化课堂状态 Store
+  classroomStore.init()
+
   // 初始化按钮位置
   fabPosition.value = {
     x: Math.max(0, window.innerWidth - fabSize - 18),
     y: Math.max(0, window.innerHeight - fabSize - 18),
   }
-
-  // 监听课堂状态，高亮头像
-  const updateClassStatus = () => {
-    const status = androidBridge.getClassroomStatus()
-    isInClass.value = !!status?.isInClass
-  }
-  updateClassStatus()
-  androidBridge.onClassroomJoined(updateClassStatus)
-  androidBridge.onClassroomExited(() => {
-    isInClass.value = false
-  })
-  androidBridge.onClassroomStatusChanged((status) => {
-    isInClass.value = !!status?.isInClass
-  })
 
   // 等待 Vue 渲染完成
   await nextTick()

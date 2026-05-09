@@ -47,6 +47,7 @@ export interface BridgeClassroomStatus {
   localIp: string
   tsStreamPort: number
   status: 'ready' | 'streaming'
+  secondsSinceLastHeartbeat?: number
 }
 
 /** Android Bridge 加入课堂请求接口 */

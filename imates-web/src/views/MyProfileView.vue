@@ -88,6 +88,7 @@
 import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserClientStore } from '@/stores/userClientStore'
+import { useClassroomStore } from '@/stores/classroomStore'
 import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
 import {
@@ -111,6 +112,7 @@ import teacherQAIcon from '/icons/teacher_qa.svg'
 
 const router = useRouter()
 const userClientStore = useUserClientStore()
+const classroomStore = useClassroomStore()
 
 // 注入父组件提供的方法（从 MainView 提供）
 const closeToolbox = inject<() => void>('closeToolbox')
@@ -120,8 +122,8 @@ const openToolboxFromParent = inject<() => void>('openToolbox')
 const openTeacherQADialogFromParent = inject<() => void>('openTeacherQADialog')
 
 // 响应式数据
-const isInClass = ref(false)
-const isProjecting = ref(false)
+const isInClass = computed(() => classroomStore.isInClass)
+const isProjecting = computed(() => classroomStore.isProjecting)
 const isLoggingOut = ref(false)
 const logoutDialogRef = ref<InstanceType<typeof Dialog>>()
 const joinClassDialogRef = ref<InstanceType<typeof Dialog>>()
@@ -142,61 +144,17 @@ const userInfo = computed(() => {
   )
 })
 
-// 检查课堂状态的函数
+// 移除旧的 checkClassroomStatus 逻辑，现在由 classroomStore 统一轮询
 const checkClassroomStatus = () => {
-  // 流程：读取原生课堂状态 -> 更新前端状态
-  console.log('[Classroom][Status] start')
-  const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
-  console.log('[Classroom][Status] native =', status)
-
-  if (status && status.isInClass === true) {
-    isInClass.value = true
-    isProjecting.value = status.status === 'streaming'
-  } else {
-    isInClass.value = false
-    isProjecting.value = false
-  }
+  // 不再需要，由 store 统一维护
 }
 
 // 初始化
 onMounted(() => {
-  // 流程：页面初始化 -> 加载用户信息 -> 读取原生课堂状态 -> 绑定课堂事件
+  // 流程：页面初始化 -> 加载用户信息
   loadUserInfo()
 
-  // 流程：读取原生课堂状态 -> 更新前端状态
-  checkClassroomStatus()
-
-  // 流程：绑定课堂事件 -> 根据原生回调同步前端状态
-  androidBridge.onClassroomJoined(() => {
-    console.log('[MyProfileView] onClassroomJoined')
-    isInClass.value = true
-    showMessage('已加入课堂', 'success')
-  })
-  androidBridge.onClassroomExited(() => {
-    console.log('[MyProfileView] onClassroomExited')
-    isInClass.value = false
-    showMessage('已退出课堂', 'info')
-  })
-  androidBridge.onClassroomStatusChanged((newStatus: BridgeClassroomStatus) => {
-    console.log('[MyProfileView] onClassroomStatusChanged:', newStatus)
-    const inClass = !!newStatus?.isInClass
-    if (isInClass.value !== inClass) {
-      isInClass.value = inClass
-    }
-    const projecting = newStatus?.status === 'streaming'
-    if (isProjecting.value !== projecting) {
-      isProjecting.value = projecting
-    }
-  })
-
-  androidBridge.onScreenProjectionStarted(() => {
-    console.log('[MyProfileView] onScreenProjectionStarted')
-    isProjecting.value = true
-  })
-  androidBridge.onScreenProjectionStopped(() => {
-    console.log('[MyProfileView] onScreenProjectionStopped')
-    isProjecting.value = false
-  })
+  // classroomStore.init() 已经在 MainView.vue 中调用过，这里只需要响应状态即可
 })
 
 // 组件卸载时清理
@@ -267,8 +225,8 @@ const confirmJoinClass = () => {
     console.log('[Classroom][Exit] call native', { traceId })
     const ok = androidBridge.exitClassroom()
     if (ok) {
-      isInClass.value = false
-      isProjecting.value = false
+      // 状态会自动通过轮询同步，也可以手动触发一次更新
+      classroomStore.updateStatus(androidBridge.getClassroomStatus())
       console.log('[Classroom][Exit] ok', { traceId })
       showMessage('已退出课堂', 'success')
     } else {
@@ -296,7 +254,8 @@ const confirmJoinClass = () => {
   console.log('[Classroom][Join] call native', { traceId, studentId, studentName, isGuest })
   const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
   if (ok) {
-    isInClass.value = true
+    // 状态会自动通过轮询同步，也可以手动触发一次更新
+    classroomStore.updateStatus(androidBridge.getClassroomStatus())
     console.log('[Classroom][Join] ok (waiting teacher cmd)', { traceId })
     showMessage('已加入课堂', 'success')
   } else {

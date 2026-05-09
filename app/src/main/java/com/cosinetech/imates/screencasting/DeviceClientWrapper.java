@@ -110,6 +110,14 @@ public class DeviceClientWrapper {
      * 首先会自动查询所有教室
      */
     public void showClassroomSelectionDialog(OnClassroomSelectedListener listener) {
+        showClassroomSelectionDialog(this.context, listener);
+    }
+
+    /**
+     * 显示教室选择Dialog
+     * @param uiContext 用于显示Dialog的Activity Context
+     */
+    public void showClassroomSelectionDialog(Context uiContext, OnClassroomSelectedListener listener) {
         new Thread(() -> {
             try {
                 // 先查询所有教室
@@ -130,7 +138,7 @@ public class DeviceClientWrapper {
                         // 在主线程显示Dialog
                         android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
                         handler.post(() -> {
-                            showClassroomDialogInternal(listener);
+                            showClassroomDialogInternal(uiContext, listener);
                         });
                     }
                 }
@@ -196,8 +204,20 @@ public class DeviceClientWrapper {
     /**
      * 内部显示Dialog方法
      */
-    private void showClassroomDialogInternal(OnClassroomSelectedListener listener) {
-        classroomDialog = new ClassroomSelectionDialog(context, classroomManager);
+    private void showClassroomDialogInternal(Context uiContext, OnClassroomSelectedListener listener) {
+        // 检查 uiContext 是否为 Activity 且未销毁
+        if (uiContext instanceof android.app.Activity) {
+            android.app.Activity activity = (android.app.Activity) uiContext;
+            if (activity.isFinishing() || (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1 && activity.isDestroyed())) {
+                Log.e(TAG, "Activity is finishing or destroyed, cannot show dialog");
+                return;
+            }
+        } else {
+            Log.e(TAG, "uiContext is not an Activity, cannot show dialog. Context: " + uiContext);
+            return;
+        }
+
+        classroomDialog = new ClassroomSelectionDialog(uiContext, classroomManager);
         classroomDialog.setOnSelectionListener(new ClassroomSelectionDialog.OnSelectionListener() {
             @Override
             public void onSelected(String city, String school, ClassroomInfo classroom) {

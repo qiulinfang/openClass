@@ -1,10 +1,12 @@
 package com.cosinetech.imates.screencasting;
 
+import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
 
 import androidx.fragment.app.FragmentActivity;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,7 +20,8 @@ public class ScreenCastingManager {
     private static volatile boolean bHavingClassMode = false;
     private static volatile boolean bShouldProjection = false;
 
-    private static FragmentActivity context;
+    private static Context appContext;
+    private static WeakReference<Activity> activityRef;
     private static String currentUserId;
     private static String currentUserName;
     private static UdpForwarder udpForwarder;
@@ -51,8 +54,11 @@ public class ScreenCastingManager {
         }
     }
 
-    public static synchronized void startLoop(FragmentActivity ctx, String userId, String userName, UdpForwarder forwarder) {
-        context = ctx;
+    public static synchronized void startLoop(Context ctx, String userId, String userName, UdpForwarder forwarder) {
+        appContext = ctx.getApplicationContext();
+        if (ctx instanceof Activity) {
+            activityRef = new WeakReference<>((Activity) ctx);
+        }
 
         if (started) {
             Log.i(TAG, "Loop already started, reinitializing communicator with new params");
@@ -84,8 +90,10 @@ public class ScreenCastingManager {
                     }
 
                     if (bHavingClassMode && udpCommunicator == null) {
+                        // 如果 appContext 是 Activity，则可以显示 Dialog；如果是 ApplicationContext，则不行
+                        // 实际上 Communicator 内部会尝试显示 Dialog
                         udpCommunicator = new ScreenCastingCommunicator(
-                                context, currentUserId, currentUserName);
+                                appContext, currentUserId, currentUserName);
 
                         udpCommunicator.setNetworkStateListener(new ScreenCastingCommunicator.NetworkStateListener() {
                             @Override
@@ -162,6 +170,14 @@ public class ScreenCastingManager {
         });
     }
 
+    public static Activity getActivity() {
+        return activityRef != null ? activityRef.get() : null;
+    }
+
+    public static Context getAppContext() {
+        return appContext;
+    }
+
     public static synchronized void stopLoop() {
         Log.i(TAG, "Stopping projection control loop");
         if (udpCommunicator != null) {
@@ -197,6 +213,17 @@ public class ScreenCastingManager {
 
     public static boolean isProjecting() {
         return bShouldProjection;
+    }
+
+    /**
+     * 获取距离最后一次心跳成功的秒数
+     * @return 秒数，-1表示从未成功
+     */
+    public static long getSecondsSinceLastHeartbeat() {
+        if (udpCommunicator != null) {
+            return udpCommunicator.getSecondsSinceLastHeartbeat();
+        }
+        return -1;
     }
 
     public static void setSelectedClassroomLocation(String city, String school, String classroom) {

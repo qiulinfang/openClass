@@ -1,6 +1,7 @@
 package com.cosinetech.imates.screencasting;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
@@ -83,10 +84,11 @@ public class ScreenCastingCommunicator {
 
     private volatile  String pcDeviceIp = "1.1.1.1";
     private volatile String teacherPadDeviceIp = "1.1.1.1";
+    private volatile long lastHeartbeatSuccessTime = 0;
 
     private DeviceClientWrapper deviceClientWrapper;
 
-    public ScreenCastingCommunicator(FragmentActivity ctx, String studentId, String studentName) {
+    public ScreenCastingCommunicator(Context ctx, String studentId, String studentName) {
         this.context = ctx;
         this.studentId = studentId;
         this.studentName = studentName;
@@ -174,17 +176,27 @@ public class ScreenCastingCommunicator {
             startReceivingSingleCastMessage();
 
             // 2. 获取所有教室并显示选择Dialog
-            deviceClientWrapper.showClassroomSelectionDialog(new DeviceClientWrapper.OnClassroomSelectedListener() {
-                public void onSelected(String city, String school, ClassroomInfo classroom) {
+            Activity currentActivity = ScreenCastingManager.getActivity();
+            if (currentActivity != null) {
+                deviceClientWrapper.showClassroomSelectionDialog(currentActivity, new DeviceClientWrapper.OnClassroomSelectedListener() {
+                    public void onSelected(String city, String school, ClassroomInfo classroom) {
+                        deviceClientWrapper.register(getLocalIpAddress());
+                        deviceClientWrapper.startHeartbeat();
+                    }
+
+                    @Override
+                    public void onCancelled() {
+
+                    }
+                });
+            } else {
+                Log.w(TAG, "当前没有活跃的 Activity，无法显示教室选择对话框");
+                // 如果没有 Activity，尝试使用已有的位置信息（如果有）
+                if (deviceClientWrapper.getSelectedClassroom() != null) {
                     deviceClientWrapper.register(getLocalIpAddress());
                     deviceClientWrapper.startHeartbeat();
                 }
-
-                @Override
-                public void onCancelled() {
-
-                }
-            });
+            }
 
             // 3. 监听设备信息变化
             deviceClientWrapper.addDeviceChangeListener((oldInfo, newInfo) -> {
@@ -248,9 +260,14 @@ public class ScreenCastingCommunicator {
                     Log.d(TAG, "状态上报线程被中断");
                     break;
                 } catch (Exception e) {
-                    Log.e(TAG, "发送状态消息失败", e);
-                    notifyNetworkError("发送状态消息失败: " + e.getMessage());
-                    break;
+                    Log.e(TAG, "发送状态消息失败，5秒后重试", e);
+                    // notifyNetworkError("发送状态消息失败: " + e.getMessage());
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException ignored) {
+                        break;
+                    }
+                    // 不再 break，允许自动重试
                 }
             }
         });
@@ -294,7 +311,17 @@ public class ScreenCastingCommunicator {
                 teacherPadAddress,
                 TEACHER_PAD_CONTROL_PORT);
         multicastSender.send(packet1);
+        lastHeartbeatSuccessTime = System.currentTimeMillis();
         Log.d(TAG, "发送状态消息: " + message);
+    }
+
+    /**
+     * 获取心跳状态
+     * @return 距离上次成功心跳的秒数
+     */
+    public long getSecondsSinceLastHeartbeat() {
+        if (lastHeartbeatSuccessTime == 0) return -1;
+        return (System.currentTimeMillis() - lastHeartbeatSuccessTime) / 1000;
     }
 
     /**

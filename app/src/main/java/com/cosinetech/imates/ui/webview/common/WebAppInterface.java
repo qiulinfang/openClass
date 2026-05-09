@@ -1,48 +1,50 @@
 package com.cosinetech.imates.ui.webview.common;
 
+import android.Manifest;
+import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.util.Log;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.widget.Toast;
-import android.app.Activity;
-import android.media.MediaRecorder;
-import android.media.MediaPlayer;
-import android.os.Environment;
-import android.util.Log;
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Bundle;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import android.provider.MediaStore;
-import android.net.Uri;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.util.Base64;
-import android.view.View;
-import android.content.ContentValues;
-import android.os.Build;
 import androidx.core.content.FileProvider;
-import java.io.FileOutputStream;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
 
-import com.cosinetech.imates.ui.webview.common.LocalStorageHelper;
-import com.cosinetech.imates.ui.activities.ExerciseSolveActivity;
-import com.cosinetech.imates.data.models.Subject;
-import com.cosinetech.imates.utils.AppUtils;
-import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.data.models.ChatMessage;
+import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
+import com.cosinetech.imates.screencasting.ClassroomService;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
+import com.cosinetech.imates.screenshot.MediaProjectionScreenshotManager;
 import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.teachermessagemq.StudentMessage;
+import com.cosinetech.imates.utils.AppUtils;
+import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.utils.VoiceDbUtil;
-import com.cosinetech.imates.screenshot.MediaProjectionScreenshotManager;
-import com.cosinetech.imates.screencasting.ScreenCastingManager;
+
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+
 import com.cosinetech.imates.screencasting.DeviceClientWrapper;
 import com.cosinetech.imates.screencasting.model.DeviceType;
 import com.cosinetech.imates.ApplicationModelShared;
@@ -989,6 +991,39 @@ public class WebAppInterface {
         } catch (Exception e) {
             Log.e(TAG, "sendPictureToTeacher: 发送图片消息异常", e);
             return createResponse(false, "发送图片消息失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 获取课堂状态
+     * 
+     * @returns 课堂状态信息
+     */
+    @JavascriptInterface
+    public String getClassroomStatus() {
+        final String traceId = "CS_" + System.currentTimeMillis();
+        Log.i(TAG, "[Classroom][Native][Status] start traceId=" + traceId);
+        Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 开始");
+
+        try {
+            String userId = AppUtils.getUserId();
+            boolean isInClass = ScreenCastingManager.isHavingClass();
+            boolean isProjecting = ScreenCastingManager.isProjecting();
+            boolean isGuest = userId != null && userId.equals("guest000");
+            long secondsSinceLastHeartbeat = ScreenCastingManager.getSecondsSinceLastHeartbeat();
+
+            String status = String.format(Locale.getDefault(),
+                    "{\"isInClass\":%b,\"isProjecting\":%b,\"isGuest\":%b,\"userId\":\"%s\",\"secondsSinceLastHeartbeat\":%d}",
+                    isInClass, isProjecting, isGuest, userId != null ? userId : "", secondsSinceLastHeartbeat);
+
+            Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 状态: " + status);
+            Log.i(TAG, "[Classroom][Native][Status] end traceId=" + traceId + " ok=true isInClass=" + isInClass + " isProjecting=" + isProjecting + " userId=" + (userId != null ? userId : "") + " lastHb=" + secondsSinceLastHeartbeat);
+            return createResponseWithJsonData(true, "获取课堂状态成功", status);
+
+        } catch (Exception e) {
+            Log.e(TAG, "🔍 WebAppInterface获取课堂状态 - 发生错误", e);
+            Log.e(TAG, "[Classroom][Native][Status] end traceId=" + traceId + " ok=false reason=exception", e);
+            return createResponse(false, "获取课堂状态失败: " + e.getMessage(), null);
         }
     }
 
@@ -3042,6 +3077,9 @@ public class WebAppInterface {
                                         ScreenCastingManager.startLoop(activity, finalUserId, finalStudentName, UdpForwarderManager.getInstance());
                                         sendLogToWeb("INFO", TAG, "步骤3.5.1.1结果: 通信循环已启动");
 
+                                        // ✅ 启动前台服务保持连接
+                                        startClassroomService(finalUserId, finalStudentName);
+
                                         // ✅ 启动TS流转换
                                         sendLogToWeb("DEBUG", TAG, "步骤3.5.2: 启动TS流转换");
                                         h264ToTsStreamer.start();
@@ -3204,6 +3242,9 @@ public class WebAppInterface {
                 sendLogToWeb("ERROR", TAG, "步骤3.3结果: 停止ScreenShareKit失败: " + e.getMessage());
             }
 
+            // ✅ 停止前台服务
+            stopClassroomService();
+
             // ✅ 触发Vue层回调，通知退出课堂成功
             sendLogToWeb("DEBUG", TAG, "步骤3.4: 准备触发onClassroomExited事件");
             try {
@@ -3269,37 +3310,6 @@ public class WebAppInterface {
         }
     }
 
-    /**
-     * 获取课堂状态
-     * 
-     * @returns 课堂状态信息
-     */
-    @JavascriptInterface
-    public String getClassroomStatus() {
-        final String traceId = "CS_" + System.currentTimeMillis();
-        Log.i(TAG, "[Classroom][Native][Status] start traceId=" + traceId);
-        Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 开始");
-
-        try {
-            String userId = AppUtils.getUserId();
-            boolean isInClass = ScreenCastingManager.isHavingClass();
-            boolean isProjecting = ScreenCastingManager.isProjecting();
-            boolean isGuest = userId != null && userId.equals("guest000");
-
-            String status = String.format(Locale.getDefault(),
-                    "{\"isInClass\":%b,\"isProjecting\":%b,\"isGuest\":%b,\"userId\":\"%s\"}",
-                    isInClass, isProjecting, isGuest, userId != null ? userId : "");
-
-            Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 状态: " + status);
-            Log.i(TAG, "[Classroom][Native][Status] end traceId=" + traceId + " ok=true isInClass=" + isInClass + " isProjecting=" + isProjecting + " userId=" + (userId != null ? userId : ""));
-            return createResponseWithJsonData(true, "获取课堂状态成功", status);
-
-        } catch (Exception e) {
-            Log.e(TAG, "🔍 WebAppInterface获取课堂状态 - 发生错误", e);
-            Log.e(TAG, "[Classroom][Native][Status] end traceId=" + traceId + " ok=false reason=exception", e);
-            return createResponse(false, "获取课堂状态失败: " + e.getMessage(), null);
-        }
-    }
 
     /**
      * 检查是否在课堂中
@@ -3662,11 +3672,47 @@ public class WebAppInterface {
             return "false";
         }
     }
-    
+
     /**
-     * 发送日志到Web前端（公共方法，供其他Service调用）
+     * 启动课堂连接维护前台服务
+     */
+    private void startClassroomService(String userId, String studentName) {
+        try {
+            sendLogToWeb("DEBUG", TAG, "正在启动ClassroomService前台服务...");
+            Intent intent = new Intent(mContext, ClassroomService.class);
+            intent.putExtra("userId", userId);
+            intent.putExtra("studentName", studentName);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mContext.startForegroundService(intent);
+            } else {
+                mContext.startService(intent);
+            }
+            sendLogToWeb("INFO", TAG, "ClassroomService前台服务已尝试启动");
+        } catch (Exception e) {
+            Log.e(TAG, "启动ClassroomService失败", e);
+            sendLogToWeb("ERROR", TAG, "启动ClassroomService失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 停止课堂连接维护前台服务
+     */
+    private void stopClassroomService() {
+        try {
+            sendLogToWeb("DEBUG", TAG, "正在停止ClassroomService前台服务...");
+            Intent intent = new Intent(mContext, ClassroomService.class);
+            mContext.stopService(intent);
+            sendLogToWeb("INFO", TAG, "ClassroomService前台服务已停止");
+        } catch (Exception e) {
+            Log.e(TAG, "停止ClassroomService失败", e);
+            sendLogToWeb("ERROR", TAG, "停止ClassroomService失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 打印日志到Web端
      * 
-     * @param level   日志级别: DEBUG, INFO, WARN, ERROR
+     * @param level   日志级别 (INFO, DEBUG, ERROR, WARN)
      * @param tag     日志标签
      * @param message 日志消息
      */

@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -26,6 +27,7 @@ import com.cosinetech.imates.data.models.ChatAiParam;
 import com.cosinetech.imates.ui.feedback.FeedbackActivity;
 import com.cosinetech.imates.data.models.UserInfo;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
+import com.cosinetech.imates.screencasting.ClassroomService;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
@@ -146,6 +148,7 @@ public class MyProfileActivity extends BaseActivity {
                         .setPositiveButton("确认", (dialog, which) -> {
                             ScreenCastingManager.setClassMode(false);
                             ScreenShareKit.INSTANCE.stop();
+                            stopClassroomService();
                             showJoinClassroom(false);
                         })
                         .setNegativeButton("取消", (dialog, which) -> {
@@ -173,10 +176,35 @@ public class MyProfileActivity extends BaseActivity {
                         .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
                         .onStart(() -> {
                             ScreenCastingManager.setClassMode(true);
+                            startClassroomService(AppUtils.getUserId(), AppUtils.getUserNickName());
                             showJoinClassroom(true);
                             h264ToTsStreamer.start();
                         }).start();
             }
+        }
+    }
+
+    private void stopClassroomService() {
+        try {
+            Intent intent = new Intent(this, ClassroomService.class);
+            stopService(intent);
+        } catch (Exception e) {
+            Log.e("MyProfileActivity", "停止ClassroomService失败", e);
+        }
+    }
+
+    private void startClassroomService(String userId, String studentName) {
+        try {
+            Intent intent = new Intent(this, ClassroomService.class);
+            intent.putExtra("userId", userId);
+            intent.putExtra("studentName", studentName);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+        } catch (Exception e) {
+            Log.e("MyProfileActivity", "启动ClassroomService失败", e);
         }
     }
 

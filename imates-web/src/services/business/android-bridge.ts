@@ -745,6 +745,7 @@ export class AndroidBridge {
             isProjecting?: boolean
             isGuest?: boolean
             userId?: string
+            secondsSinceLastHeartbeat?: number
             [key: string]: any
           } 
         }>(result, { 
@@ -762,10 +763,16 @@ export class AndroidBridge {
             studentName: '',
             localIp: '',
             tsStreamPort: 0,
-            status: data.isProjecting ? 'streaming' : 'ready'
+            status: data.isProjecting ? 'streaming' : 'ready',
+            secondsSinceLastHeartbeat: data.secondsSinceLastHeartbeat
           }
 
-          console.log('[Classroom][Bridge][Status] resp', { isInClass: status.isInClass, status: status.status, studentId: status.studentId })
+          console.log('[Classroom][Bridge][Status] resp', { 
+            isInClass: status.isInClass, 
+            status: status.status, 
+            studentId: status.studentId,
+            lastHb: status.secondsSinceLastHeartbeat
+          })
           return status
         }
         
