@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 助手聊天</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .chat-container { height: calc(100vh - 80px); }
+        .bubble-user { background: #6E55FF; color: white; border-radius: 18px 18px 2px 18px; }
+        .bubble-ai { background: #F3F4F6; color: #1F2937; border-radius: 18px 18px 18px 2px; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+
+<div class="max-w-2xl mx-auto bg-white shadow-xl min-h-screen flex flex-col">
+    <!-- 头部 -->
+    <header class="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <i class="fas fa-robot text-indigo-600 text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-gray-800">AI 学习助手</h1>
+                <p class="text-xs text-green-500 flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span> 在线
+                </p>
+            </div>
+        </div>
+        <button class="text-gray-400 hover:text-gray-600"><i class="fas fa-ellipsis-h"></i></button>
+    </header>
+
+    <!-- 聊天内容区域 -->
+    <main id="chat-box" class="chat-container flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        <!-- 默认消息 -->
+        <div class="flex items-start">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2 flex-shrink-0">
+                <i class="fas fa-robot text-indigo-500 text-xs"></i>
+            </div>
+            <div class="bubble-ai p-3 max-w-[80%] text-sm shadow-sm">
+                你好呀！我是你的 AI 助手。你可以问我任何关于学习的问题，也可以拍下不明白的地方发给我哦。😊
+            </div>
+        </div>
+    </main>
+
+    <!-- 预览区域 (选择图片后显示) -->
+    <div id="image-preview-container" class="hidden px-4 py-2 bg-white border-t border-gray-100 flex items-center">
+        <div class="relative">
+            <img id="image-preview" src="" class="w-20 h-20 object-cover rounded-lg border shadow-sm">
+            <button onclick="clearImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <footer class="bg-white p-4 border-t sticky bottom-0">
+        <div class="flex items-end space-x-3">
+            <!-- 拍照/选择图片按钮 -->
+            <button onclick="triggerFileInput()" class="mb-1 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors">
+                <i class="fas fa-camera text-xl"></i>
+            </button>
+            <input type="file" id="file-input" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
+
+            <!-- 文本框 -->
+            <div class="flex-1 bg-gray-100 rounded-2xl px-4 py-2 flex items-center">
+                <textarea id="text-input" 
+                    placeholder="输入问题..." 
+                    class="w-full bg-transparent border-none focus:ring-0 text-sm py-1 resize-none max-h-24"
+                    rows="1"
+                    oninput="autoResize(this)"></textarea>
+            </div>
+
+            <!-- 发送按钮 -->
+            <button onclick="handleSend()" class="mb-1 w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-md hover:bg-indigo-700 active:scale-95 transition-all">
+                <i class="fas fa-paper-plane text-sm"></i>
+            </button>
+        </div>
+    </footer>
+</div>
+
+<script>
+    const chatBox = document.getElementById('chat-box');
+    const textInput = document.getElementById('text-input');
+    const fileInput = document.getElementById('file-input');
+    const imagePreviewContainer = document.getElementById('image-preview-container');
+    const imagePreview = document.getElementById('image-preview');
+
+    let selectedImageBase64 = null;
+
+    // 自动调节文本框高度
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    // 触发文件选择
+    function triggerFileInput() {
+        fileInput.click();
+    }
+
+    // 处理文件选择/拍照
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedImageBase64 = e.target.result;
+                imagePreview.src = selectedImageBase64;
+                imagePreviewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // 清除选中的图片
+    function clearImage() {
+        selectedImageBase64 = null;
+        imagePreview.src = '';
+        imagePreviewContainer.classList.add('hidden');
+        fileInput.value = '';
+    }
+
+    // 发送消息处理
+    function handleSend() {
+        const text = textInput.value.trim();
+        if (!text && !selectedImageBase64) return;
+
+        // 1. 添加用户消息气泡
+        appendMessage('user', text, selectedImageBase64);
+
+        // 2. 清空输入
+        textInput.value = '';
+        textInput.style.height = 'auto';
+        clearImage();
+
+        // 3. 模拟 AI 回复
+        setTimeout(() => {
+            appendMessage('ai', '我收到你的提问啦！正在思考中...');
+        }, 1000);
+    }
+
+    // 将消息添加到界面
+    function appendMessage(sender, text, image = null) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+        
+        let contentHtml = '';
+        if (image) {
+            contentHtml += `<img src="${image}" class="rounded-lg mb-2 max-w-full border border-white/20">`;
+        }
+        if (text) {
+            contentHtml += `<div class="text-sm">${text}</div>`;
+        }
+
+        messageDiv.innerHTML = `
+            ${sender === 'ai' ? `
+                <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2 flex-shrink-0">
+                    <i class="fas fa-robot text-indigo-500 text-xs"></i>
+                </div>
+            ` : ''}
+            <div class="${sender === 'user' ? 'bubble-user' : 'bubble-ai'} p-3 max-w-[80%] shadow-sm">
+                ${contentHtml}
+            </div>
+        `;
+
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 监听 Enter 发送 (Shift+Enter 换行)
+    textInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    });
+</script>
+
+</body>
+</html>

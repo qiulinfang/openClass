@@ -97,6 +97,7 @@
       background-image: url('original_pic.png');
       background-size: 900px 470px;
       position: relative;
+      border: 0.5px solid rgba(255, 255, 255, 0.15);
     }
     .cell.swallow-origin-empty {
       background-image: none;
@@ -110,18 +111,18 @@
       height: 94px;
       background-image: url('original_pic.png');
       background-size: 900px 470px;
-      box-shadow: 0 0 0 1px #e03838, 0 0 14px rgba(224,56,56,0.65);
+      box-shadow: 0 0 0 1px rgba(224, 56, 56, 0.4), 0 0 18px rgba(224, 56, 56, 0.5);
       z-index: 10;
       transition: top 320ms cubic-bezier(0.4, 0, 0.2, 1),
                   left 320ms cubic-bezier(0.4, 0, 0.2, 1);
     }
     .swallow-piece.arrived {
-      box-shadow: 0 0 0 1px #2ecc71, 0 0 18px rgba(46,204,113,0.85);
+      box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.4), 0 0 22px rgba(46, 204, 113, 0.6);
       animation: arrivalPulse 0.55s ease 3;
     }
     @keyframes arrivalPulse {
-      0%,100% { box-shadow: 0 0 0 1px #2ecc71, 0 0 18px rgba(46,204,113,0.85); }
-      50%      { box-shadow: 0 0 0 3px #2ecc71, 0 0 28px rgba(46,204,113,1);   }
+      0%,100% { box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.4), 0 0 18px rgba(46, 204, 113, 0.5); }
+      50%      { box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.6), 0 0 28px rgba(46, 204, 113, 0.7);   }
     }
 
     /* ─── SVG Trail ─────────────────────────────────────── */
@@ -915,8 +916,8 @@
     const SWALLOW_START = { row: 1, col: 1 };
     const TARGET        = { row: 3, col: 5 };
 
-    // --- API Configuration (New) ---
-    const API_BASE = 'https://kelvin-cosin.cloud/test/api'; // 替换为真实的 Agent 地址
+    // --- API Configuration (New Proxy Mode) ---
+    const API_BASE = 'https://www.imates.com.cn/openclassSDSFSSE'; // 指向生产环境 Nginx 转发地址
     let THREAD_ID = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const USER_ID = 'kelvin';
     const CANVAS_ID = 'swallow_puzzle_1';
@@ -927,10 +928,9 @@
     const DISPLAY_NAME = userNameParam || USER_ID;
     console.log('[SDSF] 初始 DISPLAY_NAME:', DISPLAY_NAME);
 
-    let sseSource = null;
-    let lastKeepAlive = Date.now(); // 记录最后一次活跃时间
-    let isReconnecting = false; // 防止定时器和事件冲突
-    let manualClosed = false; // 记录是否是手动关闭，如果是，则停止所有自动重连
+    let pollTimer = null; // 轮询定时器
+    let currentCoachBubble = null; // 当前正在更新的教练气泡
+    let fullCoachContent = ""; // 当前正在积攒的回复内容
     let currentAbortController = null; // 用于取消正在进行的对话请求
     let selectedImages = []; // { file, previewUrl }
     let hasSentFirstImage = false; // 是否已发送过第一张图片
@@ -1255,32 +1255,6 @@
     // ═══════════════════════════════════════════════════════
     //  Network Status Monitoring (监听系统网络变化)
     // ═══════════════════════════════════════════════════════
-    window.addEventListener('online', () => {
-      console.log(`${getLogPrefix()} [系统] 网络已恢复 (online)`);
-      // 网络恢复时，如果当前是断开状态，尝试重连
-      if (!wsConnected) {
-        initCanvasSSE();
-      }
-    });
-
-    window.addEventListener('offline', () => {
-      console.log(`${getLogPrefix()} [系统] 网络已断开 (offline)`);
-      wsConnected = false;
-      updateSendButtonState();
-    });
-
-    // ═══════════════════════════════════════════════════════
-    //  Visibility Logic (仅记录状态，不主动重连)
-    // ═══════════════════════════════════════════════════════
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        const idleTime = now - lastKeepAlive;
-        
-        console.log(`${getLogPrefix()} [系统] 页面重回前台。当前状态: ${wsConnected ? '已连接' : '断开'}, 手动关闭: ${manualClosed}, 空闲时间: ${Math.round(idleTime/1000)}s`);
-      }
-    });
-
     // ═══════════════════════════════════════════════════════
     //  Playback State
     // ═══════════════════════════════════════════════════════
@@ -1309,69 +1283,90 @@
     }
 
     /**
-     * 初始化 SSE 连接接收指令
+     * 停止轮询
      */
-    function initCanvasSSE() {
-      // 1. 检查是否正在连接中或已经连接，防止重复创建
-      if (isReconnecting) {
-        console.log(`${getLogPrefix()} [SSE] 正在建立连接中，跳过重复请求`);
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    /**
+     * 初始化 轮询连接 接收画布指令
+     * 解决 Android WebView SSE 容易断开的问题
+     */
+    async function initCanvasSSE() {
+      if (pollTimer) {
+        console.log(`${getLogPrefix()} [Poll] 轮询已在运行中，跳过重复创建`);
         return;
       }
-      if (sseSource && sseSource.readyState === 1) {
-        console.log(`${getLogPrefix()} [SSE] 检查到已有活跃连接，跳过创建`);
-        wsConnected = true;
-        return;
+
+      console.log(`${getLogPrefix()} [Poll] 启动命令轮询模式`);
+      updateSendButtonState();
+
+      // 1. 告知代理服务器启动针对该 thread_id 的命令监听
+      try {
+        const startRes = await fetch(`${API_BASE}/api/proxy/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ thread_id: THREAD_ID })
+        });
+        const startData = await startRes.json();
+        console.log(`${getLogPrefix()} [Poll] 代理启动结果:`, startData);
+      } catch (err) {
+        console.error(`${getLogPrefix()} [Poll] 启动命令代理失败:`, err);
       }
 
-      // 2. 彻底清理旧连接
-      if (sseSource) {
-        console.log(`${getLogPrefix()} [SSE] 清理旧连接对象`);
-        sseSource.onopen = null;
-        sseSource.onmessage = null;
-        sseSource.onerror = null;
-        sseSource.close();
-        sseSource = null;
-      }
-
-      isReconnecting = true; // 锁定重连状态
-
-      const sseUrl = `${API_BASE}/canvas/sse/${THREAD_ID}`;
-      console.log(`${getLogPrefix()} [接口请求] SSE 建立连接: GET ${sseUrl}`);
-      sseSource = new EventSource(sseUrl);
-
-      sseSource.onopen = () => {
-        console.log(`${getLogPrefix()} [接口响应] SSE 连接成功 ✅`);
-        wsConnected = true;
-        isReconnecting = false; // 解锁
-        lastKeepAlive = Date.now(); // 关键修复：连接成功时立即刷新活跃时间，防止 Watchdog 误判
-        updateSendButtonState();
-      };
-
-      sseSource.onmessage = (e) => {
-        lastKeepAlive = Date.now(); // 刷新活跃时间
-        if (e.data === ': keepalive') return;
-        
-        console.log(`${getLogPrefix()} [接口数据] SSE 收到消息:`, e.data);
+      // 2. 每 1.5 秒请求一次后端获取增量命令
+      pollTimer = setInterval(async () => {
         try {
-          const data = JSON.parse(e.data);
-          if (data.cmd_id && data.command) {
-            handleCanvasCommand(data.cmd_id, data.command);
+          const pollUrl = `${API_BASE}/api/proxy/poll?thread_id=${THREAD_ID}`;
+          const response = await fetch(pollUrl);
+          const result = await response.json();
+
+          if (result.success && result.data && result.data.length > 0) {
+            result.data.forEach(frame => {
+              // 解析标准的 SSE 数据帧 (data: { ... })
+              const lines = frame.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    console.log(`${getLogPrefix()} [Poll] 解析到指令数据:`, data);
+                    
+                    // 仅处理画布指令
+                    if (data.cmd_id && data.command) {
+                      handleCanvasCommand(data.cmd_id, data.command);
+                    }
+                  } catch (e) {
+                    console.warn("[Poll] 解析指令帧失败:", e, line);
+                  }
+                }
+              }
+            });
           }
         } catch (err) {
-          console.error(`${getLogPrefix()} [SSE] 解析数据失败`, err, e.data);
+          console.error(`${getLogPrefix()} [Poll] 轮询请求失败:`, err);
         }
-      };
+      }, 1500);
+    }
 
-      sseSource.onerror = (e) => {
-        console.error(`${getLogPrefix()} [SSE] 连接错误或中断 (浏览器正在尝试原生重连...):`, e);
-        wsConnected = false;
-        isReconnecting = false;
-        updateSendButtonState();
-        
-        // 注意：这里不再 close sseSource，也不再手动调用 initCanvasSSE
-        // EventSource 内部会根据默认或服务器指定的 retry 时间自动重连
-        // 重连成功后，会自动触发上方的 sseSource.onopen 回调
-      };
+    /**
+     * SDSF 上报逻辑抽取
+     */
+    function handleSdsfReporting(history, isSuccess = false) {
+      if (!DISPLAY_NAME) return;
+      console.log(`${getLogPrefix()} [SDSF] 首次互动结束，上报状态 isSuccess: ${isSuccess}`);
+      fetch('https://www.imates.com.cn/openclassSDSF/api/sdsf/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: DISPLAY_NAME,
+          studentName: DISPLAY_NAME,
+          isSuccess: isSuccess 
+        })
+      }).catch(e => console.error('[SDSF] 上报失败:', e));
     }
 
     /**
@@ -1444,10 +1439,10 @@
     }
 
     /**
-     * 执行结果回调给 Agent
+     * 执行结果回调给 Agent (直连 AI 后端)
      */
     async function sendCallback(cmdId, status, message = '', data = {}) {
-      const url = `${API_BASE}/canvas/callback`;
+      const url = `https://kelvin-cosin.cloud/test/api/canvas/callback`;
       const body = {
         cmd_id: cmdId,
         status: status,
@@ -1597,16 +1592,10 @@
     }
 
     /**
-     * 发送用户对话内容到画布助手
+     * 发送用户对话内容到画布助手 (直连 AI 流式响应)
      */
     async function sendUserInput() {
       if (waitingResponse || playing) return;
-
-      // 发送前仅检查状态，不主动触发重连（交给 onerror 的自动重连机制）
-      if ((!wsConnected || !sseSource) && !manualClosed) {
-        console.log(`${getLogPrefix()} [系统] 发送消息前检测到连接异常，等待自动重连中...`);
-        return; // 或者根据业务决定是否拦截发送
-      }
 
       const text = document.getElementById('nlInput').value.trim();
       const hasImages = selectedImages.length > 0;
@@ -1637,7 +1626,7 @@
       waitingResponse = true;
       updateSendButtonState();
       showThinkingBubble();
-      let currentResponseIsRight = false;
+      let currentResponseIsRight = true;
 
       // 2. 上传图片（如果有）
       let imageUrls = [];
@@ -1648,7 +1637,6 @@
           imageUrls = await Promise.all(uploadPromises);
           console.log(`${getLogPrefix()} [上传成功] 图片 URLs:`, imageUrls);
           
-          // 如果是第一次发送图片，解锁输入框
           if (!hasSentFirstImage) {
             hasSentFirstImage = true;
             const overlay = document.getElementById('inputLockOverlay');
@@ -1664,7 +1652,8 @@
         }
       }
 
-      const url = `${API_BASE}/canvas_bot`;
+      // 3. 直连 AI 端点处理流式回复
+      const url = `https://kelvin-cosin.cloud/test/api/canvas_bot`;
       const body = {
         inputs: {
           message: text,
@@ -1682,10 +1671,7 @@
 
       console.log(`${getLogPrefix()} [接口请求] ChatBot 发送: POST ${url}`, body);
 
-      // 如果之前有正在进行的请求，先取消它
-      if (currentAbortController) {
-        currentAbortController.abort();
-      }
+      if (currentAbortController) currentAbortController.abort();
       currentAbortController = new AbortController();
 
       try {
@@ -1698,9 +1684,9 @@
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let coachBubble = null; // 用于本次对话的独立文字气泡
+        let coachBubble = null;
         let fullContent = "";
-        let hasReportedInThisTurn = false; // 标记本轮对话是否已经触发过 SDSF 上报
+        let hasReportedInThisTurn = false;
 
         console.log(`${getLogPrefix()} [接口响应] ChatBot 流式传输开始...`);
 
@@ -1716,29 +1702,31 @@
           
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              console.log(`${getLogPrefix()} [接口数据] ChatBot Chunk:`, line);
               try {
                 const data = JSON.parse(line.slice(6));
                 
                 // 1. 渲染文本内容
                 if (data.content) {
-                  const isSpecificAnswer = data.content.includes("the answer is right");
+                  const isRightAnswer = data.content.includes("the answer is right");
+                  const isWrongAnswer = data.content.includes("the answer is wrong");
                   const isBubbleBreak = data.content.toLowerCase().includes("bubble");
                   
-                  if (isSpecificAnswer) {
-                    console.log(`${getLogPrefix()} [Bot] 识别到特定判定内容，不进行渲染并标记成功`);
+                  if (isRightAnswer) {
                     currentResponseIsRight = true;
                     continue;
                   }
 
+                  if (isWrongAnswer) {
+                    currentResponseIsRight = false;
+                    continue;
+                  }
+
                   if (isBubbleBreak) {
-                    console.log('[Bot] 识别到 bubble 关键词，准备切分气泡');
                     fullContent = "";
                     coachBubble = null;
                   } else {
                     removeThinkingBubble();
                     fullContent += data.content;
-                    
                     if (!coachBubble) {
                       coachBubble = appendChatMessage('coach', fullContent, false);
                     } else {
@@ -1747,51 +1735,25 @@
                   }
                 }
 
-                // 2. 检查流是否应该结束 (根据 history_messages 或特定的结束标识)
-                if (data.history_messages && Array.isArray(data.history_messages) && data.history_messages.length > 0) {
-                   
-                   // --- 在整个流结束时，判定是否为整个会话的“第一次”交互 ---
-                   if (DISPLAY_NAME && !hasReportedInThisTurn) {
-                     console.log('[Bot] 收到历史消息，准备结束流接收并判定上报');
-                     hasReportedInThisTurn = true;
-                     
-                     // 如果 history_messages 的长度等于 2，说明这是本会话的【第一轮完整对话】(1条用户消息 + 1条AI消息)
-                     // 结构示例：[ {type: "human", ...}, {type: "ai", ...} ]
-                     if (data.history_messages.length === 2) {
-                       const isSuccess = currentResponseIsRight; // 只有在这第一轮对话中检测到关键词才算成功
-                       console.log(`${getLogPrefix()} [SDSF] 首次互动结束，上报状态 isSuccess: ${isSuccess}`);
-                       fetch('https://www.imates.com.cn/openclassSDSF/api/sdsf/submit', {
-                         method: 'POST',
-                         headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify({
-                           studentId: DISPLAY_NAME,
-                           studentName: DISPLAY_NAME,
-                           isSuccess: isSuccess 
-                         })
-                       }).catch(e => console.error('[SDSF] 首次互动上报失败:', e));
-                     } else {
-                       console.log(`${getLogPrefix()} [SDSF] 当前 history_messages 长度为 ${data.history_messages.length}，非首次互动，跳过上报`);
-                     }
-                   }
-                   // ---------------------------------------
+                // 2. SDSF 上报
+                if (data.history_messages && Array.isArray(data.history_messages) && !hasReportedInThisTurn) {
+                  if (data.history_messages.length === 2) {
+                    hasReportedInThisTurn = true;
+                    handleSdsfReporting(data.history_messages, currentResponseIsRight);
+                  }
                 }
               } catch (e) {}
             }
           }
         }
       } catch (err) {
-        if (err.name === 'AbortError') {
-          console.log(`${getLogPrefix()} [Bot] 旧请求已取消，停止后续渲染逻辑`);
-          return;
-        }
+        if (err.name === 'AbortError') return;
         console.error('[Bot] 请求失败', err);
         removeThinkingBubble();
         setStatus('llmStatus', 'err', '对话助手响应失败');
       } finally {
         waitingResponse = false;
         updateSendButtonState();
-
-        // 对话响应结束，自动触发处理指令队列
         processNextCommand();
       }
     }
@@ -1819,7 +1781,6 @@
     // ═══════════════════════════════════════════════════════
     //  Legacy WebSocket Logic (Replaced by API Layer)
     // ═══════════════════════════════════════════════════════
-    let wsConnected      = true;
     let waitingResponse  = false;
     let thinkingMsgEl    = null;
     let lastPlanJson     = null;
@@ -1961,7 +1922,7 @@
       if (!btn) return;
       const hasText = !!(input && input.value.trim());
       const hasImages = selectedImages.length > 0;
-      btn.disabled = !wsConnected || waitingResponse || (!hasText && !hasImages);
+      btn.disabled = waitingResponse || (!hasText && !hasImages);
     }
 
     // 处理输入框的回车键事件
@@ -2209,34 +2170,19 @@
 
       const glow = svgEl('circle');
       glow.id = 'trailGlow';
-      glow.setAttribute('fill', '#f0c040');
+      glow.setAttribute('fill', '#ffea00');
+      glow.setAttribute('r', '25');
+      glow.setAttribute('opacity', '0.3');
       glow.style.display = 'none';
-      const ga1 = svgEl('animate');
-      ga1.setAttribute('attributeName', 'r');
-      ga1.setAttribute('values', '9;15;9');
-      ga1.setAttribute('dur', '1.1s');
-      ga1.setAttribute('repeatCount', 'indefinite');
-      const ga2 = svgEl('animate');
-      ga2.setAttribute('attributeName', 'opacity');
-      ga2.setAttribute('values', '0.38;0;0.38');
-      ga2.setAttribute('dur', '1.1s');
-      ga2.setAttribute('repeatCount', 'indefinite');
-      glow.appendChild(ga1);
-      glow.appendChild(ga2);
       svg.appendChild(glow);
 
       const dot = svgEl('circle');
       dot.id = 'trailLiveDot';
-      dot.setAttribute('fill', '#f0c040');
+      dot.setAttribute('fill', '#ffea00');
       dot.setAttribute('stroke', '#fff');
-      dot.setAttribute('stroke-width', '1.5');
+      dot.setAttribute('stroke-width', '4');
+      dot.setAttribute('r', '12');
       dot.style.display = 'none';
-      const da = svgEl('animate');
-      da.setAttribute('attributeName', 'r');
-      da.setAttribute('values', '5;8;5');
-      da.setAttribute('dur', '1.1s');
-      da.setAttribute('repeatCount', 'indefinite');
-      dot.appendChild(da);
       svg.appendChild(dot);
     }
 
@@ -2278,22 +2224,45 @@
       const cur = cornerPixel(pos.row, pos.col, c);
       const pts = [...trail, cur];
       if (pts.length > 1) {
+        // 底层加粗实线 (半透明光晕效果)
+        const bg = svgEl('polyline');
+        bg.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+        bg.setAttribute('fill', 'none');
+        bg.setAttribute('stroke', '#ffea00');
+        bg.setAttribute('stroke-width', '8');
+        bg.setAttribute('opacity', '0.3');
+        bg.style.filter = 'blur(4px)';
+        hist.appendChild(bg);
+
+        // 主路径线条
         const pl = svgEl('polyline');
         pl.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
         pl.setAttribute('fill', 'none');
-        pl.setAttribute('stroke', '#f0c040');
-        pl.setAttribute('stroke-width', '2');
-        pl.setAttribute('stroke-dasharray', '5,4');
-        pl.setAttribute('opacity', '0.62');
+        pl.setAttribute('stroke', '#ffea00');
+        pl.setAttribute('stroke-width', '5');
+        pl.setAttribute('stroke-dasharray', '12,8');
+        pl.setAttribute('stroke-linecap', 'round');
+        pl.setAttribute('opacity', '1');
+        pl.style.filter = 'drop-shadow(0 0 8px rgba(255, 234, 0, 0.8))';
         hist.appendChild(pl);
       }
 
       trail.forEach(p => {
+        // 节点底光
+        const dg = svgEl('circle');
+        dg.setAttribute('cx', p.x); dg.setAttribute('cy', p.y);
+        dg.setAttribute('r', '10');
+        dg.setAttribute('fill', '#ffea00');
+        dg.setAttribute('opacity', '0.2');
+        hist.appendChild(dg);
+
         const d = svgEl('circle');
         d.setAttribute('cx', p.x); d.setAttribute('cy', p.y);
-        d.setAttribute('r', '3');
-        d.setAttribute('fill', '#f0c040');
-        d.setAttribute('opacity', '0.38');
+        d.setAttribute('r', '7');
+        d.setAttribute('fill', '#ffea00');
+        d.setAttribute('stroke', '#fff');
+        d.setAttribute('stroke-width', '1.5');
+        d.setAttribute('opacity', '1');
         hist.appendChild(d);
       });
     }
@@ -2500,15 +2469,8 @@
         currentAbortController = null;
       }
 
-      // 2. 彻底断开旧连接，确保绕过 initCanvasSSE 的活跃检查
-      if (sseSource) {
-        console.log(`${getLogPrefix()} [Session] 手动重置，关闭旧 SSE`);
-        sseSource.onopen = null;
-        sseSource.onmessage = null;
-        sseSource.onerror = null;
-        sseSource.close();
-        sseSource = null;
-      }
+      // 2. 彻底断开旧轮询连接
+      stopPolling();
 
       stopPlay(false);
 
@@ -2525,6 +2487,8 @@
       activeCorner = null;
       pendingCommands = [];
       currentExecutingCommand = null;
+      currentCoachBubble = null;
+      fullCoachContent = "";
 
       document.getElementById('successBanner').classList.remove('visible');
       document.getElementById('swallowPiece').classList.remove('arrived');
@@ -2534,7 +2498,7 @@
       
       _enableSendBtn();
 
-      // 5. 重新建立全新的 SSE 连接
+      // 5. 重新建立全新的轮询连接
       initCanvasSSE();
       
       // 重置引导锁定状态
@@ -2657,6 +2621,6 @@
     })();
   </script>
   <!-- 版本标识 -->
-  <div style="position: fixed; bottom: 2px; right: 4px; font-size: 9px; color: #94a3b8; opacity: 0.2; pointer-events: none; z-index: 9999; font-family: monospace;">v1.0.82-native</div>
+  <div style="position: fixed; bottom: 2px; right: 4px; font-size: 9px; color: #94a3b8; opacity: 0.2; pointer-events: none; z-index: 9999; font-family: monospace;">v1.0.83-native</div>
 </body>
 </html>

@@ -94,6 +94,7 @@ export const ADDRESS_CATALOG = {
   ZAMMAD_API: 'http://app.imates.com.cn:8080',
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
   OPEN_CLASS_API: 'https://www.imates.com.cn/openclass',
+  OPEN_CLASS_SSE_PROXY: 'https://www.imates.com.cn/openclassSDSFSSE',
 } as const
 
 // localStorage 键名

@@ -43,6 +43,7 @@
               燕子互动
             </button>
             <button
+              v-if="showBasketballTab"
               class="sdsf-tab-btn"
               :class="{ active: activeMiniClassTab === 'basketball' }"
               @click="switchMiniClass('basketball')"
@@ -117,6 +118,17 @@ const aiGeneralStore = useAiGeneralChatStore()
 
 const uiStore = useUIStore()
 const userInfo = computed(() => getUserInfo())
+
+// 篮球拼图标签显示筛选逻辑：账号尾部数字满足 (n-1) % 4 === 0
+const showBasketballTab = computed(() => {
+  if (!userInfo.value) return false
+  const account = userInfo.value.userId || userInfo.value.name || ''
+  const match = account.match(/\d+$/)
+  if (!match) return false
+  const num = parseInt(match[0], 10)
+  return (num - 1) % 4 === 0
+})
+
 const showMiniClassDialog = computed({
   get: () => uiStore.showMiniClassDialog,
   set: (value) => {

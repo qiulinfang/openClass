@@ -11,6 +11,9 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 app.use(cors());
 app.use(bodyParser.json());
 
+// 日志助手
+const log = (msg) => console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+
 // 数据存储
 let studentRecords = [];
 try {
@@ -51,6 +54,7 @@ const saveToDisk = async () => {
  */
 app.post('/api/sdsf/submit', (req, res) => {
     const { studentName, studentId, timestamp, isSuccess } = req.body;
+    log(`[Submit] New submission from ${studentName} (${studentId}). Success: ${isSuccess}`);
     
     const record = {
         studentName,
@@ -82,6 +86,7 @@ app.post('/api/sdsf/submit', (req, res) => {
  * 2. 获取统计数据
  */
 app.get('/api/sdsf/stats', (req, res) => {
+    log(`[Stats] Statistics requested. Total records: ${studentRecords.length}`);
     // 返回所有学生，包含成功状态
     res.json({
         success: true,
@@ -96,6 +101,7 @@ app.get('/api/sdsf/stats', (req, res) => {
  * 3. 清除所有数据
  */
 app.post('/api/sdsf/clear', (req, res) => {
+    log(`[Clear] Data clear requested.`);
     studentRecords = [];
     saveToDisk();
     console.log(`[SDSF] Data cleared.`);
