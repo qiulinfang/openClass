@@ -54,7 +54,11 @@ watch(() => props.modelValue, (newVal) => {
 
 // 解析题干，将括号拆分为输入框
 const parsedParts = computed(() => {
-  const stem = props.question.structuredContent?.stem || props.question.title || ''
+  const isChoice = props.question.type === 'single_choice' || props.question.type === 'multiple_choice'
+  const stem = (!isChoice && props.question.questionContent)
+    ? props.question.questionContent
+    : (props.question.structuredContent?.stem || props.question.title || '')
+    
   const regex = /(\(|\uff08)\s*(\)|\uff09)/g
   const parts: Array<{ type: 'text' | 'blank', content?: string, blankIndex: number }> = []
   

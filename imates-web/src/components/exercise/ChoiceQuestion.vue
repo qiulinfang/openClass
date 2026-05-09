@@ -50,18 +50,37 @@ const { renderMessageContent } = useMessageRenderer()
 const options = computed(() => props.question.structuredContent?.options || [])
 
 const isSelected = (label: string) => props.modelValue?.includes(label)
-const isCorrect = (label: string) => props.question.answer === label
+const isCorrect = (label: string) => {
+  const answer = props.question.answer
+  if (Array.isArray(answer)) {
+    return answer.includes(label)
+  }
+  // 某些情况下后端可能返回 "C,D" 格式
+  if (typeof answer === 'string' && answer.includes(',')) {
+    return answer.split(',').map((s) => s.trim()).includes(label)
+  }
+  return answer === label
+}
 
 const handleSelect = (label: string) => {
   if (props.disabled) return // 禁用交互
-  
+
   let newValue = [...(props.modelValue || [])]
   const index = newValue.indexOf(label)
   if (index > -1) {
     newValue.splice(index, 1)
   } else {
-    // 假设目前只有单选
-    newValue = [label]
+    // 判断是否为多选题
+    const isMultiple =
+      props.question.type === 'multiple_choice' ||
+      props.question.structuredContent?.type === 'multiple_choice'
+
+    if (isMultiple) {
+      newValue.push(label)
+      newValue.sort() // 排序以保持一致性
+    } else {
+      newValue = [label]
+    }
   }
   emit('update:modelValue', newValue)
   emit('change', newValue)

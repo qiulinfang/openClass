@@ -271,6 +271,8 @@ export interface HomeworkQuestionDetail {
   questionAnswer?: string
   /** 问题解析 */
   questionAnalysis?: string
+  /** 结构化数据 (JSON string) */
+  questionStructureData?: string
 }
 
 // ========== 手写公式识别 API ==========

@@ -338,6 +338,8 @@ onUnmounted(() => {
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
+import { mapHomeworkQuestionToExercise } from '@/utils/business/exercise-utils'
+
 // 这里 item 来自 displayHomeworkList 计算属性
 const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
   // 获取作业详情以获取题目列表
@@ -345,36 +347,15 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
     const questionDetails = await apiService.getHomeworkDetailList(item.id)
 
     if (questionDetails && questionDetails.length > 0) {
-      const normalizeQuestionContent = (content?: string) => {
-        // main: / main：
-        // c1: c2: c3: 题干...
-        // gc1_of_c1: gc1_of_c2: 题干...
-        if (!content) return ''
-        const withoutMain = content.replace(/^\s*main\s*[:：]\s*/i, '')
-        return withoutMain.replace(/^\s*(?:(?:[a-z]+[a-z0-9_]*?)\s*[:：]\s*)+/i, '')
-      }
-
       // 将题目列表存入 homeworkStore
       const exerciseItems: ExerciseItem[] = questionDetails.map((question: HomeworkQuestionDetail, index: number) => {
-        const bmNo = question.questionId || String(index + 1)
-        const questionContent = normalizeQuestionContent(question.questionContent)
-
-        const merged = {
-          id: question.questionId,
-          bmNo,
-          title: questionContent,
-          question: questionContent,
-          answer: question.questionAnswer || '',
-          explanation: question.questionAnalysis || '',
-          subject: item.homework.subject,
-        }
-
-        return merged as unknown as ExerciseItem
+        return mapHomeworkQuestionToExercise(question, index, item.homework.subject)
       })
 
       homeworkStore.setQuestions(exerciseItems)
-      // 记录当前这份作业的名称，供 HomeworkAnswerView 使用
+      // 记录当前这份作业的名称和允许重复提交类型，供 HomeworkAnswerView 使用
       homeworkStore.setHomeworkName(item.homework.title)
+      homeworkStore.setResubmitType(item.homework.resubmit || '0')
 
       router.push({
         name: 'homeworkAnswer',

@@ -7,6 +7,26 @@ import type { AllSubjectType } from '@/constants/subjects'
 
 // ========== 基础题目类型 ==========
 
+/** 结构化题目选项 */
+export interface StructuredOption {
+  label: string
+  text: string
+}
+
+/** 结构化题目内容 */
+export interface StructuredQuestionContent {
+  id?: string
+  subject?: string
+  score?: number
+  type?: string
+  stem: string
+  analysis?: string
+  options?: StructuredOption[]
+  answer?: string | string[]
+  blanks?: number
+  judgmentResult?: boolean
+}
+
 /** 练习题目接口 */
 export interface ExerciseItem {
   id: string
@@ -17,7 +37,13 @@ export interface ExerciseItem {
   explanation: string // aiExplanation
   analysisData: string // answerAnalysis
   subject?: string // 科目
+  type?: string // 题目类型 (choice, fill, judgment, essay)
+  questionContent?: string // 完整题目内容 (包含图片和文字)
   
+  // 结构化相关
+  questionStructureData?: string
+  structuredContent?: StructuredQuestionContent
+
   // 显示相关属性
   atUserList?: boolean
   isAiGuiding?: boolean

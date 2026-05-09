@@ -54,7 +54,8 @@ const { renderMessageContent } = useMessageRenderer()
 
 const typeLabel = computed(() => {
   const map: Record<string, string> = {
-    choice: '选择题',
+    single_choice: '单选题',
+    multiple_choice: '多选题',
     fill: '填空题',
     judgment: '判断题',
     essay: '问答题'
@@ -63,6 +64,11 @@ const typeLabel = computed(() => {
 })
 
 const stemRaw = computed(() => {
+  // 综合题或其他非选择题，优先使用完整内容 questionContent
+  const isChoice = props.question.type === 'single_choice' || props.question.type === 'multiple_choice'
+  if (!isChoice && props.question.questionContent) {
+    return props.question.questionContent
+  }
   return props.question.structuredContent?.stem || props.question.question || props.question.title || ''
 })
 

@@ -188,7 +188,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       id: '10232',
       bmNo: '10232',
       title: '【基础题】下列说法正确的是（ ）',
-      type: 'choice',
+      type: 'single_choice',
       structuredContent: {
         stem: '下列说法正确的是',
         options: [
@@ -207,7 +207,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       id: '10233',
       bmNo: '10233',
       title: '【基础题】下列数中，不是负数的是（ ）',
-      type: 'choice',
+      type: 'single_choice',
       structuredContent: {
         stem: '下列数中，不是负数的是',
         options: [
@@ -254,7 +254,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       id: '10234',
       bmNo: '10234',
       title: '【基础题】数轴上，正方向通常约定为（ ）',
-      type: 'choice',
+      type: 'single_choice',
       structuredContent: {
         stem: '数轴上，正方向通常约定为',
         options: [
@@ -275,7 +275,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       id: '10241',
       bmNo: '10241',
       title: '【提升题】下列各组中，属于相反意义的量的是（ ）',
-      type: 'choice',
+      type: 'single_choice',
       structuredContent: {
         stem: '下列各组中，属于相反意义的量的是',
         options: [
@@ -294,7 +294,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       id: '10242',
       bmNo: '10242',
       title: '【提升题】在数轴上，-2和1之间的整数有（ ）个',
-      type: 'choice',
+      type: 'single_choice',
       structuredContent: {
         stem: '在数轴上，-2和1之间的整数有',
         options: [
@@ -329,7 +329,7 @@ export const CLASSROOM_EXERCISE: HomeworkMockData = {
       id: '10246',
       bmNo: '10246',
       title: '【拓展题】关于数轴的画法，下列说法正确的是（ ）',
-      type: 'choice',
+      type: 'single_choice',
       structuredContent: {
         stem: '关于数轴的画法，下列说法正确的是',
         options: [

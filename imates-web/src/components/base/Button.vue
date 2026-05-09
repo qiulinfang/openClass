@@ -6,7 +6,7 @@ const props = defineProps<{
   loading?: boolean
   disabled?: boolean
   size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success'
   icon?: string
   type?: 'button' | 'submit' | 'reset'
 }>()
@@ -187,6 +187,17 @@ const handleClick = (evt: MouseEvent) => {
 
 .common-action-btn--danger:hover:not(:disabled) {
   background-color: #ee5a5a;
+}
+
+/* 成功/完成按钮样式 */
+.common-action-btn--success {
+  background-color: #10b981;
+  color: #ffffff;
+  border: none;
+}
+
+.common-action-btn--success:hover:not(:disabled) {
+  background-color: #059669;
 }
 
 .common-action-btn--expired {
