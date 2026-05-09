@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ExerciseItem, HomeworkUndoItem } from '../types'
 import { saveQuestionsToIndexedDB } from '../services/storage/question-storage'
+import { saveHomeworkSubmission, loadHomeworkSubmission } from '../services/storage/homework-storage'
 import { showMessage } from '@/utils'
 import { apiService } from '@/services/http/api-service'
 
@@ -25,6 +26,9 @@ export const useHomeworkStore = defineStore('homework', () => {
   
   /** 当前作业名称（来自 MyHomeworkView 选中的那份作业） */
   const homeworkName = ref('')
+
+  /** 当前作业是否允许重复提交：'0' 不允许，'1' 允许 */
+  const resubmitType = ref('0')
 
   /** 每道题的作答数据缓存：key = 题目唯一标识，value = DrawingBoard.saveData() 返回的数据 */
   const answerDataCache = ref<Record<string, unknown>>({})
@@ -52,6 +56,13 @@ export const useHomeworkStore = defineStore('homework', () => {
    */
   const setHomeworkName = (name: string): void => {
     homeworkName.value = name
+  }
+
+  /**
+   * 设置当前作业的重复提交类型
+   */
+  const setResubmitType = (type: string): void => {
+    resubmitType.value = type
   }
 
   /**
@@ -152,6 +163,49 @@ export const useHomeworkStore = defineStore('homework', () => {
     homeworkListCache.value.clear()
     console.log('[HOMEWORK] 🗑️ 已清空作业列表缓存')
   }
+
+  /**
+   * 保存当前作业的所有内容到 IndexedDB
+   */
+  const saveCurrentHomeworkSubmission = async (homeworkId: string, isSubmitted: boolean): Promise<void> => {
+    if (!homeworkId) return
+    
+    try {
+      await saveHomeworkSubmission({
+        homeworkId,
+        homeworkName: homeworkName.value,
+        isSubmitted,
+        answerDataCache: answerDataCache.value,
+        questions: questions.value
+      })
+      console.log('[HOMEWORK] 💾 已持久化作业提交数据', { homeworkId, isSubmitted })
+    } catch (error) {
+      console.error('[HOMEWORK] ❌ 持久化作业提交数据失败:', error)
+    }
+  }
+
+  /**
+   * 从 IndexedDB 加载指定作业的内容
+   */
+  const loadHomeworkSubmissionFromDB = async (homeworkId: string): Promise<{ isSubmitted: boolean } | null> => {
+    if (!homeworkId) return null
+    
+    try {
+      const data = await loadHomeworkSubmission(homeworkId)
+      if (data) {
+        answerDataCache.value = data.answerDataCache
+        homeworkName.value = data.homeworkName
+        if (data.questions && data.questions.length > 0) {
+          questions.value = data.questions
+        }
+        console.log('[HOMEWORK] 📦 已从 IndexedDB 加载作业数据', { homeworkId })
+        return { isSubmitted: data.isSubmitted }
+      }
+    } catch (error) {
+      console.error('[HOMEWORK] ❌ 从 IndexedDB 加载作业数据失败:', error)
+    }
+    return null
+  }
   
   /**
    * 清空指定条件的作业列表缓存
@@ -176,6 +230,18 @@ export const useHomeworkStore = defineStore('homework', () => {
     console.log('[HOMEWORK] 🗑️ 已清空指定条件的缓存', { date, subject, deletedCount: keysToDelete.length })
   }
   
+  /**
+   * 重置作业作答相关状态
+   */
+  const resetAnswerState = (): void => {
+    questions.value = []
+    currentQuestionIndex.value = -1
+    homeworkName.value = ''
+    resubmitType.value = '0'
+    answerDataCache.value = {}
+    console.log('[HOMEWORK] 🧹 已重置作业作答状态')
+  }
+  
   // ==================== 返回接口 ====================
   
   return {
@@ -183,6 +249,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     questions,
     currentQuestionIndex,
     homeworkName,
+    resubmitType,
     answerDataCache,
     homeworkListCache,
     
@@ -193,11 +260,15 @@ export const useHomeworkStore = defineStore('homework', () => {
     // 方法
     selectQuestion,
     setHomeworkName,
+    setResubmitType,
     setQuestions,
     deduplicateQuestions,
     clearCurrentQuestion,
     fetchHomeworkList,
     clearHomeworkListCache,
-    clearHomeworkListCacheByCondition
+    clearHomeworkListCacheByCondition,
+    saveCurrentHomeworkSubmission,
+    loadHomeworkSubmissionFromDB,
+    resetAnswerState
   }
 })

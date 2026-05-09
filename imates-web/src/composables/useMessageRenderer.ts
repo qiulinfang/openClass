@@ -135,7 +135,17 @@ export function useMessageRenderer() {
         .replace(/&amp;/g, '&')
 
       // 5. 预处理 Markdown 标题（容错：允许标题标记不在行首时自动换行）
+      //    同时处理 HTML 标签前面的缩进问题，防止被识别为 Markdown 代码块
       const preprocessedMarkdown = preprocessMarkdownHeadings(unescaped)
+        .split('\n')
+        .map(line => {
+          // 如果一行是以 < 符号开始（前面只有空格），则去掉前面的空格，防止被误判为代码块
+          if (/^\s*<[a-zA-Z]/.test(line)) {
+            return line.trimStart()
+          }
+          return line
+        })
+        .join('\n')
 
       // 6. 预处理LaTeX公式格式
       const processedContent = preprocessLatexFormats(preprocessedMarkdown)
