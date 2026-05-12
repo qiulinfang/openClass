@@ -19,6 +19,7 @@ local.properties
 .pnpm
 .idea
 .vscode
+imates-next
 项目文档
 node_modules
 webapp
