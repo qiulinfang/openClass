@@ -365,14 +365,12 @@ const handleSwitchToTeacher = (forwardData: any) => {
 
 // 处理点击预设问题发送
 const handleSuggestionSendMessage = (suggestion: string) => {
-  const questionContent = props.question?.question || props.question?.title || ''
-  // 拼接 题目内容 + 预设问题
-  const combinedMessage = questionContent ? `${questionContent}\n\n${suggestion}` : suggestion
-  
   if (chatViewRef.value) {
     const chatView = chatViewRef.value as any
-    // 先设置输入框内容，再触发发送
-    chatView.inputMessage = combinedMessage
+    // 发送给 AI 的内容（Store 会自动拼接题目上下文，所以这里只传建议语即可）
+    chatView.inputMessage = suggestion
+    // 前端气泡显示的内容
+    chatView.inputDisplayContent = suggestion
     chatView.sendMessage()
   }
 }
@@ -386,8 +384,10 @@ const sendQuestion = async (question: ExerciseItem) => {
   if (content && chatViewRef.value) {
     console.log('[HomeworkChatPanel] 正在发送题目给 AI:', question.bmNo)
     const chatView = chatViewRef.value as any
-    // 先设置输入框内容，再触发发送
+    // 发送给 AI 的内容（Store 会自动拼接题目详情到 coversation）
     chatView.inputMessage = content
+    // 前端气泡显示题目内容
+    chatView.inputDisplayContent = content
     chatView.sendMessage()
   }
 }

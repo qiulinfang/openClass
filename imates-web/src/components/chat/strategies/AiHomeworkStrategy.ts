@@ -90,6 +90,7 @@ export class AiHomeworkStrategy implements ChatStrategy {
       options.imageData,
       options.imageList,
       options.focus,
+      options.displayContent,
     )
   }
   

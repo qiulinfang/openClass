@@ -307,6 +307,7 @@ import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
+import { useAiHomeworkChatStore } from '@/stores/aiHomeworkChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { getApiPaths } from '@/config/env-config'
 import { useQuestionStore } from '../../stores/questionStore'
@@ -417,6 +418,7 @@ const pendingDeleteMessageId = ref<string | null>(null)
 const aiExerciseStore = useAiExerciseChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
+const aiHomeworkStore = useAiHomeworkChatStore()
 const teacherStore = useTeacherChatStore()
 const questionStore = useQuestionStore()
 const homeworkStore = useHomeworkStore()
@@ -545,6 +547,15 @@ const handleRetry = async () => {
           props.message.id,
           props.message.selectedModel || 'mate',
           props.message.imageData,
+        )
+        break
+      case 'ai-homework':
+        await aiHomeworkStore.retryMessage(
+          props.message.id,
+          userInfo,
+          subject,
+          currentQuestion.value,
+          props.message.selectedModel || 'mate'
         )
         break
       case 'teacher':
@@ -964,7 +975,7 @@ const confirmDelete = async () => {
   }
 }
 
-// 处理刷新
+// 处理刷新按钮点击
 const handleRefresh = async () => {
   if (props.message.isStreaming) {
     return
@@ -992,6 +1003,9 @@ const handleRefresh = async () => {
       break
       case 'ai-textbook':
         storeMessages = aiTextbookStore.messages
+      break
+    case 'ai-homework':
+        storeMessages = aiHomeworkStore.messages
       break
       case 'teacher':
       storeMessages = teacherStore.messages
@@ -1060,7 +1074,7 @@ const handleRefresh = async () => {
 
     // 调试信息已移除
 
-  // 使用用户消息的内容重新发送
+  // 执行刷新逻辑
   try {
     isRetrying.value = true
     const subject = getSubject() as 'MATH' | 'BIOLOGY'
@@ -1117,6 +1131,21 @@ const handleRefresh = async () => {
           true, // skipUserMessage: true，跳过创建用户消息
           undefined,
           undefined,
+        )
+        break
+      case 'ai-homework':
+        // 先删除当前的 AI 消息
+        const aiHwIndex = storeMessages.findIndex((msg) => msg.id === props.message.id)
+        if (aiHwIndex >= 0) {
+          storeMessages.splice(aiHwIndex, 1)
+        }
+        await aiHomeworkStore.sendMessage(
+          userMessage.content,
+          userInfo,
+          subject,
+          currentQuestion.value,
+          props.message.selectedModel || 'mate',
+          true, // skipUserMessage: true，跳过创建用户消息
         )
         break
       case 'teacher':

@@ -41,12 +41,39 @@ const buildAiHomeworkMessage = (
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
   const dstUrl = useScreenshotApi ? getApiPaths().xueban.ai.previewPictureQA : getApiPaths().xueban.ai.chats
   
+  // 合并所有上下文到 coversation 字段
+  const fullContext = (() => {
+    const parts = []
+    
+    // 1. 题目与选项
+    let q = question?.question || ''
+    if (question?.structuredContent?.options && question.structuredContent.options.length > 0) {
+      const optionsStr = question.structuredContent.options
+        .map(opt => `${opt.label}. ${opt.text}`)
+        .join('\n')
+      q += `\n\n选项：\n${optionsStr}`
+    }
+    if (q) parts.push(`【题目】\n${q}`)
+
+    // 2. 答案
+    if (question?.answer) parts.push(`【答案】\n${question.answer}`)
+
+    // 3. 解析
+    const exp = question?.explanation || question?.analysisData || ''
+    if (exp) parts.push(`【解析】\n${exp}`)
+
+    // 4. 用户提问
+    if (content) parts.push(`【用户提问】\n${content}`)
+
+    return parts.join('\n\n')
+  })()
+
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
     newValue,
-    coversation: content,
-    question: question?.question || '',
-    answer: question?.answer || '',
+    coversation: fullContext,
+    question: '',
+    answer: '',
     name: getUserId() || 'User',
     reason: 'start',
     bmNo: question?.bmNo || finalSessionId,
@@ -54,7 +81,7 @@ const buildAiHomeworkMessage = (
     role: chatRole,
     subject: '',
     dstUrl,
-    explanation: question?.explanation || '',
+    explanation: '',
     imageList: imageList && imageList.length > 0 ? imageList : undefined,
     focus,
   }
@@ -113,6 +140,8 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
   })
 
   const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
+
+  const retryHelper = useChatRetry({ maxRetries: 3 })
 
   /**
    * 从消息列表中提取快照信息用于卡片展示
@@ -199,6 +228,70 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     }
   }
 
+  /**
+   * 删除消息
+   */
+  const deleteMessage = async (messageId: string): Promise<void> => {
+    try {
+      const index = messages.value.findIndex(m => m.id === messageId)
+      if (index === -1) return
+
+      const msg = messages.value[index]
+      if (msg.sender === Sender.USER) {
+        messages.value = messages.value.slice(0, index)
+      } else {
+        // 向前寻找最近的一个用户消息索引
+        let lastUserIndex = -1
+        for (let i = index - 1; i >= 0; i--) {
+          if (messages.value[i].sender === Sender.USER) {
+            lastUserIndex = i
+            break
+          }
+        }
+        
+        if (lastUserIndex !== -1) {
+          messages.value = messages.value.slice(0, lastUserIndex)
+        } else {
+          messages.value = messages.value.slice(0, index)
+        }
+      }
+      await saveChatHistory()
+    } catch (error) {
+      console.error('[AI_HOMEWORK_STORE] 删除消息失败:', error)
+    }
+  }
+
+  /**
+   * 重试消息
+   */
+  const retryMessage = async (
+    messageId: string,
+    userInfo: UserInfo | null,
+    subject: 'MATH' | 'BIOLOGY',
+    question: ExerciseItem | null,
+    selectedModel: string = 'mate'
+  ): Promise<void> => {
+    await retryHelper.retryByDeleteAndResend({
+      ctx: {
+        messages,
+        deleteMessage,
+      },
+      messageId,
+      selectedModel,
+      resend: async ({ originalContent, quotedMessage, selectedModel: model }) => {
+        await sendMessage(
+          originalContent,
+          userInfo,
+          subject,
+          question,
+          model || selectedModel,
+          false,
+          quotedMessage,
+        )
+      },
+    })
+  }
+
   const sendMessage = async (
     content: string,
     userInfo: UserInfo | null,
@@ -210,15 +303,16 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     imageData?: ChatImageData,
     imageList?: ChatImageData[],
     focus?: HtmlPreviewFocus,
+    displayContent?: string,
   ): Promise<void> => {
     if (!currentSession.value) {
-      await createSession(content)
+      await createSession(displayContent || content)
     }
     
     if (!skipUserMessage) {
       const userMessage: ChatBubble = {
         id: Date.now().toString(),
-        content,
+        content: displayContent || content,
         type: Sender.USER,
         timestamp: new Date().toISOString(),
         sender: Sender.USER,
@@ -351,6 +445,8 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     inputAttachedScreenshots,
     inputScreenshotDrawingStates,
     sendMessage,
+    deleteMessage,
+    retryMessage,
     setQuestionContext,
     createSession,
     switchSession,

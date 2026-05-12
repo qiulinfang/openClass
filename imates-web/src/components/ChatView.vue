@@ -1145,7 +1145,8 @@ const addSessionCard = (cardData?: Record<string, unknown>) => {
 }
 
 // 基础状态变量
-const inputMessage = ref('') // 输入框内容
+const inputMessage = ref('')
+const inputDisplayContent = ref<string | undefined>(undefined) // 输入框内容
 const isLoading = ref(false) // 消息发送加载状态
 const isRecording = ref(false) // 语音录制状态
 const quotedMessage = ref<ChatBubble | null>(null) // 引用的消息
@@ -1958,7 +1959,9 @@ const sendMessage = async (attachedFile?: File) => {
       imageData: imageDataForApi,
       imageList: imageListForApi,
       focus: focusForApi,
+      displayContent: inputDisplayContent.value,
     })
+    inputDisplayContent.value = undefined
     await scrollToBottom()
     emit('response')
   } catch (error) {

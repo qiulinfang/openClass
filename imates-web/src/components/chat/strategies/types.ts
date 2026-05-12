@@ -26,6 +26,8 @@ export interface SendMessageOptions {
     content: string
     sender: 'user' | 'ai' | 'teacher'
   }
+  // 用于 UI 显示的内容，如果不传则使用 content
+  displayContent?: string
 }
 
 /**
