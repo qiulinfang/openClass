@@ -15,7 +15,7 @@
           v-if="
             displayedMessages.length === 0 &&
             !(chatStrategy?.isChatLoading?.() ?? false) &&
-            type === 'ai-exercise'
+            (type === 'ai-exercise' || type === 'ai-homework')
           "
           :class="[
             'empty-chat-state',
@@ -446,7 +446,7 @@ import { findLastUserMessageIndex } from './chat/messageActionVisibility'
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(
   defineProps<{
-    type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
+    type: 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client'
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)

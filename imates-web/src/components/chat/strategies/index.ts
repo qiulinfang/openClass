@@ -5,6 +5,7 @@
 export type { ChatStrategy, ChatViewInterface } from './ChatStrategy'
 export { AiGeneralStrategy } from './AiGeneralStrategy'
 export { AiExerciseStrategy } from './AiExerciseStrategy'
+export { AiHomeworkStrategy } from './AiHomeworkStrategy'
 export { AiTextbookStrategy } from './AiTextbookStrategy'
 export { TeacherStrategy } from './TeacherStrategy'
 export { ChatStrategyFactory, type ChatType } from './ChatStrategyFactory'

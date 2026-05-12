@@ -8,10 +8,11 @@ import type { TeacherSessionInfo } from './types'
 import { AiGeneralStrategy } from './AiGeneralStrategy'
 import { AiExerciseStrategy } from './AiExerciseStrategy'
 import { AiTextbookStrategy } from './AiTextbookStrategy'
+import { AiHomeworkStrategy } from './AiHomeworkStrategy'
 import { TeacherStrategy } from './TeacherStrategy'
 import { UserClientStrategy } from './UserClientStrategy'
 
-export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
+export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client'
 
 export interface ChatStrategyFactoryOptions {
   subject?: string
@@ -34,6 +35,10 @@ export class ChatStrategyFactory {
 
       case 'ai-exercise':
         strategy = new AiExerciseStrategy()
+        break
+
+      case 'ai-homework':
+        strategy = new AiHomeworkStrategy()
         break
 
       case 'ai-textbook':

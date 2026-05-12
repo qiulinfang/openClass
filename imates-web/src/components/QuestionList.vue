@@ -97,6 +97,9 @@
 
                 <!-- 右侧：功能区 -->
                 <div class="question-actions">
+                  <!-- 额外操作插槽（始终可见或由外部控制） -->
+                  <slot name="actions-append" :question="question" :index="index" />
+
                   <!-- 仅当前题目选中时显示的按钮 -->
                   <template
                     v-if="

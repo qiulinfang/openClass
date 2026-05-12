@@ -8,7 +8,7 @@ export interface MessageActionVisibilityMessage {
 
 export interface MessageActionVisibilityOptions {
   showActionButtons: boolean
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
+  type: 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client'
   sender?: string | null
   isLastMessage: boolean
   isLastUserMessage: boolean

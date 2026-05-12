@@ -17,7 +17,7 @@
         :right-config="[36, 36, 60]"
         :transition-duration="0.5"
         :transition-easing="'ease-in-out'"
-        :show-splitters="true"
+        :show-splitters="true" 
         @mode-change="handleModeChange"
       >
         <!-- 左侧：题目列表 -->
@@ -37,7 +37,7 @@
                     @update:searchQuery="(v) => (questionSearchQuery = v)"
                     :external-questions="externalQuestions"
                     :show-photo-search="false"
-                    :show-send-to-ai="false"
+                    :show-send-to-ai="true"
                     :show-question-actions="false"
                     @questionSelected="handleStartAnswer"
                     @openMiniClass="handleOpenMiniClass"
@@ -48,6 +48,19 @@
                         :type="getQuestionStatusType(question)"
                         size="xs"
                       />
+                    </template>
+                    <template #actions-append="{ question }">
+                      <!-- 作业提交后，仅在当前选中的题目功能区追加显示"问问学伴"图标 -->
+                      <q-btn
+                        v-if="isHomeworkSubmitted && getQuestionKey(question) === getQuestionKey(currentAnswerQuestion)"
+                        flat
+                        round
+                        dense
+                        class="action-btn xueban-action-btn"
+                        @click.stop="handleToggle(question)"
+                      >
+                        <img :src="askXuebanIcon" alt="问问学伴" class="action-icon" />
+                      </q-btn>
                     </template>
                   </QuestionList>
                 </div>
@@ -66,8 +79,8 @@
                 class="question-render-container" 
                 v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'judgment'].includes(currentAnswerQuestion.type || '')"
               >
-                <!-- 模拟画板工具栏布局的顶部栏 -->
-                <div class="question-render-toolbar">
+                <!-- 模拟画板工具栏布局的顶部栏 (仅在未提交时显示) -->
+                <div class="question-render-toolbar" v-if="!isHomeworkSubmitted">
                   <div class="toolbar-right">
                     <Button
                       v-if="!isHomeworkSubmitted"
@@ -108,7 +121,10 @@
                     <div class="divider"></div>
                     <div class="analysis-card answer-card">
                       <div class="card-title">
-                        <span>标准答案</span>
+                        <div class="title-left">
+                          <q-icon name="check_circle" color="green" size="20px" />
+                          <span>标准答案 (作业已提交)</span>
+                        </div>
                       </div>
                       <div class="card-content" v-html="renderMessageContent(currentAnswerQuestion.answer)"></div>
                     </div>
@@ -124,26 +140,28 @@
 
               <!-- 情况 B: 白板手写 (填空、问答 及 其他) -->
               <div class="question-render-container" v-else-if="currentAnswerQuestion">
-                <!-- 模拟画板工具栏布局的顶部栏 -->
-                <div class="question-render-toolbar">
+                <!-- 模拟画板工具栏布局的顶部栏 (仅在未提交时显示) -->
+                <div class="question-render-toolbar" v-if="!isHomeworkSubmitted">
                   <div class="toolbar-right">
                     <Button
-                      v-if="!isHomeworkSubmitted"
                       label="提交作业"
                       variant="primary"
                       size="mdCompact"
                       :disabled="!isAnyQuestionAnswered"
                       @click="handleBoardUpload"
                     />
-                    <div v-else class="submitted-tip">
-                      <q-icon name="check_circle" color="green" size="24px" />
-                      <span>作业已提交</span>
-                    </div>
                   </div>
                 </div>
 
                 <div class="question-render-area">
-                  <div class="drawing-board-wrapper">
+                  <div class="drawing-board-wrapper" :class="{ 'is-submitted': isHomeworkSubmitted }">
+                    <!-- 预览层：在截图生成前立即显示渲染后的 HTML，实现零延迟感 -->
+                    <div 
+                      v-if="!questionBgImage && currentAnswerQuestion" 
+                      class="question-html-preview markdown-content" 
+                      v-html="questionHtml"
+                    ></div>
+
                     <DrawingBoardNew
                       :ref="(el) => setDrawingBoardRef(el, 0)"
                       :showGrid="false"
@@ -161,15 +179,18 @@
                     <div class="divider"></div>
                     <div class="analysis-card answer-card">
                       <div class="card-title">
-                        <span>标准答案</span>
+                        <div class="title-left">
+                          <q-icon name="check_circle" color="green" size="20px" />
+                          <span>标准答案 (作业已提交)</span>
+                        </div>
                       </div>
-                      <div class="card-content" v-html="renderMessageContent(currentAnswerQuestion.answer)"></div>
+                      <div class="card-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                     </div>
                     <div class="analysis-card explanation-card">
                       <div class="card-title">
                         <span>题目解析</span>
                       </div>
-                      <div class="card-content" v-html="renderMessageContent(currentAnswerQuestion.explanation)"></div>
+                      <div class="card-content" v-html="renderMessageContent((currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                     </div>
                   </div>
                 </div>
@@ -202,11 +223,10 @@
             >
               <div class="panel-card ai-chat-card">
                 <div class="panel-card-body">
-                  <ChatView
-                    ref="aiGeneralChatViewRef"
-                    type="ai-general"
-                    :compressed-height="360"
-                    :model-options="AI_ROLE_OPTIONS"
+                  <HomeworkChatPanel
+                    ref="homeworkChatPanelRef"
+                    :question="currentAnswerQuestion"
+                    @close="handleToggle()"
                   />
                 </div>
               </div>
@@ -225,14 +245,17 @@
         <ChoiceQuestion
           v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
           :question="currentAnswerQuestion"
+          v-model="currentQuestionChooseList"
         />
         <FillBlankQuestion
           v-else-if="currentAnswerQuestion.type === 'fill'"
           :question="currentAnswerQuestion"
+          v-model="currentQuestionFillList"
         />
         <JudgmentQuestion
           v-else-if="currentAnswerQuestion.type === 'judgment'"
           :question="currentAnswerQuestion"
+          v-model="currentQuestionJudgment"
         />
         <BaseQuestion
           v-else
@@ -310,7 +333,7 @@ import { getSubject } from '@/services'
 import { normalizeSubject } from '@/constants/subjects'
 import Dialog from '@/components/base/Dialog.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
-import ChatView from '@/components/ChatView.vue'
+import HomeworkChatPanel from '@/components/HomeworkChatPanel.vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { AI_ROLE_OPTIONS } from '@/constants/options'
 import goBackIcon from '/icons/goback.svg'
@@ -320,6 +343,7 @@ import pageNextIcon from '/icons/right.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import wodezuodaSelectIcon from '/icons/wodezuoda_select.svg'
 import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
+import askXuebanIcon from '/icons/askXueban.svg'
 import MultiSelect from '@/components/base/MultiSelect.vue'
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
@@ -342,7 +366,7 @@ const mode = ref<'left' | 'right'>('left')
 // 作业是否已提交（提交后显示答案和解析）
 const isHomeworkSubmitted = ref(false)
 const splitPanelRef = ref<InstanceType<typeof SplitPanel> | null>(null)
-const aiGeneralChatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
+const homeworkChatPanelRef = ref<InstanceType<typeof HomeworkChatPanel> | null>(null)
 
 // 作业题目列表、当前选中索引和作业名称、作答缓存：从 homeworkStore 获取
 const {
@@ -448,10 +472,49 @@ const handleFloatMenuSelect = async (item: { label: string }) => {
   }
 }
 
-// 切换模式
-const handleToggle = () => {
-  // splitPanelRef.value?.toggle()
-  showMessage('老师设置了只能自己作答', 'warning')
+// 切换模式并发送题目给 AI
+const handleToggle = async (question?: ExerciseItem) => {
+  console.log('[HOMEWORK_ANSWER_VIEW] handleToggle 触发, 传入题目 ID:', (question as any)?.bmNo || '无')
+  
+  // 实时从 IndexedDB 检查最新的提交状态
+  const homeworkId = route.params.homeworkId as string
+  if (homeworkId) {
+    const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(homeworkId)
+    console.log('[HOMEWORK_ANSWER_VIEW] 实时检查数据库提交状态:', dbData?.isSubmitted)
+    if (dbData) {
+      isHomeworkSubmitted.value = dbData.isSubmitted
+    }
+  }
+
+  console.log('[HOMEWORK_ANSWER_VIEW] 当前页面记录的提交状态:', isHomeworkSubmitted.value)
+
+  if (!isHomeworkSubmitted.value) {
+    showMessage('需要提交作业后才能使用学伴答疑哦', 'warning')
+    return
+  }
+
+  // 逻辑调整：
+  // 1. 如果传入了题目（点击了问问学伴图标），确保面板是打开的
+  if (question && (question as any).bmNo) {
+    console.log('[HOMEWORK_ANSWER_VIEW] 点击了具体题目, 准备确保面板开启')
+    if (mode.value === 'left') {
+      splitPanelRef.value?.toggle()
+    }
+  } else {
+    // 2. 如果没有传入题目（点击了悬浮图标或关闭按钮），则执行正常的切换
+    console.log('[HOMEWORK_ANSWER_VIEW] 执行正常面板切换')
+    splitPanelRef.value?.toggle()
+  }
+
+  // 如果传了题目，则调用 AI 面板发送消息
+  if (question && (question as any).bmNo && homeworkChatPanelRef.value) {
+    console.log('[HOMEWORK_ANSWER_VIEW] 准备调用 HomeworkChatPanel.sendQuestion:', (question as any).bmNo)
+    nextTick(() => {
+      // 假设 HomeworkChatPanel 有 sendQuestion 方法
+      // 如果方法名不同，请根据组件内部定义修改
+      (homeworkChatPanelRef.value as any).sendQuestion?.(question)
+    })
+  }
 }
 
 // SplitPanel 事件
@@ -472,22 +535,6 @@ const handleXuebanLimitDialogConfirm = () => {
 const handleXuebanLimitDialogCancel = () => {
   xuebanLimitDialogRef.value?.closeDialog()
 }
-// 去学伴按钮点击 - 跳转到作业答题专用路由
-const handleGoToXueban = () => {
-  // 1. 先保存当前题目当前页的作答数据到全局缓存，避免跳转后丢失
-  saveCurrentPage()
-
-  // 2. 获取 QuestionList 选中的题目，作为跳转参数
-  const selectedQuestion = questionListRef.value?.getSelectedQuestion?.()
-  if (!selectedQuestion) return
-
-  const questionId = selectedQuestion.bmNo || selectedQuestion.id
-  router.push({
-    name: 'homeworkExercise',
-    query: { questionId: questionId?.toString(), tab: 'chatAi', scene: 'homework' },
-  })
-}
-
 // 当前题目的 HTML（用于截图）
 const questionHtml = ref('')
 
@@ -568,53 +615,92 @@ const getQuestionStatusType = (question: ExerciseItem): 'yellow' | 'green' => {
 }
 
 // 将当前题目的画板数据与导出图片缓存到全局缓存中
-const saveCurrentPage = (questionToSave: ExerciseItem | null = currentAnswerQuestion.value) => {
+const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnswerQuestion.value, asyncImage = false) => {
   if (!questionToSave) return
 
   const questionKey = getQuestionKey(questionToSave)
   if (!questionKey) return
 
-  let imageData = null
+  console.log(`[HOMEWORK_IMAGE_PROCESS] 开始保存题目数据: ${questionKey}, 是否异步: ${asyncImage}`)
 
-  // 1. 如果有白板（DrawingBoardNew），从白板获取数据和图片
+  // 1. 保存笔迹数据 (JSON)
   const board = drawingBoardRefs.value[0]
-  if (board) {
-    // 必须在当前题目还在白板上时，同步抓取数据
-    if (questionToSave === currentAnswerQuestion.value) {
-      const boardData = board.saveData()
-      if (boardData) {
-        // 同步抓取图片和笔迹
-        imageData = board.exportToJpg?.(0.9)
-        const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-        ;(answerDataCache.value as Record<string, any>)[questionKey] = {
-          ...existingCache,
-          boardData: boardData,
-          imageData: imageData || null,
-          timestamp: Date.now(),
+  if (board && questionToSave === currentAnswerQuestion.value) {
+    const boardData = board.saveData()
+    if (boardData) {
+      const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+      ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+        ...existingCache,
+        boardData: boardData,
+        timestamp: Date.now(),
+      }
+      
+      // 2. 保存画板图片数据 (笔迹 + 背景)
+      const captureBoardImage = () => {
+        const imageData = board.exportToJpg?.(0.9)
+        if (imageData) {
+          const currentCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+          ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+            ...currentCache,
+            imageData: imageData
+          }
+          console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${questionKey}`)
         }
+      }
+
+      if (asyncImage) {
+        setTimeout(captureBoardImage, 0)
+      } else {
+        captureBoardImage()
       }
     }
   } 
   
-  // 2. 结构化题目（选择、填空）的截图处理
-  // 注意：htmlToImage 是异步的，我们让它在后台跑，不阻塞主流程
-  if (!imageData && currentQuestionRenderRef.value && questionToSave === currentAnswerQuestion.value) {
-    const renderEl = currentQuestionRenderRef.value
-    // 立即启动异步截图任务
-    htmlToImage.toPng(renderEl, {
-      backgroundColor: '#ffffff',
-      pixelRatio: 1.2, // 稍微降低分辨率提升速度
-      cacheBust: true,
-    }).then(dataUrl => {
-      const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-      ;(answerDataCache.value as Record<string, any>)[questionKey] = {
-        ...existingCache,
-        imageData: dataUrl,
-        timestamp: Date.now(),
+  // 3. 结构化题目（选择、填空、判断）的截图处理 - 统一使用隐藏渲染容器 questionRenderRef 确保样式完整
+  const isStructured = ['single_choice', 'multiple_choice', 'judgment', 'fill'].includes(questionToSave.type || '')
+  if (isStructured && questionRenderRef.value) {
+    const renderEl = questionRenderRef.value
+    
+    const captureStructuredImage = async () => {
+      try {
+        // 确保 MathJax 渲染完成
+        await MathJaxUtils.renderMathAndWait(renderEl)
+        
+        // 等待所有图片加载
+        const imgs = Array.from(renderEl.querySelectorAll('img'))
+        await Promise.all(imgs.map(img => {
+          if (img.complete) return Promise.resolve()
+          return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
+        }))
+
+        const dataUrl = await htmlToImage.toPng(renderEl, {
+          backgroundColor: '#ffffff',
+          pixelRatio: 1.5, // 提高采样率保证清晰度
+          cacheBust: true,
+          style: {
+            // 强制应用一些关键样式，防止丢失
+            transform: 'scale(1)',
+            transformOrigin: 'top left'
+          }
+        })
+
+        const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+        ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+          ...existingCache,
+          imageData: dataUrl,
+          timestamp: Date.now(),
+        }
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图成功: ${questionKey}`)
+      } catch (err) {
+        console.error(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图失败: ${questionKey}`, err)
       }
-    }).catch(e => {
-      console.error('[HomeworkAnswerView] 后台截图失败:', e)
-    })
+    }
+
+    if (asyncImage) {
+      setTimeout(captureStructuredImage, 100)
+    } else {
+      await captureStructuredImage()
+    }
   }
 }
 
@@ -665,32 +751,51 @@ const confirmClearCanvas = () => {
 const { renderMessageContent } = useMessageRenderer()
 
 // QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
-const handleStartAnswer = (question: ExerciseItem) => {
-  // --- 第一阶段：立即保存上一题的数据（必须同步执行，确保抓取到正确的白板内容） ---
-  saveCurrentPage()
+const handleStartAnswer = async (question: ExerciseItem) => {
+  const questionKey = getQuestionKey(question)
+  const oldQuestion = currentAnswerQuestion.value
+  const oldQuestionKey = getQuestionKey(oldQuestion)
+  
+  // 0. 重复调用守卫：如果是同一道题，且已经处于当前题目状态，则跳过
+  if (oldQuestionKey === questionKey && questionKey !== '') {
+    console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 题目未变化 (${questionKey})，跳过处理`)
+    return
+  }
 
-  // --- 第二阶段：瞬间切换当前题目 UI ---
+  console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 从 ${oldQuestionKey || '无'} 切换到 ${questionKey}`)
+
+  // 1. 强制同步保存上一题数据 (确保图片生成)
+  if (oldQuestion && oldQuestionKey !== questionKey) {
+    await saveCurrentPage(oldQuestion, false)
+  }
+
+  // 2. 立即更新 UI 状态
   currentAnswerQuestion.value = question
-  previousQuestionKey.value = getQuestionKey(question)
-
+  previousQuestionKey.value = questionKey
+  questionBgImage.value = ''
+  
   const isChoice = question.type === 'single_choice' || question.type === 'multiple_choice'
   const raw = (!isChoice && question.questionContent)
     ? question.questionContent
     : (question.question || question.title || '').toString()
-  
   questionHtml.value = renderMessageContent(raw)
 
-  // 立即恢复新题目的状态（笔迹、选项等）
+  // 3. 检查背景图缓存
+  if (questionKey && questionImageCache.has(questionKey)) {
+    questionBgImage.value = questionImageCache.get(questionKey) || ''
+  }
+
+  // 4. 恢复新题笔迹
+  await nextTick()
   restoreCurrentPage(question)
 
-  // --- 第三阶段：异步处理题干背景截图 ---
-  nextTick(() => {
-    const seq = ++questionBgCaptureSeq.value
-    // 题干背景不影响作答数据，可以延迟执行
+  // 5. 异步生成本题背景图截图
+  const seq = ++questionBgCaptureSeq.value
+  if (!questionBgImage.value) {
     setTimeout(() => {
       updateQuestionBackgroundImage(seq)
-    }, 200)
-  })
+    }, 50)
+  }
 }
 
 // 题目 HTML 变化时：等待 DOM 更新后截图
@@ -786,26 +891,46 @@ const updateQuestionBackgroundImage = async (seq: number) => {
 // 根据缓存恢复当前题目的画布数据
 const restoreCurrentPage = (question: ExerciseItem | null) => {
   const questionKey = getQuestionKey(question)
+  const board = drawingBoardRefs.value[0]
+
   if (!questionKey) {
     // 没有题目，清空画布
-    drawingBoardRefs.value[0]?.clearAll()
+    board?.clearAll()
+    return
+  }
+
+  if (!board) {
+    console.warn('[HomeworkAnswerView] 画板 Ref 尚未准备好，无法恢复笔迹:', questionKey)
     return
   }
 
   const rawCache = (answerDataCache.value as Record<string, any>)[questionKey]
   if (rawCache && rawCache.boardData) {
     // 加载缓存的画板状态数据
-    drawingBoardRefs.value[0]?.loadData(rawCache.boardData as any)
-    console.log('[HomeworkAnswerView] 从缓存恢复画布数据:', questionKey)
+    board.loadData(rawCache.boardData as any)
+    console.log('[HomeworkAnswerView] 从缓存成功恢复画布数据:', questionKey)
   } else {
     // 没有缓存数据，清空画布
-    drawingBoardRefs.value[0]?.clearAll()
-    console.log('[HomeworkAnswerView] 没有缓存数据，清空画布:', questionKey)
+    board.clearAll()
+    console.log('[HomeworkAnswerView] 该题目没有缓存数据，已清空画布:', questionKey)
   }
 }
 
 // 返回作业列表页面
-const goBack = () => {
+const goBack = async () => {
+  const homeworkId = route.params.homeworkId as string
+  if (homeworkId) {
+    try {
+      console.log('[HOMEWORK_BACK] 准备保存当前进度并持久化到本地...')
+      // 1. 同步保存当前题目的数据到内存缓存
+      await saveCurrentPage()
+      // 2. 将整个作答缓存同步到本地数据库
+      await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+      console.log('[HOMEWORK_BACK] 进度已成功保存')
+    } catch (err) {
+      console.error('[HOMEWORK_BACK] 返回前持久化失败:', err)
+    }
+  }
   router.push({ name: 'myHomework' })   
 }
 
@@ -1191,6 +1316,12 @@ onMounted(async () => {
 
   // 同步到右侧作答区域
   const targetQuestion = externalQuestions.value[targetIndex]
+  console.log('[HomeworkAnswerView] onMounted 初始题目数据:', {
+    index: targetIndex,
+    id: targetQuestion?.id,
+    answer: targetQuestion?.answer,
+    explanation: targetQuestion?.explanation
+  })
   await handleStartAnswer(targetQuestion)
 })
 
@@ -1414,6 +1545,26 @@ onUnmounted(() => {
   height: 600px;
   position: relative;
   flex-shrink: 0;
+  transition: height 0.3s ease-in-out;
+}
+
+.drawing-board-wrapper.is-submitted {
+  height: 320px;
+  margin-bottom: 20px;
+}
+
+/* 立即渲染的预览层样式 */
+.question-html-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 10px 20px;
+  background: #ffffff;
+  z-index: 0;
+  overflow-y: auto;
+  pointer-events: none; /* 确保不影响画板书写 */
 }
 
 .answer-analysis-wrapper {
@@ -1434,8 +1585,16 @@ onUnmounted(() => {
   .card-title {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     margin-bottom: 8px;
+    
+    .title-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     span {
       font-weight: 600;
       font-size: 15px;
@@ -1581,6 +1740,17 @@ onUnmounted(() => {
   height: 20px;
   margin-left: 8px;
   vertical-align: middle;
+}
+
+.xueban-action-btn {
+  width: 28px !important;
+  height: 28px !important;
+  margin-right: 4px;
+}
+
+.xueban-action-btn .action-icon {
+  width: 22px !important;
+  height: 22px !important;
 }
 
 :deep(.status-tag) {

@@ -195,6 +195,10 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * @param subject 学科
    * @param selectedModel 选择的模型
    * @param skipUserMessage 是否跳过创建用户消息
+   * @param quotedMessage 引用的消息
+   * @param imageData 图片数据
+   * @param imageList 图片列表
+   * @param focus 焦点信息
    */
   const sendMessage = async (
     content: string,
@@ -452,7 +456,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         createTime: Date.now(),
         updateTime: Date.now(),
         msgCount: 0
-      }
+      } as any
       
       // 添加到会话列表（置顶）
       sessions.value.unshift(newSession)
@@ -849,8 +853,7 @@ ${conversationSummary}
   const toggleWebSearch = (): void => {
     enableWebSearch.value = !enableWebSearch.value
   }
-  
-  
+
   return {
     // 状态
     messages,

@@ -342,6 +342,7 @@ interface Props {
   type:
     | 'ai-general'
     | 'ai-exercise'
+    | 'ai-homework'
     | 'ai-textbook'
     | 'teacher'
     | 'user-client'

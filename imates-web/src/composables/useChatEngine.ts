@@ -47,18 +47,19 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
       const index = messages.value.findIndex((m) => m.id === tempReplyId)
       if (index >= 0) {
         const old = messages.value[index]
-        const finalContent = finalResponse?.reply || accumulatedContent || '回复失败'
-        
+        const finalContent = finalResponse?.reply || accumulatedContent
+        const displayContent = finalContent || '回复失败'
+
         // 检测 HTML 内容并自动设置 messageType
         let messageType = old.messageType
-        if (finalContent.includes('kelvin-cosin.cloud') && finalContent.includes('.html')) {
+        if (displayContent.includes('kelvin-cosin.cloud') && displayContent.includes('.html')) {
           messageType = 'html'
         }
-        
+
         const nextMessage: ChatBubble = {
           ...tempReply,
           messageType,
-          content: finalContent,
+          content: displayContent,
           isStreaming: false,
           messageId: finalResponse?.messageId,
           selectedModel: old.selectedModel || tempReply.selectedModel,

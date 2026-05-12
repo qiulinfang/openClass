@@ -314,6 +314,7 @@ const props = defineProps({
     type: String as () =>
       | 'ai-general'
       | 'ai-exercise'
+      | 'ai-homework'
       | 'ai-textbook'
       | 'teacher'
       | 'user-client',

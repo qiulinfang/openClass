@@ -8,6 +8,9 @@ import type { ExerciseItem } from './exercise'
 
 // ========== 基础聊天类型 ==========
 
+/** 聊天业务类型联合类型 */
+export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client'
+
 /**
  * 引用消息信息
  * 引用信息的通用结构（保留兼容字段）
@@ -118,7 +121,7 @@ export interface ChatInputProps {
   isRecording: boolean
   enableWebSearch: boolean
   selectedModel: string
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: ChatType
   uploadedFiles: UploadedFile[]
   activeMode: ActiveMode | null
   canSend: boolean
@@ -150,7 +153,7 @@ export interface ChatInputEmits {
 /** ChatMessage Props接口 */
 export interface ChatMessageProps {
   message: ChatBubble
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'user-client'
+  type: ChatType
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
@@ -161,7 +164,7 @@ export interface ChatMessageProps {
 
 /** ChatView Props接口 */
 export interface ChatViewProps {
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: ChatType
   currentQuestionId?: string
   sessionId?: string  // 教师对话会话ID
   overrideQuestion?: ExerciseItem | null  // 可选的题目覆盖（用于避免污染全局状态，如拍照搜题场景）
@@ -245,6 +248,14 @@ export interface AiGeneralSession {
   msgCount: number             // 消息数量
   pinned?: boolean             // 是否置顶
   messages?: ChatBubble[]      // 会话的消息列表（可选，用于加载详情）
+}
+
+/** AI作业会话接口（扩展通用会话） */
+export interface AiHomeworkSession extends AiGeneralSession {
+  metadata?: {
+    questionBmNo?: string
+    [key: string]: any
+  }
 }
 
 // 加载会话详情
