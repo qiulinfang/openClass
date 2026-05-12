@@ -111,12 +111,75 @@
 
       .side-block {
         flex-shrink: 0;
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: 6px;
-        padding: 10px;
+        padding: 0; /* 修改 padding 由 content 决定 */
         border: 1px solid #dfe6ec;
         border-radius: 8px;
         background: #fbfcfd;
+        overflow: hidden;
+      }
+
+      .side-block-header {
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        background: #f8fafc;
+        user-select: none;
+        transition: background-color 0.2s;
+      }
+
+      .side-block-header:hover {
+        background: #f1f5f9;
+      }
+
+      .side-block-header h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: #111827;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+
+      .side-block-header .toggle-icon {
+        font-size: 12px;
+        color: #64748b;
+        transition: transform 0.3s;
+      }
+
+      .side-block.collapsed .toggle-icon {
+        transform: rotate(-90deg);
+      }
+
+      .side-block-content {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        transition: max-height 0.3s ease-out, opacity 0.3s, padding 0.3s;
+        max-height: 1000px;
+        opacity: 1;
+      }
+
+      .side-block.collapsed .side-block-content {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        overflow: hidden;
+      }
+
+      .side-block.no-collapse .side-block-header {
+        cursor: default;
+        pointer-events: none;
+      }
+
+      .side-block.no-collapse .toggle-icon {
+        display: none;
       }
 
       .side-block h3 {
@@ -534,82 +597,98 @@
 
       <section class="lesson-grid">
         <aside class="card side-panel">
-          <div class="side-block">
-            <h3>操作流程</h3>
-            <div class="workflow-steps">
-              <div class="workflow-step active">
-                <div class="step-number">1</div>
-                <div class="step-content">
-                  <button class="workflow-btn primary" type="button" id="showFixedButton">
-                    <span>固定交点已显示</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="workflow-step">
-                <div class="step-number">2</div>
-                <div class="step-content">
-                  <button class="workflow-btn" type="button" id="randomLineButton">
-                    <span>创建直线 n</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="workflow-step">
-                <div class="step-number">3</div>
-                <div class="step-content">
-                  <div class="workflow-btn-group">
-                    <button class="workflow-btn" type="button" id="altitudeButton">
-                      <span>手绘高线</span>
-                    </button>
-                    <button class="workflow-btn" type="button" id="connectButton">
-                      <span>连接两点</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="workflow-step" id="cleanupStep">
-                <div class="step-number">4</div>
-                <div class="step-content">
-                  <div class="workflow-btn-group">
-                    <button class="workflow-btn ghost is-hidden" type="button" id="clipButton">
-                      <span>裁剪线段</span>
-                    </button>
-                    <button class="workflow-btn ghost is-hidden" type="button" id="clearExtraButton">
-                      <span>清除手绘线</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+          <div class="side-block no-collapse">
+            <div class="side-block-header">
+              <h3>操作流程</h3>
+              <span class="toggle-icon">▼</span>
             </div>
-            <p class="hint" id="toolHint">直线 m 的交点已显示。请创建直线 n，再比较对应线段。</p>
-          </div>
+            <div class="side-block-content">
+              <div class="workflow-steps">
+                <div class="workflow-step active">
+                  <div class="step-number">1</div>
+                  <div class="step-content">
+                    <button class="workflow-btn primary" type="button" id="showFixedButton">
+                      <span>固定交点已显示</span>
+                    </button>
+                  </div>
+                </div>
 
-          <div class="side-block">
-            <h3>直线 m</h3>
-            <div class="metric-list" id="fixedMetrics"></div>
-          </div>
+                <div class="workflow-step">
+                  <div class="step-number">2</div>
+                  <div class="step-content">
+                    <button class="workflow-btn" type="button" id="randomLineButton">
+                      <span>创建直线 n</span>
+                    </button>
+                  </div>
+                </div>
 
-          <div class="side-block">
-            <h3>直线 n</h3>
-            <div class="metric-list" id="randomMetrics"></div>
-          </div>
+                <div class="workflow-step">
+                  <div class="step-number">3</div>
+                  <div class="step-content">
+                    <div class="workflow-btn-group">
+                      <button class="workflow-btn" type="button" id="altitudeButton">
+                        <span>手绘高线</span>
+                      </button>
+                      <button class="workflow-btn" type="button" id="connectButton">
+                        <span>连接两点</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-          <div class="side-block student-response">
-            <h3>互动问答</h3>
-            <div class="chat-container">
-              <div class="chat-messages" id="chatMessages">
-                <div class="chat-bubble teacher">
-                  <span class="bubble-meta">系统提示</span>
-                  请观察图形，在下方输入你的发现。
+                <div class="workflow-step" id="cleanupStep">
+                  <div class="step-number">4</div>
+                  <div class="step-content">
+                    <div class="workflow-btn-group">
+                      <button class="workflow-btn ghost is-hidden" type="button" id="clipButton">
+                        <span>裁剪线段</span>
+                      </button>
+                      <button class="workflow-btn ghost is-hidden" type="button" id="clearExtraButton">
+                        <span>清除手绘线</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="chat-input-area">
-                <textarea id="studentAnswer" placeholder="输入你的观察结论..."></textarea>
-                <button class="send-btn" type="button" id="submitAnswerButton" title="发送">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                </button>
+              <p class="hint" id="toolHint">直线 m 的交点已显示。请创建直线 n，再比较对应线段。</p>
+            </div>
+          </div>
+
+          <div class="side-block collapsed">
+            <div class="side-block-header">
+              <h3>直线 m</h3>
+              <span class="toggle-icon">▼</span>
+            </div>
+            <div class="side-block-content metric-list" id="fixedMetrics"></div>
+          </div>
+
+          <div class="side-block collapsed">
+            <div class="side-block-header">
+              <h3>直线 n</h3>
+              <span class="toggle-icon">▼</span>
+            </div>
+            <div class="side-block-content metric-list" id="randomMetrics"></div>
+          </div>
+
+          <div class="side-block student-response collapsed">
+            <div class="side-block-header">
+              <h3>互动问答</h3>
+              <span class="toggle-icon">▼</span>
+            </div>
+            <div class="side-block-content">
+              <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                  <div class="chat-bubble teacher">
+                    <span class="bubble-meta">系统提示</span>
+                    请观察图形，在下方输入你的发现。
+                  </div>
+                </div>
+                <div class="chat-input-area">
+                  <textarea id="studentAnswer" placeholder="输入你的观察结论..."></textarea>
+                  <button class="send-btn" type="button" id="submitAnswerButton" title="发送">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -655,8 +734,25 @@
         <article class="summary-item"><strong>共同规律</strong><p>两条截线上的对应截段保持相同的比例关系。</p></article>
       </section>
     </main>
-    <div class="version-tag">ver 1.0.7</div>
+    <div class="version-tag">ver 1.0.8</div>
     <script>
+      // --- 折叠逻辑 ---
+      function openBlock(id) {
+        const content = document.getElementById(id);
+        if (!content) return;
+        const block = content.parentElement;
+        block.classList.remove("collapsed");
+      }
+
+      document.querySelectorAll(".side-block-header").forEach((header) => {
+        header.addEventListener("click", () => {
+          const block = header.parentElement;
+          if (block.classList.contains("no-collapse")) return;
+          
+          block.classList.toggle("collapsed");
+        });
+      });
+
       const page = document.getElementById("page");
       const canvas = document.getElementById("lessonCanvas");
       const ctx = canvas.getContext("2d");
@@ -1052,6 +1148,9 @@
         selectedPoint = null;
         toolHint.textContent = "直线 n 已创建。可以拖动直线 n，也可以进入手绘高线。";
         
+        // 自动展开直线 n 区域
+        openBlock("randomMetrics");
+        
         // 更新步骤激活状态
         document.querySelectorAll(".workflow-step")[1].classList.add("active");
         document.querySelectorAll(".workflow-step")[2].classList.add("active");
@@ -1061,6 +1160,7 @@
 
       function setScene(nextScene) {
         scene = nextScene;
+        sceneButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.scene === scene));
         clippedView = false;
         showRandom = false;
         randomLine = null;
@@ -1093,6 +1193,10 @@
         cleanupStep.classList.toggle("is-hidden", !isUnequal);
         altitudeButton.classList.remove("primary");
         connectButton.classList.remove("primary");
+
+        // 默认展开直线 m 区域
+        openBlock("fixedMetrics");
+
         draw();
       }
 
