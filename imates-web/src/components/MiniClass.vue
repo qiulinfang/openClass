@@ -22,7 +22,7 @@
           :src="iframeSrc"
           class="iframe-player"
           frameborder="0"
-          scrolling="no"
+          scrolling="auto"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen
           @load="handleIframeLoad"

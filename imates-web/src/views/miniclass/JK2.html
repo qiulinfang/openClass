@@ -17,470 +17,515 @@
         box-sizing: border-box;
       }
 
-      body {
+      html, body {
         margin: 0;
-        min-width: 320px;
-        min-height: 100vh;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
         background: #eef2f5;
       }
 
-      button,
-      input {
-        font: inherit;
-      }
-
-      button {
-        cursor: pointer;
+      body {
+        display: flex;
+        flex-direction: column;
       }
 
       .page {
-        max-width: 1320px;
-        margin: 0 auto;
-        padding: 16px;
+        flex: 1;
+        width: 100%;
+        margin: 0;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
       }
 
       .course-header {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
-        align-items: end;
-        margin-bottom: 12px;
-      }
-
-      .eyebrow {
-        margin: 0 0 5px;
-        color: #657383;
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin-top: 0;
-      }
-
-      h1 {
-        margin-bottom: 4px;
-        color: #111827;
-        font-size: 28px;
-        line-height: 1.2;
-      }
-
-      h2,
-      h3 {
-        margin-bottom: 8px;
-        color: #17212b;
-      }
-
-      .subtitle {
-        max-width: 980px;
-        margin: 0;
-        color: #4b5968;
-        line-height: 1.58;
-      }
-
-      .top-actions,
-      .objectives,
-      .proof-grid,
-      .practice-grid,
-      .summary-grid,
-      .student-response {
-        display: none !important;
-      }
-
-      .top-actions,
-      .mode-switch,
-      .tool-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .top-actions {
-        justify-content: flex-end;
-      }
-
-      .mode-switch {
-        width: 100%;
-        justify-content: flex-end;
-      }
-
-      .badge,
-      .mode-button,
-      .tab-button {
-        display: inline-flex;
-        min-height: 34px;
-        align-items: center;
-        padding: 0 12px;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 800;
-        white-space: nowrap;
-      }
-
-      .badge {
-        color: #23527a;
-        background: #dcecf8;
-      }
-
-      .badge.ready {
-        color: #146c43;
-        background: #dff3e7;
-      }
-
-      .mode-button,
-      .tab-button,
-      button {
-        min-height: 38px;
-        padding: 0 12px;
-        border: 1px solid #cbd3dc;
-        border-radius: 8px;
-        color: #273543;
-        background: #ffffff;
-      }
-
-      .mode-button.active,
-      .tab-button.active,
-      .primary {
-        border-color: #137a72;
-        color: #ffffff;
-        background: #137a72;
-      }
-
-      .ghost {
-        color: #0f5e59;
-        border-color: #b9d8d4;
-        background: #eef8f6;
-      }
-
-      .is-hidden {
-        display: none !important;
-      }
-
-      .card {
-        border: 1px solid #d6dee6;
-        border-radius: 8px;
-        background: #ffffff;
+        display: none; /* 彻底移除 header 以节省空间 */
       }
 
       .tabs {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 8px;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
+        flex-shrink: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .tab-button {
+        white-space: nowrap;
+        padding: 6px 12px;
+        font-size: 14px;
+        border-radius: 6px;
       }
 
       .task-box {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 12px;
+        display: flex;
+        justify-content: space-between;
         align-items: center;
-        margin-bottom: 14px;
-        padding: 15px;
-      }
-
-      .task-title {
-        display: grid;
-        gap: 4px;
+        margin-bottom: 8px;
+        padding: 10px;
+        flex-shrink: 0;
+        background: #ffffff;
+        border: 1px solid #d6dee6;
+        border-radius: 8px;
       }
 
       .task-title strong {
-        color: #17212b;
-        font-size: 19px;
+        display: block;
+        font-size: 18px;
+        color: #111827;
+        margin-top: 4px;
+        letter-spacing: -0.01em;
       }
 
       .task-title p {
-        margin: 0;
-        color: #4b5968;
-        line-height: 1.58;
+        font-size: 14px;
+        margin: 4px 0 0;
+        color: #4b5563;
+        line-height: 1.5;
       }
 
       .lesson-grid {
+        flex: 1;
         display: grid;
-        grid-template-columns: 300px minmax(0, 1fr);
-        gap: 14px;
-        align-items: start;
+        grid-template-columns: 260px minmax(0, 1fr);
+        gap: 12px;
+        min-height: 0;
+        overflow: hidden;
       }
 
       .side-panel {
-        display: grid;
-        gap: 12px;
-        padding: 14px;
-        position: sticky;
-        top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 2px;
+        overflow-y: auto;
+        height: 100%;
+        -webkit-overflow-scrolling: touch;
       }
 
       .side-block {
+        flex-shrink: 0;
         display: grid;
-        gap: 8px;
-        padding: 12px;
+        gap: 6px;
+        padding: 10px;
         border: 1px solid #dfe6ec;
         border-radius: 8px;
         background: #fbfcfd;
       }
 
-      .side-block p,
-      .hint {
-        margin: 0;
-        color: #4b5968;
-        line-height: 1.55;
+      .side-block h3 {
+        margin: 0 0 4px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #111827;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
       }
 
+      .side-block p, .hint {
+        margin: 0;
+        font-size: 13px;
+        color: #4b5968;
+        line-height: 1.5;
+      }
+
+      /* 度量列表样式 */
       .metric-list {
         display: grid;
-        gap: 8px;
-      }
-
-      .student-response {
-        display: grid;
-        gap: 10px;
-      }
-
-      .student-response textarea {
-        width: 100%;
-        min-height: 86px;
-        padding: 9px 10px;
-        border: 1px solid #cbd3dc;
-        border-radius: 8px;
-        color: #17212b;
-        background: #ffffff;
-        resize: vertical;
-      }
-
-      .response-history {
-        display: grid;
-        gap: 8px;
-      }
-
-      .response-item {
-        display: grid;
         gap: 4px;
-        padding: 10px;
-        border-radius: 8px;
-        background: #eef8f6;
-      }
-
-      .response-item span {
-        color: #5d6b78;
-        font-size: 13px;
-        font-weight: 800;
       }
 
       .metric-item {
-        display: grid;
-        gap: 3px;
-        padding: 9px 10px;
-        border-radius: 8px;
-        background: #f2f6f8;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 8px;
+        background: #f1f5f9;
+        border-radius: 6px;
+        font-size: 13px;
       }
 
       .metric-item span {
-        color: #5d6b78;
-        font-size: 13px;
-        font-weight: 800;
+        color: #64748b;
+        font-weight: 500;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       }
 
       .metric-item strong {
-        color: #17212b;
-        font-size: 21px;
+        color: #0f172a;
+        font-weight: 700;
+      }
+
+      /* 工具栏行 */
+      .tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0;
+      }
+
+      .tool-row button {
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      /* 学生回答区域 */
+      /* 聊天化学生回答样式 */
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 320px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 12px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        scroll-behavior: smooth;
+      }
+
+      .chat-bubble {
+        max-width: 85%;
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.5;
+        position: relative;
+      }
+
+      .chat-bubble.student {
+        align-self: flex-end;
+        background: #137a72;
+        color: #ffffff;
+        border-bottom-right-radius: 2px;
+      }
+
+      .chat-bubble.teacher {
+        align-self: flex-start;
+        background: #ffffff;
+        color: #1e293b;
+        border: 1px solid #e2e8f0;
+        border-bottom-left-radius: 2px;
+      }
+
+      .chat-bubble .bubble-meta {
+        font-size: 10px;
+        margin-bottom: 4px;
+        font-weight: 700;
+        opacity: 0.8;
+        display: block;
+      }
+
+      .chat-bubble.student .bubble-meta {
+        text-align: right;
+      }
+
+      .chat-input-area {
+        padding: 8px;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 6px;
+        align-items: flex-end;
+      }
+
+      .chat-input-area textarea {
+        flex: 1;
+        min-height: 36px;
+        max-height: 80px;
+        height: 36px;
+        margin: 0;
+        padding: 8px 12px;
+        border: 1px solid #cbd3dc;
+        border-radius: 18px;
+        font-size: 13px;
+        resize: none;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .chat-input-area textarea:focus {
+        border-color: #137a72;
+      }
+
+      .send-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #137a72;
+        color: #ffffff;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .send-btn:disabled {
+        background: #cbd3dc;
+        cursor: not-allowed;
+      }
+
+      /* 流程化按钮样式 */
+      .workflow-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin: 8px 0;
+        position: relative;
+      }
+
+      .workflow-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        position: relative;
+      }
+
+      .workflow-step:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 11px;
+        top: 24px;
+        bottom: -16px;
+        width: 2px;
+        background: #e2e8f0;
+        z-index: 0;
+      }
+
+      .step-number {
+        width: 24px;
+        height: 24px;
+        background: #f1f5f9;
+        color: #64748b;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+        z-index: 1;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px #e2e8f0;
+      }
+
+      .workflow-step.active .step-number {
+        background: #137a72;
+        color: #ffffff;
+        box-shadow: 0 0 0 1px #137a72;
+      }
+
+      .step-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .workflow-btn {
+        width: 100%;
+        text-align: left;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #374151;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .workflow-btn:hover {
+        border-color: #137a72;
+        background: #f0fdfa;
+        color: #0f766e;
+      }
+
+      .workflow-btn.primary {
+        background: #137a72;
+        color: #ffffff;
+        border-color: #137a72;
+      }
+
+      .workflow-btn.active {
+        background: #137a72;
+        color: #ffffff;
+        border-color: #137a72;
+        box-shadow: 0 2px 4px rgba(19, 122, 114, 0.2);
+      }
+
+      .workflow-btn-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .workflow-btn .btn-icon {
+        font-size: 14px;
+        opacity: 0.7;
       }
 
       .board-card {
-        padding: 16px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
       }
 
       .board-wrap {
+        flex: 1;
         border: 1px solid #d6dee6;
         border-radius: 8px;
         overflow: hidden;
         background: #f8fafb;
+        display: flex;
+        min-height: 0;
+        position: relative;
       }
 
       canvas {
-        display: block;
-        width: 100%;
-        min-height: 500px;
-        aspect-ratio: 980 / 620;
-        touch-action: none;
+        flex: 1;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0;
+        touch-action: none; /* 改为 none 以防止浏览器拦截垂直滑动 */
         cursor: crosshair;
+        aspect-ratio: auto;
       }
 
-      .student-only {
-        display: none;
+      .student-only, .objectives, .proof-grid, .practice-grid, .summary-grid {
+        display: none !important;
       }
 
-      .mode-student .student-only {
-        display: grid;
-      }
-
-      .objectives,
-      .proof-grid,
-      .practice-grid,
-      .summary-grid {
-        display: none;
-        gap: 12px;
-        margin-top: 14px;
-      }
-
-      .mode-student .objectives,
-      .mode-student .proof-grid,
-      .mode-student .practice-grid,
-      .mode-student .summary-grid {
-        display: grid;
-      }
-
-      .objectives {
-        grid-template-columns: repeat(4, 1fr);
-      }
-
-      .proof-grid,
-      .summary-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-
-      .practice-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .objective,
-      .proof-card,
-      .practice-card,
-      .summary-item {
-        display: grid;
-        gap: 8px;
-        padding: 14px;
-        border: 1px solid #dfe6ec;
-        border-radius: 8px;
+      /* 底部卡片通用样式 */
+      .proof-card, .practice-card, .summary-item {
+        padding: 12px;
         background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
       }
 
-      .proof-card {
-        background: #eef8f6;
+      .proof-card strong, .practice-card strong, .summary-item strong {
+        display: block;
+        font-size: 14px;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+
+      .proof-card p, .practice-card p, .summary-item p {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.5;
+        margin: 0;
       }
 
       .practice-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        display: flex;
         gap: 8px;
+        margin-top: 8px;
       }
 
-      input[type="text"] {
-        width: 100%;
-        min-height: 40px;
-        padding: 8px 10px;
+      .practice-row input {
+        flex: 1;
+        padding: 6px 10px;
         border: 1px solid #cbd3dc;
-        border-radius: 8px;
+        border-radius: 6px;
+        font-size: 13px;
       }
 
-      .feedback {
-        min-height: 24px;
-        color: #8a5a00;
-        font-weight: 800;
-      }
-
-      .feedback.ok {
-        color: #146c43;
-      }
-
-      .feedback.warn {
-        color: #b45309;
-      }
-
-      @media (max-width: 1080px) {
-        .objectives,
-        .proof-grid,
-        .practice-grid,
-        .summary-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      @media (max-width: 720px) {
+      /* 移动端/平板优化 */
+      @media (max-width: 1024px) {
         .lesson-grid {
           grid-template-columns: 1fr;
         }
 
         .side-panel {
-          display: contents;
-          position: static;
+          display: none; /* 平板及移动端隐藏侧边栏，仅保留画布 */
         }
 
-        .side-panel .side-block {
-          order: 3;
+        .page {
+          padding: 8px;
         }
 
-        .side-panel .side-block:first-child {
-          order: 1;
-        }
-
-        .board-card {
-          order: 2;
-        }
-
-        canvas {
-          min-height: 420px;
+        .task-box {
+          padding: 8px;
         }
       }
 
-      @media (max-width: 760px) {
-        .page {
-          padding: 14px;
-        }
+      .version-tag {
+        position: fixed;
+        bottom: 4px;
+        right: 8px;
+        font-size: 12px;
+        color: #a19cb6;
+        opacity: 0.5;
+        pointer-events: none;
+        z-index: 9999;
+      }
 
-        .course-header,
-        .task-box,
-        .practice-row {
-          grid-template-columns: 1fr;
-        }
+      button {
+        cursor: pointer;
+        font: inherit;
+        border: 1px solid #cbd3dc;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #273543;
+        transition: all 0.2s;
+      }
 
-        .top-actions,
-        .mode-switch {
-          justify-content: flex-start;
-        }
+      .primary {
+        background: #137a72;
+        color: #ffffff;
+        border-color: #137a72;
+      }
 
-        h1 {
-          font-size: 24px;
-        }
+      .ghost {
+        background: #eef8f6;
+        color: #0f5e59;
+        border-color: #b9d8d4;
+      }
+
+      .tab-button.active {
+        background: #137a72;
+        color: #ffffff;
+        border-color: #137a72;
+      }
+
+      .is-hidden {
+        display: none !important;
       }
     </style>
   </head>
   <body>
     <main class="page mode-teacher" id="page">
-      <header class="course-header">
-        <div>
-          <p class="eyebrow">初中数学 · 纯净互动版</p>
-          <h1>平行线分线段成比例</h1>
-          <p class="subtitle">保留图形操作、长度测量和比例观察，适合课堂直接演示。</p>
-        </div>
-        <div class="top-actions">
-          <div class="mode-switch">
-            <button class="mode-button active" type="button" data-mode="teacher">教师授课</button>
-            <button class="mode-button" type="button" data-mode="student">学生探究</button>
-          </div>
-          <span class="badge ready">课堂探究</span>
-          <span class="badge">三条平行线情形</span>
-        </div>
-      </header>
-
       <nav class="tabs" aria-label="平行线类型">
         <button class="tab-button active" type="button" data-scene="equal">1. 等距平行线</button>
         <button class="tab-button" type="button" data-scene="unequal">2. 不等距平行线</button>
       </nav>
 
-      <section class="objectives">
-        <article class="objective"><strong>学习目标</strong><span>理解平行线截两条直线所得线段的对应关系。</span></article>
-        <article class="objective"><strong>操作目标</strong><span>观察直线 m 的交点，再创建并移动直线 n。</span></article>
-        <article class="objective"><strong>测量目标</strong><span>读取 AB、BC、DE、EF 的长度。</span></article>
-        <article class="objective"><strong>比较目标</strong><span>比较 AB:BC 与 DE:EF 的值。</span></article>
-      </section>
-
       <section class="card task-box">
         <div class="task-title">
-          <p class="eyebrow" id="sceneEyebrow">等距平行线</p>
           <strong id="sceneTitle">先观察直线 m 与平行线的交点</strong>
           <p id="scenePrompt">点击“创建直线 n”，比较 AB、BC、DE、EF 的长度，并观察 AB:BC 与 DE:EF。</p>
         </div>
@@ -490,14 +535,53 @@
       <section class="lesson-grid">
         <aside class="card side-panel">
           <div class="side-block">
-            <h3>操作</h3>
-            <div class="tool-row">
-              <button class="primary" type="button" id="showFixedButton">固定交点已显示</button>
-              <button type="button" id="randomLineButton">创建直线 n</button>
-              <button type="button" id="altitudeButton">手绘高线</button>
-              <button type="button" id="connectButton">连接两点</button>
-              <button class="ghost is-hidden" type="button" id="clipButton">裁剪多余线</button>
-              <button class="ghost is-hidden" type="button" id="clearExtraButton">清除手绘线</button>
+            <h3>操作流程</h3>
+            <div class="workflow-steps">
+              <div class="workflow-step active">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <button class="workflow-btn primary" type="button" id="showFixedButton">
+                    <span>固定交点已显示</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="workflow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <button class="workflow-btn" type="button" id="randomLineButton">
+                    <span>创建直线 n</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="workflow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <div class="workflow-btn-group">
+                    <button class="workflow-btn" type="button" id="altitudeButton">
+                      <span>手绘高线</span>
+                    </button>
+                    <button class="workflow-btn" type="button" id="connectButton">
+                      <span>连接两点</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="workflow-step" id="cleanupStep">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                  <div class="workflow-btn-group">
+                    <button class="workflow-btn ghost is-hidden" type="button" id="clipButton">
+                      <span>裁剪线段</span>
+                    </button>
+                    <button class="workflow-btn ghost is-hidden" type="button" id="clearExtraButton">
+                      <span>清除手绘线</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             <p class="hint" id="toolHint">直线 m 的交点已显示。请创建直线 n，再比较对应线段。</p>
           </div>
@@ -512,21 +596,22 @@
             <div class="metric-list" id="randomMetrics"></div>
           </div>
 
-          <div class="side-block">
-            <h3>高线</h3>
-            <div class="metric-list" id="altitudeMetrics"></div>
-          </div>
-
           <div class="side-block student-response">
-            <h3>学生回答</h3>
-            <p class="hint" id="questionText">等距平行线中，直线 m 上的 AB、BC 有什么关系？</p>
-            <textarea id="studentAnswer" placeholder="学生在这里输入观察结论"></textarea>
-            <div class="tool-row">
-              <button class="primary" type="button" id="submitAnswerButton">提交回答</button>
-              <button type="button" id="clearAnswerButton">清空</button>
+            <h3>互动问答</h3>
+            <div class="chat-container">
+              <div class="chat-messages" id="chatMessages">
+                <div class="chat-bubble teacher">
+                  <span class="bubble-meta">系统提示</span>
+                  请观察图形，在下方输入你的发现。
+                </div>
+              </div>
+              <div class="chat-input-area">
+                <textarea id="studentAnswer" placeholder="输入你的观察结论..."></textarea>
+                <button class="send-btn" type="button" id="submitAnswerButton" title="发送">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+              </div>
             </div>
-            <div class="feedback" id="answerFeedback">等待回答</div>
-            <div class="response-history" id="responseHistory"></div>
           </div>
         </aside>
 
@@ -570,37 +655,29 @@
         <article class="summary-item"><strong>共同规律</strong><p>两条截线上的对应截段保持相同的比例关系。</p></article>
       </section>
     </main>
-
+    <div class="version-tag">ver 1.0.7</div>
     <script>
       const page = document.getElementById("page");
       const canvas = document.getElementById("lessonCanvas");
       const ctx = canvas.getContext("2d");
       const sceneButtons = Array.from(document.querySelectorAll(".tab-button"));
       const modeButtons = Array.from(document.querySelectorAll(".mode-button"));
-      const sceneEyebrow = document.getElementById("sceneEyebrow");
       const sceneTitle = document.getElementById("sceneTitle");
       const scenePrompt = document.getElementById("scenePrompt");
       const toolHint = document.getElementById("toolHint");
       const fixedMetrics = document.getElementById("fixedMetrics");
       const randomMetrics = document.getElementById("randomMetrics");
-      const altitudeMetrics = document.getElementById("altitudeMetrics");
       const showFixedButton = document.getElementById("showFixedButton");
       const randomLineButton = document.getElementById("randomLineButton");
       const altitudeButton = document.getElementById("altitudeButton");
       const connectButton = document.getElementById("connectButton");
+      const cleanupStep = document.getElementById("cleanupStep");
       const clipButton = document.getElementById("clipButton");
       const clearExtraButton = document.getElementById("clearExtraButton");
       const resetButton = document.getElementById("resetButton");
-      const questionText = document.getElementById("questionText");
-      const studentAnswer = document.getElementById("studentAnswer");
+      const chatMessages = document.getElementById("chatMessages");
       const submitAnswerButton = document.getElementById("submitAnswerButton");
-      const clearAnswerButton = document.getElementById("clearAnswerButton");
-      const answerFeedback = document.getElementById("answerFeedback");
-      const responseHistory = document.getElementById("responseHistory");
-      const answerOne = document.getElementById("answerOne");
-      const answerTwo = document.getElementById("answerTwo");
-      const feedbackOne = document.getElementById("feedbackOne");
-      const feedbackTwo = document.getElementById("feedbackTwo");
+      const studentAnswer = document.getElementById("studentAnswer");
 
       const viewBox = { width: 980, height: 620 };
       const leftX = 110;
@@ -726,11 +803,29 @@
         };
       }
 
-      function drawText(text, x, y, color = "#17212b", align = "center", size = 16, weight = 700) {
-        ctx.font = `${weight} ${size}px system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
+      function drawText(text, x, y, options = {}) {
+        const {
+          color = "#17212b",
+          align = "center",
+          size = 14,
+          weight = 500,
+          italic = false,
+          baseline = "middle",
+          outline = false
+        } = options;
+
+        const fontStyle = italic ? "italic" : "normal";
+        ctx.font = `${fontStyle} ${weight} ${size}px Inter, system-ui, -apple-system, "PingFang SC", sans-serif`;
+        
+        if (outline) {
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 3;
+          ctx.strokeText(text, x, y);
+        }
+        
         ctx.fillStyle = color;
         ctx.textAlign = align;
-        ctx.textBaseline = "middle";
+        ctx.textBaseline = baseline;
         ctx.fillText(text, x, y);
       }
 
@@ -776,7 +871,13 @@
         const [a, b] = lineEndpoints(line);
         drawSegment(a, b, line.color, 4);
         const labelPoint = linePoint(line, isClippedScene() ? getYList()[0] - 28 : 92);
-        drawText(line === fixedLine ? "m" : "n", labelPoint.x, labelPoint.y, line.color, "center", 19, 900);
+        drawText(line === fixedLine ? "m" : "n", labelPoint.x, labelPoint.y, {
+          color: line.color,
+          size: 18,
+          weight: 700,
+          italic: true,
+          outline: true
+        });
       }
 
       function drawTriangleFrame() {
@@ -810,21 +911,29 @@
         const points = getIntersections(line);
         points.forEach((point) => {
           drawPoint(point, line.color);
-          drawText(point.label, point.x + (line === fixedLine ? -18 : 18), point.y - 16, "#17212b", "center", 17, 800);
+          drawText(point.label, point.x + (line === fixedLine ? -18 : 18), point.y - 16, {
+            size: 16,
+            weight: 700,
+            italic: true,
+            outline: true
+          });
         });
         for (let i = 0; i < points.length - 1; i += 1) {
           const midpoint = { x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2 };
           const label = `${points[i].label}${points[i + 1].label}`;
-          drawText(label, midpoint.x + (line === fixedLine ? -32 : 32), midpoint.y, line.color, line === fixedLine ? "right" : "left", 14, 800);
+          drawText(label, midpoint.x + (line === fixedLine ? -32 : 32), midpoint.y, {
+            color: line.color,
+            align: line === fixedLine ? "right" : "left",
+            size: 13,
+            weight: 700,
+            italic: true
+          });
         }
       }
 
       function updateMetrics() {
         fixedMetrics.innerHTML = metricMarkup(fixedLine);
         randomMetrics.innerHTML = metricMarkup(showRandom ? randomLine : null);
-        altitudeMetrics.innerHTML = altitudeMarks.length
-          ? `<p class="hint">已画出 ${altitudeMarks.length} 条直线段。</p>`
-          : `<p class="hint">进入“手绘高线”，从一个交点拖到下一条平行线。生成直线段，角度由学生自己控制。</p>`;
       }
 
       function metricMarkup(line) {
@@ -871,7 +980,13 @@
           const start = isClippedScene() && randomLine ? linePoint(fixedLine, y) : { x: leftX, y };
           const end = isClippedScene() && randomLine ? linePoint(randomLine, y) : { x: rightX, y };
           drawSegment(start, end, "#2f9e44", 4);
-          drawText(`l${index + 1}`, end.x + 18, y, "#2f9e44", "left", 16, 800);
+          drawText(`l${index + 1}`, end.x + 18, y, {
+            color: "#2f9e44",
+            align: "left",
+            size: 15,
+            weight: 700,
+            italic: true
+          });
         });
 
         drawLine(fixedLine);
@@ -893,7 +1008,13 @@
           const b = resolvePoint(link.b);
           if (!a || !b) return;
           drawSegment(a, b, "#7c3aed", 3);
-          drawText(`${a.label}${b.label}`, (a.x + b.x) / 2, (a.y + b.y) / 2 - 18, "#6d28d9", "center", 14, 900);
+          drawText(`${a.label}${b.label}`, (a.x + b.x) / 2, (a.y + b.y) / 2 - 18, {
+            color: "#6d28d9",
+            size: 13,
+            weight: 700,
+            italic: true,
+            outline: true
+          });
         });
 
         if (selectedPoint) {
@@ -930,6 +1051,11 @@
         pointLinks = [];
         selectedPoint = null;
         toolHint.textContent = "直线 n 已创建。可以拖动直线 n，也可以进入手绘高线。";
+        
+        // 更新步骤激活状态
+        document.querySelectorAll(".workflow-step")[1].classList.add("active");
+        document.querySelectorAll(".workflow-step")[2].classList.add("active");
+        
         draw();
       }
 
@@ -947,19 +1073,24 @@
         pointLinks = [];
         selectedPoint = null;
         currentStroke = [];
+        
+        // 重置聊天
+        chatMessages.innerHTML = `
+          <div class="chat-bubble teacher">
+            <span class="bubble-meta">系统提示</span>
+            ${sceneConfig[scene].question}
+          </div>
+        `;
+
         const config = sceneConfig[scene];
-        sceneEyebrow.textContent = config.name;
         sceneTitle.textContent = config.title;
         scenePrompt.textContent = config.prompt;
-        questionText.textContent = config.question;
-        studentAnswer.value = "";
-        answerFeedback.className = "feedback";
-        answerFeedback.textContent = "等待回答";
-        sceneButtons.forEach((button) => button.classList.toggle("active", button.dataset.scene === scene));
         toolHint.textContent = "直线 m 的交点已显示。请创建直线 n，再比较对应线段。";
         clipButton.textContent = "裁剪多余线";
-        clipButton.classList.toggle("is-hidden", scene !== "unequal");
-        clearExtraButton.classList.toggle("is-hidden", scene !== "unequal");
+        const isUnequal = scene === "unequal";
+        clipButton.classList.toggle("is-hidden", !isUnequal);
+        clearExtraButton.classList.toggle("is-hidden", !isUnequal);
+        cleanupStep.classList.toggle("is-hidden", !isUnequal);
         altitudeButton.classList.remove("primary");
         connectButton.classList.remove("primary");
         draw();
@@ -967,20 +1098,42 @@
 
       function submitStudentAnswer() {
         const value = studentAnswer.value.trim();
-        if (!value) {
-          answerFeedback.className = "feedback warn";
-          answerFeedback.textContent = "请先输入观察结论。";
-          return;
-        }
+        if (!value) return;
+
+        // 添加学生消息
+        addChatMessage("student", value);
+        studentAnswer.value = "";
+        studentAnswer.style.height = "36px";
+
         const config = sceneConfig[scene];
         const normalized = value.replace(/\s/g, "");
         const isCorrect = config.keywords.some((keyword) => normalized.includes(keyword));
-        answerFeedback.className = isCorrect ? "feedback ok" : "feedback warn";
-        answerFeedback.textContent = isCorrect ? config.success : config.hint;
-        const item = document.createElement("div");
-        item.className = "response-item";
-        item.innerHTML = `<span>${config.name} · 学生回答</span><strong>${value}</strong><p class="hint">${answerFeedback.textContent}</p>`;
-        responseHistory.prepend(item);
+
+        // 模拟老师延迟回复
+        setTimeout(() => {
+          const feedbackText = isCorrect ? config.success : config.hint;
+          addChatMessage("teacher", feedbackText, "老师 · 反馈");
+        }, 600);
+      }
+
+      studentAnswer.addEventListener("input", function() {
+        this.style.height = "auto";
+        this.style.height = (this.scrollHeight) + "px";
+      });
+
+      studentAnswer.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          submitStudentAnswer();
+        }
+      });
+
+      function addChatMessage(role, text, meta = "") {
+        const bubble = document.createElement("div");
+        bubble.className = `chat-bubble ${role}`;
+        bubble.innerHTML = `<span class="bubble-meta">${meta || (role === "student" ? "学生" : "老师")}</span>${text}`;
+        chatMessages.appendChild(bubble);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
       }
 
       function setMode(mode) {
@@ -1007,7 +1160,7 @@
         movingPoint = null;
         altitudeButton.classList.remove("primary");
         connectButton.classList.remove("primary");
-        toolHint.textContent = randomLine ? "已清除额外线，保留当前核心图形。" : "已清除额外线，直线 m 的交点仍保留。";
+        toolHint.textContent = randomLine ? "已清除手绘线，保留当前核心图形。" : "已清除手绘线，直线 m 的交点仍保留。";
         draw();
       }
 
@@ -1110,12 +1263,16 @@
           const start = nearestIntersection(point);
           if (!start) return;
           drawing = true;
-          currentStroke = [{ x: start.x, y: start.y }, point];
+          // 初始线段：起点吸附到交点，终点为当前点击点
+          currentStroke = [{ x: start.x, y: start.y }, { x: start.x, y: start.y }];
           canvas.setPointerCapture(event.pointerId);
           canvas.dataset.startLabel = start.label;
           canvas.dataset.startIndex = String(start.index);
+          draw();
           return;
         }
+
+        // 仅在非绘图/连接模式下允许拖拽直线或点
         const controlPoint = randomControlPointAt(point);
         if (controlPoint) {
           movingPoint = {
@@ -1198,6 +1355,7 @@
             start: startPoint,
             end: endPoint,
           });
+          toolHint.textContent = `已画出第 ${altitudeMarks.length} 条高线。`;
         }
         currentStroke = [];
         drawing = false;
@@ -1224,7 +1382,7 @@
           selectedPoint = null;
           connectButton.classList.remove("primary");
         }
-        altitudeButton.classList.toggle("primary", drawMode);
+        altitudeButton.classList.toggle("active", drawMode);
         toolHint.textContent = drawMode ? "手绘高线：从任意已显示交点拖到下一条平行线。系统只保证画出直线段，角度由学生自己控制。" : "已退出手绘高线。";
         draw();
       });
@@ -1233,20 +1391,16 @@
         if (connectMode) {
           drawMode = false;
           currentStroke = [];
-          altitudeButton.classList.remove("primary");
+          altitudeButton.classList.remove("active");
         }
         selectedPoint = null;
-        connectButton.classList.toggle("primary", connectMode);
+        connectButton.classList.toggle("active", connectMode);
         toolHint.textContent = connectMode ? "连接两点：依次点击两个已显示交点。" : "已退出连接两点。";
         draw();
       });
       resetButton.addEventListener("click", () => setScene(scene));
       submitAnswerButton.addEventListener("click", submitStudentAnswer);
-      clearAnswerButton.addEventListener("click", () => {
-        studentAnswer.value = "";
-        answerFeedback.className = "feedback";
-        answerFeedback.textContent = "等待回答";
-      });
+
       sceneButtons.forEach((button) => button.addEventListener("click", () => setScene(button.dataset.scene)));
       modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
 
