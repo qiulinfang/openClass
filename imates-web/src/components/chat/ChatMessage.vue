@@ -1563,7 +1563,7 @@ onUnmounted(() => {
 
           .message-text {
             line-height: 1.5;
-            font-size: 19px;
+            font-size: 26px;
             word-wrap: break-word;
             word-break: break-word;
             white-space: normal;
@@ -1637,14 +1637,14 @@ onUnmounted(() => {
             :deep(h4),
             :deep(h5),
             :deep(h6) {
-              font-size: 20px;
+              font-size: 30px;
               line-height: 1.5;
               font-weight: 600;
               margin: 8px 0;
             }
 
             :deep(li) {
-              font-size: 19px;
+              font-size: 26px;
               line-height: 1.5;
               font-weight: 400;
             }
@@ -1805,7 +1805,7 @@ onUnmounted(() => {
 
         .message-text {
           line-height: 1.5;
-          font-size: 19px;
+          font-size: 26px;
           word-wrap: break-word;
           word-break: break-word;
           white-space: normal;
@@ -1826,7 +1826,7 @@ onUnmounted(() => {
           :deep(h4),
           :deep(h5),
           :deep(h6) {
-            font-size: 20px;
+            font-size: 30px;
             line-height: 1.5;
             font-weight: 600;
             margin: 8px 0;

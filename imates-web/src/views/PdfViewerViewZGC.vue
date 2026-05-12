@@ -26,7 +26,7 @@
     />
 
     新增悬浮按钮 (小工具11) -->
-    <DraggableFab
+    <!-- <DraggableFab
       v-if="shouldShowMiniClassFab"
       label="画出高"
       size="md"
@@ -34,7 +34,7 @@
       :initial-pos="{ left: 16, bottom: 280 }"
       bounds-container=".fullscreen-chat-container"
       @click="onTool11Click"
-    /> 
+    />  -->
 
     <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" question-title="小工具" />
   </div>

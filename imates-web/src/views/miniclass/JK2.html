@@ -1,50 +1,1280 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>正在开发中 - 经开二中2</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>平行线分线段成比例｜纯净版</title>
     <style>
-        body, html {
-            height: 100%;
-            margin: 0;
-            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-color: #f0f2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #333;
+      :root {
+        color: #17212b;
+        background: #eef2f5;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+        background: #eef2f5;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .page {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      .course-header {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        align-items: end;
+        margin-bottom: 12px;
+      }
+
+      .eyebrow {
+        margin: 0 0 5px;
+        color: #657383;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 4px;
+        color: #111827;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+
+      h2,
+      h3 {
+        margin-bottom: 8px;
+        color: #17212b;
+      }
+
+      .subtitle {
+        max-width: 980px;
+        margin: 0;
+        color: #4b5968;
+        line-height: 1.58;
+      }
+
+      .top-actions,
+      .objectives,
+      .proof-grid,
+      .practice-grid,
+      .summary-grid,
+      .student-response {
+        display: none !important;
+      }
+
+      .top-actions,
+      .mode-switch,
+      .tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .top-actions {
+        justify-content: flex-end;
+      }
+
+      .mode-switch {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .mode-button,
+      .tab-button {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .badge {
+        color: #23527a;
+        background: #dcecf8;
+      }
+
+      .badge.ready {
+        color: #146c43;
+        background: #dff3e7;
+      }
+
+      .mode-button,
+      .tab-button,
+      button {
+        min-height: 38px;
+        padding: 0 12px;
+        border: 1px solid #cbd3dc;
+        border-radius: 8px;
+        color: #273543;
+        background: #ffffff;
+      }
+
+      .mode-button.active,
+      .tab-button.active,
+      .primary {
+        border-color: #137a72;
+        color: #ffffff;
+        background: #137a72;
+      }
+
+      .ghost {
+        color: #0f5e59;
+        border-color: #b9d8d4;
+        background: #eef8f6;
+      }
+
+      .is-hidden {
+        display: none !important;
+      }
+
+      .card {
+        border: 1px solid #d6dee6;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .task-box {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px;
+        padding: 15px;
+      }
+
+      .task-title {
+        display: grid;
+        gap: 4px;
+      }
+
+      .task-title strong {
+        color: #17212b;
+        font-size: 19px;
+      }
+
+      .task-title p {
+        margin: 0;
+        color: #4b5968;
+        line-height: 1.58;
+      }
+
+      .lesson-grid {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+      }
+
+      .side-panel {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        position: sticky;
+        top: 12px;
+      }
+
+      .side-block {
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid #dfe6ec;
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .side-block p,
+      .hint {
+        margin: 0;
+        color: #4b5968;
+        line-height: 1.55;
+      }
+
+      .metric-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .student-response {
+        display: grid;
+        gap: 10px;
+      }
+
+      .student-response textarea {
+        width: 100%;
+        min-height: 86px;
+        padding: 9px 10px;
+        border: 1px solid #cbd3dc;
+        border-radius: 8px;
+        color: #17212b;
+        background: #ffffff;
+        resize: vertical;
+      }
+
+      .response-history {
+        display: grid;
+        gap: 8px;
+      }
+
+      .response-item {
+        display: grid;
+        gap: 4px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #eef8f6;
+      }
+
+      .response-item span {
+        color: #5d6b78;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .metric-item {
+        display: grid;
+        gap: 3px;
+        padding: 9px 10px;
+        border-radius: 8px;
+        background: #f2f6f8;
+      }
+
+      .metric-item span {
+        color: #5d6b78;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .metric-item strong {
+        color: #17212b;
+        font-size: 21px;
+      }
+
+      .board-card {
+        padding: 16px;
+      }
+
+      .board-wrap {
+        border: 1px solid #d6dee6;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #f8fafb;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        min-height: 500px;
+        aspect-ratio: 980 / 620;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      .student-only {
+        display: none;
+      }
+
+      .mode-student .student-only {
+        display: grid;
+      }
+
+      .objectives,
+      .proof-grid,
+      .practice-grid,
+      .summary-grid {
+        display: none;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .mode-student .objectives,
+      .mode-student .proof-grid,
+      .mode-student .practice-grid,
+      .mode-student .summary-grid {
+        display: grid;
+      }
+
+      .objectives {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .proof-grid,
+      .summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .practice-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .objective,
+      .proof-card,
+      .practice-card,
+      .summary-item {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        border: 1px solid #dfe6ec;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .proof-card {
+        background: #eef8f6;
+      }
+
+      .practice-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 10px;
+        border: 1px solid #cbd3dc;
+        border-radius: 8px;
+      }
+
+      .feedback {
+        min-height: 24px;
+        color: #8a5a00;
+        font-weight: 800;
+      }
+
+      .feedback.ok {
+        color: #146c43;
+      }
+
+      .feedback.warn {
+        color: #b45309;
+      }
+
+      @media (max-width: 1080px) {
+        .objectives,
+        .proof-grid,
+        .practice-grid,
+        .summary-grid {
+          grid-template-columns: 1fr;
         }
-        .container {
-            text-align: center;
-            padding: 40px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            max-width: 400px;
-            width: 90%;
+      }
+
+      @media (max-width: 720px) {
+        .lesson-grid {
+          grid-template-columns: 1fr;
         }
-        .icon {
-            font-size: 64px;
-            margin-bottom: 20px;
+
+        .side-panel {
+          display: contents;
+          position: static;
         }
+
+        .side-panel .side-block {
+          order: 3;
+        }
+
+        .side-panel .side-block:first-child {
+          order: 1;
+        }
+
+        .board-card {
+          order: 2;
+        }
+
+        canvas {
+          min-height: 420px;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          padding: 14px;
+        }
+
+        .course-header,
+        .task-box,
+        .practice-row {
+          grid-template-columns: 1fr;
+        }
+
+        .top-actions,
+        .mode-switch {
+          justify-content: flex-start;
+        }
+
         h1 {
-            font-size: 24px;
-            margin-bottom: 12px;
-            color: #1a1a1a;
+          font-size: 24px;
         }
-        p {
-            font-size: 16px;
-            color: #666;
-            line-height: 1.6;
-        }
+      }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon">🏗️</div>
-        <h1>功能开发中</h1>
-        <p>经开二中2 相关功能正在全力开发中，敬请期待！</p>
-    </div>
-</body>
+  </head>
+  <body>
+    <main class="page mode-teacher" id="page">
+      <header class="course-header">
+        <div>
+          <p class="eyebrow">初中数学 · 纯净互动版</p>
+          <h1>平行线分线段成比例</h1>
+          <p class="subtitle">保留图形操作、长度测量和比例观察，适合课堂直接演示。</p>
+        </div>
+        <div class="top-actions">
+          <div class="mode-switch">
+            <button class="mode-button active" type="button" data-mode="teacher">教师授课</button>
+            <button class="mode-button" type="button" data-mode="student">学生探究</button>
+          </div>
+          <span class="badge ready">课堂探究</span>
+          <span class="badge">三条平行线情形</span>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="平行线类型">
+        <button class="tab-button active" type="button" data-scene="equal">1. 等距平行线</button>
+        <button class="tab-button" type="button" data-scene="unequal">2. 不等距平行线</button>
+      </nav>
+
+      <section class="objectives">
+        <article class="objective"><strong>学习目标</strong><span>理解平行线截两条直线所得线段的对应关系。</span></article>
+        <article class="objective"><strong>操作目标</strong><span>观察直线 m 的交点，再创建并移动直线 n。</span></article>
+        <article class="objective"><strong>测量目标</strong><span>读取 AB、BC、DE、EF 的长度。</span></article>
+        <article class="objective"><strong>比较目标</strong><span>比较 AB:BC 与 DE:EF 的值。</span></article>
+      </section>
+
+      <section class="card task-box">
+        <div class="task-title">
+          <p class="eyebrow" id="sceneEyebrow">等距平行线</p>
+          <strong id="sceneTitle">先观察直线 m 与平行线的交点</strong>
+          <p id="scenePrompt">点击“创建直线 n”，比较 AB、BC、DE、EF 的长度，并观察 AB:BC 与 DE:EF。</p>
+        </div>
+        <button class="ghost" type="button" id="resetButton">重置本页</button>
+      </section>
+
+      <section class="lesson-grid">
+        <aside class="card side-panel">
+          <div class="side-block">
+            <h3>操作</h3>
+            <div class="tool-row">
+              <button class="primary" type="button" id="showFixedButton">固定交点已显示</button>
+              <button type="button" id="randomLineButton">创建直线 n</button>
+              <button type="button" id="altitudeButton">手绘高线</button>
+              <button type="button" id="connectButton">连接两点</button>
+              <button class="ghost is-hidden" type="button" id="clipButton">裁剪多余线</button>
+              <button class="ghost is-hidden" type="button" id="clearExtraButton">清除手绘线</button>
+            </div>
+            <p class="hint" id="toolHint">直线 m 的交点已显示。请创建直线 n，再比较对应线段。</p>
+          </div>
+
+          <div class="side-block">
+            <h3>直线 m</h3>
+            <div class="metric-list" id="fixedMetrics"></div>
+          </div>
+
+          <div class="side-block">
+            <h3>直线 n</h3>
+            <div class="metric-list" id="randomMetrics"></div>
+          </div>
+
+          <div class="side-block">
+            <h3>高线</h3>
+            <div class="metric-list" id="altitudeMetrics"></div>
+          </div>
+
+          <div class="side-block student-response">
+            <h3>学生回答</h3>
+            <p class="hint" id="questionText">等距平行线中，直线 m 上的 AB、BC 有什么关系？</p>
+            <textarea id="studentAnswer" placeholder="学生在这里输入观察结论"></textarea>
+            <div class="tool-row">
+              <button class="primary" type="button" id="submitAnswerButton">提交回答</button>
+              <button type="button" id="clearAnswerButton">清空</button>
+            </div>
+            <div class="feedback" id="answerFeedback">等待回答</div>
+            <div class="response-history" id="responseHistory"></div>
+          </div>
+        </aside>
+
+        <section class="card board-card">
+          <div class="board-wrap">
+            <canvas id="lessonCanvas" aria-label="平行线分线段成比例互动图形"></canvas>
+          </div>
+        </section>
+      </section>
+
+      <section class="proof-grid">
+        <article class="proof-card"><strong>1. 先找平行线</strong><p>同一组平行线截两条直线，交点按照平行线的顺序对应。</p></article>
+        <article class="proof-card"><strong>2. 再看对应线段</strong><p>直线 m 上看 AB、BC；直线 n 上看 DE、EF。</p></article>
+        <article class="proof-card"><strong>3. 最后比较比例</strong><p>不等距时相邻段不一定相等，但 AB:BC 与 DE:EF 保持一致。</p></article>
+      </section>
+
+      <section class="practice-grid">
+        <article class="practice-card">
+          <strong>基础练习</strong>
+          <p>等距平行线中，直线 m 上的 AB 和 BC 是否相等？</p>
+          <div class="practice-row">
+            <input id="answerOne" type="text" placeholder="输入：相等 / 不相等" />
+            <button type="button" id="checkOne">检查</button>
+          </div>
+          <div class="feedback" id="feedbackOne">等待作答</div>
+        </article>
+        <article class="practice-card">
+          <strong>变式练习</strong>
+          <p>不等距平行线中，AB:BC 与 DE:EF 是否保持相同？</p>
+          <div class="practice-row">
+            <input id="answerTwo" type="text" placeholder="输入：相同 / 相等" />
+            <button type="button" id="checkTwo">检查</button>
+          </div>
+          <div class="feedback" id="feedbackTwo">等待作答</div>
+        </article>
+      </section>
+
+      <section class="summary-grid">
+        <article class="summary-item"><strong>等距平行线</strong><p>相邻平行线间高相等，同一截线上的相邻截段相等。</p></article>
+        <article class="summary-item"><strong>不等距平行线</strong><p>高不相等时，相邻截段也随之变化。</p></article>
+        <article class="summary-item"><strong>共同规律</strong><p>两条截线上的对应截段保持相同的比例关系。</p></article>
+      </section>
+    </main>
+
+    <script>
+      const page = document.getElementById("page");
+      const canvas = document.getElementById("lessonCanvas");
+      const ctx = canvas.getContext("2d");
+      const sceneButtons = Array.from(document.querySelectorAll(".tab-button"));
+      const modeButtons = Array.from(document.querySelectorAll(".mode-button"));
+      const sceneEyebrow = document.getElementById("sceneEyebrow");
+      const sceneTitle = document.getElementById("sceneTitle");
+      const scenePrompt = document.getElementById("scenePrompt");
+      const toolHint = document.getElementById("toolHint");
+      const fixedMetrics = document.getElementById("fixedMetrics");
+      const randomMetrics = document.getElementById("randomMetrics");
+      const altitudeMetrics = document.getElementById("altitudeMetrics");
+      const showFixedButton = document.getElementById("showFixedButton");
+      const randomLineButton = document.getElementById("randomLineButton");
+      const altitudeButton = document.getElementById("altitudeButton");
+      const connectButton = document.getElementById("connectButton");
+      const clipButton = document.getElementById("clipButton");
+      const clearExtraButton = document.getElementById("clearExtraButton");
+      const resetButton = document.getElementById("resetButton");
+      const questionText = document.getElementById("questionText");
+      const studentAnswer = document.getElementById("studentAnswer");
+      const submitAnswerButton = document.getElementById("submitAnswerButton");
+      const clearAnswerButton = document.getElementById("clearAnswerButton");
+      const answerFeedback = document.getElementById("answerFeedback");
+      const responseHistory = document.getElementById("responseHistory");
+      const answerOne = document.getElementById("answerOne");
+      const answerTwo = document.getElementById("answerTwo");
+      const feedbackOne = document.getElementById("feedbackOne");
+      const feedbackTwo = document.getElementById("feedbackTwo");
+
+      const viewBox = { width: 980, height: 620 };
+      const leftX = 110;
+      const rightX = 870;
+      const scalePerUnit = 22;
+      const fixedLine = { xAtCenter: 360, slope: -0.42, color: "#dc2626", name: "直线 m" };
+      let randomLine = null;
+      let scene = "equal";
+      let showRandom = false;
+      let clippedView = false;
+      let drawMode = false;
+      let connectMode = false;
+      let drawing = false;
+      let movingLine = null;
+      let movingPoint = null;
+      let currentStroke = [];
+      let altitudeMarks = [];
+      let pointLinks = [];
+      let selectedPoint = null;
+
+      const sceneConfig = {
+        equal: {
+          name: "等距平行线",
+          ys: [165, 315, 465],
+          title: "等距平行线：三条平行线与直线 m 相交于 A、B、C",
+          prompt: "先观察 AB 与 BC 的长度；再创建可移动的直线 n，观察 DE 与 EF 的长度。",
+          question: "等距平行线中，直线 m 上的 AB、BC 有什么关系？",
+          keywords: ["相等", "一样", "都相等", "相同"],
+          success: "回答正确：三条等距平行线截直线 m，AB 与 BC 相等。",
+          hint: "再观察左侧距离：AB 和 BC 的数值是否一样？",
+        },
+        unequal: {
+          name: "不等距平行线",
+          ys: [150, 270, 465],
+          title: "不等距平行线：仍然是三条平行线，与 m、n 分别相交",
+          prompt: "创建并拖动直线 n，或拖动 D、E、F 点，比较 AB:BC 与 DE:EF。点击“裁剪多余线”可把本图变成核心线段图。",
+          question: "不等距平行线中，AB:BC 与 DE:EF 有什么关系？",
+          keywords: ["不相等", "不一定", "不同", "高不同", "间距不同"],
+          success: "回答正确：不等距时 AB 和 BC 通常不相等，但 AB:BC 与 DE:EF 相等。",
+          hint: "看左侧两个比值：AB:BC 和 DE:EF 是否一致？",
+        },
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function format(value) {
+        return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+      }
+
+      function getYList() {
+        return sceneConfig[scene].ys;
+      }
+
+      function isClippedScene() {
+        return scene === "unequal" && clippedView;
+      }
+
+      function linePoint(line, y) {
+        return {
+          x: line.xAtCenter + line.slope * (y - 310),
+          y,
+        };
+      }
+
+      function lineEndpoints(line) {
+        if (isClippedScene()) {
+          const ys = getYList();
+          return [linePoint(line, ys[0]), linePoint(line, ys[ys.length - 1])];
+        }
+        return [linePoint(line, 60), linePoint(line, 560)];
+      }
+
+      function setLineFromTwoPoints(line, first, second) {
+        const dy = second.y - first.y;
+        if (Math.abs(dy) < 20) return;
+        line.slope = (second.x - first.x) / dy;
+        line.xAtCenter = first.x - line.slope * (first.y - 310);
+      }
+
+      function lineIntersection(first, second) {
+        const denominator = first.slope - second.slope;
+        if (Math.abs(denominator) < 0.001) return null;
+        const y = 310 + (second.xAtCenter - first.xAtCenter) / denominator;
+        return linePoint(first, y);
+      }
+
+      function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y) / scalePerUnit;
+      }
+
+      function pointToSegmentDistance(point, start, end) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const len2 = dx * dx + dy * dy;
+        const t = clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / len2, 0, 1);
+        const foot = { x: start.x + dx * t, y: start.y + dy * t };
+        return Math.hypot(point.x - foot.x, point.y - foot.y);
+      }
+
+      function getIntersections(line) {
+        return getYList().map((y, index) => ({
+          label: line === fixedLine ? ["A", "B", "C"][index] : ["D", "E", "F"][index],
+          ...linePoint(line, y),
+          line,
+          lineKey: line === fixedLine ? "m" : "n",
+          index,
+        }));
+      }
+
+      function resolvePoint(ref) {
+        const line = ref.lineKey === "m" ? fixedLine : randomLine;
+        if (!line) return null;
+        return getIntersections(line)[ref.index] || null;
+      }
+
+      function getCanvasPoint(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: ((event.clientX - rect.left) / rect.width) * viewBox.width,
+          y: ((event.clientY - rect.top) / rect.height) * viewBox.height,
+        };
+      }
+
+      function drawText(text, x, y, color = "#17212b", align = "center", size = 16, weight = 700) {
+        ctx.font = `${weight} ${size}px system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
+        ctx.fillStyle = color;
+        ctx.textAlign = align;
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, x, y);
+      }
+
+      function drawSegment(a, b, color, width = 4, dash = []) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash(dash);
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPolyline(points, color, width = 3, dash = []) {
+        if (points.length < 2) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash(dash);
+        ctx.moveTo(points[0].x, points[0].y);
+        points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.lineWidth = width;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPoint(point, color) {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+      }
+
+      function drawLine(line) {
+        const [a, b] = lineEndpoints(line);
+        drawSegment(a, b, line.color, 4);
+        const labelPoint = linePoint(line, isClippedScene() ? getYList()[0] - 28 : 92);
+        drawText(line === fixedLine ? "m" : "n", labelPoint.x, labelPoint.y, line.color, "center", 19, 900);
+      }
+
+      function drawTriangleFrame() {
+        if (!randomLine) return;
+        const ys = getYList();
+        const leftTop = linePoint(fixedLine, ys[0]);
+        const rightTop = linePoint(randomLine, ys[0]);
+        const rightBottom = linePoint(randomLine, ys[ys.length - 1]);
+        const leftBottom = linePoint(fixedLine, ys[ys.length - 1]);
+        ctx.beginPath();
+        ctx.moveTo(leftTop.x, leftTop.y);
+        ctx.lineTo(rightTop.x, rightTop.y);
+        ctx.lineTo(rightBottom.x, rightBottom.y);
+        ctx.lineTo(leftBottom.x, leftBottom.y);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(19, 122, 114, 0.06)";
+        ctx.fill();
+      }
+
+      function drawMoveHandles(line) {
+        const ys = getYList();
+        const top = linePoint(line, ys[0]);
+        const middle = linePoint(line, ys[1]);
+        const bottom = linePoint(line, ys[ys.length - 1]);
+        drawPoint(top, line.color);
+        drawPoint(middle, line.color);
+        drawPoint(bottom, line.color);
+      }
+
+      function drawIntersections(line) {
+        const points = getIntersections(line);
+        points.forEach((point) => {
+          drawPoint(point, line.color);
+          drawText(point.label, point.x + (line === fixedLine ? -18 : 18), point.y - 16, "#17212b", "center", 17, 800);
+        });
+        for (let i = 0; i < points.length - 1; i += 1) {
+          const midpoint = { x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2 };
+          const label = `${points[i].label}${points[i + 1].label}`;
+          drawText(label, midpoint.x + (line === fixedLine ? -32 : 32), midpoint.y, line.color, line === fixedLine ? "right" : "left", 14, 800);
+        }
+      }
+
+      function updateMetrics() {
+        fixedMetrics.innerHTML = metricMarkup(fixedLine);
+        randomMetrics.innerHTML = metricMarkup(showRandom ? randomLine : null);
+        altitudeMetrics.innerHTML = altitudeMarks.length
+          ? `<p class="hint">已画出 ${altitudeMarks.length} 条直线段。</p>`
+          : `<p class="hint">进入“手绘高线”，从一个交点拖到下一条平行线。生成直线段，角度由学生自己控制。</p>`;
+      }
+
+      function metricMarkup(line) {
+        if (!line) return `<p class="hint">尚未创建。</p>`;
+        const points = getIntersections(line);
+        const segmentRows = points
+          .slice(0, -1)
+          .map((point, index) => {
+            const next = points[index + 1];
+            return `<div class="metric-item"><span>${point.label}${next.label}</span><strong>${format(distance(point, next))} 单位</strong></div>`;
+          })
+          .join("");
+        if (points.length < 3) return segmentRows;
+        const first = distance(points[0], points[1]);
+        const second = distance(points[1], points[2]);
+        const ratio = second === 0 ? 0 : first / second;
+        const ratioLabel = `${points[0].label}${points[1].label}:${points[1].label}${points[2].label}`;
+        return `${segmentRows}<div class="metric-item"><span>${ratioLabel}</span><strong>${format(ratio)}</strong></div>`;
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, viewBox.width, viewBox.height);
+        ctx.fillStyle = "#f8fafb";
+        ctx.fillRect(0, 0, viewBox.width, viewBox.height);
+
+        ctx.strokeStyle = "#e2e8ef";
+        ctx.lineWidth = 1;
+        for (let x = 60; x < viewBox.width; x += 40) {
+          ctx.beginPath();
+          ctx.moveTo(x, 42);
+          ctx.lineTo(x, viewBox.height - 42);
+          ctx.stroke();
+        }
+        for (let y = 60; y < viewBox.height; y += 40) {
+          ctx.beginPath();
+          ctx.moveTo(42, y);
+          ctx.lineTo(viewBox.width - 42, y);
+          ctx.stroke();
+        }
+
+        drawTriangleFrame();
+
+        getYList().forEach((y, index) => {
+          const start = isClippedScene() && randomLine ? linePoint(fixedLine, y) : { x: leftX, y };
+          const end = isClippedScene() && randomLine ? linePoint(randomLine, y) : { x: rightX, y };
+          drawSegment(start, end, "#2f9e44", 4);
+          drawText(`l${index + 1}`, end.x + 18, y, "#2f9e44", "left", 16, 800);
+        });
+
+        drawLine(fixedLine);
+        if (randomLine) drawLine(randomLine);
+        if (randomLine) drawMoveHandles(randomLine);
+        drawIntersections(fixedLine);
+        if (showRandom && randomLine) drawIntersections(randomLine);
+
+        altitudeMarks.forEach((mark) => {
+          drawSegment(mark.start, mark.end, "#111827", 3, [8, 6]);
+        });
+
+        if (currentStroke.length > 1) {
+          drawSegment(currentStroke[0], currentStroke[currentStroke.length - 1], "#111827", 3);
+        }
+
+        pointLinks.forEach((link) => {
+          const a = resolvePoint(link.a);
+          const b = resolvePoint(link.b);
+          if (!a || !b) return;
+          drawSegment(a, b, "#7c3aed", 3);
+          drawText(`${a.label}${b.label}`, (a.x + b.x) / 2, (a.y + b.y) / 2 - 18, "#6d28d9", "center", 14, 900);
+        });
+
+        if (selectedPoint) {
+          const point = resolvePoint(selectedPoint);
+          if (point) {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#7c3aed";
+            ctx.stroke();
+          }
+        }
+
+        updateMetrics();
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const scale = window.devicePixelRatio || 1;
+        canvas.width = Math.round(rect.width * scale);
+        canvas.height = Math.round(rect.height * scale);
+        ctx.setTransform((rect.width * scale) / viewBox.width, 0, 0, (rect.height * scale) / viewBox.height, 0, 0);
+        draw();
+      }
+
+      function randomizeLine() {
+        const slopes = [0.24, 0.3, 0.36, 0.42];
+        const slope = slopes[Math.floor(Math.random() * slopes.length)];
+        const apexY = 72 + Math.random() * 78;
+        const xAtCenter = fixedLine.xAtCenter + (310 - apexY) * (fixedLine.slope * -1 + slope);
+        randomLine = { xAtCenter, slope, color: "#2563eb", name: "直线 n" };
+        showRandom = true;
+        altitudeMarks = [];
+        pointLinks = [];
+        selectedPoint = null;
+        toolHint.textContent = "直线 n 已创建。可以拖动直线 n，也可以进入手绘高线。";
+        draw();
+      }
+
+      function setScene(nextScene) {
+        scene = nextScene;
+        clippedView = false;
+        showRandom = false;
+        randomLine = null;
+        drawMode = false;
+        connectMode = false;
+        drawing = false;
+        movingLine = null;
+        movingPoint = null;
+        altitudeMarks = [];
+        pointLinks = [];
+        selectedPoint = null;
+        currentStroke = [];
+        const config = sceneConfig[scene];
+        sceneEyebrow.textContent = config.name;
+        sceneTitle.textContent = config.title;
+        scenePrompt.textContent = config.prompt;
+        questionText.textContent = config.question;
+        studentAnswer.value = "";
+        answerFeedback.className = "feedback";
+        answerFeedback.textContent = "等待回答";
+        sceneButtons.forEach((button) => button.classList.toggle("active", button.dataset.scene === scene));
+        toolHint.textContent = "直线 m 的交点已显示。请创建直线 n，再比较对应线段。";
+        clipButton.textContent = "裁剪多余线";
+        clipButton.classList.toggle("is-hidden", scene !== "unequal");
+        clearExtraButton.classList.toggle("is-hidden", scene !== "unequal");
+        altitudeButton.classList.remove("primary");
+        connectButton.classList.remove("primary");
+        draw();
+      }
+
+      function submitStudentAnswer() {
+        const value = studentAnswer.value.trim();
+        if (!value) {
+          answerFeedback.className = "feedback warn";
+          answerFeedback.textContent = "请先输入观察结论。";
+          return;
+        }
+        const config = sceneConfig[scene];
+        const normalized = value.replace(/\s/g, "");
+        const isCorrect = config.keywords.some((keyword) => normalized.includes(keyword));
+        answerFeedback.className = isCorrect ? "feedback ok" : "feedback warn";
+        answerFeedback.textContent = isCorrect ? config.success : config.hint;
+        const item = document.createElement("div");
+        item.className = "response-item";
+        item.innerHTML = `<span>${config.name} · 学生回答</span><strong>${value}</strong><p class="hint">${answerFeedback.textContent}</p>`;
+        responseHistory.prepend(item);
+      }
+
+      function setMode(mode) {
+        page.classList.toggle("mode-teacher", mode === "teacher");
+        page.classList.toggle("mode-student", mode === "student");
+        modeButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+        resizeCanvas();
+      }
+
+      function showFixedIntersections() {
+        toolHint.textContent = "直线 m 的交点已显示。现在可以创建直线 n。";
+        draw();
+      }
+
+      function clearExtraLines() {
+        altitudeMarks = [];
+        pointLinks = [];
+        selectedPoint = null;
+        currentStroke = [];
+        drawing = false;
+        drawMode = false;
+        connectMode = false;
+        movingLine = null;
+        movingPoint = null;
+        altitudeButton.classList.remove("primary");
+        connectButton.classList.remove("primary");
+        toolHint.textContent = randomLine ? "已清除额外线，保留当前核心图形。" : "已清除额外线，直线 m 的交点仍保留。";
+        draw();
+      }
+
+      function toggleClippedView() {
+        if (scene !== "unequal") return;
+        if (!randomLine) {
+          randomLine = { xAtCenter: 555, slope: 0.32, color: "#2563eb", name: "直线 n" };
+          showRandom = true;
+        }
+        clippedView = !clippedView;
+        altitudeMarks = [];
+        pointLinks = [];
+        selectedPoint = null;
+        currentStroke = [];
+        drawMode = false;
+        connectMode = false;
+        movingLine = null;
+        movingPoint = null;
+        altitudeButton.classList.remove("primary");
+        connectButton.classList.remove("primary");
+        clipButton.textContent = clippedView ? "还原完整图" : "裁剪多余线";
+        toolHint.textContent = clippedView
+          ? "已由完整不等距图裁剪成核心线段图。拖动直线 n 或 D、E、F 点，观察两个比值是否改变。"
+          : "已还原完整不等距图。可继续拖动直线 n，或再次裁剪多余线。";
+        draw();
+      }
+
+      function randomControlPointAt(point) {
+        if (!showRandom || !randomLine) return null;
+        return getIntersections(randomLine).find((candidate) => Math.hypot(point.x - candidate.x, point.y - candidate.y) < 24) || null;
+      }
+
+      function updateRandomLineFromControl(point) {
+        if (!movingPoint || !randomLine) return;
+        const ys = getYList();
+        const index = movingPoint.index;
+        const lockedPoint = { x: clamp(point.x, 300, 820), y: ys[index] };
+        if (index === 1) {
+          randomLine.xAtCenter = clamp(movingPoint.startXAtCenter + lockedPoint.x - movingPoint.startPoint.x, 300, 820);
+          return;
+        }
+        const anchorIndex = index === 0 ? 2 : 0;
+        const anchor = linePoint(movingPoint.startLine, ys[anchorIndex]);
+        const first = index === 0 ? lockedPoint : anchor;
+        const second = index === 0 ? anchor : lockedPoint;
+        setLineFromTwoPoints(randomLine, first, second);
+        randomLine.xAtCenter = clamp(randomLine.xAtCenter, 300, 820);
+        randomLine.slope = clamp(randomLine.slope, -0.78, 0.78);
+      }
+
+      function hitLine(point, line) {
+        const [a, b] = lineEndpoints(line);
+        return pointToSegmentDistance(point, a, b) < 18;
+      }
+
+      function nearestDisplayedPoint(point, includeLast = true) {
+        const candidates = [...getIntersections(fixedLine)];
+        if (showRandom && randomLine) candidates.push(...getIntersections(randomLine));
+        let best = null;
+        let bestDistance = Infinity;
+        candidates.forEach((candidate) => {
+          if (!includeLast && candidate.index >= getYList().length - 1) return;
+          const d = Math.hypot(point.x - candidate.x, point.y - candidate.y);
+          if (d < bestDistance) {
+            best = candidate;
+            bestDistance = d;
+          }
+        });
+        return bestDistance < 28 ? best : null;
+      }
+
+      function nearestIntersection(point) {
+        return nearestDisplayedPoint(point, false);
+      }
+
+      function pointRef(point) {
+        return { lineKey: point.lineKey, index: point.index, label: point.label };
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        const point = getCanvasPoint(event);
+        if (connectMode) {
+          const target = nearestDisplayedPoint(point, true);
+          if (!target) return;
+          if (!selectedPoint) {
+            selectedPoint = pointRef(target);
+            toolHint.textContent = `已选择 ${target.label} 点，请再点另一个交点。`;
+          } else {
+            const next = pointRef(target);
+            if (selectedPoint.lineKey !== next.lineKey || selectedPoint.index !== next.index) {
+              pointLinks.push({ a: selectedPoint, b: next });
+              toolHint.textContent = `已连接 ${selectedPoint.label}${next.label}。可以继续连接其他点。`;
+            }
+            selectedPoint = null;
+          }
+          draw();
+          return;
+        }
+        if (drawMode) {
+          const start = nearestIntersection(point);
+          if (!start) return;
+          drawing = true;
+          currentStroke = [{ x: start.x, y: start.y }, point];
+          canvas.setPointerCapture(event.pointerId);
+          canvas.dataset.startLabel = start.label;
+          canvas.dataset.startIndex = String(start.index);
+          return;
+        }
+        const controlPoint = randomControlPointAt(point);
+        if (controlPoint) {
+          movingPoint = {
+            index: controlPoint.index,
+            label: controlPoint.label,
+            startPoint: point,
+            startXAtCenter: randomLine.xAtCenter,
+            startLine: { xAtCenter: randomLine.xAtCenter, slope: randomLine.slope },
+          };
+          canvas.setPointerCapture(event.pointerId);
+          toolHint.textContent = `正在拖动 ${controlPoint.label} 点，直线 n 会随之移动。`;
+          return;
+        }
+        if (randomLine && hitLine(point, randomLine)) {
+          movingLine = {
+            line: randomLine,
+            startPoint: point,
+            startXAtCenter: randomLine.xAtCenter,
+            startSlope: randomLine.slope,
+          };
+          canvas.setPointerCapture(event.pointerId);
+          toolHint.textContent = "正在移动直线 n。上下拖动会改变斜率，左右拖动会改变位置。";
+          return;
+        }
+        if (hitLine(point, fixedLine)) {
+          showFixedIntersections();
+          return;
+        }
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (movingPoint) {
+          const point = getCanvasPoint(event);
+          updateRandomLineFromControl(point);
+          altitudeMarks = [];
+          draw();
+          return;
+        }
+        if (movingLine) {
+          const point = getCanvasPoint(event);
+          const dx = point.x - movingLine.startPoint.x;
+          const dy = point.y - movingLine.startPoint.y;
+          movingLine.line.xAtCenter = clamp(movingLine.startXAtCenter + dx, 230, 760);
+          movingLine.line.slope = clamp(movingLine.startSlope + dy * 0.0025, -0.78, 0.78);
+          altitudeMarks = [];
+          draw();
+          return;
+        }
+        if (!drawing) return;
+        currentStroke = [currentStroke[0], getCanvasPoint(event)];
+        draw();
+      });
+
+      canvas.addEventListener("pointerup", (event) => {
+        if (movingPoint) {
+          const label = movingPoint.label;
+          movingPoint = null;
+          if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+          toolHint.textContent = `已移动 ${label} 点。长度和比值已更新。`;
+          draw();
+          return;
+        }
+        if (movingLine) {
+          movingLine = null;
+          if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+          toolHint.textContent = "直线 n 已移动。长度和比值已更新。";
+          draw();
+          return;
+        }
+        if (!drawing) return;
+        const start = {
+          label: canvas.dataset.startLabel,
+          index: Number(canvas.dataset.startIndex),
+        };
+        if (currentStroke.length > 1) {
+          const startPoint = currentStroke[0];
+          const endPoint = currentStroke[currentStroke.length - 1];
+          altitudeMarks.push({
+            label: `${start.label} 高线 ${altitudeMarks.length + 1}`,
+            start: startPoint,
+            end: endPoint,
+          });
+        }
+        currentStroke = [];
+        drawing = false;
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        draw();
+      });
+
+      canvas.addEventListener("pointercancel", () => {
+        drawing = false;
+        movingLine = null;
+        movingPoint = null;
+        currentStroke = [];
+        draw();
+      });
+
+      showFixedButton.addEventListener("click", showFixedIntersections);
+      randomLineButton.addEventListener("click", randomizeLine);
+      clipButton.addEventListener("click", toggleClippedView);
+      clearExtraButton.addEventListener("click", clearExtraLines);
+      altitudeButton.addEventListener("click", () => {
+        drawMode = !drawMode;
+        if (drawMode) {
+          connectMode = false;
+          selectedPoint = null;
+          connectButton.classList.remove("primary");
+        }
+        altitudeButton.classList.toggle("primary", drawMode);
+        toolHint.textContent = drawMode ? "手绘高线：从任意已显示交点拖到下一条平行线。系统只保证画出直线段，角度由学生自己控制。" : "已退出手绘高线。";
+        draw();
+      });
+      connectButton.addEventListener("click", () => {
+        connectMode = !connectMode;
+        if (connectMode) {
+          drawMode = false;
+          currentStroke = [];
+          altitudeButton.classList.remove("primary");
+        }
+        selectedPoint = null;
+        connectButton.classList.toggle("primary", connectMode);
+        toolHint.textContent = connectMode ? "连接两点：依次点击两个已显示交点。" : "已退出连接两点。";
+        draw();
+      });
+      resetButton.addEventListener("click", () => setScene(scene));
+      submitAnswerButton.addEventListener("click", submitStudentAnswer);
+      clearAnswerButton.addEventListener("click", () => {
+        studentAnswer.value = "";
+        answerFeedback.className = "feedback";
+        answerFeedback.textContent = "等待回答";
+      });
+      sceneButtons.forEach((button) => button.addEventListener("click", () => setScene(button.dataset.scene)));
+      modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
+
+      function check(input, feedback, accepted, hint) {
+        const raw = input.value.trim();
+        if (!raw) {
+          feedback.className = "feedback";
+          feedback.textContent = "等待作答";
+          return;
+        }
+        if (accepted.some((word) => raw.includes(word))) {
+          feedback.className = "feedback ok";
+          feedback.textContent = "正确。";
+        } else {
+          feedback.className = "feedback warn";
+          feedback.textContent = hint;
+        }
+      }
+
+      document.getElementById("checkOne").addEventListener("click", () => check(answerOne, feedbackOne, ["相等"], "等距平行线截同一条直线，相邻两段相等。"));
+      document.getElementById("checkTwo").addEventListener("click", () => check(answerTwo, feedbackTwo, ["相同", "相等", "一样"], "看两个比值：AB:BC 与 DE:EF 保持相同。"));
+      answerOne.addEventListener("input", () => check(answerOne, feedbackOne, ["相等"], "等距平行线截同一条直线，相邻两段相等。"));
+      answerTwo.addEventListener("input", () => check(answerTwo, feedbackTwo, ["相同", "相等", "一样"], "看两个比值：AB:BC 与 DE:EF 保持相同。"));
+
+      new ResizeObserver(resizeCanvas).observe(canvas);
+      setScene("equal");
+      setMode("teacher");
+      resizeCanvas();
+    </script>
+  </body>
 </html>

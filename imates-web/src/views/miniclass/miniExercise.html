@@ -236,6 +236,43 @@
       font-size: 14px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
+
+    /* ─── Image Preview ─── */
+    .image-preview-container {
+      display: none;
+      padding: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      position: relative;
+      align-self: flex-start;
+    }
+    .image-preview-container.visible {
+      display: block;
+    }
+    .image-preview-container img {
+      max-width: 100px;
+      max-height: 100px;
+      border-radius: 4px;
+      display: block;
+    }
+    .remove-preview {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ef4444;
+      color: white;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      cursor: pointer;
+      border: 2px solid #fff;
+    }
   </style>
 </head>
 <body>
@@ -255,6 +292,10 @@
   </div>
 
   <div class="footer">
+    <div class="image-preview-container" id="imagePreviewContainer">
+      <div class="remove-preview" onclick="removePreview()">✕</div>
+      <img id="previewImg" src="" alt="预览图">
+    </div>
     <div class="input-row">
       <div class="btn-group">
         <button class="icon-btn" onclick="openCamera()" title="拍照">
@@ -293,6 +334,7 @@
       'https://www.imates.com.cn/xuebanImg/img3.png'
     ];
     let capturedPhotoUrl = '';
+    let previewPhotoUrl = ''; // 新增：预览中的图片 URL
 
     function autoResize(el) {
       el.style.height = 'auto';
@@ -338,13 +380,26 @@
 
     function sendMessage() {
       const text = userInput.value.trim();
-      if (!text) return;
       
-      addMessage('student', text);
+      // 如果没有文字且没有图片，则不发送
+      if (!text && !previewPhotoUrl) return;
+      
+      // 如果有图片，先发送图片气泡
+      if (previewPhotoUrl) {
+        addMessage('student', previewPhotoUrl, true);
+        previewPhotoUrl = '';
+        document.getElementById('imagePreviewContainer').classList.remove('visible');
+      }
+      
+      // 发送文字气泡
+      if (text) {
+        addMessage('student', text);
+      }
+
       userInput.value = '';
       userInput.style.height = 'auto';
       
-      // 模拟自动回复
+      // 模拟自动回复 (仅在发送了内容后)
       setTimeout(() => {
         addMessage('coach', '收到你的信息了，还有什么想问的吗？');
       }, 1000);
@@ -376,16 +431,30 @@
 
     function capturePhoto() {
       // 模拟相机拍照逻辑
-      capturedPhotoUrl = MOCK_PHOTOS[Math.floor(Math.random() * MOCK_PHOTOS.length)];
-      addMessage('student', capturedPhotoUrl, true);
+      const photoUrl = MOCK_PHOTOS[Math.floor(Math.random() * MOCK_PHOTOS.length)];
+      showPreview(photoUrl);
       closeCamera();
+    }
+
+    function showPreview(url) {
+      previewPhotoUrl = url;
+      const container = document.getElementById('imagePreviewContainer');
+      const img = document.getElementById('previewImg');
+      img.src = url;
+      container.classList.add('visible');
+    }
+
+    function removePreview() {
+      previewPhotoUrl = '';
+      document.getElementById('imagePreviewContainer').classList.remove('visible');
+      document.getElementById('previewImg').src = '';
     }
 
     // --- 处理原生拍照返回的数据 ---
     function handleNativeImageData(data) {
       console.log('[Camera] 收到原生图片数据:', data);
       if (data && data.success && data.base64DataUrl) {
-        addMessage('student', data.base64DataUrl, true);
+        showPreview(data.base64DataUrl);
         closeCamera();
       }
     }

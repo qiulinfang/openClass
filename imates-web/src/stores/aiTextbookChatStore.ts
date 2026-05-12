@@ -762,9 +762,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const userInfo = getUserInfo()
       const currentSchoolType = schoolType.value
 
-      // 如果是中关村一小 (zgc)，使用特殊的拼图机器人接口
+      // 如果是中关村一小 (zgc)，使用特殊的拼图机器人接口 (对齐燕子公开课新格式，支持 whisper)
       if (currentSchoolType === 'zgc') {
-        const puzzleApiUrl = 'https://kelvin-cosin.cloud/puzzle/chatbot'
+        const puzzleApiUrl = 'https://kelvin-cosin.cloud/puzzle/parallelogram_bot'
 
         // 处理图片上传：如果是 ZGC 场景，先将图片上传到服务器获取 URL
         let uploadedImageUrls: string[] = []
@@ -774,16 +774,11 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
         if (base64Images.length > 0) {
           try {
-            // 显示上传中状态气泡内容
             updateMessage(tempReplyId, { content: '正在上传图片...' })
-            
-            // 并行上传所有图片
             uploadedImageUrls = await Promise.all(
               base64Images.map(base64 => apiService.uploadImageAndGetUrl(base64))
             )
             console.log('[ZGC API] 图片上传成功:', uploadedImageUrls)
-            
-            // 上传成功后清空提示，准备显示 AI 回复
             updateMessage(tempReplyId, { content: '' })
           } catch (uploadError) {
             console.error('[ZGC API] 图片上传失败:', uploadError)
@@ -802,7 +797,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           inputs: {
             message: content,
             image_url: uploadedImageUrls,
-            add_message: {} // 对齐新格式，主对话暂无工具结果
+            add_message: {} 
           },
           config: {
             configurable: {
@@ -812,7 +807,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           }
         }
 
-        console.log('[ZGC API] 发送消息:', puzzleBody)
+        console.log('[ZGC API] 发送消息 (流式):', puzzleBody)
 
         const response = await fetch(puzzleApiUrl, {
           method: 'POST',
@@ -824,19 +819,97 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        const data = await response.json()
-        console.log('[ZGC API] 响应:', data)
-
-        if (data && data.coach_text) {
-          updateMessage(tempReplyId, {
-            content: data.coach_text,
-            isStreaming: false
-          })
-          chatResponseTimes.value++
-          await saveChatHistory()
-        } else {
-          throw new Error('接口未返回有效内容')
+        const contentType = response.headers.get('Content-Type') || ''
+        
+        // --- 方案 A: 如果返回的是标准 JSON 对象 (非流式) ---
+        if (contentType.includes('application/json')) {
+          const data = await response.json()
+          console.log('[ZGC API] 收到完整 JSON 响应:', data)
+          const msgContent = data.content || data.coach_text || ''
+          if (msgContent) {
+            updateMessage(tempReplyId, {
+              content: msgContent,
+              isStreaming: false
+            })
+            chatResponseTimes.value++
+            await saveChatHistory()
+          }
+          return
         }
+
+        // --- 方案 B: 流式解析 (兼容 SSE 和 块传输) ---
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('无法读取响应流')
+
+        const decoder = new TextDecoder()
+        let currentActiveReplyId = tempReplyId
+        let fullAccumulatedContent = ''
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
+            
+            let data: any = null
+            try {
+              // 全兼容解析逻辑：支持 "data: {JSON}" 和 "{JSON}" 两种格式
+              if (trimmedLine.startsWith('data: ')) {
+                data = JSON.parse(trimmedLine.slice(6))
+              } else if (trimmedLine.startsWith('{')) {
+                data = JSON.parse(trimmedLine)
+              }
+            } catch (e) {
+              continue // 忽略非 JSON 数据块
+            }
+
+            if (!data) continue
+
+            const msgContent = data.content || data.coach_text || ''
+            
+            // 处理 whisper: bubble 或内容为 bubble 的切分气泡指令
+            const isBubbleBreak = data.whisper === 'bubble' || 
+                                 (typeof msgContent === 'string' && msgContent.trim().toLowerCase() === 'bubble')
+            
+            if (isBubbleBreak) {
+              // 优化：只有当当前已经有内容时才切分，防止出现首个空气泡或连续空气泡
+              if (fullAccumulatedContent.trim().length > 0) {
+                updateMessage(currentActiveReplyId, { isStreaming: false })
+                
+                const { message: nextReply, id: nextReplyId } = createTempAiReplyMessage(
+                  selectedModel || 'mate',
+                  currentSessionId.value || undefined,
+                )
+                addMessage(nextReply)
+                currentActiveReplyId = nextReplyId
+                fullAccumulatedContent = ''
+                console.log('[ZGC API] 触发切分气泡指令 (已执行切分)')
+              } else {
+                console.log('[ZGC API] 收到切分指令，但当前内容为空，已忽略防止产生空气泡')
+              }
+              continue 
+            } else if (msgContent) {
+              // 过滤指令性内容
+              if (typeof msgContent === 'string' && msgContent.includes('the answer is')) continue
+              
+              fullAccumulatedContent += msgContent
+              updateMessage(currentActiveReplyId, {
+                content: fullAccumulatedContent,
+                isStreaming: true
+              })
+            }
+          }
+        }
+
+        // 完成对话：取消所有流式状态
+        updateMessage(currentActiveReplyId, { isStreaming: false })
+        chatResponseTimes.value++
+        await saveChatHistory()
         return
       }
 
@@ -1204,6 +1277,5 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     setResourceId,
     setSectionName,
     setChapterInfo,
-    setSchoolType,
   }
 })
