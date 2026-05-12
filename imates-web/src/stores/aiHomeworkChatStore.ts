@@ -321,6 +321,71 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
         quotedMessage,
       }
       messages.value.push(userMessage)
+    } else if ((imageList && imageList.length > 0) || (imageData && imageData.base64DataUrl)) {
+      // 当上游已通过“挂载图片”方式传入图片数据时，这里负责创建图片气泡（以及可选的文本气泡）
+      const now = Date.now()
+
+      const hasMulti = !!(imageList && imageList.length > 0)
+
+      if (hasMulti) {
+        const standardImageList = (imageList || [])
+          .filter((img) => !!img.base64DataUrl)
+          .slice(0, 3)
+          .map((img) => ({
+            filePath: img.filePath || '',
+            width: img.width || 0,
+            height: img.height || 0,
+            fileSize: img.fileSize || 0,
+            base64DataUrl: img.base64DataUrl!,
+            isLargeImage: img.isLargeImage || false,
+          }))
+
+        const imageMessage: ChatBubble = {
+          id: now.toString(),
+          content: '',
+          type: Sender.USER,
+          timestamp: new Date().toISOString(),
+          sender: Sender.USER,
+          messageType: 'multi_image',
+          imageList: standardImageList,
+          sessionId: currentSession.value?.sessionId,
+          quotedMessage,
+        }
+        messages.value.push(imageMessage)
+      } else if (imageData && imageData.base64DataUrl) {
+        const imageMessage: ChatBubble = {
+          id: now.toString(),
+          content: '',
+          type: Sender.USER,
+          timestamp: new Date().toISOString(),
+          sender: Sender.USER,
+          messageType: 'image',
+          imageData: {
+            filePath: imageData.filePath || '',
+            width: imageData.width || 0,
+            height: imageData.height || 0,
+            fileSize: imageData.fileSize || 0,
+            base64DataUrl: imageData.base64DataUrl,
+          },
+          sessionId: currentSession.value?.sessionId,
+          quotedMessage,
+        }
+        messages.value.push(imageMessage)
+      }
+
+      // 第2个气泡：如果有文本内容，则单独再创建一条文本消息
+      if (content && content.trim()) {
+        const textMessage: ChatBubble = {
+          id: (now + 1).toString(),
+          content,
+          type: Sender.USER,
+          timestamp: new Date().toISOString(),
+          sender: Sender.USER,
+          messageType: 'text',
+          sessionId: currentSession.value?.sessionId,
+        }
+        messages.value.push(textMessage)
+      }
     }
 
     const tempReplyId = generateUniqueId('temp_ai')

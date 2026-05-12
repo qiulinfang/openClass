@@ -378,7 +378,7 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
           const base64DataUrl = await this.fileToBase64(file)
           
           // 获取图片尺寸
-          const dimensions = await this.getImageDimensions(base64DataUrl)
+          const dimensions = await this.getImageDimensions(file)
           
           // 构造图片数据
           const imageData: ImageData = {
@@ -423,19 +423,24 @@ export class WebImagePickerAdapter implements IImagePickerAdapter {
   /**
    * 获取图片尺寸
    */
-  private getImageDimensions(base64DataUrl: string): Promise<{ width: number; height: number }> {
+  private getImageDimensions(file: File): Promise<{ width: number; height: number }> {
     return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
       const img = new Image()
       img.onload = () => {
-        resolve({
+        const dimensions = {
           width: img.naturalWidth,
           height: img.naturalHeight
-        })
+        }
+        URL.revokeObjectURL(url)
+        resolve(dimensions)
       }
-      img.onerror = () => {
+      img.onerror = (err) => {
+        console.error('[WebImagePickerAdapter] getImageDimensions 失败:', err)
+        URL.revokeObjectURL(url)
         reject(new Error('图片加载失败'))
       }
-      img.src = base64DataUrl
+      img.src = url
     })
   }
 

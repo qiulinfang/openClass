@@ -614,7 +614,13 @@ const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话�
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
 
 const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
-  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook' || props.type === 'user-client') {
+  if (
+    props.type === 'ai-general' ||
+    props.type === 'ai-exercise' ||
+    props.type === 'ai-homework' ||
+    props.type === 'ai-textbook' ||
+    props.type === 'user-client'
+  ) {
     void sendMessage()
   } else {
     emit('send-with-screenshot', inputMessage.value, shots, selectedModel.value)
@@ -641,10 +647,11 @@ const onImageSelected = async (imageData: ChatImageData) => {
   // ChatView 不再负责截图编辑弹窗，这里仅负责"把图挂到输入框缩略图区 / 或交给上层处理"
   if (!imageData?.base64DataUrl) return
 
-  // ai-general / ai-exercise / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
+  // ai-general / ai-exercise / ai-homework / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
   if (
     props.type === 'ai-general' ||
     props.type === 'ai-exercise' ||
+    props.type === 'ai-homework' ||
     props.type === 'ai-textbook' ||
     props.type === 'user-client'
   ) {
@@ -713,10 +720,11 @@ const handlePostProcessedImage = async (imageData: ChatImageData) => {
 const processCroppedImage = async (imageData: ChatImageData) => {
   if (!imageData?.base64DataUrl) return
 
-  // ai-general / ai-exercise / user-client：将裁剪后的图片挂载到输入框缩略图区
+  // ai-general / ai-exercise / ai-homework / user-client：将裁剪后的图片挂载到输入框缩略图区
   if (
     props.type === 'ai-general' ||
     props.type === 'ai-exercise' ||
+    props.type === 'ai-homework' ||
     props.type === 'ai-textbook' ||
     props.type === 'user-client'
   ) {
@@ -759,10 +767,11 @@ const processCroppedImage = async (imageData: ChatImageData) => {
 const attachImageDirectToPreview = async (imageData: ChatImageData) => {
   if (!imageData?.base64DataUrl) return
 
-  // ai-general / ai-exercise / user-client：直接挂到输入框缩略图区（不再触发裁剪）
+  // ai-general / ai-exercise / ai-homework / user-client：直接挂到输入框缩略图区（不再触发裁剪）
   if (
     props.type === 'ai-general' ||
     props.type === 'ai-exercise' ||
+    props.type === 'ai-homework' ||
     props.type === 'ai-textbook' ||
     props.type === 'user-client'
   ) {
@@ -1792,7 +1801,11 @@ const sendMessage = async (attachedFile?: File) => {
   const hasText = !!inputMessage.value.trim()
   const hasFile = !!attachedFile
   const hasImageForInlineAttach =
-    (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'user-client') &&
+    (props.type === 'ai-general' ||
+      props.type === 'ai-exercise' ||
+      props.type === 'ai-homework' ||
+      props.type === 'ai-textbook' ||
+      props.type === 'user-client') &&
     strategyInputAttachedScreenshots.value.length > 0
 
   if ((!hasText && !hasFile && !hasImageForInlineAttach) || isLoading.value) {
@@ -1870,9 +1883,17 @@ const sendMessage = async (attachedFile?: File) => {
     let imageListForApi: ChatImageData[] | undefined
     const finalMessageContent = messageContent
 
-    // ai-general / ai-exercise / user-client：挂载截图的发送负载构建交给策略
+    // ai-general / ai-exercise / ai-homework / ai-textbook / user-client：挂载截图的发送负载构建交给策略
     let imageDataForApi: ChatImageData | undefined
-    if (strategyInputAttachedScreenshots.value.length > 0 && chatStrategy.value?.buildImagePayloadFromAttachedScreenshots) {
+    if (
+      (props.type === 'ai-general' ||
+        props.type === 'ai-exercise' ||
+        props.type === 'ai-homework' ||
+        props.type === 'ai-textbook' ||
+        props.type === 'user-client') &&
+      strategyInputAttachedScreenshots.value.length > 0 &&
+      chatStrategy.value?.buildImagePayloadFromAttachedScreenshots
+    ) {
       const payload = chatStrategy.value.buildImagePayloadFromAttachedScreenshots(strategyInputAttachedScreenshots.value)
       imageDataForApi = payload.imageData
       imageListForApi = payload.imageList

@@ -158,6 +158,7 @@
               v-if="
                 props.type === 'ai-general' ||
                 props.type === 'ai-exercise' ||
+                props.type === 'ai-homework' ||
                 props.type === 'ai-textbook'
               "
               v-model="showModeSelectorMenu"
@@ -187,6 +188,7 @@
               v-if="
                 props.type === 'ai-general' ||
                 props.type === 'ai-exercise' ||
+                props.type === 'ai-homework' ||
                 props.type === 'ai-textbook'
               "
             >
@@ -198,11 +200,12 @@
         <!-- 右侧控制组 -->
         <div class="right-controls">
 
-          <!-- 图片上传 - 在 ai-general 和 user-client 场景下显示 -->
+          <!-- 图片上传 - 在 ai-general / ai-homework 等场景下显示 -->
           <button
             v-if="
               props.type === 'ai-general' ||
               props.type === 'ai-exercise' ||
+              props.type === 'ai-homework' ||
               props.type === 'ai-textbook' ||
               props.type === 'user-client' ||
               props.type === 'teacher'
