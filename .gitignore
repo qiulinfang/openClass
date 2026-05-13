@@ -12,7 +12,13 @@
 /output
 /app/release
 /app/debug
-/captures
+/app/build
+/image/build
+/pdflibrary/build
+/production/
+/staging/
+/dev/
+captures
 .externalNativeBuild
 .cxx
 local.properties
@@ -20,41 +26,58 @@ local.properties
 .idea
 .vscode
 项目文档
+pdflibrary
 node_modules
 webapp
-# .agent
-# .agents
-# .claude
-# .windsurf
-# .claude
-# .cline
-# .codebuddy
-# .codex
-# .commandcode
-# .continue
-# .crush
-# .cursor
-# .factory
-# .gemini
-# .github
-# .goose
-# .kilocode
-# .kiro
-# .kode
-# .mcpjam
-# .pi
-# .neovate
-# .opencode
-# .openhands
-# .pochi
-# .qoder
-# .qwen
-# .roo
-# .specstory
-# .trae
-# .zencoder
-# .claude
-# .junie
-# .mux
-# .specstory
-# skills
+.windsurf
+.zencoder
+.agent
+.agents
+.claude
+.windsurf
+.claude
+.cline
+.codebuddy
+.codex
+.commandcode
+.continue
+.crush
+.cursor
+.factory
+.gemini
+.github
+.goose
+.kilocode
+.kiro
+.kode
+.mcpjam
+.pi
+.neovate
+.opencode
+.openhands
+.pochi
+.qoder
+.qwen
+.roo
+.specstory
+.trae
+.zencoder
+.claude
+.junie
+.mux
+.specstory
+skills
+# Android 构建产物
+*.apk
+*.aab
+*.jks
+*.keystore
+/.gradle
+/.kotlin
+# Web 项目构建产物
+/imates-web/dist
+/imates-web/dist-webview
+/imates-web/.vite
+/imates-react/dist
+/imates-next/.next
+/imates-next/node_modules
