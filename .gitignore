@@ -12,7 +12,13 @@
 /output
 /app/release
 /app/debug
-/captures
+/app/build
+/image/build
+/pdflibrary/build
+/production/
+/staging/
+/dev/
+captures
 .externalNativeBuild
 .cxx
 local.properties
@@ -61,3 +67,17 @@ webapp
 .mux
 .specstory
 skills
+# Android 构建产物
+*.apk
+*.aab
+*.jks
+*.keystore
+/.gradle
+/.kotlin
+# Web 项目构建产物
+/imates-web/dist
+/imates-web/dist-webview
+/imates-web/.vite
+/imates-react/dist
+/imates-next/.next
+/imates-next/node_modules
