@@ -801,8 +801,8 @@ const isCurrentQuestionCorrect = computed(() => {
     const userVal = currentQuestionJudgment.value
     if (!userVal) return false
     const trimAnswer = (answer || '').trim()
-    if (userVal === '对') return ['对', '√', '正确', 'true'].includes(trimAnswer)
-    if (userVal === '错') return ['错', '×', '错误', 'false'].includes(trimAnswer)
+    if (userVal === '对' || userVal === '正确') return [true, '对', '√', '正确', 'true'].includes(trimAnswer)
+    if (userVal === '错' || userVal === '错误') return [false, '错', '×', '错误', 'false'].includes(trimAnswer)
     return false
   }
 
