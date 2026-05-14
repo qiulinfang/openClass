@@ -16,7 +16,7 @@
           <div class="user-name">{{ displayUserName }}</div>
         </div>
 
-        <!-- 导航菜单（根据学校配置渲染） -->
+        <!-- 导航菜单-->
         <div class="nav-items-wrapper">
           <div
             v-for="item in navMainItems"
@@ -244,6 +244,7 @@ import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import homeworkIcon from '/icons/homework.png'
 import photoQaIcon from '/icons/paizhaodayi.svg'
+import mistakeBookIcon from '/icons/book.svg'
 import canvasIcon from '/icons/draw.svg'
 import ipGif from '/icons/ip_new.webp'
 
@@ -254,6 +255,7 @@ import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
 import homeworkSelectIcon from '/icons/homework_select.png'
 import photoQaSelectIcon from '/icons/paizhaodayi_select.svg'
+import mistakeBookSelectIcon from '/icons/book.svg'
 import canvasSelectIcon from '/icons/draw_select.png'
 
 // 定义 props
@@ -296,6 +298,7 @@ type NavKey =
   | 'knowledge'
   | 'exercises'
   | 'homework'
+  | 'mistakeBook'
   | 'resources'
   | 'photoQa'
   | 'canvas'
@@ -345,6 +348,13 @@ const currentSchoolAppConfig: SchoolAppConfig = {
         iconType: 'homework',
         position: 'main',
         routeName: 'myHomework',
+      },
+      {
+        key: 'mistakeBook',
+        label: '错题本',
+        iconType: 'mistakeBook',
+        position: 'main',
+        routeName: 'mistakeBook',
       },
       {
         key: 'photoQa',
@@ -465,6 +475,7 @@ const cachedComponents = ref<string[]>([
   // 'DrawingBoardView', // 画板页面
   // 'FindExerciseView', // 查找习题页面
   'MyFavoritesView', // 我的收藏页面
+  'MistakeBookView', // 错题本页面
   // 'learning',           // 去练习弹窗页（/app/learning）
   // 'learningContent',     // 去练习内容查看页（/app/learning-content）
   'MyHomeworkView', // 我的作业页面
@@ -785,6 +796,10 @@ const currentHomeworkIcon = computed(() => {
   return activeNavItem.value === 'homework' ? homeworkSelectIcon : homeworkIcon
 })
 
+const currentMistakeBookIcon = computed(() => {
+  return activeNavItem.value === 'mistakeBook' ? mistakeBookSelectIcon : mistakeBookIcon
+})
+
 const currentPhotoQaIcon = computed(() => {
   return activeNavItem.value === 'photoQa' ? photoQaSelectIcon : photoQaIcon
 })
@@ -808,6 +823,8 @@ const getNavIcon = (item: NavItemConfig) => {
       return currentExerciseIcon.value
     case 'homework':
       return currentHomeworkIcon.value
+    case 'mistakeBook':
+      return currentMistakeBookIcon.value
     case 'photoQa':
       return currentPhotoQaIcon.value
     case 'canvas':
@@ -1166,6 +1183,9 @@ watch(
       case 'photoSearch':
         activeNavItem.value = 'photoQa'
         break
+      case 'mistakeBook':
+        activeNavItem.value = 'mistakeBook'
+        break
       default:
         // 保持当前状态
         break
@@ -1305,6 +1325,9 @@ const handleNavItemClick = (item: NavItemConfig) => {
     case 'resources':
       handleMyResourcesClick()
       break
+    case 'mistakeBook':
+      handleMistakeBookClick()
+      break
     default:
       // 兜底：如果配置了 routeName，则直接按路由跳转
       if (item.routeName) {
@@ -1378,6 +1401,19 @@ const handlePhotoQaClick = () => {
   // 跳转到拍照答疑页面
   console.log('[导航] 跳转到拍照答疑页面')
   router.push({ name: 'photoSearch' })
+}
+
+const handleMistakeBookClick = () => {
+  activeNavItem.value = 'mistakeBook'
+  emit('nav-item-change', 'mistakeBook')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
+
+  // 跳转到错题本页面
+  console.log('[导航] 跳转到错题本页面')
+  router.push({ name: 'mistakeBook' })
 }
 </script>
 
