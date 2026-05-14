@@ -222,12 +222,9 @@ const displayHomeworkList = computed(() => {
 
     const releaseText = homework.releaseTime ? formatDate(homework.releaseTime) : ''
     const deadlineText = homework.deadline ? formatDate(homework.deadline) : ''
-    const releaseDateKey = homework.releaseTime ? new Date(homework.releaseTime).toISOString().slice(0, 10) : ''
-    const rangeText = releaseDateKey && releaseDateKey === selectedDate.value
-      ? '今天'
-      : ((releaseText && deadlineText)
-        ? `${releaseText}-${deadlineText}`
-        : (releaseText || deadlineText))
+    const rangeText = (releaseText && deadlineText)
+      ? `${releaseText}-${deadlineText}`
+      : (releaseText || deadlineText)
 
     const scoreText = homework.totalScore ? `总分：${homework.totalScore}分` : '总分：--'
 
@@ -237,8 +234,8 @@ const displayHomeworkList = computed(() => {
     const timeLeftText = getTimeLeftText(homework.deadline)
 
     const canLateSubmit = homework.lateSubmit === '1'
-    const buttonDisabled = homework.status === '3' || (isExpired && !canLateSubmit)
-    const buttonText = getHomeworkButtonText(homework.status, isExpired, canLateSubmit)
+    const buttonDisabled = false
+    const buttonText = '去查看'
     const buttonVariant = getHomeworkButtonVariant(buttonDisabled)
 
     // 生成内容描述 - 优化日期格式化
@@ -353,7 +350,8 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
       })
 
       homeworkStore.setQuestions(exerciseItems)
-      // 记录当前这份作业的名称和允许重复提交类型，供 HomeworkAnswerView 使用
+      // 记录当前这份作业的原始信息、名称和允许重复提交类型，供 HomeworkAnswerView 使用
+      homeworkStore.setCurrentHomeworkInfo(item.homework)
       homeworkStore.setHomeworkName(item.homework.title)
       homeworkStore.setResubmitType(item.homework.resubmit || '0')
 

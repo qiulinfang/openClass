@@ -79,20 +79,19 @@
                 class="question-render-container" 
                 v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'judgment'].includes(currentAnswerQuestion.type || '')"
               >
-                <!-- 模拟画板工具栏布局的顶部栏 (仅在未提交时显示) -->
-                <div class="question-render-toolbar" v-if="!isHomeworkSubmitted">
+                <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
+                <div class="question-render-toolbar" v-if="!isHomeworkLocked">
                   <div class="toolbar-right">
                     <Button
-                      v-if="!isHomeworkSubmitted"
-                      label="提交作业"
+                      v-if="!isHomeworkLocked"
+                      :label="homeworkButtonText"
                       variant="primary"
                       size="mdCompact"
-                      :disabled="!isAnyQuestionAnswered"
                       @click="handleBoardUpload"
                     />
                     <div v-else class="submitted-tip">
                       <q-icon name="check_circle" color="green" size="24px" />
-                      <span>作业已提交</span>
+                      <span>{{ isHomeworkSubmitted ? '作业已提交' : '作业已截止' }}</span>
                     </div>
                   </div>
                 </div>
@@ -140,21 +139,20 @@
 
               <!-- 情况 B: 白板手写 (填空、问答 及 其他) -->
               <div class="question-render-container" v-else-if="currentAnswerQuestion">
-                <!-- 模拟画板工具栏布局的顶部栏 (仅在未提交时显示) -->
-                <div class="question-render-toolbar" v-if="!isHomeworkSubmitted">
+                <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
+                <div class="question-render-toolbar" v-if="!isHomeworkLocked">
                   <div class="toolbar-right">
                     <Button
-                      label="提交作业"
+                      :label="homeworkButtonText"
                       variant="primary"
                       size="mdCompact"
-                      :disabled="!isAnyQuestionAnswered"
                       @click="handleBoardUpload"
                     />
                   </div>
                 </div>
 
                 <div class="question-render-area">
-                  <div class="drawing-board-wrapper" :class="{ 'is-submitted': isHomeworkSubmitted }">
+                  <div class="drawing-board-wrapper" :class="{ 'is-submitted': isHomeworkLocked }">
                     <!-- 预览层：在截图生成前立即显示渲染后的 HTML，实现零延迟感 -->
                     <div 
                       v-if="!questionBgImage && currentAnswerQuestion" 
@@ -166,7 +164,8 @@
                       :ref="(el) => setDrawingBoardRef(el, 0)"
                       :showGrid="false"
                       :enableAskAi="true"
-                      :show-toolbar="!isHomeworkSubmitted"
+                      :show-toolbar="!isHomeworkLocked"
+                      :disabled="isHomeworkLocked"
                       :show-zoom-controls="false"
                       :background-image="questionBgImage"
                       :initial-zoom="70"
@@ -175,7 +174,7 @@
                   </div>
 
                   <!-- 提交后的答案和解析 -->
-                  <div v-if="isHomeworkSubmitted" class="answer-analysis-wrapper">
+                  <div v-if="isHomeworkLocked" class="answer-analysis-wrapper">
                     <div class="divider"></div>
                     <div class="analysis-card answer-card">
                       <div class="card-title">
@@ -331,6 +330,7 @@ import * as htmlToImage from 'html-to-image'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
 import { normalizeSubject } from '@/constants/subjects'
+import { getHomeworkButtonText } from '@/constants/homework'
 import Dialog from '@/components/base/Dialog.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
 import HomeworkChatPanel from '@/components/HomeworkChatPanel.vue'
@@ -375,7 +375,45 @@ const {
   homeworkName,
   resubmitType,
   answerDataCache,
+  currentHomeworkInfo,
 } = storeToRefs(homeworkStore)
+
+const homeworkButtonText = computed(() => {
+  if (isHomeworkSubmitted.value) return '已提交'
+  if (!currentHomeworkInfo.value) return '提交作业'
+
+  const info = currentHomeworkInfo.value
+  const deadlineMs = info.deadline ? new Date(info.deadline).getTime() : NaN
+  const isExpired = Number.isFinite(deadlineMs) ? deadlineMs <= Date.now() : false
+  const canLateSubmit = info.lateSubmit === '1'
+  
+  return getHomeworkButtonText(info.status, isExpired, canLateSubmit)
+})
+
+// 作业是否锁定（已提交或已截止且不允许补交）
+const isHomeworkLocked = computed(() => {
+  if (isHomeworkSubmitted.value) return true
+  if (!currentHomeworkInfo.value) return false
+  
+  const info = currentHomeworkInfo.value
+  const deadlineMs = info.deadline ? new Date(info.deadline).getTime() : NaN
+  const isExpired = Number.isFinite(deadlineMs) ? deadlineMs <= Date.now() : false
+  const canLateSubmit = info.lateSubmit === '1'
+  const canResubmit = resubmitType.value === '1'
+  
+  // 核心锁定逻辑：
+  // 1. 如果服务端状态已结束(status='3')，且既不能重交也不能补交
+  if (info.status === '3' && !canResubmit && !canLateSubmit) {
+    return true
+  }
+
+  // 2. 如果已过期且不允许补交，且不允许重交
+  if (isExpired && !canLateSubmit && !canResubmit) {
+    return true
+  }
+  
+  return false
+})
 
 // 当前在白板上作答的题目
 const currentAnswerQuestion = ref<ExerciseItem | null>(null)

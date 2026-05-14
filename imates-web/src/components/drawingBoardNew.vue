@@ -246,6 +246,8 @@ const props = defineProps({
   showToolbar: { type: Boolean, default: true },
   // 是否显示缩放控制（默认显示）
   showZoomControls: { type: Boolean, default: true },
+  // 是否禁用画板交互
+  disabled: { type: Boolean, default: false },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -1398,6 +1400,7 @@ function loadState(jsonStr) {
 
 // --- 交互逻辑 ---
 function handlePointerDown(e) {
+  if (props.disabled) return
   if (inputState.visible) return
 
   // askAi 框选截图模式下，禁止进入画板绘制逻辑（否则会落入 draw 分支产生笔迹）

@@ -33,10 +33,10 @@ export const HOMEWORK_TAG_MAP: Record<string, string> = {
 
 // 按钮文本映射表
 export const HOMEWORK_BUTTON_TEXT_MAP = {
-  ended: '去作答',
+  ended: '提交作业',
   expiredCanLateSubmit: '去补交',
-  expiredNoLateSubmit: '去作答',
-  normal: '去作答'
+  expiredNoLateSubmit: '已截止',
+  normal: '提交作业'
 }
 
 // 按钮变体映射表

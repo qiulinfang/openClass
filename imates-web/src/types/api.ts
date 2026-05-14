@@ -237,27 +237,39 @@ export interface HomeworkQuestionAnswer {
 
 /** 未完成作业列表项 */
 export interface HomeworkUndoItem {
-  /** 作业ID */
+  /** 作业唯一 ID */
   id: string
-  /** 作业标题 */
+  /** 作业标题（例如：“初一数学课后练习”） */
   title: string
-  /** 学科名称 */
+  /** 学科编码（如 1 代表数学，需配合字典接口显示文字） */
   subject: string
-  /** 总分 */
+  /** 该份作业的总分 */
   totalScore: string
-  /** 发布时间 */
+  /** 作业发布时间 */
   releaseTime: string
-  /** 截止时间 */
+  /** 提交截止时间 */
   deadline: string
-  /** 一次性提交: 0-否 1-是 */
+  /** 
+   * 是否要求一次性提交
+   * 1: 必须把所有题目都做完才能点击提交
+   * 0: 可以做一部分先交一部分（保存进度）
+   */
   fullSubmit: string
-  /** 允许补交: 0-不允许 1-允许 */
+  /** 
+   * 是否允许补交
+   * 1: 截止时间后仍可提交，但会标记为“迟交”
+   * 0: 截止后禁止提交
+   */
   lateSubmit: string
-  /** 允许重复提交: 0-不允许 1-允许 */
+  /** 
+   * 是否允许重复提交
+   * 1: 提交后可以修改答案再次提交，覆盖旧答案
+   * 0: 提交后不可修改
+   */
   resubmit: string
-  /** 状态: 0-草稿 1-已发布 2-已撤销 3-已结束 */
+  /** 作业当前状态（1:已发布, 3:已结束） */
   status: string
-  /** 作业备注信息 */
+  /** 老师填写的作业说明或注意事项 */
   remark: string
 }
 

@@ -36,6 +36,9 @@ export const useHomeworkStore = defineStore('homework', () => {
   /** 作业列表缓存：key = 查询条件，value = 作业列表数据 */
   const homeworkListCache = ref(new Map<string, HomeworkUndoItem[]>())
   
+  /** 当前作业的原始信息 */
+  const currentHomeworkInfo = ref<HomeworkUndoItem | null>(null)
+
   // ==================== 计算属性 ====================
   
   /** 当前选中的作业 */
@@ -63,6 +66,13 @@ export const useHomeworkStore = defineStore('homework', () => {
    */
   const setResubmitType = (type: string): void => {
     resubmitType.value = type
+  }
+
+  /**
+   * 设置当前作业详情
+   */
+  const setCurrentHomeworkInfo = (info: HomeworkUndoItem): void => {
+    currentHomeworkInfo.value = info
   }
 
   /**
@@ -238,6 +248,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     currentQuestionIndex.value = -1
     homeworkName.value = ''
     resubmitType.value = '0'
+    currentHomeworkInfo.value = null
     answerDataCache.value = {}
     console.log('[HOMEWORK] 🧹 已重置作业作答状态')
   }
@@ -251,6 +262,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     homeworkName,
     resubmitType,
     answerDataCache,
+    currentHomeworkInfo,
     homeworkListCache,
     
     // 计算属性
@@ -260,6 +272,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     // 方法
     selectQuestion,
     setHomeworkName,
+    setCurrentHomeworkInfo,
     setResubmitType,
     setQuestions,
     deduplicateQuestions,
