@@ -77,7 +77,7 @@
               <!-- 情况 A: 交互式组件 (仅限 选择 和 判断) -->
               <div 
                 class="question-render-container" 
-                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'judgment'].includes(currentAnswerQuestion.type || '')"
+                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false'].includes(currentAnswerQuestion.type || '')"
               >
                 <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
                 <div class="question-render-toolbar" v-if="!isHomeworkLocked">
@@ -108,7 +108,7 @@
                     show-title
                   />
                   <JudgmentQuestion
-                    v-else-if="currentAnswerQuestion.type === 'judgment'"
+                    v-else-if="currentAnswerQuestion.type === 'true_false'"
                     :question="currentAnswerQuestion"
                     v-model="currentQuestionJudgment"
                     :disabled="isHomeworkSubmitted"
@@ -247,12 +247,12 @@
           v-model="currentQuestionChooseList"
         />
         <FillBlankQuestion
-          v-else-if="currentAnswerQuestion.type === 'fill'"
+          v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
           :question="currentAnswerQuestion"
           v-model="currentQuestionFillList"
         />
         <JudgmentQuestion
-          v-else-if="currentAnswerQuestion.type === 'judgment'"
+          v-else-if="currentAnswerQuestion.type === 'true_false'"
           :question="currentAnswerQuestion"
           v-model="currentQuestionJudgment"
         />

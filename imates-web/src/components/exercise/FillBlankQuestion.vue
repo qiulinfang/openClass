@@ -59,7 +59,7 @@ const parsedParts = computed(() => {
     ? props.question.questionContent
     : (props.question.structuredContent?.stem || props.question.title || '')
     
-  const regex = /(\(|\uff08)\s*(\)|\uff09)/g
+  const regex = /\[blank_\d+\]/g
   const parts: Array<{ type: 'text' | 'blank', content?: string, blankIndex: number }> = []
   
   let lastIndex = 0
