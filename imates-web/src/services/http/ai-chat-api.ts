@@ -57,6 +57,10 @@ export class AiChatApi {
       }
 
       if (onComplete) {
+        console.log('[AiChatApi] sendChatMessage: triggering error onComplete', { 
+          messageId: '', 
+          error: errorResult.reply 
+        })
         await Promise.resolve(onComplete(errorResult))
       }
 
@@ -251,6 +255,7 @@ export class AiChatApi {
 
     if (onHistoryUpdate && parsed.latestHistory && parsed.latestHistory.length > 0) {
       try {
+        console.log('[AiChatApi] SSE onHistoryUpdate', { messageId, historyCount: parsed.latestHistory.length, agentStatus: parsed.agentStatus })
         onHistoryUpdate(parsed.latestHistory, parsed.agentStatus)
       } catch (e) {
         console.warn('[AiChatApi] SSE onHistoryUpdate 回调失败:', { error: e })
@@ -549,6 +554,11 @@ export class AiChatApi {
     }
 
     if (onComplete) {
+      console.log('[AiChatApi] handlePollingEnd: triggering onComplete', { 
+        messageId, 
+        replyLength: accumulatedContent.length,
+        reply: accumulatedContent
+      })
       await Promise.resolve(onComplete(finalResult))
     }
 
@@ -647,6 +657,10 @@ export class AiChatApi {
     }
 
     if (onComplete) {
+      console.log('[AiChatApi] createErrorResult: triggering onComplete', { 
+        messageId, 
+        error: errorMessage 
+      })
       // 注意：此处不 await，保持 createErrorResult 为同步方法；竞态主要发生在成功结束 handlePollingEnd。
       Promise.resolve(onComplete(errorResult)).catch(() => {
         // ignore
