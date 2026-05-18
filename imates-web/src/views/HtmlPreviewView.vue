@@ -52,17 +52,17 @@
           <div class="chat-panel-wrapper">
             <!-- PDF/教材场景：使用 HtmlPdfChatPanel -->
             <HtmlPdfChatPanel v-if="chatViewType === 'ai-textbook'" ref="htmlPdfChatPanelRef"
-              :show-close-button="false"
+              :show-close-button="true"
               @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
             <!-- 题目练习场景：使用 ExerciseChatPanelNew -->
             <ExerciseChatPanelNew v-else-if="chatViewType === 'ai-exercise'" ref="exerciseChatPanelRef"
-              :show-close-button="false"
+              :show-close-button="true"
               @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
             <!-- 通用 AI 场景：使用内嵌式 HtmlMainChatPanel -->
             <HtmlMainChatPanel v-else ref="htmlMainChatPanelRef"
-              :show-close-button="false"
+              :show-close-button="true"
               @close="handleCloseChatPanel"
               @open-html-preview="handleOpenHtmlPreviewFromPanel" />
           </div>
@@ -121,7 +121,7 @@ const chatViewType = computed(() => {
 const dualPanelRef = ref<ComponentPublicInstance | null>(null)
 
 // 右侧面板显示状态
-const isRightPanelOpen = ref(true)
+const isRightPanelOpen = ref(false)
 
 // 组件状态
 const isLoading = ref(true)
@@ -286,7 +286,12 @@ const fetchHtmlSourceAndRender = async () => {
     const raw = htmlData?.html || htmlData?.raw_html
     if (!raw) throw new Error('获取 HTML 源码失败')
 
-    const enhanced = enhanceResponsiveHtml(raw)
+    const enhanced = enhanceResponsiveHtml(raw, {
+      hideGgbUIs: true,       // 隐藏 GGB 原生 UI 元素（工具栏、菜单等）
+      lockPerspectiveG: false, // 锁定为几何视图，不显示代数区
+      enableAdaptive: true,   // 开启容器自适应调整逻辑
+      enableBridge: true,     // 注入事件桥接脚本以监听 GGB 内部交互
+    })
     originalHtml.value = enhanced
     ggbListenerState.value = null
     ggbEventLog.value = []
@@ -650,10 +655,6 @@ onBeforeUnmount(() => {
 
 .retry-button:hover {
   background: #1565c0;
-}
-
-.right-panel-container.no-close-btn :deep(.close-button) {
-  display: none !important;
 }
 
 /* 响应式设计 */

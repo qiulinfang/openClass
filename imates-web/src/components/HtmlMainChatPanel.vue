@@ -410,7 +410,7 @@ defineExpose({
   top: 12px;
   right: 12px;
   color: #393548;
-  z-index: 1;
+  z-index: 2222;
 }
 
 /* Tab 列表 */
