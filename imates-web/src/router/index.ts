@@ -24,6 +24,7 @@ import ExerciseSolveViewNew from '@/views/ExerciseSolveViewNew.vue'
 import InteractiveCanvasView from '@/views/InteractiveCanvasView.vue'
 import TeacherDebugView from '@/views/TeacherDebugView.vue'
 import TestExerciseView from '@/views/TestExerciseView.vue'
+import DraftNotebookView from '@/views/DraftNotebookView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -139,6 +140,11 @@ const router = createRouter({
           path: 'homework-exercise',
           name: 'homeworkExercise',
           component: ExerciseSolveView
+        },
+        {
+          path: 'draft-notebook',
+          name: 'draftNotebook',
+          component: DraftNotebookView
         }
       ]
     },

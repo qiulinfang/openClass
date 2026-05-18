@@ -157,35 +157,6 @@
       @close="hideMainChatPanel"
       @toggle-mode="handleToggleMainChatMode"
     />
-    <!-- 草稿本对话框 -->
-    <Modal
-      v-model="showDraftNotebook"
-      title="草稿本"
-      :close-on-overlay-click="false"
-      :show-overlay="false"
-      :initial-width="1200"
-      :initial-height="800"
-      :z-index="8000"
-    >
-      <DrawingBoardNew
-        ref="drawingBoardRef"
-        :showGrid="false"
-        :enableAskAi="true"
-        @clear="handleClearRequest"
-        @ask-ai-image-selected="handleAskAiImageSelected"
-      />
-
-      <Dialog
-        ref="clearDialogRef"
-        title="清空确认"
-        :confirmButtonText="'清空'"
-        :cancelButtonText="'取消'"
-        @confirm="confirmClearCanvas"
-        @cancel="cancelClearCanvas"
-      >
-        确定要清空画布吗？此操作不可撤销。
-      </Dialog>
-    </Modal>
     <!-- 退出登录确认对话框 -->
     <Dialog
       ref="confirmLogoutDialogRef"
@@ -220,6 +191,7 @@ import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
 import { getUserId } from '@/services'
+import { useDraftStore } from '@/stores/draftStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
@@ -280,7 +252,8 @@ const route = useRoute()
 const uiStore = useUIStore()
 const pdfViewerStore = usePdfViewerStore()
 const resourceStore = useResourceStore()
-const teacherStore = useTeacherChatStore()
+const teacherChatStore = useTeacherChatStore()
+const draftStore = useDraftStore()
 const userClientStore = useUserClientStore()
 
 const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
@@ -524,11 +497,6 @@ const aiDialogScreenshotFlowVisible = computed(() => {
 const showToolbox = ref(false)
 
 // 工具箱对话框显示状态
-const showDraftNotebook = ref(false)
-
-const drawingBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
-const clearDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
-
 const hasResourceNotification = computed(() => resourceStore.hasResourceNotification)
 
 // 用户端未读消息数
@@ -576,7 +544,7 @@ const fabStyle = computed(() => ({
 }))
 
 // 需要隐藏左侧导航菜单的路由
-const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer','htmlPreview']
+const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer','htmlPreview', 'draftNotebook']
 
 // 是否隐藏左侧导航菜单
 // 在作业作答 / 作业答题等专注场景隐藏，避免干扰
@@ -594,7 +562,8 @@ const showFab = computed(() => {
   const name = route.name as string | undefined
   const isRouteAllowed = !name || !routesHideFab.includes(name)
   const isPdfChatOpen = name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
-  return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen
+  const isDraftChatOpen = name === 'draftNotebook' && draftStore.chatPanelVisible
+  return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen && !isDraftChatOpen
 })
 
 watch(
@@ -673,10 +642,10 @@ const mainViewStyle = computed(() => {
       return {
         background: 'linear-gradient(to bottom, #ffffff 50%, #f1f3ff 50%)',
       }
-    case 'drawingBoard':
-      // 画板页：纯白背景
+    case 'draftNotebook':
+      // 草稿本页：沉浸式背景
       return {
-        background: '#ffffff',
+        background: '#0a0020',
       }
     case 'findExercise':
       // 查找习题页：上半部分 #ffffff，下半部分 #f8f9fa
@@ -729,6 +698,12 @@ const handleFloatingFabClick = () => {
     console.log('[FloatingFab][Web] pdfViewer toggle chatPanelVisible ->', {
       traceId,
       chatPanelVisible: pdfViewerStore.chatPanelVisible,
+    })
+  } else if (currentRoute.name === 'draftNotebook') {
+    draftStore.chatPanelVisible = !draftStore.chatPanelVisible
+    console.log('[FloatingFab][Web] draftNotebook toggle chatPanelVisible ->', {
+      traceId,
+      chatPanelVisible: draftStore.chatPanelVisible,
     })
   } else if (currentRoute.name === 'htmlPreview' && isFromPdf) {
     // 从 PDF 跳转来的 HTML 预览页，控制 PDF 对话面板
@@ -970,6 +945,24 @@ const checkResourceUpdates = async () => {
 
 // 初始化按钮位置
 onMounted(async () => {
+  // 处理从草稿本返回的情况
+  if (route.query.openAiChat === 'true') {
+    const attachedImageStr = route.query.attachedImage as string
+    if (attachedImageStr) {
+      try {
+        const imageInfo = JSON.parse(attachedImageStr)
+        handleAskAiImageSelected(imageInfo)
+      } catch (e) {
+        console.error('Failed to parse attachedImage', e)
+        openMainChatPanel()
+      }
+    } else {
+      openMainChatPanel()
+    }
+    // 清理 query 参数，避免刷新页面再次触发
+    router.replace({ name: route.name as string, query: {} })
+  }
+
   // 加载用户信息
   updateCurrentUserInfo()
 
@@ -1091,9 +1084,7 @@ const confirmLogoutDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 // 处理打开工具箱事件
 const handleOpenToolbox = () => {
   console.log('handleOpenToolbox')
-  console.log('showDraftNotebook', showDraftNotebook.value)
-  showDraftNotebook.value = true
-  console.log('showDraftNotebook', showDraftNotebook.value)
+  router.push({ name: 'draftNotebook' })
 }
 
 // 处理头像更改事件
@@ -1209,7 +1200,7 @@ const closeToolbox = () => {
 const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'teacher') => {
   // 如果是教师会话，设置会话到 Store（使用统一存储格式）
   if (type === 'teacher') {
-    teacherStore.connectToTeacherSession(sessionId)
+    teacherChatStore.connectToTeacherSession(sessionId)
   }
 }
 
@@ -1250,23 +1241,6 @@ const handleAskAiImageSelected = async (imageInfo: AskAiImageInfo) => {
   openMainChatPanel()
   await nextTick()
   await mainChatPanelRef.value?.attachImageToAiGeneral?.(imageInfo)
-}
-
-const handleClearRequest = () => {
-  clearDialogRef.value?.openDialog()
-}
-
-const confirmClearCanvas = () => {
-  drawingBoardRef.value?.loadData({
-    objects: [],
-    history: [[]],
-    historyIndex: 0,
-  })
-  clearDialogRef.value?.closeDialog()
-}
-
-const cancelClearCanvas = () => {
-  clearDialogRef.value?.closeDialog()
 }
 
 // 打开老师答疑对话框

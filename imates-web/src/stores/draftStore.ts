@@ -35,6 +35,9 @@ export const useDraftStore = defineStore('draft', () => {
   // 存储是否已初始化
   const isStorageReady = ref(false)
 
+  // 草稿页右侧聊天面板是否可见
+  const chatPanelVisible = ref(false)
+
   // 初始化存储
   const initStorage = async () => {
     if (isStorageReady.value) return
@@ -159,12 +162,23 @@ export const useDraftStore = defineStore('draft', () => {
     return await getDraftStorageInfo()
   }
 
+  // 打开聊天面板
+  const openChatPanel = () => {
+    chatPanelVisible.value = true
+  }
+
+  // 关闭聊天面板
+  const closeChatPanel = () => {
+    chatPanelVisible.value = false
+  }
+
   // 启动时初始化存储
   initStorage()
 
   return {
     drafts,
     isStorageReady,
+    chatPanelVisible,
     getDraft,
     saveDraft,
     deleteDraft,
@@ -173,6 +187,8 @@ export const useDraftStore = defineStore('draft', () => {
     getDraftCount,
     hasDraft,
     getStorageInfo,
-    initStorage
+    initStorage,
+    openChatPanel,
+    closeChatPanel
   }
 })

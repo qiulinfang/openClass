@@ -1,13 +1,9 @@
 <template>
   <div class="homework-answer-view">
-    <header class="answer-header">
-      <div class="toolbar-left">
-        <div class="back-btn" @click="goBack">
-          <img :src="goBackIcon" alt="返回" class="back-icon" />
-        </div>
-      </div>
-      <div class="answer-title">{{ displayTitle }}</div>
-    </header>
+    <BusinessHeader
+      :title="displayTitle"
+      @back="goBack"
+    />
     <div class="answer-body">
       <SplitPanel
         ref="splitPanelRef"
@@ -337,6 +333,7 @@ import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import SplitPanel from '@/components/base/SplitPanel.vue'
+import BusinessHeader from '@/components/BusinessHeader.vue'
 import QuestionList from '@/components/QuestionList.vue'
 import DrawingBoardNew from '@/components/drawingBoardNew.vue'
 import FloatBubble from '@/components/base/FloatBubble.vue'
@@ -1472,54 +1469,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: #0f002e;
-}
-
-.answer-header {
-  height: 56px;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #0f002e;
-  color: #ffffff;
-  position: relative;
-}
-
-.answer-title {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.toolbar-left {
-  position: absolute;
-  left: 24px;
-  z-index: 10;
-}
-
-.toolbar-right {
-  position: absolute;
-  right: 24px;
-  z-index: 10;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
-  background: transparent;
-  transition: background-color 0.15s ease;
-}
-
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.back-icon {
-  width: 25px;
-  height: 25px;
 }
 
 .answer-body {

@@ -12,9 +12,8 @@
       <template v-slot:before>
         <div class="pdf-viewer-container">
           <!-- 工具栏 -->
-          <Toolbar
+          <DrawingHeader
             :tools="pdfToolbarTools"
-            variant="browser"
             :selected-tool="pdfViewerStore.selectedTool"
             :tool-states="toolStates"
             :tool-config="toolbarToolConfig"
@@ -27,19 +26,7 @@
             @undo="handleUndo"
             @redo="handleRedo"
           >
-            <template #left-actions>
-              <!-- 返回按钮 -->
-              <q-btn
-                flat
-                round
-                dense
-                @click="handleGoBack"
-                class="goback-btn"
-              >
-                <img :src="goBackIcon" alt="返回" class="goback-icon" />
-              </q-btn>
-            </template>
-            <template #right-actions>
+            <template #right>
               <div class="direction-toggle-wrapper q-mr-sm">
                 <q-btn
                   flat
@@ -79,7 +66,7 @@
                 class="q-mr-sm"
               />
             </template>
-          </Toolbar>
+          </DrawingHeader>
           <!-- PDF 不分页渲染 -->
           <PdfPage
             v-if="currentFile"
@@ -137,6 +124,7 @@ import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession, At
 import {
   addScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
+import DrawingHeader from '@/components/DrawingHeader.vue'
 import Toolbar from '@/components/Toolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import PdfChatPanel from '@/components/chat/chatpanel/PdfChatPanel.vue'

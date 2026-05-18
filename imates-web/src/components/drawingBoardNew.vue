@@ -2152,8 +2152,8 @@ const askAiFreeformPathD = computed(() => {
 
 // 获取内容坐标（考虑缩放和平移）
 function getContentPoint(clientX: number, clientY: number): Point | null {
-  if (!containerRef.value) return null
-  const rect = containerRef.value.getBoundingClientRect()
+  if (!liveCanvasRef.value) return null
+  const rect = liveCanvasRef.value.getBoundingClientRect()
   const x = (clientX - rect.left - camera.x) / camera.zoom
   const y = (clientY - rect.top - camera.y) / camera.zoom
   return { x, y }
@@ -2349,9 +2349,18 @@ function takeAskAiScreenshot(rect: { x: number; y: number; w: number; h: number 
 
 // 获取框选框样式
 function getAskAiRectStyle(rect: { x: number; y: number; w: number; h: number }) {
+  if (!liveCanvasRef.value || !containerRef.value) return {}
+
+  const canvasRect = liveCanvasRef.value.getBoundingClientRect()
+  const containerRect = containerRef.value.getBoundingClientRect()
+
+  // 计算 Canvas 相对于 Container 的偏移
+  const offsetX = canvasRect.left - containerRect.left
+  const offsetY = canvasRect.top - containerRect.top
+
   return {
-    left: `${rect.x * camera.zoom + camera.x}px`,
-    top: `${rect.y * camera.zoom + camera.y}px`,
+    left: `${rect.x * camera.zoom + camera.x + offsetX}px`,
+    top: `${rect.y * camera.zoom + camera.y + offsetY}px`,
     width: `${rect.w * camera.zoom}px`,
     height: `${rect.h * camera.zoom}px`,
   }

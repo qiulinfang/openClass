@@ -389,7 +389,7 @@ const props = withDefaults(
     // 是否显示问AI按钮
     showAskAi?: boolean
     // 是否允许工具栏弹出配置面板
-    allowPopup: { type: Boolean, default: true },
+    allowPopup?: boolean
   }>(),
   {
     tools: () => [],
