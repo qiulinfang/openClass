@@ -5,17 +5,19 @@
       <img :src="textbookipIcon" alt="textbookip" class="explore-icon textbookip" />
       <img :src="ipWordIcon" alt="ipWord" class="explore-icon ipWord" />
     </div>
-    <!-- 遮罩层上的按钮（独立于遮罩层，避免被覆盖） -->
-    <button
-      v-if="isExploring && overlayButtonReady"
-      type="button"
-      class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
-      :class="{ 'explore-icon-large': hasAttachedScreenshots }"
-      :style="overlayButtonStyle"
-      @click.stop="handleExploreClick"
-    >
-      <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
-    </button>
+    <!-- 遮罩层上的按钮（独立于遮罩层，使用 Teleport 挂载到 body 以确保 fixed 定位正确） -->
+    <Teleport to="body">
+      <button
+        v-if="isExploring && overlayButtonReady"
+        type="button"
+        class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
+        :class="{ 'explore-icon-large': hasAttachedScreenshots }"
+        :style="overlayButtonStyle"
+        @click.stop="handleExploreClick"
+      >
+        <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
+      </button>
+    </Teleport>
 
     <!-- 对话面板头部 -->
     <div class="chat-panel-header">
@@ -84,7 +86,9 @@
             <template #card-body="{ card }">
               <div class="chat-snapshot" @click="handleSessionCardClick(card.id)">
                 <div class="snapshot-messages">
-                  <template v-if="card.previewMessagesMarkdown && card.previewMessagesMarkdown.length">
+                  <template
+                    v-if="card.previewMessagesMarkdown && card.previewMessagesMarkdown.length"
+                  >
                     <div
                       v-for="(content, idx) in card.previewMessagesMarkdown"
                       :key="idx"
@@ -153,22 +157,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, onMounted, onUnmounted, watch, type ComponentPublicInstance } from 'vue'
+import {
+  ref,
+  nextTick,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  type ComponentPublicInstance,
+} from 'vue'
 import { useRouter } from 'vue-router'
-import { CHAT_TAB_OPTIONS } from '../constants/options'
+import { CHAT_TAB_OPTIONS } from '@/constants/options'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useDraftStore } from '@/stores/draftStore'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { showMessage } from '../utils'
+import { useMessageRenderer } from '@/composables/useMessageRenderer'
+import { showMessage } from '@/utils'
 import ChatView from '@/components/ChatView.vue'
 import CardStack from '@/components/base/CardStack.vue'
 import MarkdownTitle from '@/components/MarkdownTitle.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import Button from '@/components/base/Button.vue'
 import Dialog from '@/components/base/Dialog.vue'
-import type { AiTextbookSession, ChatEntry, ExerciseItem } from '@/types'
-import type { BuiltinToolType } from '../types/toolbarTools'
+import type { AiTextbookSession, ChatEntry, ExerciseItem, AttachedScreenshot } from '@/types'
+import type { BuiltinToolType } from '@/types/toolbarTools'
 import goBackBlackIcon from '/icons/goback_black.svg'
 import newSessionIcon from '/icons/new.svg'
 import deleteSessionIcon from '/icons/delete.svg'
@@ -177,35 +189,44 @@ import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord.svg'
 
-const props = withDefaults(defineProps<{
-  // 当前题目
-  question?: ExerciseItem | null
-  // 会话数据
-  sessions?: AiTextbookSession[]
-  showCloseButton?: boolean
-  // 是否处于探索/截图模式（由外部驱动）
-  isExploring?: boolean
-}>(), {
-  showCloseButton: true,
-  isExploring: false
-})
+const props = withDefaults(
+  defineProps<{
+    // 当前题目
+    question?: ExerciseItem | null
+    // 会话数据
+    sessions?: AiTextbookSession[]
+    showCloseButton?: boolean
+    // 是否处于探索/截图模式（由外部驱动）
+    isExploring?: boolean
+    // 是否正在截图中（框选模式）
+    isCapturing?: boolean
+  }>(),
+  {
+    showCloseButton: true,
+    isExploring: false,
+  }
+)
 
 const emit = defineEmits<{
   'scroll-to-bottom': []
   'send-message': [message: string]
   'open-teacher-dialog': [data: { sessionId: string; message?: any }]
-  'switch-to-teacher': [forwardData: {
-    messages?: any[]
-    currentQuestion?: unknown
-    additionalMessage?: string
-    forwardMode?: string
-    successCount?: number
-    sessionId?: string
-  }]
+  'switch-to-teacher': [
+    forwardData: {
+      messages?: any[]
+      currentQuestion?: unknown
+      additionalMessage?: string
+      forwardMode?: string
+      successCount?: number
+      sessionId?: string
+    }
+  ]
   'paste-to-draft': [payload: any]
   'session-click': [record: AiTextbookSession]
   'add-session': []
-  'close': []
+  close: []
+  'screenshot-click': [active: boolean]
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
 const aiExerciseStore = useAiExerciseChatStore()
@@ -217,8 +238,15 @@ const chatViewRef = ref<ComponentPublicInstance | null>(null)
 // 清除会话确认对话框引用
 const clearAllDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 
-// 工具栏工具配置 - 极简版：只传工具名称字符串数组
-const toolbarToolNames: BuiltinToolType[] = ['screenshot', 'formula', 'ask-teacher', 'new-session']
+// 工具栏工具配置 - 注入激活状态以同步底层按钮样式
+const toolbarToolNames = computed(() => {
+  return [
+    { type: 'select-and-ask' as BuiltinToolType, isActive: isExploring.value },
+    { type: 'formula' as BuiltinToolType },
+    { type: 'ask-teacher' as BuiltinToolType },
+    { type: 'new-session' as BuiltinToolType },
+  ]
+})
 
 // 截图工具
 const { captureScreenSnapshot } = useScreenSnapshot()
@@ -243,7 +271,7 @@ const handleOpenHtmlPreview = (url: string) => {
       from: 'exercise',
       returnTo: router.currentRoute.value.fullPath,
       reopenPanel: 'exercise',
-    }
+    },
   })
 }
 
@@ -251,7 +279,10 @@ const handleOpenHtmlPreview = (url: string) => {
 const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 
 // Tab 选项
-const tabOptions = CHAT_TAB_OPTIONS as Array<{ label: string; value: 'ai-chat' | 'question-record' }>
+const tabOptions = CHAT_TAB_OPTIONS as Array<{
+  label: string
+  value: 'ai-chat' | 'question-record'
+}>
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -269,7 +300,7 @@ const sessionCards = computed(() => {
     // 统一使用 会话+数字 作为标题，删除后会自动更新编号
     return cards.map((card: any, index: number) => ({
       ...card,
-      title: `会话 ${index + 1}`
+      title: `会话 ${index + 1}`,
     }))
   }
   const sourceSessions = props.sessions || aiExerciseStore.sessions || []
@@ -293,13 +324,13 @@ const handleSessionClick = async (record: AiTextbookSession) => {
   // 切换到 AI 问答 Tab
   activeTab.value = 'ai-chat'
   emit('session-click', record)
-  console.log("record",record)
+  console.log('record', record)
   // 切换到对应会话，加载该会话的消息
   const sessionId = record.id || record.sessionId
   if (sessionId) {
     await aiExerciseStore.switchToSession(sessionId)
   }
-  
+
   await nextTick()
   ;(chatViewRef.value as any)?.scrollToSession?.(sessionId)
 }
@@ -400,25 +431,10 @@ const handleScreenshotClickAction = async () => {
   }
 
   try {
-    const { dataUrl, width, height } = await captureScreenSnapshot()
-    if (!dataUrl) return
-
-    // 将截图添加到聊天输入框
-    const imageInfo = {
-      filePath: '',
-      width: width || 0,
-      height: height || 0,
-      fileSize: Math.round(dataUrl.length * 0.75),
-      base64DataUrl: dataUrl,
-    }
-
-    // 调用 ChatView 的 onImageSelected 方法添加图片到输入框
-    const chatView = chatViewRef.value as any
-    if (chatView?.onImageSelected) {
-      await chatView.onImageSelected(imageInfo)
-    }
+    // 逻辑变更：不再使用 screen_snapshot (captureScreenSnapshot)，而是从外部 DrawingBoardNew 获取数据
+    emit('request-screenshot', { kind: 'screen_snapshot' })
   } catch (error) {
-    console.error('截图失败:', error)
+    console.error('截图请求失败:', error)
   }
 }
 
@@ -435,22 +451,10 @@ const handleRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf
   if (payload?.kind !== 'screen_snapshot') return
 
   try {
-    const { dataUrl, width, height } = await captureScreenSnapshot()
-    if (!dataUrl) return
-
-    // 将截图添加到 ChatView 输入框
-    const chatView = chatViewRef.value as any
-    if (chatView?.onImageSelected) {
-      await chatView.onImageSelected({
-        filePath: '',
-        width: width || 0,
-        height: height || 0,
-        fileSize: Math.round(dataUrl.length * 0.75),
-        base64DataUrl: dataUrl,
-      })
-    }
+    // 逻辑变更：不再使用 screen_snapshot，通知外部从画板提取
+    emit('request-screenshot', payload)
   } catch (error) {
-    console.error('[ExerciseChatPanel] 截图失败:', error)
+    console.error('[ExerciseChatPanel] 截图请求失败:', error)
   }
 }
 
@@ -528,20 +532,24 @@ const handleSwitchToTeacher = (forwardData: {
   sessionId?: string
 }) => {
   if (forwardData.sessionId) {
-    globalChatEntry.value = { mode: 'session', category: 'teacher', sessionId: forwardData.sessionId }
+    globalChatEntry.value = {
+      mode: 'session',
+      category: 'teacher',
+      sessionId: forwardData.sessionId,
+    }
     showGlobalChatDialog.value = true
     emit('switch-to-teacher', forwardData)
   }
 }
 
-// 移除对 pdfViewerStore 的依赖，改用 props.isExploring
+// 移除对 pdfViewerStore 的依赖，改用 props.isExploring 或 props.isCapturing
 const isExploring = computed(() => {
-  return props.isExploring && activeTab.value === 'ai-chat'
+  return (props.isExploring || props.isCapturing) && activeTab.value === 'ai-chat'
 })
 
 // 计算当前使用的"选中并问"图标
 const selectAndAskIconToUse = computed(() =>
-  props.isExploring ? selectAndAskIconSelected : selectAndAskIcon
+  isExploring.value ? selectAndAskIconSelected : selectAndAskIcon
 )
 
 // 计算是否有附加截图，用于动态调整按钮尺寸
@@ -549,7 +557,9 @@ const hasAttachedScreenshots = computed(() => {
   return (aiExerciseStore.inputAttachedScreenshots?.length ?? 0) > 0
 })
 
-const attachedScreenshotCount = computed(() => aiExerciseStore.inputAttachedScreenshots?.length ?? 0)
+const attachedScreenshotCount = computed(
+  () => aiExerciseStore.inputAttachedScreenshots?.length ?? 0
+)
 
 // 遮罩层按钮位置样式
 const overlayButtonStyle = ref<Record<string, string>>({
@@ -558,7 +568,7 @@ const overlayButtonStyle = ref<Record<string, string>>({
   top: '16px',
   width: '32px',
   height: '32px',
-  zIndex: '35'
+  zIndex: '35',
 })
 
 const overlayButtonReady = ref(false)
@@ -570,7 +580,9 @@ const updateOverlayButtonPosition = async () => {
 
   try {
     // 获取实际按钮元素（使用 .toolbar-btn 匹配 ChatInput 中的按钮类名）
-    const actualButton = document.querySelector('.chat-content-container .tab-content .toolbar-btn') as HTMLElement
+    const actualButton = document.querySelector(
+      '.chat-content-container .tab-content .toolbar-btn'
+    ) as HTMLElement
     if (!actualButton) {
       console.warn('[ExerciseChatPanelNew] 找不到实际按钮元素')
       return
@@ -586,7 +598,7 @@ const updateOverlayButtonPosition = async () => {
       top: `${buttonRect.top}px`,
       width: `${buttonRect.width}px`,
       height: `${buttonRect.height}px`,
-      zIndex: '35'
+      zIndex: '35',
     }
 
     overlayButtonReady.value = true
@@ -596,24 +608,39 @@ const updateOverlayButtonPosition = async () => {
 }
 
 // 监听相关状态变化，更新遮罩层按钮位置
-watch([isExploring, activeTab, attachedScreenshotCount], async (newValues) => {
-  const [exploring, tab] = newValues
-  if (exploring && tab === 'ai-chat') {
-    // 延迟执行，确保DOM已更新
-    setTimeout(updateOverlayButtonPosition, 100)
-  } else {
-    overlayButtonReady.value = false
-  }
-}, { immediate: false })
+watch(
+  [isExploring, activeTab, attachedScreenshotCount],
+  async (newValues) => {
+    const [exploring, tab] = newValues
+    if (exploring && tab === 'ai-chat') {
+      // 延迟执行，确保DOM已更新
+      setTimeout(updateOverlayButtonPosition, 100)
+    } else {
+      overlayButtonReady.value = false
+    }
+  },
+  { immediate: false }
+)
 
 // 处理探索/截图点击（统一处理：遮罩层按钮和 ChatView 截图按钮）
 const handleExploreClick = () => {
-  handleScreenshotClick(!props.isExploring)
+  // 逻辑变更：如果当前正在截图/捕获，点击遮罩按钮应视为取消/关闭
+  if (props.isCapturing) {
+    emit('screenshot-click', false)
+  } else {
+    const targetState = !props.isExploring
+    emit('screenshot-click', targetState)
+  }
 }
 
 onMounted(() => {
   // 初始计算按钮位置
   setTimeout(updateOverlayButtonPosition, 200)
+  window.addEventListener('resize', updateOverlayButtonPosition)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateOverlayButtonPosition)
 })
 
 const handleScreenshotClick = (active: boolean) => {
@@ -724,6 +751,15 @@ defineExpose({
 .tab-item:hover:not(.tab-active) {
   opacity: 0.85;
   background: transparent;
+}
+
+/* 关闭按钮 */
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #393548;
+  z-index: 1;
 }
 
 .chat-content-container {
@@ -907,8 +943,8 @@ defineExpose({
   border-radius: 8px;
 }
 
-/* 当有附加截图时，按钮更大 */
+/* 当有附加截图时，按钮更大 (仅控制大小，不参与定位) */
 .explore-icon-large {
-  bottom: 26.7%  !important;;
+  /* 可以根据需要在此添加大小调整逻辑 */
 }
 </style>

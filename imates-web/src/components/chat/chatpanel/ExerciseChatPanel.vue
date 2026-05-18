@@ -71,15 +71,15 @@
 
 <script setup lang="ts">
 import { ref, nextTick, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
-import { CHAT_TAB_OPTIONS } from '../constants/options'
+import { CHAT_TAB_OPTIONS } from '@/constants/options'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
-import { showMessage } from '../utils'
+import { showMessage } from '@/utils'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
 import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import type { AiTextbookSession, ChatEntry, ExerciseItem } from '@/types'
-import type { BuiltinToolType } from '../types/toolbarTools'
+import type { BuiltinToolType } from '@/types/toolbarTools'
 
 const props = defineProps<{
   // 当前题目

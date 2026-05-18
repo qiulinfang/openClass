@@ -96,14 +96,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { CHAT_TAB_OPTIONS } from '../constants/options'
+import { CHAT_TAB_OPTIONS } from '@/constants/options'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
-import { showMessage } from '../utils'
-import SessionTree from './SessionTree.vue'
-import ChatView from './ChatView.vue'
-import type { ChatBubble } from '../types'
-import type { BuiltinToolType } from '../types/toolbarTools'
+import { showMessage } from '@/utils'
+import SessionTree from '@/components/SessionTree.vue'
+import ChatView from '@/components/ChatView.vue'
+import type { ChatBubble } from '@/types'
+import type { BuiltinToolType } from '@/types/toolbarTools'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 
 const aiGeneralStore = useAiGeneralChatStore()

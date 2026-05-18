@@ -42,20 +42,20 @@ const buildAiExerciseMessage = (
   sessionId?: string | null,
   focus?: HtmlPreviewFocus,
 ): AiChatMessageRequest => {
-  
+
   // 如果内容包含"我们开始吧"，只发送"我们开始吧"给后端
   let conversationContent = content
   if (content.includes('我们开始吧')) {
     conversationContent = '我们开始吧'
   }
-  
+
   // 获取题目ID
   const questionId = currentQuestion.bmNo || ''
-  
+
   // 优先使用传入的 sessionId，如果没有则新建（使用题目ID和时间戳）
   const userId = getUserId() || ''
   const finalSessionId = sessionId || `${userId ? userId + '-' : ''}exercise-${questionId}-${Date.now()}`
-  
+
   // 根据题目学科确定API路径，而不是全局用户学科设置
   const effectiveApiSubject = normalizeSubject((currentQuestion as any).subject)
   const apiUrl = effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
@@ -63,19 +63,19 @@ const buildAiExerciseMessage = (
   const maxImages = 3
   const normalizedImageList = Array.isArray(imageList)
     ? imageList
-        .filter((img) => !!img?.base64DataUrl)
-        .slice(0, maxImages)
-        .map((img) => ({
-          base64DataUrl: img.base64DataUrl!.startsWith('data:image/jpeg;')
-            ? img.base64DataUrl!.replace('data:image/jpeg;', 'data:image/jpg;')
-            : img.base64DataUrl!,
-        }))
+      .filter((img) => !!img?.base64DataUrl)
+      .slice(0, maxImages)
+      .map((img) => ({
+        base64DataUrl: img.base64DataUrl!.startsWith('data:image/jpeg;')
+          ? img.base64DataUrl!.replace('data:image/jpeg;', 'data:image/jpg;')
+          : img.base64DataUrl!,
+      }))
     : []
 
   const singleBase64 = imageData?.base64DataUrl
     ? (imageData.base64DataUrl.startsWith('data:image/jpeg;')
-        ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
-        : imageData.base64DataUrl)
+      ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
+      : imageData.base64DataUrl)
     : undefined
 
   const request: AiChatMessageRequest = {
@@ -131,34 +131,67 @@ export interface ExerciseSession {
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   // ==================== 状态定义 ====================
-  
+
   /** 消息列表（当前会话） */
   const messages = ref<ChatBubble[]>([])
   const lastHistorySignature = ref<string>('')
-  
+
   /** 当前会话ID */
   const currentSessionId = ref<string | null>(null)
-  
+
   /** 当前题目的所有会话列表 */
   const sessions = ref<ExerciseSession[]>([])
-  
+
   /** AI回复次数 */
   const chatResponseTimes = ref(0)
-  
+
   /** 聊天加载状态 */
   const isChatLoading = ref(false)
-  
+
   /** Web搜索开关 */
   const enableWebSearch = ref(false)
-  
+
   /** 查看答案所需最小交互次数 */
   const VIEW_ANSWER_CHAT_TIMES = 3
-  
+
   /** 是否可以查看答案 */
   const canViewAnswer = ref(false)
 
   const inputAttachedScreenshots = ref<AttachedScreenshot[]>([])
-  const inputScreenshotDrawingStates = ref<Record<string, unknown>>({})
+  const inputScreenshotDrawingStates = ref<Record<string, any>>({})
+
+  /**
+   * 追加截图到输入队列
+   */
+  const appendInputAttachedScreenshots = (shots: AttachedScreenshot[]) => {
+    inputAttachedScreenshots.value = [...inputAttachedScreenshots.value, ...shots]
+  }
+
+  /**
+   * 设置截图队列
+   */
+  const setInputAttachedScreenshots = (shots: AttachedScreenshot[]) => {
+    inputAttachedScreenshots.value = shots
+  }
+
+  /**
+   * 设置截图绘图状态
+   */
+  const setInputScreenshotDrawingStates = (states: Record<string, any>) => {
+    inputScreenshotDrawingStates.value = states
+  }
+
+  /**
+   * 移除单张截图
+   */
+  const removeInputAttachedScreenshot = (id: string) => {
+    inputAttachedScreenshots.value = inputAttachedScreenshots.value.filter(s => s.id !== id)
+    if (inputScreenshotDrawingStates.value[id]) {
+      const nextStates = { ...inputScreenshotDrawingStates.value }
+      delete nextStates[id]
+      inputScreenshotDrawingStates.value = nextStates
+    }
+  }
 
   const chatPersistence = useChatPersistence<ChatHistoryData>(
     {
@@ -184,7 +217,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
 
   // ==================== 公开方法 ====================
-  
+
   /**
    * 发送聊天消息（AI题目场景）
    *
@@ -214,7 +247,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
     }
-    
+
     // 如果没有 sessionId，则新建（基于题目bmNo）
     if (!currentSessionId.value) {
       const questionBmNo = currentQuestion.bmNo || ''
@@ -252,7 +285,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       // 多图场景：创建 multi_image 类型消息
       if (imageList && imageList.length > 0) {
         const now = Date.now()
-        
+
         // 标准化图片列表
         const standardImageList = imageList
           .filter((img) => !!img.base64DataUrl)
@@ -264,7 +297,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
             base64DataUrl: img.base64DataUrl!,
             isLargeImage: img.isLargeImage || false,
           }))
-        
+
         // 第一条消息：只包含图片，不包含文字
         const imageMessage: ChatBubble = {
           id: now.toString(),
@@ -318,7 +351,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       selectedModel: selectedModel || 'mate' // 保存当前模式
     }
     messages.value.push(tempReply)
-    
+
     try {
       // 发送请求（带流式回调）
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
@@ -345,10 +378,10 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         // 同时保存当前会话到会话列表
         await saveCurrentSession(questionBmNo)
       }
-      
+
     } catch (error) {
       console.error('[AI_EXERCISE] 发送失败:', error)
-      
+
       // 更新消息为错误状态
       const index = messages.value.findIndex(m => m.id === tempReplyId)
       if (index >= 0) {
@@ -360,7 +393,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
           fileSize: imageData.fileSize || 0,
           base64DataUrl: imageData.base64DataUrl  // 使用 base64DataUrl 字段用于UI显示
         } : undefined
-        
+
         messages.value[index] = {
           ...tempReply,
           content: '发送失败，请重试',
@@ -371,7 +404,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
           imageData: standardImageData
         }
       }
-      
+
       throw error
     }
   }
@@ -400,7 +433,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     await saveChatHistory(questionBmNo)
   }
-  
+
   /**
    * 重试失败的消息（AI题目场景）
    */
@@ -417,10 +450,10 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
     }
-    
+
     const { index, message, retryCount, originalContent } = retryHelper.prepareRetryInfo(messages, messageId)
     const maxRetries = retryHelper.maxRetries
-    
+
     // 更新为重试中状态
     messages.value[index] = {
       ...message,
@@ -431,7 +464,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       retryCount: retryCount + 1,
       selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
     }
-    
+
     // 构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     let aiRequest: AiChatMessageRequest
     try {
@@ -452,7 +485,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       showMessage(errorMessage, 'warning')
       throw error // 重新抛出错误，让上层处理
     }
-    
+
     try {
       // 重新发送请求（带流式回调）
       let accumulatedContent = ''
@@ -493,16 +526,16 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
           }
         },
       )
-      
+
       // 保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
         await saveChatHistory(questionBmNo)
       }
-      
+
     } catch (error) {
       console.error('[AI_EXERCISE] 重试失败:', error)
-      
+
       // 更新为重试失败状态
       messages.value[index] = {
         ...message,
@@ -512,7 +545,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         canRetry: retryCount + 1 < maxRetries,
         retryCount: retryCount + 1
       }
-      
+
       // 保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
@@ -521,7 +554,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       throw error
     }
   }
-  
+
   /**
    * 保存聊天历史（AI题目场景）
    */
@@ -529,7 +562,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   // 实际存储键为：ai-exercise-${questionBmNo}-${currentSessionId}
   const saveChatHistory = async (questionBmNo: string): Promise<void> => {
     if (!currentSessionId.value || messages.value.length === 0) return
-    
+
     const storageKey = `ai-exercise-${questionBmNo}-${currentSessionId.value}`
     const historyData: ChatHistoryData = {
       questionId: storageKey,
@@ -537,14 +570,14 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       chatResponseTimes: chatResponseTimes.value,
       lastUpdated: Date.now()
     }
-    
+
     try {
       await chatPersistence.save(storageKey, historyData)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
     }
   }
-  
+
   /**
    * 加载聊天历史（AI题目场景）
    */
@@ -552,21 +585,21 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   const loadChatHistory = async (questionBmNo: string): Promise<void> => {
     try {
       isChatLoading.value = true
-      
+
       // 关键：切换题目时，先清空上一题的 currentSessionId，避免把上一题的会话 ID 带到新题目
       // 这样在后续 switchToSession 保存"当前会话"时，不会误用上一题的 sessionId
       currentSessionId.value = null
-      
+
       // 同时加载会话列表
       await loadSessionsList(questionBmNo)
-      
+
       // 如果还没有任何会话，尝试从旧格式的聊天历史中迁移数据
       if (sessions.value.length === 0) {
         const legacyKey = `ai-exercise-${questionBmNo}`
         try {
           const legacyData = await chatPersistence.load(legacyKey)
           if (legacyData && Array.isArray(legacyData.messages) && legacyData.messages.length > 0) {
-            
+
             // 创建一个默认会话 ID
             const userId = getUserId() || ''
             const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
@@ -574,12 +607,12 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
             messages.value = legacyData.messages || []
             chatResponseTimes.value = legacyData.chatResponseTimes || 0
             canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
-            
+
             // 保存为当前会话：这一步会
             // 1）写入会话快照到 ai_exercise_sessions
             // 2）按新 key 写入完整聊天历史：ai-exercise-${questionBmNo}-${newSessionId}
             await saveCurrentSession(questionBmNo)
-            
+
             // 删除旧的聊天历史 key，避免重复
             await chatStorage.removeChatHistory(legacyKey)
           }
@@ -587,14 +620,14 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
           console.error('[AI_EXERCISE] ❌ 旧格式聊天历史迁移失败:', migrateError)
         }
       }
-      
+
       // 尝试恢复最近活跃的会话（包括可能刚迁移生成的会话）
       if (sessions.value.length > 0) {
         // 选择最近更新的会话
-        const recentSession = sessions.value.reduce((prev, current) => 
+        const recentSession = sessions.value.reduce((prev, current) =>
           (prev.updatedAt > current.updatedAt) ? prev : current
         )
-        
+
         // 切换到该会话
         await switchToSession(recentSession.id)
       } else {
@@ -613,7 +646,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       isChatLoading.value = false
     }
   }
-  
+
   /**
    * 清空聊天历史（AI题目场景）
    */
@@ -631,7 +664,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       throw error
     }
   }
-  
+
   /**
    * 删除消息及其之后的所有消息（AI题目场景）
    *
@@ -704,7 +737,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       throw error
     }
   }
-  
+
   /**
    * 重置状态
    */
@@ -715,9 +748,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     isChatLoading.value = false
     currentSessionId.value = null
   }
-  
+
   // ==================== 多会话管理 ====================
-  
+
   // 辅助函数：生成会话标题（保留原始内容）
   const generateSessionTitle = (snapshot: { userMessage?: string }): string => {
     return snapshot.userMessage?.trim() || '新会话'
@@ -735,7 +768,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     const previewMessagesMarkdown = msgs
       .slice(0, MAX_PREVIEW)
       .map(m => (typeof m.content === 'string' ? m.content : String(m.content || '')))
-    
+
     return {
       aiMessage: aiMessages[0]?.content?.substring(0, 100),
       userMessage: userMessages[0]?.content?.substring(0, 100),
@@ -743,19 +776,19 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       previewMessagesMarkdown,
     }
   }
-  
+
   /**
    * 保存当前会话到会话列表
    */
   const saveCurrentSession = async (questionBmNo: string): Promise<void> => {
     if (!currentSessionId.value || messages.value.length === 0) return
-    
+
     const snapshot = extractSnapshotFromMessages(messages.value)
     const now = Date.now()
-    
+
     // 查找是否已存在该会话
     const existingIndex = sessions.value.findIndex(s => s.id === currentSessionId.value)
-    
+
     // 完整会话数据（用于内存）
     const sessionData: ExerciseSession = {
       id: currentSessionId.value,
@@ -767,20 +800,20 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       updatedAt: now,
       ...snapshot,
     }
-    
+
     if (existingIndex >= 0) {
       sessions.value[existingIndex] = sessionData
     } else {
       sessions.value.push(sessionData)
     }
-    
+
     // 持久化：只存储元数据（不含完整消息）
     await saveSessionsList(questionBmNo)
-    
+
     // 单独存储当前会话的消息（使用 chatStorage）
     await saveChatHistory(questionBmNo)
   }
-  
+
   /**
    * 保存会话列表到存储（使用 IndexedDB，只存储元数据）
    */
@@ -800,13 +833,13 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         lastMessage: s.lastMessage,
         previewMessagesMarkdown: s.previewMessagesMarkdown,
       }))
-      
+
       await chatStorage.saveSessionsList(questionBmNo, metaList)
     } catch (error) {
       console.error('[AI_EXERCISE] 保存会话列表失败:', error)
     }
   }
-  
+
   /**
    * 加载题目的所有会话列表（使用 IndexedDB，只加载元数据）
    */
@@ -831,7 +864,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       sessions.value = []
     }
   }
-  
+
   /**
    * 切换到指定会话
    */
@@ -841,7 +874,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       console.error('[AI_EXERCISE] 会话不存在:', sessionId)
       return
     }
-    
+
     // 切换前保存当前会话（包含完整消息和会话快照）
     if (currentSessionId.value && messages.value.length > 0) {
       // 注意：这里要用“当前会话”所属题目的 questionBmNo，而不是目标会话的
@@ -850,7 +883,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         await saveCurrentSession(prevSession.questionBmNo)
       }
     }
-    
+
     // 加载目标会话的完整聊天历史
     const storageKey = `ai-exercise-${session.questionBmNo}-${session.id}`
     try {
@@ -867,11 +900,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       messages.value = []
       chatResponseTimes.value = 0
     }
-    
+
     currentSessionId.value = session.id
     canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
   }
-  
+
   /**
    * 创建新会话
    */
@@ -880,7 +913,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     if (currentSessionId.value && messages.value.length > 0) {
       await saveCurrentSession(questionBmNo)
     }
-    
+
     // 创建新会话ID
     const userId = getUserId() || ''
     const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
@@ -888,10 +921,10 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     messages.value = []
     chatResponseTimes.value = 0
     canViewAnswer.value = false
-    
+
     return newSessionId
   }
-  
+
   /**
    * 删除会话
    */
@@ -899,9 +932,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     // 保险：只删除 questionBmNo 与当前题目一致的会话
     const index = sessions.value.findIndex(s => s.id === sessionId && s.questionBmNo === questionBmNo)
     if (index < 0) return
-    
+
     sessions.value.splice(index, 1)
-    
+
     // 如果删除的是当前会话，切换到第一个会话或清空
     if (currentSessionId.value === sessionId) {
       if (sessions.value.length > 0) {
@@ -924,7 +957,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
 
     await saveSessionsList(questionBmNo)
   }
-  
+
   /**
    * 获取用于 CardStack 展示的会话卡片数据
    */
@@ -945,16 +978,16 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       previewMessagesMarkdown: session.previewMessagesMarkdown || [],
     }))
   }
-  
+
   // ==================== 返回接口 ====================
-  
+
   /**
    * 切换Web搜索
    */
   const toggleWebSearch = (): void => {
     enableWebSearch.value = !enableWebSearch.value
   }
-  
+
   return {
     // 状态
     messages,
@@ -968,7 +1001,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
 
     inputAttachedScreenshots,
     inputScreenshotDrawingStates,
-    
+
     // 方法
     sendMessage,
     retryMessage,
@@ -978,7 +1011,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     clearChatHistory,
     resetState,
     toggleWebSearch,
-    
+
     // 多会话管理
     saveCurrentSession,
     loadSessionsList,
@@ -988,22 +1021,12 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     getSessionCards,
     reloadHtmlImage,
 
-    setInputAttachedScreenshots: (shots: AttachedScreenshot[]) => {
-      inputAttachedScreenshots.value = Array.isArray(shots) ? shots : []
-    },
+    appendInputAttachedScreenshots,
+    setInputAttachedScreenshots,
+    setInputScreenshotDrawingStates,
+    removeInputAttachedScreenshot,
     clearInputAttachedScreenshots: () => {
       inputAttachedScreenshots.value = []
-    },
-    removeInputAttachedScreenshot: (id: string) => {
-      inputAttachedScreenshots.value = inputAttachedScreenshots.value.filter((s) => s.id !== id)
-      if (id && inputScreenshotDrawingStates.value && id in inputScreenshotDrawingStates.value) {
-        const next = { ...inputScreenshotDrawingStates.value }
-        delete next[id]
-        inputScreenshotDrawingStates.value = next
-      }
-    },
-    setInputScreenshotDrawingStates: (states: Record<string, unknown>) => {
-      inputScreenshotDrawingStates.value = states || {}
     },
   }
 })

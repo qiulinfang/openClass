@@ -139,19 +139,19 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { CHAT_TAB_OPTIONS } from '../constants/options'
+import { CHAT_TAB_OPTIONS } from '@/constants/options'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
-import { showMessage } from '../utils'
+import { showMessage } from '@/utils'
 import { getUserId } from '@/services'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
-import SessionTree from './SessionTree.vue'
-import ChatView from './ChatView.vue'
+import SessionTree from '@/components/SessionTree.vue'
+import ChatView from '@/components/ChatView.vue'
 import addSessionIcon from '/icons/addsession.png'
 import switcherIcon from '/icons/Switcher.svg'
-import type { ChatBubble } from '../types'
-import type { ChatEntry } from '../types/chat'
-import type { BuiltinToolType } from '../types/toolbarTools'
+import type { ChatBubble } from '@/types'
+import type { ChatEntry } from '@/types/chat'
+import type { BuiltinToolType } from '@/types/toolbarTools'
 
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherChatStore()

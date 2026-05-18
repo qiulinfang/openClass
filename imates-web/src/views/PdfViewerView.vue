@@ -139,7 +139,7 @@ import {
 } from '@/utils/storage/screenshotSessions'
 import Toolbar from '@/components/Toolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
-import PdfChatPanel from '@/components/PdfChatPanel.vue'
+import PdfChatPanel from '@/components/chat/chatpanel/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
 import goBackIcon from '/icons/goback.svg'
 import shangxiaSelectIcon from '/icons/shangxia_select.svg'

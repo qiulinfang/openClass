@@ -84,9 +84,9 @@ import { apiService } from '@/services'
 import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
 import { getApiPaths } from '@/config/env-config'
 import DualPanel from '@/components/base/DualPanel.vue'
-import HtmlPdfChatPanel from '@/components/HtmlPdfChatPanel.vue'
-import HtmlMainChatPanel from '@/components/HtmlMainChatPanel.vue'
-import ExerciseChatPanelNew from '@/components/ExerciseChatPanelNew.vue'
+import HtmlPdfChatPanel from '@/components/chat/chatpanel/HtmlPdfChatPanel.vue'
+import HtmlMainChatPanel from '@/components/chat/chatpanel/HtmlMainChatPanel.vue'
+import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew.vue'
 import HistoryDebugPanel from '@/components/debug/HistoryDebugPanel.vue'
 
 // 使用路由

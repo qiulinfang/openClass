@@ -86,6 +86,7 @@ interface Props {
   transitionEasing?: string;
   showSplitters?: boolean;
   splitterClass?: string;
+  disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -96,7 +97,8 @@ const props = withDefaults(defineProps<Props>(), {
   transitionDuration: 0.5,
   transitionEasing: 'cubic-bezier(0.3, 0.9, 0.4, 1.05)',
   showSplitters: true,
-  splitterClass: ''
+  splitterClass: '',
+  disabled: false
 });
 
 interface Emits {
@@ -148,7 +150,7 @@ onUnmounted(() => {
 });
 
 const handleToggle = () => {
-  if (isLocked.value) return;
+  if (isLocked.value || props.disabled) return;
 
   isLocked.value = true;
   setTimeout(() => {
@@ -258,7 +260,7 @@ const addDragListeners = () => {
 const handleDrag1 = (e: PointerEvent) => {
   e.preventDefault();
   e.stopPropagation();
-  if (isLocked.value || !props.showSplitters) return;
+  if (isLocked.value || !props.showSplitters || props.disabled) return;
 
   (e.currentTarget as Element).setPointerCapture(e.pointerId);
   activePointerId = e.pointerId;
@@ -278,7 +280,7 @@ const handleDrag1 = (e: PointerEvent) => {
 const handleDrag2 = (e: PointerEvent) => {
   e.preventDefault();
   e.stopPropagation();
-  if (isLocked.value || !props.showSplitters) return;
+  if (isLocked.value || !props.showSplitters || props.disabled) return;
 
   (e.currentTarget as Element).setPointerCapture(e.pointerId);
   activePointerId = e.pointerId;

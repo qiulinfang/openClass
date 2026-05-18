@@ -1,6 +1,10 @@
 <template>
   <div class="sketchpad-wrapper">
-    <div v-if="showToolbar" class="toolbar" :class="{ 'toolbar--bottom': props.toolbarPosition === 'bottom' }">
+    <div
+      v-if="showToolbar"
+      class="toolbar"
+      :class="{ 'toolbar--bottom': props.toolbarPosition === 'bottom' }"
+    >
       <div class="toolbar-slot toolbar-slot--left">
         <slot name="toolbar-left" />
       </div>
@@ -73,7 +77,12 @@
       ></div>
 
       <svg
-        v-if="currentMode === 'askAi' && selectMode === 'freeform' && askAiDragPath && askAiDragPath.length"
+        v-if="
+          currentMode === 'askAi' &&
+          selectMode === 'freeform' &&
+          askAiDragPath &&
+          askAiDragPath.length
+        "
         class="ask-ai-freeform-overlay"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -113,7 +122,14 @@
         @pointerdown.stop
         @click.stop="handleDeleteSelectedImage"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <line x1="6" y1="6" x2="18" y2="18" />
           <line x1="18" y1="6" x2="6" y2="18" />
         </svg>
@@ -209,17 +225,6 @@
       </div>
     </div>
 
-    <!-- 问问学伴截图编辑对话框 -->
-    <ScreenshotInputDialog
-      v-model="showScreenshotDialog"
-      :screenshot-data-url="currentScreenshotDataUrl"
-      :existing-screenshots="[]"
-      :drawing-states-from-parent="screenshotDrawingStates"
-      mode="single"
-      @confirm="handleScreenshotConfirm"
-      @cancel="handleScreenshotCancel"
-    />
-
     <!-- 增加 overlay 插槽，允许外部注入覆盖层（如裁剪组件） -->
     <slot name="overlay" />
   </div>
@@ -242,13 +247,16 @@ const emit = defineEmits<{
   (e: 'redo'): void
   (e: 'save', data: { objects: any[]; history: any[]; historyIndex: number }): void
   (e: 'tool-change', tool: string): void
-  (e: 'ask-ai-image-selected', imageInfo: {
-    filePath: string
-    width: number
-    height: number
-    fileSize: number
-    base64DataUrl?: string
-  }): void
+  (
+    e: 'ask-ai-image-selected',
+    imageInfo: {
+      filePath: string
+      width: number
+      height: number
+      fileSize: number
+      base64DataUrl?: string
+    }
+  ): void
 }>()
 // 组件属性定义
 const props = defineProps({
@@ -330,7 +338,7 @@ function updateBackgroundOrigin() {
     backgroundScale.value = scale
     const displayW = imgW * scale
     const displayH = imgH * scale
-    
+
     backgroundOrigin.x = (canvasW - displayW) / 2
     backgroundOrigin.y = (canvasH - displayH) / 2
   } else {
@@ -371,9 +379,6 @@ const toolStates = reactive({
 const askAiDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
 const askAiStartPoint = ref<{ x: number; y: number } | null>(null)
 const askAiDragPath = ref<Point[] | null>(null)
-const showScreenshotDialog = ref(false)
-const currentScreenshotDataUrl = ref('')
-const screenshotDrawingStates = ref<Record<string, any>>({})
 
 const showClearConfirm = ref(false)
 
@@ -446,7 +451,7 @@ watch(currentOpacity, (v) => (toolbarToolConfig.value.opacity = v))
 watch(selectMode, (v) => (toolbarToolConfig.value.selectMode = v))
 
 function handleToolbarToolChange(tool) {
-  console.log('[drawingBoardNew] handleToolbarToolChange:', tool);
+  console.log('[drawingBoardNew] handleToolbarToolChange:', tool)
   // 问问学伴工具：进入截图模式
   if (tool === 'askAi') {
     enterAskAiMode()
@@ -455,14 +460,14 @@ function handleToolbarToolChange(tool) {
 
   // 裁剪工具：通知外部进入裁剪模式，不进入画板内部模式
   if (tool === 'crop') {
-    console.log('[drawingBoardNew] 触发裁剪工具事件');
+    console.log('[drawingBoardNew] 触发裁剪工具事件')
     emit('tool-change', 'crop')
     return
   }
 
   // 清空工具
   if (tool === 'clear') {
-    console.log('[drawingBoardNew] 执行清空操作');
+    console.log('[drawingBoardNew] 执行清空操作')
     clearAll()
     emit('clear')
     return
@@ -699,7 +704,7 @@ const renderTick = ref(0)
 function screenToWorld(sx, sy) {
   if (!liveCanvasRef.value) return { x: 0, y: 0 }
   const rect = liveCanvasRef.value.getBoundingClientRect()
-  
+
   // 获取相对于 Canvas 元素左上角的 client 坐标
   let localX = sx - rect.left
   let localY = sy - rect.top
@@ -784,7 +789,7 @@ function resizeCanvas() {
   if (!containerRef.value || !liveCanvasRef.value || !historyCanvasRef.value) return
   const dpr = window.devicePixelRatio || 1
   const rect = containerRef.value.getBoundingClientRect()
-  
+
   // 根据 enableBuffer 决定放大系数
   const scale = props.enableBuffer ? 1.2 : 1.0
   const width = rect.width * scale
@@ -1284,8 +1289,7 @@ function hitTest(wx, wy, extraRadius = 0) {
       }
       continue
     }
-    const padding =
-      (s.type === 'text' ? 10 : Math.max(s.size, 5)) / camera.zoom + 5 + extraRadius
+    const padding = (s.type === 'text' ? 10 : Math.max(s.size, 5)) / camera.zoom + 5 + extraRadius
     const expand = s.type === 'text' ? 0 : s.size / 2
 
     if (
@@ -1637,7 +1641,9 @@ function handlePointerDown(e) {
       renderHistory() // 历史改变
     }
     activeAction = { type: 'erase' }
-  } else if (['rectangle', 'circle', 'triangle', 'line', 'coordinate'].includes(currentMode.value)) {
+  } else if (
+    ['rectangle', 'circle', 'triangle', 'line', 'coordinate'].includes(currentMode.value)
+  ) {
     selectedIndices.clear()
     groupBounds = null
     activeAction = {
@@ -2276,8 +2282,17 @@ function takeAskAiScreenshotFreeform(path: Point[]) {
   ctx.drawImage(liveCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
   ctx.restore()
 
-  currentScreenshotDataUrl.value = tempCanvas.toDataURL('image/png')
-  showScreenshotDialog.value = true
+  const dataUrl = tempCanvas.toDataURL('image/png')
+
+  // 关键修复：直接向父组件发送截图数据，不再触发内部弹窗
+  emit('ask-ai-image-selected', {
+    filePath: '',
+    width: Math.round(w * zoom),
+    height: Math.round(h * zoom),
+    fileSize: 0,
+    base64DataUrl: dataUrl,
+  })
+
   resetAskAiSelection()
 }
 
@@ -2317,8 +2332,16 @@ function takeAskAiScreenshot(rect: { x: number; y: number; w: number; h: number 
   ctx.drawImage(liveCanvas, sx, sy, sw, sh, 0, 0, tempCanvas.width, tempCanvas.height)
 
   // 转换为 dataUrl
-  currentScreenshotDataUrl.value = tempCanvas.toDataURL('image/png')
-  showScreenshotDialog.value = true
+  const dataUrl = tempCanvas.toDataURL('image/png')
+
+  // 关键修复：直接向父组件发送截图数据，不再触发内部弹窗
+  emit('ask-ai-image-selected', {
+    filePath: '',
+    width: Math.round(rect.w * zoom),
+    height: Math.round(rect.h * zoom),
+    fileSize: 0,
+    base64DataUrl: dataUrl,
+  })
 
   // 重置状态
   resetAskAiSelection()
@@ -2332,42 +2355,6 @@ function getAskAiRectStyle(rect: { x: number; y: number; w: number; h: number })
     width: `${rect.w * camera.zoom}px`,
     height: `${rect.h * camera.zoom}px`,
   }
-}
-
-// 处理截图确认
-async function handleScreenshotConfirm(
-  shots: AttachedScreenshot[],
-  states: Record<string, any>
-) {
-  showScreenshotDialog.value = false
-
-  if (shots.length > 0) {
-    try {
-      const first = shots[0]
-      if (!first?.dataUrl) {
-        showMessage('截图数据为空，请重试', 'warning')
-      } else {
-        emit('ask-ai-image-selected', {
-          filePath: '',
-          width: first.width || 0,
-          height: first.height || 0,
-          fileSize: 0,
-          base64DataUrl: first.dataUrl,
-        })
-      }
-    } catch (error) {
-      console.error('[DrawingBoardNew] ask-ai-image-selected emit failed:', error)
-      showMessage('操作失败，请重试', 'error')
-    }
-  }
-
-  currentScreenshotDataUrl.value = ''
-}
-
-// 处理截图取消
-function handleScreenshotCancel() {
-  showScreenshotDialog.value = false
-  currentScreenshotDataUrl.value = ''
 }
 
 function zoomIn() {
@@ -2645,7 +2632,7 @@ const loadData = (data) => {
     clearTimeout(autoSaveTimer)
     autoSaveTimer = null
   }
-  
+
   strokes = Array.isArray(data?.objects) ? data.objects : []
   history = Array.isArray(data?.history) ? data.history : []
 
@@ -2660,7 +2647,7 @@ const loadData = (data) => {
 }
 
 const clearAll = () => {
-  console.log('[drawingBoardNew] clearAll 执行, 原笔迹数量:', strokes.length);
+  console.log('[drawingBoardNew] clearAll 执行, 原笔迹数量:', strokes.length)
   strokes = []
   selectedIndices.clear()
   groupBounds = null
@@ -2779,19 +2766,19 @@ const exportToJpg = (quality = 0.9) => {
 // 强制同步渲染（用于截图等场景）
 async function forceRender() {
   if (!historyCtx || !historyCanvasRef.value || !liveCtx || !liveCanvasRef.value) return
-  
+
   // 强制触发渲染
   renderTick.value++
   renderHistory()
   renderLive()
-  
+
   // 等待渲染完成（等待下一帧）
-  await new Promise(resolve => {
+  await new Promise((resolve) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(resolve)
     })
   })
-  
+
   // 再次确保渲染完成
   renderHistory()
   renderLive()
@@ -2799,15 +2786,18 @@ async function forceRender() {
 
 const exportStrokesOnly = () => {
   if (!strokes || strokes.length === 0) return ''
-  
+
   // 1. 计算所有笔迹的整体包围盒
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
   let hasValidStroke = false
 
-  strokes.forEach(s => {
+  strokes.forEach((s) => {
     // 排除背景图片和橡皮擦（如果橡皮擦模式是 stroke，则也参与计算，但通常我们只想要画出的内容）
     if (s.type === 'image' || s.mode === 'eraser') return
-    
+
     ensureBoundsForStroke(s)
     if (s.bounds) {
       minX = Math.min(minX, s.bounds.minX)
@@ -2822,8 +2812,8 @@ const exportStrokesOnly = () => {
 
   // 2. 添加少量内边距
   const padding = 10
-  const width = (maxX - minX) + padding * 2
-  const height = (maxY - minY) + padding * 2
+  const width = maxX - minX + padding * 2
+  const height = maxY - minY + padding * 2
 
   // 3. 创建临时画布进行裁剪绘制
   const tempCanvas = document.createElement('canvas')
@@ -2841,8 +2831,8 @@ const exportStrokesOnly = () => {
   tempCtx.translate(-minX + padding, -minY + padding)
   tempCtx.lineCap = 'round'
   tempCtx.lineJoin = 'round'
-  
-  strokes.forEach(s => {
+
+  strokes.forEach((s) => {
     if (s.type !== 'image') {
       drawStrokeToContext(tempCtx, s)
     }
@@ -3206,30 +3196,30 @@ defineExpose({
   background: #e0e0e0;
 }
 
- /* 问问学伴截图框选遮罩 */
- .ask-ai-screenshot-overlay {
-   position: absolute;
-   border: 2px dashed #6e55ff;
-   background-color: rgba(110, 85, 255, 0.1);
-   pointer-events: none;
-   z-index: 100;
- }
+/* 问问学伴截图框选遮罩 */
+.ask-ai-screenshot-overlay {
+  position: absolute;
+  border: 2px dashed #6e55ff;
+  background-color: rgba(110, 85, 255, 0.1);
+  pointer-events: none;
+  z-index: 100;
+}
 
- .ask-ai-freeform-overlay {
-   position: absolute;
-   left: 0;
-   top: 0;
-   width: 100%;
-   height: 100%;
-   pointer-events: none;
-   z-index: 100;
- }
+.ask-ai-freeform-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
 
- .ask-ai-freeform-overlay path {
-   fill: rgba(110, 85, 255, 0.12);
-   stroke: #6e55ff;
-   stroke-width: 2;
-   stroke-linejoin: round;
-   stroke-linecap: round;
- }
+.ask-ai-freeform-overlay path {
+  fill: rgba(110, 85, 255, 0.12);
+  stroke: #6e55ff;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
 </style>

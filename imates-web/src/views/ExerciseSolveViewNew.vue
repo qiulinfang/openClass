@@ -58,14 +58,13 @@
         :transition-easing="'ease-in-out'"
         :show-splitters="true"
         :splitter-class="mode === 'left' ? 'handle-blue' : 'handle-indigo'"
+        :disabled="isBoardCapturing"
         @mode-change="handleModeChange"
         @toggle="onToggle"
       >
         <!-- 左侧：题目面板 -->
         <template #left="{ isVisible }">
-          <div
-            class="panel-bg1"
-          >
+          <div class="panel-bg1">
             <div
               class="panel-content"
               :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
@@ -101,10 +100,7 @@
               :class="{ 'draft-mode-left': mode === 'left', 'draft-mode-right': mode === 'right' }"
             >
               <!-- 题目区域（可收缩） -->
-              <div
-                class="question-image-section"
-                :class="{ collapsed: isQuestionImageCollapsed }"
-              >
+              <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
                 <div class="question-image-content">
                   <div
                     v-if="questionHtml"
@@ -126,6 +122,7 @@
                   :show-toolbar="false"
                   @save="handleDraftSave"
                   @clear="handleDraftClearClick"
+                  @ask-ai-image-selected="onBoardImageSelected"
                 />
               </div>
             </div>
@@ -145,9 +142,7 @@
 
         <!-- 右侧：AI 面板 - 使用 ExerciseChatPanelNew 组件 -->
         <template #right="{ isVisible }">
-          <div
-            class="panel-bg2"
-          >
+          <div class="panel-bg2">
             <div
               class="panel-content"
               :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
@@ -158,8 +153,9 @@
                   <ExerciseChatPanelNew
                     ref="exerciseChatPanelRef"
                     :question="currentQuestion"
-                    :sessions="aiExerciseStore.sessions"
+                    :sessions="aiExerciseChatStore.sessions"
                     :show-close-button="true"
+                    :is-capturing="isBoardCapturing"
                     @close="handleCloseChatPanel"
                     @scroll-to-bottom="scrollToBottom"
                     @send-message="handleSendSuggestion"
@@ -167,6 +163,8 @@
                     @switch-to-teacher="handleSwitchToTeacher"
                     @paste-to-draft="handlePasteToDraft"
                     @add-session="handleAddSessionCard"
+                    @request-screenshot="handleChatPanelScreenshotRequest"
+                    @screenshot-click="handleScreenshotClick"
                   />
                 </div>
               </div>
@@ -188,6 +186,18 @@
       确定要清空当前题目的草稿吗？此操作不可撤销。
     </Dialog>
 
+    <!-- 问问学伴截图编辑对话框 -->
+    <ScreenshotInputDialog
+      v-model="showScreenshotDialog"
+      :initial-shot-id="currentEditingShotId"
+      :existing-screenshots="aiExerciseChatStore.inputAttachedScreenshots"
+      :drawing-states-from-parent="aiExerciseChatStore.inputScreenshotDrawingStates"
+      mode="multiple"
+      @confirm="handleScreenshotConfirm"
+      @add-more="handleScreenshotAddMore"
+      @cancel="handleScreenshotCancel"
+      @remove-screenshot="handleScreenshotRemove"
+    />
   </div>
 </template>
 
@@ -200,12 +210,14 @@ import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { MathJaxUtils } from '@/utils/math/mathjax'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import QuestionList from '@/components/QuestionList.vue'
-import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
-import ExerciseChatPanelNew from '@/components/ExerciseChatPanelNew.vue'
+import DrawingBoardNew from '@/components/drawingBoardNew.vue'
+import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew.vue'
 import Dialog from '@/components/base/Dialog.vue'
 import Toolbar from '@/components/Toolbar.vue'
 import CommonSelect from '@/components/base/Select.vue'
 import FloatBubble from '@/components/base/FloatBubble.vue'
+import ScreenshotInputDialog from '@/components/dialog/ImageProcessorDialog .vue'
+import type { AttachedScreenshot } from '@/types'
 import { SUBJECT_OPTIONS } from '@/constants/subjects'
 import { useDraftStore } from '@/stores/draftStore'
 import { useQuestionStore } from '@/stores/questionStore'
@@ -292,13 +304,13 @@ const goBack = () => {
 // Store
 const draftStore = useDraftStore()
 const questionStore = useQuestionStore()
-const aiExerciseStore = useAiExerciseChatStore()
+const aiExerciseChatStore = useAiExerciseChatStore()
 const { currentQuestion } = storeToRefs(questionStore)
-const { currentSessionId } = storeToRefs(aiExerciseStore)
+const { currentSessionId } = storeToRefs(aiExerciseChatStore)
 
 // 当前题目下是否存在 AI 会话
 const hasAiSessions = computed(() => {
-  return Array.isArray(aiExerciseStore.sessions) && aiExerciseStore.sessions.length > 0
+  return Array.isArray(aiExerciseChatStore.sessions) && aiExerciseChatStore.sessions.length > 0
 })
 
 const currentDraftQuestionId = ref<string | null>(null)
@@ -386,14 +398,18 @@ const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean
       (question: any) => (question?.id || '').toString() === payload.questionId
     )
     const questionBmNo = (
-      targetQuestion?.bmNo || targetQuestion?.id || payload.questionId || ''
+      targetQuestion?.bmNo ||
+      targetQuestion?.id ||
+      payload.questionId ||
+      ''
     ).toString()
 
-    const relatedDraftKeys = Array.from(draftStore.drafts.keys()).filter((key: string) =>
-      key === payload.questionId ||
-      key.startsWith(`${payload.questionId}::`) ||
-      key === questionBmNo ||
-      key.startsWith(`${questionBmNo}::`)
+    const relatedDraftKeys = Array.from(draftStore.drafts.keys()).filter(
+      (key: string) =>
+        key === payload.questionId ||
+        key.startsWith(`${payload.questionId}::`) ||
+        key === questionBmNo ||
+        key.startsWith(`${questionBmNo}::`)
     )
     if (relatedDraftKeys.length > 0) {
       void draftStore.deleteDrafts(relatedDraftKeys)
@@ -452,7 +468,11 @@ const saveDraftNow = async (draftKey?: string | null) => {
 
   // 验证当前题目标识与要保存的草稿键是否一致，避免保存错误题目的数据
   const questionBmNo = (currentQ?.bmNo || currentQ?.id || '').toString()
-  if (questionBmNo && !targetDraftKey.startsWith(`${questionBmNo}::`) && targetDraftKey !== questionBmNo) {
+  if (
+    questionBmNo &&
+    !targetDraftKey.startsWith(`${questionBmNo}::`) &&
+    targetDraftKey !== questionBmNo
+  ) {
     return
   }
 
@@ -565,7 +585,10 @@ const getCurrentDraftKey = () => {
   return buildDraftKey(questionBmNo, currentSessionId.value)
 }
 
-const handleSessionDraftChange = async (nextSessionId?: string | null, previousSessionId?: string | null) => {
+const handleSessionDraftChange = async (
+  nextSessionId?: string | null,
+  previousSessionId?: string | null
+) => {
   const currentQ = currentQuestion.value
   if (!currentQ?.id) {
     return
@@ -620,43 +643,111 @@ const handleSwitchToTeacher = () => {
   // 切换到老师聊天（由 ExerciseChatPanelNew 内部处理）
 }
 
-// 问AI按钮点击处理 - 直接截图并放入 Chat Input
+// 问AI按钮点击处理 - 开启画板截图模式
+const isBoardCapturing = ref(false)
+const showScreenshotDialog = ref(false)
+const currentEditingShotId = ref('')
+
 const handleAskAiClick = async () => {
-  try {
-    // 1. 直接调用底层安卓原生API截图
-    const { dataUrl, width, height } = await captureScreenSnapshot()
-    if (!dataUrl) {
-      showMessage('截图失败，请重试', 'warning')
-      return
-    }
+  if (!draftBoardRef.value) return
 
-    // 2. 显示 AI 面板
-    if (mode.value === 'left' && splitPanelRef.value) {
-      splitPanelRef.value.toggle()
-    }
+  // 1. 开启画板截图模式
+  isBoardCapturing.value = true
+  if (draftBoardRef.value) {
+    draftBoardRef.value.handleToolbarToolChange('askAi')
+  }
 
-    // 3. 将截图放入 chat input 截图区域
-    nextTick(() => {
-      const chatView = exerciseChatPanelRef.value?.getChatViewRef?.() as any
-      if (chatView?.onImageSelected) {
-        chatView.onImageSelected({
-          base64DataUrl: dataUrl,
-          filePath: '',
-          width: width || 0,
-          height: height || 0,
-          fileSize: Math.round(dataUrl.length * 0.75),
-        })
-      } else {
-        showMessage('聊天功能暂不可用', 'warning')
-      }
-    })
-  } catch (error) {
-    console.error('截图失败:', error)
-    showMessage('截图失败，请重试', 'warning')
+  // 2. 确保 AI 面板显示
+  if (mode.value === 'left' && splitPanelRef.value) {
+    splitPanelRef.value.toggle()
   }
 }
 
-// 截图相关 - 处理截图请求（由 ExerciseChatPanelNew 内部处理截图）
+// 处理画板截图完成回调
+const onBoardImageSelected = async (imageInfo: {
+  base64DataUrl?: string
+  width: number
+  height: number
+  fileSize: number
+}) => {
+  isBoardCapturing.value = false
+  // 切换回画笔模式
+  draftBoardRef.value?.handleToolbarToolChange('draw')
+
+  if (!imageInfo.base64DataUrl) return
+
+  // 仿照 PDF 流程：将截图存入 store 并打开编辑弹窗
+  const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const shot = {
+    id: shotId,
+    dataUrl: imageInfo.base64DataUrl,
+    originalDataUrl: imageInfo.base64DataUrl,
+    width: imageInfo.width || 0,
+    height: imageInfo.height || 0,
+  }
+
+  // 1. 先同步数据到 Store
+  aiExerciseChatStore.appendInputAttachedScreenshots([shot])
+  aiExerciseChatStore.setInputScreenshotDrawingStates({
+    ...aiExerciseChatStore.inputScreenshotDrawingStates,
+    [shotId]: { objects: [], history: [], historyIndex: -1 },
+  })
+
+  // 2. 关键：等待 DOM 和响应式数据同步
+  await nextTick()
+
+  // 3. 再打开弹窗，确保 props 已经拿到最新数据
+  currentEditingShotId.value = shotId
+  showScreenshotDialog.value = true
+}
+
+// 截图对话框回调
+const handleScreenshotConfirm = (
+  screenshots: AttachedScreenshot[],
+  states: Record<string, any>
+) => {
+  // 同步状态到 store
+  aiExerciseChatStore.setInputAttachedScreenshots(screenshots)
+  aiExerciseChatStore.setInputScreenshotDrawingStates(states)
+  showScreenshotDialog.value = false
+}
+
+const handleScreenshotAddMore = (
+  screenshots: AttachedScreenshot[],
+  states: Record<string, any>
+) => {
+  aiExerciseChatStore.setInputAttachedScreenshots(screenshots)
+  aiExerciseChatStore.setInputScreenshotDrawingStates(states)
+  showScreenshotDialog.value = false
+  // 重新进入截图模式
+  handleAskAiClick()
+}
+
+const handleScreenshotCancel = () => {
+  showScreenshotDialog.value = false
+}
+
+const handleScreenshotRemove = (id: string) => {
+  aiExerciseChatStore.removeInputAttachedScreenshot(id)
+}
+
+// 截图相关 - 处理截图请求（由 ExerciseChatPanelNew 内部工具触发）
+const handleChatPanelScreenshotRequest = async () => {
+  // 统一调用开启画板截图逻辑
+  handleAskAiClick()
+}
+
+// 处理来自 ChatPanel 的截图点击（用于取消或切换模式）
+const handleScreenshotClick = (active: boolean) => {
+  console.log('[ExerciseSolveViewNew] handleScreenshotClick:', active)
+  if (!active) {
+    // 如果收到取消信号，关闭截图模式
+    isBoardCapturing.value = false
+    draftBoardRef.value?.handleToolbarToolChange('draw')
+  } else {
+    handleAskAiClick()
+  }
+}
 
 // 页面卸载前保存草稿
 window.addEventListener('beforeunload', () => {
@@ -690,8 +781,11 @@ onMounted(async () => {
   }
 
   // 延迟确保 QuestionList 组件已渲染并有数据
-  if (questionListRef.value && typeof (questionListRef.value as any).scrollToQuestionAndSelect === 'function') {
-    (questionListRef.value as any).scrollToQuestionAndSelect(0)
+  if (
+    questionListRef.value &&
+    typeof (questionListRef.value as any).scrollToQuestionAndSelect === 'function'
+  ) {
+    ;(questionListRef.value as any).scrollToQuestionAndSelect(0)
     // 手动触发题目选择后的加载逻辑
     await handleQuestionSelected()
   }
@@ -872,13 +966,13 @@ onMounted(async () => {
 /* 背景层 - 替代伪元素 */
 .panel-bg1 {
   height: 100%;
-  background: linear-gradient(to right, #0f002e 4% , #ffffff 6%);
+  background: linear-gradient(to right, #0f002e 4%, #ffffff 6%);
   width: 100%;
 }
 
 .panel-bg2 {
   height: 100%;
-  background: linear-gradient(to left, #0f002e 4% , #ffffff 6%);
+  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%);
   width: 100%;
 }
 
@@ -900,7 +994,6 @@ onMounted(async () => {
   z-index: -1;
   opacity: 1;
 }
-
 
 .panel-hidden {
   opacity: 0;
@@ -1035,7 +1128,7 @@ onMounted(async () => {
 
 .collapse-toggle-btn {
   position: relative;
-  top:-1px;
+  top: -1px;
   height: auto;
   width: auto;
   border: none;

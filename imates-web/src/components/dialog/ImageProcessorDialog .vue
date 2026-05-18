@@ -15,79 +15,82 @@
     @confirm="handleConfirm"
     @cancel="handleCancel"
   >
-      <div class="screenshot-input-body">
-        <!-- 左侧：截图编辑区域（集成 drawingBoardNew） -->
-        <div class="screenshot-editor">
-          <drawingBoardNew
-            v-if="previewImage"
-            key="drawing-mode"
-            ref="drawingBoardRef"
-            :background-image="previewImage"
-            :show-toolbar="!isCropping"
-            :show-zoom-controls="false"
-            :enable-buffer="false"
-            :tools="['undo', 'redo', 'clear', 'draw', 'crop']"
-            :force-pen-color="'red'"
-            background-position="center"
-            :background-contain="true"
-            :show-grid="false"
-            :allow-popup="false"
-            toolbar-position="bottom"
-            @tool-change="(tool: string) => {
+    <!-- 调试按钮 -->
+    <template #header-right>
+      <q-btn flat round dense icon="bug_report" color="primary" @click="handleDebugLog">
+        <q-tooltip>打印调试数据</q-tooltip>
+      </q-btn>
+    </template>
+    <div class="screenshot-input-body">
+      <!-- 左侧：截图编辑区域（集成 drawingBoardNew） -->
+      <div class="screenshot-editor">
+        <drawingBoardNew
+          v-if="previewImage"
+          key="drawing-mode"
+          ref="drawingBoardRef"
+          :background-image="previewImage"
+          :show-toolbar="!isCropping"
+          :show-zoom-controls="false"
+          :enable-buffer="false"
+          :tools="['undo', 'redo', 'clear', 'draw', 'crop']"
+          :force-pen-color="'red'"
+          background-position="center"
+          :background-contain="true"
+          :show-grid="false"
+          :allow-popup="false"
+          toolbar-position="bottom"
+          @tool-change="(tool: string) => {
               console.log('[ScreenshotDialog] drawingBoardNew @tool-change:', tool);
               if (tool === 'crop') isCropping = true;
             }"
-          >
-            <!-- 将 ImageCropOverlay 作为 drawingBoardNew 的一个层注入 -->
-            <template #overlay>
-              <ImageCropOverlay
-                v-if="isCropping"
-                v-model="isCropping"
-                :image-src="getOriginalImage()"
-                :show-info="false"
-                :is-inline="true"
-                @confirm="handleCropConfirm"
-                @cancel="isCropping = false"
-              />
-            </template>
-          </drawingBoardNew>
-          <div v-else class="empty-placeholder">
-            <q-icon name="image" size="48px" color="grey-5" />
-            <span>暂无截图</span>
-          </div>
-        </div>
-        <!-- 右侧：截图缩略图列表 + 继续截图按钮（竖直排列，仅多截图模式下显示） -->
-        <div v-if="props.mode === 'multiple'" class="screenshot-side-panel">
-          <div class="side-panel-body">
-            <div v-if="thumbnailList.length" class="side-thumbs-list">
-              <ScreenshotThumb
-                v-for="shot in thumbnailList"
-                :key="shot.id"
-                :image-url="shot.dataUrl"
-                :active="shot.id === currentShotId"
-                :show-delete="true"
-                @click="switchPreview(shot.id)"
-                @remove="handleRemoveThumbnail(shot.id)"
-              />
-            </div>
-            <div v-else class="side-empty-text">暂无可用截图</div>
-          </div>
-          <div
-            class="side-panel-footer"
-            v-if="thumbnailList.length < MAX_SCREENSHOTS"
-          >
-            <button
-              type="button"
-              class="add-more-btn"
-              :disabled="!currentShotId"
-              @click.stop.prevent="handleAddMore"
-            >
-              +
-            </button>
-          </div>
+        >
+          <!-- 将 ImageCropOverlay 作为 drawingBoardNew 的一个层注入 -->
+          <template #overlay>
+            <ImageCropOverlay
+              v-if="isCropping"
+              v-model="isCropping"
+              :image-src="getOriginalImage()"
+              :show-info="false"
+              :is-inline="true"
+              @confirm="handleCropConfirm"
+              @cancel="isCropping = false"
+            />
+          </template>
+        </drawingBoardNew>
+        <div v-else class="empty-placeholder">
+          <q-icon name="image" size="48px" color="grey-5" />
+          <span>暂无截图</span>
         </div>
       </div>
-    </Modal>
+      <!-- 右侧：截图缩略图列表 + 继续截图按钮（竖直排列，仅多截图模式下显示） -->
+      <div v-if="props.mode === 'multiple'" class="screenshot-side-panel">
+        <div class="side-panel-body">
+          <div v-if="thumbnailList.length" class="side-thumbs-list">
+            <ScreenshotThumb
+              v-for="shot in thumbnailList"
+              :key="shot.id"
+              :image-url="shot.dataUrl"
+              :active="shot.id === currentShotId"
+              :show-delete="true"
+              @click="switchPreview(shot.id)"
+              @remove="handleRemoveThumbnail(shot.id)"
+            />
+          </div>
+          <div v-else class="side-empty-text">暂无可用截图</div>
+        </div>
+        <div class="side-panel-footer" v-if="thumbnailList.length < MAX_SCREENSHOTS">
+          <button
+            type="button"
+            class="add-more-btn"
+            :disabled="!currentShotId"
+            @click.stop.prevent="handleAddMore"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -98,7 +101,7 @@ import ImageCropOverlay from '@/components/base/ImageCropOverlay.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
-import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
+import type { ExerciseSession } from '@/stores/aiExerciseChatStore'
 
 const screenshotDialogZIndex = 14000
 
@@ -109,8 +112,14 @@ const MAX_SCREENSHOTS = 3
 interface DrawingBoardExposed {
   exportToJpg: (quality?: number) => string
   clearAll: () => void
-  saveData: () => ScreenshotDrawingState
-  loadData: (data: ScreenshotDrawingState) => void
+  saveData: () => any
+  loadData: (data: any) => void
+}
+
+interface ScreenshotDrawingState {
+  objects: any[]
+  history: any[][]
+  historyIndex: number
 }
 interface Props {
   modelValue: boolean // 是否显示对话框（由 v-model 控制）
@@ -122,8 +131,16 @@ interface Props {
 
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
-  (e: 'confirm', screenshots: AttachedScreenshot[], states: Record<string, ScreenshotDrawingState>): void
-  (e: 'add-more', screenshots: AttachedScreenshot[], states: Record<string, ScreenshotDrawingState>): void
+  (
+    e: 'confirm',
+    screenshots: AttachedScreenshot[],
+    states: Record<string, ScreenshotDrawingState>
+  ): void
+  (
+    e: 'add-more',
+    screenshots: AttachedScreenshot[],
+    states: Record<string, ScreenshotDrawingState>
+  ): void
   (e: 'cancel'): void
   (e: 'remove-screenshot', id: string): void
 }
@@ -136,6 +153,28 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+// 调试打印函数
+const handleDebugLog = () => {
+  console.log('=== [ImageProcessorDialog Debug Info] ===')
+  console.log('Props:', {
+    modelValue: props.modelValue,
+    mode: props.mode,
+    initialShotId: props.initialShotId,
+    existingScreenshots: props.existingScreenshots,
+    drawingStatesFromParent: props.drawingStatesFromParent,
+  })
+  console.log('Local State:', {
+    currentShotId: currentShotId.value,
+    previewImage: previewImage.value ? previewImage.value.substring(0, 50) + '...' : 'null',
+    localScreenshots: localScreenshots.value,
+    drawingStates: drawingStates.value,
+  })
+  console.log('Computed:', {
+    thumbnailList: thumbnailList.value,
+  })
+  console.log('==========================================')
+}
 
 // drawingBoardNew 组件引用
 const drawingBoardRef = ref<(ComponentPublicInstance & DrawingBoardExposed) | null>(null)
@@ -163,7 +202,7 @@ const initFromProps = async () => {
       ...props.existingScreenshots.map((s) => ({
         ...s,
         originalDataUrl: s.originalDataUrl || s.dataUrl,
-      })),
+      }))
     )
   }
   localScreenshots.value = list
@@ -205,7 +244,7 @@ watch(
     if (!visible) return
     await initFromProps()
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 // 使用 v-model 的本地状态
@@ -409,9 +448,7 @@ const handleConfirm = async () => {
   if (!shots) return
 
   const current = shots[0]
-  const allShots = localScreenshots.value.map((s) =>
-    s.id === current.id ? current : s
-  )
+  const allShots = localScreenshots.value.map((s) => (s.id === current.id ? current : s))
 
   emit('confirm', allShots, { ...drawingStates.value })
 }
@@ -428,9 +465,7 @@ const handleAddMore = async () => {
   if (!shots) return
 
   const current = shots[0]
-  const allShots = localScreenshots.value.map((s) =>
-    s.id === current.id ? current : s
-  )
+  const allShots = localScreenshots.value.map((s) => (s.id === current.id ? current : s))
 
   emit('add-more', allShots, { ...drawingStates.value })
 }
@@ -442,7 +477,6 @@ const handleCancel = () => {
 </script>
 
 <style lang="scss" scoped>
-
 .screenshot-input-body {
   display: flex;
   flex-direction: row;
@@ -526,7 +560,7 @@ const handleCancel = () => {
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
     cursor: move;
     box-sizing: border-box;
-    
+
     &::after {
       content: '';
       position: absolute;
@@ -548,10 +582,26 @@ const handleCancel = () => {
     border-radius: 2px;
     z-index: 10;
 
-    &.nw { top: -6px; left: -6px; cursor: nw-resize; }
-    &.ne { top: -6px; right: -6px; cursor: ne-resize; }
-    &.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
-    &.se { bottom: -6px; right: -6px; cursor: se-resize; }
+    &.nw {
+      top: -6px;
+      left: -6px;
+      cursor: nw-resize;
+    }
+    &.ne {
+      top: -6px;
+      right: -6px;
+      cursor: ne-resize;
+    }
+    &.sw {
+      bottom: -6px;
+      left: -6px;
+      cursor: sw-resize;
+    }
+    &.se {
+      bottom: -6px;
+      right: -6px;
+      cursor: se-resize;
+    }
   }
 
   .cropper-actions {

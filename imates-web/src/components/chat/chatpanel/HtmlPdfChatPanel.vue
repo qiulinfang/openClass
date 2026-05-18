@@ -86,7 +86,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, watch, type ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
-import { CHAT_TAB_OPTIONS } from '../constants/options'
+import { CHAT_TAB_OPTIONS } from '@/constants/options'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import ChatView from '@/components/ChatView.vue'
@@ -104,7 +104,7 @@ import selectAndAskIcon from '/icons/selectAndAsk.svg'
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord.svg'
-import type { BuiltinToolType, ToolbarTool } from '../types/toolbarTools'
+import type { BuiltinToolType, ToolbarTool } from '@/types/toolbarTools'
 
 const pdfViewerStore = usePdfViewerStore()
 const aiTextbookStore = useAiTextbookChatStore()
