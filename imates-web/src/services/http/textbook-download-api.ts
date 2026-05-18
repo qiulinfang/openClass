@@ -37,6 +37,123 @@ export interface TopicPackagePageResponse {
   totalRow: number
 }
 
+/**
+ * 动态配额调度器
+ * 实现逻辑：
+ * 1. 全局总并发限制为 6。
+ * 2. 单个教材最大并发限制为 4（“最多四格”）。
+ * 3. 动态计算每本书的配额：quota = min(4, floor(6 / 活跃教材数))，最小为 1。
+ */
+class DynamicDownloadScheduler {
+  private activeTextbookIds = new Set<string>();
+  private globalActiveCount = 0;
+  private readonly globalLimit = 6;
+  private readonly perTextbookLimit = 4;
+  private waitingTasks: Array<{
+    textbookId: string;
+    resolve: () => void;
+  }> = [];
+
+  // 教材注册/注销（在下载开始和结束时调用）
+  registerTextbook(textbookId: string) {
+    this.activeTextbookIds.add(textbookId);
+  }
+
+  unregisterTextbook(textbookId: string) {
+    this.activeTextbookIds.delete(textbookId);
+    this.checkWaitingTasks();
+  }
+
+  async acquire(textbookId: string): Promise<void> {
+    if (this.canExecute(textbookId)) {
+      this.globalActiveCount++;
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      this.waitingTasks.push({ textbookId, resolve });
+    });
+  }
+
+  release(textbookId: string) {
+    this.globalActiveCount--;
+    this.checkWaitingTasks();
+  }
+
+  private canExecute(textbookId: string): boolean {
+    if (this.globalActiveCount >= this.globalLimit) return false;
+
+    const activeCount = this.activeTextbookIds.size;
+    if (activeCount <= 1) return true;
+
+    // 计算当前教材应得的动态配额
+    const quota = Math.max(1, Math.floor(this.globalLimit / activeCount));
+    
+    // 统计当前教材正在运行的任务数
+    const textbookActiveCount = this.getTextbookActiveCount(textbookId);
+    
+    return textbookActiveCount < quota;
+  }
+
+  private getTextbookActiveCount(textbookId: string): number {
+    // 简单实现：通过当前正在执行的任务数统计
+    // 这里我们可以简化逻辑，或者在内部维护一个 Map
+    return this.runningTasksInTextbook.get(textbookId) || 0;
+  }
+
+  private runningTasksInTextbook = new Map<string, number>();
+
+  // 增强版的 acquire/release 逻辑
+  async acquireStrict(textbookId: string): Promise<void> {
+    while (true) {
+      const activeCount = this.activeTextbookIds.size;
+      // 计算动态配额：全局 6 个，单本最高 4 个
+      let quota = activeCount > 0 ? Math.floor(this.globalLimit / activeCount) : this.globalLimit;
+      quota = Math.min(this.perTextbookLimit, Math.max(1, quota));
+      
+      const currentRunning = this.runningTasksInTextbook.get(textbookId) || 0;
+
+      if (this.globalActiveCount < this.globalLimit && currentRunning < quota) {
+        this.globalActiveCount++;
+        this.runningTasksInTextbook.set(textbookId, currentRunning + 1);
+        return;
+      }
+      
+      await new Promise<void>(resolve => {
+        this.waitingTasks.push({ textbookId, resolve });
+      });
+    }
+  }
+
+  releaseStrict(textbookId: string) {
+    this.globalActiveCount--;
+    const currentRunning = this.runningTasksInTextbook.get(textbookId) || 0;
+    this.runningTasksInTextbook.set(textbookId, Math.max(0, currentRunning - 1));
+    this.checkWaitingTasks();
+  }
+
+  private checkWaitingTasks() {
+    if (this.waitingTasks.length === 0) return;
+
+    const activeCount = this.activeTextbookIds.size;
+    let quota = activeCount > 0 ? Math.floor(this.globalLimit / activeCount) : this.globalLimit;
+    quota = Math.min(this.perTextbookLimit, Math.max(1, quota));
+
+    for (let i = 0; i < this.waitingTasks.length; i++) {
+      const task = this.waitingTasks[i];
+      const currentRunning = this.runningTasksInTextbook.get(task.textbookId) || 0;
+
+      if (this.globalActiveCount < this.globalLimit && currentRunning < quota) {
+        this.waitingTasks.splice(i, 1);
+        task.resolve();
+        break;
+      }
+    }
+  }
+}
+
+const SCHEDULER = new DynamicDownloadScheduler();
+
 export class TextbookDownloadApi {
   private readonly androidBridge: AndroidBridge
 
@@ -331,6 +448,9 @@ export class TextbookDownloadApi {
   ): Promise<boolean> {
     const startTime = Date.now()
     try {
+      // 注册教材到调度器
+      SCHEDULER.registerTextbook(textbook.textbookId);
+      
       // 初始化下载控制器
       const controller = new AbortController()
       this.downloadControllers.set(textbook.textbookId, controller)
@@ -387,11 +507,14 @@ export class TextbookDownloadApi {
       // 强制刷新IndexedDB
       await rm.forceFlushPendingUpdates()
 
-      // 清理下载控制器
+      // 清理下载控制器并从调度器注销
       this.downloadControllers.delete(textbook.textbookId)
+      SCHEDULER.unregisterTextbook(textbook.textbookId);
 
       return result.successCount === filesToDownload
     } catch (error) {
+      // 确保发生异常时也能注销
+      SCHEDULER.unregisterTextbook(textbook.textbookId);
       console.error('[TextbookDownloadApi.下载] 下载过程发生异常', {
         textbookId: textbook.textbookId,
         error: error instanceof Error ? error.message : String(error),
@@ -583,7 +706,6 @@ export class TextbookDownloadApi {
     const downloadStartTime = Date.now()
     let totalDownloadedBytes = 0
 
-    const CONCURRENT_DOWNLOADS = 6
     const downloadQueue = [...allResources]
     const results: Array<{ success: boolean; fileName: string; fileSize: number }> = []
     let completedFiles = 0
@@ -598,6 +720,9 @@ export class TextbookDownloadApi {
         errorCount++
         return
       }
+
+      // 获取全局下载名额（动态配额管理）
+      await SCHEDULER.acquireStrict(textbookId)
 
       try {
         const fileData = await this.downloadSingleFileStreaming(resource, controller)
@@ -635,34 +760,23 @@ export class TextbookDownloadApi {
         results.push({ success: false, fileName: resource.fileName, fileSize: 0 })
         errorCount++
       } finally {
+        // 释放名额
+        SCHEDULER.releaseStrict(textbookId)
+        
         completedFiles++
-        const progress = Math.round((completedFiles / totalFiles) * 100)
+        // 进度精确到小数点后两位
+        const progress = parseFloat(((completedFiles / totalFiles) * 100).toFixed(2))
         onProgress?.(progress, successCount)
       }
     }
 
-    const downloadPromises: Promise<void>[] = []
-    for (let i = 0; i < Math.min(CONCURRENT_DOWNLOADS, downloadQueue.length); i++) {
-      const resourceInfo = downloadQueue.shift()
-      if (resourceInfo) {
-        downloadPromises.push(downloadTask(resourceInfo))
-      }
-    }
+    // 优化：不再使用私有 while 循环进行贪婪补充
+    // 而是直接一次性将所有任务映射为 Promise 数组
+    // 依赖全局 Semaphore 进行流量调度
+    const allTaskPromises = allResources.map(resourceInfo => downloadTask(resourceInfo))
 
-    while (downloadQueue.length > 0) {
-      if (controller.signal.aborted) {
-        break
-      }
-
-      await Promise.race(downloadPromises.filter(p => p))
-
-      const newResource = downloadQueue.shift()
-      if (newResource) {
-        downloadPromises.push(downloadTask(newResource))
-      }
-    }
-
-    await Promise.all(downloadPromises)
+    // 并行等待所有任务完成（底层已由 Semaphore 控制并发）
+    await Promise.all(allTaskPromises)
 
     const downloadDuration = Date.now() - downloadStartTime
     const downloadDurationSeconds = downloadDuration / 1000

@@ -55,9 +55,8 @@ export const mapBackendTypeToFrontend = (type: string): string => {
   const map: Record<string, string> = {
     'single_choice': 'single_choice',
     'multiple_choice': 'multiple_choice',
-    'judgment': 'judgment',
-    'fill_in_the_blank': 'fill',
-    'essay': 'essay',
+    'true_false': 'judgment',
+    'fill_in_blank': 'fill',
     'subjective': 'essay'
   }
   return map[type] || 'essay'

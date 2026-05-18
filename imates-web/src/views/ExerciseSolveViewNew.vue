@@ -13,7 +13,7 @@
       <div class="header-center">
         <div class="center-header-actions">
           <!-- 草稿本工具栏 -->
-          <UnifiedToolbar
+          <Toolbar
             v-if="draftBoardRef"
             :tools="draftBoardRef.toolbarTools"
             :selected-tool="draftBoardRef.toolbarSelectedTool"
@@ -203,7 +203,7 @@ import QuestionList from '@/components/QuestionList.vue'
 import DrawingBoardNew from '@/components/DrawingBoardNew.vue'
 import ExerciseChatPanelNew from '@/components/ExerciseChatPanelNew.vue'
 import Dialog from '@/components/base/Dialog.vue'
-import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
+import Toolbar from '@/components/Toolbar.vue'
 import CommonSelect from '@/components/base/Select.vue'
 import FloatBubble from '@/components/base/FloatBubble.vue'
 import { SUBJECT_OPTIONS } from '@/constants/subjects'

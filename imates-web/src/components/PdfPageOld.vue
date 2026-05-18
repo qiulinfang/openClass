@@ -305,7 +305,7 @@ interface PageNote {
   y: number // 相对该页高度的比例 [0,1]
   text: string
 }
-type PdfInteractionMode = 'hand' | 'note' | 'highlighter' | 'pen' | 'eraser-draw' // 统一交互模式状态：与 UnifiedToolbar 工具枚举对齐
+type PdfInteractionMode = 'hand' | 'note' | 'highlighter' | 'pen' | 'eraser-draw' // 统一交互模式状态：与 Toolbar 工具枚举对齐
 const currentMode = ref<PdfInteractionMode>('hand') // 当前交互模式
 const notes = ref<PageNote[]>([]) // PDF 中的所有笔记
 const activeNoteId = ref<string | null>(null) // 当前激活的笔记 ID
@@ -1075,7 +1075,7 @@ const handleHighlightPointerUp = async (
     const inkList = [sourcePoints.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
     ;(annot as any).setInkList?.(inkList)
 
-    // 颜色和线宽从 pdfViewerStore.drawingConfig 读取，来源于 UnifiedToolbar
+    // 颜色和线宽从 pdfViewerStore.drawingConfig 读取，来源于 Toolbar
     let color: [number, number, number]
     let width: number
     let opacity: number

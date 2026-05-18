@@ -91,6 +91,11 @@
                   <div class="question-number">
                     题目{{ getQuestionDisplayIndex(getQuestionUniqueId(question)) }}
                   </div>
+                  <!-- 往日错题标记 -->
+                  <div v-if="mistakeStatus.get(getQuestionUniqueId(question))" class="mistake-badge">
+                    <q-icon name="history" size="14px" />
+                    <span>往日错题</span>
+                  </div>
                   <!-- 题目状态插槽 -->
                   <slot name="question-status" :question="question" :index="index" />
                 </div>
@@ -311,6 +316,7 @@ import AnswerView from './AnswerView.vue'
 import SimilarQuestionList from './SimilarQuestionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { normalizeSubject } from '../constants/subjects'
+import { isMistake } from '../services/storage/mistake-storage'
 
 // 策略模式支持
 import type { QuestionListType } from './question/strategies'
@@ -699,6 +705,26 @@ const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
 
 // 收藏相关状态
 const favoriteStatus = ref<Map<string, boolean>>(new Map())
+
+// 错题相关状态
+const mistakeStatus = ref<Map<string, boolean>>(new Map())
+
+const updateMistakeStatus = async () => {
+  const statusMap = new Map<string, boolean>()
+  const promises = questions.value.map(async (q) => {
+    const id = getQuestionUniqueId(q)
+    if (id) {
+      const isM = await isMistake(id)
+      statusMap.set(id, isM)
+    }
+  })
+  await Promise.all(promises)
+  mistakeStatus.value = statusMap
+}
+
+watch(questions, () => {
+  updateMistakeStatus()
+}, { deep: true })
 
 // 高考AI接口调用 loading 状态（按题目 bmNo 维度）
 const gaokaoTypeLoadingIds = ref<Set<string>>(new Set())
@@ -2115,6 +2141,24 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       gap: 6px;
       flex: 1;
       min-width: 0;
+
+      .mistake-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #e53e3e;
+        background: #fff5f5;
+        border: 1px solid #feb2b2;
+        padding: 1px 6px;
+        border-radius: 4px;
+        margin-left: 4px;
+
+        span {
+          line-height: 1;
+        }
+      }
     }
   }
 

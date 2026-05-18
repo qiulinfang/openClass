@@ -1,6 +1,6 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="image-crop-overlay" @click.self="handleCancel">
+  <component :is="isInline ? 'div' : 'Teleport'" :to="isInline ? undefined : 'body'">
+    <div v-if="modelValue" :class="['image-crop-overlay', { 'is-inline': isInline }]" @click.self="handleCancel">
       <div class="image-crop-container">
         <div class="crop-container">
           <canvas
@@ -62,7 +62,7 @@
         </q-btn>
       </div>
     </div>
-  </Teleport>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -77,6 +77,7 @@ interface Props {
   hintText?: string
   showInfo?: boolean
   quality?: number
+  isInline?: boolean
 }
 
 interface Emits {
@@ -603,6 +604,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.image-crop-overlay.is-inline {
+  position: absolute;
+  z-index: 100;
+}
+
 /* ==================== 全屏矩形框选裁剪样式（对齐 PhotoSearchView） ==================== */
 .image-crop-overlay {
   position: fixed;

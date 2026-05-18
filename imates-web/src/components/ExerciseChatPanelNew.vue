@@ -1,5 +1,22 @@
 <template>
   <div class="chat-panel-container">
+    <!-- 探索遮罩（在选择探索/截图工具时显示） -->
+    <div v-if="isExploring" class="explore-overlay" @click.stop>
+      <img :src="textbookipIcon" alt="textbookip" class="explore-icon textbookip" />
+      <img :src="ipWordIcon" alt="ipWord" class="explore-icon ipWord" />
+    </div>
+    <!-- 遮罩层上的按钮（独立于遮罩层，避免被覆盖） -->
+    <button
+      v-if="isExploring && overlayButtonReady"
+      type="button"
+      class="pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay"
+      :class="{ 'explore-icon-large': hasAttachedScreenshots }"
+      :style="overlayButtonStyle"
+      @click.stop="handleExploreClick"
+    >
+      <img :src="selectAndAskIconToUse" alt="选中并问" style="width: 100%; height: 100%" />
+    </button>
+
     <!-- 对话面板头部 -->
     <div class="chat-panel-header">
       <!-- Tab 切换 -->
@@ -44,7 +61,7 @@
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
           @paste-to-draft="emit('paste-to-draft', $event)"
-          @screenshot-click="handleScreenshotClick"
+          @screenshot-click="handleScreenshotClickAction"
           @request-screenshot="handleRequestScreenshot"
           @new-session-click="handleAddSessionClick"
           @open-html-preview="handleOpenHtmlPreview"
@@ -58,7 +75,7 @@
             empty-text="暂无会话记录"
             :swipe-to-delete="false"
             @card-remove-request="handleDeleteSessionRequest"
-            @card-add="handleAddSessionCard"
+            @card-add="handleAddSessionCardAction"
           >
             <!-- 标题使用 Markdown 渲染 -->
             <template #title="{ card }">
@@ -104,7 +121,7 @@
             :icon="newSessionIcon"
             size="xs"
             variant="ghost"
-            @click="handleAddSessionCard"
+            @click="handleAddSessionCardAction"
           />
           <Button
             label="清除会话"
@@ -136,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+import { ref, nextTick, computed, onMounted, onUnmounted, watch, type ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { CHAT_TAB_OPTIONS } from '../constants/options'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
@@ -155,6 +172,10 @@ import type { BuiltinToolType } from '../types/toolbarTools'
 import goBackBlackIcon from '/icons/goback_black.svg'
 import newSessionIcon from '/icons/new.svg'
 import deleteSessionIcon from '/icons/delete.svg'
+import selectAndAskIcon from '/icons/selectAndAsk.svg'
+import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
+import textbookipIcon from '/icons/textbookip.png'
+import ipWordIcon from '/icons/ipWord.svg'
 
 const props = withDefaults(defineProps<{
   // 当前题目
@@ -162,8 +183,11 @@ const props = withDefaults(defineProps<{
   // 会话数据
   sessions?: AiTextbookSession[]
   showCloseButton?: boolean
+  // 是否处于探索/截图模式（由外部驱动）
+  isExploring?: boolean
 }>(), {
-  showCloseButton: true
+  showCloseButton: true,
+  isExploring: false
 })
 
 const emit = defineEmits<{
@@ -368,7 +392,7 @@ const handleSessionPin = async (record: AiTextbookSession) => {
 }
 
 // 处理截图按钮点击 - 通过 ChatView 的 screenshot-click 触发
-const handleScreenshotClick = async () => {
+const handleScreenshotClickAction = async () => {
   // 检查是否已选中题目
   if (!props.question) {
     showMessage('请先选择一道题目', 'warning')
@@ -433,11 +457,6 @@ const handleRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf
 // 处理新增会话按钮点击
 const handleAddSessionClick = () => {
   emit('add-session')
-}
-
-const handleAddSessionCard = () => {
-  emit('add-session')
-  activeTab.value = 'ai-chat'
 }
 
 // 关闭会话面板，切换回 AI 问答 Tab
@@ -513,6 +532,97 @@ const handleSwitchToTeacher = (forwardData: {
     showGlobalChatDialog.value = true
     emit('switch-to-teacher', forwardData)
   }
+}
+
+// 移除对 pdfViewerStore 的依赖，改用 props.isExploring
+const isExploring = computed(() => {
+  return props.isExploring && activeTab.value === 'ai-chat'
+})
+
+// 计算当前使用的"选中并问"图标
+const selectAndAskIconToUse = computed(() =>
+  props.isExploring ? selectAndAskIconSelected : selectAndAskIcon
+)
+
+// 计算是否有附加截图，用于动态调整按钮尺寸
+const hasAttachedScreenshots = computed(() => {
+  return (aiExerciseStore.inputAttachedScreenshots?.length ?? 0) > 0
+})
+
+const attachedScreenshotCount = computed(() => aiExerciseStore.inputAttachedScreenshots?.length ?? 0)
+
+// 遮罩层按钮位置样式
+const overlayButtonStyle = ref<Record<string, string>>({
+  position: 'fixed', // 使用 fixed 定位相对于视口
+  left: '24px',
+  top: '16px',
+  width: '32px',
+  height: '32px',
+  zIndex: '35'
+})
+
+const overlayButtonReady = ref(false)
+
+// 计算并更新遮罩层按钮位置，确保覆盖实际按钮
+const updateOverlayButtonPosition = async () => {
+  overlayButtonReady.value = false
+  await nextTick()
+
+  try {
+    // 获取实际按钮元素（使用 .toolbar-btn 匹配 ChatInput 中的按钮类名）
+    const actualButton = document.querySelector('.chat-content-container .tab-content .toolbar-btn') as HTMLElement
+    if (!actualButton) {
+      console.warn('[ExerciseChatPanelNew] 找不到实际按钮元素')
+      return
+    }
+
+    // 获取按钮相对于视口的位置
+    const buttonRect = actualButton.getBoundingClientRect()
+
+    // 更新遮罩层按钮样式 - 使用视口固定定位，大小与实际按钮一致
+    overlayButtonStyle.value = {
+      position: 'fixed' as const,
+      left: `${buttonRect.left}px`,
+      top: `${buttonRect.top}px`,
+      width: `${buttonRect.width}px`,
+      height: `${buttonRect.height}px`,
+      zIndex: '35'
+    }
+
+    overlayButtonReady.value = true
+  } catch (error) {
+    console.error('[ExerciseChatPanelNew] 计算按钮位置失败:', error)
+  }
+}
+
+// 监听相关状态变化，更新遮罩层按钮位置
+watch([isExploring, activeTab, attachedScreenshotCount], async (newValues) => {
+  const [exploring, tab] = newValues
+  if (exploring && tab === 'ai-chat') {
+    // 延迟执行，确保DOM已更新
+    setTimeout(updateOverlayButtonPosition, 100)
+  } else {
+    overlayButtonReady.value = false
+  }
+}, { immediate: false })
+
+// 处理探索/截图点击（统一处理：遮罩层按钮和 ChatView 截图按钮）
+const handleExploreClick = () => {
+  handleScreenshotClick(!props.isExploring)
+}
+
+onMounted(() => {
+  // 初始计算按钮位置
+  setTimeout(updateOverlayButtonPosition, 200)
+})
+
+const handleScreenshotClick = (active: boolean) => {
+  emit('screenshot-click', active)
+}
+
+const handleAddSessionCardAction = () => {
+  emit('add-session')
+  activeTab.value = 'ai-chat'
 }
 
 // 暴露的方法
@@ -741,43 +851,64 @@ defineExpose({
 
 .snapshot-fade {
   position: absolute;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 44px;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.92));
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, #fff);
   pointer-events: none;
 }
 
-/* 头部右侧操作区 */
-.header-right-actions {
+/* 探索遮罩层：浅紫色半透明覆盖整个面板，禁止背后的元素交互 */
+.explore-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(230, 225, 255, 0.75); /* 淡紫色遮罩，可根据需要微调透明度 */
+  z-index: 30;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  cursor: not-allowed; /* 显示禁用光标 */
+  border-radius: 16px;
 }
 
-/* 新增会话按钮 */
-.add-session-btn {
-  padding: 0;
+.explore-icon {
+  position: absolute;
+  width: 120px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-icon.textbookip {
+  right: -60px;
+  bottom: 30%;
+}
+
+.explore-icon.ipWord {
+  right: 13%;
+  bottom: 41%;
+  width: 225px;
+  height: auto;
+}
+
+/* 遮罩层按钮样式：位置由JavaScript动态计算和设置 */
+.explore-icon.pdf-toolbar-icon-overlay {
+  position: fixed;
+  z-index: 35;
+  pointer-events: auto;
+  cursor: pointer;
+  /* 基础样式，具体位置由:style动态设置 */
   border: none;
   background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  border-radius: 8px;
 }
 
-.add-session-icon {
-  width: 32px;
-  height: 32px;
-}
-
-/* 关闭按钮 */
-.close-button {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  color: #393548;
-  z-index: 1;
+/* 当有附加截图时，按钮更大 */
+.explore-icon-large {
+  bottom: 26.7%  !important;;
 }
 </style>

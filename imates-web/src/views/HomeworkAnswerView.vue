@@ -124,6 +124,17 @@
                           <q-icon name="check_circle" color="green" size="20px" />
                           <span>标准答案 (作业已提交)</span>
                         </div>
+                        <q-btn
+                          v-if="!isCurrentQuestionCorrect"
+                          flat
+                          dense
+                          color="primary"
+                          class="add-mistake-book-btn"
+                          @click="handleAddToMistakeBook"
+                        >
+                          <q-icon name="add_circle_outline" size="18px" class="q-mr-xs" />
+                          <span>加入错题本</span>
+                        </q-btn>
                       </div>
                       <div class="card-content" v-html="renderMessageContent(currentAnswerQuestion.answer)"></div>
                     </div>
@@ -182,6 +193,17 @@
                           <q-icon name="check_circle" color="green" size="20px" />
                           <span>标准答案 (作业已提交)</span>
                         </div>
+                        <q-btn
+                          v-if="!isCurrentQuestionCorrect"
+                          flat
+                          dense
+                          color="primary"
+                          class="add-mistake-book-btn"
+                          @click="handleAddToMistakeBook"
+                        >
+                          <q-icon name="add_circle_outline" size="18px" class="q-mr-xs" />
+                          <span>加入错题本</span>
+                        </q-btn>
                       </div>
                       <div class="card-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                     </div>
@@ -335,6 +357,7 @@ import Dialog from '@/components/base/Dialog.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
 import HomeworkChatPanel from '@/components/HomeworkChatPanel.vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { addMistake } from '@/services/storage/mistake-storage'
 import { AI_ROLE_OPTIONS } from '@/constants/options'
 import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
@@ -787,6 +810,79 @@ const confirmClearCanvas = () => {
 
 // Markdown + 公式渲染工具
 const { renderMessageContent } = useMessageRenderer()
+
+/** 判断当前客观题是否回答正确 */
+const isCurrentQuestionCorrect = computed(() => {
+  if (!currentAnswerQuestion.value || !isHomeworkSubmitted.value) return true
+  const question = currentAnswerQuestion.value
+  const answer = question.answer
+
+  // 1. 选择题判断
+  if (question.type === 'single_choice' || question.type === 'multiple_choice') {
+    const userChoices = currentQuestionChooseList.value
+    if (!userChoices || userChoices.length === 0) return false
+
+    let standardChoices: string[] = []
+    if (Array.isArray(answer)) {
+      standardChoices = answer
+    } else if (typeof answer === 'string') {
+      // 兼容 "A,B" 或 "A" 格式
+      standardChoices = answer.split(',').map((s) => s.trim()).filter(Boolean)
+    }
+
+    if (userChoices.length !== standardChoices.length) return false
+  return userChoices.every((c: string) => standardChoices.includes(c))
+}
+
+  // 2. 判断题判断
+  if (question.type === 'judgment') {
+    const userVal = currentQuestionJudgment.value
+    if (!userVal) return false
+    const trimAnswer = (answer || '').trim()
+    if (userVal === '对' || userVal === '正确') return [true, '对', '√', '正确', 'true'].includes(trimAnswer)
+    if (userVal === '错' || userVal === '错误') return [false, '错', '×', '错误', 'false'].includes(trimAnswer)
+    return false
+  }
+
+  // 3. 其他题型（填空、问答等）无法自动判题，默认显示“加入错题本”入口
+  return false
+})
+
+/** 加入错题本逻辑 */
+const handleAddToMistakeBook = async () => {
+  if (!currentAnswerQuestion.value) return
+
+  try {
+    const question = currentAnswerQuestion.value
+    const subject = question.subject || getSubject() || 'math'
+    
+    // 1. 同时调用后端接口，保持同步
+    const success = await apiService.addQuestionToList(question, subject)
+    
+    // 2. 保存到本地错题本数据库，包含原始作答和来源信息
+    const questionKey = getQuestionKey(question)
+    const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
+    const homeworkId = route.params.homeworkId as string
+    
+    await addMistake({
+      id: `${questionKey}_${homeworkId || 'manual'}`, // 使用题目 ID 和作业 ID 组合作为唯一标识
+      bmNo: questionKey,
+      homeworkId: homeworkId,
+      homeworkName: homeworkName.value,
+      originalAnswer: originalAnswer,
+      questionData: question
+    })
+
+    if (success) {
+      showMessage('已成功加入错题本', 'success')
+    } else {
+      showMessage('题目已加入本地错题本，但同步到云端失败', 'warning')
+    }
+  } catch (error) {
+    console.error('[HomeworkAnswerView] 加入错题本异常:', error)
+    showMessage('加入错题本失败', 'error')
+  }
+}
 
 // QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
 const handleStartAnswer = async (question: ExerciseItem) => {
@@ -1368,7 +1464,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
  
 .homework-answer-view {
   width: 100%;
@@ -1800,5 +1896,46 @@ onUnmounted(() => {
   padding: 16px 0;
   color: #374151;
   line-height: 1.5;
+}
+.analysis-card {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+
+    .title-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .add-mistake-book-btn {
+      font-size: 13px;
+      font-weight: normal;
+      padding: 2px 8px;
+      border-radius: 6px;
+      
+      &:hover {
+        background: rgba(97, 94, 254, 0.05);
+      }
+    }
+  }
+
+  .card-content {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #334155;
+    word-break: break-all;
+  }
 }
 </style>

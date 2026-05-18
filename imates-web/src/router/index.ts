@@ -14,6 +14,7 @@ import LearningContentView from '@/views/LearningContentView.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
+import MistakeBookView from '@/views/MistakeBookView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
 import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
 import ApiDebugView from '@/views/ApiDebugView.vue'
@@ -120,6 +121,12 @@ const router = createRouter({
           path: 'my-homework',
           name: 'myHomework',
           component: MyHomeworkView
+        },
+        // 错题本路由
+        {
+          path: 'mistake-book',
+          name: 'mistakeBook',
+          component: MistakeBookView
         },
         // 作业回答路由
         {

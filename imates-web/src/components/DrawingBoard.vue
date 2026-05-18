@@ -2,7 +2,7 @@
   <div class="canvas-demo-container" :class="{ 'toolbar-left': props.toolbarPosition === 'left' }">
     <!-- 统一工具栏（根据 toolbarPosition 浮动在顶部或左侧） -->
     <div class="toolbar-wrapper" :class="{ 'toolbar-wrapper-left': props.toolbarPosition === 'left' }">
-      <UnifiedToolbar
+      <Toolbar
         :tools="props.drawingBoardTools"
         :selected-tool="currentTool"
         :tool-config="toolConfig"
@@ -22,7 +22,7 @@
         <template #right-actions>
           <slot name="toolbar-right" />
         </template>
-      </UnifiedToolbar>
+      </Toolbar>
     </div>
 
     <!-- 画布容器（占满整个对话框） -->
@@ -127,7 +127,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import UnifiedToolbar from './UnifiedToolbar.vue'
+import Toolbar from './Toolbar.vue'
 import Dialog from './base/Dialog.vue'
 import PerfectFreehandConfigDialog from './debug/PerfectFreehandConfigDialog.vue'
 import SignaturePad from 'signature_pad'
@@ -177,6 +177,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   // 内容变化事件（用于父组件更新缩略图）
   'content-change': []
+  // 工具切换事件
+  'tool-change': [tool: string]
 }>()
 
 // 背景图片对象
@@ -2197,6 +2199,9 @@ const handleToolChange = (tool: string) => {
   if (liveCanvasRef.value) {
     liveCanvasRef.value.style.cursor = tool === 'hand' ? 'grab' : 'crosshair'
   }
+
+  // 通知外部工具切换
+  emit('tool-change', tool)
 
   historyDirty = true
   render()

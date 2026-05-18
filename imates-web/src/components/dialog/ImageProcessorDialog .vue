@@ -15,23 +15,42 @@
     @confirm="handleConfirm"
     @cancel="handleCancel"
   >
-      <div class="screenshot-input-subtitle">
-        你可以在图片上进行编辑，也可以添加多个截图一起问学伴！
-      </div>
-
       <div class="screenshot-input-body">
-        <!-- 左侧：截图编辑区域（集成 DrawingBoard） -->
+        <!-- 左侧：截图编辑区域（集成 drawingBoardNew） -->
         <div class="screenshot-editor">
-          <DrawingBoard
+          <drawingBoardNew
             v-if="previewImage"
+            key="drawing-mode"
             ref="drawingBoardRef"
-            :background-image="getOriginalImage()"
-            :drawing-board-tools="['draw', 'eraser-draw', 'undo', 'redo']"
-            layout-mode="fill"
-            :show-zoom-control="false"
+            :background-image="previewImage"
+            :show-toolbar="!isCropping"
+            :show-zoom-controls="false"
+            :enable-buffer="false"
+            :tools="['undo', 'redo', 'clear', 'draw', 'crop']"
             :force-pen-color="'red'"
-            toolbar-position="left"
-          />
+            background-position="center"
+            :background-contain="true"
+            :show-grid="false"
+            :allow-popup="false"
+            toolbar-position="bottom"
+            @tool-change="(tool: string) => {
+              console.log('[ScreenshotDialog] drawingBoardNew @tool-change:', tool);
+              if (tool === 'crop') isCropping = true;
+            }"
+          >
+            <!-- 将 ImageCropOverlay 作为 drawingBoardNew 的一个层注入 -->
+            <template #overlay>
+              <ImageCropOverlay
+                v-if="isCropping"
+                v-model="isCropping"
+                :image-src="getOriginalImage()"
+                :show-info="false"
+                :is-inline="true"
+                @confirm="handleCropConfirm"
+                @cancel="isCropping = false"
+              />
+            </template>
+          </drawingBoardNew>
           <div v-else class="empty-placeholder">
             <q-icon name="image" size="48px" color="grey-5" />
             <span>暂无截图</span>
@@ -74,7 +93,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue'
 import Modal from '@/components/base/Modal.vue'
-import DrawingBoard from '@/components/DrawingBoard.vue'
+import drawingBoardNew from '@/components/drawingBoardNew.vue'
+import ImageCropOverlay from '@/components/base/ImageCropOverlay.vue'
 import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
@@ -85,14 +105,11 @@ const screenshotDialogZIndex = 14000
 // 最多允许挂载的截图数量
 const MAX_SCREENSHOTS = 3
 
-// DrawingBoard 暴露的方法类型
+// drawingBoardNew 暴露的方法类型
 interface DrawingBoardExposed {
   exportToJpg: (quality?: number) => string
-  hasContent: () => boolean
   clearAll: () => void
-  // 保存当前画板状态（对象列表 + 历史记录）
   saveData: () => ScreenshotDrawingState
-  // 加载指定的画板状态
   loadData: (data: ScreenshotDrawingState) => void
 }
 interface Props {
@@ -120,7 +137,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-// DrawingBoard 组件引用
+// drawingBoardNew 组件引用
 const drawingBoardRef = ref<(ComponentPublicInstance & DrawingBoardExposed) | null>(null)
 
 // 当前在画板中预览/编辑的截图 ID
@@ -360,6 +377,32 @@ const exportCurrentScreenshot = async (): Promise<AttachedScreenshot[] | null> =
   return [shot]
 }
 
+// 裁剪相关状态
+const isCropping = ref(false)
+
+const handleCropConfirm = (croppedDataUrl: string) => {
+  console.log('[ScreenshotDialog] handleCropConfirm 收到裁剪后的图片')
+  const currentShot = localScreenshots.value.find((s) => s.id === currentShotId.value)
+  if (currentShot) {
+    // 1. 更新本地数据状态
+    currentShot.dataUrl = croppedDataUrl
+    previewImage.value = croppedDataUrl
+
+    // 2. 裁剪后清空画板状态，因为参考背景的尺寸变了
+    if (currentShotId.value) {
+      delete drawingStates.value[currentShotId.value]
+    }
+
+    // 3. 强制画板重绘（由于背景图是通过 Prop 传递的，Vue 会响应变化）
+    nextTick(async () => {
+      if (drawingBoardRef.value?.clearAll) {
+        drawingBoardRef.value.clearAll()
+      }
+    })
+  }
+  isCropping.value = false
+}
+
 // 确定按钮：返回所有截图数组（全量回传）
 const handleConfirm = async () => {
   const shots = await exportCurrentScreenshot()
@@ -399,13 +442,6 @@ const handleCancel = () => {
 </script>
 
 <style lang="scss" scoped>
-.screenshot-input-subtitle {
-  padding: 0 16px 0px 16px;
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 8px;
-  height: 5%;
-}
 
 .screenshot-input-body {
   display: flex;
@@ -427,15 +463,12 @@ const handleCancel = () => {
   position: relative;
   overflow: hidden;
 
-  // DrawingBoard 组件样式覆盖
-  :deep(.canvas-demo-container) {
-    background: transparent;
-  }
-
-  // fillContainer 模式下，Canvas 填满容器
-  :deep(canvas) {
+  // drawingBoardNew 模式下，Canvas 填满容器
+  :deep(.canvas-layer) {
     width: 100% !important;
     height: 100% !important;
+    left: 0 !important;
+    transform: none !important;
     display: block;
   }
 
@@ -457,6 +490,78 @@ const handleCancel = () => {
     gap: 8px;
     color: #9e9e9e;
     font-size: 14px;
+  }
+
+  .native-cropper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .crop-bg-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .crop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .crop-window {
+    position: absolute;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    cursor: move;
+    box-sizing: border-box;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      outline: 1px solid rgba(255, 255, 255, 0.3);
+      pointer-events: none;
+    }
+  }
+
+  .crop-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border: 1px solid #6e55ff;
+    border-radius: 2px;
+    z-index: 10;
+
+    &.nw { top: -6px; left: -6px; cursor: nw-resize; }
+    &.ne { top: -6px; right: -6px; cursor: ne-resize; }
+    &.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+    &.se { bottom: -6px; right: -6px; cursor: se-resize; }
+  }
+
+  .cropper-actions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 12px;
   }
 }
 

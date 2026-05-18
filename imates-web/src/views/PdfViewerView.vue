@@ -12,7 +12,7 @@
       <template v-slot:before>
         <div class="pdf-viewer-container">
           <!-- 工具栏 -->
-          <UnifiedToolbar
+          <Toolbar
             :tools="pdfToolbarTools"
             variant="browser"
             :selected-tool="pdfViewerStore.selectedTool"
@@ -79,7 +79,7 @@
                 class="q-mr-sm"
               />
             </template>
-          </UnifiedToolbar>
+          </Toolbar>
           <!-- PDF 不分页渲染 -->
           <PdfPage
             v-if="currentFile"
@@ -137,7 +137,7 @@ import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession, At
 import {
   addScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
-import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
+import Toolbar from '@/components/Toolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import PdfChatPanel from '@/components/PdfChatPanel.vue'
 import MiniClass from '@/components/MiniClass.vue'
@@ -447,15 +447,15 @@ const setHorizontalReading = async () => {
 // 当前文件
 const currentFile = ref<File | null>(null)
 
-// 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
+// 当前工具（与 Toolbar 工具枚举和 PdfPage 交互模式统一）
 type PdfToolId = 'hand' | 'select' | 'highlighter' | 'draw' | 'eraser-draw' | 'note' | 'screenshot'
 const currentTool = ref<PdfToolId>('hand')
 
-// 处理工具切换：直接使用 UnifiedToolbar 的工具 ID 作为全局枚举
+// 处理工具切换：直接使用 Toolbar 的工具 ID 作为全局枚举
 const handleToolChange = (tool: string) => {
   if (!pdfPageRef.value) return
   // 仅处理我们支持的绘图相关工具
-  // 兼容历史工具 ID：UnifiedToolbar 仍可能发出 draw，等价于 draw
+  // 兼容历史工具 ID：Toolbar 仍可能发出 draw，等价于 draw
   const normalizedTool = tool === 'draw' ? 'draw' : tool
   if (!['hand', 'select', 'highlighter', 'draw', 'eraser-draw', 'note', 'screenshot'].includes(normalizedTool)) {
     return
@@ -493,7 +493,7 @@ const handleToolChange = (tool: string) => {
   }
 }
 
-// 工具状态：使用 UnifiedToolbar 的工具 ID
+// 工具状态：使用 Toolbar 的工具 ID
 const toolStates = computed(() => {
   return {
     hand: true,
@@ -507,7 +507,7 @@ const toolStates = computed(() => {
   }
 })
 
-// 绑定到 UnifiedToolbar 的工具配置（颜色、粗细等），来源于 pdfViewerStore.drawingConfig
+// 绑定到 Toolbar 的工具配置（颜色、粗细等），来源于 pdfViewerStore.drawingConfig
 const toolbarToolConfig = computed(() => {
   return {
     color:
