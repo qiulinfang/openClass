@@ -1,31 +1,44 @@
 <template>
   <div class="sketchpad-wrapper">
-    <div v-if="showToolbar" class="toolbar">
+    <div v-if="showToolbar" class="toolbar" :class="{ 'toolbar--bottom': props.toolbarPosition === 'bottom' }">
       <div class="toolbar-slot toolbar-slot--left">
         <slot name="toolbar-left" />
       </div>
 
       <div class="toolbar-center">
-        <UnifiedToolbar
+        <Toolbar
           :tools="toolbarTools"
           :selected-tool="toolbarSelectedTool"
           :tool-config="toolbarToolConfig"
           :tool-states="{ undo: canUndo, redo: canRedo }"
+          :allow-popup="props.allowPopup"
           variant="floating"
           orientation="horizontal"
           @tool-change="handleToolbarToolChange"
           @config-change="handleToolbarConfigChange"
           @undo="undo"
           @redo="redo"
-          @clear="clearCanvas"
+          @clear="showClearConfirm = true"
           @insert-image="triggerImageSelect"
-        ></UnifiedToolbar>
+        ></Toolbar>
       </div>
 
       <div class="toolbar-slot toolbar-slot--right">
         <slot name="toolbar-right" />
       </div>
     </div>
+
+    <!-- 清空确认弹窗 -->
+    <Dialog
+      v-model="showClearConfirm"
+      title="确认清空"
+      confirm-button-text="清空"
+      cancel-button-text="取消"
+      @confirm="confirmClearAll"
+      @cancel="showClearConfirm = false"
+    >
+      确定要清空画板上的所有内容吗？此操作不可撤销。
+    </Dialog>
 
     <!-- 画布容器 -->
     <div
@@ -206,22 +219,29 @@
       @confirm="handleScreenshotConfirm"
       @cancel="handleScreenshotCancel"
     />
+
+    <!-- 增加 overlay 插槽，允许外部注入覆盖层（如裁剪组件） -->
+    <slot name="overlay" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { ZOOM_PRESET_OPTIONS } from '../constants/options'
-import UnifiedToolbar from './UnifiedToolbar.vue'
+import Toolbar from './Toolbar.vue'
 import CommonSelect from './base/Select.vue'
-import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
+import Dialog from './base/Dialog.vue'
+import ScreenshotInputDialog from './dialog/ImageProcessorDialog .vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
 import { useImagePicker } from '../composables/useImagePicker'
 
 const emit = defineEmits<{
   (e: 'clear'): void
+  (e: 'undo'): void
+  (e: 'redo'): void
   (e: 'save', data: { objects: any[]; history: any[]; historyIndex: number }): void
+  (e: 'tool-change', tool: string): void
   (e: 'ask-ai-image-selected', imageInfo: {
     filePath: string
     width: number
@@ -232,18 +252,37 @@ const emit = defineEmits<{
 }>()
 // 组件属性定义
 const props = defineProps({
+  // === 背景与画布配置 ===
   // 背景图片URL
   backgroundImage: { type: String, default: '' },
-  // 是否自适应背景图片大小
+  // 背景图片位置：'center' 或 'topLeft'
+  backgroundPosition: { type: String as () => 'center' | 'topLeft', default: 'center' },
+  // 是否自适应包含背景图 (contain 模式)
+  backgroundContain: { type: Boolean, default: false },
+  // 是否自适应背景图大小
   fitBackground: { type: Boolean, default: false },
-  // 是否显示网格
-  showGrid: { type: Boolean, default: false },
+  // 是否启用缓冲区（1.2倍画布尺寸），若为 false 则 Canvas 与容器 1:1
+  enableBuffer: { type: Boolean, default: true },
   // 初始缩放比例
   initialZoom: { type: Number, default: 1 },
+  // 是否显示网格
+  showGrid: { type: Boolean, default: true },
+
+  // === 工具与交互配置 ===
+  // 覆盖工具栏显示的工具列表（可选）
+  tools: { type: Array as () => string[], default: undefined },
+  // 强制画笔颜色
+  forcePenColor: { type: String, default: undefined },
   // 是否启用AI问答功能
   enableAskAi: { type: Boolean, default: false },
+  // 是否允许工具栏弹出配置面板
+  allowPopup: { type: Boolean, default: true },
+
+  // === 界面显示控制 ===
   // 是否显示工具栏（默认显示）
   showToolbar: { type: Boolean, default: true },
+  // 工具栏位置：'top'(默认), 'bottom'
+  toolbarPosition: { type: String as () => 'top' | 'bottom', default: 'top' },
   // 是否显示缩放控制（默认显示）
   showZoomControls: { type: Boolean, default: true },
 })
@@ -271,12 +310,38 @@ const showDebugPanel = ref(false)
 
 const backgroundImg = ref<HTMLImageElement | null>(null)
 const backgroundLoaded = ref(false)
-const backgroundOrigin = reactive({ x: 130, y: 120 })
+const backgroundOrigin = reactive({ x: 0, y: 0 })
+const backgroundScale = ref(1)
 
 function updateBackgroundOrigin() {
   if (!liveCanvasRef.value || !backgroundImg.value || !backgroundLoaded.value) return
-  backgroundOrigin.x = 130
-  backgroundOrigin.y = 120
+
+  const dpr = window.devicePixelRatio || 1
+  const canvasW = liveCanvasRef.value.width / dpr
+  const canvasH = liveCanvasRef.value.height / dpr
+  const imgW = backgroundImg.value.naturalWidth
+  const imgH = backgroundImg.value.naturalHeight
+
+  if (props.backgroundContain) {
+    // 计算 contain 缩放比例
+    const scale = Math.min(canvasW / imgW, canvasH / imgH, 1) // 不放大，只缩小
+    backgroundScale.value = scale
+    const displayW = imgW * scale
+    const displayH = imgH * scale
+    
+    backgroundOrigin.x = (canvasW - displayW) / 2
+    backgroundOrigin.y = (canvasH - displayH) / 2
+  } else {
+    backgroundScale.value = 1
+    if (props.backgroundPosition === 'topLeft') {
+      backgroundOrigin.x = 0
+      backgroundOrigin.y = 0
+    } else {
+      // 居中模式
+      backgroundOrigin.x = (canvasW - imgW) / 2
+      backgroundOrigin.y = (canvasH - imgH) / 2
+    }
+  }
 }
 
 // 橡皮擦光标
@@ -308,12 +373,24 @@ const showScreenshotDialog = ref(false)
 const currentScreenshotDataUrl = ref('')
 const screenshotDrawingStates = ref<Record<string, any>>({})
 
+const showClearConfirm = ref(false)
+
+const confirmClearAll = () => {
+  clearAll()
+  showClearConfirm.value = false
+}
+
 interface Point {
   x: number
   y: number
 }
 
 const toolbarTools = computed(() => {
+  if (props.tools) {
+    return {
+      middle: props.tools,
+    }
+  }
   return {
     middle: [
       'undo',
@@ -339,15 +416,65 @@ const toolbarToolConfig = ref({
   selectMode: selectMode.value,
 })
 
-watch(currentColor, (v) => (toolbarToolConfig.value.color = v))
+watch(
+  () => props.forcePenColor,
+  (newColor) => {
+    if (newColor) {
+      currentColor.value = newColor
+      // 同步更新所有工具的状态，防止切换模式后颜色变回默认
+      Object.keys(toolStates).forEach((key) => {
+        if (toolStates[key]) {
+          toolStates[key].color = newColor
+        }
+      })
+    }
+  },
+  { immediate: true }
+)
+
+watch(currentColor, (v) => {
+  if (props.forcePenColor && v !== props.forcePenColor) {
+    currentColor.value = props.forcePenColor
+    return
+  }
+  toolbarToolConfig.value.color = v
+})
 watch(currentSize, (v) => (toolbarToolConfig.value.size = v))
 watch(currentOpacity, (v) => (toolbarToolConfig.value.opacity = v))
 watch(selectMode, (v) => (toolbarToolConfig.value.selectMode = v))
 
 function handleToolbarToolChange(tool) {
+  console.log('[drawingBoardNew] handleToolbarToolChange:', tool);
   // 问问学伴工具：进入截图模式
   if (tool === 'askAi') {
     enterAskAiMode()
+    return
+  }
+
+  // 裁剪工具：通知外部进入裁剪模式，不进入画板内部模式
+  if (tool === 'crop') {
+    console.log('[drawingBoardNew] 触发裁剪工具事件');
+    emit('tool-change', 'crop')
+    return
+  }
+
+  // 清空工具
+  if (tool === 'clear') {
+    console.log('[drawingBoardNew] 执行清空操作');
+    clearAll()
+    emit('clear')
+    return
+  }
+
+  // 撤销/重做工具拦截
+  if (tool === 'undo') {
+    undo()
+    emit('undo')
+    return
+  }
+  if (tool === 'redo') {
+    redo()
+    emit('redo')
     return
   }
 
@@ -570,8 +697,13 @@ const renderTick = ref(0)
 function screenToWorld(sx, sy) {
   if (!liveCanvasRef.value) return { x: 0, y: 0 }
   const rect = liveCanvasRef.value.getBoundingClientRect()
-  const x = (sx - rect.left - camera.x) / camera.zoom
-  const y = (sy - rect.top - camera.y) / camera.zoom
+  
+  // 获取相对于 Canvas 元素左上角的 client 坐标
+  let localX = sx - rect.left
+  let localY = sy - rect.top
+
+  const x = (localX - camera.x) / camera.zoom
+  const y = (localY - camera.y) / camera.zoom
   return { x, y }
 }
 
@@ -650,8 +782,11 @@ function resizeCanvas() {
   if (!containerRef.value || !liveCanvasRef.value || !historyCanvasRef.value) return
   const dpr = window.devicePixelRatio || 1
   const rect = containerRef.value.getBoundingClientRect()
-  const width = rect.width * 1.2  // Canvas 尺寸为容器的 120%
-  const height = rect.height * 1.2
+  
+  // 根据 enableBuffer 决定放大系数
+  const scale = props.enableBuffer ? 1.2 : 1.0
+  const width = rect.width * scale
+  const height = rect.height * scale
 
   // 调整两个 Canvas 的大小
   ;[liveCanvasRef.value, historyCanvasRef.value].forEach((cvs) => {
@@ -913,7 +1048,17 @@ function renderHistory() {
 
   // 4. 背景图
   if (backgroundImg.value && backgroundLoaded.value) {
-    historyCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
+    if (props.backgroundContain) {
+      historyCtx.drawImage(
+        backgroundImg.value,
+        backgroundOrigin.x,
+        backgroundOrigin.y,
+        backgroundImg.value.naturalWidth * backgroundScale.value,
+        backgroundImg.value.naturalHeight * backgroundScale.value
+      )
+    } else {
+      historyCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
+    }
   }
 
   // 5. 所有已完成对象
@@ -2512,6 +2657,7 @@ const loadData = (data) => {
 }
 
 const clearAll = () => {
+  console.log('[drawingBoardNew] clearAll 执行, 原笔迹数量:', strokes.length);
   strokes = []
   selectedIndices.clear()
   groupBounds = null
@@ -2851,6 +2997,11 @@ defineExpose({
   width: 98%;
   max-width: 768px;
   z-index: 50; /* Toolbar 在最上层 */
+}
+
+.toolbar--bottom {
+  top: auto;
+  bottom: 24px;
 }
 
 .toolbar-slot {

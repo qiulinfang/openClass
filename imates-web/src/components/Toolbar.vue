@@ -52,7 +52,7 @@
               :key="tool.value"
               class="tool-icon-wrapper"
               :class="{ 'tool-disabled': toolStates[tool.value] === false }"
-              @click="toolStates[tool.value] !== false && handleActionClick(tool.value)"
+              @click.stop="toolStates[tool.value] !== false && handleActionClick(tool.value)"
             >
             <div
                 :style="{
@@ -321,6 +321,7 @@ import coordinateIcon from '/icons/zuobiaozhou.svg' // 坐标轴
 import selectConfigIcon from '/icons/select_config.svg' // 选择配置
 import redoIcon from '/icons/undo.svg' // 撤销
 import undoIcon from '/icons/redo.svg' // 重做
+import cropIcon from '/icons/wenai.svg' // 裁剪
 import dustbinIcon from '/icons/delete.svg' // 清空（垃圾桶）
 import askAiIcon from '/icons/wenai.svg' // 问问学伴
 import pictureIcon from '/icons/picture1.svg' // 图片
@@ -387,6 +388,8 @@ const props = withDefaults(
     orientation?: 'horizontal' | 'vertical'
     // 是否显示问AI按钮
     showAskAi?: boolean
+    // 是否允许工具栏弹出配置面板
+    allowPopup: { type: Boolean, default: true },
   }>(),
   {
     tools: () => [],
@@ -397,6 +400,7 @@ const props = withDefaults(
     backgroundColor: undefined,
     orientation: 'horizontal',
     showAskAi: false,
+    allowPopup: true,
   }
 )
 
@@ -459,6 +463,11 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     value: 'reset',
     label: '重置',
     icon: resetIcon,
+  },
+  crop: {
+    value: 'crop',
+    label: '裁剪',
+    icon: cropIcon,
   },
 
   // 绘图工具
@@ -884,10 +893,10 @@ const leftTools = computed(() => {
 })
 
 // 操作工具列表（撤销、重做、清空、手型等）
-const ACTION_TOOLS = ['search', 'undo', 'redo', 'clear', 'hideNotes', 'hand']
+const ACTION_TOOLS = ['search', 'undo', 'redo', 'clear', 'hideNotes', 'hand', 'crop']
 
 // 需要选中状态的操作工具（如 hand）
-const SELECTABLE_ACTION_TOOLS = ['hand']
+const SELECTABLE_ACTION_TOOLS = ['hand', 'crop']
 
 // 中间操作工具（如搜索、撤销、重做、清空、手型、隐藏笔记）
 const middleActionTools = computed(() => {
@@ -1011,6 +1020,7 @@ const handleToolClick = (toolName: string) => {
     isSubToolActive: isSubToolActive(ALL_TOOLS[toolName]),
     selectedTool: props.selectedTool,
     activeToolPopup: activeToolPopup,
+    allowPopup: props.allowPopup
   })
 
   if (toolName === 'insertImage') {
@@ -1021,6 +1031,11 @@ const handleToolClick = (toolName: string) => {
 
   if (isSubToolActive(ALL_TOOLS[toolName])) {
     // 再次点击已选中的工具，切换弹出框
+    if (!props.allowPopup) {
+      console.log('🚫 allowPopup 为 false，禁用弹出框')
+      activeToolPopup.value = null
+      return
+    }
     const shouldOpen = activeToolPopup.value !== toolName
     console.log('📱 切换弹出框:', { current: activeToolPopup.value, shouldOpen, tool: toolName })
     activeToolPopup.value = shouldOpen ? toolName : null
@@ -1059,9 +1074,12 @@ const handleActionClick = (action: string) => {
       emit('tool-change', 'draw')
       break
     case 'clear':
+      console.log('🧹 Toolbar emit clear');
       emit('clear')
-      // 清空后切回绘画工具，便于继续写
-      emit('tool-change', 'draw')
+      break
+    case 'crop':
+      console.log('✂️ Toolbar emit tool-change crop');
+      emit('tool-change', 'crop')
       break
     case 'insertImage':
       emit('insert-image')

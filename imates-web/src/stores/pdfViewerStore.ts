@@ -22,7 +22,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   // PDF 右侧聊天面板是否可见
   const chatPanelVisible = ref(false)
 
-  // 绘图配置（与 UnifiedToolbar 工具配置联动）
+  // 绘图配置（与 Toolbar 工具配置联动）
   const drawingConfig = ref({
     // 签字笔
     penColor: '#212529',

@@ -421,7 +421,7 @@ import Dialog from './base/Dialog.vue'
 import Checkbox from './base/Checkbox.vue'
 import Button from './base/Button.vue'
 import ImageCropOverlay from './base/ImageCropOverlay.vue'
-import ScreenshotInputDialog from './dialog/ScreenshotInputDialog.vue'
+import ScreenshotInputDialog from './dialog/ImageProcessorDialog .vue'
 
 // 类型定义导入
 import type { ChatBubble, AttachedScreenshot } from '../types'
@@ -647,26 +647,42 @@ const onImageSelected = async (imageData: ChatImageData) => {
   // ChatView 不再负责截图编辑弹窗，这里仅负责"把图挂到输入框缩略图区 / 或交给上层处理"
   if (!imageData?.base64DataUrl) return
 
-  // ai-general / ai-exercise / ai-homework / user-client：先显示裁剪对话框，再挂载到输入框缩略图区
-  if (
-    props.type === 'ai-general' ||
-    props.type === 'ai-exercise' ||
-    props.type === 'ai-homework' ||
-    props.type === 'ai-textbook' ||
-    props.type === 'user-client'
-  ) {
-    const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
-    if (strategyInputAttachedScreenshots.value.length >= maxImages) {
-      showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
+    // ai-general / ai-exercise / ai-homework / user-client：直接打开截图编辑器（包含裁剪和标注）
+    if (
+      props.type === 'ai-general' ||
+      props.type === 'ai-exercise' ||
+      props.type === 'ai-homework' ||
+      props.type === 'ai-textbook' ||
+      props.type === 'user-client'
+    ) {
+      const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+      if (strategyInputAttachedScreenshots.value.length >= maxImages) {
+        showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
+        return
+      }
+
+      // 生成截图 ID 并挂载
+      const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const newShot: AttachedScreenshot = {
+        id: shotId,
+        dataUrl: imageData.base64DataUrl,
+        originalDataUrl: imageData.base64DataUrl,
+        width: imageData.width || 0,
+        height: imageData.height || 0,
+      }
+      
+      if (chatStrategy.value?.appendInputAttachedScreenshots) {
+        chatStrategy.value.appendInputAttachedScreenshots([newShot])
+      }
+
+      // 直接打开编辑器
+      openScreenshotEditor({
+        mode: 'multiple',
+        initialShotId: shotId,
+        lastCapturedShotId: shotId,
+      })
       return
     }
-
-    // 保存原始图片数据，显示裁剪对话框
-    pendingImageData.value = imageData
-    imageCropSrc.value = imageData.base64DataUrl
-    showImageCropDialog.value = true
-    return
-  }
 
   // 其它场景：走策略的"发送图片"逻辑
   if (!chatStrategy.value?.sendImageMessage) return
