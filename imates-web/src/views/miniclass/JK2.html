@@ -64,9 +64,9 @@
       }
 
       .task-box {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
         margin-bottom: 8px;
         padding: 10px;
         flex-shrink: 0;
@@ -75,20 +75,6 @@
         border-radius: 8px;
       }
 
-      .task-title strong {
-        display: block;
-        font-size: 18px;
-        color: #111827;
-        margin-top: 4px;
-        letter-spacing: -0.01em;
-      }
-
-      .task-title p {
-        font-size: 14px;
-        margin: 4px 0 0;
-        color: #4b5563;
-        line-height: 1.5;
-      }
 
       .lesson-grid {
         flex: 1;
@@ -345,66 +331,9 @@
         cursor: not-allowed;
       }
 
-      /* 流程化按钮样式 */
-      .workflow-steps {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin: 8px 0;
-        position: relative;
-      }
-
-      .workflow-step {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        position: relative;
-      }
-
-      .workflow-step:not(:last-child)::after {
-        content: "";
-        position: absolute;
-        left: 11px;
-        top: 24px;
-        bottom: -16px;
-        width: 2px;
-        background: #e2e8f0;
-        z-index: 0;
-      }
-
-      .step-number {
-        width: 24px;
-        height: 24px;
-        background: #f1f5f9;
-        color: #64748b;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 700;
-        flex-shrink: 0;
-        z-index: 1;
-        border: 2px solid #ffffff;
-        box-shadow: 0 0 0 1px #e2e8f0;
-      }
-
-      .workflow-step.active .step-number {
-        background: #137a72;
-        color: #ffffff;
-        box-shadow: 0 0 0 1px #137a72;
-      }
-
-      .step-content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
       .workflow-btn {
         width: 100%;
-        text-align: left;
+        text-align: center;
         padding: 8px 12px;
         font-size: 13px;
         font-weight: 600;
@@ -415,7 +344,8 @@
         transition: all 0.2s;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: center;
+        cursor: pointer;
       }
 
       .workflow-btn:hover {
@@ -437,15 +367,16 @@
         box-shadow: 0 2px 4px rgba(19, 122, 114, 0.2);
       }
 
-      .workflow-btn-group {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
+      .workflow-btn.ghost {
+        background: #f8fafc;
+        color: #64748b;
+        border-color: #e2e8f0;
       }
 
-      .workflow-btn .btn-icon {
-        font-size: 14px;
-        opacity: 0.7;
+      .workflow-btn.ghost:hover {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #cbd5e1;
       }
 
       .board-card {
@@ -588,71 +519,17 @@
       </nav>
 
       <section class="card task-box">
-        <div class="task-title">
-          <strong id="sceneTitle">先观察直线 m 与平行线的交点</strong>
-          <p id="scenePrompt">点击“创建直线 n”，比较 AB、BC、DE、EF 的长度，并观察 AB:BC 与 DE:EF。</p>
-        </div>
-        <button class="ghost" type="button" id="resetButton">重置本页</button>
+        <button class="workflow-btn primary" type="button" id="showFixedButton">固定交点已显示</button>
+        <button class="workflow-btn" type="button" id="randomLineButton">创建直线 n</button>
+        <button class="workflow-btn" type="button" id="altitudeButton">手绘高线</button>
+        <button class="workflow-btn" type="button" id="connectButton">连接两点</button>
+        <button class="workflow-btn ghost is-hidden" type="button" id="clipButton">裁剪线段</button>
+        <button class="workflow-btn ghost is-hidden" type="button" id="clearExtraButton">清除手绘线</button>
+        <button class="workflow-btn ghost" type="button" id="resetButton">重置本页</button>
       </section>
 
       <section class="lesson-grid">
         <aside class="card side-panel">
-          <div class="side-block no-collapse">
-            <div class="side-block-header">
-              <h3>操作流程</h3>
-              <span class="toggle-icon">▼</span>
-            </div>
-            <div class="side-block-content">
-              <div class="workflow-steps">
-                <div class="workflow-step active">
-                  <div class="step-number">1</div>
-                  <div class="step-content">
-                    <button class="workflow-btn primary" type="button" id="showFixedButton">
-                      <span>固定交点已显示</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="workflow-step">
-                  <div class="step-number">2</div>
-                  <div class="step-content">
-                    <button class="workflow-btn" type="button" id="randomLineButton">
-                      <span>创建直线 n</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="workflow-step">
-                  <div class="step-number">3</div>
-                  <div class="step-content">
-                    <div class="workflow-btn-group">
-                      <button class="workflow-btn" type="button" id="altitudeButton">
-                        <span>手绘高线</span>
-                      </button>
-                      <button class="workflow-btn" type="button" id="connectButton">
-                        <span>连接两点</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="workflow-step" id="cleanupStep">
-                  <div class="step-number">4</div>
-                  <div class="step-content">
-                    <div class="workflow-btn-group">
-                      <button class="workflow-btn ghost is-hidden" type="button" id="clipButton">
-                        <span>裁剪线段</span>
-                      </button>
-                      <button class="workflow-btn ghost is-hidden" type="button" id="clearExtraButton">
-                        <span>清除手绘线</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <p class="hint" id="toolHint">直线 m 的交点已显示。请创建直线 n，再比较对应线段。</p>
-            </div>
-          </div>
 
           <div class="side-block collapsed">
             <div class="side-block-header">
@@ -734,7 +611,7 @@
         <article class="summary-item"><strong>共同规律</strong><p>两条截线上的对应截段保持相同的比例关系。</p></article>
       </section>
     </main>
-    <div class="version-tag">ver 1.0.8</div>
+    <div class="version-tag">ver 1.0.9</div>
     <script>
       // --- 折叠逻辑 ---
       function openBlock(id) {
@@ -758,16 +635,12 @@
       const ctx = canvas.getContext("2d");
       const sceneButtons = Array.from(document.querySelectorAll(".tab-button"));
       const modeButtons = Array.from(document.querySelectorAll(".mode-button"));
-      const sceneTitle = document.getElementById("sceneTitle");
-      const scenePrompt = document.getElementById("scenePrompt");
-      const toolHint = document.getElementById("toolHint");
       const fixedMetrics = document.getElementById("fixedMetrics");
       const randomMetrics = document.getElementById("randomMetrics");
       const showFixedButton = document.getElementById("showFixedButton");
       const randomLineButton = document.getElementById("randomLineButton");
       const altitudeButton = document.getElementById("altitudeButton");
       const connectButton = document.getElementById("connectButton");
-      const cleanupStep = document.getElementById("cleanupStep");
       const clipButton = document.getElementById("clipButton");
       const clearExtraButton = document.getElementById("clearExtraButton");
       const resetButton = document.getElementById("resetButton");
@@ -781,6 +654,7 @@
       const scalePerUnit = 22;
       const fixedLine = { xAtCenter: 360, slope: -0.42, color: "#dc2626", name: "直线 m" };
       let randomLine = null;
+      let currentYs = [165, 315, 465];
       let scene = "equal";
       let showRandom = false;
       let clippedView = false;
@@ -789,6 +663,7 @@
       let drawing = false;
       let movingLine = null;
       let movingPoint = null;
+      let movingParallelIndex = -1;
       let currentStroke = [];
       let altitudeMarks = [];
       let pointLinks = [];
@@ -826,7 +701,7 @@
       }
 
       function getYList() {
-        return sceneConfig[scene].ys;
+        return currentYs;
       }
 
       function isClippedScene() {
@@ -1146,20 +1021,16 @@
         altitudeMarks = [];
         pointLinks = [];
         selectedPoint = null;
-        toolHint.textContent = "直线 n 已创建。可以拖动直线 n，也可以进入手绘高线。";
         
         // 自动展开直线 n 区域
         openBlock("randomMetrics");
-        
-        // 更新步骤激活状态
-        document.querySelectorAll(".workflow-step")[1].classList.add("active");
-        document.querySelectorAll(".workflow-step")[2].classList.add("active");
         
         draw();
       }
 
       function setScene(nextScene) {
         scene = nextScene;
+        currentYs = [...sceneConfig[scene].ys];
         sceneButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.scene === scene));
         clippedView = false;
         showRandom = false;
@@ -1183,14 +1054,10 @@
         `;
 
         const config = sceneConfig[scene];
-        sceneTitle.textContent = config.title;
-        scenePrompt.textContent = config.prompt;
-        toolHint.textContent = "直线 m 的交点已显示。请创建直线 n，再比较对应线段。";
         clipButton.textContent = "裁剪多余线";
         const isUnequal = scene === "unequal";
         clipButton.classList.toggle("is-hidden", !isUnequal);
         clearExtraButton.classList.toggle("is-hidden", !isUnequal);
-        cleanupStep.classList.toggle("is-hidden", !isUnequal);
         altitudeButton.classList.remove("primary");
         connectButton.classList.remove("primary");
 
@@ -1248,7 +1115,6 @@
       }
 
       function showFixedIntersections() {
-        toolHint.textContent = "直线 m 的交点已显示。现在可以创建直线 n。";
         draw();
       }
 
@@ -1264,7 +1130,6 @@
         movingPoint = null;
         altitudeButton.classList.remove("primary");
         connectButton.classList.remove("primary");
-        toolHint.textContent = randomLine ? "已清除手绘线，保留当前核心图形。" : "已清除手绘线，直线 m 的交点仍保留。";
         draw();
       }
 
@@ -1286,9 +1151,6 @@
         altitudeButton.classList.remove("primary");
         connectButton.classList.remove("primary");
         clipButton.textContent = clippedView ? "还原完整图" : "裁剪多余线";
-        toolHint.textContent = clippedView
-          ? "已由完整不等距图裁剪成核心线段图。拖动直线 n 或 D、E、F 点，观察两个比值是否改变。"
-          : "已还原完整不等距图。可继续拖动直线 n，或再次裁剪多余线。";
         draw();
       }
 
@@ -1351,12 +1213,10 @@
           if (!target) return;
           if (!selectedPoint) {
             selectedPoint = pointRef(target);
-            toolHint.textContent = `已选择 ${target.label} 点，请再点另一个交点。`;
           } else {
             const next = pointRef(target);
             if (selectedPoint.lineKey !== next.lineKey || selectedPoint.index !== next.index) {
               pointLinks.push({ a: selectedPoint, b: next });
-              toolHint.textContent = `已连接 ${selectedPoint.label}${next.label}。可以继续连接其他点。`;
             }
             selectedPoint = null;
           }
@@ -1387,7 +1247,6 @@
             startLine: { xAtCenter: randomLine.xAtCenter, slope: randomLine.slope },
           };
           canvas.setPointerCapture(event.pointerId);
-          toolHint.textContent = `正在拖动 ${controlPoint.label} 点，直线 n 会随之移动。`;
           return;
         }
         if (randomLine && hitLine(point, randomLine)) {
@@ -1398,11 +1257,17 @@
             startSlope: randomLine.slope,
           };
           canvas.setPointerCapture(event.pointerId);
-          toolHint.textContent = "正在移动直线 n。上下拖动会改变斜率，左右拖动会改变位置。";
           return;
         }
         if (hitLine(point, fixedLine)) {
           showFixedIntersections();
+          return;
+        }
+
+        // 检测是否点击在平行线 l2 上 (index 1) - 仅在不等距场景允许拖动
+        if (scene === "unequal" && Math.abs(point.y - currentYs[1]) < 12) {
+          movingParallelIndex = 1;
+          canvas.setPointerCapture(event.pointerId);
           return;
         }
       });
@@ -1425,6 +1290,14 @@
           draw();
           return;
         }
+        if (movingParallelIndex === 1) {
+          const point = getCanvasPoint(event);
+          // 限制范围在 l1 和 l3 之间，留出 20 像素间距
+          currentYs[1] = clamp(point.y, currentYs[0] + 20, currentYs[2] - 20);
+          altitudeMarks = [];
+          draw();
+          return;
+        }
         if (!drawing) return;
         currentStroke = [currentStroke[0], getCanvasPoint(event)];
         draw();
@@ -1435,14 +1308,18 @@
           const label = movingPoint.label;
           movingPoint = null;
           if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-          toolHint.textContent = `已移动 ${label} 点。长度和比值已更新。`;
           draw();
           return;
         }
         if (movingLine) {
           movingLine = null;
           if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-          toolHint.textContent = "直线 n 已移动。长度和比值已更新。";
+          draw();
+          return;
+        }
+        if (movingParallelIndex !== -1) {
+          movingParallelIndex = -1;
+          if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
           draw();
           return;
         }
@@ -1459,7 +1336,6 @@
             start: startPoint,
             end: endPoint,
           });
-          toolHint.textContent = `已画出第 ${altitudeMarks.length} 条高线。`;
         }
         currentStroke = [];
         drawing = false;
@@ -1471,6 +1347,7 @@
         drawing = false;
         movingLine = null;
         movingPoint = null;
+        movingParallelIndex = -1;
         currentStroke = [];
         draw();
       });
@@ -1487,7 +1364,6 @@
           connectButton.classList.remove("primary");
         }
         altitudeButton.classList.toggle("active", drawMode);
-        toolHint.textContent = drawMode ? "手绘高线：从任意已显示交点拖到下一条平行线。系统只保证画出直线段，角度由学生自己控制。" : "已退出手绘高线。";
         draw();
       });
       connectButton.addEventListener("click", () => {
@@ -1499,7 +1375,6 @@
         }
         selectedPoint = null;
         connectButton.classList.toggle("active", connectMode);
-        toolHint.textContent = connectMode ? "连接两点：依次点击两个已显示交点。" : "已退出连接两点。";
         draw();
       });
       resetButton.addEventListener("click", () => setScene(scene));
