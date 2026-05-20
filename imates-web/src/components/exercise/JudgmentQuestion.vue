@@ -4,30 +4,30 @@
       <div 
         class="judgment-item correct" 
         :class="{ 
-          active: modelValue === '对', 
-          'is-correct': modelValue === '对' && disabled && isCorrect('对'),
-          'is-wrong': modelValue === '对' && disabled && !isCorrect('对')
+          active: modelValue === correctLabel, 
+          'is-correct': modelValue === correctLabel && disabled && isCorrect(correctLabel),
+          'is-wrong': modelValue === correctLabel && disabled && !isCorrect(correctLabel)
         }"
-        @click="handleSelect('对')"
+        @click="handleSelect(correctLabel)"
       >
-        <span class="label">正确</span>
-        <div class="status-icon" v-if="disabled && modelValue === '对'">
-          <q-icon v-if="isCorrect('对')" name="check_circle" color="green" size="20px" />
+        <span class="label">{{ correctDisplay }}</span>
+        <div class="status-icon" v-if="disabled && modelValue === correctLabel">
+          <q-icon v-if="isCorrect(correctLabel)" name="check_circle" color="green" size="20px" />
           <q-icon v-else name="cancel" color="red" size="20px" />
         </div>
       </div>
       <div 
         class="judgment-item wrong" 
         :class="{ 
-          active: modelValue === '错', 
-          'is-correct': modelValue === '错' && disabled && isCorrect('错'),
-          'is-wrong': modelValue === '错' && disabled && !isCorrect('错')
+          active: modelValue === wrongLabel, 
+          'is-correct': modelValue === wrongLabel && disabled && isCorrect(wrongLabel),
+          'is-wrong': modelValue === wrongLabel && disabled && !isCorrect(wrongLabel)
         }"
-        @click="handleSelect('错')"
+        @click="handleSelect(wrongLabel)"
       >
-        <span class="label">错误</span>
-        <div class="status-icon" v-if="disabled && modelValue === '错'">
-          <q-icon v-if="isCorrect('错')" name="check_circle" color="green" size="20px" />
+        <span class="label">{{ wrongDisplay }}</span>
+        <div class="status-icon" v-if="disabled && modelValue === wrongLabel">
+          <q-icon v-if="isCorrect(wrongLabel)" name="check_circle" color="green" size="20px" />
           <q-icon v-else name="cancel" color="red" size="20px" />
         </div>
       </div>
@@ -42,6 +42,7 @@ export default {
 </script>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ExerciseItem } from '../../types'
 import BaseQuestion from './BaseQuestion.vue'
 
@@ -59,11 +60,56 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue', 'change'])
 
+// 动态获取显示文本和内部标识
+const correctDisplay = computed(() => {
+  const options = props.question.structuredContent?.options
+  return (options && options.length > 0) ? options[0].text : '正确'
+})
+
+const wrongDisplay = computed(() => {
+  const options = props.question.structuredContent?.options
+  return (options && options.length > 1) ? options[1].text : '错误'
+})
+
+// 内部标识值，用于 v-model
+const correctLabel = computed(() => {
+  const options = props.question.structuredContent?.options
+  return (options && options.length > 0) ? options[0].text : '对'
+})
+
+const wrongLabel = computed(() => {
+  const options = props.question.structuredContent?.options
+  return (options && options.length > 1) ? options[1].text : '错'
+})
+
 const isCorrect = (val: string) => {
-  const answer = props.question.answer?.trim()
-  if (val === '对') return answer === '对' || answer === '√' || answer === '正确'
-  if (val === '错') return answer === '错' || answer === '×' || answer === '错误'
-  return false
+  const structured = props.question.structuredContent
+  const rawAnswer = structured?.answer ?? props.question.answer
+  
+  // 转换答案为字符串进行比较
+  let standardAnswer = ''
+  if (typeof rawAnswer === 'boolean') {
+    standardAnswer = rawAnswer ? correctLabel.value : wrongLabel.value
+  } else if (rawAnswer) {
+    standardAnswer = String(rawAnswer).trim()
+  }
+
+  // 兼容 ID 和 文本
+  const options = structured?.options
+  if (options && options.length > 0) {
+    if (val === options[0].text) {
+      return standardAnswer === options[0].text || standardAnswer === options[0].label || standardAnswer === 'true' || (rawAnswer as any) === true
+    }
+    if (options.length > 1 && val === options[1].text) {
+      return standardAnswer === options[1].text || standardAnswer === options[1].label || standardAnswer === 'false' || (rawAnswer as any) === false
+    }
+  }
+
+  // 默认逻辑
+  if (val === '对') return ['对', '√', '正确', 'true', 'T'].includes(standardAnswer) || (rawAnswer as any) === true
+  if (val === '错') return ['错', '×', '错误', 'false', 'F'].includes(standardAnswer) || (rawAnswer as any) === false
+  
+  return val === standardAnswer
 }
 
 const handleSelect = (val: string) => {

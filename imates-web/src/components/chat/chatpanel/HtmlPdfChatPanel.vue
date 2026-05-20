@@ -122,7 +122,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   close: []
   'screenshot-click': [boolean]  // 统一截图工具事件：true=开启, false=关闭
-  'open-html-preview': [url: string] // HTML 预览点击事件，向上传递
+  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件，向上传递
 }>()
 
 // ChatView 实例引用
@@ -296,9 +296,9 @@ const handleEditScreenshot = (shotId: string) => {
 }
 
 // 处理 HTML 预览点击 - 向上传递到父组件
-const handleOpenHtmlPreview = (url: string) => {
-  if (!url) return
-  emit('open-html-preview', url)
+const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+  if (!payload || !payload.url) return
+  emit('open-html-preview', payload)
 }
 
 // 遮罩层按钮位置样式

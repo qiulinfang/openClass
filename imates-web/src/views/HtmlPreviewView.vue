@@ -13,9 +13,9 @@
             <q-btn v-if="isDev" flat dense class="toolbar-action-btn" label="打印原始" @click="printOriginalHtml" />
             <q-btn v-if="isDev" flat dense class="toolbar-action-btn" label="打印实时" @click="printLiveHtml" />
           </div>
-          <div class="html-content-wrapper">
+            <div class="html-content-wrapper">
             <!-- iframe 显示 HTML -->
-            <iframe v-if="!isLoading && !error && htmlContentUrl" ref="iframeRef" :src="htmlContentUrl"
+            <iframe v-if="!error && htmlContentUrl" ref="iframeRef" :src="htmlContentUrl"
               class="html-iframe" frameborder="0" allowfullscreen
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"
               loading="lazy" />
@@ -182,7 +182,13 @@ const handleCloseChatPanel = () => {
 }
 
 // 处理来自 ChatPanel 的 HTML 预览点击 - 直接刷新 iframe，不操作路由
-const handleOpenHtmlPreviewFromPanel = async (url: string) => {
+const handleOpenHtmlPreviewFromPanel = async (payload: { url: string; html?: string }) => {
+  console.log('[HtmlPreviewView] handleOpenHtmlPreviewFromPanel 触发:', { 
+    url: payload.url, 
+    hasHtml: !!payload.html,
+    htmlLength: payload.html?.length || 0 
+  })
+  const { url, html } = payload
   if (!url) return
   const now = Date.now()
   const lastOpen = lastPanelPreviewOpen.value
@@ -204,7 +210,19 @@ const handleOpenHtmlPreviewFromPanel = async (url: string) => {
       }
     })
   }
-  await fetchHtmlSourceAndRender()
+
+  if (html) {
+    // 【核心优化】：如果已经有增强后的 HTML，直接复用
+    console.log('[HtmlPreviewView] 复用本地缓存 HTML 内容，跳过 Fetch')
+    originalHtml.value = html
+    ggbListenerState.value = null
+    ggbEventLog.value = []
+    const blob = new Blob([html], { type: 'text/html' })
+    htmlBlobUrl.value = URL.createObjectURL(blob)
+  } else {
+    // 只有在没有 HTML 内容时才去 Fetch
+    await fetchHtmlSourceAndRender()
+  }
 }
 
 // 处理返回
@@ -229,35 +247,52 @@ const handleGoBack = () => {
 
 // 加载 HTML 内容
 const loadHtmlContent = () => {
+  const urlFromQuery = route.query.url as string
+  console.log('[HtmlPreviewView] loadHtmlContent 启动:', { 
+    queryUrl: urlFromQuery,
+    currentHtmlUrl: htmlUrl.value,
+    hasOriginalHtml: !!originalHtml.value
+  })
   try {
     isLoading.value = true
     error.value = null
 
     // 检查是否有直接从 sessionStorage 传入的 HTML 内容
     const inlineHtml = sessionStorage.getItem('htmlPreview_inlineContent')
+    const url = route.query.url as string
+
     if (inlineHtml) {
-      // 直接使用内联 HTML 内容，不需要 URL
+      console.log('[HtmlPreviewView] 发现 sessionStorage 缓存内容，执行秒开渲染')
       originalHtml.value = inlineHtml
       const blob = new Blob([inlineHtml], { type: 'text/html' })
       htmlBlobUrl.value = URL.createObjectURL(blob)
       isLoading.value = false
+      if (url) htmlUrl.value = url
       // 清除 sessionStorage 中的内容，防止刷新时重复
       sessionStorage.removeItem('htmlPreview_inlineContent')
       return
     }
 
     // 从路由 query 参数获取 URL
-    const url = route.query.url as string
     if (!url) {
       throw new Error('缺少 URL 参数')
     }
 
-    // 验证 URL 格式 (允许本地域名或微软预览服务)
+    // 验证 URL 格式 (允许本地域名、微软预览服务、生产环境域名及本地开发环境)
     const isAllowedUrl = url.startsWith('https://kelvin-cosin.cloud/') || 
-                        url.startsWith('https://view.officeapps.live.com/')
+                        url.startsWith('https://view.officeapps.live.com/') ||
+                        url.startsWith('https://www.imates.com.cn/') ||
+                        url.startsWith('blob:') ||
+                        (import.meta.env.DEV && (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')))
     
     if (!isAllowedUrl) {
-      throw new Error('无效的 HTML URL')
+      // 【优化】：如果已经有缓存的内容（秒开场景），允许继续渲染
+      if (originalHtml.value && htmlUrl.value === url) {
+        console.log('[HtmlPreviewView] 允许未匹配白名单但已有缓存内容的 URL:', url)
+      } else {
+        console.warn('[HtmlPreviewView] 无效的 HTML URL:', url)
+        throw new Error('无效的 HTML URL')
+      }
     }
 
     htmlUrl.value = url
@@ -277,21 +312,28 @@ const loadHtmlContent = () => {
 
 const fetchHtmlSourceAndRender = async () => {
   if (!htmlUrl.value) return
+
+  // 【核心优化】：如果已经有 HTML 内容（秒开场景），跳过 Fetch
+  if (originalHtml.value) {
+    console.log('[HtmlPreviewView] 已经存在 HTML 内容，跳过 Fetch')
+    return
+  }
+
   // 如果是微软预览 URL，跳过源码抓取，因为它直接在 iframe 加载
   if (htmlUrl.value.startsWith('https://view.officeapps.live.com/')) {
     return
   }
   try {
     const htmlData = await apiService.fetchHtmlSource(htmlUrl.value)
-    const raw = htmlData?.html || htmlData?.raw_html
-    if (!raw) throw new Error('获取 HTML 源码失败')
-
-    const enhanced = enhanceResponsiveHtml(raw, {
-      hideGgbUIs: true,       // 隐藏 GGB 原生 UI 元素（工具栏、菜单等）
-      lockPerspectiveG: false, // 锁定为几何视图，不显示代数区
-      enableAdaptive: true,   // 开启容器自适应调整逻辑
-      enableBridge: true,     // 注入事件桥接脚本以监听 GGB 内部交互
+    console.log('[HtmlPreviewView] fetchHtmlSource 响应:', { 
+      success: !!htmlData,
+      title: htmlData?.title,
+      htmlLength: (htmlData?.html || htmlData?.raw_html)?.length || 0 
     })
+    // 直接使用后端已经增强过的 html
+    const enhanced = htmlData?.html || htmlData?.raw_html
+    if (!enhanced) throw new Error('获取 HTML 源码失败')
+
     originalHtml.value = enhanced
     ggbListenerState.value = null
     ggbEventLog.value = []
@@ -428,6 +470,8 @@ const printLiveHtml = async () => {
 
 // 重试加载
 const retry = () => {
+  error.value = null
+  originalHtml.value = '' // 清空内容以强制重新 Fetch
   loadHtmlContent()
   fetchHtmlSourceAndRender()
 }
@@ -462,6 +506,7 @@ watch(
 
 // 生命周期
 onMounted(() => {
+  console.log('[HtmlPreviewView] onMounted 挂载, query:', route.query)
   loadHtmlContent()
   fetchHtmlSourceAndRender()
   window.addEventListener('message', onBridgeMessage)

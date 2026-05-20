@@ -35,13 +35,6 @@
             @click.stop="openHtmlDialog(seg.url)"
           >
             <div class="html-card-content">
-              <button
-                class="html-card-reload-btn"
-                type="button"
-                @click.stop.prevent="handleReloadClick(seg.url)"
-              >
-                <img :src="refreshIcon" alt="重新加载" class="reload-icon" />
-              </button>
               <img
                 v-if="seg.url && props.rawHtmlMap?.[seg.url]?.[1]"
                 :src="props.rawHtmlMap?.[seg.url]?.[1]"
@@ -82,7 +75,7 @@ interface Props{
 
 const emit = defineEmits<{
   'reload-html-image': [url: string]
-  'open-html-preview': [url: string] // HTML 预览点击事件
+  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件
 }>()
 
 const props = withDefaults(defineProps<Props>(), {
@@ -104,8 +97,11 @@ const { renderMessageContent } = useMessageRenderer()
 const openHtmlDialog = (urlArg?: string) => {
   if (!urlArg) return
 
-  // 优先通过事件传递，让父组件统一处理
-  emit('open-html-preview', urlArg)
+  // 获取本地缓存的 HTML 内容
+  const cachedHtml = props.rawHtmlMap?.[urlArg]?.[0]
+
+  // 优先通过事件传递，让父组件统一处理，同时携带已有的 HTML 内容
+  emit('open-html-preview', { url: urlArg, html: cachedHtml })
 }
 
 const handleReloadClick = (url?: string) => {
@@ -324,31 +320,7 @@ const setTypewriterContentRef = (el: any) => {
   min-height: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.html-card-reload-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.reload-icon {
-  width: 16px;
-  height: 16px;
-  filter: brightness(0) invert(1);
+  justify-content: flex-start;
 }
 
 .html-card-footer {

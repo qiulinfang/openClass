@@ -211,17 +211,24 @@ const { captureScreenSnapshot } = useScreenSnapshot()
 const router = useRouter()
 
 // 处理 HTML 预览点击
-const handleOpenHtmlPreview = (url: string) => {
+const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+  const { url, html } = payload
   if (!url) return
+  
+  // 如果有缓存的 HTML，存入 sessionStorage 供 HtmlPreviewView 使用
+  if (html) {
+    sessionStorage.setItem('htmlPreview_inlineContent', html)
+  }
+  
   emit('close')
   router.push({
     name: 'htmlPreview',
     query: {
-      url,
-      from: 'homework',
+      url: url,
+      from: 'exercise',
       returnTo: router.currentRoute.value.fullPath,
       reopenPanel: 'homework',
-    }
+    },
   })
 }
 

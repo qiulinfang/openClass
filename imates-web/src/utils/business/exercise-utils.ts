@@ -83,6 +83,9 @@ export const mapHomeworkQuestionToExercise = (
     explanation: question.questionAnalysis || '',
     analysisData: question.questionAnalysis || '',
     subject: subject,
+    questionReason: question.questionReason,
+    questionChooseInfo: question.questionChooseInfo,
+    questionChooseList: question.questionChooseList,
     questionStructureData: question.questionStructureData
   }
 
@@ -91,7 +94,7 @@ export const mapHomeworkQuestionToExercise = (
     const structured = parseQuestionStructure(question.questionStructureData)
     if (structured) {
       exercise.structuredContent = structured
-      exercise.type = mapBackendTypeToFrontend(structured.type)
+      exercise.type = mapBackendTypeToFrontend(structured.type || 'essay')
       
       // 如果有结构化题干，也进行标准化处理
       if (structured.stem) {
@@ -100,8 +103,12 @@ export const mapHomeworkQuestionToExercise = (
         exercise.question = normalizedStem
       }
       // 如果有结构化答案/解析，更新对应字段
-      if (structured.answer) {
-        exercise.answer = Array.isArray(structured.answer) ? structured.answer.join(', ') : structured.answer
+      if (structured.answer !== undefined && structured.answer !== null) {
+        if (typeof structured.answer === 'boolean') {
+          exercise.answer = structured.answer ? '对' : '错'
+        } else {
+          exercise.answer = Array.isArray(structured.answer) ? structured.answer.join(', ') : String(structured.answer)
+        }
       }
       if (structured.analysis) {
         exercise.explanation = structured.analysis

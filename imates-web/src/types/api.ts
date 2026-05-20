@@ -275,6 +275,8 @@ export interface HomeworkUndoItem {
 
 /** 作业问题详情项 */
 export interface HomeworkQuestionDetail {
+  /** 作业详情ID */
+  id: string
   /** 问题ID */
   questionId: string
   /** 问题内容 */
@@ -283,8 +285,14 @@ export interface HomeworkQuestionDetail {
   questionAnswer?: string
   /** 问题解析 */
   questionAnalysis?: string
+  /** 问题原因 */
+  questionReason?: string
   /** 结构化数据 (JSON string) */
   questionStructureData?: string
+  /** 问题选项 */
+  questionChooseInfo?: string
+  /** 问题选项列表 */
+  questionChooseList?: string[]
 }
 
 // ========== 手写公式识别 API ==========

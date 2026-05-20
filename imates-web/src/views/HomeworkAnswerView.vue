@@ -223,7 +223,7 @@
             <!-- IP 悬浮功能 -->
             <div
               :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
-              @click="handleToggle"
+              @click="() => handleToggle()"
             >
               <img :src="textbookipIcon" alt="textbookip" class="textbookip-icon" />
             </div>
@@ -835,9 +835,39 @@ const isCurrentQuestionCorrect = computed(() => {
   if (question.type === 'judgment') {
     const userVal = currentQuestionJudgment.value
     if (!userVal) return false
-    const trimAnswer = (answer || '').trim()
-    if (userVal === '对' || userVal === '正确') return [true, '对', '√', '正确', 'true'].includes(trimAnswer)
-    if (userVal === '错' || userVal === '错误') return [false, '错', '×', '错误', 'false'].includes(trimAnswer)
+    
+    const structured = question.structuredContent
+    const options = structured?.options
+    const rawAnswer = structured?.answer ?? question.answer
+    
+    // 转换标准答案为字符串
+    let standardAnswer = ''
+    if (typeof rawAnswer === 'boolean') {
+      standardAnswer = rawAnswer ? 'true' : 'false'
+    } else if (rawAnswer) {
+      standardAnswer = String(rawAnswer).trim().toLowerCase()
+    }
+
+    // 如果有自定义选项
+    if (options && options.length > 0) {
+      const correctOpt = options[0]
+      const wrongOpt = options.length > 1 ? options[1] : null
+      
+      if (userVal === correctOpt.text) {
+        return ['true', '1', '对', '正确', '√', correctOpt.text.toLowerCase(), correctOpt.label.toLowerCase()].includes(standardAnswer) || (rawAnswer as any) === true
+      }
+      if (wrongOpt && userVal === wrongOpt.text) {
+        return ['false', '0', '错', '错误', '×', wrongOpt.text.toLowerCase(), wrongOpt.label.toLowerCase()].includes(standardAnswer) || (rawAnswer as any) === false
+      }
+    }
+
+    // 默认判断逻辑
+    if (userVal === '对' || userVal === '正确') {
+      return ['true', '1', '对', '正确', '√', 't'].includes(standardAnswer) || (rawAnswer as any) === true
+    }
+    if (userVal === '错' || userVal === '错误') {
+      return ['false', '0', '错', '错误', '×', 'f'].includes(standardAnswer) || (rawAnswer as any) === false
+    }
     return false
   }
 

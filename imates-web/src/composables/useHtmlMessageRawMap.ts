@@ -22,272 +22,12 @@ const DEFAULT_ENHANCE_OPTIONS: HtmlEnhanceOptions = {
   enableBridge: true,
 };
 
-// 对传入的 HTML 进行自适应增强处理，确保图形界面在不同环境下更稳妥展示
+// 对传入的 HTML 进行自适应增强处理（前端精简版，核心逻辑已移至后端）
 export const enhanceResponsiveHtml = (html: string, options: HtmlEnhanceOptions = DEFAULT_ENHANCE_OPTIONS): string => {
   if (!html) return html
-
-  let enhancedHtml = html
-
-  // 1. GeoGebra Classic UI 隐藏配置：强制关闭非绘图相关的界面元素
-  if (options.hideGgbUIs) {
-    const forceFalseKeys = [
-      'showToolBar',        // 工具栏
-      'showAlgebraInput',   // 代数输入框
-      'showMenuBar',        // 菜单栏
-      'allowStyleBar',      // 样式栏
-      'showFullscreenButton', // 全屏按钮
-      'enableLabelDrags',   // 标签拖拽
-      'enableRightClick',   // 右键菜单
-      'errorDialogsActive', // 错误对话框
-      'enableUndoRedo',     // 撤销重做
-      'enableSnapshots',    // 快照
-    ]
-
-    // 将上述配置项从 true 强制改为 false
-    for (const key of forceFalseKeys) {
-      const reg = new RegExp(`(["']?${key}["']?\\s*:\\s*)true`, 'gi')
-      enhancedHtml = enhancedHtml.replace(reg, `$1false`)
-    }
-  }
-
-  // 2. 视角锁定逻辑
-  if (options.lockPerspectiveG) {
-    // 强制设置 GeoGebra 视角为纯几何视图（不含代数）
-    enhancedHtml = enhancedHtml.replace(
-      /(["']?perspective["']?\\s*:\\s*)["'][^"']*["']/gi,
-      `$1"G"`,
-    )
-
-    // 如果没有 perspective 字段，主动插入 perspective: "G"
-    // 查找 parameters 对象并在其中插入 perspective 配置
-    if (!enhancedHtml.includes('perspective')) {
-      enhancedHtml = enhancedHtml.replace(
-        /(\\bparameters\\s*=\\s*\\{[^}]*)}/gi,
-        (match, beforeBrace) => {
-          if (beforeBrace.trim().endsWith('{') || beforeBrace.trim().endsWith(',')) {
-            return `${beforeBrace} perspective: "G" }`
-          } else {
-            return `${beforeBrace}, perspective: "G" }`
-          }
-        },
-      )
-    }
-  }
-
-  // 3. 自适应适配逻辑
-  if (options.enableAdaptive) {
-    // 替换窗口尺寸为容器尺寸，确保图形在 iframe 内正确适配
-    enhancedHtml = enhancedHtml.replace(
-      /"width": window\\.innerWidth/g,
-      `"width": document.getElementById('ggb-container').parentElement.clientWidth`,
-    )
-    enhancedHtml = enhancedHtml.replace(
-      /"height": window\\.innerHeight/g,
-      `"height": document.getElementById('ggb-container').parentElement.clientHeight`,
-    )
-
-    // 注入 ResizeObserver 脚本，实现容器尺寸变化时自动调整图形大小
-    if (!enhancedHtml.includes('ResizeObserver')) {
-      const resizeScript = `
-          <script>
-            // 添加 ResizeObserver 监听容器变化，实现图形自适应缩放
-            if (typeof ResizeObserver !== 'undefined') {
-              const resizeObserver = new ResizeObserver(entries => {
-                for (const entry of entries) {
-                  const { width, height } = entry.contentRect;
-                  // 获取 GeoGebra 应用实例
-                  const ggbApplet = window.ggbApplet || document.querySelector('#ggb-container')?.ggbApplet;
-                  if (ggbApplet && ggbApplet.setSize) {
-                    ggbApplet.setSize(width, height);
-                  }
-                }
-              });
-              // 监听 ggb-container 容器的父元素（因为容器本身可能被缩放）
-              const ggbContainer = document.getElementById('ggb-container');
-              if (ggbContainer) {
-                resizeObserver.observe(ggbContainer.parentElement);
-              }
-            }
-          <\/script>
-        `
-      enhancedHtml = enhancedHtml.replace('</body>', resizeScript + '</body>')
-    }
-  }
-
-  // 4. 事件监听桥接逻辑
-  if (options.enableBridge) {
-    // 注入 GeoGebra 事件监听器桥接脚本：将 add/remove/rename/update 事件回传给父页面
-    if (!enhancedHtml.includes('GGB_LISTENER_BRIDGE')) {
-      const bridgeScript = `
-          <script>
-            // GGB_LISTENER_BRIDGE
-            (function() {
-              var BRIDGE_SOURCE = 'GGB_LISTENER_BRIDGE';
-              var MAX_EVENTS = 200;
-              var buffer = [];
-              var pendingTimer = null;
-
-              var UPDATE_DETAIL_THROTTLE_MS = 500;
-              var lastDetailTsByName = Object.create(null);
-
-              function safeGetApi() {
-                try {
-                  var api = window.ggbApplet || (window.parent && window.parent.ggbApplet);
-                  if (api) return api;
-                  var container = document.getElementById('ggb-container');
-                  return (container && container.ggbApplet) || null;
-                } catch (e) {
-                  return null;
-                }
-              }
-
-              function safeGetObjectType(api, name) {
-                try {
-                  return api && typeof api.getObjectType === 'function' ? api.getObjectType(name) : null;
-                } catch (e) { return null; }
-              }
-
-              function safeGetValueString(api, name) {
-                try {
-                  return api && typeof api.getValueString === 'function' ? api.getValueString(name) : null;
-                } catch (e) { return null; }
-              }
-
-              function safeGetState() {
-                try {
-                  var api = safeGetApi();
-                  if (!api) return { error: 'No API available' };
-                  var xml = (typeof api.getXML === 'function') ? api.getXML() : null;
-                  return { xml: xml };
-                } catch (e) {
-                  return { error: (e && e.message) ? e.message : String(e) };
-                }
-              }
-
-              function buildDiff(list) {
-                var diff = { add: [], remove: [], update: [] };
-                var updateMap = Object.create(null);
-                for (var i = 0; i < list.length; i++) {
-                  var ev = list[i];
-                  if (!ev || !diff[ev.type]) continue;
-                  if (ev.type === 'update' && ev.data && ev.data.name) {
-                    updateMap[ev.data.name] = ev;
-                    continue;
-                  }
-                  diff[ev.type].push(ev);
-                }
-                for (var k in updateMap) {
-                  diff.update.push(updateMap[k]);
-                }
-                return diff;
-              }
-
-              function flush() {
-                pendingTimer = null;
-                var last = buffer.length ? buffer[buffer.length - 1] : null;
-                var list = buffer.slice(0);
-                buffer.length = 0;
-                var payload = {
-                  source: BRIDGE_SOURCE,
-                  update: last,
-                  currentState: safeGetState(),
-                  diff: buildDiff(list),
-                  ts: Date.now()
-                };
-                try {
-                  if (window.parent && window.parent !== window) {
-                    window.parent.postMessage(payload, '*');
-                  }
-                } catch (e) {
-                  // ignore
-                }
-              }
-
-              function pushEvent(type, data) {
-                var ev = { type: type, ts: Date.now(), data: data || null };
-                buffer.push(ev);
-                if (buffer.length > MAX_EVENTS) buffer.shift();
-                if (pendingTimer) return;
-                pendingTimer = setTimeout(flush, 150);
-              }
-
-              window.__ggb_on_add = function(objName) {
-                var api = safeGetApi();
-                pushEvent('add', {
-                  name: objName,
-                  objectType: safeGetObjectType(api, objName),
-                  valueString: safeGetValueString(api, objName)
-                });
-              };
-              window.__ggb_on_remove = function(objName) {
-                var api = safeGetApi();
-                pushEvent('remove', {
-                  name: objName,
-                  objectType: safeGetObjectType(api, objName),
-                  valueString: safeGetValueString(api, objName)
-                });
-              };
-              window.__ggb_on_update = function(objName) {
-                var api = safeGetApi();
-                // 移除节流逻辑，确保每次 update 动作都记录完整的 objectType 和 valueString
-                pushEvent('update', {
-                  name: objName,
-                  objectType: safeGetObjectType(api, objName),
-                  valueString: safeGetValueString(api, objName)
-                });
-              };
-
-              function tryRegister() {
-                var api = safeGetApi();
-                if (!api) return false;
-
-                try {
-                  var registeredCount = 0;
-                  if (typeof api.registerAddListener === 'function') {
-                    api.registerAddListener('__ggb_on_add');
-                    registeredCount++;
-                  }
-                  if (typeof api.registerRemoveListener === 'function') {
-                    api.registerRemoveListener('__ggb_on_remove');
-                    registeredCount++;
-                  }
-                  if (typeof api.registerUpdateListener === 'function') {
-                    api.registerUpdateListener('__ggb_on_update');
-                    registeredCount++;
-                  }
-                  
-                  if (registeredCount > 0) {
-                    pushEvent('update', { name: '__init__' });
-                    return true;
-                  }
-                  return false;
-                } catch (e) {
-                  return false;
-                }
-              }
-
-              var tries = 0;
-              var timer = setInterval(function() {
-                tries++;
-                if (tryRegister() || tries > 80) {
-                  clearInterval(timer);
-                }
-              }, 250);
-            })();
-          <\/script>
-        `
-      
-      // 注入逻辑
-      const bodyCloseRegex = /<\s*\/\s*body\s*>/i;
-      if (bodyCloseRegex.test(enhancedHtml)) {
-        enhancedHtml = enhancedHtml.replace(bodyCloseRegex, bridgeScript + '</body>');
-      } else {
-        enhancedHtml += bridgeScript;
-      }
-    }
-  }
-
-  return enhancedHtml
+  // 后端已经完成了大部分增强逻辑（UI 隐藏、视角锁定、ResizeObserver、Bridge 注入）
+  // 前端此处仅保留基础返回，除非有极致的实时调整需求
+  return html
 }
 
 
@@ -780,7 +520,8 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
         // 缓存未命中，发起 HTTP 请求
         if (!html) {
           const htmlData = await api.fetchHtmlSource(url)
-          if (htmlData && (htmlData.html || htmlData.raw_html)) {
+          if (htmlData) {
+            // 直接使用后端已经增强过的 html
             html = htmlData.html || htmlData.raw_html
           }
         }
@@ -789,6 +530,7 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
         if (html) {
           const finalHtml = enhance ? enhance(html) : html
 
+          // 🎯 核心逻辑：始终优先在前端生成/复用快照
           const needRender = !!options.forceRender || !cachedImg || cachedHtml !== finalHtml
           const finalImg = needRender ? (await renderHtmlToImage(url, finalHtml)) || '' : cachedImg
 

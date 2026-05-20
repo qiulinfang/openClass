@@ -279,7 +279,7 @@ export class AiChatApi {
     }
 
     if (parsed.ended) {
-      const newAccumulated = accumulatedContent + (parsed.textChunk || '')
+      const newAccumulated = this.mergeContent(accumulatedContent, parsed.textChunk || '')
       return this.handlePollingEnd(messageId, newAccumulated, response.data.sessionId, message.sessionId, onComplete, onStream)
     }
 
@@ -317,7 +317,7 @@ export class AiChatApi {
     // 这种情况下应直接结束轮询，而不是继续发送 continue。
     if (!effectiveChunk.includes('data:') && /\s*end\s*$/i.test(effectiveChunk)) {
       const chunk = this.stripTrailingEnd(effectiveChunk)
-      const newAccumulated = accumulatedContent + (chunk ? chunk : '')
+      const newAccumulated = this.mergeContent(accumulatedContent, chunk)
       return this.handlePollingEnd(
         messageId,
         newAccumulated,
@@ -565,6 +565,23 @@ export class AiChatApi {
     return finalResult
   }
 
+  /**
+   * 合并新旧内容，处理后端可能返回全量文本或增量文本的情况
+   */
+  private mergeContent(accumulated: string, newChunk: string): string {
+    if (!newChunk) return accumulated
+    if (!accumulated) return newChunk
+
+    // 情况1：newChunk 是全量文本 (newChunk 包含了 accumulated)
+    // 这种情况下，直接使用 newChunk 作为最新的全量文本
+    if (newChunk.startsWith(accumulated)) {
+      return newChunk
+    }
+
+    // 情况2：newChunk 是增量内容 (正常情况)
+    return accumulated + newChunk
+  }
+
   private async handleNewContent(
     chunk: string,
     message: AiChatMessageRequest,
@@ -577,11 +594,18 @@ export class AiChatApi {
     forceAppendNewline: boolean = false,
   ) {
     const outgoingChunk = forceAppendNewline && chunk && !chunk.endsWith('\n') ? `${chunk}\n` : chunk
-    const newAccumulatedContent = accumulatedContent + outgoingChunk
+    
+    const oldLength = accumulatedContent.length
+    const newAccumulatedContent = this.mergeContent(accumulatedContent, outgoingChunk)
+    
     if (onStream) {
       try {
-        onStream(outgoingChunk, false)
-        console.log('[AiChatApi] onStream', { messageId, chunk: outgoingChunk })
+        // 仅向流式回调发送真正新增的部分
+        const addedContent = newAccumulatedContent.slice(oldLength)
+        if (addedContent) {
+          onStream(addedContent, false)
+          console.log('[AiChatApi] onStream', { messageId, chunk: addedContent })
+        }
       } catch (e) {
         console.error('[AiChatApi] onStream error', { messageId, error: e })
       }

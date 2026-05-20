@@ -324,34 +324,9 @@ const backgroundOrigin = reactive({ x: 0, y: 0 })
 const backgroundScale = ref(1)
 
 function updateBackgroundOrigin() {
-  if (!liveCanvasRef.value || !backgroundImg.value || !backgroundLoaded.value) return
-
-  const dpr = window.devicePixelRatio || 1
-  const canvasW = liveCanvasRef.value.width / dpr
-  const canvasH = liveCanvasRef.value.height / dpr
-  const imgW = backgroundImg.value.naturalWidth
-  const imgH = backgroundImg.value.naturalHeight
-
-  if (props.backgroundContain) {
-    // 计算 contain 缩放比例
-    const scale = Math.min(canvasW / imgW, canvasH / imgH, 1) // 不放大，只缩小
-    backgroundScale.value = scale
-    const displayW = imgW * scale
-    const displayH = imgH * scale
-
-    backgroundOrigin.x = (canvasW - displayW) / 2
-    backgroundOrigin.y = (canvasH - displayH) / 2
-  } else {
-    backgroundScale.value = 1
-    if (props.backgroundPosition === 'topLeft') {
-      backgroundOrigin.x = 0
-      backgroundOrigin.y = 0
-    } else {
-      // 居中模式
-      backgroundOrigin.x = (canvasW - imgW) / 2
-      backgroundOrigin.y = (canvasH - imgH) / 2
-    }
-  }
+  backgroundOrigin.x = 100
+  backgroundOrigin.y = 100
+  requestRenderAll()
 }
 
 // 橡皮擦光标

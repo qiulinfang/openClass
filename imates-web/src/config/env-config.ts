@@ -406,6 +406,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/knowledge': ADDRESS_CATALOG.KNOWLEDGE_API,
     // requests 代理服务（Nginx 转发到自建代理服务）
     '/requests': ADDRESS_CATALOG.IMATES_HTTP,
+    '/requests2': ADDRESS_CATALOG.IMATES_HTTP,
     // 应用更新配置（/bj101/appupdate.json）永远走学伴服务
     '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
     // 学伴服务（根据环境动态切换）

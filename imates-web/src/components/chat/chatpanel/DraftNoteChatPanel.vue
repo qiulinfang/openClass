@@ -153,7 +153,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   close: []
-  'open-html-preview': [url: string] // HTML 预览点击事件，向上传递
+  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件，向上传递
   'screenshot-click': [active: boolean]
   'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
@@ -369,9 +369,9 @@ const handleCreateNewChatFromTree = async () => {
 }
 
 // 处理 HTML 预览点击 - 向上传递到父组件
-const handleOpenHtmlPreview = (url: string) => {
-  if (!url) return
-  emit('open-html-preview', url)
+const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+  if (!payload || !payload.url) return
+  emit('open-html-preview', payload)
 }
 
 // AI 会话删除

@@ -511,7 +511,7 @@ const emit = defineEmits<{
   'screenshot-click': [] // 截图/选中并问按钮点击事件（统一处理 screenshot 和 select-and-ask）
   'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }] // 请求截图事件，由父组件处理
   'new-session-click': [] // 新建会话按钮点击事件
-  'open-html-preview': [url: string] // HTML 预览点击事件，由父组件处理
+  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件，由父组件处理
 }>()
 
 const toSenderEnum = (sender: 'ai' | 'teacher' | 'user'): Sender => {

@@ -83,12 +83,19 @@ export default defineConfig(() => {
         })
       },
       proxy: {
-        // 统一走 Nginx/后端前缀代理（仅本地开发需要），与 getRouteBaseMap 保持一致
-        '/requests': {
+        '/requests2': {
           target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,
           secure: false,
-          agent: new https.Agent({ rejectUnauthorized: false }),
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/requests2')
+          },
+        },
+        // HTML 代理服务：指向本地 5001 端口
+        '/requests': {
+          target: 'http://localhost:5001',
+          changeOrigin: true,
+          secure: false,
           configure: (proxy) => {
             attachBasicProxyLog(proxy, '/requests')
           },

@@ -387,7 +387,7 @@ const emit = defineEmits<{
   'scroll-to-message': [messageId: string] // 滚动到指定消息
   'delete-message': [messageId: string] // 删除消息，由父组件处理实际删除逻辑
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }] // 粘贴到草稿本
-  'open-html-preview': [url: string] // HTML 预览点击事件
+  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件
 }>()
 
 // 是否启用贴到草稿本功能：仅在 ai-exercise 类型下启用
@@ -468,9 +468,9 @@ const handleReloadHtmlImage = async (url: string) => {
 }
 
 // 处理 HTML 预览点击事件 - 向上传递到 ChatPanel
-const handleOpenHtmlPreview = (url: string) => {
-  if (!url) return
-  emit('open-html-preview', url)
+const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+  if (!payload || !payload.url) return
+  emit('open-html-preview', payload)
 }
 
 // 消息状态由收到消息时自动管理，不需要额外处理

@@ -39,7 +39,10 @@ export interface ExerciseItem {
   subject?: string // 科目
   type?: string // 题目类型 (choice, fill, judgment, essay)
   questionContent?: string // 完整题目内容 (包含图片和文字)
-  
+  questionReason?: string // 题目原因
+  questionChooseInfo?: string // 问题选项
+  questionChooseList?: string[] // 问题选项列表
+
   // 结构化相关
   questionStructureData?: string
   structuredContent?: StructuredQuestionContent

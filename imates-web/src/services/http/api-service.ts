@@ -221,7 +221,7 @@ export class ApiService {
   /**
    * 获取老师会话的消息历史
    */
-  public async getTeacherChatHistory(sessionId: string, page?: number, pageSize?: number): Promise<TeacherHistoryMessage[]> {
+  public async getTeacherChatHistory(sessionId: string, page: number = 1, pageSize: number = 20): Promise<TeacherHistoryMessage[]> {
     return this.teacherChatApi.getTeacherChatHistory(sessionId, page, pageSize)
   }
 
@@ -432,7 +432,7 @@ export class ApiService {
 
   public async fetchHtmlSource(url: string): Promise<HtmlSourceData | null> {
     const response = await httpClient.get<FetchHtmlResponse>(
-      `/requests/fetch?url=${encodeURIComponent(url)}`,
+      `/requests2/fetch?url=${encodeURIComponent(url)}`,
     )
 
     if (response.success && response.data && response.data.data) {
@@ -447,6 +447,7 @@ export class ApiService {
 export interface HtmlSourceData {
   raw_html: string
   html: string
+  screenshot?: string // 增加截图数据字段
   title: string
   url: string
   content_length: number

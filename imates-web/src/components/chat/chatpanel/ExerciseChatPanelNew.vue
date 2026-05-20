@@ -226,6 +226,7 @@ const emit = defineEmits<{
   'add-session': []
   close: []
   'screenshot-click': [active: boolean]
+  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件，向上传递
   'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()
 
@@ -252,9 +253,10 @@ const toolbarToolNames = computed(() => {
 const { captureScreenSnapshot } = useScreenSnapshot()
 const router = useRouter()
 
-// 处理 HTML 预览点击 - 跳转到 HtmlPreviewView
+// 处理 HTML 预览点击 - 向上传递到父组件
 const lastHtmlPreviewOpen = ref<{ url: string; ts: number } | null>(null)
-const handleOpenHtmlPreview = (url: string) => {
+const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+  const { url, html } = payload
   if (!url) return
   const now = Date.now()
   const lastOpen = lastHtmlPreviewOpen.value
@@ -263,16 +265,13 @@ const handleOpenHtmlPreview = (url: string) => {
     return
   }
   lastHtmlPreviewOpen.value = { url, ts: now }
-  emit('close')
-  router.push({
-    name: 'htmlPreview',
-    query: {
-      url,
-      from: 'exercise',
-      returnTo: router.currentRoute.value.fullPath,
-      reopenPanel: 'exercise',
-    },
-  })
+
+  // 如果有缓存的 HTML，存入 sessionStorage 供 HtmlPreviewView 使用
+  if (html) {
+    sessionStorage.setItem('htmlPreview_inlineContent', html)
+  }
+
+  emit('open-html-preview', payload)
 }
 
 // Tab 状态
