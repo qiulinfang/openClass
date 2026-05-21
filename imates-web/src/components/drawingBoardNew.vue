@@ -324,8 +324,42 @@ const backgroundOrigin = reactive({ x: 0, y: 0 })
 const backgroundScale = ref(1)
 
 function updateBackgroundOrigin() {
-  backgroundOrigin.x = 100
-  backgroundOrigin.y = 100
+  if (!backgroundImg.value || !containerRef.value) return
+
+  const rect = containerRef.value.getBoundingClientRect()
+  // 注意：Canvas 的尺寸在 resizeCanvas 中根据 enableBuffer 进行了放大
+  const bufferScale = props.enableBuffer ? 1.2 : 1.0
+  const canvasWidth = rect.width * bufferScale
+  const canvasHeight = rect.height * bufferScale
+
+  const imgWidth = backgroundImg.value.naturalWidth || backgroundImg.value.width
+  const imgHeight = backgroundImg.value.naturalHeight || backgroundImg.value.height
+
+  if (props.backgroundContain) {
+    // Contain 模式：保持宽高比，缩放到刚好完全显示在容器内
+    const scaleX = canvasWidth / imgWidth
+    const scaleY = canvasHeight / imgHeight
+    const scale = Math.min(scaleX, scaleY)
+
+    backgroundScale.value = scale
+
+    // 居中计算
+    backgroundOrigin.x = (canvasWidth - imgWidth * scale) / 2
+    backgroundOrigin.y = (canvasHeight - imgHeight * scale) / 2
+  } else {
+    // 默认行为：如果不使用 contain，则按原图 1:1 渲染
+    backgroundScale.value = 1
+
+    if (props.backgroundPosition === 'topLeft') {
+      backgroundOrigin.x = 100
+      backgroundOrigin.y = 100
+    } else {
+      // 居中
+      backgroundOrigin.x = (canvasWidth - imgWidth) / 2
+      backgroundOrigin.y = (canvasHeight - imgHeight) / 2
+    }
+  }
+
   requestRenderAll()
 }
 
@@ -2697,10 +2731,17 @@ const exportToJpg = (quality = 0.9) => {
     maxX = -Infinity,
     maxY = -Infinity
   if (backgroundImg.value && backgroundLoaded.value) {
+    const w = props.backgroundContain
+      ? backgroundImg.value.naturalWidth * backgroundScale.value
+      : backgroundImg.value.naturalWidth || backgroundImg.value.width
+    const h = props.backgroundContain
+      ? backgroundImg.value.naturalHeight * backgroundScale.value
+      : backgroundImg.value.naturalHeight || backgroundImg.value.height
+
     minX = Math.min(minX, backgroundOrigin.x)
     minY = Math.min(minY, backgroundOrigin.y)
-    maxX = Math.max(maxX, backgroundOrigin.x + backgroundImg.value.width)
-    maxY = Math.max(maxY, backgroundOrigin.y + backgroundImg.value.height)
+    maxX = Math.max(maxX, backgroundOrigin.x + w)
+    maxY = Math.max(maxY, backgroundOrigin.y + h)
   }
   strokes.forEach((s) => {
     if (s.mode === 'eraser') return
@@ -2740,7 +2781,17 @@ const exportToJpg = (quality = 0.9) => {
   tempCtx.lineCap = 'round'
   tempCtx.lineJoin = 'round'
   if (backgroundImg.value && backgroundLoaded.value) {
-    tempCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
+    if (props.backgroundContain) {
+      tempCtx.drawImage(
+        backgroundImg.value,
+        backgroundOrigin.x,
+        backgroundOrigin.y,
+        backgroundImg.value.naturalWidth * backgroundScale.value,
+        backgroundImg.value.naturalHeight * backgroundScale.value
+      )
+    } else {
+      tempCtx.drawImage(backgroundImg.value, backgroundOrigin.x, backgroundOrigin.y)
+    }
   }
   strokes.forEach((s) => drawStrokeToContext(tempCtx, s))
   tempCtx.restore()

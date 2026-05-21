@@ -176,6 +176,7 @@
                       :disabled="isHomeworkLocked"
                       :show-zoom-controls="false"
                       :background-image="questionBgImage"
+                      background-position="topLeft"
                       :initial-zoom="70"
                       @clear="handleClearRequest"
                     />

@@ -19,7 +19,7 @@
     >
       <div
         class="canvas-container"
-        :class="{ 'is-horizontal': readingDirection === 'horizontal' }"
+        :class="{ 'is-horizontal': readingDirection === 'horizontal', 'is-suspended': layoutSuspended }"
         :style="containerStyle"
         ref="containerRef"
       >
@@ -1372,28 +1372,23 @@ const renderPdfPages = async () => {
         inkCanvas.style.width = canvas.style.width
         inkCanvas.style.height = canvas.style.height
 
-        const ctx = canvas.getContext('2d', { alpha: false })
+        const ctx = canvas.getContext('2d')
         if (!ctx) return
 
         const page = rawDoc.loadPage(pageIndex)
         try {
           const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
-          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
+          // 第三个参数 alpha 设为 true，直接输出 RGBA 字节流
+          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, true, true)
           try {
             if (generation !== renderGeneration || props.layoutSuspended) return
 
-            const pixels = pixmap.getPixels()
             const width = pixmap.getWidth()
             const height = pixmap.getHeight()
-            const rgbData = new Uint8Array(pixels)
-            const rgbaData = new Uint8ClampedArray(width * height * 4)
-
-            for (let j = 0; j < width * height; j++) {
-              rgbaData[j * 4] = rgbData[j * 3]
-              rgbaData[j * 4 + 1] = rgbData[j * 3 + 1]
-              rgbaData[j * 4 + 2] = rgbData[j * 3 + 2]
-              rgbaData[j * 4 + 3] = 255
-            }
+            
+            // 尝试使用 getPixels 获取字节流（部分版本中为 getPixels 而非 getSamples）
+            const samples = pixmap.getPixels()
+            const rgbaData = new Uint8ClampedArray(samples)
 
             if (generation !== renderGeneration || props.layoutSuspended) return
 
@@ -1516,16 +1511,25 @@ const renderInkLayer = (pageIndex: number) => {
 
 const refreshLayoutAfterViewportResize = () => {
   if (!isVisible.value) return
+  
+  const center = getNormalizedCenter()
   renderGeneration += 1
-  if (scale.value !== 1) scale.value = 1
-
-  centerContent()
+  
+  if (center) {
+    restoreNormalizedCenter(center)
+  } else {
+    centerContent()
+  }
 
   hasRendered.value = false
   requestAnimationFrame(() => {
     tryRenderContent()
     if (hasRendered.value) {
-      centerContent()
+      if (center) {
+        restoreNormalizedCenter(center)
+      } else {
+        centerContent()
+      }
       clampOffset()
     }
   })
@@ -1540,11 +1544,14 @@ const setupResizeObserver = () => {
 
       const sizeChanged =
         Math.abs(width - lastObservedViewportWidth) > 1 || Math.abs(height - lastObservedViewportHeight) > 1
-      lastObservedViewportWidth = width
-      lastObservedViewportHeight = height
+      
+      const oldWidth = lastObservedViewportWidth
+      const oldHeight = lastObservedViewportHeight
 
       if (isNowVisible !== isVisible.value) {
         isVisible.value = isNowVisible
+        lastObservedViewportWidth = width
+        lastObservedViewportHeight = height
         if (isNowVisible) {
           tryRenderContent()
           if (hasRendered.value) clampOffset()
@@ -1555,18 +1562,35 @@ const setupResizeObserver = () => {
       if (isNowVisible && sizeChanged) {
         if (props.layoutSuspended) {
           pendingViewportResizeWhileSuspended = true
+          lastObservedViewportWidth = width
+          lastObservedViewportHeight = height
           continue
         }
 
-        if (scale.value !== 1) scale.value = 1
+        const center = getNormalizedCenter(oldWidth, oldHeight)
+        
+        lastObservedViewportWidth = width
+        lastObservedViewportHeight = height
 
-        centerContent()
+        // 立即恢复焦点位置（同步执行，利用 CSS 变换实现平滑移动）
+        if (center) {
+          restoreNormalizedCenter(center)
+          clampOffset()
+        } else {
+          centerContent()
+        }
 
+        // 异步执行高质量重绘
         hasRendered.value = false
         requestAnimationFrame(() => {
           tryRenderContent()
           if (hasRendered.value) {
-            centerContent()
+            // 重绘完成后再次微调，确保位置绝对精准
+            if (center) {
+              restoreNormalizedCenter(center)
+            } else {
+              centerContent()
+            }
             clampOffset()
           }
         })
@@ -2284,6 +2308,53 @@ const centerContent = () => {
   }
 }
 
+/**
+ * 获取视口中心点在 PDF 内容空间中的归一化坐标 (0-1)
+ * @param oldWidth 可选的旧视口宽度，用于在尺寸变化后恢复变化前的中心
+ * @param oldHeight 可选的旧视口高度
+ */
+const getNormalizedCenter = (oldWidth?: number, oldHeight?: number) => {
+  if (!viewportRef.value || pageList.value.length === 0 || contentSize.value.width === 0 || contentSize.value.height === 0) return null
+  
+  // 如果提供了旧尺寸，则使用旧尺寸计算中心；否则使用当前实时尺寸
+  const width = oldWidth ?? viewportRef.value.clientWidth
+  const height = oldHeight ?? viewportRef.value.clientHeight
+  
+  if (width === 0 || height === 0) return null
+
+  const centerX = width / 2
+  const centerY = height / 2
+  
+  // 视口中心对应的 PDF 内容坐标
+  const contentX = (centerX - offset.value.x) / scale.value
+  const contentY = (centerY - offset.value.y) / scale.value
+  
+  return {
+    x: contentX / contentSize.value.width,
+    y: contentY / contentSize.value.height
+  }
+}
+
+/**
+ * 根据归一化坐标恢复视口中心焦点
+ */
+const restoreNormalizedCenter = (normalized: { x: number, y: number } | null) => {
+  if (!normalized || !viewportRef.value || pageList.value.length === 0 || contentSize.value.width === 0 || contentSize.value.height === 0) return
+  const rect = viewportRef.value.getBoundingClientRect()
+  const centerX = rect.width / 2
+  const centerY = rect.height / 2
+  
+  // 目标 PDF 内容坐标
+  const targetContentX = normalized.x * contentSize.value.width
+  const targetContentY = normalized.y * contentSize.value.height
+  
+  // 计算新的 offset 使目标点处于视口中心
+  offset.value = {
+    x: centerX - targetContentX * scale.value,
+    y: centerY - targetContentY * scale.value
+  }
+}
+
 // 将视图偏移量限制在可视区域内的实现函数
 const clampOffset = () => {
   if (!viewportRef.value || pageList.value.length === 0) return
@@ -2469,6 +2540,11 @@ defineExpose({
   transform-origin: 0 0;
   will-change: transform;
   transition: opacity 0.3s ease;
+}
+
+/* 在分隔条调整或布局挂起时，使用平滑过渡以优化视觉体验 */
+.canvas-container.is-suspended {
+  transition: transform 0.1s linear, opacity 0.3s ease;
 }
 
 .canvas-container.is-horizontal {

@@ -11,7 +11,6 @@
         @click.stop="handleClick(img, index)"
       >
         <img :src="img.base64DataUrl || img.url" alt="图片" class="multi-image-img"
-             @load="() => console.log('图片加载成功:', index, img.base64DataUrl || img.url)"
              @error="(e) => console.error('图片加载失败:', index, img.base64DataUrl || img.url, e)" />
       </div>
     </div>
