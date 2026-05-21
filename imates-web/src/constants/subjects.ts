@@ -73,15 +73,24 @@ export const normalizeSubject = (raw?: string): AllSubjectType => {
   const noPrefix = upper.startsWith('SUBJECT_') ? upper.slice('SUBJECT_'.length) : upper
 
   // 兼容中文
-  if (noPrefix === '数学') return 'math'
-  if (noPrefix === '生物') return 'biology'
-  if (noPrefix === '化学') return 'chemistry'
-  if (noPrefix === '物理') return 'physics'
-  if (noPrefix === '语文') return 'chinese'
-  if (noPrefix === '英语') return 'english'
-  if (noPrefix === '地理') return 'geography'
-  if (noPrefix === '历史') return 'history'
-  if (noPrefix === '政治') return 'politics'
+  const subjectsCN: Record<string, AllSubjectType> = {
+    '数学': 'math',
+    '生物': 'biology',
+    '生物学': 'biology',
+    '化学': 'chemistry',
+    '物理': 'physics',
+    '物理学': 'physics',
+    '语文': 'chinese',
+    '英语': 'english',
+    '地理': 'geography',
+    '历史': 'history',
+    '政治': 'politics'
+  }
+  if (subjectsCN[noPrefix]) return subjectsCN[noPrefix]
+  
+  // 尝试去掉“学”或“科”后缀再匹配
+  const baseName = noPrefix.replace(/[学科]$/, '')
+  if (subjectsCN[baseName]) return subjectsCN[baseName]
 
   // 兼容大写/混合格式
   const lower = str.toLowerCase()

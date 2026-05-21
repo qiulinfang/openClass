@@ -216,7 +216,7 @@ import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
 import homeworkIcon from '/icons/homework.png'
 import photoQaIcon from '/icons/paizhaodayi.svg'
-import mistakeBookIcon from '/icons/book.svg'
+import mistakeBookIcon from '/icons/cuotiben.svg'
 import canvasIcon from '/icons/draw.svg'
 import ipGif from '/icons/ip_new.webp'
 
@@ -227,7 +227,7 @@ import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
 import homeworkSelectIcon from '/icons/homework_select.png'
 import photoQaSelectIcon from '/icons/paizhaodayi_select.svg'
-import mistakeBookSelectIcon from '/icons/book.svg'
+import mistakeBookSelectIcon from '/icons/cuotiben_select.svg'
 import canvasSelectIcon from '/icons/draw_select.png'
 
 // 定义 props
@@ -641,6 +641,11 @@ const mainViewStyle = computed(() => {
       // 我的作业页：上半部分 #ffffff，下半部分 #f1f3ff，与 MyHomeworkView 匹配
       return {
         background: 'linear-gradient(to bottom, #ffffff 50%, #f1f3ff 50%)',
+      }
+    case 'mistakeBook':
+      // 错题本页：上半部分 #e9eaff，下半部分 #f7f7f7
+      return {
+        background: 'linear-gradient(to bottom, #e9eaff 50%, #f7f7f7 50%)',
       }
     case 'draftNotebook':
       // 草稿本页：沉浸式背景

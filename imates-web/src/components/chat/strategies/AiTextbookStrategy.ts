@@ -12,7 +12,7 @@ import { useKnowledgeGraphStore } from '../../../stores/KnowledgeGraphStore'
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
 import { apiService } from '../../../services/http/api-service'
 import { showMessage } from '../../../utils'
-import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
+import { Sender } from '../../../types/enums'
 
 export class AiTextbookStrategy implements ChatStrategy {
   private aiTextbookStore = useAiTextbookChatStore()
@@ -81,7 +81,7 @@ export class AiTextbookStrategy implements ChatStrategy {
       options.imageData,
       hidePrefix,
       options.skipUserMessage,
-      options.quotedMessage, // 传递引用消息信息（用于消息气泡展示）
+      options.quotedMessage as any, // 使用 any 规避类型检查，或者彻底修复 ChatBubble 定义
       options.imageList,
       options.focus,
     )
@@ -98,13 +98,13 @@ export class AiTextbookStrategy implements ChatStrategy {
   }
   
   // 获取消息类型
-  getMessageType(): 'ai' | 'teacher' {
-    return 'ai'
+  getMessageType(): Sender {
+    return Sender.AI
   }
   
   // 获取发送者类型
-  getSenderType(): 'ai' | 'teacher' {
-    return 'ai'
+  getSenderType(): Sender {
+    return Sender.AI
   }
   
   // 保存聊天历史
@@ -136,29 +136,38 @@ export class AiTextbookStrategy implements ChatStrategy {
   // 转发消息（支持单条或多条，通过数组传入）
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
-      // 选择老师会话（用户手动选择）
-      const session = await this.selectTeacherSession(options.onTeacherSelect)
+      // 1. 自动确定科目
+      const subject = this.getCurrentSubjectForForward()
+      if (!subject) {
+        return {
+          success: false,
+          error: '无法确定当前教材科目，请重试',
+        }
+      }
+
+      // 2. 从写死会话中选择对应的会话
+      const teacherStore = useTeacherChatStore()
+      const allSessions = teacherStore.loadAllSessions()
+      const subjectUpper = subject === 'math' ? 'MATH' : 'BIOLOGY'
+      const session = Object.values(allSessions).find((s) => s.subject === subjectUpper)
 
       if (!session) {
         return {
           success: false,
-          error: '用户取消选择或会话创建失败',
+          error: `未找到${subject === 'math' ? '数学' : '生物'}科目的教师会话`,
         }
       }
-      
-      // 逐条转发消息到通用会话
-      const { successCount } = await this.forwardMessagesSeparately(
-        messages,
-        session.sessionId
-      )
-      
+
+      // 3. 逐条转发消息到通用会话
+      const { successCount } = await this.forwardMessagesSeparately(messages, session.sessionId)
+
       if (successCount > 0) {
         const result: ForwardResult = {
           success: true,
           successCount,
           sessionId: session.sessionId,
         }
-        
+
         // 显示成功提示或对话框
         if (options.showDialog !== false) {
           this.showForwardSuccessDialog(result, options, async () => {
@@ -172,7 +181,7 @@ export class AiTextbookStrategy implements ChatStrategy {
             await options.onSuccess(result)
           }
         }
-        
+
         return result
       } else {
         const error = '转发失败，请重试'
@@ -242,9 +251,9 @@ export class AiTextbookStrategy implements ChatStrategy {
     const imageMessage: ChatBubble = {
       id: Date.now().toString(),
       content: '',
-      type: 'user',
+      type: Sender.USER,
       timestamp: '',
-      sender: 'user',
+      sender: Sender.USER,
       messageType: 'image',
       imageData: {
         filePath: imageInfo.filePath,
@@ -409,9 +418,9 @@ export class AiTextbookStrategy implements ChatStrategy {
     let messageContent = msg.content || ''
 
     // 根据角色类型添加前缀，但保留完整格式
-    if (msg.type === 'user') {
+    if (msg.type === Sender.USER) {
       messageContent = '[学生]\n' + messageContent
-    } else if (msg.type === 'ai') {
+    } else if (msg.type === Sender.AI) {
       messageContent = '[学伴]\n' + messageContent
     }
 
@@ -436,9 +445,9 @@ export class AiTextbookStrategy implements ChatStrategy {
 
     // 根据原消息类型生成转发内容
     let forwardContent: string
-    if (originalMessage.type === 'ai') {
+    if (originalMessage.type === Sender.AI) {
       forwardContent = '[学伴]\n[图片消息]'
-    } else if (originalMessage.type === 'user') {
+    } else if (originalMessage.type === Sender.USER) {
       forwardContent = '[学生]\n[图片消息]'
     } else {
       forwardContent = '[图片消息]'
@@ -459,44 +468,6 @@ export class AiTextbookStrategy implements ChatStrategy {
         fileSize: imageInfo.fileSize || 0,
         base64DataUrl: imageInfo.base64DataUrl
       }
-    }
-  }
-
-  /**
-   * 选择老师会话（从写死会话中选择）
-   */
-  private async selectTeacherSession(onTeacherSelect?: () => Promise<'biology' | 'math'>): Promise<{ sessionId: string; sessionName: string; subject: string } | null> {
-    if (!onTeacherSelect) {
-      console.error('[AiTextbookStrategy] 未提供老师选择回调函数')
-      return null
-    }
-
-    try {
-      // 1. 用户手动选择科目
-      const selectedSubject = await onTeacherSelect()
-
-      // 2. 转换科目格式（小写 -> 大写）
-      const subjectUpper = selectedSubject === 'biology' ? 'BIOLOGY' : 'MATH'
-
-      // 3. 从写死会话中选择对应的会话
-      const teacherStore = useTeacherChatStore()
-      const allSessions = teacherStore.loadAllSessions()
-
-      // 找到对应的写死会话
-      const session = Object.values(allSessions).find(s => s.subject === subjectUpper)
-      if (!session) {
-        console.error('[AiTextbookStrategy] 未找到对应科目的写死会话:', selectedSubject)
-        return null
-      }
-
-      return {
-        sessionId: session.sessionId,
-        sessionName: session.sessionName,
-        subject: session.subject
-      }
-    } catch (error) {
-      console.error('[AiTextbookStrategy] 老师选择失败:', error)
-      return null
     }
   }
 
@@ -577,7 +548,7 @@ export class AiTextbookStrategy implements ChatStrategy {
           console.log(`[转发] 单图消息: ${forwardContent}`)
 
           // 先上传图片获得URL
-          const imageUrl = await apiService.uploadImageAndGetUrl(message.imageData.base64DataUrl)
+          const imageUrl = await apiService.uploadImageAndGetUrl(message.imageData.base64DataUrl || '')
 
           const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
           const forwardMessage: ChatBubble = {

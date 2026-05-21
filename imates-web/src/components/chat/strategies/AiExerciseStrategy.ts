@@ -13,9 +13,9 @@ import { useQuestionStore } from '../../../stores/questionStore'
 import { getUserInfo, getUserId, getSubject } from '../../../services'
 import { apiService } from '../../../services/http/api-service'
 import { showMessage } from '../../../utils'
-import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
-import { normalizeSubject } from '@/constants/subjects'
 import { Sender } from '@/types/enums'
+import { normalizeSubject } from '@/constants/subjects'
+import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 import type { ChatQuotedMessage } from '@/stores/utils/chatStoreUtils'
 
 export class AiExerciseStrategy implements ChatStrategy {
@@ -163,18 +163,21 @@ export class AiExerciseStrategy implements ChatStrategy {
   }
   
   // 获取消息类型
-  getMessageType(): 'ai' | 'teacher' {
-    return 'ai'
+  getMessageType(): Sender {
+    return Sender.AI
   }
   
   // 获取发送者类型
-  getSenderType(): 'ai' | 'teacher' {
-    return 'ai'
+  getSenderType(): Sender {
+    return Sender.AI
   }
   
   // 保存聊天历史
-  async saveChatHistory(): Promise<void> {
-    await this.aiExerciseStore.saveChatHistory()
+  async saveChatHistory(questionBmNo?: string): Promise<void> {
+    const bmNo = questionBmNo || useQuestionStore().currentQuestion?.bmNo
+    if (bmNo) {
+      await this.aiExerciseStore.saveChatHistory(bmNo)
+    }
   }
 
   isChatLoading(): boolean {

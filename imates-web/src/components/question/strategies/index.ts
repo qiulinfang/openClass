@@ -7,11 +7,13 @@ export type { QuestionListType, FetchQuestionsOptions, DeleteQuestionOptions } f
 
 export { MyExerciseStrategy } from './MyExerciseStrategy'
 export { MyHomeworkStrategy } from './MyHomeworkStrategy'
+export { MistakeStrategy } from './MistakeStrategy'
 
 import type { QuestionListStrategy } from './QuestionListStrategy'
 import type { QuestionListType } from './types'
 import { MyExerciseStrategy } from './MyExerciseStrategy'
 import { MyHomeworkStrategy } from './MyHomeworkStrategy'
+import { MistakeStrategy } from './MistakeStrategy'
 
 /**
  * 根据类型创建对应的策略实例
@@ -24,6 +26,8 @@ export function createQuestionListStrategy(type: QuestionListType): QuestionList
       return new MyExerciseStrategy()
     case 'homework':
       return new MyHomeworkStrategy()
+    case 'mistake':
+      return new MistakeStrategy()
     default:
       console.warn(`[QuestionListStrategy] 未知的类型: ${type}，使用默认的习题策略`)
       return new MyExerciseStrategy()

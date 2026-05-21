@@ -8,16 +8,25 @@ import { getUserId } from '../http/auth-service'
 import type { ExerciseItem } from '@/types'
 
 /** 
+ * 单个练习记录
+ */
+export interface PracticeRecord {
+  timestamp: number
+  originalAnswer: any
+  homeworkId?: string
+  homeworkName?: string
+}
+
+/** 
  * 单个错题的存储数据结构 
  */
 export interface MistakeItem {
-  id: string // 唯一标识，通常是 bmNo 或 bmNo + homeworkId
+  id: string // 唯一标识，通常是 bmNo
   bmNo: string
-  homeworkId?: string
-  homeworkName?: string
-  originalAnswer?: any // 原始作答数据 (chooseList, judgmentValue, boardData 等)
   questionData: ExerciseItem // 题目详情 (题干、标准答案、解析等)
-  timestamp: number
+  timestamp: number // 第一次加入的时间
+  lastPracticeTime: number // 最后一次练习的时间
+  practiceHistory: PracticeRecord[] // 练习历史
 }
 
 /**
@@ -28,15 +37,14 @@ function getMistakeStorage(): IndexedDBService {
   const dbName = `MistakeStorageDB_${userId}`
   return IndexedDBService.getInstance({
     dbName: dbName,
-    version: 1,
+    version: 2, // 升级版本以支持新结构
     stores: [
       {
         name: 'mistakes',
-        keyPath: 'id',
+        keyPath: 'bmNo', // 使用 bmNo 作为主键，方便更新
         indexes: [
-          { name: 'bmNo', keyPath: 'bmNo' },
-          { name: 'homeworkId', keyPath: 'homeworkId' },
-          { name: 'timestamp', keyPath: 'timestamp' }
+          { name: 'timestamp', keyPath: 'timestamp' },
+          { name: 'lastPracticeTime', keyPath: 'lastPracticeTime' }
         ]
       }
     ]
@@ -54,22 +62,54 @@ export async function initMistakeStorage(): Promise<void> {
 }
 
 /**
- * 添加错题到错题本
+ * 添加或更新错题记录
  */
-export async function addMistake(item: Omit<MistakeItem, 'timestamp'>): Promise<void> {
+export async function addMistake(params: {
+  bmNo: string
+  questionData: ExerciseItem
+  originalAnswer?: any
+  homeworkId?: string
+  homeworkName?: string
+}): Promise<void> {
   try {
     await initMistakeStorage()
     const mistakeStorage = getMistakeStorage()
     
-    const mistake: MistakeItem = {
-      ...item,
-      timestamp: Date.now()
+    // 1. 尝试获取现有记录
+    const existing = await mistakeStorage.get<MistakeItem>('mistakes', params.bmNo)
+    
+    const newRecord: PracticeRecord = {
+      timestamp: Date.now(),
+      originalAnswer: params.originalAnswer,
+      homeworkId: params.homeworkId,
+      homeworkName: params.homeworkName
     }
     
-    await mistakeStorage.put('mistakes', mistake)
-    console.log(`[MISTAKE_STORAGE] ✅ 已添加错题: ${item.bmNo}`)
+    if (existing) {
+      // 2. 如果已存在，追加练习历史
+      const updated: MistakeItem = {
+        ...existing,
+        questionData: params.questionData, // 更新题目信息
+        lastPracticeTime: Date.now(),
+        practiceHistory: [newRecord, ...existing.practiceHistory].slice(0, 10) // 保留最近10次
+      }
+      await mistakeStorage.put('mistakes', updated)
+    } else {
+      // 3. 如果不存在，创建新记录
+      const newItem: MistakeItem = {
+        id: params.bmNo,
+        bmNo: params.bmNo,
+        questionData: params.questionData,
+        timestamp: Date.now(),
+        lastPracticeTime: Date.now(),
+        practiceHistory: [newRecord]
+      }
+      await mistakeStorage.put('mistakes', newItem)
+    }
+    
+    console.log(`[MISTAKE_STORAGE] ✅ 已记录错题: ${params.bmNo}`)
   } catch (error) {
-    console.error('[MISTAKE_STORAGE] ❌ 添加错题失败:', error)
+    console.error('[MISTAKE_STORAGE] ❌ 记录错题失败:', error)
     throw error
   }
 }

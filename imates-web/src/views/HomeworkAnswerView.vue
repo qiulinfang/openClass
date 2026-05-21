@@ -808,15 +808,18 @@ const confirmClearCanvas = () => {
 // Markdown + 公式渲染工具
 const { renderMessageContent } = useMessageRenderer()
 
-/** 判断当前客观题是否回答正确 */
-const isCurrentQuestionCorrect = computed(() => {
-  if (!currentAnswerQuestion.value || !isHomeworkSubmitted.value) return true
-  const question = currentAnswerQuestion.value
+/** 判断题目是否回答正确 */
+const checkQuestionCorrect = (question: ExerciseItem): boolean => {
+  if (!isHomeworkSubmitted.value) return true
   const answer = question.answer
+
+  const questionKey = getQuestionKey(question)
+  const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+  if (!cache) return false
 
   // 1. 选择题判断
   if (question.type === 'single_choice' || question.type === 'multiple_choice') {
-    const userChoices = currentQuestionChooseList.value
+    const userChoices = cache.chooseList
     if (!userChoices || userChoices.length === 0) return false
 
     let standardChoices: string[] = []
@@ -828,12 +831,12 @@ const isCurrentQuestionCorrect = computed(() => {
     }
 
     if (userChoices.length !== standardChoices.length) return false
-  return userChoices.every((c: string) => standardChoices.includes(c))
-}
+    return userChoices.every((c: string) => standardChoices.includes(c))
+  }
 
   // 2. 判断题判断
-  if (question.type === 'judgment') {
-    const userVal = currentQuestionJudgment.value
+  if (question.type === 'judgment' || question.type === 'true_false') {
+    const userVal = cache.judgmentValue
     if (!userVal) return false
     
     const structured = question.structuredContent
@@ -871,9 +874,52 @@ const isCurrentQuestionCorrect = computed(() => {
     return false
   }
 
-  // 3. 其他题型（填空、问答等）无法自动判题，默认显示“加入错题本”入口
+  // 3. 其他题型（填空、问答等）无法自动判题
   return false
+}
+
+/** 判断当前客观题是否回答正确 */
+const isCurrentQuestionCorrect = computed(() => {
+  if (!currentAnswerQuestion.value) return true
+  return checkQuestionCorrect(currentAnswerQuestion.value)
 })
+
+/** 自动记录错题到错题本 */
+const autoRecordMistakes = async () => {
+  console.log('[HomeworkAnswerView] 开始自动记录错题...')
+  const homeworkId = route.params.homeworkId as string
+  const subject = getSubject() || 'math'
+  
+  let mistakeCount = 0
+  
+  for (const question of externalQuestions.value) {
+    // 仅对客观题进行自动判定（选择、判断）
+    const isObjective = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(question.type || '')
+    
+    if (isObjective && !checkQuestionCorrect(question)) {
+      const questionKey = getQuestionKey(question)
+      const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
+      
+      try {
+        await addMistake({
+          bmNo: questionKey,
+          homeworkId: homeworkId,
+          homeworkName: homeworkName.value,
+          originalAnswer: originalAnswer,
+          questionData: question
+        })
+        mistakeCount++
+        console.log(`[HomeworkAnswerView] 自动记录错题成功: ${questionKey}`)
+      } catch (err) {
+        console.error(`[HomeworkAnswerView] 自动记录错题失败: ${questionKey}`, err)
+      }
+    }
+  }
+  
+  if (mistakeCount > 0) {
+    console.log(`[HomeworkAnswerView] 自动记录完成，共记录 ${mistakeCount} 道错题`)
+  }
+}
 
 /** 加入错题本逻辑 */
 const handleAddToMistakeBook = async () => {
@@ -881,18 +927,13 @@ const handleAddToMistakeBook = async () => {
 
   try {
     const question = currentAnswerQuestion.value
-    const subject = question.subject || getSubject() || 'math'
     
-    // 1. 同时调用后端接口，保持同步
-    const success = await apiService.addQuestionToList(question, subject)
-    
-    // 2. 保存到本地错题本数据库，包含原始作答和来源信息
+    // 1. 仅保存到本地错题本数据库，包含原始作答和来源信息
     const questionKey = getQuestionKey(question)
     const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
     const homeworkId = route.params.homeworkId as string
     
     await addMistake({
-      id: `${questionKey}_${homeworkId || 'manual'}`, // 使用题目 ID 和作业 ID 组合作为唯一标识
       bmNo: questionKey,
       homeworkId: homeworkId,
       homeworkName: homeworkName.value,
@@ -900,11 +941,7 @@ const handleAddToMistakeBook = async () => {
       questionData: question
     })
 
-    if (success) {
-      showMessage('已成功加入错题本', 'success')
-    } else {
-      showMessage('题目已加入本地错题本，但同步到云端失败', 'warning')
-    }
+    showMessage('已成功加入错题本', 'success')
   } catch (error) {
     console.error('[HomeworkAnswerView] 加入错题本异常:', error)
     showMessage('加入错题本失败', 'error')
@@ -1404,6 +1441,9 @@ const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]
     showMessage('提交成功', 'success')
     showCameraDialog.value = false
     isHomeworkSubmitted.value = true // 设置为已提交状态
+
+    // 自动记录错题
+    await autoRecordMistakes()
 
     // 持久化到 IndexedDB
     if (route.params.homeworkId) {

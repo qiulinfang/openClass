@@ -1,5 +1,8 @@
 <template>
-  <BaseQuestion :question="question" :show-title="showTitle">
+  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId">
+    <template #extra>
+      <slot name="extra"></slot>
+    </template>
     <template #stem>
       <div class="fill-blank-question">
         <div class="question-stem-content">
@@ -29,12 +32,17 @@ import { computed, ref, watch } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   question: any
   modelValue?: string[]
   showTitle?: boolean
+  showId?: boolean
   disabled?: boolean
-}>()
+}>(), {
+  showTitle: false,
+  showId: true,
+  disabled: false
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string[]): void

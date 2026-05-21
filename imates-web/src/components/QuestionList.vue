@@ -92,7 +92,7 @@
                     题目{{ getQuestionDisplayIndex(getQuestionUniqueId(question)) }}
                   </div>
                   <!-- 往日错题标记 -->
-                  <div v-if="mistakeStatus.get(getQuestionUniqueId(question))" class="mistake-badge">
+                  <div v-if="props.showMistakeBadge !== false && mistakeStatus.get(getQuestionUniqueId(question))" class="mistake-badge">
                     <q-icon name="history" size="14px" />
                     <span>往日错题</span>
                   </div>
@@ -355,12 +355,15 @@ const props = withDefaults(
     showSendToAi?: boolean
     // 是否显示题目辅助功能（微课、更多菜单等），默认 true；作业场景可关闭
     showQuestionActions?: boolean
+    // 是否显示“往日错题”标签，默认 true
+    showMistakeBadge?: boolean
     // 题目列表类型：exercise（我的习题，默认）或 homework（我的作业）
     type?: QuestionListType
   }>(),
   {
     showSendToAi: true,
     showQuestionActions: true,
+    showMistakeBadge: true,
   }
 )
 
@@ -700,7 +703,7 @@ const deleteWithChat = ref(false)
 const deleteWithDraft = ref(false)
 
 const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
-  moveQuestionToTop(questionId)
+  questionStore.moveQuestionToTopById(questionId)
 })
 
 // 收藏相关状态
