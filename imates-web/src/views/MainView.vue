@@ -642,6 +642,11 @@ const mainViewStyle = computed(() => {
       return {
         background: 'linear-gradient(to bottom, #ffffff 50%, #f1f3ff 50%)',
       }
+    case 'mistakeBook':
+      // 错题本页：上半部分 #e9eaff，下半部分 #f7f7f7
+      return {
+        background: 'linear-gradient(to bottom, #e9eaff 50%, #f7f7f7 50%)',
+      }
     case 'draftNotebook':
       // 草稿本页：沉浸式背景
       return {

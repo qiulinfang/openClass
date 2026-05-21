@@ -7,6 +7,7 @@ import type { ChatBubble } from '../../../types'
 import type { SendMessageOptions } from './types'
 import type { AttachedScreenshot } from '../../../types'
 import type { ChatImageData } from '../../../stores/utils/chatStoreUtils'
+import { Sender } from '../../../types/enums'
 
 /**
  * ChatView接口定义
@@ -100,10 +101,10 @@ export interface ChatStrategy {
   requiresQuestion(): boolean
   
   // 获取消息类型
-  getMessageType(): 'ai' | 'teacher'
+  getMessageType(): Sender
   
   // 获取发送者类型
-  getSenderType(): 'ai' | 'teacher' | 'user'
+  getSenderType(): Sender
   
   // 保存聊天历史
   saveChatHistory(): Promise<void>

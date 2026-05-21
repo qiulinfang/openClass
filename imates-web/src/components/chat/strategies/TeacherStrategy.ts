@@ -7,6 +7,7 @@ import type { ChatBubble } from '../../../types'
 import type { ChatStrategy } from './ChatStrategy'
 import type { SendMessageOptions, TeacherSessionInfo, InitializeOptions } from './types'
 import { useTeacherChatStore } from '../../../stores/teacherChatStore'
+import { Sender } from '../../../types/enums'
 import { useQuestionStore } from '../../../stores/questionStore'
 import { getUserId } from '../../../services'
 
@@ -60,9 +61,9 @@ export class TeacherStrategy implements ChatStrategy {
       const errorMessage: ChatBubble = {
         id: (Date.now() + 1).toString(),
         content: '消息发送失败，请重试',
-        type: 'teacher',
+        type: Sender.TEACHER,
         timestamp: '',
-        sender: 'teacher',
+        sender: Sender.TEACHER,
         isError: true
       }
       await this.addMessage(errorMessage)
@@ -83,13 +84,13 @@ export class TeacherStrategy implements ChatStrategy {
   }
   
   // 获取消息类型
-  getMessageType(): 'ai' | 'teacher' {
-    return 'teacher'
+  getMessageType(): Sender {
+    return Sender.TEACHER
   }
   
   // 获取发送者类型
-  getSenderType(): 'ai' | 'teacher' {
-    return 'teacher'
+  getSenderType(): Sender {
+    return Sender.TEACHER
   }
   
   // 保存聊天历史
@@ -199,9 +200,9 @@ export class TeacherStrategy implements ChatStrategy {
     const imageMessage: ChatBubble = {
       id: Date.now().toString(),
       content: '',
-      type: 'user',
+      type: Sender.USER,
       timestamp: '',
-      sender: 'user',
+      sender: Sender.USER,
       messageType: 'image',
       imageData: {
         filePath: imageInfo.filePath,

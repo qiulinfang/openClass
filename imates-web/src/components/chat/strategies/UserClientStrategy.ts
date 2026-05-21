@@ -4,6 +4,7 @@
  */
 
 import type { ChatBubble } from '../../../types'
+import { Sender } from '../../../types/enums'
 import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
 import type { InitializeOptions, SendMessageOptions } from './types'
 import type { AttachedScreenshot } from '../../../types'
@@ -110,13 +111,13 @@ export class UserClientStrategy implements ChatStrategy {
   }
 
   // 获取消息类型
-  getMessageType(): 'ai' | 'teacher' {
-    return 'ai' // 统一归类为ai类型
+  getMessageType(): Sender {
+    return Sender.AI // 统一归类为ai类型
   }
 
   // 获取发送者类型
-  getSenderType(): 'ai' | 'teacher' | 'user' {
-    return 'ai' // 客服回复算作ai
+  getSenderType(): Sender {
+    return Sender.AI // 客服回复算作ai
   }
 
   // 保存聊天历史（用户客户端不需要持久化）

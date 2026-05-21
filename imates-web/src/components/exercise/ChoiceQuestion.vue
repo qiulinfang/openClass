@@ -1,5 +1,8 @@
 <template>
-  <BaseQuestion :question="question" :show-title="showTitle" :show-analysis="showAnalysis">
+  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId" :show-analysis="showAnalysis">
+    <template #extra>
+      <slot name="extra"></slot>
+    </template>
     <div class="choice-options">
       <div 
         v-for="opt in options" 
@@ -35,13 +38,19 @@ import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import BaseQuestion from './BaseQuestion.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   question: ExerciseItem
   modelValue?: string[]
   showTitle?: boolean
+  showId?: boolean
   showAnalysis?: boolean
   disabled?: boolean
-}>()
+}>(), {
+  showTitle: false,
+  showId: true,
+  showAnalysis: false,
+  disabled: false
+})
 
 const emit = defineEmits(['update:modelValue', 'change'])
 

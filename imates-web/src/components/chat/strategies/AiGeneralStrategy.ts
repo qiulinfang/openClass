@@ -5,7 +5,8 @@
 
 import type { ChatBubble } from '../../../types'
 import { showMessage } from '../../../utils'
-import type { ForwardOptions, ForwardResult } from './ChatStrategy'
+import { Sender } from '../../../types/enums'
+import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
 import type { SendMessageOptions } from './types'
 import type { AttachedScreenshot } from '../../../types'
 import type { InitializeOptions } from './types'
@@ -86,7 +87,7 @@ export class AiGeneralStrategy implements ChatStrategy {
       getSubject(),
       options.selectedModel || 'mate',
       skipUserMessage,
-      options.quotedMessage,
+      options.quotedMessage as any,
       options.imageData,
       options.imageList,
       options.focus,
@@ -104,13 +105,13 @@ export class AiGeneralStrategy implements ChatStrategy {
   }
   
   // 获取消息类型
-  getMessageType(): 'ai' | 'teacher' {
-    return 'ai'
+  getMessageType(): Sender {
+    return Sender.AI
   }
   
   // 获取发送者类型
-  getSenderType(): 'ai' | 'teacher' {
-    return 'ai'
+  getSenderType(): Sender {
+    return Sender.AI
   }
   
   // 保存聊天历史
@@ -239,9 +240,9 @@ export class AiGeneralStrategy implements ChatStrategy {
     const imageMessage: ChatBubble = {
       id: Date.now().toString(),
       content: '',
-      type: 'user',
+      type: Sender.USER,
       timestamp: '',
-      sender: 'user',
+      sender: Sender.USER,
       messageType: 'image',
       imageData: {
         filePath: imageInfo.filePath,
@@ -397,9 +398,9 @@ export class AiGeneralStrategy implements ChatStrategy {
     let messageContent = msg.content || ''
 
     // 根据角色类型添加前缀，但保留完整格式
-    if (msg.type === 'user') {
+    if (msg.type === Sender.USER) {
       messageContent = '[学生]\n' + messageContent
-    } else if (msg.type === 'ai') {
+    } else if (msg.type === Sender.AI) {
       messageContent = '[学伴]\n' + messageContent
     }
 
@@ -612,9 +613,9 @@ export class AiGeneralStrategy implements ChatStrategy {
 
     // 根据原消息类型生成转发内容
     let forwardContent: string
-    if (originalMessage.type === 'ai') {
+    if (originalMessage.type === Sender.AI) {
       forwardContent = '[学伴]\n[图片消息]'
-    } else if (originalMessage.type === 'user') {
+    } else if (originalMessage.type === Sender.USER) {
       forwardContent = '[学生]\n[图片消息]'
     } else {
       forwardContent = '[图片消息]'

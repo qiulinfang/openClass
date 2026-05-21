@@ -2,7 +2,8 @@
   <div class="base-question">
     <div class="question-header" v-if="showTitle">
       <span class="question-type-tag" v-if="typeLabel">{{ typeLabel }}</span>
-      <span class="question-bm-no" v-if="question.bmNo">{{ question.bmNo }}</span>
+      <span class="question-bm-no" v-if="question.bmNo && showId">{{ question.bmNo }}</span>
+      <slot name="extra"></slot>
     </div>
     
     <div class="question-stem" :ref="(el) => setStemRef(el)">
@@ -44,11 +45,16 @@ defineOptions({
   name: 'BaseQuestion'
 })
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   question: ExerciseItem
   showTitle?: boolean
+  showId?: boolean
   showAnalysis?: boolean
-}>()
+}>(), {
+  showTitle: false,
+  showId: true,
+  showAnalysis: false
+})
 
 const { renderMessageContent } = useMessageRenderer()
 

@@ -27,4 +27,4 @@ export interface DeleteQuestionOptions {
 /**
  * 题目列表类型
  */
-export type QuestionListType = 'exercise' | 'homework'
+export type QuestionListType = 'exercise' | 'homework' | 'mistake'
