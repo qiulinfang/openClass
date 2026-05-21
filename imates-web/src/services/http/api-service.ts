@@ -40,6 +40,7 @@ import type {
   HomeworkQueryResp,
   HomeworkInfoResp,
   RecognizeHandwrittenFormulaResponse,
+  ApiResponse,
 } from '@/types'
 
 
@@ -125,7 +126,7 @@ export class ApiService {
   /**
    * 添加题目到列表
    */
-  public async addQuestionToList(questionData: any, subject: string): Promise<boolean> {
+  public async addQuestionToList(questionData: any, subject: string): Promise<ApiResponse<any>> {
     return this.questionSearchApi.addQuestionToList(questionData, subject)
   }
 

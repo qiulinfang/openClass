@@ -198,7 +198,8 @@ export class HttpClient {
       return {
         success: data && typeof data.success === 'boolean' ? data.success : true,
         data,
-        code: response.status,
+        message: data?.message || data?.msg || '',
+        code: data?.code || response.status,
       }
     } catch (error) {
       cleanup()

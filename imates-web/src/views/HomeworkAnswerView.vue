@@ -35,6 +35,7 @@
                     :show-photo-search="false"
                     :show-send-to-ai="true"
                     :show-question-actions="false"
+                    :show-mistake-badge="false"
                     @questionSelected="handleStartAnswer"
                     @openMiniClass="handleOpenMiniClass"
                   >

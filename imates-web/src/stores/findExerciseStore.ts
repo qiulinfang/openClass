@@ -338,14 +338,14 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       }
       
       // 调用API添加题目
-      const success = await apiService.addQuestionToList(request, subjectName)
+      const response = await apiService.addQuestionToList(request, subjectName)
       
-      if (success) {
+      if (response.success) {
       } else {
-        console.error('[findExerciseStore] ❌ 添加题目失败，API返回失败')
+        console.error('[findExerciseStore] ❌ 添加题目失败，API返回失败:', response.message)
       }
       
-      return success
+      return response.success
     } catch (error) {
       console.error('[findExerciseStore] ❌ 添加题目失败，发生异常:', error)
       return false

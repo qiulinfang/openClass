@@ -1,5 +1,5 @@
 import { httpClient } from '../http/http-client'
-import type { FindSimilarQuestionByBmNoRequest } from '@/types'
+import type { FindSimilarQuestionByBmNoRequest, ApiResponse } from '@/types'
 import { validateKnowledgeTopicAndAck2Request } from '@/stores/utils/requestValidator'
 import { normalizeSubject, SUBJECT_TO_EXERCISE_LIST_ENDPOINT, type ApiSubjectType } from '@/constants/subjects'
 import { getApiPaths } from '@/config/env-config'
@@ -33,7 +33,7 @@ export class QuestionSearchApi {
     return response.success
   }
 
-  public async addQuestionToList(questionData: any, subject: string): Promise<boolean> {
+  public async addQuestionToList(questionData: any, subject: string): Promise<ApiResponse<any>> {
     const url = getApiPaths().xueban.permission.exercises
 
     const requestBody = {
@@ -46,8 +46,7 @@ export class QuestionSearchApi {
       analysisData: questionData.analysisData || questionData.answerAnalysis || '',
     }
 
-    const response = await httpClient.post(url, requestBody)
-    return response.success
+    return await httpClient.post(url, requestBody)
   }
 
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {

@@ -1931,15 +1931,16 @@ const handleAddToPracticeInChat = async () => {
         exercisesId,
       }
       // 添加题目到练习列表
-      const success = await apiService.addQuestionToList(questionData, selectedSubject.value)
-      if (success) {
+      const response = await apiService.addQuestionToList(questionData, selectedSubject.value)
+      if (response.success) {
         showMessage('题目已添加到练习列表', 'success')
         // 刷新题目列表，使用与请求一致的学科
         await questionStore.fetchQuestions(selectedSubject.value, false)
         // 弹出是否跳转"我的习题"提示
         showAddToPracticeDialog.value = true
       } else {
-        showMessage('添加题目失败', 'error')
+        const errorMsg = response.message || '添加题目失败'
+        showMessage(errorMsg, 'error')
       }
     }
   } catch (error) {

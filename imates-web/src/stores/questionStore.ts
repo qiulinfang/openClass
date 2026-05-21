@@ -379,10 +379,10 @@ export const useQuestionStore = defineStore('question', () => {
     const normalizedSubject = subject || question.subject || 'math'
 
     // 先调用后端接口添加题目
-    const success = await apiService.addQuestionToList(question, normalizedSubject)
+    const response = await apiService.addQuestionToList(question, normalizedSubject)
 
-    if (!success) {
-      throw new Error('添加题目到服务器失败')
+    if (!response.success) {
+      throw new Error(response.message || '添加题目到服务器失败')
     }
 
     // 3. 重新拉取该科目题目列表（内部会更新 questions 并同步 IndexedDB）

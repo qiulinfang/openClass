@@ -333,14 +333,14 @@ const addToExerciseList = async (item: MistakeItem | null) => {
   if (!item) return
   try {
     const subject = item.questionData.subject || 'math'
-    const success = await apiService.addQuestionToList(item.questionData, subject)
-    if (success) {
+    const response = await apiService.addQuestionToList(item.questionData, subject)
+    if (response.success) {
       showMessage('已成功加入习题列表，快去练习吧', 'success')
     } else {
-      showMessage('加入习题列表失败', 'error')
+      showMessage('此题暂不支持加入习题集', 'error')
     }
   } catch (error) {
-    showMessage('操作失败', 'error')
+    showMessage('此题暂不支持加入习题集', 'error')
   }
 }
 
