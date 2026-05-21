@@ -17,11 +17,20 @@
 - **数据库名**: `ExerciseSolveApp_${userId}`
 - **核心表**:
     - **`chat_history`**: 存储具体的聊天内容。
-        - **Key**: `${userId}_chat_history_${questionId}`
+        - **Key 格式**: `${userId}_[SceneType]_chat_history_[Identifier]`
+        - **不同场景详情**:
+            - **AI 通用**: `${userId}_chat_history_ai-general-${sessionId}`
+            - **AI 题目**: `${userId}_chat_history_ai-exercise-${bmNo}-${sessionId}`
+            - **AI 作业**: `${userId}_chat_history_ai-homework-${sessionId}`
+            - **AI 教材**: `${userId}_chat_history_ai-textbook-${resourceId}`
+            - **老师答疑**: `${userId}_teacher_chat_history_${sessionId}`
         - **Value**: `ChatHistoryData` 对象（含 `messages[]`, `lastUpdated`）。
     - **`ai_general_sessions`**: AI 通用聊天会话列表。
+        - **Key**: `ai_general_sessions` (存储整个会话数组)
     - **`ai_exercise_sessions`**: AI 题目练习场景会话列表。
+        - **Key**: `sessions_${bmNo}` (按题目维度存储会话数组)
     - **`teacher_exercise_sessions`**: 老师端题目答疑会话列表。
+        - **Key**: `teacher_exercise_sessions` (存储全量会话 Map)
 - **特殊处理**: 完整存储 HTML 消息的 `rawHtmlMap`（含后端增强 HTML 及生成的截图），实现离线查看。
 
 ### 2.2 资源管理模块 (ResourceManager)

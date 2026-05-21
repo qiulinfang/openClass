@@ -47,6 +47,7 @@
             @close="draftStore.closeChatPanel()"
             @screenshot-click="handleScreenshotClick"
             @request-screenshot="handleChatPanelScreenshotRequest"
+            @open-html-preview="handleOpenHtmlPreview"
           />
         </template>
       </q-splitter>
@@ -68,14 +69,18 @@
 <script setup lang="ts">
 import { ref, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import DrawingHeader from '@/components/DrawingHeader.vue'
+import DrawingHeader from '@/components/header/DrawingHeader.vue'
 import DrawingBoardNew from '@/components/drawingBoardNew.vue'
 import Dialog from '@/components/base/Dialog.vue'
 import DraftNoteChatPanel from '@/components/chat/chatpanel/DraftNoteChatPanel.vue'
 import { useDraftStore } from '@/stores/draftStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 
 const router = useRouter()
 const draftStore = useDraftStore()
+const aiGeneralStore = useAiGeneralChatStore()
+const teacherChatStore = useTeacherChatStore()
 const drawingBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
 const clearDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 const chatPanelRef = ref<InstanceType<typeof DraftNoteChatPanel> | null>(null)
@@ -145,6 +150,31 @@ const handleChatPanelScreenshotRequest = () => {
   // 1. 开启画板截图模式
   isBoardCapturing.value = true
   drawingBoardRef.value.handleToolbarToolChange('askAi')
+}
+
+// 处理 HTML 预览点击
+const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+  const { url, html } = payload
+  if (!url) return
+
+  // 获取当前会话 ID（优先从老师会话获取，如果没有则从AI会话获取）
+  const currentSessionId = teacherChatStore.currentSession?.sessionId || aiGeneralStore.currentSession?.sessionId
+  console.log('[DraftNotebookView] handleOpenHtmlPreview:', { url, hasHtml: !!html, currentSessionId })
+
+  // 如果有缓存的 HTML，存入 sessionStorage 供 HtmlPreviewView 使用
+  if (html) {
+    sessionStorage.setItem('htmlPreview_inlineContent', html)
+  }
+
+  router.push({
+    name: 'htmlPreview',
+    query: {
+      url,
+      sessionId: currentSessionId, // 传递会话 ID
+      returnTo: router.currentRoute.value.fullPath,
+      reopenPanel: 'draft',
+    }
+  })
 }
 </script>
 

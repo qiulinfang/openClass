@@ -347,6 +347,7 @@ interface Props {
     | 'ai-textbook'
     | 'teacher'
     | 'user-client'
+    | 'html-preview'
   // 当前题目（由父组件 ChatView 传入；用于刷新/重试等需要题目上下文的操作）
   currentQuestion?: unknown
   isSelected?: boolean

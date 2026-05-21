@@ -320,7 +320,8 @@ const props = defineProps({
       | 'ai-homework'
       | 'ai-textbook'
       | 'teacher'
-      | 'user-client',
+      | 'user-client'
+      | 'html-preview',
     required: true,
   },
   uploadedFiles: {

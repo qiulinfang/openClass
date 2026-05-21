@@ -679,6 +679,10 @@ const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
   }
   lastHtmlPreviewOpen.value = { url, ts: now }
   
+  // 获取当前会话 ID
+  const currentSessionId = aiGeneralStore.currentSession?.sessionId
+  console.log('[MainChatPanel] handleOpenHtmlPreview:', { url, hasHtml: !!html, currentSessionId })
+
   // 如果有缓存的 HTML，存入 sessionStorage 供 HtmlPreviewView 使用
   if (html) {
     sessionStorage.setItem('htmlPreview_inlineContent', html)
@@ -689,6 +693,7 @@ const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
     name: 'htmlPreview',
     query: {
       url,
+      sessionId: currentSessionId, // 传递会话 ID
       returnTo: router.currentRoute.value.fullPath,
       reopenPanel: 'main',
     }

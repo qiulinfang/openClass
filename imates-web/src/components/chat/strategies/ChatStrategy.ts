@@ -108,6 +108,9 @@ export interface ChatStrategy {
   // 保存聊天历史
   saveChatHistory(): Promise<void>
 
+  // 是否禁用历史记录保存
+  disableHistorySave?: boolean
+
   // 当前聊天是否处于加载状态（可选）
   isChatLoading?(): boolean
   

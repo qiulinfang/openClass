@@ -8,5 +8,6 @@ export { AiExerciseStrategy } from './AiExerciseStrategy'
 export { AiHomeworkStrategy } from './AiHomeworkStrategy'
 export { AiTextbookStrategy } from './AiTextbookStrategy'
 export { TeacherStrategy } from './TeacherStrategy'
+export { HtmlPreviewStrategy } from './HtmlPreviewStrategy'
 export { ChatStrategyFactory, type ChatType } from './ChatStrategyFactory'
 

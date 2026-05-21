@@ -1,0 +1,122 @@
+<template>
+  <div class="html-chat-panel">
+    <!-- 对话面板头部 -->
+    <ChatPanelHeader
+      v-model="activeTab"
+      :tabs="tabOptions"
+      :show-close-button="props.showCloseButton"
+      @close="emit('close')"
+    >
+      <template #tabs>
+        <div class="header-title">AI 问答</div>
+      </template>
+    </ChatPanelHeader>
+
+    <!-- Tab 内容区域 -->
+    <div class="chat-content-container">
+      <!-- AI 问答 Tab -->
+      <div v-show="activeTab === 'ai-chat'" class="tab-content">
+        <ChatView
+          ref="chatViewRef"
+          type="html-preview"
+          :compressed-height="360"
+          :toolbar-tools="toolbarToolNames"
+          :hide-history="true"
+          :disable-history-save="true"
+        />
+      </div>
+      <!-- 会话记录 Tab -->
+      <div v-show="activeTab === 'question-record'" class="tab-content">
+        <div class="session-card-wrapper">
+          <div class="snapshot-empty">暂无会话记录</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import ChatView from '@/components/ChatView.vue'
+import ChatPanelHeader from '@/components/header/ChatPanelHeader.vue'
+
+interface AttachedScreenshot {
+  id: string
+  base64DataUrl: string
+}
+
+const props = withDefaults(
+  defineProps<{
+    showCloseButton?: boolean
+  }>(),
+  {
+    showCloseButton: true,
+  }
+)
+
+const toolbarToolNames: ('screenshot' | 'formula' | 'ask-teacher')[] = ['screenshot']
+
+const emit = defineEmits<{
+  close: []
+  'screenshot-click': []
+  'open-html-preview': []
+}>()
+
+const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
+
+// Tab 相关
+const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
+
+const tabOptions = [
+  { label: 'AI 问答', value: 'ai-chat' as const },
+]
+</script>
+
+<style scoped>
+.html-chat-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.header-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #504b64;
+  padding-bottom: 8px;
+  flex: 1;
+  text-align: center;
+}
+
+.chat-content-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-card-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.snapshot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #8e89a3;
+  font-size: 14px;
+}
+</style>

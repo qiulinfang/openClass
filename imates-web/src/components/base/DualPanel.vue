@@ -21,8 +21,8 @@
 
           <!-- 右侧区域 -->
           <div
-            v-show="isRightVisible"
             class="pane-right"
+            :class="{ 'is-hidden': !isRightVisible }"
             :style="rightPaneStyle"
           >
               <div class="pane-content-wrapper">
@@ -86,11 +86,15 @@ const maxOffset = 65; // 左侧面板最大65%（右侧面板最小35%）
 
 // 计算样式
 const leftPaneStyle = computed(() => ({
-  width: isRightVisible.value ? `${offset.value}%` : '100%'
+  width: isRightVisible.value ? `${offset.value}%` : '100%',
+  transition: isDragging.value ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
 }));
 
 const rightPaneStyle = computed(() => ({
-  width: `${100 - offset.value}%`
+  width: isRightVisible.value ? `${100 - offset.value}%` : '0%',
+  transition: isDragging.value ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  opacity: isRightVisible.value ? 1 : 0,
+  pointerEvents: isRightVisible.value ? 'auto' : 'none'
 }));
 
 // 拖拽逻辑
@@ -188,6 +192,14 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   z-index: 20;
+  overflow: hidden;
+  will-change: width, opacity;
+}
+
+.pane-right.is-hidden {
+  /* 隐藏时不占位但保持 DOM 存在以便动画 */
+  border: none;
+  box-shadow: none;
 }
 
 .pane-content-wrapper {

@@ -153,7 +153,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   close: []
-  'open-html-preview': [payload: { url: string; html?: string }] // HTML 预览点击事件，向上传递
+  'open-html-preview': [payload: { url: string; html?: string; sessionId?: string | null }] // HTML 预览点击事件，向上传递
   'screenshot-click': [active: boolean]
   'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
 }>()

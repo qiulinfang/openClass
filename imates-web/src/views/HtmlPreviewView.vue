@@ -50,21 +50,12 @@
       <template #right>
         <div class="right-panel-container no-close-btn">
           <div class="chat-panel-wrapper">
-            <!-- PDF/教材场景：使用 HtmlPdfChatPanel -->
-            <HtmlPdfChatPanel v-if="chatViewType === 'ai-textbook'" ref="htmlPdfChatPanelRef"
-              :show-close-button="true"
-              @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
-              @open-html-preview="handleOpenHtmlPreviewFromPanel" />
-            <!-- 题目练习场景：使用 ExerciseChatPanelNew -->
-            <ExerciseChatPanelNew v-else-if="chatViewType === 'ai-exercise'" ref="exerciseChatPanelRef"
-              :show-close-button="true"
-              @close="handleCloseChatPanel" @screenshot-click="handleScreenshotClick"
-              @open-html-preview="handleOpenHtmlPreviewFromPanel" />
-            <!-- 通用 AI 场景：使用内嵌式 HtmlMainChatPanel -->
-            <HtmlMainChatPanel v-else ref="htmlMainChatPanelRef"
+            <!-- 统一使用 HtmlChatPanel -->
+            <HtmlChatPanel
+              ref="htmlChatPanelRef"
               :show-close-button="true"
               @close="handleCloseChatPanel"
-              @open-html-preview="handleOpenHtmlPreviewFromPanel" />
+            />
           </div>
         </div>
       </template>
@@ -84,17 +75,18 @@ import { apiService } from '@/services'
 import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
 import { getApiPaths } from '@/config/env-config'
 import DualPanel from '@/components/base/DualPanel.vue'
-import HtmlPdfChatPanel from '@/components/chat/chatpanel/HtmlPdfChatPanel.vue'
-import HtmlMainChatPanel from '@/components/chat/chatpanel/HtmlMainChatPanel.vue'
-import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew.vue'
+import HtmlChatPanel from '@/components/chat/chatpanel/HtmlChatPanel.vue'
 import HistoryDebugPanel from '@/components/debug/HistoryDebugPanel.vue'
 
 // 使用路由
 const route = useRoute()
 const router = useRouter()
 
+import { useHtmlPreviewChatStore } from '@/stores/htmlPreviewChatStore'
+
 // 使用 Store
 const pdfViewerStore = usePdfViewerStore()
+const htmlPreviewStore = useHtmlPreviewChatStore()
 
 // 使用 MainChatPanel 控制
 const { showMainChatPanel } = useMainChatPanel()
@@ -102,12 +94,8 @@ const { showMainChatPanel } = useMainChatPanel()
 // 使用 ExerciseChatPanel 控制
 const { showExerciseChatPanel } = useExerciseChatPanel()
 
-// HtmlPdfChatPanel 引用
-const htmlPdfChatPanelRef = ref<ComponentPublicInstance | null>(null)
-// HtmlMainChatPanel 引用
-const htmlMainChatPanelRef = ref<ComponentPublicInstance | null>(null)
-// ExerciseChatPanelNew 引用
-const exerciseChatPanelRef = ref<ComponentPublicInstance | null>(null)
+// HtmlChatPanel 引用
+const htmlChatPanelRef = ref<ComponentPublicInstance | null>(null)
 
 // 计算聊天视图类型：from=pdf 使用 ai-textbook，from=exercise 使用 ai-exercise，否则 ai-general
 const chatViewType = computed(() => {
@@ -476,22 +464,6 @@ const retry = () => {
   fetchHtmlSourceAndRender()
 }
 
-// 监听右侧面板显示状态，当面板打开时重新加载 iframe
-watch(
-  isRightPanelOpen,
-  (isOpen, wasOpen) => {
-    if (isOpen && !wasOpen) {
-      console.log('[HtmlPreviewView] 右侧面板打开，重新加载 iframe')
-      // 通过重置 src 强制 iframe 重新加载
-      const currentSrc = htmlContentUrl.value
-      htmlContentUrl.value = ''
-      requestAnimationFrame(() => {
-        htmlContentUrl.value = currentSrc
-      })
-    }
-  }
-)
-
 // 监听路由 URL 参数变化，实现无跳转更新
 watch(
   () => route.query.url,
@@ -507,6 +479,14 @@ watch(
 // 生命周期
 onMounted(() => {
   console.log('[HtmlPreviewView] onMounted 挂载, query:', route.query)
+  
+  // 设置复用会话 ID
+  const sid = route.query.sessionId as string
+  if (sid) {
+    console.log('[HtmlPreviewView] 复用会话 ID:', sid)
+    htmlPreviewStore.setSessionId(sid)
+  }
+
   loadHtmlContent()
   fetchHtmlSourceAndRender()
   window.addEventListener('message', onBridgeMessage)

@@ -165,6 +165,7 @@
                     @add-session="handleAddSessionCard"
                     @request-screenshot="handleChatPanelScreenshotRequest"
                     @screenshot-click="handleScreenshotClick"
+                    @open-html-preview="handleOpenHtmlPreview"
                   />
                 </div>
               </div>
@@ -748,7 +749,31 @@ const handleScreenshotClick = (active: boolean) => {
     handleAskAiClick()
   }
 }
+// 处理 HTML 预览点击
+const handleOpenHtmlPreview = (payload: { url: string; html?: string; sessionId?: string | null }) => {
+  const { url, html, sessionId } = payload
+  if (!url) return
+  
+  console.log('[ExerciseSolveViewNew] handleOpenHtmlPreview:', { url, hasHtml: !!html, sessionId })
+  
+  // 如果有缓存的 HTML，存入 sessionStorage 供 HtmlPreviewView 使用
+  if (html) {
+    sessionStorage.setItem('htmlPreview_inlineContent', html)
+  }
+  
+  router.push({
+    name: 'htmlPreview',
+    query: {
+      url: url,
+      sessionId: sessionId, // 使用 payload 中带过来的会话 ID
+      from: 'exercise',
+      returnTo: router.currentRoute.value.fullPath,
+      reopenPanel: 'exercise',
+    },
+  })
+}
 
+// 
 // 页面卸载前保存草稿
 window.addEventListener('beforeunload', () => {
   if (currentDraftQuestionId.value) {

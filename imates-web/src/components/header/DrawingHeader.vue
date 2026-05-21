@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import Toolbar from './Toolbar.vue'
+import Toolbar from '../Toolbar.vue'
 import goBackIcon from '/icons/goback.svg'
 
 interface Props {

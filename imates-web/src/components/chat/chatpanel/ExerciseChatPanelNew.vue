@@ -266,12 +266,22 @@ const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
   }
   lastHtmlPreviewOpen.value = { url, ts: now }
 
+  // 获取当前会话 ID
+  const currentSessionId = aiExerciseStore.currentSessionId
+  console.log('[ExerciseChatPanel] handleOpenHtmlPreview:', { url, hasHtml: !!html, currentSessionId })
+
   // 如果有缓存的 HTML，存入 sessionStorage 供 HtmlPreviewView 使用
   if (html) {
     sessionStorage.setItem('htmlPreview_inlineContent', html)
   }
 
-  emit('open-html-preview', payload)
+  // 修改 payload 增加 sessionId
+  const enhancedPayload = {
+    ...payload,
+    sessionId: currentSessionId
+  }
+
+  emit('open-html-preview', enhancedPayload)
 }
 
 // Tab 状态

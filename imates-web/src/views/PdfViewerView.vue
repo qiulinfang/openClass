@@ -124,7 +124,7 @@ import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession, At
 import {
   addScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
-import DrawingHeader from '@/components/DrawingHeader.vue'
+import DrawingHeader from '@/components/header/DrawingHeader.vue'
 import Toolbar from '@/components/Toolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import PdfChatPanel from '@/components/chat/chatpanel/PdfChatPanel.vue'

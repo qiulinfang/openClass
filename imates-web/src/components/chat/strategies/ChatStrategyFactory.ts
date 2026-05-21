@@ -11,8 +11,9 @@ import { AiTextbookStrategy } from './AiTextbookStrategy'
 import { AiHomeworkStrategy } from './AiHomeworkStrategy'
 import { TeacherStrategy } from './TeacherStrategy'
 import { UserClientStrategy } from './UserClientStrategy'
+import { HtmlPreviewStrategy } from './HtmlPreviewStrategy'
 
-export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client'
+export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client' | 'html-preview'
 
 export interface ChatStrategyFactoryOptions {
   subject?: string
@@ -52,6 +53,10 @@ export class ChatStrategyFactory {
 
       case 'user-client':
         strategy = new UserClientStrategy()
+        break
+
+      case 'html-preview':
+        strategy = new HtmlPreviewStrategy()
         break
 
       default:

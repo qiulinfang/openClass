@@ -446,7 +446,7 @@ import { findLastUserMessageIndex } from './chat/messageActionVisibility'
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(
   defineProps<{
-    type: 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client'
+    type: 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client' | 'html-preview'
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
@@ -462,6 +462,7 @@ const props = withDefaults(
     showReadStatus?: boolean // 是否显示消息已读状态
     showTime?: boolean // 是否显示消息时间
     toolbarTools?: (BuiltinToolType | ToolbarTool)[] // 工具栏工具配置数组（支持字符串或对象）
+    hideHistory?: boolean // 是否隐藏历史记录
   }>(),
   {
     inputMode: 'full',
@@ -471,7 +472,8 @@ const props = withDefaults(
     showActionButtons: true, // 默认显示消息功能按钮
     enableLongPress: true, // 默认启用长按功能
     showReadStatus: false, // 默认不显示已读状态
-    showTime: false, // 默认不显示消息时间
+    showTime: false, // 默认不显示时间
+    hideHistory: false, // 默认显示历史
   }
 )
 
@@ -528,6 +530,9 @@ const aiExerciseStore = useAiExerciseChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
 const teacherStore = useTeacherChatStore()
 const userClientStore = useUserClientStore()
+
+// 记录组件挂载时间，用于 hideHistory 模式下的消息过滤
+const mountTime = ref(Date.now())
 
 // 输入框截图附件与绘图状态：统一由策略内部读写 store，ChatView 仅通过策略接口访问
 const strategyInputAttachedScreenshots = computed<AttachedScreenshot[]>(() => {
@@ -1255,11 +1260,23 @@ const displayedMessages = computed<ChatBubble[]>(() => {
     return []
   }
 
-  const messages = chatStrategy.value.getMessages()
+  const rawMessages = chatStrategy.value.getMessages() || []
+
+  // 处理 hideHistory 逻辑：只显示挂载后产生的新消息
+  let baseMessages = rawMessages
+  if (props.hideHistory) {
+    baseMessages = rawMessages.filter(msg => {
+      // 正在流式传输的消息或者是挂载后产生的消息
+      const isNew = msg.isStreaming || (msg.timestamp && new Date(msg.timestamp).getTime() > mountTime.value)
+      return isNew
+    })
+  }
+
+  // 对基础消息进行格式化处理（如拆分图片和文字）
   const result: ChatBubble[] = []
 
-  for (let i = 0; i < messages.length; i++) {
-    const message = messages[i]
+  for (let i = 0; i < baseMessages.length; i++) {
+    const message = baseMessages[i]
 
     // 如果消息是图片类型，且同时包含图片和文字内容
     // 教师对话场景下：图片消息就是图片，不拆分渲染为文字
