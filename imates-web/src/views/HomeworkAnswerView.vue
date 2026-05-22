@@ -39,8 +39,16 @@
                     @questionSelected="handleStartAnswer"
                     @openMiniClass="handleOpenMiniClass"
                   >
+                    <template #question-number-extra="{ question }">
+                      <img
+                        v-if="isHomeworkSubmitted && isObjective(question)"
+                        :src="checkQuestionCorrect(question) ? duileIcon : cuoleIcon"
+                        class="result-icon-mini"
+                      />
+                    </template>
                     <template #question-status="{ question }">
                       <StatusTag
+                        v-if="!(isHomeworkSubmitted && isObjective(question))"
                         :text="getQuestionStatusText(question)"
                         :type="getQuestionStatusType(question)"
                         size="xs"
@@ -348,6 +356,8 @@ import textbookipIcon from '/icons/textbookip.png'
 import wodezuodaSelectIcon from '/icons/wodezuoda_select.svg'
 import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
 import askXuebanIcon from '/icons/askXueban.svg'
+import duileIcon from '/icons/duile.svg'
+import cuoleIcon from '/icons/cuole.svg'
 import MultiSelect from '@/components/base/MultiSelect.vue'
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
@@ -662,6 +672,10 @@ const getQuestionStatusType = (question: ExerciseItem): 'yellow' | 'green' => {
     answered: 'green',
   }
   return typeMap[status]
+}
+
+const isObjective = (question: ExerciseItem): boolean => {
+  return ['single_choice', 'multiple_choice', 'true_false'].includes(question.type || '')
 }
 
 // 将当前题目的画板数据与导出图片缓存到全局缓存中
@@ -2018,6 +2032,26 @@ onUnmounted(() => {
       color: #475569;
     }
   }
+}
+
+.question-status-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .result-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+  }
+}
+.result-icon-mini {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  margin-left: 4px;
+  left: 40px;
 }
 
 </style>

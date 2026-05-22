@@ -6,9 +6,9 @@
     ]"
     :style="layoutStyles"
   >
-    <!-- 调试面板 (仅在开发环境下显示或根据需要移除) -->
-    <LayoutDebugger v-model="debugConfig" />
-    <div style="height: 20px;"></div>
+    <!-- 调试面板 (仅在开发环境下显示) -->
+    <LayoutDebugger v-if="isDev" v-model="debugConfig" />
+    <div v-if="isDev" style="height: 20px;"></div>
     <div class="suggested-questions-card">
       <!-- 头部区域：带紫色网格背景 -->
       <div class="suggestion-header">
@@ -90,6 +90,7 @@ const props = defineProps<{
 
 const mascotIcon = computed(() => props.type === 'ai-homework' ? mascotHomeworkIcon : mascotExerciseIcon)
 const titleIcon = computed(() => props.type === 'ai-homework' ? titleHomeworkIcon : titleExerciseIcon)
+const isDev = computed(() => import.meta.env.VITE_ENABLE_DEBUG === 'true')
 
 const emit = defineEmits<{
   (e: 'select', suggestion: string): void

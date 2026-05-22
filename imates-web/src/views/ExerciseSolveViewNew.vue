@@ -21,7 +21,7 @@
             :tool-states="{ undo: draftBoardRef.canUndo, redo: draftBoardRef.canRedo }"
             variant="browser"
             orientation="horizontal"
-            :show-ask-ai="true"
+            :show-ask-ai="false"
             @tool-change="(tool) => draftBoardRef?.handleToolbarToolChange(tool)"
             @config-change="(cfg) => draftBoardRef?.handleToolbarConfigChange(cfg)"
             @undo="draftBoardRef?.undo()"

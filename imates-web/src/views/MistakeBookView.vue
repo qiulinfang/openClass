@@ -5,7 +5,7 @@
       <!-- 左侧：图标 + 列表 -->
       <div class="layout-column left">
         <div class="column-header">
-          <img src="/icons/mistakeLogo.svg" alt="错题本" class="mistake-logo" />
+          <img :src="mistakeLogoIcon" alt="错题本" class="mistake-logo" />
         </div>
         <div class="column-main left-sidebar-card">
           <QuestionList
@@ -226,6 +226,7 @@ import type { MistakeItem } from '@/services/storage/mistake-storage'
 
 import { SUBJECT_ID_TO_NAME, KNOWLEDGE_GRAPH_SUBJECT_OPTIONS } from '@/constants/subjects'
 import tabBackfroundSvg from '/icons/tab_backfround.svg'
+import mistakeLogoIcon from '/icons/mistakeLogo.svg'
 
 defineOptions({
   name: 'MistakeBookView'

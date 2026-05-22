@@ -90,6 +90,7 @@
                 <div class="question-title-row">
                   <div class="question-number">
                     题目{{ getQuestionDisplayIndex(getQuestionUniqueId(question)) }}
+                    <slot name="question-number-extra" :question="question" :index="index" />
                   </div>
                   <!-- 往日错题标记 -->
                   <div v-if="props.showMistakeBadge !== false && mistakeStatus.get(getQuestionUniqueId(question))" class="mistake-badge">
