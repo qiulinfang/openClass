@@ -35,6 +35,7 @@ export class IndexedDBService {
   private db: IDBDatabase | null = null
   private config: IndexedDBConfig
   public isInitialized = false
+  private initPromise: Promise<void> | null = null
 
   private constructor(config: IndexedDBConfig) {
     this.config = config
@@ -115,28 +116,55 @@ export class IndexedDBService {
       return
     }
 
-    return new Promise((resolve, reject) => {
+    if (this.initPromise) {
+      return this.initPromise
+    }
+
+    this.initPromise = new Promise((resolve, reject) => {
+      console.log(`[IndexedDB] 正在打开数据库: ${this.config.dbName}, 版本: ${this.config.version}`)
       const request = indexedDB.open(this.config.dbName, this.config.version)
 
       request.onerror = () => {
+        this.initPromise = null
         reject(new Error(`数据库打开失败: ${request.error?.message}`))
       }
 
       request.onsuccess = () => {
         this.db = request.result
         this.isInitialized = true
+        this.initPromise = null
         
+        // 监听版本变更（比如其它页面升级了数据库）
+        this.db.onversionchange = () => {
+          console.warn(`[IndexedDB] 数据库 ${this.config.dbName} 版本正在变更，关闭连接`)
+          this.close()
+        }
+
+        // 监听连接断开或关闭
+        this.db.onclose = () => {
+          console.warn(`[IndexedDB] 数据库 ${this.config.dbName} 连接已关闭`)
+          this.isInitialized = false
+          this.db = null
+        }
+
         // 确保所有存储都存在
         this.ensureStoresExist()
         resolve()
       }
 
       request.onupgradeneeded = (event) => {
+        console.log(`[IndexedDB] 数据库 ${this.config.dbName} 需要升级/初始化`)
         const db = (event.target as IDBOpenDBRequest).result
         const transaction = (event.target as IDBOpenDBRequest).transaction
         this.createStores(db, transaction)
       }
+
+      request.onblocked = () => {
+        console.warn(`[IndexedDB] 数据库 ${this.config.dbName} 被阻塞，请关闭其它标签页`)
+      }
     })
+
+    return this.initPromise
   }
 
   /**

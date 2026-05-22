@@ -317,7 +317,7 @@ import AnswerView from './AnswerView.vue'
 import SimilarQuestionList from './SimilarQuestionList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { normalizeSubject } from '../constants/subjects'
-import { isMistake } from '../services/storage/mistake-storage'
+import { isMistake, getAllMistakes } from '../services/storage/mistake-storage'
 
 // 策略模式支持
 import type { QuestionListType } from './question/strategies'
@@ -714,16 +714,21 @@ const favoriteStatus = ref<Map<string, boolean>>(new Map())
 const mistakeStatus = ref<Map<string, boolean>>(new Map())
 
 const updateMistakeStatus = async () => {
-  const statusMap = new Map<string, boolean>()
-  const promises = questions.value.map(async (q) => {
-    const id = getQuestionUniqueId(q)
-    if (id) {
-      const isM = await isMistake(id)
-      statusMap.set(id, isM)
-    }
-  })
-  await Promise.all(promises)
-  mistakeStatus.value = statusMap
+  try {
+    const allMistakes = await getAllMistakes()
+    const mistakeIds = new Set(allMistakes.map(m => m.bmNo))
+    
+    const statusMap = new Map<string, boolean>()
+    questions.value.forEach((q) => {
+      const id = getQuestionUniqueId(q)
+      if (id) {
+        statusMap.set(id, mistakeIds.has(id))
+      }
+    })
+    mistakeStatus.value = statusMap
+  } catch (error) {
+    console.error('[QuestionList] ❌ 批量更新错题状态失败:', error)
+  }
 }
 
 watch(questions, () => {
