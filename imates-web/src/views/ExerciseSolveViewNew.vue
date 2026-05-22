@@ -357,9 +357,17 @@ const handleQuestionSelected = async () => {
     await flushDraftAutoSave(currentDraftQuestionId.value)
   }
 
+  // 立即清空画板，避免旧笔迹在切换瞬间停留（即刻清空，不等待 nextTick）
+  if (draftBoardRef.value && typeof (draftBoardRef.value as any).clearAll === 'function') {
+    ;(draftBoardRef.value as any).clearAll()
+  }
+
   // 生成题目 HTML
   const raw = (currentQuestion.value?.question || currentQuestion.value?.title || '').toString()
   questionHtml.value = renderMessageContent(raw)
+
+  // 异步加载当前题目的草稿，不阻塞公式渲染
+  const loadDraftPromise = loadCurrentDraft()
 
   await nextTick()
 
@@ -369,8 +377,8 @@ const handleQuestionSelected = async () => {
     await MathJaxUtils.renderMathAndWait(contentEl as HTMLElement)
   }
 
-  // 加载当前题目的草稿
-  await loadCurrentDraft()
+  // 等待草稿加载完成
+  await loadDraftPromise
 }
 
 const handleStartAiGuidance = () => {
@@ -543,17 +551,27 @@ const loadCurrentDraft = async (draftKey?: string | null) => {
     return
   }
 
-  // 延迟等待草稿本组件渲染完成
-  await nextTick()
+  // 立即清空画板，避免数据残留（减少闪现）
+  if (draftBoardRef.value && typeof (draftBoardRef.value as any).clearAll === 'function') {
+    ;(draftBoardRef.value as any).clearAll()
+  }
+
+  // 提前开始异步获取草稿数据，不等待 nextTick
+  const draftPromise = draftStore.getDraft(targetDraftKey)
+
+  // 只有当画板组件还未准备好时才等待 nextTick
+  if (!draftBoardRef.value) {
+    await nextTick()
+  }
 
   try {
-    // 先清空画板，避免上一题的数据残留
+    // 再次确认清空，确保状态一致（如果之前没清空成功）
     if (draftBoardRef.value && typeof (draftBoardRef.value as any).clearAll === 'function') {
       ;(draftBoardRef.value as any).clearAll()
     }
 
-    // 检查是否有草稿数据
-    const draft = await draftStore.getDraft(targetDraftKey)
+    // 等待草稿数据加载完成
+    const draft = await draftPromise
     if (draft && draftBoardRef.value) {
       // 加载草稿数据到画板
       const board = draftBoardRef.value as any

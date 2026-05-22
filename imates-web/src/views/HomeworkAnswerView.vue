@@ -345,6 +345,7 @@ import { getHomeworkButtonText } from '@/constants/homework'
 import Dialog from '@/components/base/Dialog.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
 import HomeworkChatPanel from '@/components/chat/chatpanel/HomeworkChatPanel.vue'
+import { useAiHomeworkChatStore } from '@/stores/aiHomeworkChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { addMistake, isMistake, deleteMistake } from '@/services/storage/mistake-storage'
 import { AI_ROLE_OPTIONS } from '@/constants/options'
@@ -374,6 +375,7 @@ const route = useRoute()
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 const uiStore = useUIStore()
+const aiHomeworkStore = useAiHomeworkChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 
 // 模式: 'left' = 题目+作答, 'right' = 作答+AI
@@ -692,7 +694,18 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
   if (board && questionToSave === currentAnswerQuestion.value) {
     const boardData = board.saveData()
     if (boardData) {
-      const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+      // 这里的 Key 必须与 restoreCurrentPage 保持一致，包含 sessionId
+      const sessionId = aiHomeworkStore.currentSession?.sessionId || 'default'
+      const cacheKeyWithSession = `${questionKey}::${sessionId}`
+      
+      const existingCache = (answerDataCache.value as Record<string, any>)[cacheKeyWithSession] || {}
+      ;(answerDataCache.value as Record<string, any>)[cacheKeyWithSession] = {
+        ...existingCache,
+        boardData: boardData,
+        timestamp: Date.now(),
+      }
+      
+      // 为了兼容性，也可以保留一份不带 sessionId 的作为默认快照
       ;(answerDataCache.value as Record<string, any>)[questionKey] = {
         ...existingCache,
         boardData: boardData,
@@ -703,12 +716,12 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
       const captureBoardImage = () => {
         const imageData = board.exportToJpg?.(0.9)
         if (imageData) {
-          const currentCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-          ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+          const currentCache = (answerDataCache.value as Record<string, any>)[cacheKeyWithSession] || {}
+          ;(answerDataCache.value as Record<string, any>)[cacheKeyWithSession] = {
             ...currentCache,
             imageData: imageData
           }
-          console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${questionKey}`)
+          console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${cacheKeyWithSession}`)
         }
       }
 
@@ -973,7 +986,13 @@ const handleStartAnswer = async (question: ExerciseItem) => {
     await saveCurrentPage(oldQuestion, false)
   }
 
-  // 2. 立即更新 UI 状态
+  // 2. 立即清空画板，防止切换时的笔迹闪现
+  const board = drawingBoardRefs.value[0]
+  if (board) {
+    board.clearAll()
+  }
+
+  // 3. 立即更新 UI 状态
   currentAnswerQuestion.value = question
   previousQuestionKey.value = questionKey
   questionBgImage.value = ''
@@ -1136,31 +1155,34 @@ const updateQuestionBackgroundImage = async (seq: number) => {
 
 // 根据缓存恢复当前题目的画布数据
 const restoreCurrentPage = (question: ExerciseItem | null) => {
-  const questionKey = getQuestionKey(question)
   const board = drawingBoardRefs.value[0]
+  if (!board) return
 
-  if (!questionKey) {
-    // 没有题目，清空画布
-    board?.clearAll()
-    return
-  }
+  // 1. 立即清空画板，防止旧笔迹闪现
+  board.clearAll()
 
-  if (!board) {
-    console.warn('[HomeworkAnswerView] 画板 Ref 尚未准备好，无法恢复笔迹:', questionKey)
-    return
-  }
+  const questionKey = getQuestionKey(question)
+  if (!questionKey) return
 
-  const rawCache = (answerDataCache.value as Record<string, any>)[questionKey]
+  // 2. 尝试从当前会话关联的缓存中恢复笔迹
+  const sessionId = aiHomeworkStore.currentSession?.sessionId || 'default'
+  const cacheKey = `${questionKey}::${sessionId}`
+  
+  const rawCache = (answerDataCache.value as Record<string, any>)[cacheKey]
   if (rawCache && rawCache.boardData) {
-    // 加载缓存的画板状态数据
     board.loadData(rawCache.boardData as any)
-    console.log('[HomeworkAnswerView] 从缓存成功恢复画布数据:', questionKey)
+    console.log('[HomeworkAnswerView] 从会话缓存成功恢复画布数据:', cacheKey)
   } else {
-    // 没有缓存数据，清空画布
-    board.clearAll()
-    console.log('[HomeworkAnswerView] 该题目没有缓存数据，已清空画布:', questionKey)
+    console.log('[HomeworkAnswerView] 该会话没有缓存数据:', cacheKey)
   }
 }
+
+// 监听会话切换，自动刷新画板笔迹
+watch(() => aiHomeworkStore.currentSession?.sessionId, (newSessionId) => {
+  console.log('[HomeworkAnswerView] 会话切换，准备恢复笔迹:', newSessionId)
+  restoreCurrentPage(currentAnswerQuestion.value)
+})
+
 
 // 返回作业列表页面
 const goBack = async () => {
@@ -2053,5 +2075,4 @@ onUnmounted(() => {
   margin-left: 4px;
   left: 40px;
 }
-
 </style>
