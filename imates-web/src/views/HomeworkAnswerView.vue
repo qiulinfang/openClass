@@ -345,7 +345,6 @@ import { getHomeworkButtonText } from '@/constants/homework'
 import Dialog from '@/components/base/Dialog.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
 import HomeworkChatPanel from '@/components/chat/chatpanel/HomeworkChatPanel.vue'
-import { useAiHomeworkChatStore } from '@/stores/aiHomeworkChatStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { addMistake, isMistake, deleteMistake } from '@/services/storage/mistake-storage'
 import { AI_ROLE_OPTIONS } from '@/constants/options'
@@ -375,7 +374,6 @@ const route = useRoute()
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 const uiStore = useUIStore()
-const aiHomeworkStore = useAiHomeworkChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 
 // 模式: 'left' = 题目+作答, 'right' = 作答+AI
@@ -694,18 +692,7 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
   if (board && questionToSave === currentAnswerQuestion.value) {
     const boardData = board.saveData()
     if (boardData) {
-      // 这里的 Key 必须与 restoreCurrentPage 保持一致，包含 sessionId
-      const sessionId = aiHomeworkStore.currentSession?.sessionId || 'default'
-      const cacheKeyWithSession = `${questionKey}::${sessionId}`
-      
-      const existingCache = (answerDataCache.value as Record<string, any>)[cacheKeyWithSession] || {}
-      ;(answerDataCache.value as Record<string, any>)[cacheKeyWithSession] = {
-        ...existingCache,
-        boardData: boardData,
-        timestamp: Date.now(),
-      }
-      
-      // 为了兼容性，也可以保留一份不带 sessionId 的作为默认快照
+      const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
       ;(answerDataCache.value as Record<string, any>)[questionKey] = {
         ...existingCache,
         boardData: boardData,
@@ -716,12 +703,12 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
       const captureBoardImage = () => {
         const imageData = board.exportToJpg?.(0.9)
         if (imageData) {
-          const currentCache = (answerDataCache.value as Record<string, any>)[cacheKeyWithSession] || {}
-          ;(answerDataCache.value as Record<string, any>)[cacheKeyWithSession] = {
+          const currentCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+          ;(answerDataCache.value as Record<string, any>)[questionKey] = {
             ...currentCache,
             imageData: imageData
           }
-          console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${cacheKeyWithSession}`)
+          console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${questionKey}`)
         }
       }
 
@@ -967,16 +954,8 @@ const handleAddToMistakeBook = async () => {
   }
 }
 
-// 是否正在处理题目切换
-const isSwitchingQuestion = ref(false)
-
 // QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
 const handleStartAnswer = async (question: ExerciseItem) => {
-  if (isSwitchingQuestion.value) {
-    console.log('[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 正在切换中，跳过本次请求')
-    return
-  }
-
   const questionKey = getQuestionKey(question)
   const oldQuestion = currentAnswerQuestion.value
   const oldQuestionKey = getQuestionKey(oldQuestion)
@@ -987,53 +966,39 @@ const handleStartAnswer = async (question: ExerciseItem) => {
     return
   }
 
-  try {
-    isSwitchingQuestion.value = true
-    console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 从 ${oldQuestionKey || '无'} 切换到 ${questionKey}`)
+  console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 从 ${oldQuestionKey || '无'} 切换到 ${questionKey}`)
 
-    // 1. 强制同步保存上一题数据 (确保图片生成)
-    if (oldQuestion && oldQuestionKey !== questionKey) {
-      console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 保存前一题数据 ${oldQuestionKey}`)
-      await saveCurrentPage(oldQuestion, false)
-    }
+  // 1. 强制同步保存上一题数据 (确保图片生成)
+  if (oldQuestion && oldQuestionKey !== questionKey) {
+    await saveCurrentPage(oldQuestion, false)
+  }
 
-    // 2. 立即清空画板，防止切换时的笔迹闪现
-    const board = drawingBoardRefs.value[0]
-    if (board) {
-      board.clearAll()
-    }
+  // 2. 立即更新 UI 状态
+  currentAnswerQuestion.value = question
+  previousQuestionKey.value = questionKey
+  questionBgImage.value = ''
+  
+  const isChoice = question.type === 'single_choice' || question.type === 'multiple_choice'
+  const raw = (!isChoice && question.questionContent)
+    ? question.questionContent
+    : (question.question || question.title || '').toString()
+  questionHtml.value = renderMessageContent(raw)
 
-    // 3. 立即更新 UI 状态
-    currentAnswerQuestion.value = question
-    previousQuestionKey.value = questionKey
-    questionBgImage.value = ''
-    
-    const isChoice = question.type === 'single_choice' || question.type === 'multiple_choice'
-    const raw = (!isChoice && question.questionContent)
-      ? question.questionContent
-      : (question.question || question.title || '').toString()
-    questionHtml.value = renderMessageContent(raw)
+  // 3. 检查背景图缓存
+  if (questionKey && questionImageCache.has(questionKey)) {
+    questionBgImage.value = questionImageCache.get(questionKey) || ''
+  }
 
-    // 3. 检查背景图缓存
-    if (questionKey && questionImageCache.has(questionKey)) {
-      questionBgImage.value = questionImageCache.get(questionKey) || ''
-    }
+  // 4. 恢复新题笔迹
+  await nextTick()
+  restoreCurrentPage(question)
 
-    // 4. 恢复新题笔迹
-    await nextTick()
-    restoreCurrentPage(question)
-
-    // 5. 异步生成本题背景图截图
-    const seq = ++questionBgCaptureSeq.value
-    console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 准备生成新题背景图, seq=${seq}, 已有缓存: ${questionKey && questionImageCache.has(questionKey)}`)
-    if (!questionBgImage.value) {
-      setTimeout(() => {
-        console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 执行 updateQuestionBackgroundImage, seq=${seq}`)
-        updateQuestionBackgroundImage(seq)
-      }, 50)
-    }
-  } finally {
-    isSwitchingQuestion.value = false
+  // 5. 异步生成本题背景图截图
+  const seq = ++questionBgCaptureSeq.value
+  if (!questionBgImage.value) {
+    setTimeout(() => {
+      updateQuestionBackgroundImage(seq)
+    }, 50)
   }
 }
 
@@ -1081,17 +1046,11 @@ watch(() => currentAnswerQuestion.value, () => {
 
 // 题目 HTML 变化时：等待 DOM 更新后截图
 const updateQuestionBackgroundImage = async (seq: number) => {
-  const isStale = () => {
-    const stale = seq !== questionBgCaptureSeq.value
-    if (stale) console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 任务已过时, seq=${seq}, currentSeq=${questionBgCaptureSeq.value}`)
-    return stale
-  }
-
-  console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 开始处理, seq=${seq}`)
+  const isStale = () => seq !== questionBgCaptureSeq.value
 
   // 如果没有当前题目，清空背景图
   if (!currentAnswerQuestion.value) {
-    console.warn('[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 没有当前题目，清空背景图')
+    console.warn('[HomeworkAnswerView] 没有当前题目，清空背景图')
     questionBgImage.value = ''
     return
   }
@@ -1100,7 +1059,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   const val = currentAnswerQuestion.value
   const key = (val.bmNo || val.id || '').toString()
   if (key && questionImageCache.has(key)) {
-    console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 复用缓存, key=${key}`)
     questionBgImage.value = questionImageCache.get(key) || ''
     return
   }
@@ -1108,7 +1066,7 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   // 如果没有题目 HTML 内容，清空背景图并返回
   const html = questionHtml.value
   if (!html) {
-    console.warn('[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 题目 HTML 内容为空，清空背景图')
+    console.warn('[HomeworkAnswerView] 题目 HTML 内容为空，清空背景图')
     questionBgImage.value = ''
     return
   }
@@ -1116,31 +1074,22 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   // 获取题目渲染容器的DOM引用
   const el = questionRenderRef.value
   if (!el) {
-    console.warn('[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: questionRenderRef 为空，放弃本次题目截图')
+    console.warn('[HomeworkAnswerView] questionRenderRef 为空，放弃本次题目截图')
     return
   }
 
   // 检查容器内容是否已渲染完成，如果为空则等待一段时间
   if (!el.innerHTML || el.innerHTML.trim() === '') {
-    console.warn('[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 隐藏容器内容目前为空，等待渲染...')
+    console.warn('[HomeworkAnswerView] 隐藏容器内容为空，等待渲染...')
     await nextTick()
-    // 如果还是空，再等 100ms
-    if (!el.innerHTML || el.innerHTML.trim() === '') {
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
     if (isStale()) return
-    if (!el.innerHTML || el.innerHTML.trim() === '') {
-      console.error('[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 隐藏容器内容依然为空，截图可能失败')
-    }
   }
 
   try {
-    console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 开始 MathJax 渲染, seq=${seq}`)
     // el渲染数学公式
     await MathJaxUtils.renderMathAndWait(el)
     if (isStale()) return
 
-    console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: MathJax 渲染完成, 开始等待图片加载, seq=${seq}`)
     // 等待所有图片加载完成，确保截图包含图片内容
     const imgs = Array.from(el.querySelectorAll('img'))
     if (imgs.length > 0) {
@@ -1156,7 +1105,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
     }
     if (isStale()) return
 
-    console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: 图片加载完成, 开始 htmlToImage, seq=${seq}`)
     // el规范图像
     imgs.forEach((img) => {
       img.removeAttribute('width')
@@ -1173,7 +1121,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
       cacheBust: true,
     })
     if (isStale()) return
-    console.log(`[HOMEWORK_IMAGE_PROCESS] updateQuestionBackgroundImage: htmlToImage 成功, dataUrl 长度=${dataUrl.length}, seq=${seq}`)
     questionBgImage.value = dataUrl
 
     // 写入缓存
@@ -1189,47 +1136,31 @@ const updateQuestionBackgroundImage = async (seq: number) => {
 
 // 根据缓存恢复当前题目的画布数据
 const restoreCurrentPage = (question: ExerciseItem | null) => {
+  const questionKey = getQuestionKey(question)
   const board = drawingBoardRefs.value[0]
-  if (!board) {
-    console.warn('[HOMEWORK_IMAGE_PROCESS] restoreCurrentPage: drawingBoardRefs.value[0] 为空, 尝试延迟执行')
-    setTimeout(() => {
-      const retryBoard = drawingBoardRefs.value[0]
-      if (retryBoard) {
-        console.log('[HOMEWORK_IMAGE_PROCESS] restoreCurrentPage: 延迟执行成功')
-        restoreCurrentPage(question)
-      } else {
-        console.error('[HOMEWORK_IMAGE_PROCESS] restoreCurrentPage: 延迟执行依然失败')
-      }
-    }, 200)
+
+  if (!questionKey) {
+    // 没有题目，清空画布
+    board?.clearAll()
     return
   }
 
-  // 1. 立即清空画板，防止旧笔迹闪现
-  board.clearAll()
+  if (!board) {
+    console.warn('[HomeworkAnswerView] 画板 Ref 尚未准备好，无法恢复笔迹:', questionKey)
+    return
+  }
 
-  const questionKey = getQuestionKey(question)
-  console.log(`[HOMEWORK_IMAGE_PROCESS] restoreCurrentPage: 开始恢复数据, questionKey=${questionKey}`)
-  if (!questionKey) return
-
-  // 2. 尝试从当前会话关联的缓存中恢复笔迹
-  const sessionId = aiHomeworkStore.currentSession?.sessionId || 'default'
-  const cacheKey = `${questionKey}::${sessionId}`
-  
-  const rawCache = (answerDataCache.value as Record<string, any>)[cacheKey]
+  const rawCache = (answerDataCache.value as Record<string, any>)[questionKey]
   if (rawCache && rawCache.boardData) {
+    // 加载缓存的画板状态数据
     board.loadData(rawCache.boardData as any)
-    console.log('[HomeworkAnswerView] 从会话缓存成功恢复画布数据:', cacheKey)
+    console.log('[HomeworkAnswerView] 从缓存成功恢复画布数据:', questionKey)
   } else {
-    console.log('[HomeworkAnswerView] 该会话没有缓存数据:', cacheKey)
+    // 没有缓存数据，清空画布
+    board.clearAll()
+    console.log('[HomeworkAnswerView] 该题目没有缓存数据，已清空画布:', questionKey)
   }
 }
-
-// 监听会话切换，自动刷新画板笔迹
-watch(() => aiHomeworkStore.currentSession?.sessionId, (newSessionId) => {
-  console.log('[HomeworkAnswerView] 会话切换，准备恢复笔迹:', newSessionId)
-  restoreCurrentPage(currentAnswerQuestion.value)
-})
-
 
 // 返回作业列表页面
 const goBack = async () => {
@@ -2122,4 +2053,5 @@ onUnmounted(() => {
   margin-left: 4px;
   left: 40px;
 }
+
 </style>

@@ -362,6 +362,15 @@ const handleQuestionSelected = async () => {
     ;(draftBoardRef.value as any).clearAll()
   }
 
+  const questionBmNo = (currentQuestion.value?.bmNo || currentQuestion.value?.id || '').toString()
+  
+  // 在更新 UI 前，先更新 AI Store 的题目上下文
+  // 这样 loadCurrentDraft 时就能拿到正确的 sessionId，避免笔迹闪现
+  if (questionBmNo) {
+    console.log(`[ExerciseSolveViewNew] handleQuestionSelected: 更新 AI 上下文, questionBmNo=${questionBmNo}`)
+    await aiExerciseChatStore.loadChatHistory(questionBmNo)
+  }
+
   // 生成题目 HTML
   const raw = (currentQuestion.value?.question || currentQuestion.value?.title || '').toString()
   questionHtml.value = renderMessageContent(raw)
@@ -601,7 +610,13 @@ const buildDraftKey = (questionBmNo?: string | null, sessionId?: string | null) 
 
 const getCurrentDraftKey = () => {
   const questionBmNo = (currentQuestion.value?.bmNo || currentQuestion.value?.id || '').toString()
-  return buildDraftKey(questionBmNo, currentSessionId.value)
+  
+  // 这里的关键：必须确保当前 store 中的 session 确实属于这一题，否则会加载出错误的笔迹
+  const currentSession = aiExerciseChatStore.sessions.find(s => s.id === aiExerciseChatStore.currentSessionId)
+  const isSessionMatch = currentSession?.questionBmNo === questionBmNo
+  
+  const sessionId = isSessionMatch ? aiExerciseChatStore.currentSessionId : 'default'
+  return buildDraftKey(questionBmNo, sessionId)
 }
 
 const handleSessionDraftChange = async (
