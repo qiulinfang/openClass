@@ -8,7 +8,7 @@
   >
     <!-- 调试面板 (仅在开发环境下显示) -->
     <LayoutDebugger v-if="isDev" v-model="debugConfig" />
-    <div v-if="isDev" style="height: 20px;"></div>
+    <div style="height: 20px;"></div>
     <div class="suggested-questions-card">
       <!-- 头部区域：带紫色网格背景 -->
       <div class="suggestion-header">

@@ -603,6 +603,23 @@ const handleSessionDraftChange = async (
     await flushDraftAutoSave(previousDraftKey)
   }
 
+  // 特殊处理：如果是从默认会话（null）切换到第一个正式会话，且该会话没有草稿，则继承默认会话的草稿
+  if (previousSessionId === null && nextSessionId && nextDraftKey) {
+    const nextDraft = await draftStore.getDraft(nextDraftKey)
+    if (!nextDraft) {
+      const defaultDraftKey = buildDraftKey(questionBmNo, null) as string
+      const defaultDraft = await draftStore.getDraft(defaultDraftKey)
+      if (defaultDraft && defaultDraft.objects.length > 0) {
+        console.log('[草稿链路] 新会话继承默认草稿:', nextDraftKey)
+        await draftStore.saveDraft(nextDraftKey, {
+          objects: defaultDraft.objects,
+          history: defaultDraft.history,
+          historyIndex: defaultDraft.historyIndex,
+        })
+      }
+    }
+  }
+
   await loadCurrentDraft(nextDraftKey)
 }
 
