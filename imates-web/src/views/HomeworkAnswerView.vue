@@ -115,31 +115,22 @@
                   <!-- 单道题提交后的答案和解析 -->
                   <div v-if="isHomeworkSubmitted" class="answer-analysis-wrapper">
                     <div class="divider"></div>
-                    <div class="analysis-card answer-card">
-                      <div class="card-title">
-                        <div class="title-left">
-                          <q-icon name="check_circle" color="green" size="20px" />
-                          <span>标准答案 (作业已提交)</span>
+                    <div class="result-section">
+                      <div class="result-item answer-item">
+                        <div class="item-label">参考答案：</div>
+                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                      </div>
+                      <div class="result-item analysis-item">
+                        <div class="item-label">解析：</div>
+                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                      </div>
+                      <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
+                        <span class="item-label">是否添加到错题本：</span>
+                        <div class="item-controls">
+                          <Radio v-model="mistakeAddedStatus" val="yes" label="是" @update:model-value="handleMistakeChange" />
+                          <Radio v-model="mistakeAddedStatus" val="no" label="否" @update:model-value="handleMistakeChange" />
                         </div>
-                        <q-btn
-                          v-if="!isCurrentQuestionCorrect"
-                          flat
-                          dense
-                          color="primary"
-                          class="add-mistake-book-btn"
-                          @click="handleAddToMistakeBook"
-                        >
-                          <q-icon name="add_circle_outline" size="18px" class="q-mr-xs" />
-                          <span>加入错题本</span>
-                        </q-btn>
                       </div>
-                      <div class="card-content" v-html="renderMessageContent(currentAnswerQuestion.answer)"></div>
-                    </div>
-                    <div class="analysis-card explanation-card">
-                      <div class="card-title">
-                        <span>题目解析</span>
-                      </div>
-                      <div class="card-content" v-html="renderMessageContent(currentAnswerQuestion.explanation)"></div>
                     </div>
                   </div>
                 </div>
@@ -185,31 +176,22 @@
                   <!-- 提交后的答案和解析 -->
                   <div v-if="isHomeworkLocked" class="answer-analysis-wrapper">
                     <div class="divider"></div>
-                    <div class="analysis-card answer-card">
-                      <div class="card-title">
-                        <div class="title-left">
-                          <q-icon name="check_circle" color="green" size="20px" />
-                          <span>标准答案 (作业已提交)</span>
+                    <div class="result-section">
+                      <div class="result-item answer-item">
+                        <div class="item-label">参考答案：</div>
+                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                      </div>
+                      <div class="result-item analysis-item">
+                        <div class="item-label">解析：</div>
+                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                      </div>
+                      <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
+                        <span class="item-label">是否添加到错题本：</span>
+                        <div class="item-controls">
+                          <Radio v-model="mistakeAddedStatus" val="yes" label="是" @update:model-value="handleMistakeChange" />
+                          <Radio v-model="mistakeAddedStatus" val="no" label="否" @update:model-value="handleMistakeChange" />
                         </div>
-                        <q-btn
-                          v-if="!isCurrentQuestionCorrect"
-                          flat
-                          dense
-                          color="primary"
-                          class="add-mistake-book-btn"
-                          @click="handleAddToMistakeBook"
-                        >
-                          <q-icon name="add_circle_outline" size="18px" class="q-mr-xs" />
-                          <span>加入错题本</span>
-                        </q-btn>
                       </div>
-                      <div class="card-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
-                    </div>
-                    <div class="analysis-card explanation-card">
-                      <div class="card-title">
-                        <span>题目解析</span>
-                      </div>
-                      <div class="card-content" v-html="renderMessageContent((currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                     </div>
                   </div>
                 </div>
@@ -356,7 +338,7 @@ import Dialog from '@/components/base/Dialog.vue'
 import StatusTag from '@/components/base/StatusTag.vue'
 import HomeworkChatPanel from '@/components/chat/chatpanel/HomeworkChatPanel.vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { addMistake } from '@/services/storage/mistake-storage'
+import { addMistake, isMistake, deleteMistake } from '@/services/storage/mistake-storage'
 import { AI_ROLE_OPTIONS } from '@/constants/options'
 import goBackIcon from '/icons/goback.svg'
 import pagePrevIcon from '/icons/left.svg'
@@ -371,6 +353,7 @@ import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
+import Radio from '@/components/base/Radio.vue'
 import { parseQuestionStructure, mapBackendTypeToFrontend } from '@/utils/business/exercise-utils'
 
 defineOptions({
@@ -550,6 +533,13 @@ const handleToggle = async (question?: ExerciseItem) => {
 
   if (!isHomeworkSubmitted.value) {
     showMessage('需要提交作业后才能使用学伴答疑哦', 'warning')
+    return
+  }
+
+  // 校验解析数据：如果 questionReason 为空，则不允许答疑
+  const targetQuestion = question || currentAnswerQuestion.value
+  if (!targetQuestion?.questionReason) {
+    showMessage('这道题模型还在学习过程中', 'info')
     return
   }
 
@@ -997,6 +987,48 @@ const handleStartAnswer = async (question: ExerciseItem) => {
     }, 50)
   }
 }
+
+/** 错题本添加状态：'yes' 或 'no' */
+const mistakeAddedStatus = ref<'yes' | 'no'>('no')
+
+/** 处理错题本状态切换 */
+const handleMistakeChange = async (val: 'yes' | 'no') => {
+  if (!currentAnswerQuestion.value) return
+  
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  if (val === 'yes') {
+    const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
+    const homeworkId = route.params.homeworkId as string
+    
+    await addMistake({
+      bmNo: questionKey,
+      homeworkId: homeworkId,
+      homeworkName: homeworkName.value,
+      originalAnswer: originalAnswer,
+      questionData: currentAnswerQuestion.value
+    })
+    showMessage('已成功加入错题本', 'success')
+  } else {
+    await deleteMistake(questionKey)
+    showMessage('已从错题本移除', 'info')
+  }
+}
+
+/** 初始化当前题目的错题状态 */
+const initMistakeStatus = async () => {
+  if (!currentAnswerQuestion.value) {
+    mistakeAddedStatus.value = 'no'
+    return
+  }
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  const exists = await isMistake(questionKey)
+  mistakeAddedStatus.value = exists ? 'yes' : 'no'
+}
+
+// 监听题目切换，更新错题状态
+watch(() => currentAnswerQuestion.value, () => {
+  initMistakeStatus()
+}, { immediate: true })
 
 // 题目 HTML 变化时：等待 DOM 更新后截图
 const updateQuestionBackgroundImage = async (seq: number) => {
@@ -1731,37 +1763,55 @@ onUnmounted(() => {
   }
 }
 
-.analysis-card {
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
+.result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 4px;
+}
 
-  .card-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-    
-    .title-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    span {
-      font-weight: 600;
-      font-size: 15px;
-      color: #334155;
-    }
+.result-item {
+  .item-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 4px;
   }
-
-  .card-content {
+  
+  .item-content {
     font-size: 15px;
     line-height: 1.6;
-    color: #475569;
-    white-space: pre-wrap;
+    color: #334155;
+    word-break: break-all;
+  }
+}
+
+.analysis-item {
+  .item-content {
+    color: #64748b; /* 灰色解析 */
+  }
+}
+
+.mistake-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  
+  .item-label {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  
+  .item-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    :deep(.q-radio__label) {
+      font-size: 14px;
+      color: #475569;
+    }
   }
 }
 
@@ -1918,45 +1968,56 @@ onUnmounted(() => {
   color: #374151;
   line-height: 1.5;
 }
-.analysis-card {
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
-  border: 1px solid #e2e8f0;
+.result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 4px;
+}
 
-  .card-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    font-size: 16px;
+.result-item {
+  .item-label {
+    font-size: 15px;
     font-weight: 600;
     color: #1e293b;
-
-    .title-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .add-mistake-book-btn {
-      font-size: 13px;
-      font-weight: normal;
-      padding: 2px 8px;
-      border-radius: 6px;
-      
-      &:hover {
-        background: rgba(97, 94, 254, 0.05);
-      }
-    }
+    margin-bottom: 4px;
   }
-
-  .card-content {
+  
+  .item-content {
     font-size: 15px;
     line-height: 1.6;
     color: #334155;
     word-break: break-all;
   }
 }
+
+.analysis-item {
+  .item-content {
+    color: #64748b; /* 灰色解析 */
+  }
+}
+
+.mistake-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  
+  .item-label {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  
+  .item-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    :deep(.q-radio__label) {
+      font-size: 14px;
+      color: #475569;
+    }
+  }
+}
+
 </style>

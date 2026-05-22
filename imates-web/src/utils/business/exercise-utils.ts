@@ -80,8 +80,8 @@ export const mapHomeworkQuestionToExercise = (
     question: normalizedContent,
     questionContent: question.questionContent, // 保留完整原始 HTML
     answer: question.questionAnswer || '',
-    explanation: question.questionAnalysis || '',
-    analysisData: question.questionAnalysis || '',
+    explanation: question.questionReason || question.questionAnalysis || '',
+    analysisData: question.questionReason || question.questionAnalysis || '',
     subject: subject,
     questionReason: question.questionReason,
     questionChooseInfo: question.questionChooseInfo,

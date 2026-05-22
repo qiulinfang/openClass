@@ -13,6 +13,7 @@ import { useChatRetry } from '@/composables/useChatRetry'
 import { useChatEngine } from '@/composables/useChatEngine'
 import { useHtmlMessageRawMap } from '@/composables/useHtmlMessageRawMap'
 import { validateGeneralChatRequest } from './utils/requestValidator'
+import { normalizeSubject } from '@/constants/subjects'
 import { getApiPaths } from '@/config/env-config'
 import { Sender } from '@/types/enums'
 
@@ -39,7 +40,10 @@ const buildAiHomeworkMessage = (
     }
   }
   const { sessionId: finalSessionId, newValue } = createSessionId(sessionId ?? undefined)
-  const dstUrl = useScreenshotApi ? getApiPaths().xueban.ai.previewPictureQA : getApiPaths().xueban.ai.chats
+  
+  // ai-homework 统一使用 ai-exercise 的接口逻辑
+  const effectiveApiSubject = normalizeSubject((question as any)?.subject || 'BIOLOGY')
+  const dstUrl = effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
   
   // 合并所有上下文到 coversation 字段
   const fullContext = (() => {
