@@ -302,7 +302,6 @@ import { useQuestionStore } from '../stores/questionStore'
 import { useHomeworkStore } from '../stores/homeworkStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import type { ExerciseItem } from '../types'
-import { apiService } from '../services/http/api-service'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 
@@ -735,10 +734,6 @@ watch(questions, () => {
   updateMistakeStatus()
 }, { deep: true })
 
-// 高考AI接口调用 loading 状态（按题目 bmNo 维度）
-const gaokaoTypeLoadingIds = ref<Set<string>>(new Set())
-const gaokaoChoiceParseLoadingIds = ref<Set<string>>(new Set())
-
 // 检查题目是否已收藏
 const isExerciseFavorite = (itemId: string): boolean => {
   return favoriteStatus.value.get(itemId) ?? false
@@ -771,115 +766,6 @@ const throttledToggleFavorite = ThrottleUtils.fast((item: ExerciseItem) => {
   toggleFavorite(item)
 })
 
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    showMessage('已复制到剪贴板', 'success')
-  } catch (error) {
-    console.error('复制失败:', error)
-    showMessage('复制失败', 'error')
-  }
-}
-
-const callGaokaoQuestionType = async (question: ExerciseItem) => {
-  const bmNo = question.bmNo
-  if (!bmNo) {
-    showMessage('无法确定题目ID', 'error')
-    return
-  }
-  if (gaokaoTypeLoadingIds.value.has(bmNo)) return
-
-  try {
-    gaokaoTypeLoadingIds.value.add(bmNo)
-
-    const questionText = (question.question || question.title || '').toString().trim()
-    if (!questionText) {
-      showMessage('题目内容为空', 'warning')
-      return
-    }
-
-    const resp = await apiService.gaokaoQuestionType({
-      question: questionText,
-      answer: (question.answer || '').toString(),
-      analysis: ((question.explanation as any) || (question.analysisData as any) || '').toString(),
-    })
-
-    if (!resp || (resp as any).success !== true) {
-      const errorMsg = `题型识别失败：${(resp as any)?.error || '未知错误'}`
-      console.error('[QuestionList] 题型识别失败:', { question: questionText, response: resp })
-      showMessage(errorMsg, 'error')
-      return
-    }
-
-    const questionType = (resp as any).data?.questionType
-    showMessage(`题型：${questionType || '未知'}`, 'positive')
-  } catch (error) {
-    console.error('[QuestionList] 题型识别异常:', error)
-    showMessage('题型识别失败: ' + ((error as Error)?.message || '未知错误'), 'error')
-  } finally {
-    gaokaoTypeLoadingIds.value.delete(bmNo)
-  }
-}
-
-const callGaokaoChoiceParse = async (question: ExerciseItem) => {
-  const bmNo = question.bmNo
-  if (!bmNo) {
-    showMessage('无法确定题目ID', 'error')
-    return
-  }
-  if (gaokaoChoiceParseLoadingIds.value.has(bmNo)) return
-
-  try {
-    gaokaoChoiceParseLoadingIds.value.add(bmNo)
-
-    const questionText = (question.question || question.title || '').toString().trim()
-    if (!questionText) {
-      showMessage('题目内容为空', 'warning')
-      return
-    }
-
-    const resp = await apiService.gaokaoChoiceParse({
-      question: questionText,
-      answer: (question.answer || '').toString(),
-      analysis: ((question.explanation as any) || (question.analysisData as any) || '').toString(),
-    })
-
-    if (!resp || (resp as any).success !== true) {
-      const errorMsg = `选择题拆分失败：${(resp as any)?.error || '未知错误'}`
-      console.error('[QuestionList] 选择题拆分失败:', { question: questionText, response: resp })
-      showMessage(errorMsg, 'error')
-      return
-    }
-
-    const data = (resp as any).data
-    const options: Array<{ optionId: string; optionContent: string }> = Array.isArray(data?.options)
-      ? data.options
-      : []
-    const formatted = [
-      `题型：${data?.questionType || ''}`,
-      (data?.questionContent || '').toString(),
-      options.length
-        ? options
-            .map((o) =>
-              `${(o.optionId || '').toString().trim()} ${(o.optionContent || '')
-                .toString()
-                .trim()}`.trim()
-            )
-            .join('\n')
-        : '',
-    ]
-      .filter((s) => s && s.trim())
-      .join('\n')
-
-    await copyToClipboard(formatted)
-  } catch (error) {
-    console.error('[QuestionList] 选择题拆分异常:', error)
-    showMessage('选择题拆分失败: ' + ((error as Error)?.message || '未知错误'), 'error')
-  } finally {
-    gaokaoChoiceParseLoadingIds.value.delete(bmNo)
-  }
-}
-
 // 通用操作列表：构造更多菜单的 actions（根据策略能力决定显示哪些操作）
 const buildMoreActions = (question: ExerciseItem, index: number) => {
   const bmNo = question.bmNo
@@ -897,22 +783,6 @@ const buildMoreActions = (question: ExerciseItem, index: number) => {
       icon: index === 0 ? quxiaozhidingIcon : zhidingIcon,
       visible: currentStrategy.canMoveToTop(),
       onClick: wrap(() => throttledMoveToTop(bmNo)),
-    },
-    {
-      key: 'gaokao_question_type',
-      label: gaokaoTypeLoadingIds.value.has(bmNo) ? '题型识别中...' : '题型识别',
-      iconName: 'category',
-      visible: true,
-      loading: gaokaoTypeLoadingIds.value.has(bmNo),
-      onClick: wrap(() => callGaokaoQuestionType(question)),
-    },
-    {
-      key: 'gaokao_choice_parse',
-      label: gaokaoChoiceParseLoadingIds.value.has(bmNo) ? '拆分中...' : '选择题拆分（复制）',
-      iconName: 'format_list_bulleted',
-      visible: true,
-      loading: gaokaoChoiceParseLoadingIds.value.has(bmNo),
-      onClick: wrap(() => callGaokaoChoiceParse(question)),
     },
     {
       key: 'favorite',
