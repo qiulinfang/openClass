@@ -572,13 +572,28 @@ export class AiChatApi {
     if (!newChunk) return accumulated
     if (!accumulated) return newChunk
 
-    // 情况1：newChunk 是全量文本 (newChunk 包含了 accumulated)
-    // 这种情况下，直接使用 newChunk 作为最新的全量文本
-    if (newChunk.startsWith(accumulated)) {
-      return newChunk
+    // 优化逻辑：通过寻找特征对齐来处理后端的全量包 Bug
+    // 如果新帧中包含了已有的全部内容，我们找到它并截取其后的真正新增部分
+    const matchIndex = newChunk.indexOf(accumulated)
+
+    if (matchIndex !== -1 && accumulated.length > 5) {
+      const realNewPart = newChunk.slice(matchIndex + accumulated.length)
+      
+      console.log('[AiChatApi111] 检测到快照对齐，提取新增部分:', {
+        matchIndex,
+        oldLength: accumulated.length,
+        realNewPartLength: realNewPart.length,
+        realNewPartPreview: realNewPart.slice(0, 20)
+      })
+      
+      return accumulated + realNewPart
     }
 
-    // 情况2：newChunk 是增量内容 (正常情况)
+    console.log('[AiChatApi111] 增量叠加成功', {
+      newChunkLength: newChunk.length,
+      newChunkPreview: newChunk.slice(0, 20)
+    })
+
     return accumulated + newChunk
   }
 
