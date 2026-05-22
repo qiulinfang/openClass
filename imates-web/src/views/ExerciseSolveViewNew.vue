@@ -798,11 +798,15 @@ window.addEventListener('beforeunload', () => {
   }
 })
 
-// 组件卸载前保存草稿（用于路由切换）
+// 组件卸载前保存草稿并清理状态
 onBeforeUnmount(() => {
   if (currentDraftQuestionId.value) {
     void flushDraftAutoSave(currentDraftQuestionId.value)
   }
+  
+  // 清理全局 store 中的选中状态，确保下次进入时是干净的
+  questionStore.clearCurrentQuestion()
+  aiExerciseChatStore.resetState()
 })
 
 watch(currentSessionId, async (nextSessionId, previousSessionId) => {
@@ -813,7 +817,7 @@ watch(currentSessionId, async (nextSessionId, previousSessionId) => {
   await handleSessionDraftChange(nextSessionId, previousSessionId)
 })
 
-// 页面加载后自动选择第一题
+// 页面加载后的逻辑
 onMounted(async () => {
   // 检查是否需要切换到 AI 模式（从 HtmlPreviewView 返回时）
   if (isExerciseChatPanelVisible.value && mode.value !== 'right') {
@@ -822,14 +826,10 @@ onMounted(async () => {
     splitPanelRef.value?.toggle?.()
   }
 
-  // 延迟确保 QuestionList 组件已渲染并有数据
-  if (
-    questionListRef.value &&
-    typeof (questionListRef.value as any).scrollToQuestionAndSelect === 'function'
-  ) {
-    ;(questionListRef.value as any).scrollToQuestionAndSelect(0)
-    // 手动触发题目选择后的加载逻辑
-    await handleQuestionSelected()
+  // 如果已经有选中的题目（例如从其他页面返回），手动同步一次渲染内容
+  if (currentQuestion.value) {
+    console.log('[ExerciseSolveViewNew] 检测到已有选中题目，执行同步渲染')
+    handleQuestionSelected()
   }
 })
 </script>
