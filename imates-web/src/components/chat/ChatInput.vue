@@ -25,6 +25,23 @@
                 />
               </button>
             </template>
+
+            <!-- 图片上传按钮 - 移动到顶部工具栏左侧 -->
+            <button
+              v-if="
+                props.type === 'ai-general' ||
+                props.type === 'ai-exercise' ||
+                props.type === 'ai-homework' ||
+                props.type === 'ai-textbook' ||
+                props.type === 'user-client' ||
+                props.type === 'teacher'
+              "
+              type="button"
+              class="toolbar-btn"
+              @click="handleShowImagePicker"
+            >
+              <img :src="picturIcon" alt="添加图片" class="toolbar-icon" />
+            </button>
             <!-- 前置插槽：保留向后兼容 -->
             <slot name="header-prefix"></slot>
 
@@ -194,30 +211,23 @@
             >
               <img :src="onlineSearchIconToUse" alt="互联网搜索" class="toolbar-icon" />
             </button>
+
+                      <!-- 问老师按钮 - 移动到底部控制栏右侧 -->
+          <button
+            v-if="!props.hideAskTeacherIcon && normalizedTools.some(t => t.type === 'ask-teacher')"
+            type="button"
+            @click="handleAskTeacherClick"
+              class="toolbar-btn"
+            :class="{ active: isAskTeacherSelected }"
+          >
+            <img :src="isAskTeacherSelected ? askTeacherIconSelected : askTeacherIcon" alt="问老师" class="toolbar-icon" />
+            <q-tooltip>问老师</q-tooltip>
+          </button>
           </template>
         </div>
 
         <!-- 右侧控制组 -->
         <div class="right-controls">
-
-          <!-- 图片上传 - 在 ai-general / ai-homework 等场景下显示 -->
-          <button
-            v-if="
-              props.type === 'ai-general' ||
-              props.type === 'ai-exercise' ||
-              props.type === 'ai-homework' ||
-              props.type === 'ai-textbook' ||
-              props.type === 'user-client' ||
-              props.type === 'teacher'
-            "
-            type="button"
-            @click="handleShowImagePicker"
-            class="control-icon-btn"
-            :class="{ active: props.activeMode?.label === '图片模式' }"
-          >
-            <img :src="picturIcon" alt="添加图片" class="control-icon" />
-            <q-tooltip>添加图片</q-tooltip>
-          </button>
 
 
           <!-- 发送按钮（外层透明点击区域更大，内部视觉尺寸不变） -->
@@ -287,7 +297,7 @@ import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索�
 import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
-import picturIcon from '/icons/picture.svg' // 图片上传
+import picturIcon from '/icons/shangchuantupian.svg' // 图片上传
 import type { ContentBlock } from '../../types'
 import type { AttachedScreenshot } from '@/types'
 import type { ToolbarTool, BuiltinToolType } from '../../types/toolbarTools'
@@ -483,7 +493,7 @@ const TOOL_POSITION_MAP: Record<BuiltinToolType, 'prefix' | 'right' | 'middle' |
   'select-and-ask': 'prefix',
   'new-session': 'right',
   'formula': 'middle',
-  'ask-teacher': 'middle',
+  'ask-teacher': 'none',
   'web-search': 'none', // web-search 在 control-bar，不在 header
 }
 
@@ -2018,7 +2028,7 @@ defineExpose({
   }
 
   .left-controls {
-    gap: 14px;
+    gap: 8px;
   }
 
   .right-controls {
@@ -2198,7 +2208,7 @@ defineExpose({
   }
 
   .left-controls {
-    gap: 16px;
+    gap: 8px;
   }
 
   .right-controls {

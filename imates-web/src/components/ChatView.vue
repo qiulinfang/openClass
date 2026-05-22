@@ -11,76 +11,16 @@
         @load-top="handleLoadTop"
       >
         <!-- 空状态：推荐问题列表（仅 AI 题目场景显示；历史加载完成后才显示，避免切题闪烁） -->
-        <div
+        <SuggestedQuestions
           v-if="
             displayedMessages.length === 0 &&
             !(chatStrategy?.isChatLoading?.() ?? false) &&
             (type === 'ai-exercise' || type === 'ai-homework')
           "
-          :class="[
-            'empty-chat-state',
-            props.size === 'small' ? 'empty-chat-state--small' : 'empty-chat-state--large',
-          ]"
-        >
-          <div class="suggestion-header">猜你想问：</div>
-          <div class="suggestion-list">
-            <div v-for="(suggestion, idx) in suggestedQuestions" :key="idx" class="suggestion-item">
-              <!-- 编辑模式：显示输入框 -->
-              <template v-if="editingSuggestionIndex === idx">
-                <input
-                  ref="suggestionInputRef"
-                  v-model="editingSuggestionText"
-                  class="suggestion-input"
-                  placeholder="输入你的常用问题"
-                  @keyup.enter="saveSuggestionEdit(idx)"
-                  @keyup.esc="cancelSuggestionEdit"
-                  @blur="saveSuggestionEdit(idx)"
-                />
-              </template>
-              <!-- 显示模式 -->
-              <template v-else>
-                <!-- 常用问题 -->
-                <span class="suggestion-text" @click="handleSuggestionClick(suggestion)">{{
-                  suggestion
-                }}</span>
-                <!-- 操作按钮 -->
-                <div class="suggestion-actions">
-                  <!-- 编辑按钮 -->
-                  <button
-                    class="suggestion-edit-btn"
-                    @click.stop="startEditSuggestion(idx)"
-                    title="编辑"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                  <!-- 箭头 -->
-                  <svg
-                    class="suggestion-arrow"
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    @click="handleSuggestionClick(suggestion)"
-                  >
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
+          :size="props.size"
+          :type="type as 'ai-exercise' | 'ai-homework'"
+          @select="(q) => emit('send-message', q)"
+        />
 
         <!-- 顶部加载指示器（教师聊天分页加载） -->
         <div v-if="type === 'teacher' && teacherStore.pagination.isLoadingMore"
@@ -412,6 +352,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 // 子组件导入
 import ChatMessage from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
+import SuggestedQuestions from './chat/SuggestedQuestions.vue'
 import Modal from './base/Modal.vue' //不要删除此处引用
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import CardStack from './base/CardStack.vue'
@@ -1339,104 +1280,6 @@ const isLastMessage = (index: number): boolean => {
 
 const lastUserMessageIndex = computed((): number => {
   return findLastUserMessageIndex(displayedMessages.value ?? [])
-})
-
-// ==================== 推荐问题相关 ====================
-// 默认推荐问题
-const DEFAULT_SUGGESTIONS = [
-  '能和我一起分析一下这道题的已知条件和想求的量之间的关系吗？',
-  '这道题通常会用到哪些关键概念或公式？我应该先从哪里入手？',
-  '有没有一个最关键的突破口？我应该关注哪个量的变化？',
-  '能带我对比一下这题和我们最近学的知识点，看是哪里匹配的吗？',
-  '点击编辑自定义问题...',
-]
-
-// 本地存储 key
-const SUGGESTIONS_STORAGE_KEY = 'ai_exercise_suggested_questions'
-
-// 推荐问题列表
-const suggestedQuestions = ref<string[]>([...DEFAULT_SUGGESTIONS])
-
-// 编辑状态
-const editingSuggestionIndex = ref<number | null>(null)
-const editingSuggestionText = ref('')
-
-// 从本地存储加载推荐问题
-const loadSuggestedQuestions = () => {
-  try {
-    const saved = localStorage.getItem(SUGGESTIONS_STORAGE_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed) && parsed.length === 5) {
-        suggestedQuestions.value = parsed
-      }
-    }
-  } catch (e) {
-    console.error('[ChatView] 加载推荐问题失败:', e)
-  }
-}
-
-// 保存推荐问题到本地存储
-const saveSuggestedQuestions = () => {
-  try {
-    localStorage.setItem(SUGGESTIONS_STORAGE_KEY, JSON.stringify(suggestedQuestions.value))
-  } catch (e) {
-    console.error('[ChatView] 保存推荐问题失败:', e)
-  }
-}
-
-// 开始编辑推荐问题
-const startEditSuggestion = (index: number) => {
-  editingSuggestionIndex.value = index
-  editingSuggestionText.value = suggestedQuestions.value[index]
-  // 下一帧聚焦输入框
-  nextTick(() => {
-    const input = document.querySelector('.suggestion-input') as HTMLInputElement
-    input?.focus()
-    input?.select()
-  })
-}
-
-// 保存编辑
-const saveSuggestionEdit = (index: number) => {
-  if (editingSuggestionIndex.value !== index) return
-
-  const newText = editingSuggestionText.value.trim()
-  if (newText) {
-    suggestedQuestions.value[index] = newText
-    saveSuggestedQuestions()
-  }
-  editingSuggestionIndex.value = null
-  editingSuggestionText.value = ''
-}
-
-// 取消编辑
-const cancelSuggestionEdit = () => {
-  editingSuggestionIndex.value = null
-  editingSuggestionText.value = ''
-}
-
-// 点击推荐问题
-const handleSuggestionClick = (suggestion: string) => {
-  // 如果正在编辑，不响应点击
-  if (editingSuggestionIndex.value !== null) return
-
-  // 如果是默认的占位文本，提示编辑
-  if (suggestion === '点击编辑自定义问题...') {
-    const idx = suggestedQuestions.value.indexOf(suggestion)
-    if (idx !== -1) {
-      startEditSuggestion(idx)
-    }
-    return
-  }
-
-  // 直接发送该问题
-  emit('send-message', suggestion)
-}
-
-// 组件挂载时加载保存的推荐问题
-onMounted(() => {
-  loadSuggestedQuestions()
 })
 
 // ==================== 编辑功能相关状态 ====================
@@ -3211,156 +3054,6 @@ defineExpose({
 }
 
 /* ==================== 删除确认对话框样式 ==================== */
-.delete-confirm-content {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ==================== 空状态推荐问题样式 ==================== */
-.empty-chat-state {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 85%;
-  background-color: #f6f6f8;
-  border-radius: 10px;
-  margin: 10px;
-}
-
-/* 紧凑版：减小内边距、字体与间距 */
-.empty-chat-state--small {
-  padding: 8px 8px;
-  gap: 6px;
-  max-width: 60%;
-  border-radius: 8px;
-  margin-left: 6px;
-}
-
-.empty-chat-state--small .suggestion-header {
-  font-size: 12px;
-}
-
-.empty-chat-state--small .suggestion-list {
-  gap: 6px;
-}
-
-.empty-chat-state--small .suggestion-item {
-  padding: 6px 8px;
-  border-radius: 8px;
-}
-
-.empty-chat-state--small .suggestion-text {
-  font-size: 12px;
-}
-
-.empty-chat-state--small .suggestion-edit-btn {
-  width: 20px;
-  height: 20px;
-}
-
-.empty-chat-state--large {
-  /* 保留现有默认样式，可在此覆盖以保证“大”模式与当前一致 */
-}
-
-.suggestion-header {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  padding-left: 2px;
-}
-
-.suggestion-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.suggestion-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: #ffffff;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.suggestion-item:hover {
-  background: #f3f4f6;
-  transform: translateX(2px);
-}
-
-.suggestion-item:active {
-  transform: scale(0.98);
-}
-
-.suggestion-text {
-  flex: 1;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.4;
-}
-
-.suggestion-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.suggestion-edit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #9ca3af;
-  transition: all 0.2s ease;
-  opacity: 1; /* 默认就显示出来 */
-}
-
-.suggestion-item:hover .suggestion-edit-btn {
-  opacity: 1;
-}
-
-.suggestion-edit-btn:hover {
-  background: #e5e7eb;
-  color: #6366f1;
-}
-
-.suggestion-arrow {
-  flex-shrink: 0;
-  color: #9ca3af;
-  cursor: pointer;
-}
-
-.suggestion-arrow:hover {
-  color: #6366f1;
-}
-
-.suggestion-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 13px;
-  color: #374151;
-  background: transparent;
-  padding: 0;
-  line-height: 1.4;
-}
-
-.suggestion-input::placeholder {
-  color: #9ca3af;
-}
 
 @keyframes highlight-pulse {
   0% {

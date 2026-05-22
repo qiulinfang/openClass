@@ -2557,7 +2557,7 @@ defineExpose({
 }
 
 .page-wrapper.is-horizontal {
-  background: transparent;
+  background: #fff;
   box-shadow: none;
 }
 
