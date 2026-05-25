@@ -15,6 +15,7 @@
             :show-photo-search="false"
             :show-question-actions="false"
             :show-mistake-badge="false"
+            @refresh="mistakeStore.fetchMistakes"
             @question-selected="handleQuestionSelected"
           />
         </div>

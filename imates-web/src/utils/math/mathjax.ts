@@ -15,6 +15,7 @@ declare global {
 
 export class MathJaxUtils {
   private static isReady = false;
+  private static isFailed = false; // 标记 MathJax 是否由于错误或加载失败而不可用
   private static readyPromise: Promise<void> | null = null;
   private static renderQueue: RenderTask[] = [];
   private static isProcessing = false;
@@ -25,43 +26,49 @@ export class MathJaxUtils {
 
   // 等待 MathJax 加载完成
   static async waitForMathJax(): Promise<void> {
-    if (this.isReady) {
-      return Promise.resolve();
-    }
+    if (this.isReady) return Promise.resolve();
+    if (this.isFailed) return Promise.resolve(); // 如果失败了，也返回 resolve 以便跳过渲染逻辑
 
-    if (this.readyPromise) {
-      return this.readyPromise;
-    }
+    if (this.readyPromise) return this.readyPromise;
 
     this.readyPromise = new Promise((resolve) => {
-      if (typeof window !== 'undefined' && window.MathJax) {
-        if (window.MathJax.startup && window.MathJax.startup.promise) {
-          window.MathJax.startup.promise.then(() => {
+      // 增加 5s 的硬性初始化超时保护
+      const initTimeout = setTimeout(() => {
+        console.warn('[MathJax] 初始化超时，标记为失败状态');
+        this.isFailed = true;
+        resolve();
+      }, 5000);
+
+      const checkMathJax = () => {
+        if (typeof window !== 'undefined' && window.MathJax) {
+          // 如果 MathJax 对象已存在，检查是否还在启动中
+          if (window.MathJax.startup && window.MathJax.startup.promise) {
+            window.MathJax.startup.promise.then(() => {
+              clearTimeout(initTimeout);
+              this.isReady = true;
+              console.log('[MathJax] 库加载并初始化完成');
+              resolve();
+            }).catch(err => {
+              console.error('[MathJax] 库初始化 Promise 报错:', err);
+              this.isFailed = true;
+              resolve();
+            });
+          } else if (window.MathJax.typesetPromise) {
+            // 如果已经可以直接调用渲染函数
+            clearTimeout(initTimeout);
             this.isReady = true;
             resolve();
-          });
-        } else {
-          this.isReady = true;
-          resolve();
-        }
-      } else {
-        const checkMathJax = () => {
-          if (typeof window !== 'undefined' && window.MathJax) {
-            if (window.MathJax.startup && window.MathJax.startup.promise) {
-              window.MathJax.startup.promise.then(() => {
-                this.isReady = true;
-                resolve();
-              });
-            } else {
-              this.isReady = true;
-              resolve();
-            }
           } else {
+            // 继续轮询
             setTimeout(checkMathJax, 100);
           }
-        };
-        checkMathJax();
-      }
+        } else {
+          // 继续轮询
+          setTimeout(checkMathJax, 100);
+        }
+      };
+
+      checkMathJax();
     });
 
     return this.readyPromise;
@@ -186,17 +193,31 @@ export class MathJaxUtils {
   static async renderMathAndWait(element: HTMLElement | null): Promise<void> {
     if (!element) return
 
-    await this.waitForMathJax()
+    try {
+      // 增加超时保护，防止 typesetPromise 挂起
+      const timeout = 3000; // 3s 超时
 
-    if (typeof window !== 'undefined' && window.MathJax && window.MathJax.typesetPromise) {
-      try {
-        await window.MathJax.typesetPromise([element])
-        // 与批量渲染保持一致：渲染完成后禁用右键菜单等交互
-        this.disableMathJaxContextMenu(element)
-        this.renderedElements.add(element)
-      } catch (error) {
-        console.warn('MathJax 渲染单个元素错误(renderMathAndWait):', error)
-      }
+      await Promise.race([
+        this.waitForMathJax().then(async () => {
+          if (this.isFailed) throw new Error('MathJax is in failed state');
+          
+          if (typeof window !== 'undefined' && window.MathJax && window.MathJax.typesetPromise) {
+            await window.MathJax.typesetPromise!([element]);
+            this.disableMathJaxContextMenu(element);
+            this.renderedElements.add(element);
+          }
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`MathJax render timeout after ${timeout}ms`)), timeout)
+        )
+      ]);
+      
+      console.log('[MathJax] 单个元素渲染完成');
+    } catch (error: any) {
+      console.warn('[MathJax] renderMathAndWait 渲染失败或超时:', error.message || error);
+    } finally {
+      // 无论如何都返回，不阻塞外部调用
+      return Promise.resolve()
     }
   }
 

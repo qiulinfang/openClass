@@ -448,7 +448,7 @@ const cachedComponents = ref<string[]>([
   // 'DrawingBoardView', // 画板页面
   // 'FindExerciseView', // 查找习题页面
   'MyFavoritesView', // 我的收藏页面
-  'MistakeBookView', // 错题本页面
+  // 'MistakeBookView', // 错题本页面
   // 'learning',           // 去练习弹窗页（/app/learning）
   // 'learningContent',     // 去练习内容查看页（/app/learning-content）
   'MyHomeworkView', // 我的作业页面

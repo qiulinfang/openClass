@@ -4,7 +4,7 @@
       <q-splitter
         v-model="splitterModel"
         :limits="[30, 70]"
-        :disable="!draftStore.chatPanelVisible"
+        :disable="!draftStore.chatPanelVisible || isBoardCapturing"
         :class="['full-height', { 'full-width-before': !draftStore.chatPanelVisible }]"
       >
         <!-- 画板内容区域 -->
@@ -228,6 +228,13 @@ const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
     margin-right: -12px;
     z-index: 5;
     will-change: left, right;
+  }
+
+  /* 禁用时取消拖动手势 */
+  :deep(.q-splitter--disabled) {
+    .q-splitter__separator {
+      cursor: default;
+    }
   }
 
   // 对话面板容器样式（参考 PdfViewerView）

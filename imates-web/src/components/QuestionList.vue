@@ -376,6 +376,7 @@ const emit = defineEmits<{
   'update:searchQuery': [value: string]
   questionDeleted: [payload: { questionId: string; withDraft: boolean }]
   'paste-to-draft': [payload: { dataUrl: string; questionId: string }]
+  refresh: []
 }>()
 
 const makePasteToDraftHandler = (questionId: string) => {
@@ -1023,6 +1024,7 @@ const loadMoreQuestions = async () => {
 const loadQuestions = async () => {
   // 如果父组件通过 externalQuestions 传入题目列表，则不再自行加载，只同步本地列表
   if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+    emit('refresh') // 通知父组件刷新数据源（例如从数据库重新加载）
     questions.value = [...props.externalQuestions]
     if (questions.value.length > 0) {
       displayedCount.value = INITIAL_DISPLAY_COUNT
@@ -1102,6 +1104,7 @@ const handlePullDownRefresh = async () => {
   if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
     try {
       console.log('[QuestionList] 下拉刷新（外部题目模式）')
+      emit('refresh') // 通知父组件刷新
       if (props.externalQuestions) {
         questions.value = [...props.externalQuestions]
       }

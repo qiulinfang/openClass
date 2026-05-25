@@ -680,7 +680,8 @@ const isObjective = (question: ExerciseItem): boolean => {
 
 // 将当前题目的画板数据与导出图片缓存到全局缓存中
 const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnswerQuestion.value, asyncImage = false) => {
-  if (!questionToSave) return
+  try {
+    if (!questionToSave) return
 
   const questionKey = getQuestionKey(questionToSave)
   if (!questionKey) return
@@ -713,8 +714,10 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
       }
 
       if (asyncImage) {
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 准备异步执行 captureBoardImage: ${questionKey}`)
         setTimeout(captureBoardImage, 0)
       } else {
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 准备同步执行 captureBoardImage: ${questionKey}`)
         captureBoardImage()
       }
     }
@@ -727,16 +730,22 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
     
     const captureStructuredImage = async () => {
       try {
+        console.log(`[HOMEWORK_IMAGE_PROCESS] captureStructuredImage 开始: ${questionKey}`)
         // 确保 MathJax 渲染完成
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 等待 MathJax 渲染...`)
         await MathJaxUtils.renderMathAndWait(renderEl)
+        console.log(`[HOMEWORK_IMAGE_PROCESS] MathJax 渲染完成`)
         
         // 等待所有图片加载
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 等待图片加载...`)
         const imgs = Array.from(renderEl.querySelectorAll('img'))
         await Promise.all(imgs.map(img => {
           if (img.complete) return Promise.resolve()
           return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
         }))
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 所有图片加载完成`)
 
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 开始 htmlToImage.toPng...`)
         const dataUrl = await htmlToImage.toPng(renderEl, {
           backgroundColor: '#ffffff',
           pixelRatio: 1.5, // 提高采样率保证清晰度
@@ -747,6 +756,7 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
             transformOrigin: 'top left'
           }
         })
+        console.log(`[HOMEWORK_IMAGE_PROCESS] htmlToImage.toPng 完成`)
 
         const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
         ;(answerDataCache.value as Record<string, any>)[questionKey] = {
@@ -761,11 +771,17 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
     }
 
     if (asyncImage) {
+      console.log(`[HOMEWORK_IMAGE_PROCESS] 准备异步执行 captureStructuredImage: ${questionKey}`)
       setTimeout(captureStructuredImage, 100)
     } else {
+      console.log(`[HOMEWORK_IMAGE_PROCESS] 准备同步执行 captureStructuredImage: ${questionKey}`)
       await captureStructuredImage()
     }
   }
+  console.log(`[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 执行结束: ${questionKey}`)
+} catch (globalSaveError) {
+  console.error('[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 全局错误:', globalSaveError)
+}
 }
 
 // 在当前题目的画布执行清空请求并打开确认对话框
@@ -970,7 +986,17 @@ const handleStartAnswer = async (question: ExerciseItem) => {
 
   // 1. 强制同步保存上一题数据 (确保图片生成)
   if (oldQuestion && oldQuestionKey !== questionKey) {
-    await saveCurrentPage(oldQuestion, false)
+    try {
+      console.log(`[HOMEWORK_IMAGE_PROCESS] 切换题目，正在保存上一题 ${oldQuestionKey} (带1.5s超时保护)...`)
+      const savePromise = saveCurrentPage(oldQuestion, false)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Save timeout')), 1500)
+      )
+      await Promise.race([savePromise, timeoutPromise])
+      console.log(`[HOMEWORK_IMAGE_PROCESS] 上一题 ${oldQuestionKey} 保存完成或超时继续`)
+    } catch (saveError: any) {
+      console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${saveError.message}`)
+    }
   }
 
   // 2. 立即更新 UI 状态
@@ -1048,9 +1074,12 @@ watch(() => currentAnswerQuestion.value, () => {
 const updateQuestionBackgroundImage = async (seq: number) => {
   const isStale = () => seq !== questionBgCaptureSeq.value
 
+  const questionKey = getQuestionKey(currentAnswerQuestion.value)
+  console.log(`[HOMEWORK_RENDER] updateQuestionBackgroundImage 开始: ${questionKey || '无'}, Seq: ${seq}`)
+
   // 如果没有当前题目，清空背景图
   if (!currentAnswerQuestion.value) {
-    console.warn('[HomeworkAnswerView] 没有当前题目，清空背景图')
+    console.warn('[HOMEWORK_RENDER] 没有当前题目，清空背景图')
     questionBgImage.value = ''
     return
   }
@@ -1059,6 +1088,7 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   const val = currentAnswerQuestion.value
   const key = (val.bmNo || val.id || '').toString()
   if (key && questionImageCache.has(key)) {
+    console.log(`[HOMEWORK_RENDER] 命中背景图缓存: ${key}`)
     questionBgImage.value = questionImageCache.get(key) || ''
     return
   }
@@ -1066,7 +1096,7 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   // 如果没有题目 HTML 内容，清空背景图并返回
   const html = questionHtml.value
   if (!html) {
-    console.warn('[HomeworkAnswerView] 题目 HTML 内容为空，清空背景图')
+    console.warn('[HOMEWORK_RENDER] 题目 HTML 内容为空，清空背景图')
     questionBgImage.value = ''
     return
   }
@@ -1074,25 +1104,28 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   // 获取题目渲染容器的DOM引用
   const el = questionRenderRef.value
   if (!el) {
-    console.warn('[HomeworkAnswerView] questionRenderRef 为空，放弃本次题目截图')
+    console.warn('[HOMEWORK_RENDER] questionRenderRef 为空，放弃本次题目截图')
     return
   }
 
   // 检查容器内容是否已渲染完成，如果为空则等待一段时间
   if (!el.innerHTML || el.innerHTML.trim() === '') {
-    console.warn('[HomeworkAnswerView] 隐藏容器内容为空，等待渲染...')
+    console.warn('[HOMEWORK_RENDER] 隐藏容器内容为空，等待渲染...')
     await nextTick()
     if (isStale()) return
   }
 
   try {
+    console.log(`[HOMEWORK_RENDER] 1. 正在调用 MathJaxUtils.renderMathAndWait...`)
     // el渲染数学公式
     await MathJaxUtils.renderMathAndWait(el)
+    console.log(`[HOMEWORK_RENDER] MathJax 渲染完成`)
     if (isStale()) return
 
     // 等待所有图片加载完成，确保截图包含图片内容
     const imgs = Array.from(el.querySelectorAll('img'))
     if (imgs.length > 0) {
+      console.log(`[HOMEWORK_RENDER] 2. 正在等待 ${imgs.length} 张图片加载...`)
       await Promise.all(
         imgs.map((img) => {
           if (img.complete) return Promise.resolve()
@@ -1102,6 +1135,7 @@ const updateQuestionBackgroundImage = async (seq: number) => {
           })
         })
       )
+      console.log(`[HOMEWORK_RENDER] 所有图片加载完成`)
     }
     if (isStale()) return
 
@@ -1114,21 +1148,24 @@ const updateQuestionBackgroundImage = async (seq: number) => {
       ;(img as HTMLImageElement).style.maxWidth = '100%'
     })
 
+    console.log(`[HOMEWORK_RENDER] 3. 正在执行 htmlToImage.toPng...`)
     // el转换为图片
     const dataUrl = await htmlToImage.toPng(el, {
       backgroundColor: '#ffffff',
       pixelRatio: 1.5,
       cacheBust: true,
     })
+    console.log(`[HOMEWORK_RENDER] 背景图转换成功`)
     if (isStale()) return
     questionBgImage.value = dataUrl
 
     // 写入缓存
     if (key) {
       questionImageCache.set(key, dataUrl)
+      console.log(`[HOMEWORK_RENDER] 背景图已写入缓存: ${key}`)
     }
   } catch (e) {
-    console.error('[HomeworkAnswerView] 使用 html-to-image 生成题目截图失败:', e)
+    console.error('[HOMEWORK_RENDER] 背景图截图过程出错:', e)
     if (isStale()) return
     questionBgImage.value = ''
   }
@@ -1139,45 +1176,76 @@ const restoreCurrentPage = (question: ExerciseItem | null) => {
   const questionKey = getQuestionKey(question)
   const board = drawingBoardRefs.value[0]
 
+  console.log(`[HOMEWORK_RENDER] restoreCurrentPage 开始: ${questionKey || '无'}`)
+
   if (!questionKey) {
     // 没有题目，清空画布
+    console.log('[HOMEWORK_RENDER] 无题目 Key，清空画布')
     board?.clearAll()
     return
   }
 
   if (!board) {
-    console.warn('[HomeworkAnswerView] 画板 Ref 尚未准备好，无法恢复笔迹:', questionKey)
+    console.warn('[HOMEWORK_RENDER] 画板 Ref 尚未准备好，无法恢复笔迹:', questionKey)
     return
   }
 
   const rawCache = (answerDataCache.value as Record<string, any>)[questionKey]
   if (rawCache && rawCache.boardData) {
     // 加载缓存的画板状态数据
+    console.log(`[HOMEWORK_RENDER] 正在从缓存恢复笔迹数据: ${questionKey}`)
     board.loadData(rawCache.boardData as any)
-    console.log('[HomeworkAnswerView] 从缓存成功恢复画布数据:', questionKey)
+    console.log('[HOMEWORK_RENDER] 笔迹恢复完成')
   } else {
     // 没有缓存数据，清空画布
+    console.log(`[HOMEWORK_RENDER] 无缓存笔迹，清空画布: ${questionKey}`)
     board.clearAll()
-    console.log('[HomeworkAnswerView] 该题目没有缓存数据，已清空画布:', questionKey)
   }
 }
 
+const isBacking = ref(false)
 // 返回作业列表页面
 const goBack = async () => {
+  if (isBacking.value) return
+  isBacking.value = true
+
+  console.log('[HOMEWORK_BACK] 开始执行返回逻辑')
   const homeworkId = route.params.homeworkId as string
-  if (homeworkId) {
-    try {
-      console.log('[HOMEWORK_BACK] 准备保存当前进度并持久化到本地...')
-      // 1. 同步保存当前题目的数据到内存缓存
-      await saveCurrentPage()
-      // 2. 将整个作答缓存同步到本地数据库
+  
+  try {
+    if (homeworkId) {
+      console.log('[HOMEWORK_BACK] 检测到 homeworkId:', homeworkId)
+      
+      // 增加超时控制，防止 saveCurrentPage 永久挂起
+      const savePromise = saveCurrentPage()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Save timeout')), 2500)
+      )
+
+      console.log('[HOMEWORK_BACK] 1. 正在调用 saveCurrentPage (带2.5s超时保护)...')
+      try {
+        await Promise.race([savePromise, timeoutPromise])
+        console.log('[HOMEWORK_BACK] saveCurrentPage 执行完毕')
+      } catch (e: any) {
+        console.warn('[HOMEWORK_BACK] saveCurrentPage 保存可能已挂起或超时:', e.message)
+      }
+      
+      console.log('[HOMEWORK_BACK] 2. 正在持久化作答数据到本地数据库...')
+      // 即使截图超时，也要尝试保存内存中的数据
       await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
-      console.log('[HOMEWORK_BACK] 进度已成功保存')
-    } catch (err) {
-      console.error('[HOMEWORK_BACK] 返回前持久化失败:', err)
+      console.log('[HOMEWORK_BACK] 持久化保存指令已发出')
+    } else {
+      console.warn('[HOMEWORK_BACK] 未检测到 homeworkId, 跳过持久化步骤')
     }
+  } catch (err) {
+    console.error('[HOMEWORK_BACK] 返回过程中捕获到异常:', err)
+  } finally {
+    console.log('[HOMEWORK_BACK] 准备执行路由跳转')
+    router.push({ name: 'myHomework' })
+    console.log('[HOMEWORK_BACK] 路由跳转指令已发出')
+    // 延迟一点点重置，防止快速连续点击
+    setTimeout(() => { isBacking.value = false }, 500)
   }
-  router.push({ name: 'myHomework' })   
 }
 
 // 打开微课（复用 ExerciseSolveView 中的逻辑）
@@ -1508,24 +1576,33 @@ const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]
 // 题目列表已从 homeworkStore 获取，根据 currentQuestionIndex 恢复当前选中题目
 onMounted(async () => {
   const homeworkId = route.params.homeworkId as string
+  console.log(`[HOMEWORK_STORAGE] onMounted 开始加载作业: ${homeworkId || '无'}`)
+
   if (homeworkId) {
     // 优先从 IndexedDB 加载已提交的历史数据
+    console.log(`[HOMEWORK_STORAGE] 1. 正在从 DB 加载作业提交数据: ${homeworkId}`)
     const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(homeworkId)
     if (dbData) {
       // 判断逻辑：如果 resubmitType 为 '1' (允许重复提交)，则不锁定提交状态
       if (resubmitType.value === '1') {
         isHomeworkSubmitted.value = false
-        console.log('[HomeworkAnswerView] 作业允许重复提交，解锁编辑模式')
+        console.log('[HOMEWORK_STORAGE] 作业允许重复提交，解锁编辑模式')
       } else {
         isHomeworkSubmitted.value = dbData.isSubmitted
       }
-      console.log('[HomeworkAnswerView] 已从 DB 恢复作业提交状态:', dbData.isSubmitted)
+      console.log(`[HOMEWORK_STORAGE] DB 恢复完成, 提交状态: ${dbData.isSubmitted}`)
+    } else {
+      console.log('[HOMEWORK_STORAGE] DB 中未找到该作业的提交记录')
     }
   }
 
-  if (!externalQuestions.value.length) return
+  if (!externalQuestions.value.length) {
+    console.warn('[HOMEWORK_STORAGE] 未获取到题目列表，中止初始化')
+    return
+  }
 
   // 初始化所有题目状态为未作答
+  console.log(`[HOMEWORK_STORAGE] 2. 正在初始化 ${externalQuestions.value.length} 道题目的本地缓存...`)
   externalQuestions.value.forEach((question) => {
     const questionKey = getQuestionKey(question)
     if (questionKey) {
@@ -1539,10 +1616,10 @@ onMounted(async () => {
           chooseList: [], // 选择的选项（A/B/C/D）
           timestamp: Date.now(), // 创建时间戳
         }
-        console.log(`[HomeworkAnswerView] 初始化题目状态为未作答: ${questionKey}`)
       }
     }
   })
+  console.log('[HOMEWORK_STORAGE] 题目本地缓存初始化完成')
 
   // 优先使用 store 中记录的选中索引
   let targetIndex = currentQuestionIndex.value ?? -1

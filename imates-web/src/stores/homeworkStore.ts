@@ -178,9 +178,13 @@ export const useHomeworkStore = defineStore('homework', () => {
    * 保存当前作业的所有内容到 IndexedDB
    */
   const saveCurrentHomeworkSubmission = async (homeworkId: string, isSubmitted: boolean): Promise<void> => {
-    if (!homeworkId) return
+    if (!homeworkId) {
+      console.warn('[HOMEWORK_STORAGE] saveCurrentHomeworkSubmission: homeworkId 缺失')
+      return
+    }
     
     try {
+      console.log(`[HOMEWORK_STORAGE] 开始持久化任务: ${homeworkId}, 提交状态: ${isSubmitted}`)
       await saveHomeworkSubmission({
         homeworkId,
         homeworkName: homeworkName.value,
@@ -188,9 +192,9 @@ export const useHomeworkStore = defineStore('homework', () => {
         answerDataCache: answerDataCache.value,
         questions: questions.value
       })
-      console.log('[HOMEWORK] 💾 已持久化作业提交数据', { homeworkId, isSubmitted })
+      console.log('[HOMEWORK_STORAGE] ✅ 数据已成功存入存储层 (IndexedDB)')
     } catch (error) {
-      console.error('[HOMEWORK] ❌ 持久化作业提交数据失败:', error)
+      console.error('[HOMEWORK_STORAGE] ❌ 持久化任务失败:', error)
     }
   }
 
@@ -201,6 +205,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     if (!homeworkId) return null
     
     try {
+      console.log(`[HOMEWORK_STORAGE] 正在尝试从存储层加载数据: ${homeworkId}`)
       const data = await loadHomeworkSubmission(homeworkId)
       if (data) {
         answerDataCache.value = data.answerDataCache
@@ -208,11 +213,12 @@ export const useHomeworkStore = defineStore('homework', () => {
         if (data.questions && data.questions.length > 0) {
           questions.value = data.questions
         }
-        console.log('[HOMEWORK] 📦 已从 IndexedDB 加载作业数据', { homeworkId })
+        console.log(`[HOMEWORK_STORAGE] ✅ 加载成功, 题目数: ${data.questions?.length || 0}, 缓存项: ${Object.keys(data.answerDataCache || {}).length}`)
         return { isSubmitted: data.isSubmitted }
       }
+      console.log(`[HOMEWORK_STORAGE] 存储层中不存在 ID 为 ${homeworkId} 的数据`)
     } catch (error) {
-      console.error('[HOMEWORK] ❌ 从 IndexedDB 加载作业数据失败:', error)
+      console.error('[HOMEWORK_STORAGE] ❌ 加载存储数据失败:', error)
     }
     return null
   }
