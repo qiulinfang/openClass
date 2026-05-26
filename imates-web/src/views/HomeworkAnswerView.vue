@@ -1874,6 +1874,18 @@ onUnmounted(() => {
     line-height: 1.6;
     color: #334155;
     word-break: break-all;
+
+    :deep(h1),
+    :deep(h2),
+    :deep(h3),
+    :deep(h4),
+    :deep(h5),
+    :deep(h6) {
+      font-size: 16px;
+      line-height: 1.5;
+      font-weight: 600;
+      margin: 8px 0;
+    }
   }
 }
 
@@ -2079,6 +2091,18 @@ onUnmounted(() => {
     line-height: 1.6;
     color: #334155;
     word-break: break-all;
+
+    :deep(h1),
+    :deep(h2),
+    :deep(h3),
+    :deep(h4),
+    :deep(h5),
+    :deep(h6) {
+      font-size: 16px;
+      line-height: 1.5;
+      font-weight: 600;
+      margin: 8px 0;
+    }
   }
 }
 

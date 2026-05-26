@@ -41,7 +41,7 @@ import katexPlugin from 'markdown-it-katex'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import { MathJaxUtils } from '../utils/math/mathjax'
+import { MathJaxUtils } from '@/utils/math/mathjax'
 
 defineOptions({
   name: 'RenderTestView',

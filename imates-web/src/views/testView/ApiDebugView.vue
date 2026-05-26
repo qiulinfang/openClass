@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { httpClient } from '../services'
+import { httpClient } from '@/services'
 
 const method = ref<'GET' | 'POST' | 'PUT' | 'DELETE'>('POST')
 const url = ref('/biologyTopicKnowledge/knowledgeTopicAndAck2')

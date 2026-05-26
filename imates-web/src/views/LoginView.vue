@@ -62,6 +62,19 @@
       {{ displayVersion }}
     </div>
 
+    <!-- 开发环境专用：测试页面导航按钮 -->
+    <div v-if="isDev" class="dev-nav-link">
+      <q-btn
+        flat
+        dense
+        color="white"
+        icon="bug_report"
+        label="测试导航"
+        class="bg-deep-orange-8 shadow-2"
+        @click="$router.push('/test-nav')"
+      />
+    </div>
+
     <!-- 环境切换对话框 -->
     <Dialog
       ref="envSwitchDialog"
@@ -114,6 +127,7 @@ const versionClickCount = ref(0)
 const versionClickTimer = ref<number | null>(null)
 const appVersion = ref('')
 const currentEnv = ref<AppEnvType>(getCurrentEnvType())
+const isDev = import.meta.env.DEV
 
 // 环境切换对话框相关
 const envSwitchDialog = ref<InstanceType<typeof Dialog> | null>(null)
@@ -570,6 +584,13 @@ const handleLogin = async () => {
 
 .version-text:hover {
   opacity: 0.8;
+}
+
+.dev-nav-link {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
 }
 
 /* 环境切换对话框样式 */

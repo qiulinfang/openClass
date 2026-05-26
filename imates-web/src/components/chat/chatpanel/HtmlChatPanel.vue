@@ -23,6 +23,8 @@
           :toolbar-tools="toolbarToolNames"
           :hide-history="true"
           :disable-history-save="true"
+          @screenshot-click="emit('screenshot-click')"
+          @request-screenshot="emit('request-screenshot', $event)"
         />
       </div>
       <!-- 会话记录 Tab -->
@@ -59,6 +61,7 @@ const toolbarToolNames: ('screenshot' | 'formula' | 'ask-teacher')[] = ['screens
 const emit = defineEmits<{
   close: []
   'screenshot-click': []
+  'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
   'open-html-preview': []
 }>()
 
@@ -70,6 +73,18 @@ const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
 const tabOptions = [
   { label: 'AI 问答', value: 'ai-chat' as const },
 ]
+
+defineExpose({
+  onImageSelected: (imageInfo: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }) => {
+    chatViewRef.value?.onImageSelected?.(imageInfo)
+  },
+})
 </script>
 
 <style scoped>

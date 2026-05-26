@@ -55,6 +55,8 @@
               ref="htmlChatPanelRef"
               :show-close-button="true"
               @close="handleCloseChatPanel"
+              @screenshot-click="handleScreenshotClick"
+              @request-screenshot="handleRequestScreenshot"
             />
           </div>
         </div>
@@ -69,8 +71,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMainChatPanel } from '@/composables/useMainChatPanel'
 import { useExerciseChatPanel } from '@/composables/useExerciseChatPanel'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
+import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import goBackIcon from '/icons/goback.svg'
 import ipNewIcon from '/icons/ip_new.webp'
+import { showMessage } from '@/utils'
 import { apiService } from '@/services'
 import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
 import { getApiPaths } from '@/config/env-config'
@@ -93,6 +97,9 @@ const { showMainChatPanel } = useMainChatPanel()
 
 // 使用 ExerciseChatPanel 控制
 const { showExerciseChatPanel } = useExerciseChatPanel()
+
+// 截图工具
+const { captureScreenSnapshot } = useScreenSnapshot()
 
 // HtmlChatPanel 引用
 const htmlChatPanelRef = ref<ComponentPublicInstance | null>(null)
@@ -148,7 +155,7 @@ watch(
 )
 
 // 处理截图点击（开启/关闭截图工具）
-const handleScreenshotClick = () => {
+const handleScreenshotClick = async () => {
   // 在 HTML 预览页，截图工具切换到 PDF 页面使用
   const from = route.query.from
   if (from === 'pdf') {
@@ -161,7 +168,32 @@ const handleScreenshotClick = () => {
         screenshot: 'true'
       }
     })
+  } else {
+    // 非 PDF 来源，直接执行常规截图（参考 MainChatPanel 逻辑）
+    try {
+      const { dataUrl, width, height } = await captureScreenSnapshot()
+      if (!dataUrl) return
+
+      const imageInfo = {
+        filePath: '',
+        width: width || 0,
+        height: height || 0,
+        fileSize: Math.round(dataUrl.length * 0.75),
+        base64DataUrl: dataUrl,
+      }
+      await (htmlChatPanelRef.value as any)?.onImageSelected?.(imageInfo)
+    } catch (error) {
+      console.error('[HtmlPreviewView] 截图失败:', error)
+      showMessage('截图失败', 'error')
+    }
   }
+}
+
+// 处理来自 ChatView 的截图请求（例如在多图模式点击"添加更多"）
+const handleRequestScreenshot = async (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => {
+  console.log('[HtmlPreviewView] handleRequestScreenshot:', payload)
+  if (payload?.kind !== 'screen_snapshot') return
+  await handleScreenshotClick()
 }
 
 // 处理关闭聊天面板 - 隐藏右侧面板

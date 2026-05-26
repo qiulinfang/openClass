@@ -16,15 +16,17 @@ import PhotoSearchView from '@/views/PhotoSearchView.vue'
 import MyHomeworkView from '@/views/MyHomeworkView.vue'
 import MistakeBookView from '@/views/MistakeBookView.vue'
 import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
-import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
-import ApiDebugView from '@/views/ApiDebugView.vue'
-import RenderTestView from '@/views/RenderTestView.vue'
-import LottieTest from '@/views/LottieTest.vue'
+import ChatSessionTestView from '@/views/testView/ChatSessionTestView.vue'
+import ApiDebugView from '@/views/testView/ApiDebugView.vue'
+import RenderTestView from '@/views/testView/RenderTestView.vue'
+import LottieTest from '@/views/testView/LottieTest.vue'
 import ExerciseSolveViewNew from '@/views/ExerciseSolveViewNew.vue'
 import InteractiveCanvasView from '@/views/InteractiveCanvasView.vue'
-import TeacherDebugView from '@/views/TeacherDebugView.vue'
-import TestExerciseView from '@/views/TestExerciseView.vue'
+import TeacherDebugView from '@/views/testView/TeacherDebugView.vue'
+import TestExerciseView from '@/views/testView/TestExerciseView.vue'
 import DraftNotebookView from '@/views/DraftNotebookView.vue'
+import MarkdownRenderTestView from '@/views/testView/MarkdownRenderTestView.vue'
+import TestNavView from '@/views/testView/TestNavView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -169,6 +171,16 @@ const router = createRouter({
       component: RenderTestView
     },
     {
+      path: '/markdown-test',
+      name: 'markdownTest',
+      component: MarkdownRenderTestView
+    },
+    {
+      path: '/test-nav',
+      name: 'testNav',
+      component: TestNavView
+    },
+    {
       path: '/lottie-test',
       name: 'lottieTest',
       component: LottieTest
@@ -230,7 +242,11 @@ router.beforeEach(async (to, from, next) => {
     to.name === 'testExercise' ||
     to.path === '/test-exercise' ||
     to.name === 'renderTest' ||
-    to.path === '/render-test'
+    to.path === '/render-test' ||
+    to.name === 'markdownTest' ||
+    to.path === '/markdown-test' ||
+    to.name === 'testNav' ||
+    to.path === '/test-nav'
   ) {
     console.log("from.path111", from.path)
     // 如果是从已登录页面跳转到登录页面（比如登录过期），断开 WebSocket 连接
