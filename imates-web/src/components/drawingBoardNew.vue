@@ -63,6 +63,7 @@
         ref="liveCanvasRef"
         class="canvas-layer canvas-live"
         :class="cursorClass"
+        style="touch-action: none"
         @pointerdown="handlePointerDown"
         @wheel="handleWheel"
         @pointerleave="handlePointerLeave"
@@ -1558,19 +1559,18 @@ function loadState(jsonStr) {
 
 // --- 交互逻辑 ---
 function handlePointerDown(e) {
-  if (props.disabled) return
   if (inputState.visible) return
 
   // askAi 框选截图模式下，禁止进入画板绘制逻辑（否则会落入 draw 分支产生笔迹）
   if (currentMode.value === 'askAi') return
 
-  liveCanvasRef.value.setPointerCapture(e.pointerId)
+  if (liveCanvasRef.value) {
+    liveCanvasRef.value.setPointerCapture(e.pointerId)
+  }
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
+  // 1. 手势识别（双指缩放）
   if (activePointers.size === 2) {
-    // 放弃当前的绘制
-    if (activeAction && activeAction.type === 'draw') activeAction = null
-
     const pts = Array.from(activePointers.values())
     activeAction = {
       type: 'gesture',
@@ -1581,14 +1581,20 @@ function handlePointerDown(e) {
     }
     return
   }
+  
+  // 超过两指则不处理新动作
   if (activePointers.size > 2) return
 
-  const worldPos = screenToWorld(e.clientX, e.clientY)
-
-  if (isSpacePressed.value || currentMode.value === 'hand') {
+  // 2. 导航动作（平移）- 无论是否 disabled 都要允许
+  if (isSpacePressed.value || currentMode.value === 'hand' || props.disabled) {
     activeAction = { type: 'pan', lastPos: { x: e.clientX, y: e.clientY } }
     return
   }
+
+  // 3. 禁用检查 - 仅拦截修改数据的操作
+  if (props.disabled) return
+
+  const worldPos = screenToWorld(e.clientX, e.clientY)
 
   if (currentMode.value === 'text') {
     startTextInput(worldPos.x, worldPos.y)
@@ -1717,9 +1723,13 @@ function handlePointerMove(e) {
   if (!activeAction) return
 
   if (activeAction.type === 'gesture') {
+    if (activePointers.size < 2) return
+    
     // 缩放手势：必须重绘所有层
     const pts = Array.from(activePointers.values())
     const dist = getDistance(pts[0], pts[1])
+    if (!activeAction.startDist || dist === 0) return
+    
     const center = getCenter(pts[0], pts[1])
     const scaleFactor = dist / activeAction.startDist
     const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, activeAction.startZoom * scaleFactor))
@@ -1937,6 +1947,12 @@ function handlePointerLeave(e) {
 
 function endAction(e) {
   activePointers.delete(e.pointerId)
+  
+  // 如果从双指变为单指，结束手势缩放
+  if (activePointers.size < 2 && activeAction?.type === 'gesture') {
+    activeAction = null
+  }
+
   if (activePointers.size === 0) {
     if (activeAction) {
       if (activeAction.type === 'box_select') {
