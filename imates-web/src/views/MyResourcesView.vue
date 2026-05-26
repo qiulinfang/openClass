@@ -390,7 +390,9 @@ const getStatusRank = (textbook: UserTextbookInfo): number => {
 
 // 计算属性 - 支持新的筛选逻辑（年级、版本、学科、下载状态）
 const filteredTextbooks = computed(() => {
-  let result: UserTextbookInfo[] = [...textbooks.value]
+  if (!textbooks.value) return []
+  // 确保数据源不包含 null 或 undefined
+  let result = textbooks.value.filter(t => t !== null && t !== undefined)
 
   // 年级筛选
   if (selectedGrade.value) {
@@ -433,16 +435,27 @@ const filteredTextbooks = computed(() => {
       return rankA - rankB
     }
 
+    // 安全获取字符串属性的方法
+    const getSafeLabel = (val: any) => (val === null || val === undefined ? '' : String(val))
+
     // 先按学科排序
-    if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
-      return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
+    const subjectA = getSafeLabel(a.textbookSubjectLabel)
+    const subjectB = getSafeLabel(b.textbookSubjectLabel)
+    if (subjectA !== subjectB) {
+      return subjectA.localeCompare(subjectB)
     }
+
     // 再按年级排序
-    if (a.textbookGradeLabel !== b.textbookGradeLabel) {
-      return a.textbookGradeLabel.localeCompare(b.textbookGradeLabel)
+    const gradeA = getSafeLabel(a.textbookGradeLabel)
+    const gradeB = getSafeLabel(b.textbookGradeLabel)
+    if (gradeA !== gradeB) {
+      return gradeA.localeCompare(gradeB)
     }
+
     // 最后按教材名称排序
-    return a.textbookName.localeCompare(b.textbookName)
+    const nameA = getSafeLabel(a.textbookName)
+    const nameB = getSafeLabel(b.textbookName)
+    return nameA.localeCompare(nameB)
   })
 })
 
@@ -766,8 +779,14 @@ const loadResources = async (isPullDownRefresh = false) => {
 
 // 更新学科筛选选项 - 优化版本，避免重复计算
 const updateSubjectChips = () => {
+  if (!textbooks.value) return
+
   // 检查是否需要更新（避免重复计算）
-  const currentSubjects = new Set(textbooks.value.map((t) => t.textbookSubjectLabel))
+  const currentSubjects = new Set(
+    textbooks.value
+      .filter((t) => t && t.textbookSubjectLabel)
+      .map((t) => t.textbookSubjectLabel)
+  )
   const currentSubjectKeys = Array.from(currentSubjects).sort().join(',')
   const lastSubjectKeys = categories.value
     .map((c) => c.value)

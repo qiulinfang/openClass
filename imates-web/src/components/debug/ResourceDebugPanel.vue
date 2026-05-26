@@ -397,18 +397,28 @@ const downloadingCount = computed(() => {
 })
 
 const sortedTextbooks = computed(() => {
+  if (!textbooks.value) return []
   return [...textbooks.value].sort((a, b) => {
+    if (!a || !b) return 0
     // 按下载状态排序（下载中 > 已下载 > 未下载）
     if (a.downloadStatus !== b.downloadStatus) {
       const order = { 1: 0, 2: 1, 3: 2, 0: 3 }
       return (order[a.downloadStatus as keyof typeof order] || 999) - (order[b.downloadStatus as keyof typeof order] || 999)
     }
+    
+    // 安全获取字符串属性的方法
+    const getSafeLabel = (val: any) => (val === null || val === undefined ? '' : String(val))
+    
     // 按学科排序
-    if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
-      return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
+    const subjectA = getSafeLabel(a.textbookSubjectLabel)
+    const subjectB = getSafeLabel(b.textbookSubjectLabel)
+    if (subjectA !== subjectB) {
+      return subjectA.localeCompare(subjectB)
     }
     // 按年级排序
-    return a.textbookGradeLabel.localeCompare(b.textbookGradeLabel)
+    const gradeA = getSafeLabel(a.textbookGradeLabel)
+    const gradeB = getSafeLabel(b.textbookGradeLabel)
+    return gradeA.localeCompare(gradeB)
   })
 })
 

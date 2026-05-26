@@ -274,6 +274,6 @@ export function sortChaptersByNumber<T extends { name: string }>(a: T, b: T): nu
   }
   
   // 如果都无法提取数字，按名称排序
-  return a.name.localeCompare(b.name)
+  return (a.name || '').localeCompare(b.name || '')
 }
 
