@@ -34,7 +34,8 @@
                 props.type === 'ai-homework' ||
                 props.type === 'ai-textbook' ||
                 props.type === 'user-client' ||
-                props.type === 'teacher'
+                props.type === 'teacher' ||
+                props.type === 'html-preview'
               "
               type="button"
               class="toolbar-btn"
@@ -176,7 +177,8 @@
                 props.type === 'ai-general' ||
                 props.type === 'ai-exercise' ||
                 props.type === 'ai-homework' ||
-                props.type === 'ai-textbook'
+                props.type === 'ai-textbook' ||
+                props.type === 'html-preview'
               "
               v-model="showModeSelectorMenu"
               placement="top"
@@ -206,7 +208,8 @@
                 props.type === 'ai-general' ||
                 props.type === 'ai-exercise' ||
                 props.type === 'ai-homework' ||
-                props.type === 'ai-textbook'
+                props.type === 'ai-textbook' ||
+                props.type === 'html-preview'
               "
             >
               <img :src="onlineSearchIconToUse" alt="互联网搜索" class="toolbar-icon" />

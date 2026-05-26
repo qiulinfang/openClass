@@ -552,11 +552,7 @@ const inputState = reactive({
 let historyCtx: CanvasRenderingContext2D | null = null
 let liveCtx: CanvasRenderingContext2D | null = null
 
-let strokes: any[] = []
-let history: any[] = []
-const activePointers = new Map()
-let activeAction = null
-const historyStep = ref(-1)
+const historyStep = ref(0)
 const MAX_HISTORY = 40
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 const AUTO_SAVE_DELAY_MS = 800
@@ -566,6 +562,11 @@ const MIN_ZOOM = 0.01
 const MAX_ZOOM = 10.0
 
 const imageCache = new Map<string, HTMLImageElement>()
+
+let strokes: any[] = []
+let history: any[] = [JSON.stringify([])]
+const activePointers = new Map()
+let activeAction = null
 
 function getCachedImage(dataUrl: string) {
   if (!dataUrl) return null
@@ -686,7 +687,9 @@ let groupBounds = null
 let selectionRect = null
 let activeHandle = null
 
-const canUndo = computed(() => historyStep.value >= 0)
+const canUndo = computed(() => {
+  return historyStep.value > 0
+})
 const canRedo = computed(() => {
   const len = Array.isArray(history) ? history.length : 0
   return historyStep.value < len - 1
@@ -2668,12 +2671,14 @@ const loadData = (data) => {
   }
 
   strokes = Array.isArray(data?.objects) ? data.objects : []
-  history = Array.isArray(data?.history) ? data.history : []
+  history = Array.isArray(data?.history) && data.history.length > 0 
+    ? data.history 
+    : [JSON.stringify(strokes)]
 
   let idx = typeof data?.historyIndex === 'number' ? data.historyIndex : history.length - 1
   const maxIdx = history.length - 1
   if (idx > maxIdx) idx = maxIdx
-  if (idx < -1) idx = -1
+  if (idx < 0) idx = 0
   historyStep.value = idx
 
   strokes.forEach((s) => ensureBoundsForStroke(s))
@@ -2688,8 +2693,8 @@ const clearAll = () => {
   activeAction = null
   activeHandle = null
   selectionRect = null
-  history = []
-  historyStep.value = -1
+  history = [JSON.stringify([])]
+  historyStep.value = 0
   // 清除自动保存定时器，防止清空后仍然触发保存
   if (autoSaveTimer) {
     clearTimeout(autoSaveTimer)

@@ -119,17 +119,74 @@ export const useHtmlPreviewChatStore = defineStore('htmlPreviewChat', () => {
 
     // 1. 处理用户消息展示
     if (!skipUserMessage) {
-      messages.value.push({
-        id: Date.now().toString(),
-        content,
-        type: Sender.USER,
-        timestamp: new Date().toISOString(),
-        sender: Sender.USER,
-        messageType: 'text',
-        quotedMessage,
-      })
-    } else if ((imageList && imageList.length > 0) || (imageData && imageData.base64DataUrl)) {
-      // 如果有图片，由外部策略层先通过 addMessage 插入了 UI，这里处理请求逻辑即可
+      if ((imageList && imageList.length > 0) || (imageData && imageData.base64DataUrl)) {
+        // 有图片：创建图片气泡（以及可选的文本气泡）
+        const now = Date.now()
+        const hasMulti = !!(imageList && imageList.length > 0)
+
+        if (hasMulti) {
+          const standardImageList = (imageList || [])
+            .filter((img) => !!img.base64DataUrl)
+            .map((img) => ({
+              filePath: img.filePath || '',
+              width: img.width || 0,
+              height: img.height || 0,
+              fileSize: img.fileSize || 0,
+              base64DataUrl: img.base64DataUrl!,
+            }))
+
+          messages.value.push({
+            id: now.toString(),
+            content: '',
+            type: Sender.USER,
+            timestamp: new Date().toISOString(),
+            sender: Sender.USER,
+            messageType: 'multi_image',
+            imageList: standardImageList,
+            quotedMessage,
+          })
+        } else if (imageData && imageData.base64DataUrl) {
+          messages.value.push({
+            id: now.toString(),
+            content: '',
+            type: Sender.USER,
+            timestamp: new Date().toISOString(),
+            sender: Sender.USER,
+            messageType: 'image',
+            imageData: {
+              filePath: imageData.filePath || '',
+              width: imageData.width || 0,
+              height: imageData.height || 0,
+              fileSize: imageData.fileSize || 0,
+              base64DataUrl: imageData.base64DataUrl,
+            },
+            quotedMessage,
+          })
+        }
+
+        // 如果有文本内容，单独创建一条文本消息
+        if (content && content.trim()) {
+          messages.value.push({
+            id: (now + 1).toString(),
+            content,
+            type: Sender.USER,
+            timestamp: new Date().toISOString(),
+            sender: Sender.USER,
+            messageType: 'text',
+          })
+        }
+      } else {
+        // 纯文本消息
+        messages.value.push({
+          id: Date.now().toString(),
+          content,
+          type: Sender.USER,
+          timestamp: new Date().toISOString(),
+          sender: Sender.USER,
+          messageType: 'text',
+          quotedMessage,
+        })
+      }
     }
 
     // 2. 创建 AI 临时回复

@@ -565,7 +565,8 @@ const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
     props.type === 'ai-exercise' ||
     props.type === 'ai-homework' ||
     props.type === 'ai-textbook' ||
-    props.type === 'user-client'
+    props.type === 'user-client' ||
+    props.type === 'html-preview'
   ) {
     void sendMessage()
   } else {
@@ -599,7 +600,8 @@ const onImageSelected = async (imageData: ChatImageData) => {
       props.type === 'ai-exercise' ||
       props.type === 'ai-homework' ||
       props.type === 'ai-textbook' ||
-      props.type === 'user-client'
+      props.type === 'user-client' ||
+      props.type === 'html-preview'
     ) {
       const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
       if (strategyInputAttachedScreenshots.value.length >= maxImages) {
@@ -688,7 +690,8 @@ const processCroppedImage = async (imageData: ChatImageData) => {
     props.type === 'ai-exercise' ||
     props.type === 'ai-homework' ||
     props.type === 'ai-textbook' ||
-    props.type === 'user-client'
+    props.type === 'user-client' ||
+    props.type === 'html-preview'
   ) {
     const shot: AttachedScreenshot = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -735,7 +738,8 @@ const attachImageDirectToPreview = async (imageData: ChatImageData) => {
     props.type === 'ai-exercise' ||
     props.type === 'ai-homework' ||
     props.type === 'ai-textbook' ||
-    props.type === 'user-client'
+    props.type === 'user-client' ||
+    props.type === 'html-preview'
   ) {
     const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
     if (strategyInputAttachedScreenshots.value.length >= maxImages) {
@@ -1681,7 +1685,8 @@ const sendMessage = async (attachedFile?: File) => {
       props.type === 'ai-exercise' ||
       props.type === 'ai-homework' ||
       props.type === 'ai-textbook' ||
-      props.type === 'user-client') &&
+      props.type === 'user-client' ||
+      props.type === 'html-preview') &&
     strategyInputAttachedScreenshots.value.length > 0
 
   if ((!hasText && !hasFile && !hasImageForInlineAttach) || isLoading.value) {
@@ -1766,7 +1771,8 @@ const sendMessage = async (attachedFile?: File) => {
         props.type === 'ai-exercise' ||
         props.type === 'ai-homework' ||
         props.type === 'ai-textbook' ||
-        props.type === 'user-client') &&
+        props.type === 'user-client' ||
+        props.type === 'html-preview') &&
       strategyInputAttachedScreenshots.value.length > 0 &&
       chatStrategy.value?.buildImagePayloadFromAttachedScreenshots
     ) {

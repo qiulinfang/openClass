@@ -8,6 +8,7 @@ import { Sender } from '../../../types/enums'
 import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
 import type { InitializeOptions, SendMessageOptions } from './types'
 import type { ChatBubble, AttachedScreenshot, HtmlPreviewFocus } from '@/types'
+import type { ChatImageData } from '@/stores/utils/chatStoreUtils'
 import { useHtmlPreviewChatStore } from '@/stores/htmlPreviewChatStore'
 import { getUserInfo, getSubject } from '@/services'
 
@@ -454,6 +455,41 @@ export class HtmlPreviewStrategy implements ChatStrategy {
   removeInputAttachedScreenshot(id: string): void {
     // Store 内部已实现过滤逻辑
     this.htmlPreviewStore.setInputAttachedScreenshots(this.htmlPreviewStore.inputAttachedScreenshots.filter(s => s.id !== id))
+  }
+
+  clearInputAttachedScreenshots(): void {
+    this.htmlPreviewStore.setInputAttachedScreenshots([])
+  }
+
+  buildImagePayloadFromAttachedScreenshots(shots: AttachedScreenshot[]): { imageData?: ChatImageData; imageList?: ChatImageData[] } {
+    if (shots.length === 0) return {}
+
+    // HtmlPreviewStore.buildRequest 会根据 imageList 是否有值来决定使用哪个接口 (previewPictureQA)
+    return {
+      imageList: shots.map(s => ({
+        base64DataUrl: s.dataUrl,
+        width: s.width,
+        height: s.height,
+        fileSize: 0,
+        filePath: ''
+      }))
+    }
+  }
+
+  shouldAnnotateAfterCrop(): boolean {
+    return true
+  }
+
+  getImagePostProcessMode(): 'attach_to_input' | 'send_immediately' {
+    return 'attach_to_input'
+  }
+
+  getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' {
+    return 'screen_snapshot'
+  }
+
+  getMaxAttachedImages(): number {
+    return 3
   }
 
   getEnableWebSearch(): boolean {
