@@ -45,47 +45,32 @@ const buildAiHomeworkMessage = (
   const effectiveApiSubject = normalizeSubject((question as any)?.subject || 'BIOLOGY')
   const dstUrl = effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
   
-  // 合并所有上下文到 coversation 字段
-  const fullContext = (() => {
-    const parts = []
-    
-    // 1. 题目与选项
-    let q = question?.question || ''
+  // 构建完整的题目信息（题干 + 选项）
+  const fullQuestion = (() => {
+    let q = question?.question || question?.title || ''
     if (question?.structuredContent?.options && question.structuredContent.options.length > 0) {
       const optionsStr = question.structuredContent.options
         .map(opt => `${opt.label}. ${opt.text}`)
         .join('\n')
       q += `\n\n选项：\n${optionsStr}`
     }
-    if (q) parts.push(`【题目】\n${q}`)
-
-    // 2. 答案
-    if (question?.answer) parts.push(`【答案】\n${question.answer}`)
-
-    // 3. 解析
-    const exp = question?.explanation || question?.analysisData || ''
-    if (exp) parts.push(`【解析】\n${exp}`)
-
-    // 4. 用户提问
-    if (content) parts.push(`【用户提问】\n${content}`)
-
-    return parts.join('\n\n')
+    return q
   })()
 
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,
     newValue,
-    coversation: fullContext,
-    question: '',
-    answer: '',
+    coversation: content, 
+    question: fullQuestion,
+    answer: question?.answer || '',
     name: getUserId() || 'User',
-    reason: 'start',
+    reason: 'start', // 这里可以根据消息数量判断是 start 还是 continue，目前暂保持原逻辑
     bmNo: question?.bmNo || finalSessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
     role: chatRole,
     subject: '',
     dstUrl,
-    explanation: '',
+    explanation: question?.explanation || question?.analysisData || '',
     imageList: imageList && imageList.length > 0 ? imageList : undefined,
     focus,
   }
