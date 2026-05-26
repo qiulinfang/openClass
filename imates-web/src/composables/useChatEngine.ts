@@ -50,15 +50,27 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
         const finalContent = finalResponse?.reply || accumulatedContent
         const displayContent = finalContent || '回复失败'
 
-        // 检测 HTML 内容并自动设置 messageType
+        // 检测内容类型并自动设置 messageType
         let messageType = old.messageType
+        let imageData = old.imageData
+
         if (displayContent.includes('kelvin-cosin.cloud') && displayContent.includes('.html')) {
           messageType = 'html'
+        } else if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?.*)?$/i.test(displayContent.trim())) {
+          messageType = 'image'
+          imageData = {
+            base64DataUrl: displayContent.trim(),
+            width: 0,
+            height: 0,
+            fileSize: 0,
+            filePath: '',
+          }
         }
 
         const nextMessage: ChatBubble = {
           ...tempReply,
           messageType,
+          imageData,
           content: displayContent,
           isStreaming: false,
           messageId: finalResponse?.messageId,
@@ -83,10 +95,29 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
       }
 
       accumulatedContent += chunk
+
+      let messageType = messages.value[index].messageType
+      let imageData = messages.value[index].imageData
+
+      if (accumulatedContent.includes('kelvin-cosin.cloud') && accumulatedContent.includes('.html')) {
+        messageType = 'html'
+      } else if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?.*)?$/i.test(accumulatedContent.trim())) {
+        messageType = 'image'
+        imageData = {
+          base64DataUrl: accumulatedContent.trim(),
+          width: 0,
+          height: 0,
+          fileSize: 0,
+          filePath: '',
+        }
+      }
+
       messages.value[index] = {
         ...messages.value[index],
         content: accumulatedContent,
         isStreaming: true,
+        messageType,
+        imageData,
       }
     }
 

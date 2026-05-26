@@ -113,10 +113,11 @@ const handleReloadClick = (url?: string) => {
 const displayedContent = computed(() => {
   const content = props.content
   
-  // 对于 HTML 消息，过滤掉 HTML URL，只显示文字描述
+  // 对于 HTML 消息，过滤掉 HTML URL 及其包装语法，只显示文字描述
   if (props.messageType === 'html') {
-    // 使用正则表达式移除 HTML URL 行
-    const filteredContent = content.replace(/https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html.*?(\n|$)/gi, '')
+    // 匹配: `![](URL)` 或 ![](URL) 或 单独 URL
+    // 以及前后可能的空白字符
+    const filteredContent = content.replace(/(`?!\[\]\()?\s*https:\/\/[a-z0-9.-]*kelvin-cosin\.cloud\/.*?\.html\s*(\)`?)?.*?(\n|$)/gi, '')
     return renderMessageContent(filteredContent.trim())
   }
   
@@ -127,17 +128,20 @@ const htmlSegments = computed(() => {
   if (props.messageType !== 'html') return [] as { key: string; type: 'text' | 'link'; rendered?: string; url?: string; rawHtml?: string }[]
 
   const content = props.content
-  const regex = /(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/gi
+  // 扩展正则以捕获整个 Markdown 包装结构
+  const regex = /(`?!\[\]\()?(\s*https:\/\/[a-z0-9.-]*kelvin-cosin\.cloud\/.*?\.html\s*)(\)`?)?/gi
   const segments: { key: string; type: 'text' | 'link'; rendered?: string; url?: string; rawHtml?: string }[] = []
 
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = regex.exec(content)) !== null) {
-    const url = match[1]
+    const fullMatch = match[0]
+    const url = match[2].trim() // 第二个捕获组是纯 URL
     const start = match.index
 
     if (start > lastIndex) {
-      const textPart = content.slice(lastIndex, start)
+      let textPart = content.slice(lastIndex, start)
+      // 清理文本片段末尾可能残留的换行或冒号，使衔接更自然
       if (textPart) {
         segments.push({
           key: `t-${lastIndex}-${start}`,

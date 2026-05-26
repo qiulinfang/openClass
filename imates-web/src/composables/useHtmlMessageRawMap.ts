@@ -55,7 +55,7 @@ type EnsureOptions = {
  */
 export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) => {
   // 默认匹配 kelvin-cosin.cloud 的 HTML 文件 URL
-  const defaultUrlRegex = /(https:\/\/kelvin-cosin\.cloud\/[a-f0-9-]+\.html)/gi
+  const defaultUrlRegex = /(https:\/\/[a-z0-9.-]*kelvin-cosin\.cloud\/.*?\.html)/gi
 
   const inflight = new Map<string, Promise<string | undefined>>()
 
@@ -498,6 +498,7 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
     const urls = options.onlyUrls?.length
       ? urlsAll.filter((u) => options.onlyUrls!.includes(u))
       : urlsAll
+    
     if (urls.length === 0) return false
 
     if (!message.rawHtmlMap) message.rawHtmlMap = {}
