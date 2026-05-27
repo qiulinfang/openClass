@@ -12,7 +12,7 @@
 
 
 <script setup lang="ts">
-import ImagePicker from './components/chat/ImagePicker.vue'
+import ImagePicker from './components/chat/Input/ImagePicker.vue'
 import StorageDebugPanel from './components/debug/StorageDebugPanel.vue'
 import StorageDebugButton from './components/debug/StorageDebugButton.vue'
 

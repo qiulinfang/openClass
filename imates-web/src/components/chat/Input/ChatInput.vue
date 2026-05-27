@@ -276,15 +276,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
-import { AI_ROLE_OPTIONS } from '../../constants/options'
-import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import MathFormulaEditor from '../MathFormulaEditor.vue'
-import HighSchoolMathEditor from '../HighSchoolMathEditor.vue'
-import Modal from '../base/Modal.vue'
-import ImageViewer from '../ImageViewer.vue'
-import ScreenshotThumb from '../ScreenshotThumb.vue'
-import BubblePopup from '../base/Popover.vue'
-import ActionList from '../ActionList.vue'
+import { AI_ROLE_OPTIONS } from '../../../constants/options'
+import { useMessageRenderer } from '../../../composables/useMessageRenderer'
+import MathFormulaEditor from './MathFormulaEditor.vue'
+import HighSchoolMathEditor from './HighSchoolMathEditor.vue'
+import Modal from '../../base/Modal.vue'
+import ImageViewer from '../../display/ImageViewer.vue'
+import ScreenshotThumb from '../../display/ScreenshotThumb.vue'
+import BubblePopup from '../../base/Popover.vue'
+import ActionList from '../../base/DropdownMenu.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
@@ -301,9 +301,9 @@ import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中�
 import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
 import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
 import picturIcon from '/icons/shangchuantupian.svg' // 图片上传
-import type { ContentBlock } from '../../types'
+import type { ContentBlock } from '../../../types'
 import type { AttachedScreenshot } from '@/types'
-import type { ToolbarTool, BuiltinToolType } from '../../types/toolbarTools'
+import type { ToolbarTool, BuiltinToolType } from '../../../types/toolbarTools'
 
 const props = defineProps({
   modelValue: {
@@ -381,7 +381,7 @@ const props = defineProps({
   },
   quotedMessage: {
     // 关键：这里显式声明 quotedMessage
-    type: Object as () => import('../../types').ChatBubble | null | undefined,
+    type: Object as () => import('../../../types').ChatBubble | null | undefined,
     default: null,
   },
   showToolbar: {

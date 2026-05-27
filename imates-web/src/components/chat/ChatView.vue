@@ -339,37 +339,37 @@
 import { ref, nextTick, onMounted, onUnmounted, computed, watchEffect } from 'vue'
 
 // 状态管理和工具函数
-import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
-import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
-import { useTeacherChatStore } from '../stores/teacherChatStore'
-import { useUserClientStore } from '../stores/userClientStore'
-import { useImagePicker } from '../composables/useImagePicker'
-import { androidBridge } from '../services/business/android-bridge'
-import { showMessage } from '../utils'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
+import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { useUserClientStore } from '@/stores/userClientStore'
+import { useImagePicker } from '@/composables/useImagePicker'
+import { androidBridge } from '@/services/business/android-bridge'
+import { showMessage } from '@/utils'
+import { useMessageRenderer } from '@/composables/useMessageRenderer'
 
 // 子组件导入
-import ChatMessage from './chat/ChatMessage.vue'
-import ChatInput from './chat/ChatInput.vue'
-import SuggestedQuestions from './chat/SuggestedQuestions.vue'
-import Modal from './base/Modal.vue' //不要删除此处引用
-import SimpleChatInput from './chat/SimpleChatInput.vue'
-import CardStack from './base/CardStack.vue'
-import RubberBandList from './base/VirtualList.vue'
-import TeacherSelectionDialog from './dialog/TeacherSelectionDialog.vue'
-import Dialog from './base/Dialog.vue'
-import Checkbox from './base/Checkbox.vue'
-import Button from './base/Button.vue'
-import ImageCropOverlay from './base/ImageCropOverlay.vue'
-import ScreenshotInputDialog from './dialog/ImageProcessorDialog .vue'
+import ChatMessage from '@/components/chat/message/ChatMessage.vue'
+import ChatInput from '@/components/chat/Input/ChatInput.vue'
+import SuggestedQuestions from '@/components/chat/message/SuggestedQuestions.vue'
+import Modal from '@/components/base/Modal.vue'
+import SimpleChatInput from '@/components/chat/Input/SimpleChatInput.vue'
+import CardStack from '@/components/base/CardStack.vue'
+import RubberBandList from '@/components/base/VirtualScroll.vue'
+import TeacherSelectionDialog from '@/components/dialog/TeacherSelectionDialog.vue'
+import Dialog from '@/components/base/Dialog.vue'
+import Checkbox from '@/components/base/Checkbox.vue'
+import Button from '@/components/base/Button.vue'
+import ImageCropOverlay from '@/components/base/ImageCropper.vue'
+import ScreenshotInputDialog from '@/components/dialog/ImageProcessorDialog.vue'
 
 // 类型定义导入
-import type { ChatBubble, AttachedScreenshot } from '../types'
-import type { ChatImageData } from '../stores/utils/chatStoreUtils'
-import type { HtmlPreviewFocus } from '../types'
-import type { BuiltinToolType, ToolbarTool } from '../types/toolbarTools'
-import { Sender } from '../types/enums'
+import type { ChatBubble, AttachedScreenshot } from '@/types'
+import type { ChatImageData } from '@/stores/utils/chatStoreUtils'
+import type { HtmlPreviewFocus } from '@/types'
+import type { BuiltinToolType, ToolbarTool } from '@/types/toolbarTools'
+import { Sender } from '@/types/enums'
 
 interface ScreenshotDrawingState {
   objects: unknown
@@ -378,8 +378,8 @@ interface ScreenshotDrawingState {
 }
 
 // 策略模式导入
-import { ChatStrategyFactory, type ChatStrategy, type ChatViewInterface } from './chat/strategies'
-import { findLastUserMessageIndex } from './chat/messageActionVisibility'
+import { ChatStrategyFactory, type ChatStrategy, type ChatViewInterface } from './strategies'
+import { findLastUserMessageIndex } from './messageActionVisibility'
 
 // ==================== 组件配置 ====================
 // 定义组件属性 - 支持AI和老师两种对话模式
@@ -444,9 +444,9 @@ const emit = defineEmits<{
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'scroll-to-message': [messageId: string] // 滚动到指定消息事件
-  'open-teacher-dialog': [{ sessionId: string; message?: import('../types').ChatBubble }] // 打开老师对话框事件
+  'open-teacher-dialog': [{ sessionId: string; message?: import('../../types').ChatBubble }] // 打开老师对话框事件
   'remove-screenshot': [string]
-  'send-with-screenshot': [string, import('../types').AttachedScreenshot[], string]
+  'send-with-screenshot': [string, import('../../types').AttachedScreenshot[], string]
   'focus-input': [] // 聚焦输入框事件
   'send-message': [string] // 发送消息事件（用于推荐问题点击）
   'paste-to-draft': [payload: { dataUrl: string; messageId: string }]

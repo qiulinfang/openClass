@@ -70,7 +70,7 @@
 import { ref, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DrawingHeader from '@/components/header/DrawingHeader.vue'
-import DrawingBoardNew from '@/components/drawingBoardNew.vue'
+import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import Dialog from '@/components/base/Dialog.vue'
 import DraftNoteChatPanel from '@/components/chat/chatpanel/DraftNoteChatPanel.vue'
 import { useDraftStore } from '@/stores/draftStore'

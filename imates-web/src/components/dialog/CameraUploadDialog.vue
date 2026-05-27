@@ -74,8 +74,8 @@
 import { ref, computed, watch } from 'vue'
 import Modal from '@/components/base/Modal.vue'
 import Button from '@/components/base/Button.vue'
-import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
-import ImageViewer from '@/components/ImageViewer.vue'
+import ScreenshotThumb from '@/components/display/ScreenshotThumb.vue'
+import ImageViewer from '@/components/display/ImageViewer.vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 

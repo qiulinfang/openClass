@@ -107,8 +107,8 @@ import { getHomeworkStatusText, getHomeworkStatusType, getHomeworkStatusTagType,
 import Button from '@/components/base/Button.vue'
 import CommonDatePicker from '@/components/base/DatePicker.vue'
 import CommonSelect from '@/components/base/Select.vue'
-import RubberBandList from '@/components/base/VirtualList.vue'
-import StatusTag from '@/components/base/StatusTag.vue'
+import RubberBandList from '@/components/base/VirtualScroll.vue'
+import StatusTag from '@/components/base/Tag.vue'
 import homeworkDeepIcon from '/icons/homework_deep.svg'
 
 defineOptions({

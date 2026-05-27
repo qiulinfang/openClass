@@ -47,7 +47,7 @@
                       />
                     </template>
                     <template #question-status="{ question }">
-                      <StatusTag
+                      <Tag
                         v-if="!(isHomeworkSubmitted && isObjective(question))"
                         :text="getQuestionStatusText(question)"
                         :type="getQuestionStatusType(question)"
@@ -326,9 +326,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import BusinessHeader from '@/components/header/BusinessHeader.vue'
-import QuestionList from '@/components/QuestionList.vue'
-import DrawingBoardNew from '@/components/drawingBoardNew.vue'
-import FloatBubble from '@/components/base/FloatBubble.vue'
+import QuestionList from '@/components/question/QuestionList.vue'
+import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
+import FloatBubble from '@/components/base/Fab.vue'
 import Button from '@/components/base/Button.vue'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
@@ -343,7 +343,7 @@ import { getSubject } from '@/services'
 import { normalizeSubject } from '@/constants/subjects'
 import { getHomeworkButtonText } from '@/constants/homework'
 import Dialog from '@/components/base/Dialog.vue'
-import StatusTag from '@/components/base/StatusTag.vue'
+import Tag from '@/components/base/Tag.vue'
 import HomeworkChatPanel from '@/components/chat/chatpanel/HomeworkChatPanel.vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { addMistake, isMistake, deleteMistake } from '@/services/storage/mistake-storage'
@@ -358,7 +358,7 @@ import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
 import askXuebanIcon from '/icons/askXueban.svg'
 import duileIcon from '/icons/duile.svg'
 import cuoleIcon from '/icons/cuole.svg'
-import MultiSelect from '@/components/base/MultiSelect.vue'
+import SelectMulti from '@/components/base/SelectMulti.vue'
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'

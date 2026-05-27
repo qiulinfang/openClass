@@ -96,9 +96,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue'
 import Modal from '@/components/base/Modal.vue'
-import drawingBoardNew from '@/components/drawingBoardNew.vue'
-import ImageCropOverlay from '@/components/base/ImageCropOverlay.vue'
-import ScreenshotThumb from '@/components/ScreenshotThumb.vue'
+import drawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
+import ImageCropOverlay from '@/components/base/ImageCropper.vue'
+import ScreenshotThumb from '@/components/display/ScreenshotThumb.vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
 import type { ExerciseSession } from '@/stores/aiExerciseChatStore'

@@ -58,13 +58,13 @@
 <script setup lang="ts">
 import { computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import { MathJaxUtils } from '../../utils/math/mathjax'
-import Loading from '../base/Loading.vue'
+import { useMessageRenderer } from '../../../composables/useMessageRenderer'
+import { MathJaxUtils } from '../../../utils/math/mathjax'
+import Loading from '../../base/Loading.vue'
 import generateImgGif from '/icons/generateImg.webp'
 import refreshIcon from '/icons/refresh.svg'
-import { useMainChatPanel } from '../../composables/useMainChatPanel'
-import { usePdfViewerStore } from '../../stores/pdfViewerStore'
+import { useMainChatPanel } from '../../../composables/useMainChatPanel'
+import { usePdfViewerStore } from '../../../stores/pdfViewerStore'
 // 定义Props
 interface Props{
   content: string

@@ -81,7 +81,7 @@ import mascotHomeworkIcon from '/icons/zuoyehaita.png'
 import titleExerciseIcon from '/icons/cainixiangwen.svg'
 import titleHomeworkIcon from '/icons/zuye_cainixiangwen.svg'
 import gridBgIcon from '/icons/zisewangge.svg'
-import LayoutDebugger from './LayoutDebugger.vue'
+import LayoutDebugger from '../../debug/LayoutDebugger.vue'
 
 const props = defineProps<{
   size?: 'large' | 'small'

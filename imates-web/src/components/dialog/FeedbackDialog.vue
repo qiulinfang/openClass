@@ -34,7 +34,7 @@
 import { computed, watch } from 'vue'
 import { showMessage } from '@/utils'
 import Modal from '@/components/base/Modal.vue'
-import ChatView from '@/components/ChatView.vue'
+import ChatView from '@/components/chat/ChatView.vue'
 import { useUserClientStore } from '@/stores/userClientStore'
 
 

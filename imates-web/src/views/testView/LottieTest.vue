@@ -121,7 +121,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import LottieAnimation from '@/components/LottieAnimation.vue'
+import LottieAnimation from '@/components/display/LottieAnimation.vue'
 
 // 响应式数据
 const animationRef = ref()

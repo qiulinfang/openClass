@@ -48,10 +48,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import ImageViewer from '../ImageViewer.vue'
+import ImageViewer from '../../display/ImageViewer.vue'
 
 // 导入类型定义
-import type { ImageMessageProps } from '../../types'
+import type { ImageMessageProps } from '../../../types'
 
 // 定义Props（直接使用类型，避免空接口）
 type Props = ImageMessageProps

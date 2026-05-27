@@ -128,8 +128,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import Toolbar from './Toolbar.vue'
-import Dialog from './base/Dialog.vue'
-import PerfectFreehandConfigDialog from './debug/PerfectFreehandConfigDialog.vue'
+import Dialog from '../base/Dialog.vue'
+import PerfectFreehandConfigDialog from '../debug/PerfectFreehandConfigDialog.vue'
 import SignaturePad from 'signature_pad'
 import type { ExerciseItem } from '@/types'
 import { getStroke } from 'perfect-freehand'

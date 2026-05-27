@@ -99,7 +99,7 @@ import {
   getCurrentYanbanUserId,
 } from '../services'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
-import RubberBandList from '@/components/base/VirtualList.vue'
+import RubberBandList from '@/components/base/VirtualScroll.vue'
 import Dialog from '@/components/base/Dialog.vue'
 
 // 导入 SVG 图标

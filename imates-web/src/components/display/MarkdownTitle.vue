@@ -6,8 +6,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { MathJaxUtils } from '../utils/math/mathjax'
+import { useMessageRenderer } from '../../composables/useMessageRenderer'
+import { MathJaxUtils } from '../../utils/math/mathjax'
 
 const props = defineProps<{
   title: string

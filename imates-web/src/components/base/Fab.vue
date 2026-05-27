@@ -72,8 +72,8 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
-import FloatBubbleDebugPanel from './FloatBubbleDebugPanel.vue'
-import DragDebugPanel from './DragDebugPanel.vue'
+import FloatBubbleDebugPanel from '../chat/FloatBubbleDebugPanel.vue'
+import DragDebugPanel from '../debug/DragDebugPanel.vue'
 
 // --- Props 定义 (简化版) ---
 const props = defineProps({

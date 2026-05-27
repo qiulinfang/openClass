@@ -37,11 +37,11 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
-import { androidBridge } from '../../services/business/android-bridge'
-import { showMessage } from '../../utils'
+import { androidBridge } from '../../../services/business/android-bridge'
+import { showMessage } from '../../../utils'
 
 // 导入类型定义
-import type { VoiceMessageProps } from '../../types'
+import type { VoiceMessageProps } from '../../../types'
 
 // 定义Props
 interface Props extends VoiceMessageProps {}

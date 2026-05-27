@@ -84,7 +84,7 @@ import { storeToRefs } from 'pinia'
 import { getScopedStorageValue } from '../services'
 import { normalizeSubject } from '../constants/subjects'
 import FindExerciseQuestionList from '../components/FindExerciseQuestionList.vue'
-import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
+import QuestionListSkeleton from '../components/display/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
 

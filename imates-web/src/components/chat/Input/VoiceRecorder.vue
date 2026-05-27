@@ -28,7 +28,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 
 // 导入类型定义
-import type { VoiceRecorderProps } from '../../types'
+import type { VoiceRecorderProps } from '../../../types'
 
 // 导入图标
 import deleteIcon from '/icons/delete.svg'

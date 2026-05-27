@@ -41,13 +41,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, defineAsyncComponent } from 'vue'
-import { AI_ROLE_OPTIONS } from '../../constants/options'
-const BubblePopup = defineAsyncComponent(() => import('../base/Popover.vue'))
+import { AI_ROLE_OPTIONS } from '../../../constants/options'
+const BubblePopup = defineAsyncComponent(() => import('../../base/Popover.vue'))
 import DeskmateIcon from '/icons/Deskmate.svg'
 import RepresentativeIcon from '/icons/Representative.svg'
 import GuruIcon from '/icons/Guru.svg'
 
-const ActionList = defineAsyncComponent(() => import('../ActionList.vue'))
+const ActionList = defineAsyncComponent(() => import('../../base/DropdownMenu.vue'))
 
 // Props
 const props = withDefaults(

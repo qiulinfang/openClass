@@ -233,14 +233,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { ZOOM_PRESET_OPTIONS } from '../constants/options'
+import { ZOOM_PRESET_OPTIONS } from '../../constants/options'
 import Toolbar from './Toolbar.vue'
-import CommonSelect from './base/Select.vue'
-import Dialog from './base/Dialog.vue'
-import ScreenshotInputDialog from './dialog/ImageProcessorDialog .vue'
+import CommonSelect from '../base/Select.vue'
+import Dialog from '../base/Dialog.vue'
+import ScreenshotInputDialog from '../dialog/ImageProcessorDialog .vue'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
-import { useImagePicker } from '../composables/useImagePicker'
+import { useImagePicker } from '../../composables/useImagePicker'
 
 const emit = defineEmits<{
   (e: 'clear'): void

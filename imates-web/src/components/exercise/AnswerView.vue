@@ -48,9 +48,9 @@
 <script setup lang="ts">
 import { computed, nextTick, watch, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { useQuestionStore } from '../stores/questionStore'
-import { MathJaxUtils } from '../utils/math/mathjax'
+import { useMessageRenderer } from '../../composables/useMessageRenderer'
+import { useQuestionStore } from '../../stores/questionStore'
+import { MathJaxUtils } from '../../utils/math/mathjax'
 
 const thumbStyle = {
   right: '4px',

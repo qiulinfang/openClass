@@ -66,7 +66,7 @@ import { computed, ref, watch } from 'vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 import Modal from '@/components/base/Modal.vue'
-import AvatarCropOverlay from '@/components/base/AvatarCropOverlay.vue'
+import AvatarCropOverlay from '@/components/base/AvatarCropper.vue'
 import avatarIcon from '/icons/avatar.svg'
 
 interface Props {

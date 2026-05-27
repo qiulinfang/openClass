@@ -134,11 +134,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { AiTextbookSession } from '@/types'
-import RubberBandList from './base/VirtualList.vue'
+import RubberBandList from '@/components/base/VirtualScroll.vue'
 import SessionItem from './SessionItem.vue'
-import Checkbox from './base/Checkbox.vue'
-import Button from './base/Button.vue'
-import Dialog from './base/Dialog.vue'
+import Checkbox from '@/components/base/Checkbox.vue'
+import Button from '@/components/base/Button.vue'
+import Dialog from '@/components/base/Dialog.vue'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getRecordId = (record: AiTextbookSession): string => {

@@ -101,9 +101,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { AiTextbookSession } from '@/types'
-import ImageViewer from './ImageViewer.vue'
-import BubblePopup from './base/Popover.vue'
-import Checkbox from './base/Checkbox.vue'
+import ImageViewer from '@/components/display/ImageViewer.vue'
+import BubblePopup from '@/components/base/Popover.vue'
+import Checkbox from '@/components/base/Checkbox.vue'
 import pinIcon from '/icons/zhiding.svg'
 import pinOutlinedIcon from '/icons/quxiaozhiding.svg'
 import deleteIcon from '/icons/delete.svg'

@@ -42,8 +42,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
-import Modal from './base/Modal.vue'
-import Loading from './base/Loading.vue'
+import Modal from '../base/Modal.vue'
+import Loading from '../base/Loading.vue'
 
 // ==================== Props & Emits ====================
 interface Props {

@@ -85,13 +85,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useQuestionStore } from '../stores/questionStore'
+import { useQuestionStore } from '../../stores/questionStore'
 import { storeToRefs } from 'pinia'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { showMessage } from '../utils'
-import RubberBandList from './base/VirtualList.vue'
-import ImageViewer from './ImageViewer.vue'
-import Loading from './base/Loading.vue'
+import { useMessageRenderer } from '../../composables/useMessageRenderer'
+import { showMessage } from '../../utils'
+import RubberBandList from '../base/VirtualScroll.vue'
+import ImageViewer from '../display/ImageViewer.vue'
+import Loading from '../base/Loading.vue'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)
 

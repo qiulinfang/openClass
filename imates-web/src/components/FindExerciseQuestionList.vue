@@ -115,8 +115,8 @@ import { ref } from 'vue'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import QuestionListSkeleton from './QuestionListSkeleton.vue'
-import RubberBandList from './base/VirtualList.vue'
+import QuestionListSkeleton from './display/QuestionListSkeleton.vue'
+import RubberBandList from './base/VirtualScroll.vue'
 
 // 定义事件
 const emit = defineEmits<{

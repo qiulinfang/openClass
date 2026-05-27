@@ -31,10 +31,10 @@
 </template>
 
 <script setup lang="ts">
-import { showMessage } from '../../utils'
-import { useImagePicker } from '../../composables/useImagePicker'
-import { ImagePickerAdapterFactory } from '../../adapters/ImagePickerAdapterFactory'
-import type { IImagePickerAdapter } from '../../adapters/IImagePickerAdapter'
+import { showMessage } from '../../../utils'
+import { useImagePicker } from '../../../composables/useImagePicker'
+import { ImagePickerAdapterFactory } from '../../../adapters/ImagePickerAdapterFactory'
+import type { IImagePickerAdapter } from '../../../adapters/IImagePickerAdapter'
 import Modal from '@/components/base/Modal.vue'
 
 // 使用全局图片选择器 composable

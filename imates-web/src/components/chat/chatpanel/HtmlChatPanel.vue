@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import ChatView from '@/components/ChatView.vue'
+import ChatView from '@/components/chat/ChatView.vue'
 import ChatPanelHeader from '@/components/header/ChatPanelHeader.vue'
 
 interface AttachedScreenshot {

@@ -78,7 +78,7 @@ import { showMessage } from '@/utils'
 import { apiService } from '@/services'
 import { enhanceResponsiveHtml } from '@/composables/useHtmlMessageRawMap'
 import { getApiPaths } from '@/config/env-config'
-import DualPanel from '@/components/base/DualPanel.vue'
+import DualPanel from '@/components/base/SplitPane.vue'
 import HtmlChatPanel from '@/components/chat/chatpanel/HtmlChatPanel.vue'
 import HistoryDebugPanel from '@/components/debug/HistoryDebugPanel.vue'
 

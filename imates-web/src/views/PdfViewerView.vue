@@ -125,10 +125,9 @@ import {
   addScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
 import DrawingHeader from '@/components/header/DrawingHeader.vue'
-import Toolbar from '@/components/Toolbar.vue'
-import PdfPage from '@/components/PdfPage.vue'
+import PdfPage from '@/components/pdf/PdfPage.vue'
 import PdfChatPanel from '@/components/chat/chatpanel/PdfChatPanel.vue'
-import MiniClass from '@/components/MiniClass.vue'
+import MiniClass from '@/components/display/MiniClass.vue'
 import goBackIcon from '/icons/goback.svg'
 import shangxiaSelectIcon from '/icons/shangxia_select.svg'
 import shangxiaIcon from '/icons/shangxia.svg'

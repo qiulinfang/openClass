@@ -270,7 +270,7 @@ defineOptions({
   name: 'MyResourcesView',
 })
 
-import StatusTag from '@/components/base/StatusTag.vue'
+import StatusTag from '@/components/base/Tag.vue'
 
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -284,7 +284,7 @@ import type { UserTextbookInfo, TextbookVersion, ChapterNode } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import RubberBandList from '../components/base/VirtualList.vue'
+import RubberBandList from '../components/base/VirtualScroll.vue'
 import Dialog from '../components/base/Dialog.vue'
 import { RESOURCE_SUBJECT_OPTIONS } from '@/constants/subjects'
 import {

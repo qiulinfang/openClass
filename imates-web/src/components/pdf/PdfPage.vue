@@ -100,9 +100,9 @@ import {
 } from 'vue'
 import * as mupdf from 'mupdf'
 import { IndexedDBService } from '@/services/storage/indexeddb-service'
-import { resourceManager } from '../services/storage/resource-storage'
+import { resourceManager } from '@/services/storage/resource-storage'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
-import Loading from './base/Loading.vue'
+import Loading from '@/components/base/Loading.vue'
 
 // === 类型定义 ===
 type ToolMode = 'pan' | 'pen' | 'highlighter' | 'eraser' | 'rectangle' | 'screenshot' | 'select'

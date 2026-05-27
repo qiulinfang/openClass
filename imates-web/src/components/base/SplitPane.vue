@@ -60,7 +60,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import seekbarIcon from '/icons/seekbar.svg';
-import DualPanelDebugPanel from './DualPanelDebugPanel.vue';
+import DualPanelDebugPanel from '../debug/DualPanelDebugPanel.vue';
 
 // Props 和 Emits 定义 v-model
 const props = defineProps({
