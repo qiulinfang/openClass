@@ -36,87 +36,103 @@
           <!-- 上部分：题目内容 -->
           <div class="question-section">
             <div class="question-body scroll-container">
-              <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
-                <ChoiceQuestion
-                  v-if="currentQuestionData.type === 'single_choice' || currentQuestionData.type === 'multiple_choice'"
-                  :question="currentQuestionData"
-                  :model-value="currentQuestionChooseList"
-                  :disabled="true"
-                  show-title
-                  :show-id="false"
-                >
-                  <template #extra>
-                    <div class="mistake-source-info">
-                      <span 
-                        class="source-tag" 
-                        v-if="latestRecord?.homeworkId"
-                      >
-                        来源于{{ latestRecord.homeworkName || '作业' }}
-                      </span>
-                      <span class="source-tag" v-else>来源于独立练习</span>
-                    </div>
-                  </template>
-                </ChoiceQuestion>
-                <FillBlankQuestion
-                  v-else-if="currentQuestionData.type === 'fill_in_blank' || currentQuestionData.type === 'fill'"
-                  :question="currentQuestionData"
-                  :model-value="currentQuestionFillList"
-                  :disabled="true"
-                  show-title
-                  :show-id="false"
-                >
-                  <template #extra>
-                    <div class="mistake-source-info">
-                      <span 
-                        class="source-tag" 
-                        v-if="latestRecord?.homeworkId"
-                      >
-                        来源于{{ latestRecord.homeworkName || '作业' }}
-                      </span>
-                      <span class="source-tag" v-else>来源于独立练习</span>
-                    </div>
-                  </template>
-                </FillBlankQuestion>
-                <JudgmentQuestion
-                  v-else-if="currentQuestionData.type === 'true_false' || currentQuestionData.type === 'judgment'"
-                  :question="currentQuestionData"
-                  :model-value="currentQuestionJudgment"
-                  :disabled="true"
-                  show-title
-                  :show-id="false"
-                >
-                  <template #extra>
-                    <div class="mistake-source-info">
-                      <span 
-                        class="source-tag" 
-                        v-if="latestRecord?.homeworkId"
-                      >
-                        来源于{{ latestRecord.homeworkName || '作业' }}
-                      </span>
-                      <span class="source-tag" v-else>来源于独立练习</span>
-                    </div>
-                  </template>
-                </JudgmentQuestion>
-                <BaseQuestion
-                  v-else
-                  :question="currentQuestionData"
-                  show-title
-                  :show-id="false"
-                >
-                  <template #extra>
-                    <div class="mistake-source-info">
-                      <span 
-                        class="source-tag" 
-                        v-if="latestRecord?.homeworkId"
-                      >
-                        来源于{{ latestRecord.homeworkName || '作业' }}
-                      </span>
-                      <span class="source-tag" v-else>来源于独立练习</span>
-                    </div>
-                  </template>
-                </BaseQuestion>
-              </div>
-              <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
+              <!-- A. 客观题 (单选、多选、判断) -->
+              <template v-if="['single_choice', 'multiple_choice', 'true_false', 'judgment'].includes(currentQuestionData?.type || '')">
+                <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
+                  <ChoiceQuestion
+                    v-if="currentQuestionData.type === 'single_choice' || currentQuestionData.type === 'multiple_choice'"
+                    :question="currentQuestionData"
+                    :model-value="currentQuestionChooseList"
+                    :disabled="true"
+                    show-title
+                    :show-id="false"
+                  >
+                    <template #extra>
+                      <div class="mistake-source-info">
+                        <span class="source-tag" v-if="latestRecord?.homeworkId">来源于{{ latestRecord.homeworkName || '作业' }}</span>
+                        <span class="source-tag" v-else>来源于独立练习</span>
+                      </div>
+                    </template>
+                  </ChoiceQuestion>
+                  <JudgmentQuestion
+                    v-else
+                    :question="currentQuestionData"
+                    :model-value="currentQuestionJudgment"
+                    :disabled="true"
+                    show-title
+                    :show-id="false"
+                  >
+                    <template #extra>
+                      <div class="mistake-source-info">
+                        <span class="source-tag" v-if="latestRecord?.homeworkId">来源于{{ latestRecord.homeworkName || '作业' }}</span>
+                        <span class="source-tag" v-else>来源于独立练习</span>
+                      </div>
+                    </template>
+                  </JudgmentQuestion>
+                </div>
+                <div v-else-if="latestRecord?.originalAnswer?.imageData" class="mistake-board-wrapper">
+                  <DrawingBoardNew
+                    :show-toolbar="false"
+                    :disabled="true"
+                    :show-zoom-controls="false"
+                    :background-image="latestRecord.originalAnswer.imageData"
+                    background-position="topLeft"
+                    :initial-zoom="100"
+                    :show-grid="false"
+                  />
+                </div>
+                <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
+              </template>
+
+              <!-- B. 填空题 -->
+              <template v-else-if="['fill_in_blank', 'fill'].includes(currentQuestionData?.type || '')">
+                <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
+                  <FillBlankQuestion
+                    :question="currentQuestionData"
+                    :model-value="currentQuestionFillList"
+                    :disabled="true"
+                    show-title
+                    :show-id="false"
+                  >
+                    <template #extra>
+                      <div class="mistake-source-info">
+                        <span class="source-tag" v-if="latestRecord?.homeworkId">来源于{{ latestRecord.homeworkName || '作业' }}</span>
+                        <span class="source-tag" v-else>来源于独立练习</span>
+                      </div>
+                    </template>
+                  </FillBlankQuestion>
+                </div>
+                <div v-else-if="latestRecord?.originalAnswer?.imageData" class="mistake-board-wrapper">
+                  <DrawingBoardNew
+                    :show-toolbar="false"
+                    :disabled="true"
+                    :show-zoom-controls="false"
+                    :background-image="latestRecord.originalAnswer.imageData"
+                    background-position="topLeft"
+                    :show-grid="false"
+                    :background-contain="true"
+                    :enable-buffer="false"
+                  />
+                </div>
+                <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
+              </template>
+
+              <!-- C. 主观题 (Essay, Subjective 等) -> 直接渲染图片 -->
+              <template v-else>
+                <div v-if="latestRecord?.originalAnswer?.imageData" class="mistake-board-wrapper">
+                  <DrawingBoardNew
+                    :show-toolbar="false"
+                    :disabled="true"
+                    :show-zoom-controls="false"
+                    :background-image="latestRecord.originalAnswer.imageData"
+                    background-position="topLeft"
+                    :show-grid="false"
+                    :background-contain="true"
+                    :enable-buffer="false"
+                  />
+                </div>
+                <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
+              </template>
             </div>
           </div>
 
@@ -172,19 +188,6 @@
       </div>
     </div>
 
-    <!-- 图片预览对话框 -->
-    <Dialog
-      ref="previewDialogRef"
-      title="作答过程回顾"
-      confirmButtonText="关闭"
-      cancelButtonText=""
-      @confirm="showPreview = false"
-    >
-      <div class="preview-dialog-content">
-        <img :src="previewUrl" class="preview-image-large" />
-      </div>
-    </Dialog>
-
     <!-- 删除确认对话框 -->
     <Dialog
       ref="deleteDialogRef"
@@ -220,6 +223,7 @@ import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
+import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import DebugStylePanel from '@/components/debug/DebugStylePanel.vue'
 import { parseQuestionStructure, mapBackendTypeToFrontend } from '@/utils/business/exercise-utils'
 import type { ExerciseItem } from '@/types'
@@ -237,10 +241,7 @@ const router = useRouter()
 const mistakeStore = useMistakeStore()
 const { renderMessageContent } = useMessageRenderer()
 
-const showPreview = ref(false)
-const previewUrl = ref('')
 const deleteDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
-const previewDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 const pendingDeleteItem = ref<MistakeItem | null>(null)
 
 // --- 调试面板配置 ---
@@ -301,9 +302,12 @@ const currentQuestionJudgment = computed(() => latestRecord.value?.originalAnswe
 const currentQuestionFillList = computed(() => latestRecord.value?.originalAnswer?.fillList || [])
 
 // 监听题目切换，重置解析显示状态
-watch(() => currentMistake.value?.bmNo, () => {
+watch(() => currentMistake.value, (newVal) => {
   showAnalysis.value = false
-})
+  if (newVal) {
+    console.log('[MistakeBook] 当前错题数据:', JSON.parse(JSON.stringify(newVal)))
+  }
+}, { immediate: true })
 
 const subjectOptions = [
   { label: '全部学科', value: '全部学科' },
@@ -322,12 +326,6 @@ const sourceOptions = [
 /** 处理题目选择事件（由 QuestionList 触发） */
 const handleQuestionSelected = (question: ExerciseItem, index: number) => {
   mistakeStore.selectMistake(index)
-}
-
-const previewImage = (url: string) => {
-  previewUrl.value = url
-  showPreview.value = true
-  previewDialogRef.value?.openDialog()
 }
 
 /** 添加到习题列表 */
@@ -442,9 +440,11 @@ onUnmounted(() => {
 
   &.left {
     width: 320px;
+    flex-shrink: 0;
   }
   &.right {
     flex: 1;
+    min-width: 0;
   }
 }
 
@@ -730,6 +730,19 @@ onUnmounted(() => {
       margin-bottom: 0;
     }
   }
+
+  /* 同步 HomeworkAnswerView 的标题处理，防止 Markdown 标题过大 */
+  :deep(h1),
+  :deep(h2),
+  :deep(h3),
+  :deep(h4),
+  :deep(h5),
+  :deep(h6) {
+    font-size: 16px;
+    line-height: 1.5;
+    font-weight: 600;
+    margin: 8px 0;
+  }
 }
 
 .question-body {
@@ -737,6 +750,8 @@ onUnmounted(() => {
   min-height: 0;
   margin-bottom: 20px;
   padding-right: 8px;
+  display: flex;
+  flex-direction: column;
 
   .question-text {
     font-size: 16px;
@@ -750,8 +765,18 @@ onUnmounted(() => {
       max-width: 100%;
       max-height: 200px;
       border-radius: 12px;
-      cursor: zoom-in;
     }
+  }
+
+  .mistake-board-wrapper {
+    width: 100%;
+    flex: 1;
+    min-height: 350px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #f0f2ff;
+    margin-top: 12px;
+    background: #ffffff;
   }
 }
 
@@ -804,7 +829,6 @@ onUnmounted(() => {
     max-width: 100%;
     max-height: 300px;
     border-radius: 8px;
-    cursor: zoom-in;
 
     .image-placeholder-small {
       width: 120px;
