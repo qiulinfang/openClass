@@ -148,7 +148,7 @@
                   :class="{ active: showAnalysis }"
                   @click="showAnalysis = !showAnalysis"
                 >
-                  查看解析
+                  查看答案
                   <div class="tab-indicator" v-if="showAnalysis"></div>
                 </div>
               </div>
@@ -175,11 +175,6 @@
                 <div v-if="currentMistake?.questionData?.answer" class="standard-answer-section">
                   <div class="section-title">标准答案</div>
                   <div class="answer-text" v-html="renderMessageContent((currentMistake.questionData.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
-                </div>
-                
-                <div class="explanation-text-section">
-                  <div class="section-title">题目解析</div>
-                  <div class="answer-text" v-html="renderMessageContent((currentMistake?.questionData.explanation || '暂无解析').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                 </div>
               </div>
             </div>

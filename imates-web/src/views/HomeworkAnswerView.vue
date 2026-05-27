@@ -189,10 +189,6 @@
                         <div class="item-label">参考答案：</div>
                         <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                       </div>
-                      <div class="result-item analysis-item">
-                        <div class="item-label">解析：</div>
-                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
-                      </div>
                       <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
                         <span class="item-label">是否添加到错题本：</span>
                         <div class="item-controls">
