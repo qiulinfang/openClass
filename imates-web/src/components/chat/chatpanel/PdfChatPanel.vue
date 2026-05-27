@@ -188,9 +188,14 @@ const setupResourceId = () => {
 // 加载会话列表
 const loadSessions = async () => {
   const currentResourceId = getCurrentResourceId() || ''
+  console.log('[PdfChatPanel] 开始加载会话, currentResourceId:', currentResourceId)
   const byResource = await getScreenshotSessionsByResourceId(currentResourceId)
   sessions.value = byResource
-  console.log('[会话] 加载(按 resourceId)', { currentResourceId, sessions: sessions.value })
+  console.log('[PdfChatPanel] 会话加载完成:', { 
+    currentResourceId, 
+    sessionsCount: sessions.value.length,
+    sessions: sessions.value 
+  })
 }
 
 // 处理会话点击
@@ -370,6 +375,14 @@ watch([isExploring, activeTab, attachedScreenshotCount], async (newValues) => {
     overlayButtonReady.value = false
   }
 }, { immediate: false })
+
+
+// 监听 Tab 切换，进入会话记录时自动刷新
+watch(activeTab, (newTab) => {
+  if (newTab === 'question-record') {
+    loadSessions()
+  }
+})
 
 onMounted(async () => {
   // 设置资源ID，确保基于资源的会话ID生成

@@ -30,6 +30,7 @@ import {
   buildRetryFailureMessage,
   findMessageIndex,
   validateMessageExists,
+  truncateText,
   type ChatImageData,
 } from './utils/chatStoreUtils'
 import type { AiChatMessageRequest, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot } from '../types'
@@ -62,7 +63,7 @@ interface BuildTextbookMessageParams {
   userInfo: UserInfo | null
   subject: string
   chatRole: string
-  sessionId: string
+  sessionId: string      // 后端会话ID (root session)
   resourceId?: string | null
   sectionName?: string | null
   chapterInfo?: {
@@ -471,6 +472,146 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
     throw new Error('[AI_TEXTBOOK] resourceId 为空，无法生成教材会话ID')
   }
+  // ========== 内部辅助方法 (私有逻辑) ==========
+
+  /**
+   * 1. 添加用户消息到列表并保存初步历史
+   */
+  const _addUserMessages = async (
+    content: string,
+    imageData?: ChatImageData,
+    hidePrefix: boolean = false,
+    quotedMessage?: { id: string; content: string; sender: Sender },
+    imageList?: ChatImageData[],
+  ) => {
+    // 如果有图片列表，则创建 multi_image 类型的消息气泡
+    if (imageList && imageList.length > 0) {
+      const standardImageList = imageList
+        .filter((img) => !!img.base64DataUrl)
+        .map((img) => ({
+          filePath: img.filePath || '',
+          width: img.width || 0,
+          height: img.height || 0,
+          fileSize: img.fileSize || 0,
+          base64DataUrl: img.base64DataUrl,
+          isLargeImage: img.isLargeImage || false,
+        }))
+
+      const now = Date.now()
+      
+      // 第一条消息：只包含图片，不包含文字
+      const imageMessage: ChatBubble = {
+        id: now.toString(),
+        content: '', // 图片消息不包含文字
+        type: Sender.USER,
+        timestamp: new Date().toISOString(),
+        sender: Sender.USER,
+        messageType: 'multi_image',
+        imageList: standardImageList,
+        sessionId: currentSessionId.value || undefined,
+        quotedMessage, // 引用消息信息（前端展示用）
+      }
+      addMessage(imageMessage)
+
+      // 第二条消息：只包含文字（如果有文字内容）
+      if (content && content.trim()) {
+        const textMessage: ChatBubble = {
+          id: (now + 1).toString(), // 确保 id 不重复
+          content,
+          type: Sender.USER,
+          timestamp: new Date().toISOString(),
+          sender: Sender.USER,
+          messageType: 'text',
+          sessionId: currentSessionId.value || undefined,
+        }
+        addMessage(textMessage)
+      }
+    } else {
+      // 单图或纯文本，沿用原有逻辑
+      const userMessage = createUserMessage(
+        content,
+        imageData,
+        hidePrefix,
+        currentSessionId.value || undefined,
+        quotedMessage, // 传递引用消息信息（前端展示用）
+      )
+      addMessage(userMessage)
+    }
+
+    // 用户消息创建后立即保存（确保即使AI回复未完成，用户消息也能被保存）
+    await saveChatHistory()
+  }
+
+  /**
+   * 2. 初始化会话 ID 上下文（保持前后端分离）
+   */
+  const _initSessionContext = () => {
+    console.log('[AI_TEXTBOOK] >>> 进入 _initSessionContext', {
+      currentSessionId: currentSessionId.value,
+      isNewSession: isNewSession.value
+    })
+
+    // 确保前端会话 ID 已初始化（用于本地存储和 UI 分隔）
+    if (!currentSessionId.value) {
+      const userId = getUserId() || ''
+      const generatedId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
+      currentSessionId.value = generatedId
+      isNewSession.value = true
+      console.log('[AI_TEXTBOOK] _initSessionContext 生成了新的前端 ID:', generatedId)
+    }
+
+    // 确保后端会话 ID 唯一且与前端 ID 分隔开
+    if (isNewSession.value || !backendSessionId.value) {
+      const userId = getUserId() || ''
+      backendSessionId.value = `${userId ? userId + '-' : ''}textbook-backend-${Date.now()}`
+      console.log('[AI_TEXTBOOK] _initSessionContext 生成了新的后端 ID:', backendSessionId.value)
+    }
+
+    return {
+      frontendId: currentSessionId.value,
+      backendId: backendSessionId.value!,
+      isBackendNew: isNewSession.value
+    }
+  }
+
+  /**
+   * 3. 持久化截图会话记录（侧边栏索引）
+   */
+  const _saveScreenshotRecord = async (
+    content: string,
+    finalResponse: any,
+    builderImageData?: { base64DataUrl: string },
+    builderImageList?: { base64DataUrl: string }[]
+  ) => {
+    const hasImages = !!builderImageData || !!(builderImageList && builderImageList.length > 0)
+    
+    if (hasImages && currentSessionId.value) {
+      try {
+        const now = Date.now()
+        const firstImageData = builderImageData?.base64DataUrl || (builderImageList && builderImageList[0]?.base64DataUrl) || ''
+        const finalResId = resourceId.value || ''
+
+        const newSession = {
+          sessionId: currentSessionId.value,
+          sessionName: truncateText(content || '截图提问'),
+          createTime: now,
+          updateTime: now,
+          msgCount: messages.value.length,
+          pinned: false,
+          thumbnailImage: firstImageData,
+          hasImage: true,
+          resourceId: finalResId,
+          id: currentSessionId.value,
+          question: content,
+          answer: finalResponse?.reply || '', 
+        }
+        await addScreenshotSession(newSession)
+      } catch (err) {
+        console.error('[AI_TEXTBOOK] 持久化会话记录失败:', err)
+      }
+    }
+  }
+
   /**
    * 发送聊天消息
    * 创建用户消息
@@ -488,147 +629,91 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     imageList?: ChatImageData[], // 多图数据列表（用于截图多图场景）
     focus?: HtmlPreviewFocus,
   ): Promise<void> => {
-    // 创建并添加用户消息（可选）
+    // 0. 自动识别截图提问场景：如果有图片，强制视为新会话
+    const hasImages = !!imageData || !!(imageList && imageList.length > 0)
+    if (hasImages && !skipUserMessage) {
+      console.log('[AI_TEXTBOOK] 检测到截图提问，强制开启新会话状态')
+      isNewSession.value = true
+      currentSessionId.value = null // 清空旧 ID，确保 _initSessionContext 生成新 ID
+    }
+
+    // 1. 初始化 ID 上下文 (必须在添加任何消息之前执行，确保消息带有正确的 sessionId)
+    const { backendId, isBackendNew } = _initSessionContext()
+
+    console.log('[AI_TEXTBOOK] >>> sendMessage 入口', {
+      content: content?.substring(0, 20),
+      hasImageData: !!imageData,
+      hasImageList: !!imageList?.length,
+      currentSessionId: currentSessionId.value,
+      isNewSession: isNewSession.value
+    })
+    
+    // 2. 创建并添加用户消息（可选）
     if (!skipUserMessage) {
-      // 如果有图片列表，则创建 multi_image 类型的消息气泡
-      if (imageList && imageList.length > 0) {
-        const standardImageList = imageList
-          .filter((img) => !!img.base64DataUrl)
-          .map((img) => ({
-            filePath: img.filePath || '',
-            width: img.width || 0,
-            height: img.height || 0,
-            fileSize: img.fileSize || 0,
-            base64DataUrl: img.base64DataUrl,
-            isLargeImage: img.isLargeImage || false,
-          }))
-
-        const now = Date.now()
-        
-        // 第一条消息：只包含图片，不包含文字
-        const imageMessage: ChatBubble = {
-          id: now.toString(),
-          content: '', // 图片消息不包含文字
-          type: Sender.USER,
-          timestamp: new Date().toISOString(),
-          sender: Sender.USER,
-          messageType: 'multi_image',
-          imageList: standardImageList,
-          sessionId: currentSessionId.value || undefined,
-          quotedMessage, // 引用消息信息（前端展示用）
-        }
-        addMessage(imageMessage)
-
-        // 第二条消息：只包含文字（如果有文字内容）
-        if (content && content.trim()) {
-          const textMessage: ChatBubble = {
-            id: (now + 1).toString(), // 确保 id 不重复
-            content,
-            type: Sender.USER,
-            timestamp: new Date().toISOString(),
-            sender: Sender.USER,
-            messageType: 'text',
-            sessionId: currentSessionId.value || undefined,
-          }
-          addMessage(textMessage)
-        }
-      } else {
-        // 单图或纯文本，沿用原有逻辑
-        const userMessage = createUserMessage(
-          content,
-          imageData,
-          hidePrefix,
-          currentSessionId.value || undefined,
-          quotedMessage, // 传递引用消息信息（前端展示用）
-        )
-        addMessage(userMessage)
-      }
-
-      // 用户消息创建后立即保存（确保即使AI回复未完成，用户消息也能被保存）
-      await saveChatHistory()
+      await _addUserMessages(content, imageData, hidePrefix, quotedMessage, imageList)
     }
     
-    // 创建临时AI回复消息
+    // 3. 创建临时AI回复消息
     const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage(
       selectedModel || 'mate',
       currentSessionId.value || undefined,
     )
     addMessage(tempReply)
     
-    // 设置渲染状态（发送消息时不需要设置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
-    
     try {
-      // 获取用户信息和科目
       const userInfo = getUserInfo()
       
-      // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
-      const sessionIdForBackend = ensureTopGeneralSession()
-      console.log("sessionIdForBackend",sessionIdForBackend)
-      // 构建AI消息请求（传入科目以确定dstUrl）
-      // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
-      const builderImageData = imageData?.base64DataUrl
-        ? { base64DataUrl: imageData.base64DataUrl }
-        : undefined
+      console.log("[AI_TEXTBOOK] 发送消息 ID 详情:", { 
+        backendSessionId: backendId, 
+        frontendSessionId: currentSessionId.value,
+        newValue: isBackendNew ? '1' : '0'
+      })
 
-      const builderImageList = imageList && imageList.length > 0
-        ? imageList
-            .filter((img) => !!img.base64DataUrl)
-            .map((img) => ({ base64DataUrl: img.base64DataUrl! }))
-        : undefined
+      // 4. 转换图片数据
+      const builderImageData = imageData?.base64DataUrl ? { base64DataUrl: imageData.base64DataUrl } : undefined
+      const builderImageList = imageList?.filter((img) => !!img.base64DataUrl).map((img) => ({ base64DataUrl: img.base64DataUrl! }))
 
-      // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
-      // 注意：如果 currentSessionId 已经存在（比如从外部设置），则不覆盖它
-      if (builderImageData && !currentSessionId.value) {
-        const userId = getUserId() || ''
-        const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
-        currentSessionId.value = newSessionId
-        isNewSession.value = true
-      } else if (!currentSessionId.value) {
-        const userId = getUserId() || ''
-        const newSessionId = `${userId ? userId + '-' : ''}textbook-session-${Date.now()}`
-        currentSessionId.value = newSessionId
-        isNewSession.value = true
-      }
-      // 只要有单图或多图中的任意一种，就应走截图接口 /ai/2.0/previewPictureQA
+      // 5. 构建请求对象
       const shouldUseScreenshotApi = !!builderImageData || !!(builderImageList && builderImageList.length > 0)
-
       const aiMessage = buildAiTextbookMessage({
         content,
         userInfo,
         subject: getSubject(),
         chatRole: selectedModel || 'mate',
-        sessionId: sessionIdForBackend,
+        sessionId: backendId,
         resourceId: resourceId.value,
         sectionName: sectionName.value,
         chapterInfo: chapterInfo.value,
         imageData: builderImageData,
         useScreenshotApi: shouldUseScreenshotApi,
-        isNewSession: isNewSession.value,
+        isNewSession: isBackendNew,
         imageList: builderImageList,
         focus,
       })
-      updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
 
+      updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
       useScreenshotApi.value = shouldUseScreenshotApi
       isNewSession.value = false
+
+      // 6. 处理流式回调
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
 
-      const wrappedOnComplete = (finalResponse: any) => {
-        onComplete?.(finalResponse)
+      const wrappedOnComplete = async (finalResponse: any) => {
+        await onComplete?.(finalResponse)
+        
+        // 持久化截图记录
+        await _saveScreenshotRecord(content, finalResponse, builderImageData, builderImageList)
 
         if (isResponseSuccess(finalResponse)) {
           chatResponseTimes.value++
-          saveChatHistory()
+          await saveChatHistory()
         }
       }
 
-      const response = await apiService.sendChatMessage(
-        aiMessage,
-        wrappedOnComplete,
-        onStream,
-        onHistoryUpdate,
-      )
+      // 7. 执行 API 调用
+      const response = await apiService.sendChatMessage(aiMessage, wrappedOnComplete, onStream, onHistoryUpdate)
 
+      // 8. HTML 增强与后期处理
       const aiIndex = messages.value.findIndex((m) => m.id === tempReplyId)
       if (aiIndex >= 0) {
         const msg = messages.value[aiIndex]
@@ -639,36 +724,16 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         }
       }
       
-      // 处理响应（如果轮询已完成，这里response已经是最终结果）
-      // 注意：由于使用了回调，这里主要是确保没有错误
       if (!isResponseSuccess(response)) {
-        // 如果既没有成功响应，也没有累积内容，标记为错误
-        const errorMessage = updateMessageError(
-          tempReply,
-          '抱歉，我暂时无法回答这个问题。请稍后重试。',
-          content,
-          imageData
-        )
+        const errorMessage = updateMessageError(tempReply, '抱歉，我暂时无法回答这个问题。请稍后重试。', content, imageData)
         updateMessage(tempReplyId, errorMessage)
-
-        // 保底：失败场景也记录 originalDstUrl
         updateMessage(tempReplyId, { originalDstUrl: aiMessage.dstUrl })
       }
     } catch (error) {
       console.error('发送消息失败:', error)
-      
-      // 错误处理
-      const errorMessage = updateMessageError(
-        tempReply,
-        '发送失败，请检查网络连接后重试。',
-        content,
-        imageData
-      )
+      const errorMessage = updateMessageError(tempReply, '发送失败，请检查网络连接后重试。', content, imageData)
       updateMessage(tempReplyId, errorMessage)
-      
       showMessage('发送消息失败', 'error')
-    } finally {
-      // 重置渲染状态（发送消息时不需要重置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
     }
   }
   
@@ -939,6 +1004,12 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       ? `${userId ? userId + '-' : ''}ai-textbook-${currentResourceId}-${now}`
       : `${userId ? userId + '-' : ''}ai-textbook-${now}`
     
+    console.log('[AI_TEXTBOOK] sendScreenshotMessage 生成新 ID:', {
+      newId: sessionId,
+      oldId: currentSessionId.value,
+      resourceId: currentResourceId
+    })
+
     // 设置当前会话ID
     currentSessionId.value = sessionId
     isNewSession.value = true
