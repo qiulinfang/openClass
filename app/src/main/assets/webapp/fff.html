@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>高性能移动端阅读器</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --primary-color: #1890ff;
+            --panel-bg: #ffffff;
+            --page-gap: 20px;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 工具栏 */
+        .toolbar {
+            height: 50px;
+            background: var(--panel-bg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #d9d9d9;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button.active {
+            color: #fff;
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* 视口 */
+        .viewport {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            touch-action: none; /* 关键：禁用浏览器默认手势，交给 Pointer Events 处理 */
+        }
+
+        .canvas-container {
+            position: absolute;
+            transform-origin: 0 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--page-gap);
+            padding: var(--page-gap) 0;
+            will-change: transform;
+        }
+
+        /* 页面包装器 */
+        .page-wrapper {
+            position: relative;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .ink-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none; 
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 100;
+        }
+
+        .status-bar {
+            height: 30px;
+            background: #eee;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="toolbar">
+        <div class="tool-group">
+            <strong>高精度阅读器</strong>
+            <span>总页数: {{ pageCount }}</span>
+        </div>
+        <div class="tool-group">
+            <button @click="toggleDraw" :class="{active: isDrawing}">画笔</button>
+            <button @click="clearInk">清除</button>
+            <button @click="resetView">重置</button>
+        </div>
+    </div>
+
+    <div class="viewport" 
+         ref="viewportRef"
+         @wheel.prevent="handleWheel"
+         @pointerdown="onPointerDown"
+         @pointermove="onPointerMove"
+         @pointerup="onPointerUp"
+         @pointercancel="onPointerUp"
+         @pointerout="onPointerOut">
+        
+        <div class="canvas-container" :style="containerStyle" ref="containerRef">
+            <div v-for="(page, index) in pageList" 
+                 :key="index" 
+                 class="page-wrapper"
+                 :style="{ width: page.viewWidth + 'px', height: page.viewHeight + 'px' }">
+                <!-- PDF 内容层 -->
+                <canvas :ref="el => pdfRefs[index] = el"></canvas>
+                <!-- 涂鸦层 -->
+                <canvas :ref="el => inkRefs[index] = el" class="ink-canvas"></canvas>
+            </div>
+        </div>
+
+        <div v-if="loading" class="loading-overlay">渲染中...</div>
+    </div>
+
+    <div class="status-bar">
+        缩放: {{ (scale * 100).toFixed(0) }}% | 
+        位置: {{ offset.x.toFixed(0) }}, {{ offset.y.toFixed(0) }}
+    </div>
+</div>
+
+<script>
+const { createApp, ref, shallowRef, computed, onMounted, toRaw, nextTick } = Vue;
+
+const RENDER_QUALITY = 2.0; 
+const PAGE_GAP = 20; 
+const DEFAULT_URL = 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf';
+
+createApp({
+    setup() {
+        const pdfDoc = shallowRef(null);
+        const pageCount = ref(0);
+        const pageList = ref([]); 
+        const scale = ref(0.8); 
+        const offset = ref({ x: 50, y: 0 });
+        const loading = ref(false);
+        const isDrawing = ref(false);
+        
+        const viewportRef = ref(null);
+        const containerRef = ref(null);
+        const pdfRefs = ref([]);
+        const inkRefs = ref([]);
+        
+        // 笔迹数据结构: { pageIndex: number, points: {x,y}[] }
+        const paths = ref([]); 
+        const currentPath = ref(null);
+        const currentPageIndex = ref(-1);
+
+        // Pointer Events 状态管理
+        const activePointers = new Map(); // 存储所有活跃触点
+        let isPanningInDrawMode = false; // 是否在画笔模式下进行平移
+
+        // 惯性滚动变量
+        let lastTouchTime = 0;
+        let lastPointerPos = { x: 0, y: 0 }; // 记录上一次单指位置
+        let velocity = { x: 0, y: 0 };
+        let rafId = null;
+        const FRICTION = 0.95;
+
+        // 双指缩放状态
+        let lastPinchDist = 0;
+        let lastPinchCenter = { x: 0, y: 0 };
+
+        const initPDF = async () => {
+            loading.value = true;
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            
+            try {
+                const doc = await pdfjsLib.getDocument(DEFAULT_URL).promise;
+                pdfDoc.value = doc;
+                pageCount.value = doc.numPages;
+                
+                // 预计算所有页面尺寸和位置，避免在 pointermove 中读取 DOM
+                const list = [];
+                let currentY = PAGE_GAP;
+                let maxW = 0;
+
+                // 第一遍：获取尺寸
+                const tempSizes = [];
+                for (let i = 1; i <= doc.numPages; i++) {
+                    const page = await doc.getPage(i);
+                    const vp = page.getViewport({ scale: 1.0 });
+                    tempSizes.push({ w: vp.width, h: vp.height });
+                    if (vp.width > maxW) maxW = vp.width;
+                }
+
+                // 第二遍：计算布局坐标 (模拟 Flex column align-items: center)
+                for (let i = 0; i < tempSizes.length; i++) {
+                    const size = tempSizes[i];
+                    list.push({
+                        viewWidth: size.w,
+                        viewHeight: size.h,
+                        // 计算相对于 Container 容器的坐标
+                        y: currentY, 
+                        x: (maxW - size.w) / 2 // 水平居中
+                    });
+                    currentY += size.h + PAGE_GAP;
+                }
+                
+                pageList.value = list;
+
+                await nextTick();
+                await renderAllPages();
+                centerContent();
+            } catch (err) {
+                console.error('加载失败:', err);
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const renderAllPages = async () => {
+            const rawDoc = toRaw(pdfDoc.value);
+            for (let i = 0; i < pageList.value.length; i++) {
+                const page = await rawDoc.getPage(i + 1);
+                const viewport = page.getViewport({ scale: 1.0 });
+                const pCanvas = pdfRefs.value[i];
+                const iCanvas = inkRefs.value[i];
+                
+                if (!pCanvas || !iCanvas) continue;
+
+                const pCtx = pCanvas.getContext('2d');
+                pCanvas.width = viewport.width * RENDER_QUALITY;
+                pCanvas.height = viewport.height * RENDER_QUALITY;
+                pCanvas.style.width = `${viewport.width}px`;
+                pCanvas.style.height = `${viewport.height}px`;
+                
+                await page.render({
+                    canvasContext: pCtx,
+                    viewport: viewport,
+                    transform: [RENDER_QUALITY, 0, 0, RENDER_QUALITY, 0, 0]
+                }).promise;
+
+                iCanvas.width = pCanvas.width;
+                iCanvas.height = pCanvas.height;
+                iCanvas.style.width = pCanvas.style.width;
+                iCanvas.style.height = pCanvas.style.height;
+            }
+            drawAllPaths();
+        };
+
+        const centerContent = () => {
+            if (!viewportRef.value || pageList.value.length === 0) return;
+            const rect = viewportRef.value.getBoundingClientRect();
+            // 以最大页宽为基准
+            const maxW = Math.max(...pageList.value.map(p => p.viewWidth));
+            const contentWidth = maxW * scale.value;
+            offset.value = {
+                x: (rect.width - contentWidth) / 2,
+                y: 20
+            };
+        };
+
+        const clampOffset = () => {
+            if (!viewportRef.value || pageList.value.length === 0) return;
+            const vpRect = viewportRef.value.getBoundingClientRect();
+            const maxW = Math.max(...pageList.value.map(p => p.viewWidth));
+            const totalH = pageList.value[pageList.value.length - 1].y + pageList.value[pageList.value.length - 1].viewHeight + PAGE_GAP;
+            
+            const contentW = maxW * scale.value;
+            const contentH = totalH * scale.value;
+            const padding = 100;
+
+            let x = offset.value.x;
+            let y = offset.value.y;
+
+            if (contentW < vpRect.width) {
+                if (x > vpRect.width - padding) x = vpRect.width - padding;
+                if (x + contentW < padding) x = padding - contentW;
+            } else {
+                if (x > padding) x = padding;
+                if (x + contentW < vpRect.width - padding) x = vpRect.width - padding - contentW;
+            }
+
+            if (y > padding) y = padding;
+            if (y + contentH < vpRect.height - padding) y = vpRect.height - padding - contentH;
+
+            offset.value = { x, y };
+        };
+
+        // --- 核心优化 1: 二次贝塞尔曲线平滑绘制 ---
+        const drawAllPaths = () => {
+            inkRefs.value.forEach((canvas, idx) => {
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2 * RENDER_QUALITY;
+
+                const renderPath = (p) => {
+                    const points = p.points;
+                    if (points.length < 1) return;
+
+                    ctx.beginPath();
+                    
+                    if (points.length === 1) {
+                        // 单点绘制（圆点）
+                        const p0 = points[0];
+                        const x = p0.x * RENDER_QUALITY;
+                        const y = p0.y * RENDER_QUALITY;
+                        ctx.fillStyle = ctx.strokeStyle; 
+                        ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        return;
+                    }
+
+                    // 贝塞尔曲线平滑处理
+                    const p0 = points[0];
+                    ctx.moveTo(p0.x * RENDER_QUALITY, p0.y * RENDER_QUALITY);
+
+                    for (let i = 1; i < points.length - 1; i++) {
+                        const p1 = points[i];
+                        const p2 = points[i + 1];
+                        
+                        const p1x = p1.x * RENDER_QUALITY;
+                        const p1y = p1.y * RENDER_QUALITY;
+                        const p2x = p2.x * RENDER_QUALITY;
+                        const p2y = p2.y * RENDER_QUALITY;
+
+                        // 取中点作为终点
+                        const midX = (p1x + p2x) / 2;
+                        const midY = (p1y + p2y) / 2;
+
+                        ctx.quadraticCurveTo(p1x, p1y, midX, midY);
+                    }
+
+                    // 连接最后一个点
+                    const last = points[points.length - 1];
+                    ctx.lineTo(last.x * RENDER_QUALITY, last.y * RENDER_QUALITY);
+                    ctx.stroke();
+                };
+
+                paths.value.filter(p => p.pageIndex === idx).forEach(renderPath);
+                if (currentPath.value && currentPageIndex.value === idx) {
+                    renderPath({ points: currentPath.value });
+                }
+            });
+        };
+
+        const zoomAt = (delta, clientX, clientY) => {
+            stopInertia();
+            const factor = Math.pow(1.1, delta / 100);
+            const newScale = Math.min(Math.max(scale.value * factor, 0.1), 10.0);
+            if (newScale === scale.value) return;
+
+            const rect = viewportRef.value.getBoundingClientRect();
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+
+            const ratio = newScale / scale.value;
+            offset.value.x = mouseX - (mouseX - offset.value.x) * ratio;
+            offset.value.y = mouseY - (mouseY - offset.value.y) * ratio;
+            scale.value = newScale;
+            clampOffset();
+        };
+
+        const handleWheel = (e) => zoomAt(-e.deltaY, e.clientX, e.clientY);
+
+        // --- 性能优化：纯数学计算定位，避免 DOM 回流 ---
+        const getPdfLocation = (clientX, clientY) => {
+            if (!containerRef.value || pageList.value.length === 0) return null;
+            
+            // 获取容器当前的变换基准（考虑 offset 和 scale）
+            // container 的 transform 是 translate(offset.x, offset.y) scale(scale)
+            // 视口坐标 -> 容器内部未缩放坐标
+            const rect = viewportRef.value.getBoundingClientRect();
+            
+            // 鼠标在视口中的相对位置
+            const mx = clientX - rect.left;
+            const my = clientY - rect.top;
+            
+            // 转换为容器内部逻辑坐标 (反向 transform)
+            const localX = (mx - offset.value.x) / scale.value;
+            const localY = (my - offset.value.y) / scale.value;
+
+            // 在 pageList 数据中查找（无需读取 DOM）
+            // pageList 现在包含预计算的 x, y, viewWidth, viewHeight
+            for (let i = 0; i < pageList.value.length; i++) {
+                const p = pageList.value[i];
+                if (localY >= p.y && localY <= p.y + p.viewHeight) {
+                    if (localX >= p.x && localX <= p.x + p.viewWidth) {
+                        return {
+                            pageIndex: i,
+                            x: localX - p.x, // 相对于页面左上角的坐标
+                            y: localY - p.y
+                        };
+                    }
+                }
+            }
+            return null;
+        };
+
+        const applyInertia = () => {
+            if (Math.abs(velocity.x) < 0.1 && Math.abs(velocity.y) < 0.1) {
+                stopInertia();
+                return;
+            }
+            offset.value.x += velocity.x;
+            offset.value.y += velocity.y;
+            clampOffset();
+            velocity.x *= FRICTION;
+            velocity.y *= FRICTION;
+            rafId = requestAnimationFrame(applyInertia);
+        };
+
+        const stopInertia = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = null;
+            velocity = { x: 0, y: 0 };
+        };
+
+        const startDrawing = (x, y) => {
+            if (!isDrawing.value) return false;
+            
+            const loc = getPdfLocation(x, y);
+            if (loc) {
+                currentPageIndex.value = loc.pageIndex;
+                currentPath.value = [{ x: loc.x, y: loc.y }];
+                isPanningInDrawMode = false;
+                return true; 
+            } else {
+                isPanningInDrawMode = true;
+                return false; 
+            }
+        };
+
+        const endDrawing = () => {
+            if (currentPath.value) {
+                paths.value.push({
+                    pageIndex: currentPageIndex.value,
+                    points: [...currentPath.value]
+                });
+                currentPath.value = null;
+                currentPageIndex.value = -1;
+            }
+            isPanningInDrawMode = false;
+        };
+
+        const onPointerDown = (e) => {
+            stopInertia();
+            viewportRef.value.setPointerCapture(e.pointerId);
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            if (activePointers.size === 1) {
+                lastPointerPos = { x: e.clientX, y: e.clientY };
+                lastTouchTime = Date.now();
+                
+                if (isDrawing.value) {
+                    startDrawing(e.clientX, e.clientY);
+                }
+            } else if (activePointers.size === 2) {
+                endDrawing();
+                const pts = Array.from(activePointers.values());
+                lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                lastPinchCenter = {
+                    x: (pts[0].x + pts[1].x) / 2,
+                    y: (pts[0].y + pts[1].y) / 2
+                };
+            }
+        };
+
+        const onPointerMove = (e) => {
+            // 修复：仅处理已按下（在 activePointers 中）的触点，防止鼠标悬停或幽灵触点触发缩放逻辑
+            if (!activePointers.has(e.pointerId)) return;
+
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            if (activePointers.size === 1) {
+                if (isDrawing.value && !isPanningInDrawMode) {
+                    // --- 核心优化 2: 高频事件合并 (Coalesced Events) ---
+                    // 即使屏幕只有60Hz，也能获取到在此期间产生的所有触控点（如120Hz/240Hz）
+                    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+                    let pointsAdded = false;
+
+                    events.forEach(ev => {
+                        if (!currentPath.value) return;
+                        // 使用优化后的无 DOM 读取定位函数
+                        const loc = getPdfLocation(ev.clientX, ev.clientY);
+                        if (loc && loc.pageIndex === currentPageIndex.value) {
+                            currentPath.value.push({ x: loc.x, y: loc.y });
+                            pointsAdded = true;
+                        }
+                    });
+
+                    if (pointsAdded) {
+                        drawAllPaths();
+                    }
+                } else {
+                    const now = Date.now();
+                    const dx = e.clientX - lastPointerPos.x;
+                    const dy = e.clientY - lastPointerPos.y;
+                    
+                    offset.value.x += dx;
+                    offset.value.y += dy;
+                    clampOffset();
+
+                    const dt = now - lastTouchTime;
+                    if (dt > 0) {
+                        velocity.x = dx;
+                        velocity.y = dy;
+                    }
+                    lastPointerPos = { x: e.clientX, y: e.clientY };
+                    lastTouchTime = now;
+                }
+            } else if (activePointers.size === 2) {
+                const pts = Array.from(activePointers.values());
+                const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                const centerX = (pts[0].x + pts[1].x) / 2;
+                const centerY = (pts[0].y + pts[1].y) / 2;
+
+                if (lastPinchDist > 0) {
+                    const ratio = dist / lastPinchDist;
+                    const newScale = Math.min(Math.max(scale.value * ratio, 0.1), 10.0);
+                    const actualRatio = newScale / scale.value;
+
+                    offset.value.x += (centerX - lastPinchCenter.x);
+                    offset.value.y += (centerY - lastPinchCenter.y);
+                    offset.value.x = centerX - (centerX - offset.value.x) * actualRatio;
+                    offset.value.y = centerY - (centerY - offset.value.y) * actualRatio;
+                    
+                    scale.value = newScale;
+                    clampOffset();
+                }
+
+                lastPinchDist = dist;
+                lastPinchCenter = { x: centerX, y: centerY };
+            }
+        };
+
+        const onPointerUp = (e) => {
+            activePointers.delete(e.pointerId);
+            
+            if (activePointers.size === 0) {
+                endDrawing();
+                if (!isDrawing.value || isPanningInDrawMode) {
+                    startInertiaAnimation();
+                }
+            } else if (activePointers.size === 1) {
+                const pt = activePointers.values().next().value;
+                lastPointerPos = { x: pt.x, y: pt.y };
+            }
+        };
+
+        const onPointerOut = (e) => {
+            if (e.buttons === 0) {
+                onPointerUp(e);
+            }
+        };
+
+        const containerStyle = computed(() => ({
+            transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`
+        }));
+
+        const toggleDraw = () => {
+            isDrawing.value = !isDrawing.value;
+            isPanningInDrawMode = false;
+        };
+        const clearInk = () => { paths.value = []; drawAllPaths(); };
+        const resetView = () => { 
+            stopInertia();
+            scale.value = 0.8; 
+            centerContent(); 
+        };
+
+        onMounted(initPDF);
+
+        return {
+            pdfRefs, inkRefs, viewportRef, containerRef,
+            pageCount, pageList, scale, offset, loading, isDrawing,
+            containerStyle,
+            toggleDraw, clearInk, resetView,
+            handleWheel,
+            onPointerDown, onPointerMove, onPointerUp, onPointerOut
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
