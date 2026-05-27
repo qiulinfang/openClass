@@ -17,10 +17,10 @@
           <!-- 手写板工具栏 -->
           <div class="hsm-handwriting-toolbar">
             <button @click="undoHandwriting" :disabled="!canUndoHandwriting" class="toolbar-btn" title="撤销">
-              <img :src="undoIcon" alt="撤销" />
+              <img :src="redoIcon" alt="撤销" />
             </button>
             <button @click="redoHandwriting" :disabled="!canRedoHandwriting" class="toolbar-btn" title="重做">
-              <img :src="redoIcon" alt="重做" />
+              <img :src="undoIcon" alt="重做" />
             </button>
             <button @click="clearHandwriting" class="toolbar-btn toolbar-btn--danger" title="清空">
               <img :src="clearIcon" alt="清空" />
