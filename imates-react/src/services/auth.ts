@@ -95,4 +95,5 @@ export const logout = (): void => {
   localStorage.removeItem('userPassword')
   localStorage.removeItem('userInfo')
   localStorage.removeItem('lastLoginTime')
+  localStorage.removeItem('savedAccount')
 }

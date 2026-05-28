@@ -1,0 +1,128 @@
+.main-chat-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+
+.main-chat-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.main-chat-panel.resizing {
+  user-select: none;
+}
+
+.resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+.resize-handle:hover,
+.resize-handle.resizing {
+  background: rgba(110, 85, 255, 0.1);
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  gap: 8px;
+}
+
+.chat-tabs {
+  flex: 1;
+  overflow-x: auto;
+}
+
+.tab-list {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-item {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.tab-item:hover {
+  background: #f5f5f5;
+}
+
+.tab-item.tab-active {
+  background: #6e55ff;
+  color: white;
+}
+
+.toggle-mode-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.toggle-mode-button:hover {
+  background: #f5f5f5;
+}
+
+.toggle-mode-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.close-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #666;
+}
+
+.close-button:hover {
+  background: #f5f5f5;
+}
+
+.chat-panel-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.panel-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  font-size: 14px;
+}

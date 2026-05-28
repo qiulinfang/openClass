@@ -152,4 +152,8 @@ export class AiExerciseStrategy implements ChatStrategy {
   setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void {
     this.chatView = chatView
   }
+
+  clearMessages(): void {
+    this.store.clearMessages()
+  }
 }

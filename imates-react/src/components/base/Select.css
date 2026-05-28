@@ -1,0 +1,117 @@
+.common-select {
+  position: relative;
+  display: inline-block;
+}
+
+.select-trigger {
+  width: 180px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 14px;
+  color: #111827;
+}
+
+.select-trigger--outline {
+  width: auto;
+  min-width: 100px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background-color: transparent;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 8px;
+}
+
+.select-trigger--outline:hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.select-trigger--outline .select-icon {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
+}
+
+.select-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select-icon-wrapper {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.select-icon-wrapper.select-icon--open {
+  transform: rotate(180deg);
+}
+
+.select-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.select-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 180px;
+  background-color: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 0, 46, 0.15);
+  padding: 8px 0;
+  z-index: 20;
+}
+
+.select-options {
+  list-style: none;
+  margin: 0;
+  padding: 0 5px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.select-option {
+  padding: 8px 20px;
+  font-size: 14px;
+  color: #1f2933;
+  cursor: pointer;
+  border-radius: 7px;
+}
+
+.select-option:hover {
+  background-color: #f3f4ff;
+}
+
+.select-option--active {
+  background-color: #f3f4ff;
+  font-weight: 600;
+}
+
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}

@@ -1,0 +1,101 @@
+.forward-mode-dialog {
+  min-width: 320px;
+}
+
+.forward-mode-dialog .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.forward-mode-dialog .header-content {
+  flex: 1;
+}
+
+.forward-mode-dialog .dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.forward-mode-dialog .dialog-subtitle {
+  font-size: 13px;
+  color: #666;
+}
+
+.forward-mode-dialog .close-btn {
+  color: #999;
+}
+
+.forward-mode-dialog .options-section {
+  padding: 16px;
+}
+
+.forward-mode-dialog .options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.forward-mode-dialog .option-card {
+  padding: 16px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.forward-mode-dialog .option-card:hover {
+  border-color: #6e55ff;
+  background: #f8f5ff;
+}
+
+.forward-mode-dialog .option-card.option-selected {
+  border-color: #6e55ff;
+  background: #f5f0ff;
+}
+
+.forward-mode-dialog .option-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.forward-mode-dialog .option-title {
+  font-size: 14px;
+  color: #333;
+}
+
+.forward-mode-dialog .option-check {
+  width: 20px;
+  height: 20px;
+}
+
+.forward-mode-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid #eee;
+}
+
+.forward-mode-dialog .btn-cancel {
+  padding: 8px 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+}
+
+.forward-mode-dialog .btn-confirm {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #6e55ff;
+  color: white;
+  cursor: pointer;
+}

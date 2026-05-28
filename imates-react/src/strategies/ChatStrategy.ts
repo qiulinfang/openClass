@@ -117,4 +117,5 @@ export interface ChatStrategy {
   isLoadingHistory?(): boolean
   setChatView?(chatView: ChatViewInterface): void
   onQuestionChanged?(newQuestion: unknown, oldQuestion: unknown): void
+  clearMessages?(): void
 }

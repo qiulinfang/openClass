@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, isLoggedIn } from '../services/auth'
 import './LoginPage.css'
+import { LoginForm } from './LoginForm'
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
@@ -11,13 +12,20 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState('')
 
   // 检查是否已登录
-  React.useEffect(() => {
+  useEffect(() => {
     if (isLoggedIn()) {
       navigate('/chat')
     }
   }, [navigate])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const savedAccount = localStorage.getItem('savedAccount')
+    if (savedAccount) {
+      setAccount(savedAccount)
+    }
+  }, [])
+
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -31,16 +39,17 @@ export const LoginPage: React.FC = () => {
     }
 
     setIsLoading(true)
-    
+
     try {
       await login(account, password)
+      localStorage.setItem('savedAccount', account)
       navigate('/chat')
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [account, password, navigate])
 
   return (
     <div className="login-page">
@@ -50,47 +59,19 @@ export const LoginPage: React.FC = () => {
             <h1>学伴 AI</h1>
             <p>智能学习助手</p>
           </div>
-          
-          <form onSubmit={handleLogin} className="login-form">
-            <div className="input-group">
-              <div className="login-input-container">
-                <span className="input-icon">👤</span>
-                <input
-                  type="text"
-                  value={account}
-                  onChange={(e) => setAccount(e.target.value)}
-                  placeholder="请输入账号"
-                  className="login-input"
-                />
-              </div>
-            </div>
 
-            <div className="input-group">
-              <div className="login-input-container">
-                <span className="input-icon">🔒</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="请输入密码"
-                  className="login-input"
-                />
-              </div>
-            </div>
-
-            {error && <div className="error-message">{error}</div>}
-
-            <button
-              type="submit"
-              className="login-button"
-              disabled={isLoading}
-            >
-              {isLoading ? '登录中...' : '登 录'}
-            </button>
-          </form>
+          <LoginForm
+            account={account}
+            password={password}
+            isLoading={isLoading}
+            error={error}
+            onAccountChange={setAccount}
+            onPasswordChange={setPassword}
+            onSubmit={handleLogin}
+          />
         </div>
       </div>
-      
+
       <div className="version-text">
         v1.0.0
       </div>

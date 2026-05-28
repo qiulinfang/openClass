@@ -1,0 +1,104 @@
+.session-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.session-item:hover {
+  background: #f5f5f5;
+}
+
+.session-item.is-selected {
+  background: #f0f0ff;
+}
+
+.session-item.is-checked {
+  background: #f5f0ff;
+}
+
+.session-item.is-pinned {
+  background: #fffbf0;
+}
+
+.session-checkbox {
+  flex-shrink: 0;
+}
+
+.session-content {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.session-thumbnail {
+  position: relative;
+  width: 80px;
+  height: 46px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.session-thumbnail:hover .thumbnail-overlay {
+  opacity: 1;
+}
+
+.session-header {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-subtitle {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-status-icons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}

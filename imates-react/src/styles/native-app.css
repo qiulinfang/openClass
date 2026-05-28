@@ -1,0 +1,308 @@
+/* 
+ * 原生应用样式规范
+ * 确保Web组件与Android原生应用保持一致的视觉效果
+ */
+
+/* ==================== 全局禁用文字选择（除消息气泡外） ==================== */
+/* 这个样式确保整个应用范围内默认禁用文字选择 */
+html,
+body,
+#app,
+.q-page,
+.chat-container,
+.chat-content {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+html,
+body,
+#app {
+  overflow: hidden;
+}
+
+/* ==================== 例外：消息气泡启用文字选择 ==================== */
+/* 这个样式确保消息气泡内可以正常选中文字 */
+.message-text,
+.message-text *,
+.user-bubble,
+.user-bubble *,
+.ai-message-content,
+.ai-message-content * {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* ==================== 颜色主题 ==================== */
+:root {
+  /* 主题色 */
+  --theme-primary: #707eff;
+  --theme-primary-light: #707eff40;
+  --theme-primary-hover: #5a68e8;
+  --theme-primary-active: #4c5ad1;
+  
+  /* 辅助色 */
+  --theme-secondary: #1976D2;
+  --theme-text-primary: #202124;
+  --theme-text-secondary: #5f6368;
+  --theme-border: #d8d8d8;
+  --theme-background: #ffffff;
+
+  /* 全局层级（z-index）配置 */
+  --z-modal-overlay: 9000;
+  --z-pdf-ink-canvas: 5;
+  --z-pdf-selection-overlay: 10;
+  --z-pdf-eraser-cursor: 30;
+  --z-pdf-loading-overlay: 90;
+  --z-main-chat-overlay: 11000;
+  --z-main-chat-toggle: 12000;
+  --z-image-viewer-overlay: 13000;
+  --z-screenshot-input-dialog: 14000;
+}
+
+/* ==================== 基础尺寸规范 ==================== */
+:root {
+  /* 字体大小 */
+  --native-font-size-xs: 9px;
+  --native-font-size-sm: 10px;
+  --native-font-size-base: 11px;
+  --native-font-size-md: 12px;
+  --native-font-size-lg: 13px;
+  --native-font-size-xl: 14px;
+  --native-font-size-2xl: 15px;
+  --native-font-size-3xl: 16px;
+
+  /* 高度规范 */
+  --native-toolbar-height: 48px;
+  --native-button-height: 36px;
+
+  /* 宽度规范 */
+  --native-button-width: 36px;
+
+  /* 内边距规范 */
+  --native-padding-xs: 4px;
+  --native-padding-sm: 6px;
+  --native-padding-md: 8px;
+  --native-padding-lg: 12px;
+  --native-padding-xl: 16px;
+  --native-padding-2xl: 20px;
+
+  /* 外边距规范 */
+  --native-margin-xs: 3px;
+  --native-margin-sm: 4px;
+  --native-margin-md: 6px;
+  --native-margin-lg: 8px;
+  --native-margin-xl: 12px;
+  --native-margin-2xl: 16px;
+
+  /* 圆角规范 */
+  --native-border-radius-sm: 3px;
+  --native-border-radius-md: 4px;
+  --native-border-radius-lg: 6px;
+  --native-border-radius-xl: 8px;
+
+  /* 图标大小 */
+  --native-icon-size-sm: 14px;
+  --native-icon-size-md: 16px;
+  --native-icon-size-lg: 18px;
+  --native-icon-size-xl: 20px;
+  --native-icon-size-2xl: 24px;
+}
+
+/* ==================== 按钮样式 ==================== */
+.native-btn {
+  height: var(--native-button-height);
+  font-size: var(--native-font-size-md);
+  padding: 0 var(--native-padding-xl);
+}
+
+/* ==================== 加载和空状态样式 ==================== */
+.native-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--native-padding-xl);
+}
+
+.native-loading-container .q-spinner-dots {
+  font-size: 40px;
+}
+
+.native-loading-container .text-h6 {
+  font-size: var(--native-font-size-xl);
+  margin-top: var(--native-margin-xl);
+}
+
+.native-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--native-padding-xl);
+  text-align: center;
+}
+
+.native-empty-state .q-icon {
+  font-size: 64px;
+}
+
+.native-empty-state .text-h6 {
+  font-size: var(--native-font-size-3xl);
+  margin-top: var(--native-margin-xl);
+}
+
+.native-empty-state .text-body2 {
+  font-size: var(--native-font-size-md);
+  margin-top: var(--native-margin-md);
+}
+
+.native-empty-state .q-btn {
+  margin-top: var(--native-margin-xl);
+  height: var(--native-button-height);
+  font-size: var(--native-font-size-md);
+}
+
+/* ==================== 通用工具栏样式 ==================== */
+.native-toolbar-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 16px;
+}
+
+.native-toolbar-center {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+  gap: 8px;
+}
+
+.native-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.native-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.native-action-btn:hover {
+  background-color: rgba(26, 115, 232, 0.08);
+  transform: scale(1.05);
+}
+
+.native-action-btn:active {
+  transform: scale(0.95);
+}
+
+/* ==================== 工具类 ==================== */
+.native-text-xs { font-size: var(--native-font-size-xs); }
+.native-text-sm { font-size: var(--native-font-size-sm); }
+.native-text-base { font-size: var(--native-font-size-base); }
+.native-text-md { font-size: var(--native-font-size-md); }
+.native-text-lg { font-size: var(--native-font-size-lg); }
+.native-text-xl { font-size: var(--native-font-size-xl); }
+.native-text-2xl { font-size: var(--native-font-size-2xl); }
+.native-text-3xl { font-size: var(--native-font-size-3xl); }
+
+/* ==================== 响应式设计 ==================== */
+@media (max-width: 768px) {
+  :root {
+    /* 移动端调整字体大小 */
+    --native-font-size-xs: 8px;
+    --native-font-size-sm: 9px;
+    --native-font-size-base: 10px;
+    --native-font-size-md: 11px;
+    --native-font-size-lg: 12px;
+    --native-font-size-xl: 13px;
+    --native-font-size-2xl: 14px;
+    --native-font-size-3xl: 15px;
+  }
+
+  .native-loading-container,
+  .native-empty-state {
+    padding: var(--native-padding-2xl) var(--native-padding-xl);
+  }
+
+  .native-empty-state .q-icon {
+    font-size: 48px;
+  }
+}
+
+/* ==================== MathJax样式修复 ==================== */
+/* 确保MathJax的辅助MathML元素永远被隐藏，避免公式重复显示 */
+mjx-assistive-mml {
+  position: absolute !important;
+  top: 0px !important;
+  left: 0px !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  padding: 1px 0px 0px 0px !important;
+  border: 0px !important;
+  display: block !important;
+  width: auto !important;
+  overflow: hidden !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 确保mjx-assistive-mml的子元素也被隐藏 */
+mjx-assistive-mml * {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body:not(.enable-selection),
+#app {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body.enable-selection {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+input,
+textarea,
+[contenteditable],
+math-field {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+.message-text,
+.user-bubble,
+.ai-message-content,
+.ai-message-content .message-text {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}

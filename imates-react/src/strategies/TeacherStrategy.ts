@@ -41,4 +41,5 @@ export class TeacherStrategy implements ChatStrategy {
   shouldShowForwardButton(): boolean { return false }
   cleanup?(): void {}
   setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void { this.chatView = chatView }
+  clearMessages(): void { this.store.clearMessages() }
 }

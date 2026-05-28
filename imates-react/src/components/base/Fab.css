@@ -1,0 +1,89 @@
+.bubble-container {
+  position: relative;
+  display: inline-block;
+}
+
+.bubble-menu {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 38px;
+  box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+  z-index: 10;
+}
+
+.menu-item {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.menu-item:hover {
+  transform: scale(1.1);
+}
+
+.menu-item:active {
+  transform: scale(0.95);
+}
+
+.icon-image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.bubble-menu-single {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76px;
+  height: 76px;
+  border-radius: 38px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+}
+
+.single-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.single-label {
+  font-size: 12px;
+  color: white;
+  font-weight: 500;
+}
+
+.trigger-wrapper {
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.trigger-wrapper.pressed {
+  transform: scale(0.95);
+}
+
+.trigger-wrapper.dragging {
+  transition: none;
+}

@@ -1,0 +1,86 @@
+.voice-recorder {
+  width: 100%;
+  height: 100%;
+}
+
+.voice-recorder.recording {
+  background: #fff;
+  border-radius: 12px;
+}
+
+.recording-status {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+}
+
+.recording-animation {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-circle {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(110, 85, 255, 0.3);
+  animation: pulse 1.5s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.recording-info {
+  flex: 1;
+}
+
+.recording-text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.recording-time {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.recording-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #999;
+}
+
+.cancel-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 8px;
+}
+
+.cancel-text {
+  font-size: 14px;
+  color: #ff4d4f;
+}

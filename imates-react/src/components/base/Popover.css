@@ -1,0 +1,75 @@
+.bubble-popup-wrapper {
+  display: inline-block;
+  position: relative;
+}
+
+.bubble-popup-trigger {
+  cursor: pointer;
+}
+
+.bubble-popup {
+  position: fixed;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  padding: 12px 0;
+  animation: bubbleFadeIn 0.15s ease-out;
+}
+
+.bubble-popup__content {
+  padding: 0 12px;
+}
+
+.bubble-popup__arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+}
+
+.bubble-popup__arrow--top {
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top-color: white;
+}
+
+.bubble-popup__arrow--bottom {
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-bottom-color: white;
+}
+
+.bubble-popup__arrow--left {
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left-color: white;
+}
+
+.bubble-popup__arrow--right {
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-right-color: white;
+}
+
+@keyframes bubbleFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.bubble-fade-enter-active {
+  animation: bubbleFadeIn 0.15s ease-out;
+}
+
+.bubble-fade-leave-active {
+  animation: bubbleFadeIn 0.1s ease-in reverse;
+}

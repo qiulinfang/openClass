@@ -40,4 +40,5 @@ export class UserClientStrategy implements ChatStrategy {
   async updateEditedMessage(messageId: string, newContent: string, options?: SendMessageOptions): Promise<void> {}
   shouldShowForwardButton(): boolean { return false }
   setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void { this.chatView = chatView }
+  clearMessages(): void { this.store.clearMessages() }
 }

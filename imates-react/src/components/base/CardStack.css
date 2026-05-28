@@ -1,0 +1,124 @@
+.app-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.scroll-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.cards-wrapper {
+  position: relative;
+  min-height: 100%;
+  transition: transform 0.2s ease;
+}
+
+.cards-wrapper.is-bouncing {
+  transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.card-item-wrapper {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 0 16px;
+}
+
+.card {
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.card-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.card-body {
+  padding: 16px 20px;
+  min-height: 200px;
+}
+
+.highlight-border {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #6e55ff 0%, #8b7aff 100%);
+  border-radius: 16px 0 0 16px;
+}
+
+/* Card list transition animations */
+.card-list-enter-active,
+.card-list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.card-list-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.card-list-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.card-list-move {
+  transition: transform 0.3s ease;
+}

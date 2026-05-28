@@ -1,0 +1,131 @@
+/* Gemini风格通知样式 - 全局样式 */
+
+.gemini-notify {
+  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  animation: gemini-notify-enter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+  max-width: 400px !important;
+  margin: 0 auto !important;
+  
+  .q-notification__message {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
+    padding: 0 8px !important;
+    color: inherit !important;
+  }
+  
+  .q-notification__actions {
+    .q-btn {
+      border-radius: 8px !important;
+      width: 24px !important;
+      height: 24px !important;
+      min-height: 24px !important;
+      padding: 0 !important;
+      background: rgba(255, 255, 255, 0.2) !important;
+      transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.3) !important;
+        transform: scale(1.05) !important;
+      }
+      
+      .q-btn__content {
+        font-size: 16px !important;
+        color: inherit !important;
+      }
+    }
+  }
+  
+  /* 不同类型通知的颜色 */
+  &.q-notification--positive {
+    background: linear-gradient(135deg, #34a853 0%, #2d8f47 100%) !important;
+    color: white !important;
+  }
+  
+  &.q-notification--negative {
+    background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%) !important;
+    color: white !important;
+  }
+  
+  &.q-notification--warning {
+    background: linear-gradient(135deg, #fbbc04 0%, #f9ab00 100%) !important;
+    color: #202124 !important;
+    
+    .q-notification__actions .q-btn {
+      background: rgba(32, 33, 36, 0.2) !important;
+      
+      &:hover {
+        background: rgba(32, 33, 36, 0.3) !important;
+      }
+      
+      .q-btn__content {
+        color: #202124 !important;
+      }
+    }
+  }
+  
+  &.q-notification--info {
+    background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%) !important;
+    color: white !important;
+  }
+}
+
+/* 通知进入动画 */
+@keyframes gemini-notify-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 通知退出动画 */
+@keyframes gemini-notify-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .gemini-notify {
+    max-width: 90vw !important;
+    margin: 0 16px !important;
+    
+    .q-notification__message {
+      font-size: 13px !important;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .gemini-notify {
+    margin: 0 12px !important;
+    
+    .q-notification__message {
+      font-size: 12px !important;
+    }
+    
+    .q-notification__actions .q-btn {
+      width: 20px !important;
+      height: 20px !important;
+      min-height: 20px !important;
+      
+      .q-btn__content {
+        font-size: 14px !important;
+      }
+    }
+  }
+}

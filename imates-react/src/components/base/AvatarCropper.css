@@ -1,0 +1,90 @@
+.avatar-crop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.avatar-crop-container {
+  width: 360px;
+  height: 360px;
+  background: #1a1a1a;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.crop-canvas {
+  display: block;
+  cursor: grab;
+}
+
+.crop-canvas:active {
+  cursor: grabbing;
+}
+
+.crop-actions {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.crop-action-btn {
+  padding: 10px 24px;
+  border-radius: 20px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.crop-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.crop-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.crop-action-btn.primary {
+  background: #6e55ff;
+}
+
+.crop-action-btn.primary:hover:not(:disabled) {
+  background: #5a4abd;
+}
+
+.crop-close-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: background 0.2s ease;
+}
+
+.crop-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

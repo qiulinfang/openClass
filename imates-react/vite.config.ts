@@ -27,6 +27,7 @@ export default defineConfig({
   },
   server: {
     middlewareMode: false,
+    port: 8080,
     proxy: {
       '/xb-test': {
         target: IMATES_HTTP,

@@ -79,6 +79,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatStrategyRef = useRef<ChatStrategy | null>(null)
   const lastMessageCount = useRef(0)
+  const lastSendTime = useRef(0)
 
   const scrollToBottom = useCallback(async (instant = false) => {
     messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' })
@@ -101,6 +102,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
   }, [checkIfUserAtBottom])
 
   const sendMessage = useCallback(async (content?: string) => {
+    const now = Date.now()
+    if (now - lastSendTime.current < 1000) {
+      return // 1秒内不能重复发送
+    }
+    lastSendTime.current = now
+
     const messageContent = content || inputMessage.trim()
     if (!messageContent && attachedScreenshots.length === 0) return
 
@@ -183,6 +190,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
     }
   }, [question])
 
+  const handleClearMessages = useCallback(() => {
+    setMessages([])
+    lastMessageCount.current = 0
+    chatStrategyRef.current?.clearMessages?.()
+  }, [])
+
+
   const toggleWebSearch = useCallback(() => {
     if (chatStrategyRef.current?.toggleWebSearch) {
       chatStrategyRef.current.toggleWebSearch()
@@ -208,7 +222,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const chatViewInterface: ChatViewInterface = {
     scrollToBottom,
     checkIfUserAtBottom,
-    executeQuestionSwitch: () => {},
+    executeQuestionSwitch: () => { },
     getLastMessageCount: () => lastMessageCount.current,
     setLastMessageCount: (count: number) => { lastMessageCount.current = count },
     getIsUserAtBottom: () => isUserAtBottom,
@@ -238,7 +252,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       if (strategyMessages.length !== lastMessageCount.current) {
         setMessages(strategyMessages)
         lastMessageCount.current = strategyMessages.length
-        
+
         if (strategyMessages.length > lastMessageCount.current && !isUserAtBottom) {
           setShowNewMessageIndicator(true)
         }
@@ -279,10 +293,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const forwardToTeacher = async () => {
     if (!chatStrategyRef.current || selectedMessages.size === 0) return
-    
+
     const selectedMsgs = messages.filter(m => selectedMessages.has(m.id))
     const result = await chatStrategyRef.current.forwardMessages(selectedMsgs)
-    
+
     if (result.success) {
       onSwitchToTeacher?.({
         messages: selectedMsgs,
@@ -295,11 +309,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const placeholderText = chatStrategyRef.current?.getPlaceholderText(true) || '发送消息...'
 
   return (
-    <div 
-      ref={chatViewRef} 
+    <div
+      ref={chatViewRef}
       className={`chat-view ${size === 'small' ? 'chat-view-small' : ''} ${isKeyboardAnimating ? 'keyboard-animating' : ''}`}
       onScroll={handleScroll}
     >
+      {showToolbar && messages.length > 0 && (
+        <div className="chat-view-toolbar">
+          <button onClick={handleClearMessages} title="清空消息">🗑️ 清空</button>
+        </div>
+      )}
+
       <div className="chat-messages-container">
         {messages.length === 0 && !isLoading && (type === 'ai-exercise' || type === 'ai-homework') && (
           <div className="empty-state">
@@ -358,7 +378,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <div className="selection-actions">
             <button onClick={exitSelectionMode}>取消</button>
             {chatStrategyRef.current?.shouldShowForwardButton() && (
-              <button 
+              <button
                 onClick={forwardToTeacher}
                 disabled={selectedMessages.size === 0}
               >

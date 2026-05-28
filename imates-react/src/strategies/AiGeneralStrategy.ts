@@ -213,4 +213,8 @@ export class AiGeneralStrategy implements ChatStrategy {
   setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void {
     this.chatView = chatView
   }
+
+  clearMessages(): void {
+    this.store.clearMessages()
+  }
 }

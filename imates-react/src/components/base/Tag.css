@@ -1,0 +1,42 @@
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* Size variants */
+.size-xs {
+  padding: 1px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+}
+
+.size-sm {
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.size-md {
+  padding: 4px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.size-lg {
+  padding: 6px 16px;
+  font-size: 16px;
+  border-radius: 8px;
+}

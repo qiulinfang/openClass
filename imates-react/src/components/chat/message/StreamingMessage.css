@@ -1,0 +1,25 @@
+.streaming-message {
+  display: inline-block;
+  max-width: 80%;
+}
+
+.streaming-user {
+  text-align: right;
+}
+
+.message-content {
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cursor {
+  display: inline-block;
+  animation: blink 1s infinite;
+  color: #6e55ff;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}

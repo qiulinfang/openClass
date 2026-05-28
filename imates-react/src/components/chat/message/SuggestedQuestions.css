@@ -1,0 +1,31 @@
+.suggested-questions {
+  margin-top: 12px;
+}
+
+.suggested-title {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.questions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.question-item {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 16px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.question-item:hover {
+  background: #6e55ff;
+  color: white;
+}

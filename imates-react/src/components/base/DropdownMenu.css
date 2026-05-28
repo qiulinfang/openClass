@@ -1,0 +1,30 @@
+.more-menu-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 6px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.more-menu-item-row:hover {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+.more-menu-item-row.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.more-menu-item-row.is-loading {
+  opacity: 0.8;
+}
+
+.quasar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

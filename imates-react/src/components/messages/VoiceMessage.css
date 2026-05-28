@@ -1,0 +1,107 @@
+.voice-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  min-width: 160px;
+  max-width: 240px;
+}
+
+.voice-message.ai {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.voice-message.user {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.voice-play-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.voice-message.ai .voice-play-btn {
+  background: #7a7cff;
+  color: white;
+}
+
+.voice-message.user .voice-play-btn {
+  background: white;
+  color: #7a7cff;
+}
+
+.voice-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.voice-waveform {
+  flex: 1;
+  height: 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.voice-waveform-bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  width: 100%;
+}
+
+.waveform-bar {
+  flex: 1;
+  min-width: 3px;
+  max-width: 4px;
+  border-radius: 2px;
+  transition: opacity 0.1s ease;
+}
+
+.voice-message.ai .waveform-bar {
+  background: #7a7cff;
+}
+
+.voice-message.user .waveform-bar {
+  background: white;
+}
+
+.voice-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  opacity: 0.3;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.voice-message.ai .voice-progress {
+  background: #7a7cff;
+}
+
+.voice-message.user .voice-progress {
+  background: white;
+}
+
+.voice-duration-text {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.voice-message.ai .voice-duration-text {
+  color: #666;
+}
+
+.voice-message.user .voice-duration-text {
+  color: rgba(255, 255, 255, 0.8);
+}
