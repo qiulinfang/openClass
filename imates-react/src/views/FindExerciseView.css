@@ -1,0 +1,110 @@
+.find-exercise-view {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.internal-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #eee;
+  gap: 12px;
+}
+
+.toolbar-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-back-btn:hover {
+  background: #f0f0f0;
+}
+
+.toolbar-back-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.selection-info {
+  margin-left: auto;
+}
+
+.selection-count {
+  font-size: 14px;
+  color: #666;
+}
+
+.select-all-container {
+  display: flex;
+  align-items: center;
+}
+
+.select-all-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+}
+
+.start-practice-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 20px;
+  background: #ccc;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.start-practice-btn.active {
+  background: #ff9800;
+}
+
+.start-practice-btn:disabled {
+  cursor: not-allowed;
+}
+
+.main-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.initialization-loading {
+  padding: 16px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.skeleton-card {
+  height: 120px;
+  background: #f0f0f0;
+  border-radius: 8px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

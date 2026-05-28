@@ -1,0 +1,152 @@
+.interactive-canvas-view {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.mobile-tabs {
+  display: none;
+}
+
+.canvas-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.canvas-header {
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid #eee;
+}
+
+.canvas-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.canvas-subtitle {
+  font-size: 14px;
+  color: #999;
+}
+
+.canvas-viewport {
+  flex: 1;
+  position: relative;
+  background: #fff;
+  overflow: auto;
+}
+
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  color: #ccc;
+}
+
+.empty-text {
+  margin-top: 16px;
+  font-size: 16px;
+  color: #999;
+}
+
+.canvas-item {
+  position: absolute;
+  min-width: 100px;
+  min-height: 60px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: move;
+}
+
+.canvas-item-normal {
+  padding: 12px;
+}
+
+.canvas-item-editing {
+  box-shadow: 0 2px 12px rgba(110, 85, 255, 0.3);
+}
+
+.item-content {
+  font-size: 14px;
+  color: #333;
+}
+
+.item-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  resize: none;
+}
+
+.chat-sidebar {
+  width: 360px;
+  background: white;
+  border-left: 1px solid #eee;
+}
+
+.chat-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+@media (max-width: 768px) {
+  .mobile-tabs {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #eee;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .tab-btn-active {
+    color: #6e55ff;
+    border-bottom: 2px solid #6e55ff;
+  }
+
+  .tab-btn-inactive {
+    color: #999;
+  }
+
+  .hidden-mobile {
+    display: none;
+  }
+
+  .show-desktop {
+    display: flex;
+  }
+
+  .chat-sidebar {
+    width: 100%;
+    position: absolute;
+    top: 45px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+}

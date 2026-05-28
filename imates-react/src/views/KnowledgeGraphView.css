@@ -1,0 +1,123 @@
+.knowledge-graph-content {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  background-size: cover;
+  background-position: center;
+}
+
+.chapter-sidebar {
+  width: 280px;
+  background: rgba(15, 0, 46, 0.9);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.subject-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.subject-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.subject-select,
+.textbook-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 14px;
+  outline: none;
+}
+
+.subject-select option,
+.textbook-select option {
+  background: #0f002e;
+  color: white;
+}
+
+.textbook-info {
+  margin-bottom: 16px;
+}
+
+.chapter-search {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px;
+  padding-right: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 14px;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.chapter-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.empty-chapters {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.chapter-item {
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 4px;
+}
+
+.chapter-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chapter-item.active {
+  background: rgba(110, 85, 255, 0.5);
+}
+
+.chapter-name {
+  color: white;
+  font-size: 14px;
+}
+
+.graph-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

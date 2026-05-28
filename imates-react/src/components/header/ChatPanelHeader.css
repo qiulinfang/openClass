@@ -1,0 +1,71 @@
+.chat-panel-header {
+  background: #e8e9ff;
+  padding-top: 10px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
+}
+
+.tab-list {
+  display: flex;
+  gap: 2px;
+}
+
+.tab-item {
+  position: relative;
+  padding: 8px 18px;
+  color: #a19cb6;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  width: 100px;
+}
+
+.tab-item.tab-active {
+  background-image: url('/icons/sessionbackfround.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center center;
+  color: #504b64;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  height: 40px;
+  line-height: 24px;
+  width: 100px;
+}
+
+.tab-item.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 3px;
+  background: #6e55ff;
+  border-radius: 2px;
+}
+
+.tab-item:hover:not(.tab-active) {
+  opacity: 0.85;
+  background: transparent;
+}
+
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #393548;
+  z-index: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}

@@ -1,0 +1,117 @@
+.route-history-debug-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-history-debug-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+}
+
+.route-history-debug-panel .close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+}
+
+.route-history-debug-panel .panel-tabs {
+  display: flex;
+  border-bottom: 1px solid #eee;
+}
+
+.route-history-debug-panel .tab-item {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  font-size: 14px;
+}
+
+.route-history-debug-panel .tab-item.active {
+  color: #6e55ff;
+  border-bottom: 2px solid #6e55ff;
+}
+
+.route-history-debug-panel .panel-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+}
+
+.route-history-debug-panel .action-btn {
+  padding: 6px 16px;
+  border: 1px solid #6e55ff;
+  border-radius: 6px;
+  background: white;
+  color: #6e55ff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.route-history-debug-panel .action-btn.danger {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+.route-history-debug-panel .panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.route-history-debug-panel .info-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.route-history-debug-panel .info-table {
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.route-history-debug-panel .info-row {
+  display: flex;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.route-history-debug-panel .info-row:last-child {
+  border-bottom: none;
+}
+
+.route-history-debug-panel .info-row .label {
+  width: 120px;
+  font-weight: 500;
+  color: #666;
+}
+
+.route-history-debug-panel .info-row .value {
+  flex: 1;
+  font-family: monospace;
+}
+
+.route-history-debug-panel .empty-state {
+  text-align: center;
+  color: #999;
+  padding: 40px;
+}

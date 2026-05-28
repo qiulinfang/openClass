@@ -1,0 +1,85 @@
+.unified-toolbar-container {
+  display: flex;
+  align-items: center;
+}
+
+.unified-toolbar-container.variant-browser {
+  width: 100%;
+}
+
+.unified-toolbar-container.orientation-horizontal {
+  flex-direction: row;
+}
+
+.unified-toolbar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+.toolbar-slot {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar-slot-left {
+  margin-right: auto;
+}
+
+.toolbar-slot-right {
+  margin-left: auto;
+}
+
+.toolbar-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.left-section,
+.center-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+  transition: background 0.2s;
+  min-width: 48px;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.action-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-icon {
+  font-size: 18px;
+  margin-bottom: 2px;
+}
+
+.tool-label {
+  font-size: 10px;
+  opacity: 0.8;
+}

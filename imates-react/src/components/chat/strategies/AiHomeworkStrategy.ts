@@ -1,35 +1,44 @@
-import { ChatStrategy } from './ChatStrategy'
-import type { SendMessageOptions, ForwardResult, ForwardOptions } from './types'
+import type { ChatBubble, AttachedScreenshot } from '../types'
+import { Sender } from '../types/enums'
+import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
+import type { SendMessageOptions, InitializeOptions } from './types'
+import { useAiHomeworkChatStore } from '../stores/aiHomeworkChatStore'
 
 export class AiHomeworkStrategy implements ChatStrategy {
-  async initialize(options?: any): Promise<void> {
-    console.log('[AiHomeworkStrategy] 初始化', options)
+  private chatView?: import('./ChatStrategy').ChatViewInterface
+
+  private get store() {
+    return useAiHomeworkChatStore.getState()
   }
 
-  async sendMessage(content: string, options?: SendMessageOptions): Promise<void> {
-    console.log('[AiHomeworkStrategy] 发送消息', content, options)
-  }
-
-  handleAIResponse(message: any): void {
-    console.log('[AiHomeworkStrategy] 处理AI响应', message)
-  }
-
-  getSessionTitle(): string {
-    return '作业答疑'
-  }
-
-  async forwardMessages(options: ForwardOptions): Promise<ForwardResult> {
-    console.log('[AiHomeworkStrategy] 转发消息', options)
-    return { success: false, error: '未实现' }
-  }
-
-  async loadHistory(sessionId: string): Promise<void> {
-    console.log('[AiHomeworkStrategy] 加载历史', sessionId)
-  }
-
-  cleanup(): void {
-    console.log('[AiHomeworkStrategy] 清理资源')
-  }
+  getMessages(): ChatBubble[] { return this.store.messages }
+  async addMessage(message: ChatBubble): Promise<void> { this.store.addMessage(message) }
+  async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> { await this.store.sendMessage(content) }
+  getWelcomeMessage(): string { return '你好！让我来帮你解答作业问题。' }
+  requiresQuestion(): boolean { return true }
+  getMessageType(): Sender { return Sender.AI }
+  getSenderType(): Sender { return Sender.AI }
+  async saveChatHistory(): Promise<void> { await this.store.saveChatHistory() }
+  isChatLoading(): boolean { return !!this.store.isChatLoading }
+  canForwardMessage(): boolean { return false }
+  getCurrentSubjectForForward(): 'biology' | 'math' | null { return null }
+  async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> { return { success: false, error: '作业对话不支持转发' } }
+  getPlaceholderText(hasSelectedQuestion: boolean): string { return hasSelectedQuestion ? '发送消息...' : '请先选择作业' }
+  getCurrentSubject(): 'biology' | 'math' { return 'biology' }
+  async initialize(options: InitializeOptions): Promise<void> {}
+  shouldOptimisticSend(): boolean { return true }
+  async sendVoiceMessage(voiceInfo: { filePath: string; duration: number; fileSize: number }): Promise<{ success: boolean; message?: string }> { return { success: false, message: '未实现' } }
+  shouldClearInputAfterImage(): boolean { return true }
+  async sendImageMessage(imageInfo: { filePath: string; width: number; height: number; fileSize: number; base64DataUrl?: string }, textContent?: string, options?: SendMessageOptions): Promise<void> {}
+  supportsImagePicker(): boolean { return true }
+  supportsScreenshotAttach(): boolean { return true }
+  getMaxAttachedImages(): number { return 9 }
+  buildImagePayloadFromAttachedScreenshots(shots: AttachedScreenshot[]) { return {} }
+  shouldAnnotateAfterCrop(): boolean { return true }
+  getImagePostProcessMode(): 'attach_to_input' | 'send_immediately' { return 'attach_to_input' }
+  getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' { return 'screen_snapshot' }
+  async updateEditedMessage(messageId: string, newContent: string, options?: SendMessageOptions): Promise<void> {}
+  shouldShowForwardButton(): boolean { return false }
+  setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void { this.chatView = chatView }
+  clearMessages(): void { this.store.clearMessages() }
 }
-
-export default AiHomeworkStrategy

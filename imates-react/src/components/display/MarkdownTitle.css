@@ -1,0 +1,23 @@
+.title-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  line-height: 24px;
+  height: 24px;
+  overflow: hidden;
+}
+
+.card-title .math {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 0.85em;
+}

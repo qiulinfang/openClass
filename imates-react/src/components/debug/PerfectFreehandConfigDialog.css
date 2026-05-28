@@ -1,0 +1,86 @@
+.pf-config-panel {
+  padding: 16px;
+}
+
+.pf-config-row {
+  margin-bottom: 20px;
+}
+
+.pf-config-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-config-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: #f0f0f0;
+  border-radius: 50%;
+  font-size: 10px;
+  color: #666;
+  cursor: help;
+}
+
+.pf-config-desc {
+  font-size: 12px;
+  color: #999;
+  margin-top: 6px;
+}
+
+.pf-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+.pf-config-row input[type="range"] {
+  width: 100%;
+  margin: 8px 0;
+  accent-color: #6e55ff;
+}
+
+.pf-value {
+  display: inline-block;
+  min-width: 40px;
+  text-align: right;
+  font-family: monospace;
+  color: #6e55ff;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.btn-cancel {
+  padding: 8px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+}
+
+.btn-confirm {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  background: #6e55ff;
+  color: white;
+  cursor: pointer;
+}

@@ -1,0 +1,21 @@
+.storage-debug-button {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  z-index: 9999;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #6e55ff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.2s;
+}
+
+.storage-debug-button:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}

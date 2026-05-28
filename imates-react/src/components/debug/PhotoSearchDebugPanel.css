@@ -1,0 +1,88 @@
+.photo-search-debug-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: 80vh;
+  z-index: 9999;
+}
+
+.photo-search-debug-panel .debug-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.photo-search-debug-panel .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+.photo-search-debug-panel .close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #666;
+}
+
+.photo-search-debug-panel .card-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.photo-search-debug-panel .expansion-item {
+  border-bottom: 1px solid #eee;
+}
+
+.photo-search-debug-panel .expansion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.photo-search-debug-panel .expansion-header:hover {
+  background: #fafafa;
+}
+
+.photo-search-debug-panel .arrow {
+  font-size: 10px;
+  color: #999;
+}
+
+.photo-search-debug-panel .expansion-content {
+  padding: 8px 16px 16px;
+}
+
+.photo-search-debug-panel .debug-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.photo-search-debug-panel .debug-label {
+  color: #666;
+  font-size: 13px;
+}
+
+.photo-search-debug-panel .badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: #f0f0f0;
+  color: #666;
+}
+
+.photo-search-debug-panel .badge.success {
+  background: #e8f5e9;
+  color: #4caf50;
+}

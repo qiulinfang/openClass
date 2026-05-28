@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { login, isLoggedIn } from '../services/auth'
+import { authService, getXuebanToken } from '../services'
 import './LoginPage.css'
 import { LoginForm } from './LoginForm'
 
@@ -13,7 +13,7 @@ export const LoginPage: React.FC = () => {
 
   // 检查是否已登录
   useEffect(() => {
-    if (isLoggedIn()) {
+    if (getXuebanToken()) {
       navigate('/chat')
     }
   }, [navigate])
@@ -41,7 +41,7 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true)
 
     try {
-      await login(account, password)
+      await authService.loginXueban(account, password)
       localStorage.setItem('savedAccount', account)
       navigate('/chat')
     } catch (err) {

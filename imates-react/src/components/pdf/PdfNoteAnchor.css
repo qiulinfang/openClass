@@ -1,0 +1,98 @@
+.note-marker {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.note-marker-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.note-marker-absolute {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  background: #6e55ff;
+  border-radius: 50%;
+  font-size: 8px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.note-tooltip {
+  position: absolute;
+  z-index: 200;
+}
+
+.note-input-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.note-textarea {
+  width: 100%;
+  min-height: 60px;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  resize: none;
+  font-family: inherit;
+}
+
+.note-input-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.action-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.action-btn.confirm {
+  background: #6e55ff;
+  color: white;
+}
+
+.action-btn.cancel {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.note-display-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 250px;
+}
+
+.note-content {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.5;
+}

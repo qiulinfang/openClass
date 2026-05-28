@@ -1,0 +1,58 @@
+.debug-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 16px;
+  border-radius: 8px;
+  z-index: 99999;
+  min-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.debug-panel .debug-title {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #4ade80;
+}
+
+.debug-panel .debug-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.debug-panel .debug-row label {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.debug-panel .debug-row input[type="range"] {
+  flex: 1;
+  cursor: pointer;
+}
+
+.debug-panel .debug-row input[type="number"] {
+  width: 60px;
+  padding: 4px;
+  border: 1px solid #4b5563;
+  background: #1f2937;
+  color: white;
+  border-radius: 4px;
+}
+
+.debug-panel .debug-info {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #374151;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.debug-panel .debug-info div {
+  margin-bottom: 4px;
+}

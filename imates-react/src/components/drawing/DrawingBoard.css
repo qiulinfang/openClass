@@ -1,0 +1,86 @@
+.canvas-demo-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-demo-container.toolbar-left {
+  flex-direction: row;
+}
+
+.toolbar-wrapper {
+  position: relative;
+  z-index: 100;
+}
+
+.toolbar-wrapper-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+}
+
+.canvas-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-history,
+.canvas-live {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.signature-pad-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.zoom-control-panel {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: white;
+  font-size: 12px;
+}
+
+.zoom-control-panel button {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.zoom-control-panel button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.zoom-control-panel span {
+  min-width: 40px;
+  text-align: center;
+}

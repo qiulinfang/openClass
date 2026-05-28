@@ -1,13 +1,11 @@
-/**
- * 策略相关的类型定义
- */
+import type { ChatImageData } from '../stores/utils/chatStoreUtils'
 
 export interface SendMessageOptions {
   selectedModel?: string
-  imageData?: any
-  imageList?: any[]
+  imageData?: ChatImageData
+  imageList?: ChatImageData[]
   skipUserMessage?: boolean
-  focus?: any
+  focus?: unknown
   question?: unknown
   currentQuestion?: unknown
   currentQuestionId?: string
@@ -33,38 +31,4 @@ export interface InitializeOptions {
   resourceId?: string
   hasSelectedQuestion?: boolean
   question?: unknown
-}
-
-export interface ChatViewInterface {
-  scrollToBottom(instant?: boolean): Promise<void>
-  checkIfUserAtBottom(): void
-  executeQuestionSwitch(): void
-  getLastMessageCount(): number
-  setLastMessageCount(count: number): void
-  getIsUserAtBottom(): boolean
-  setIsUserAtBottom(isAtBottom: boolean): void
-  getShowNewMessageIndicator(): boolean
-  setShowNewMessageIndicator(show: boolean): void
-  getIsKeyboardVisible(): boolean
-  getIsKeyboardAnimating(): boolean
-  getDisplayedMessages(): any[]
-  emitResponse(): void
-  getIsEditingMessage(): boolean
-  setIsEditingMessage(editing: boolean): void
-  getEditingQuestionId(): string | undefined
-  cancelEditMessage(): void
-  clearInputContent(): void
-}
-
-export interface ForwardResult {
-  success: boolean
-  successCount?: number
-  sessionId?: string
-  error?: string
-}
-
-export interface ForwardOptions {
-  targetSessionId?: string
-  messageIds?: string[]
-  includeImages?: boolean
 }

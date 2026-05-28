@@ -1,0 +1,52 @@
+.judgment-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.judgment-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 24px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.judgment-item:hover:not(.active) {
+  border-color: #6e55ff;
+  background: #f8f5ff;
+}
+
+.judgment-item.active {
+  border-color: #6e55ff;
+  background: #f5f0ff;
+}
+
+.judgment-item.is-correct {
+  border-color: #4caf50;
+  background: #e8f5e9;
+}
+
+.judgment-item.is-wrong {
+  border-color: #f44336;
+  background: #ffebee;
+}
+
+.judgment-item.correct .label {
+  color: #4caf50;
+}
+
+.judgment-item.wrong .label {
+  color: #f44336;
+}
+
+.status-icon {
+  display: flex;
+  align-items: center;
+}
