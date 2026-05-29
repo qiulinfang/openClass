@@ -758,6 +758,7 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
 
   useEffect(() => {
     const init = async () => {
+      console.log('[KG] Init started with data:', data.id)
       await Promise.all([
         preloadImage(centerNodeIcon),
         preloadImage(learnedIcon),
@@ -773,6 +774,8 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
         const dpr = window.devicePixelRatio || 1
         const w = container.clientWidth
         const h = container.clientHeight
+        if (w === 0 || h === 0) return
+        
         canvas.width = w * dpr
         canvas.height = h * dpr
         canvas.style.width = w + 'px'
@@ -790,40 +793,51 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
 
       const sections = [...(data.children || [])].reverse()
       const root = { ...data, children: [] }
-      const moons: Moon[] = []
-      moons.push(new Moon(0, sections.length + 1, root))
+      const newMoons: Moon[] = []
+      newMoons.push(new Moon(0, sections.length + 1, root))
       
       let initialFocusIndex = sections.length
       sections.forEach((section, idx) => {
         const moonIndex = idx + 1
-        moons.push(new Moon(moonIndex, sections.length + 1, section))
+        newMoons.push(new Moon(moonIndex, sections.length + 1, section))
         if (section.learningStatus === 'lastLearned') {
           initialFocusIndex = moonIndex
         }
       })
 
-      stateRef.current.moons = moons
-      setMoons(moons)
+      stateRef.current.moons = newMoons
+      setMoons(newMoons)
       focusOnIndex(initialFocusIndex, true)
 
-      // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
-      const focusedMoon = stateRef.current.moons[initialFocusIndex]
+      // 自动弹出气泡逻辑
+      const focusedMoon = newMoons[initialFocusIndex]
       if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
         showBubble('satellite', initialFocusIndex, 0)
       } else {
         showBubble('moon', initialFocusIndex)
       }
 
-      requestRef.current = requestAnimationFrame(animateRef.current!)
-
-      return () => {
-        window.removeEventListener('resize', resize)
-        if (requestRef.current) cancelAnimationFrame(requestRef.current)
+      if (!requestRef.current) {
+        requestRef.current = requestAnimationFrame(animateRef.current!)
       }
     }
 
     init()
-  }, [data, focusOnIndex, showBubble])
+    
+    return () => {
+      // 这里的清理逻辑需要小心，不要轻易停止动画，除非组件销毁
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.id]) // 仅当根节点 ID 变化时重新初始化图谱数据
+
+  useEffect(() => {
+    return () => {
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current)
+        requestRef.current = undefined
+      }
+    }
+  }, [])
 
   useEffect(() => {
     updateBubblePosition()

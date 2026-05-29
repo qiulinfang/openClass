@@ -57,7 +57,10 @@ export const KnowledgeGraphView: React.FC = () => {
   const getCurrentSubject = useKnowledgeGraphStore(s => s.getCurrentSubject)
   const currentChapterIndex = useKnowledgeGraphStore(s => s.currentChapterIndex)
 
-  // 响应式状态
+  const [isDirectionChanging, setIsDirectionChanging] = useState(false)
+  
+  const lastLearnedNodeIdRef = useRef<string | null>(null)
+  const learnedNodeIdsRef = useRef<Set<string>>(new Set())
   const [selectedSubject, setSelectedSubject] = useState<ApiSubjectType | ''>('')
   const [selectedTextbook, setSelectedTextbook] = useState('')
   const [textbookOptions, setTextbookOptions] = useState<TextbookOption[]>([])
@@ -280,12 +283,33 @@ export const KnowledgeGraphView: React.FC = () => {
     try {
       await resourceManager.forceFlushPendingUpdates()
       const textbooks = await resourceManager.getUserLocalTextbooks()
+      console.log(`[KnowledgeGraphView] 从 IndexedDB 获取到 ${textbooks?.length || 0} 本教材`)
+      
       if (textbooks && textbooks.length > 0) {
         const downloadedTextbooks = textbooks.filter((textbook) => {
           const hasLocalFiles = Boolean(textbook.localFiles && textbook.localFiles.length > 0)
           const isCompleted = textbook.downloadStatus === 2
-          return Boolean(textbook.isDownloaded) || isCompleted || hasLocalFiles
+          const isDownloaded = Boolean(textbook.isDownloaded)
+          
+          const meetsCriteria = isDownloaded || isCompleted || hasLocalFiles
+          
+          if (!meetsCriteria) {
+            console.log(`[KnowledgeGraphView] 教材 "${textbook.textbookName}" (ID: ${textbook.id}) 未满足显示条件:`, {
+              isDownloaded,
+              isCompleted,
+              downloadStatus: textbook.downloadStatus,
+              hasLocalFiles,
+              localFilesCount: textbook.localFiles?.length || 0
+            })
+          } else {
+            console.log(`[KnowledgeGraphView] 教材 "${textbook.textbookName}" (ID: ${textbook.id}) 满足显示条件`)
+          }
+          
+          return meetsCriteria
         })
+        
+        console.log(`[KnowledgeGraphView] 筛选后剩余 ${downloadedTextbooks.length} 本已下载教材`)
+        
         if (downloadedTextbooks.length === 0) return []
         return downloadedTextbooks.map((textbook) => ({
           value: `${textbook.textbookSubjectLabel}-${textbook.textbookGradeLabel}-${textbook.textbookSemesterLabel}-${textbook.id}`,
@@ -369,27 +393,33 @@ export const KnowledgeGraphView: React.FC = () => {
 
   const loadChaptersForTextbook = async (textbookId: string) => {
     try {
+      console.log(`[KnowledgeGraphView] 开始加载教材章节: ${textbookId}`);
       const cachedChapterData = await loadChapterStructureFromDB(textbookId)
 
       if (cachedChapterData && cachedChapterData.length > 0) {
+        console.log(`[KnowledgeGraphView] 从缓存加载到 ${cachedChapterData.length} 个章节`);
         setChapterStructure(cachedChapterData)
         setChapters(cachedChapterData.map((c) => convertToChineseNumber(c.name)))
         initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
         return
       }
 
+      console.log(`[KnowledgeGraphView] 缓存未命中，请求 API 获取教材结构...`);
       const chapterData = await apiService.getTextbookStructure(textbookId)
+      console.log(`[KnowledgeGraphView] API 返回章节数量: ${chapterData?.length || 0}`);
+      
       if (chapterData && chapterData.length > 0) {
         setChapterStructure(chapterData)
         await saveChapterStructureToDB(textbookId, chapterData)
         setChapters(chapterData.map((c) => convertToChineseNumber(c.name)))
         initializeChapterStates(textbookId, chapterData, getSubChapters)
       } else {
+        console.warn(`[KnowledgeGraphView] 教材 ${textbookId} 的结构数据为空`);
         setChapterStructure([])
         setChapters([])
       }
     } catch (error) {
-      console.error('[KnowledgeGraph] 加载章节结构出错:', error)
+      console.error('[KnowledgeGraphView] 加载章节结构出错:', error)
       setChapterStructure([])
       setChapters([])
     }
@@ -420,10 +450,20 @@ export const KnowledgeGraphView: React.FC = () => {
     prefer?: {
       chapterIndex?: number
       chapterId?: string
-    }
+    },
+    explicitTextbookValue?: string
   ) => {
     const opts = options || textbookOptions
-    const selectedOption = opts.find((opt) => opt.value === selectedTextbook)
+    const currentSelected = explicitTextbookValue || selectedTextbook
+    const selectedOption = opts.find((opt) => opt.value === currentSelected)
+    
+    console.log(`[KnowledgeGraphView] loadChaptersBySelectedTextbook 执行中:`, {
+      currentSelected,
+      foundOption: !!selectedOption,
+      optionTextbookId: selectedOption?.textbookId,
+      availableOptionsCount: opts.length
+    })
+
     if (!selectedOption) {
       setChapterStructure([])
       setChapters([])
@@ -431,21 +471,12 @@ export const KnowledgeGraphView: React.FC = () => {
       return
     }
 
-    if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
-      setCurrentTextbook(selectedOption.textbookId)
-      await loadChaptersForTextbook(selectedOption.textbookId)
-      if (chapterStructure.length > 0) {
-        const storedIndex = currentChapterIndex
-        const targetIndex = pickSelectedChapterIndex(
-          chapterStructure,
-          prefer?.chapterIndex ?? storedIndex,
-          prefer?.chapterId ?? selectedChapterDetails?.id
-        )
-        onChapterClick(targetIndex)
-      } else {
-        setSelectedChapterDetails(null)
-      }
+    const textbookId = selectedOption.textbookId
+    if (textbookId && textbookId !== 'default') {
+      setCurrentTextbook(textbookId)
+      await loadChaptersForTextbook(textbookId)
     } else {
+      console.warn(`[KnowledgeGraphView] 无效的 textbookId: ${textbookId}`)
       setChapterStructure([])
       setChapters([])
       setSelectedChapterDetails(null)
@@ -488,6 +519,16 @@ export const KnowledgeGraphView: React.FC = () => {
     }
   }
 
+  const toggleReadingDirection = useCallback(async () => {
+    // Vue 版本的 toggleReadingDirection 逻辑在 KnowledgeGraphView.vue 中没有定义，
+    // 但在样式中有相关的 transition 和 direction-changing 状态。
+    // 这里保持 state 同步以备将来使用。
+    setIsDirectionChanging(true)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    // 切换逻辑...
+    setIsDirectionChanging(false)
+  }, [])
+
   const onTextbookChange = async (value: string) => {
     try {
       setSelectedTextbook(value)
@@ -528,6 +569,13 @@ export const KnowledgeGraphView: React.FC = () => {
     const localOptions = await loadAllDownloadedTextbooks()
     const subjectLabel = getSubjectLabelByValue(normalizedSubject)
     const filteredOptions = localOptions.filter((option) => option.subject === subjectLabel)
+    
+    console.log(`[KnowledgeGraphView] 切换学科 "${normalizedSubject}" (${subjectLabel}):`, {
+      totalDownloaded: localOptions.length,
+      filteredForSubject: filteredOptions.length,
+      availableSubjectsInOptions: [...new Set(localOptions.map(o => o.subject))]
+    })
+
     setTextbookOptions(filteredOptions)
 
     let targetTextbookValue = ''
@@ -542,6 +590,8 @@ export const KnowledgeGraphView: React.FC = () => {
 
     setSelectedTextbook(targetTextbookValue)
     
+    console.log(`[KnowledgeGraphView] 准备加载章节, targetTextbookValue: ${targetTextbookValue}`)
+
     if (!targetTextbookValue) {
       setChapterStructure([])
       setChapters([])
@@ -549,10 +599,14 @@ export const KnowledgeGraphView: React.FC = () => {
       return
     }
 
-    await loadChaptersBySelectedTextbook(filteredOptions, {
-      chapterIndex: params?.preferredChapterIndex,
-      chapterId: params?.preferredChapterId,
-    })
+    try {
+      await loadChaptersBySelectedTextbook(filteredOptions, {
+        chapterIndex: params?.preferredChapterIndex,
+        chapterId: params?.preferredChapterId,
+      }, targetTextbookValue)
+    } catch (e) {
+      console.error(`[KnowledgeGraphView] 调用 loadChaptersBySelectedTextbook 失败:`, e)
+    }
   }
 
   const checkAndOpenLearningDialog = () => {
@@ -908,8 +962,8 @@ export const KnowledgeGraphView: React.FC = () => {
     }
   }, [handleRouteParamsInitialization, handleStateRestoration, handleDefaultInitialization])
 
-  // 初始化 useEffect
   useEffect(() => {
+    console.log('[KGView] Mounting / Initializing graph...')
     initGraph()
     
     const lastNodeKey = getScopedStorageKey('LAST_LEARNED_NODE_ID')
@@ -920,49 +974,49 @@ export const KnowledgeGraphView: React.FC = () => {
     if (learnedNodes) setLearnedNodeIds(new Set(JSON.parse(learnedNodes)))
 
     return () => {
+      console.log('[KGView] Unmounting initialization effect')
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      
-      // 保存页面状态
-      const state = {
-        selectedSubject,
-        selectedTextbook,
-        selectedChapterIndex: currentChapterIndex,
-        selectedChapterDetails,
-        chapters,
-        chapterStructure,
-        textbookOptions,
-      }
-      savePageState(state)
     }
-  }, [initGraph, selectedSubject, selectedTextbook, currentChapterIndex, selectedChapterDetails, chapters, chapterStructure, textbookOptions, savePageState])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // 状态自动保存
+  // 页面卸载时保存状态
+  const stateRef = useRef({
+    selectedSubject,
+    selectedTextbook,
+    selectedChapterIndex: currentChapterIndex,
+    selectedChapterDetails,
+    chapters,
+    chapterStructure,
+    textbookOptions,
+  })
+
   useEffect(() => {
-    if (!loading) {
-      const currentState = JSON.stringify({
-        selectedSubject,
-        selectedTextbook,
-        selectedChapterIndex: currentChapterIndex,
-        selectedChapterDetails,
-        chapters,
-        chapterStructure,
-        textbookOptions,
-      })
-
-      if (currentState !== lastSavedStateRef.current) {
-        savePageState({
-          selectedSubject,
-          selectedTextbook,
-          selectedChapterIndex: currentChapterIndex,
-          selectedChapterDetails,
-          chapters,
-          chapterStructure,
-          textbookOptions,
-        })
-        lastSavedStateRef.current = currentState
-      }
+    console.log('[KGView] State updated, updating stateRef:', {
+      selectedSubject,
+      selectedTextbook,
+      currentChapterIndex,
+      chapterCount: chapters.length
+    })
+    stateRef.current = {
+      selectedSubject,
+      selectedTextbook,
+      selectedChapterIndex: currentChapterIndex,
+      selectedChapterDetails,
+      chapters,
+      chapterStructure,
+      textbookOptions,
     }
-  }, [selectedSubject, selectedTextbook, selectedChapterDetails, chapters, chapterStructure, textbookOptions, loading, currentChapterIndex, savePageState])
+  }, [selectedSubject, selectedTextbook, currentChapterIndex, selectedChapterDetails, chapters, chapterStructure, textbookOptions])
+
+  useEffect(() => {
+    return () => {
+      console.log('[KGView] Unmounting component, saving state...', stateRef.current)
+      savePageState(stateRef.current)
+    }
+  }, [savePageState])
+
+  // 状态自动保存逻辑移除（或使用 ref 避免死循环）
 
   const convertBrackets = (text: string): string => {
     return text.replace(/【/g, '[').replace(/】/g, ']')

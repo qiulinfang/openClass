@@ -94,71 +94,75 @@ canvas {
   width: 100%;
   height: 100%;
 }
-.ink-canvas {
-  z-index: 2;
-  pointer-events: none;
-}
-
-.screenshot-overlay {
-  position: absolute;
-  border: 2px dashed #1890ff;
-  background: rgba(24, 144, 255, 0.2);
-  z-index: 100;
-  pointer-events: none;
-}
-
-.loading-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 16px 24px;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  z-index: 2000;
-}
-
-.horizontal-nav {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 100%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  z-index: 2000;
-}
-
-.horizontal-nav .nav-btn {
-  position: absolute;
-  pointer-events: auto;
-  width: 44px;
-  height: 44px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px);
-}
-
-.horizontal-nav .nav-left {
-  left: 12px;
-}
-
-.horizontal-nav .nav-right {
-  right: 12px;
-}
-
-.eraser-cursor {
-  position: absolute;
-  border: 1px solid rgba(0, 0, 0, 0.4);
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 50%;
-  pointer-events: none;
-  box-sizing: border-box;
-  z-index: 3000;
-  transform: translate(-50%, -50%);
-}
+  .ink-canvas {
+    z-index: var(--z-pdf-ink-canvas, 2);
+    pointer-events: none;
+  }
+  
+  .screenshot-overlay {
+    position: absolute;
+    border: 2px dashed #1890ff;
+    background: rgba(24, 144, 255, 0.2);
+    z-index: var(--z-pdf-selection-overlay, 100);
+    pointer-events: none;
+  }
+  
+  .loading-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    z-index: var(--z-pdf-loading-overlay, 2000);
+  }
+  
+  .horizontal-nav {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: var(--z-pdf-loading-overlay, 2000);
+  }
+  
+  .horizontal-nav .nav-btn {
+    position: absolute;
+    pointer-events: auto;
+    width: 44px;
+    height: 44px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  
+  .horizontal-nav .nav-left {
+    left: 12px;
+  }
+  
+  .horizontal-nav .nav-right {
+    right: 12px;
+  }
+  
+  .eraser-cursor {
+    position: absolute;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 50%;
+    pointer-events: none;
+    box-sizing: border-box;
+    z-index: var(--z-pdf-eraser-cursor, 3000);
+    transform: translate(-50%, -50%);
+  }

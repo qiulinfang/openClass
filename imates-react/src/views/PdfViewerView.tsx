@@ -104,6 +104,7 @@ export const PdfViewerView: React.FC = () => {
 
   // 生命周期：初始化
   useEffect(() => {
+    console.log('[PdfViewerView] Initializing...')
     const init = async () => {
       try {
         window.addEventListener('pointerup', handleGlobalPointerUp)
@@ -175,7 +176,7 @@ export const PdfViewerView: React.FC = () => {
       if (!fileData) throw new Error('文件未下载到本地')
 
       // 使用 Blob 构造函数并处理 Uint8Array，确保类型兼容
-      const blob = new Blob([fileData], { type: 'application/pdf' })
+      const blob = new Blob([fileData as any], { type: 'application/pdf' })
       return new File([blob], fileName, { type: 'application/pdf' })
     } catch (err) {
       console.error('loadFileFromRoute failed:', err)
@@ -185,6 +186,7 @@ export const PdfViewerView: React.FC = () => {
 
   // 加载 PDF 并配置 store
   const loadPdfWithService = async (file: File) => {
+    console.log('[PdfViewerView] loadPdfWithService called with file:', file.name)
     const resourceId = searchParams.get('resourceId')
     const id = searchParams.get('id')
     if (resourceId && id) {

@@ -266,7 +266,14 @@ export const LearningView: React.FC<LearningViewProps> = ({
       }
 
       const routeName = getViewerRouteName(resource.fileName)
-      navigate(`/viewer/${routeName}`, {
+      // 修复路由路径：React 版本中业务路由统一在 /app 下
+      // 同时增加 search 参数，因为 PdfViewerView 优先从 searchParams 中读取 ID
+      const targetPath = `/app/${routeName.toLowerCase().replace('viewer', '-viewer')}`
+      
+      navigate({
+        pathname: targetPath,
+        search: `?id=${textbookId}&resourceId=${resource.id}&sectionName=${encodeURIComponent(sectionName)}`
+      }, {
         state: {
           id: textbookId,
           textbookName: sectionName,
