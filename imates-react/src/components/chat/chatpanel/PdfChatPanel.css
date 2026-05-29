@@ -1,43 +1,143 @@
-.pdf-chat-panel {
+.chat-panel-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: #fff;
+  height: 100vh;
+  background-color: #e8e9ff;
+  border-radius: 20px 0 0 20px;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
-.pdf-chat-panel .panel-header {
+.chat-panel-header {
+  background: #e8e9ff;
+  padding-top: 10px;
+  height: 48px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #eee;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
+  border-top-left-radius: 20px;
 }
 
-.pdf-chat-panel .panel-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
+.tab-list {
+  display: flex;
+  gap: 2px;
 }
 
-.pdf-chat-panel .close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  font-size: 24px;
+.tab-item {
+  position: relative;
+  padding: 8px 18px;
+  color: #a19cb6;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
   cursor: pointer;
-  color: #666;
+  background: transparent;
+  width: 100px;
 }
 
-.pdf-chat-panel .panel-content {
+.tab-active {
+  background-image: url('/icons/sessionbackfround.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center center;
+  color: #504b64;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  height: 40px;
+  line-height: 24px;
+  width: 100px;
+}
+
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 3px;
+  background: #6e55ff;
+  border-radius: 2px;
+}
+
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #393548;
+  z-index: 1;
+}
+
+.chat-content-container {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
 }
 
-.pdf-chat-panel .placeholder {
+.tab-content {
+  height: 100%;
+  border-radius: 20px;
+}
+
+.session-list-wrapper {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.explore-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(230, 225, 255, 0.75);
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: #999;
+  cursor: not-allowed;
+  border-radius: 16px;
+}
+
+.explore-icon {
+  position: absolute;
+  width: 120px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-icon.textbookip {
+  right: -60px;
+  bottom: 30%;
+}
+
+.explore-icon.ipWord {
+  right: 13%;
+  bottom: 41%;
+  width: 225px;
+  height: auto;
+}
+
+.explore-icon.pdf-toolbar-icon-overlay {
+  position: fixed;
+  z-index: 35;
+  pointer-events: auto;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.pdf-toolbar-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
 }

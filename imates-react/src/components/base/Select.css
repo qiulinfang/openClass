@@ -106,13 +106,32 @@
   font-weight: 600;
 }
 
-.fade-scale-enter-active,
-.fade-scale-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+.fade-scale-enter {
+  animation: fadeScaleIn 0.15s ease forwards;
 }
 
-.fade-scale-enter-from,
-.fade-scale-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
+.fade-scale-leave {
+  animation: fadeScaleOut 0.15s ease forwards;
+}
+
+@keyframes fadeScaleIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeScaleOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
 }

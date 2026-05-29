@@ -253,6 +253,12 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
   },
 
   setQuestions: async (newQuestions, subject) => {
+    const { questions } = get()
+    // 快速检查内容是否相同，避免冗余更新导致无限循环
+    if (newQuestions === questions || (newQuestions && questions && JSON.stringify(newQuestions) === JSON.stringify(questions))) {
+      return
+    }
+
     const normalized = (newQuestions || []).map(q => ({
       ...q,
       subject: normalizeSubject(q.subject),

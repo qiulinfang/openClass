@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import arrowIcon from '/icons/arrow.svg'
 import '@/components/base/DatePicker.css'
 
 export interface DatePickerProps {
@@ -23,6 +24,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const rootRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [shouldRender, setShouldRender] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true)
+    } else {
+      const timer = setTimeout(() => setShouldRender(false), 150)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
 
   const today = new Date()
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
@@ -49,6 +60,30 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const displayText = value || placeholder
 
   const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+
+  const makeCell = (date: Date, inCurrentMonth: boolean): CalendarCell => {
+    const y = date.getFullYear()
+    const m = date.getMonth()
+    const d = date.getDate()
+
+    const isToday = y === today.getFullYear() && m === today.getMonth() && d === today.getDate()
+
+    const isSelected = !!(
+      parsedSelected &&
+      parsedSelected.getFullYear() === y &&
+      parsedSelected.getMonth() === m &&
+      parsedSelected.getDate() === d
+    )
+
+    return {
+      key: `${y}-${m + 1}-${d}`,
+      day: d,
+      date,
+      inCurrentMonth,
+      isToday,
+      isSelected,
+    }
+  }
 
   const calendarCells = useMemo((): CalendarCell[] => {
     const year = currentYear
@@ -85,30 +120,6 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
     return cells
   }, [currentYear, currentMonth])
-
-  const makeCell = (date: Date, inCurrentMonth: boolean): CalendarCell => {
-    const y = date.getFullYear()
-    const m = date.getMonth()
-    const d = date.getDate()
-
-    const isToday = y === today.getFullYear() && m === today.getMonth() && d === today.getDate()
-
-    const isSelected = !!(
-      parsedSelected &&
-      parsedSelected.getFullYear() === y &&
-      parsedSelected.getMonth() === m &&
-      parsedSelected.getDate() === d
-    )
-
-    return {
-      key: `${y}-${m + 1}-${d}`,
-      day: d,
-      date,
-      inCurrentMonth,
-      isToday,
-      isSelected,
-    }
-  }
 
   const togglePanel = () => setIsOpen(!isOpen)
 
@@ -159,14 +170,12 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           {displayText}
         </span>
         <span className={`date-icon-wrapper ${isOpen ? 'date-icon--open' : ''}`}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M7 10l5 5 5-5z"/>
-          </svg>
+          <img src={arrowIcon} alt="calendar" className="date-icon" />
         </span>
       </button>
 
-      {isOpen && (
-        <div className="date-panel">
+      {shouldRender && (
+        <div className={`date-panel ${isOpen ? 'fade-scale-enter' : 'fade-scale-leave'}`}>
           <div className="date-panel-header">
             <button className="nav-btn" type="button" onClick={prevMonth}>‹</button>
             <div className="month-year">

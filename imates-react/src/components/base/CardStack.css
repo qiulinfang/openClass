@@ -1,106 +1,157 @@
 .app-container {
+  height: 100vh;
   width: 100%;
-  height: 100%;
+  background-color: #f7f6ff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .scroll-container {
-  width: 100%;
-  height: 100%;
+  flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  position: relative;
+  padding-bottom: 230px; /* 给底部留空间 */
+  /* 隐藏滚动条 */
+  scrollbar-width: none; 
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none;
 }
 
 .empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: 60vh;
   color: #9ca3af;
-  font-size: 14px;
 }
 
 .cards-wrapper {
+  width: 100%;
+  margin: 0 auto;
   position: relative;
   min-height: 100%;
-  transition: transform 0.2s ease;
+  will-change: transform;
+  isolation: isolate;
 }
 
 .cards-wrapper.is-bouncing {
-  transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-item-wrapper {
+  width: 100%;
+  position: sticky;
+  transform-origin: top center;
+  will-change: transform;
+}
+
+.card-item-wrapper::before {
+  content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  padding: 0 16px;
+  top: 2px;
+  left: 8px;
+  right: 8px;
+  height: 22px;
+  border-radius: 16px 16px 12px 12px;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow: 0 -1px 4px rgba(15, 23, 42, 0.028), 0 -6px 14px rgba(15, 23, 42, 0.02);
 }
 
 .card {
-  position: relative;
+  width: 100%;
+  height: 100%;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
   overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .card-header {
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0 20px;
+  border-bottom: 1px solid #f3f4f6;
+  background-color: white;
+  z-index: 20;
+  position: sticky;
+  top: 0;
 }
 
 .card-title-group {
-  flex: 1;
-  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .card-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: #1f2937;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  max-height: 40px;
+  line-height: 1.4;
 }
 
 .close-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
   background: transparent;
-  border-radius: 6px;
+  border: none;
+  color: #9ca3af;
+  padding: 6px;
+  border-radius: 50%;
   cursor: pointer;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #9ca3af;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #4b5563;
+  background-color: #f3f4f6;
+  color: #374151;
 }
 
 .card-body {
-  padding: 16px 20px;
-  min-height: 200px;
+  flex: 1;
+  background-color: #f9fafb;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
 }
 
 .highlight-border {
   position: absolute;
-  left: 0;
-  top: 0;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.8), transparent);
+  z-index: 30;
+}
+
+.bottom-bar {
+  position: absolute;
   bottom: 0;
-  width: 4px;
-  background: linear-gradient(180deg, #6e55ff 0%, #8b7aff 100%);
-  border-radius: 16px 0 0 16px;
+  width: 100%;
+  height: 56px;
+  background-color: #ffffff;
+  border-top: 1px solid rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  z-index: 100;
+  color: #6b7280;
 }
 
 /* Card list transition animations */

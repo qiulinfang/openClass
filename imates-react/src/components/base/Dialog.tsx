@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Button } from '@/components/base/Button'
 import '@/components/base/Dialog.css'
 
@@ -13,17 +13,28 @@ export interface DialogProps {
   children?: React.ReactNode
 }
 
-export const Dialog: React.FC<DialogProps> = ({
-  open,
-  title = '操作确认',
-  confirmButtonText = '确认执行',
-  cancelButtonText = '取消',
-  onConfirm,
-  onCancel,
-  onClose,
-  children,
-}) => {
+export const Dialog = forwardRef<any, DialogProps>((props, ref) => {
+  const {
+    open,
+    title = '操作确认',
+    confirmButtonText = '确认执行',
+    cancelButtonText = '取消',
+    onConfirm,
+    onCancel,
+    onClose,
+    children,
+  } = props
+
   const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    openDialog: () => {
+      dialogRef.current?.showModal()
+    },
+    closeDialog: () => {
+      dialogRef.current?.close()
+    }
+  }))
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -89,6 +100,6 @@ export const Dialog: React.FC<DialogProps> = ({
       </div>
     </dialog>
   )
-}
+})
 
 export default Dialog

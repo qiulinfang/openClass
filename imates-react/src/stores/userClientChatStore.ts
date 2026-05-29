@@ -59,6 +59,7 @@ interface UserClientChatState {
   clearMessages: () => void
   setIsSending: (loading: boolean) => void
   setIsDialogOpen: (open: boolean) => void
+  setDialogOpen: (open: boolean) => void
   
   connect: () => Promise<boolean>
   disconnect: () => void
@@ -71,6 +72,7 @@ interface UserClientChatState {
   // Helpers
   canSendMessage: () => boolean
   markAllUserMessagesAsRead: () => void
+  markAllAIMessagesAsRead: () => void
   sendReadStatusToAgent: () => void
 }
 
@@ -155,6 +157,7 @@ export const useUserClientChatStore = create<UserClientChatState>((set, get) => 
     clearMessages: () => set({ messages: [] }),
     setIsSending: (isSending: boolean) => set({ isSending }),
     setIsDialogOpen: (isDialogOpen: boolean) => set({ isDialogOpen }),
+    setDialogOpen: (isDialogOpen: boolean) => set({ isDialogOpen }),
 
     connect: async () => {
       return new Promise(async (resolve) => {
@@ -454,6 +457,12 @@ export const useUserClientChatStore = create<UserClientChatState>((set, get) => 
     markAllUserMessagesAsRead: () => {
       set((state) => ({
         messages: state.messages.map(m => m.sender === Sender.USER ? { ...m, isRead: true } : m)
+      }))
+    },
+
+    markAllAIMessagesAsRead: () => {
+      set((state) => ({
+        messages: state.messages.map(m => (m.sender === Sender.AI || m.sender === Sender.TEACHER) ? { ...m, isRead: true } : m)
       }))
     },
 

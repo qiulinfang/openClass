@@ -1,86 +1,189 @@
 .voice-recorder {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
 }
 
 .voice-recorder.recording {
-  background: #fff;
-  border-radius: 12px;
+  opacity: 1;
+  visibility: visible;
 }
 
 .recording-status {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 16px;
-  gap: 12px;
+  gap: 32px;
+  color: #333;
+  text-align: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .recording-animation {
   position: relative;
-  width: 48px;
-  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 96px;
+  height: 96px;
+  background: linear-gradient(135deg, #ff4444 0%, #ff6666 100%);
+  border-radius: 50%;
+  box-shadow: 
+    0 8px 32px rgba(255, 68, 68, 0.4),
+    0 4px 16px rgba(255, 68, 68, 0.3),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  animation: recording-bounce 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pulse-circle {
   position: absolute;
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  height: 100%;
+  border: 3px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
-  background: rgba(110, 85, 255, 0.3);
-  animation: pulse 1.5s ease-out infinite;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 @keyframes pulse {
   0% {
-    transform: scale(0.8);
-    opacity: 1;
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
   }
   100% {
-    transform: scale(1.5);
+    transform: scale(1.6);
     opacity: 0;
   }
 }
 
 .recording-info {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .recording-text {
-  font-size: 14px;
-  color: #333;
+  font-size: 16px;
   font-weight: 500;
+  color: #666;
+  letter-spacing: 0.5px;
 }
 
 .recording-time {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
+  font-size: 32px;
+  font-weight: 700;
+  color: #ff4444;
+  text-shadow: 0 2px 4px rgba(255, 68, 68, 0.2);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  min-width: 80px;
 }
 
 .recording-hint {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 20px;
+  transition: all 0.3s ease;
 }
 
 .hint-text {
-  font-size: 12px;
+  font-size: 13px;
   color: #999;
+  font-weight: 400;
 }
 
 .cancel-hint {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
-  gap: 8px;
+  gap: 16px;
+  color: #ff4444;
+  text-align: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  animation: fadeInScale 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cancel-text {
-  font-size: 14px;
-  color: #ff4d4f;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ff4444;
+  letter-spacing: 0.5px;
+}
+
+@keyframes recording-bounce {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .recording-status {
+    gap: 24px;
+    padding: 20px;
+  }
+  .recording-animation {
+    width: 88px;
+    height: 88px;
+  }
+  .recording-time {
+    font-size: 28px;
+  }
+  .cancel-text {
+    font-size: 16px;
+  }
 }

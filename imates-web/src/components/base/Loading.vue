@@ -9,13 +9,14 @@ const props = defineProps<{
   text?: string
   size?: number
   theme?: 'dark' | 'light'
+  horizontal?: boolean
 }>()
 
 const sizePx = computed(() => props.size ?? 48)
 </script>
 
 <template>
-  <div class="base-loading" :class="`is-${props.theme ?? 'dark'}`" role="status" aria-live="polite">
+  <div class="base-loading" :class="[`is-${props.theme ?? 'dark'}`, { 'is-horizontal': horizontal }]" role="status" aria-live="polite">
     <span class="spinner" :style="{ width: `${sizePx}px`, height: `${sizePx}px` }"></span>
     <div v-if="text" class="text">{{ text }}</div>
   </div>
@@ -27,6 +28,11 @@ const sizePx = computed(() => props.size ?? 48)
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+.base-loading.is-horizontal {
+  flex-direction: row;
+  gap: 8px;
 }
 
 .spinner {
@@ -46,9 +52,12 @@ const sizePx = computed(() => props.size ?? 48)
 }
 
 .text {
-  margin-top: 12px;
   font-size: 16px;
   font-weight: 500;
+}
+
+.base-loading:not(.is-horizontal) .text {
+  margin-top: 12px;
 }
 
 .base-loading.is-dark .text {

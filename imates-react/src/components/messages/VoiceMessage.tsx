@@ -1,20 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+import { androidBridge } from '@/services/business/android-bridge'
 import '@/components/messages/VoiceMessage.css'
 
 interface VoiceMessageProps {
   filePath: string
   duration: number
-  isUser: boolean
+  isUser?: boolean
 }
 
 export const VoiceMessage: React.FC<VoiceMessageProps> = ({
   filePath,
   duration,
-  isUser,
+  isUser = false,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60)
@@ -22,79 +22,100 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const togglePlay = () => {
-    if (!audioRef.current) return
+  const togglePlayback = async () => {
+    if (isLoading) return
+    setIsLoading(true)
 
-    if (isPlaying) {
-      audioRef.current.pause()
-    } else {
-      audioRef.current.play()
+    try {
+      if (isPlaying) {
+        // 停止播放
+        const result = androidBridge.stopVoicePlayback()
+        if (result.success) {
+          stopPlayback()
+        }
+      } else {
+        // 开始播放
+        const result = androidBridge.playVoiceMessage(filePath)
+        if (result.success) {
+          startPlayback()
+        }
+      }
+    } catch (error) {
+      console.error('播放操作失败', error)
+    } finally {
+      setIsLoading(false)
     }
-    setIsPlaying(!isPlaying)
   }
 
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime)
-    }
+  const startPlayback = () => {
+    setIsPlaying(true)
+    // 设置播放完成的定时器
+    setTimeout(() => {
+      setIsPlaying((prev) => {
+        if (prev) {
+          stopPlayback()
+        }
+        return false
+      })
+    }, duration * 1000)
   }
 
-  const handleEnded = () => {
+  const stopPlayback = () => {
     setIsPlaying(false)
-    setCurrentTime(0)
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0
-    }
   }
 
   useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+    // 监听Android端的播放完成事件
+    const handlePlaybackCompleted = (completedFilePath: string) => {
+      if (completedFilePath === filePath) {
+        stopPlayback()
       }
     }
-  }, [])
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+    if (typeof window !== 'undefined') {
+      (window as any).onVoicePlaybackCompleted = handlePlaybackCompleted
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        (window as any).onVoicePlaybackCompleted = undefined
+      }
+    }
+  }, [filePath])
 
   return (
-    <div className={`voice-message ${isUser ? 'user' : 'ai'}`}>
-      <audio
-        ref={audioRef}
-        src={filePath}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={handleEnded}
-      />
-      <button className="voice-play-btn" onClick={togglePlay}>
-        {isPlaying ? (
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        )}
-      </button>
-      <div className="voice-waveform">
-        <div className="voice-progress" style={{ width: `${progress}%` }} />
-        <div className="voice-waveform-bars">
-          {Array.from({ length: 20 }).map((_, i) => (
+    <div className={`voice-message ${isUser ? 'voice-message-user' : ''}`}>
+      <div className="voice-content" onClick={togglePlayback}>
+        <div className="voice-play-btn">
+          <button className={`play-btn ${isUser ? 'user' : 'ai'}`}>
+            {isLoading ? (
+              <div className="btn-loading" />
+            ) : isPlaying ? (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            )}
+          </button>
+        </div>
+        
+        <div className="voice-waveform">
+          {[1, 2, 3, 4, 5].map((i) => (
             <div 
-              key={i} 
-              className="waveform-bar"
-              style={{ 
-                height: `${20 + Math.random() * 60}%`,
-                opacity: i / 20 <= progress / 100 ? 1 : 0.3
-              }}
+              key={i}
+              className={`wave-bar ${isPlaying ? 'wave-active' : ''}`}
+              style={{ animationDelay: `${i * 0.1}s` }}
             />
           ))}
         </div>
+        
+        <div className="voice-duration">
+          {formatDuration(duration)}
+        </div>
       </div>
-      <span className="voice-duration-text">
-        {isPlaying ? formatDuration(currentTime) : formatDuration(duration)}
-      </span>
     </div>
   )
 }

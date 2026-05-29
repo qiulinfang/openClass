@@ -1,0 +1,429 @@
+.node-wrapper {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  /* 确保容器有最小尺寸，避免因为负边距和 transform scale(0) 导致尺寸为 0 */
+  min-width: 100px;
+  min-height: 100px;
+}
+
+/* 中心节点的 node-wrapper 使用更高的 z-index，确保气泡框不被圆周节点覆盖 */
+.node-wrapper--center {
+  z-index: 15;
+}
+
+/* 圆周节点的 node-wrapper 使用较低的 z-index */
+.node-wrapper--circular {
+  z-index: 22;
+}
+
+/* 当节点的气泡框打开时，无论中心节点还是圆周节点，都提升到最上层 */
+.node-wrapper--menu-open {
+  z-index: 30 !important;
+}
+
+.graph-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--node-base-transition-duration, 0.3s) ease;
+  position: relative;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 中心节点样式 - 大圆 */
+.graph-node--center {
+  width: 180px;
+  height: 180px;
+  background: transparent;
+  z-index: 10;
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  padding: 10px;
+  margin: -10px;
+}
+
+.graph-node--center:active {
+  transform: scale(0.97);
+  transition: transform var(--node-active-transition-duration, 0.1s) ease;
+}
+
+/* 中心节点展开状态 - 变大 */
+.graph-node--center.graph-node--expanded {
+  width: 240px;
+  height: 240px;
+}
+
+/* 中心节点在其他图谱展开时变小 */
+.graph-node--center.graph-node--shrunk {
+  width: 140px;
+  height: 140px;
+}
+
+/* 圆周节点样式 - 小圆 */
+.graph-node--circular {
+  width: var(--circular-node-radius, 100px);
+  height: var(--circular-node-radius, 100px);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  z-index: 5;
+  opacity: 0;
+  transform: scale(0);
+  transform-origin: center center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  padding: 12px;
+  margin: -12px;
+}
+
+.graph-node--circular:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.graph-node--circular:active {
+  transform: scale(0.95);
+  transition: transform var(--node-active-transition-duration, 0.1s) ease;
+}
+
+/* 节点图标样式 */
+.node-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 1;
+}
+
+/* 节点内容 */
+.node-content {
+  color: #374151;
+  padding: 8px 4px;
+  margin-top: 8px;
+  max-width: 140px;
+  word-wrap: break-word;
+}
+
+/* 非中心节点内容通过绝对定位脱离文档流 */
+.node-content--circular {
+  position: absolute;
+  top: 75%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: var(--circular-node-content-font-size, 0.875rem);
+  font-weight: normal;
+  color: white;
+  width: 150%;
+  overflow: hidden;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) scale(0.8);
+  transition: opacity var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1), transform var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 悬停时增强显示效果 */
+.graph-node--circular:hover + .node-content--circular {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.05);
+}
+
+/* 中心节点内部内容 */
+.node-content--center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  padding: 4px;
+  margin-top: 0;
+  text-align: center;
+  z-index: 1;
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* 标题样式 */
+.node-title {
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+/* 中心节点内部标题 */
+.node-content--center .node-title {
+  font-size: 190%; /* 节点宽度的180% */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 4px; /* 增加与章节名的间距 */
+  color: white;
+  font-family: '优设标题黑', 'YouSheBiaoTiHei', sans-serif;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.2;
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+  width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 中心节点标题展开状态 - 字体放大 */
+.node-content--center.node-content--expanded .node-title {
+  font-size: 230%;
+  margin-top: -8px;
+  margin-bottom: 4px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 中心节点标题在其他图谱展开时字体保持不变 */
+.node-content--center.node-content--shrunk .node-title {
+  font-size: 190%;
+  margin-top: -8px;
+  margin-bottom: 4px;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 非中心节点标题样式 */
+.node-content--circular .node-title {
+  font-size: var(--circular-node-font-size, 1.2rem);
+  font-weight: normal;
+  color: white;
+  margin-bottom: 2px;
+  line-height: 1.2;
+  width: 100%;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 圆周节点标题在其他图谱展开时变小 */
+.node-content--circular.node-content--shrunk .node-title {
+  font-size: calc(var(--circular-node-font-size, 1.2rem) * 0.729);
+  line-height: 1.1;
+}
+
+/* 中心节点章节名样式 */
+.node-content--center .node-chapter {
+  font-size: 150%;
+  color: white;
+  font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
+  font-weight: normal;
+  text-align: center;
+  line-height: 1.4;
+  opacity: 0.9;
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+  width: 100%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+
+/* 中心节点章节名展开状态 - 字号保持一致 */
+.node-content--center.node-content--expanded .node-chapter {
+  font-size: 145%;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+
+/* 中心节点章节名在其他图谱展开时字体保持不变 */
+.node-content--center.node-content--shrunk .node-chapter {
+  font-size: 140%;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+
+/* 学习标签 */
+.learning-tag {
+  position: absolute;
+  background: #ff6767;
+  color: white;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 14px 9px 9px 0;
+  font-weight: 400;
+  white-space: nowrap;
+  width: 70px;
+  height: 20px;
+  line-height: 16px;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1),
+              all var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1);
+  pointer-events: none;
+  animation: learning-tag-fade-in var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 学习标签在节点展开时变为完全透明 */
+.learning-tag--expanded {
+  opacity: 0;
+  animation: none;
+}
+
+/* 学习标签在节点缩小时变小 */
+.learning-tag--shrunk {
+  font-size: 9px;
+  padding: 1px 4px;
+  opacity: 0.8;
+}
+
+/* 学习标签淡入动画 */
+@keyframes learning-tag-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* 节点进入动画 */
+@keyframes node-enter {
+  0% { opacity: 0; transform: scale(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 节点退出动画 */
+@keyframes node-exit {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.3); }
+}
+
+/* 内容进入动画 */
+@keyframes content-enter {
+  0% { opacity: 0; transform: translateX(-50%) scale(0.8); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* 内容退出动画 */
+@keyframes content-exit {
+  0% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(0.8); }
+}
+
+/* 节点进入动画类 */
+.graph-node--circular.node-enter {
+  animation: node-enter var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 节点退出动画类 */
+.graph-node--circular.node-exit {
+  animation: node-exit var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 内容进入动画类 */
+.node-content--circular.content-enter {
+  animation: content-enter var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 内容退出动画类 */
+.node-content--circular.content-exit {
+  animation: content-exit var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 手动定位的气泡框菜单 */
+.manual-bubble-menu {
+  position: absolute;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.bubble-menu-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 100px;
+}
+
+.bubble-menu-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bubble-menu-button--learn {
+  background: #6c5ce7;
+  color: white;
+}
+
+.bubble-menu-button--practice {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.bubble-menu-button:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}

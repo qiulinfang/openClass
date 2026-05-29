@@ -1,5 +1,6 @@
-import React from 'react'
-import { Dialog } from '@/components/base/Dialog'
+import React, { useMemo } from 'react'
+import { Modal } from '@/components/base/Modal'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
 import '@/components/dialog/QaDetailDialog.css'
 
 export interface QaDetailDialogProps {
@@ -15,30 +16,51 @@ export const QaDetailDialog: React.FC<QaDetailDialogProps> = ({
   answer = '',
   onClose,
 }) => {
-  if (!open) return null
+  const { renderMessageContent } = useMessageRenderer()
+
+  const renderedQuestion = useMemo(() => {
+    if (!question) return ''
+    return renderMessageContent(question)
+  }, [question, renderMessageContent])
+
+  const renderedAnswer = useMemo(() => {
+    if (!answer) return ''
+    return renderMessageContent(answer)
+  }, [answer, renderMessageContent])
 
   return (
-    <Dialog open={open} title="问答详情" onClose={onClose}>
+    <Modal
+      open={open}
+      title="问答详情"
+      initialWidth={700}
+      initialHeight={600}
+      minWidth={500}
+      minHeight={400}
+      titleAlign="left"
+      headerBackgroundColor="#ffffff"
+      className="qa-detail-dialog"
+      onClose={onClose}
+    >
       <div className="qa-detail-content">
         <div className="qa-section question-section">
           <div className="section-title">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="#1976d2">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="section-icon">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
             </svg>
             <span>问题</span>
           </div>
-          <div className="section-content">{question}</div>
+          <div className="section-content" dangerouslySetInnerHTML={{ __html: renderedQuestion }} />
         </div>
 
         {answer ? (
           <div className="qa-section answer-section">
             <div className="section-title">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="#4caf50">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="section-icon">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
               <span>答案</span>
             </div>
-            <div className="section-content">{answer}</div>
+            <div className="section-content" dangerouslySetInnerHTML={{ __html: renderedAnswer }} />
           </div>
         ) : (
           <div className="qa-empty-state">
@@ -49,7 +71,7 @@ export const QaDetailDialog: React.FC<QaDetailDialogProps> = ({
           </div>
         )}
       </div>
-    </Dialog>
+    </Modal>
   )
 }
 

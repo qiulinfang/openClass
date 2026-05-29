@@ -24,7 +24,17 @@ export const Select: React.FC<SelectProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [shouldRender, setShouldRender] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true)
+    } else {
+      const timer = setTimeout(() => setShouldRender(false), 150)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
 
   const currentLabel = useMemo(() => {
     const found = options.find((o) => o.value === value)
@@ -94,8 +104,12 @@ export const Select: React.FC<SelectProps> = ({
         )}
       </button>
 
-      {isOpen && createPortal(
-        <div className="select-dropdown" style={dropdownStyle} onClick={(e) => e.stopPropagation()}>
+      {shouldRender && createPortal(
+        <div 
+          className={`select-dropdown ${isOpen ? 'fade-scale-enter' : 'fade-scale-leave'}`}
+          style={dropdownStyle} 
+          onClick={(e) => e.stopPropagation()}
+        >
           <ul className="select-options">
             {options.map((o) => (
               <li

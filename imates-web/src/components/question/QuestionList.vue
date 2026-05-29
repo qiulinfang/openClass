@@ -1847,17 +1847,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: none;
     }
 
-    // 高亮当前题目效果
-    &.highlight-current {
-      animation: highlight-pulse 2s ease-in-out;
-
-      .question-block {
-        border-color: $primary-color;
-        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2), $shadow-hover;
-        background-color: rgba(26, 115, 232, 0.02);
-      }
-    }
-
     // 题目组块 - 固定高度，内容溢出省略号，默认白色背景
     .question-block {
       background-color: #fcfcff;
@@ -1868,23 +1857,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       transition: all 0.2s ease;
       min-width: 0;
       height: 120px;
-    }
-
-    // 题目内容区域 - 文字颜色
-    .question-content-area {
-      .question-content,
-      .markdown-content {
-        color: #393548;
-      }
-
-      :deep(*) {
-        color: #393548;
-      }
-    }
-
-    // 题目序号颜色
-    .question-header .question-number {
-      color: #393548;
     }
 
     // 悬停效果
@@ -1906,25 +1878,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none;
         border: 1px solid #8b5cf6;
       }
-
-      // 选中时题目内容颜色
-      .question-content-area {
-        .question-content,
-        .markdown-content {
-          color: #393548;
-        }
-
-        :deep(*) {
-          color: #393548;
-        }
-      }
-
-      // 选中时题目序号颜色
-      .question-header .question-number {
-        color: #393548;
-      }
     }
-
   }
 
   // 题目头部
@@ -2105,7 +2059,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// ===== Markdown 内容样式 =====
 .markdown-content {
   font-size: 14px !important;
   line-height: 1.5;
@@ -2307,12 +2260,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-.markdown-content {
-  font-size: 13px !important;
-  color: #9792ac;
-  overflow: visible;
-}
-
 @media (max-width: 480px) {
   .question-list {
     .question-cards-container {
@@ -2343,110 +2290,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// ===== Gemini 风格对话框样式 =====
-:deep(.gemini-delete-dialog) {
-  .q-dialog__inner {
-    padding: 24px;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
-    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    max-width: 400px;
-    width: 90vw;
-    animation: gemini-dialog-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .q-dialog__title {
-    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 20px;
-    font-weight: 500;
-    color: #202124;
-    margin-bottom: 8px;
-    line-height: 1.3;
-  }
-
-  .q-dialog__message {
-    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    color: #5f6368;
-    line-height: 1.5;
-    margin-bottom: 24px;
-  }
-
-  .q-dialog__actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 0;
-    padding-top: 0;
-  }
-}
-
-// Gemini 风格按钮样式
-:deep(.gemini-delete-btn) {
-  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-weight: 500;
-  font-size: 14px;
-  text-transform: none;
-  letter-spacing: 0.25px;
-  border-radius: 20px;
-  padding: 10px 24px;
-  min-width: 80px;
-  height: 40px;
-  background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(234, 67, 53, 0.3);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
-    box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4);
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(234, 67, 53, 0.3);
-  }
-}
-
-:deep(.gemini-cancel-btn) {
-  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-weight: 500;
-  font-size: 14px;
-  text-transform: none;
-  letter-spacing: 0.25px;
-  border-radius: 20px;
-  padding: 10px 24px;
-  min-width: 80px;
-  height: 40px;
-  color: #5f6368;
-  background: transparent;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    background: rgba(95, 99, 104, 0.08);
-    color: #202124;
-  }
-
-  &:active {
-    background: rgba(95, 99, 104, 0.12);
-  }
-}
-
-// 对话框进入动画
-@keyframes gemini-dialog-enter {
-  0% {
-    opacity: 0;
-    transform: scale(0.9) translateY(-20px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-// 旋转动画
 @keyframes spin {
   0% {
     transform: rotate(0deg);

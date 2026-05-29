@@ -13,6 +13,7 @@ export interface SearchInputProps {
   onEnter?: (e: React.KeyboardEvent) => void
   prepend?: React.ReactNode
   append?: React.ReactNode
+  className?: string
 }
 
 export interface SearchInputRef {
@@ -32,6 +33,7 @@ export const SearchInput = forwardRef<SearchInputRef, SearchInputProps>(({
   onEnter,
   prepend,
   append,
+  className = '',
 }, ref) => {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isFocused, setIsFocused] = useState(false)
@@ -62,7 +64,7 @@ export const SearchInput = forwardRef<SearchInputRef, SearchInputProps>(({
   }
 
   return (
-    <div className={`search-input-wrapper ${active || isFocused ? 'is-active' : ''}`}>
+    <div className={`search-input-wrapper ${active || isFocused ? 'is-active' : ''} ${className}`}>
       {prepend && <div className="input-prepend">{prepend}</div>}
       <input
         ref={inputRef}

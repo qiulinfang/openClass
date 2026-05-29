@@ -134,6 +134,8 @@ interface AiHomeworkChatState {
   loadSessions: () => Promise<void>
   deleteSession: (sessionId: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
+  addMessage: (message: ChatBubble) => void
+  clearMessages: () => void
   resetState: (resetContext?: boolean) => void
 }
 
@@ -484,6 +486,9 @@ export const useAiHomeworkChatStore = create<AiHomeworkChatState>((set, get) => 
       }
       await get().saveChatHistory()
     },
+
+    addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+    clearMessages: () => set({ messages: [], currentSession: null }),
 
     resetState: (resetContext = true) => set({
       messages: [],

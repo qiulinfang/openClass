@@ -88,7 +88,7 @@ export const MainView: React.FC = () => {
   }, [location.pathname])
 
   const hideFunctionMenu = useMemo(() => {
-    const hideRoutes = ['homework-answer', 'pdf-viewer', 'html-viewer', 'video-viewer', 'html-preview', 'draft-notebook']
+    const hideRoutes = ['homework-exercise', 'homework-answer', 'exercise-solve', 'pdf-viewer', 'html-viewer', 'video-viewer', 'html-preview', 'draft-notebook']
     return hideRoutes.some(route => location.pathname.includes(route))
   }, [location.pathname])
 

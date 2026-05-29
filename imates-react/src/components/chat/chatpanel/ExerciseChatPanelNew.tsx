@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useDraftStore } from '@/stores/draftStore'
@@ -10,6 +11,7 @@ import Button from '@/components/base/Button'
 import Dialog from '@/components/base/Dialog'
 import { showMessage } from '@/utils'
 import type { ExerciseItem } from '@/types'
+import type { BuiltinToolType } from '@/types/toolbarTools'
 import '@/components/chat/chatpanel/ExerciseChatPanelNew.css'
 
 // 图标资源
@@ -18,6 +20,8 @@ import newSessionIcon from '/icons/new.svg'
 import deleteSessionIcon from '/icons/delete.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import ipWordIcon from '/icons/ipWord.svg'
+import selectAndAskIcon from '/icons/selectAndAsk.svg'
+import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg'
 
 export interface ExerciseChatPanelNewProps {
   question?: ExerciseItem | null
@@ -34,6 +38,7 @@ export interface ExerciseChatPanelNewProps {
   onOpenHtmlPreview?: (payload: { url: string; html?: string; sessionId?: string | null }) => void
   isExploring?: boolean
   isCapturing?: boolean
+  showCloseButton?: boolean
 }
 
 export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>(({
@@ -45,14 +50,31 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
   onAddSession,
   onSwitchToTeacher,
   onScreenshotClick,
-  isExploring = false,
+  onOpenHtmlPreview,
+  onRequestScreenshot,
+  isExploring: propsExploring = false,
+  isCapturing = false,
+  showCloseButton = true,
 }, ref) => {
   const aiExerciseStore = useAiExerciseChatStore()
   const draftStore = useDraftStore()
   const { renderMessageContent } = useMessageRenderer()
   
   const [activeTab, setActiveTab] = useState<'ai-chat' | 'question-record'>('ai-chat')
+  const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(undefined)
   const [showClearAllDialog, setShowClearAllDialog] = useState(false)
+  const [showGlobalChatDialog, setShowGlobalChatDialog] = useState(false)
+  const [globalChatEntry, setGlobalChatEntry] = useState<any>(undefined)
+  const [overlayButtonStyle, setOverlayButtonStyle] = useState<React.CSSProperties>({
+    position: 'fixed',
+    left: '24px',
+    top: '16px',
+    width: '32px',
+    height: '32px',
+    zIndex: 35,
+  })
+  const [overlayButtonReady, setOverlayButtonReady] = useState(false)
+  
   const chatViewRef = useRef<any>(null)
 
   const tabOptions = [
@@ -60,9 +82,78 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
     { label: '会话记录', value: 'question-record' }
   ]
 
-  const hasAiSessions = useMemo(() => {
-    return Array.isArray(aiExerciseStore.sessions) && aiExerciseStore.sessions.length > 0
-  }, [aiExerciseStore.sessions])
+  const isExploring = useMemo(() => {
+    return (propsExploring || isCapturing) && activeTab === 'ai-chat'
+  }, [propsExploring, isCapturing, activeTab])
+
+  const toolbarToolNames = useMemo(() => [
+    { type: 'select-and-ask' as BuiltinToolType, isActive: isExploring },
+    { type: 'formula' as BuiltinToolType },
+    { type: 'ask-teacher' as BuiltinToolType },
+    { type: 'new-session' as BuiltinToolType },
+  ], [isExploring])
+
+  const selectAndAskIconToUse = isExploring ? selectAndAskIconSelected : selectAndAskIcon
+  const hasAttachedScreenshots = (aiExerciseStore.inputAttachedScreenshots?.length ?? 0) > 0
+
+  const updateOverlayButtonPosition = useCallback(() => {
+    setOverlayButtonReady(false)
+    setTimeout(() => {
+      const actualButton = document.querySelector('.chat-content-container .tab-content .toolbar-btn') as HTMLElement
+      if (!actualButton) return
+      const buttonRect = actualButton.getBoundingClientRect()
+      setOverlayButtonStyle({
+        position: 'fixed',
+        left: `${buttonRect.left}px`,
+        top: `${buttonRect.top}px`,
+        width: `${buttonRect.width}px`,
+        height: `${buttonRect.height}px`,
+        zIndex: 35,
+      })
+      setOverlayButtonReady(true)
+    }, 100)
+  }, [])
+
+  useEffect(() => {
+    if (isExploring) {
+      updateOverlayButtonPosition()
+    } else {
+      setOverlayButtonReady(false)
+    }
+  }, [isExploring, activeTab, aiExerciseStore.inputAttachedScreenshots?.length, updateOverlayButtonPosition])
+
+  useEffect(() => {
+    window.addEventListener('resize', updateOverlayButtonPosition)
+    return () => window.removeEventListener('resize', updateOverlayButtonPosition)
+  }, [updateOverlayButtonPosition])
+
+  const handleExploreClick = () => {
+    if (isCapturing) {
+      onScreenshotClick?.(false)
+    } else {
+      onScreenshotClick?.(!propsExploring)
+    }
+  }
+
+  const handleOpenTeacherDialog = ({ sessionId }: { sessionId: string }) => {
+    setGlobalChatEntry({ mode: 'session', category: 'teacher', sessionId })
+    setShowGlobalChatDialog(true)
+  }
+
+  const handleSwitchToTeacher = (forwardData: any) => {
+    if (forwardData.sessionId) {
+      setGlobalChatEntry({ mode: 'session', category: 'teacher', sessionId: forwardData.sessionId })
+      setShowGlobalChatDialog(true)
+      onSwitchToTeacher?.(forwardData)
+    }
+  }
+
+  const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
+    if (!payload.url) return
+    const currentSessionId = (aiExerciseStore as any).currentSessionId
+    if (payload.html) sessionStorage.setItem('htmlPreview_inlineContent', payload.html)
+    onOpenHtmlPreview?.({ ...payload, sessionId: currentSessionId })
+  }
 
   const sessionCards = useMemo((): CardStackCard[] => {
     const sourceSessions = aiExerciseStore.sessions || []
@@ -166,16 +257,35 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
     }
   }
 
+  const handleCloseSessionPanel = () => {
+    setActiveTab('ai-chat')
+  }
+
+  const hasAiSessions = useMemo(() => {
+    return Array.isArray(aiExerciseStore.sessions) && aiExerciseStore.sessions.length > 0
+  }, [aiExerciseStore.sessions])
+
   if (!visible) return null
 
   return (
     <div className="chat-panel-container">
-      {/* 探索遮罩 */}
       {isExploring && activeTab === 'ai-chat' && (
-        <div className="explore-overlay">
+        <div className="explore-overlay" onClick={(e) => e.stopPropagation()}>
           <img src={textbookipIcon} alt="textbookip" className="explore-icon textbookip" />
           <img src={ipWordIcon} alt="ipWord" className="explore-icon ipWord" />
         </div>
+      )}
+
+      {isExploring && overlayButtonReady && createPortal(
+        <button
+          type="button"
+          className={`pdf-toolbar-btn explore-icon pdf-toolbar-icon-overlay ${hasAttachedScreenshots ? 'explore-icon-large' : ''}`}
+          style={overlayButtonStyle}
+          onClick={(e) => { e.stopPropagation(); handleExploreClick() }}
+        >
+          <img src={selectAndAskIconToUse} alt="选中并问" style={{ width: '100%', height: '100%' }} />
+        </button>,
+        document.body
       )}
 
       {/* 对话面板头部 */}
@@ -193,7 +303,7 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
             ))}
           </div>
         </div>
-        {onClose && (
+        {showCloseButton && onClose && (
           <button className="close-button" onClick={onClose}>
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -209,12 +319,17 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
             <ChatView
               ref={chatViewRef}
               type="ai-exercise"
+              compressedHeight={360}
               question={question}
+              toolbarTools={toolbarToolNames}
               onScrollToBottom={onScrollToBottom}
               onSendMessage={onSendMessage}
-              onSwitchToTeacher={onSwitchToTeacher}
-              onScreenshotClick={() => onScreenshotClick?.(true)}
+              onOpenTeacherDialog={handleOpenTeacherDialog}
+              onSwitchToTeacher={handleSwitchToTeacher}
+              onScreenshotClick={() => onRequestScreenshot?.({ kind: 'screen_snapshot' })}
+              onRequestScreenshot={onRequestScreenshot}
               onNewSessionClick={handleAddSessionClick}
+              onOpenHtmlPreview={handleOpenHtmlPreview}
             />
           </div>
         ) : (
@@ -258,7 +373,7 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
                 label="返回"
                 icon={goBackBlackIcon}
                 variant="ghost"
-                onClick={() => setActiveTab('ai-chat')}
+                onClick={handleCloseSessionPanel}
               />
               <Button
                 label="新建"

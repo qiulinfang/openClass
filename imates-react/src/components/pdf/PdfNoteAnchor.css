@@ -1,63 +1,62 @@
 .note-marker {
   position: absolute;
-  width: 24px;
-  height: 24px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
 }
 
 .note-marker-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
+  display: block;
 }
 
-.note-marker-absolute {
+.note-marker-initial {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 14px;
-  height: 14px;
-  background: #6e55ff;
-  border-radius: 50%;
-  font-size: 8px;
-  color: white;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  pointer-events: none;
 }
 
 .note-tooltip {
-  position: absolute;
   z-index: 200;
 }
 
 .note-input-card {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 200px;
+  border-radius: 0px 12px 12px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  background-color: #ffffff;
+  padding: 0 5px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  border: 1px solid #eee;
 }
 
 .note-textarea {
+  flex: 1;
   width: 100%;
-  min-height: 60px;
   border: none;
   outline: none;
   font-size: 12px;
+  line-height: 1.4;
+  padding: 6px 4px;
   resize: none;
-  font-family: inherit;
+  background: transparent;
 }
 
 .note-input-actions {
+  margin-top: 4px;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 4px;
+  padding-bottom: 4px;
+  width: 100%;
 }
 
 .action-btn {
@@ -69,30 +68,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  background: transparent;
+  transition: background 0.2s;
 }
 
 .action-btn.confirm {
-  background: #6e55ff;
-  color: white;
+  color: #6e55ff;
+}
+
+.action-btn.confirm:hover {
+  background: #f3f0ff;
 }
 
 .action-btn.cancel {
-  background: #f0f0f0;
-  color: #666;
+  color: #999;
 }
 
-.note-display-card {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-width: 250px;
+.action-btn.cancel:hover {
+  background: #f5f5f5;
 }
 
-.note-content {
+.note-display-text {
+  flex: 1;
   font-size: 12px;
-  color: #333;
-  line-height: 1.5;
+  line-height: 1.4;
+  color: #111827;
+  padding: 6px 4px;
+  white-space: pre-wrap;
 }

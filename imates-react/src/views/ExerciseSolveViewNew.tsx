@@ -7,15 +7,15 @@ import { useMessageRenderer } from '@/hooks/useMessageRenderer'
 import { MathJaxUtils } from '@/utils/math/mathjax'
 import SplitPanel from '@/components/base/SplitPanel'
 import QuestionList from '@/components/question/QuestionList'
-import DrawingBoard from '@/components/drawing/DrawingBoard'
+import DrawingBoardNew from '@/components/drawing/DrawingBoardNew'
 import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew'
 import Dialog from '@/components/base/Dialog'
-import Toolbar from '@/components/drawing/Toolbar'
+import ToolbarNew, { ToolConfigState } from '@/components/drawing/ToolbarNew'
 import Select from '@/components/base/Select'
 import Fab from '@/components/base/Fab'
 import ImageProcessorDialog from '@/components/dialog/ImageProcessorDialog'
 import { SUBJECT_OPTIONS } from '@/constants/subjects'
-import type { AttachedScreenshot } from '@/types'
+import type { AttachedScreenshot, ExerciseItem } from '@/types'
 import '@/views/ExerciseSolveViewNew.css'
 
 // 图标资源 (根据项目实际路径调整)
@@ -23,13 +23,85 @@ import goBackIcon from '/icons/goback.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
 
+// 接口定义
+interface ToolConfig extends ToolConfigState {
+  color: string
+  size: number
+  opacity: number
+  selectMode?: string
+}
+
+interface DraftData {
+  objects: any[]
+  history: any[]
+  historyIndex: number
+}
+
+interface SplitPanelHandle {
+  // 根据需要添加 SplitPanel 暴露的方法
+}
+
+interface QuestionListHandle {
+  scrollToCurrentQuestion: (targetIndex?: number) => void
+  handlePullDownRefresh: () => Promise<void>
+  selectQuestion: (question: ExerciseItem, index: number) => Promise<void>
+  scrollToQuestionAndSelect: (targetIndex: number) => Promise<void>
+  refreshQuestions: () => Promise<void>
+  getSelectedQuestion: () => ExerciseItem | null
+}
+
+interface DrawingBoardHandle {
+  saveData: () => DraftData
+  loadData: (data: DraftData) => void
+  clearAll: () => void
+  undo: () => void
+  redo: () => void
+  handleToolbarToolChange: (tool: string) => void
+  handleToolbarConfigChange: (config: Partial<ToolConfig>) => void
+  canUndo: boolean
+  canRedo: boolean
+  insertImageFromDataUrl?: (dataUrl: string) => Promise<void>
+}
+
+interface ExerciseChatPanelHandle {
+  switchToAiChat: () => void
+  switchToSessionRecord: () => void
+  getActiveTab: () => string
+  getChatViewRef: () => any
+  scrollToSession: (sessionId: string) => void
+}
+
 export const ExerciseSolveViewNew: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   
   // Stores
-  const questionStore = useQuestionStore()
-  const aiExerciseChatStore = useAiExerciseChatStore()
+  const questions = useQuestionStore(state => state.questions)
+  const currentQuestion = useQuestionStore(state => {
+    const { questions, currentQuestionIndex } = state
+    if (currentQuestionIndex >= 0 && currentQuestionIndex < questions.length) {
+      return questions[currentQuestionIndex]
+    }
+    return null
+  })
+  const fetchQuestions = useQuestionStore(state => state.fetchQuestions)
+  const fetchAllSubjectsQuestions = useQuestionStore(state => state.fetchAllSubjectsQuestions)
+  const selectQuestion = useQuestionStore(state => state.selectQuestion)
+  const clearCurrentQuestion = useQuestionStore(state => state.clearCurrentQuestion)
+  const isLoadingQuestions = useQuestionStore(state => state.isLoading)
+
+  const sessions = useAiExerciseChatStore(state => state.sessions)
+  const currentSessionId = useAiExerciseChatStore(state => state.currentSessionId)
+  const loadChatHistory = useAiExerciseChatStore(state => state.loadChatHistory)
+  const createNewSession = useAiExerciseChatStore(state => state.createNewSession)
+  const resetChatState = useAiExerciseChatStore(state => state.resetState)
+  const inputAttachedScreenshots = useAiExerciseChatStore(state => state.inputAttachedScreenshots)
+  const inputScreenshotDrawingStates = useAiExerciseChatStore(state => state.inputScreenshotDrawingStates)
+  const setInputAttachedScreenshots = useAiExerciseChatStore(state => state.setInputAttachedScreenshots)
+  const appendInputAttachedScreenshots = useAiExerciseChatStore(state => state.appendInputAttachedScreenshots)
+  const setInputScreenshotDrawingStates = useAiExerciseChatStore(state => state.setInputScreenshotDrawingStates)
+  const removeInputAttachedScreenshot = useAiExerciseChatStore(state => state.removeInputAttachedScreenshot)
+
   const draftStore = useDraftStore()
   
   // Markdown + 公式渲染工具
@@ -43,6 +115,21 @@ export const ExerciseSolveViewNew: React.FC = () => {
   const [isBoardCapturing, setIsBoardCapturing] = useState(false)
   const [showClearDraftDialog, setShowClearDraftDialog] = useState(false)
   
+  // 画板工具状态 (提升到此处以保持 Header Toolbar 与画板同步)
+  const [activeTool, setActiveTool] = useState('draw')
+  const [activeToolConfig, setActiveToolConfig] = useState<ToolConfig>({
+    color: '#212529',
+    size: 2,
+    opacity: 1,
+    selectMode: 'rectangle'
+  })
+  
+  // 用于强制触发 Header Toolbar 重绘 (当 ref 内部状态改变时)
+  const [boardStateVersion, setBoardStateVersion] = useState(0)
+  const refreshBoardUI = useCallback(() => {
+    setBoardStateVersion(v => v + 1)
+  }, [])
+  
   // 截图弹窗相关
   const [showScreenshotDialog, setShowScreenshotDialog] = useState(false)
   const [currentEditingShotId, setCurrentEditingShotId] = useState('')
@@ -53,16 +140,13 @@ export const ExerciseSolveViewNew: React.FC = () => {
   const DRAFT_AUTO_SAVE_DELAY_MS = 800
   
   // 用于追踪上一个会话 ID，以便在切换时保存草稿
-  const previousSessionIdRef = useRef<string | null>(aiExerciseChatStore.currentSessionId)
+  const previousSessionIdRef = useRef<string | null>(currentSessionId)
   
   // Refs
-  const splitPanelRef = useRef<any>(null)
-  const questionListRef = useRef<any>(null)
-  const draftBoardRef = useRef<any>(null)
-  const exerciseChatPanelRef = useRef<any>(null)
-  
-  // 获取当前题目
-  const currentQuestion = questionStore.getCurrentQuestion()
+  const splitPanelRef = useRef<SplitPanelHandle>(null)
+  const questionListRef = useRef<QuestionListHandle>(null)
+  const draftBoardRef = useRef<DrawingBoardHandle>(null)
+  const exerciseChatPanelRef = useRef<ExerciseChatPanelHandle>(null)
   
   // --- 逻辑方法 ---
   
@@ -107,12 +191,12 @@ export const ExerciseSolveViewNew: React.FC = () => {
     if (!questionBmNo) return null
     
     // 确保当前 store 中的 session 确实属于这一题
-    const currentSession = aiExerciseChatStore.sessions.find(s => s.id === aiExerciseChatStore.currentSessionId)
+    const currentSession = sessions.find(s => s.id === currentSessionId)
     const isSessionMatch = currentSession?.questionBmNo === questionBmNo
     
-    const sessionId = isSessionMatch ? aiExerciseChatStore.currentSessionId : 'default'
+    const sessionId = isSessionMatch ? currentSessionId : 'default'
     return buildDraftKey(questionBmNo, sessionId)
-  }, [currentQuestion, aiExerciseChatStore.sessions, aiExerciseChatStore.currentSessionId, buildDraftKey])
+  }, [currentQuestion, sessions, currentSessionId, buildDraftKey])
   
   // 获取画板数据
   const getDraftDataFromBoard = useCallback(() => {
@@ -159,11 +243,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
   }, [saveDraftNow])
   
   // 处理画板保存事件
-  const handleDraftSave = useCallback(async (data: {
-    objects: any[]
-    history: any[][]
-    historyIndex: number
-  }) => {
+  const handleDraftSave = useCallback(async (data: DraftData) => {
     const currentDraftKey = getCurrentDraftKey()
     if (currentQuestion && currentDraftKey) {
       // 验证当前草稿键与当前上下文是否一致
@@ -217,7 +297,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
   }, [currentQuestion, getCurrentDraftKey, draftStore])
   
   // 处理题目选择
-  const handleQuestionSelected = useCallback(async (question: any, index: number) => {
+  const handleQuestionSelected = useCallback(async (question: ExerciseItem | null, index: number) => {
     if (!question) return
 
     // 先保存当前题目的草稿（如果有）
@@ -231,12 +311,12 @@ export const ExerciseSolveViewNew: React.FC = () => {
     }
     
     // 选择题目
-    await questionStore.selectQuestion(index)
+    await selectQuestion(index)
     
     const questionBmNo = (question?.bmNo || question?.id || '').toString()
     if (questionBmNo) {
       console.log(`[ExerciseSolveViewNew] handleQuestionSelected: 更新 AI 上下文, questionBmNo=${questionBmNo}`)
-      await aiExerciseChatStore.loadChatHistory(questionBmNo)
+      await loadChatHistory(questionBmNo)
     }
     
     // 渲染题目 HTML
@@ -254,7 +334,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
         await MathJaxUtils.renderMathAndWait(contentEl as HTMLElement)
       }
     }, 0)
-  }, [questionStore, aiExerciseChatStore, renderMessageContent, loadCurrentDraft, flushDraftAutoSave])
+  }, [selectQuestion, loadChatHistory, renderMessageContent, loadCurrentDraft, flushDraftAutoSave])
   
   const handleSessionDraftChange = useCallback(async (
     nextSessionId?: string | null,
@@ -291,20 +371,20 @@ export const ExerciseSolveViewNew: React.FC = () => {
   }, [currentQuestion, buildDraftKey, flushDraftAutoSave, draftStore, loadCurrentDraft])
 
   const handleAddSessionCard = useCallback(async () => {
-    const previousSessionId = aiExerciseChatStore.currentSessionId
+    const previousSessionId = currentSessionId
     const chatView = exerciseChatPanelRef.current?.getChatViewRef?.()
     if (chatView?.addSessionCard) {
       await chatView.addSessionCard()
-      await handleSessionDraftChange(aiExerciseChatStore.currentSessionId, previousSessionId)
+      await handleSessionDraftChange(currentSessionId, previousSessionId)
     } else {
       // 如果 ChatView 没有暴露 addSessionCard，则尝试直接通过 store 创建
       const questionBmNo = (currentQuestion?.bmNo || currentQuestion?.id || '').toString()
       if (questionBmNo) {
-        await aiExerciseChatStore.createNewSession(questionBmNo)
-        await handleSessionDraftChange(aiExerciseChatStore.currentSessionId, previousSessionId)
+        await createNewSession(questionBmNo)
+        await handleSessionDraftChange(currentSessionId, previousSessionId)
       }
     }
-  }, [aiExerciseChatStore, handleSessionDraftChange, currentQuestion])
+  }, [currentSessionId, handleSessionDraftChange, currentQuestion, createNewSession])
 
   const onBoardImageSelected = useCallback(async (imageInfo: {
     base64DataUrl?: string
@@ -329,9 +409,9 @@ export const ExerciseSolveViewNew: React.FC = () => {
     }
 
     // 1. 先同步数据到 Store
-    aiExerciseChatStore.appendInputAttachedScreenshots([shot])
-    aiExerciseChatStore.setInputScreenshotDrawingStates({
-      ...aiExerciseChatStore.inputScreenshotDrawingStates,
+    appendInputAttachedScreenshots([shot])
+    setInputScreenshotDrawingStates({
+      ...inputScreenshotDrawingStates,
       [shotId]: { objects: [], history: [], historyIndex: -1 },
     })
 
@@ -341,7 +421,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
     // 3. 再打开弹窗，确保 props 已经拿到最新数据
     setCurrentEditingShotId(shotId)
     setShowScreenshotDialog(true)
-  }, [aiExerciseChatStore])
+  }, [appendInputAttachedScreenshots, inputScreenshotDrawingStates, setInputScreenshotDrawingStates])
 
   const handleSendSuggestion = (message: string) => {
     const chatViewRef = exerciseChatPanelRef.current?.getChatViewRef?.()
@@ -358,7 +438,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
     }
   }
 
-  const handleOpenMiniClass = (question: any) => {
+  const handleOpenMiniClass = (question: ExerciseItem) => {
     // 根据项目需求实现打开微课逻辑，目前先占位
     console.log('Open mini class for:', question)
   }
@@ -381,8 +461,8 @@ export const ExerciseSolveViewNew: React.FC = () => {
 
   const handleQuestionDeleted = (payload: { questionId: string; withDraft: boolean }) => {
     if (payload.withDraft) {
-      const targetQuestion = questionStore.questions.find(
-        (q: any) => (q?.id || '').toString() === payload.questionId
+      const targetQuestion = questions.find(
+        (q: ExerciseItem) => (q?.id || '').toString() === payload.questionId
       )
       const questionBmNo = (
         targetQuestion?.bmNo ||
@@ -433,29 +513,58 @@ export const ExerciseSolveViewNew: React.FC = () => {
 
   // --- 截图处理 ---
   const handleScreenshotConfirm = (screenshots: AttachedScreenshot[], states: Record<string, any>) => {
-    aiExerciseChatStore.setInputAttachedScreenshots(screenshots)
-    aiExerciseChatStore.setInputScreenshotDrawingStates(states)
+    setInputAttachedScreenshots(screenshots)
+    setInputScreenshotDrawingStates(states)
     setShowScreenshotDialog(false)
   }
 
   const handleScreenshotAddMore = (screenshots: AttachedScreenshot[], states: Record<string, any>) => {
-    aiExerciseChatStore.setInputAttachedScreenshots(screenshots)
-    aiExerciseChatStore.setInputScreenshotDrawingStates(states)
+    setInputAttachedScreenshots(screenshots)
+    setInputScreenshotDrawingStates(states)
     setShowScreenshotDialog(false)
     handleAskAiClick()
   }
 
   const handleScreenshotRemove = (id: string) => {
-    aiExerciseChatStore.removeInputAttachedScreenshot(id)
+    removeInputAttachedScreenshot(id)
   }
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      if (selectedSubjectFilter === '') {
+        await fetchAllSubjectsQuestions(false)
+      } else {
+        await fetchQuestions(selectedSubjectFilter, false)
+      }
+    } catch (error) {
+      console.error('[ExerciseSolveViewNew] 刷新题目失败:', error)
+    }
+  }, [selectedSubjectFilter, fetchAllSubjectsQuestions, fetchQuestions])
+
+  // 监听学科过滤变化，主动加载题目
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (selectedSubjectFilter === '') {
+          await fetchAllSubjectsQuestions(true)
+        } else {
+          await fetchQuestions(selectedSubjectFilter, true)
+        }
+      } catch (error) {
+        console.error('[ExerciseSolveViewNew] 加载题目失败:', error)
+      }
+    }
+    load()
+  }, [selectedSubjectFilter, fetchAllSubjectsQuestions, fetchQuestions])
 
   // --- 生命周期 ---
   
+  // 1. 处理挂载和卸载的全局性逻辑
   useEffect(() => {
-    // 初始加载
+    // 初始加载：如果已经有选中的题目，执行同步渲染
     if (currentQuestion) {
-      console.log('[ExerciseSolveViewNew] 检测到已有选中题目，执行同步渲染')
-      handleQuestionSelected(currentQuestion, questionStore.questions.indexOf(currentQuestion))
+      console.log('[ExerciseSolveViewNew] 组件挂载，检测到已有选中题目，执行渲染')
+      handleQuestionSelected(currentQuestion, questions.indexOf(currentQuestion))
     }
     
     const handleBeforeUnload = () => {
@@ -467,22 +576,25 @@ export const ExerciseSolveViewNew: React.FC = () => {
     window.addEventListener('beforeunload', handleBeforeUnload)
     
     return () => {
+      console.log('[ExerciseSolveViewNew] 组件卸载，执行清理')
       window.removeEventListener('beforeunload', handleBeforeUnload)
       if (currentDraftQuestionId.current) {
         saveDraftNow(currentDraftQuestionId.current)
       }
-      questionStore.clearCurrentQuestion()
-      aiExerciseChatStore.resetState()
+      // 只有在组件真正卸载时才清理全局状态
+      clearCurrentQuestion()
+      resetChatState()
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 关键：依赖项为空，确保 cleanup 只在卸载时执行
   
   // 监听会话变化
   useEffect(() => {
-    if (currentQuestion && aiExerciseChatStore.currentSessionId !== previousSessionIdRef.current) {
-      handleSessionDraftChange(aiExerciseChatStore.currentSessionId, previousSessionIdRef.current)
-      previousSessionIdRef.current = aiExerciseChatStore.currentSessionId
+    if (currentQuestion && currentSessionId !== previousSessionIdRef.current) {
+      handleSessionDraftChange(currentSessionId, previousSessionIdRef.current)
+      previousSessionIdRef.current = currentSessionId
     }
-  }, [aiExerciseChatStore.currentSessionId, currentQuestion, handleSessionDraftChange])
+  }, [currentSessionId, currentQuestion, handleSessionDraftChange])
   
   return (
     <div className="exercise-solve-container">
@@ -496,19 +608,33 @@ export const ExerciseSolveViewNew: React.FC = () => {
 
         <div className="header-center">
           <div className="center-header-actions">
-            <Toolbar
+            <ToolbarNew
+              tools={{
+                middle: ['undo', 'redo', 'clear', 'hand', 'select', 'draw', 'highlighter', 'eraser-stroke', 'insertImage', 'shape', 'coordinate', 'askAi']
+              }}
               variant="browser"
               orientation="horizontal"
-              selectedTool={draftBoardRef.current?.toolbarSelectedTool}
+              selectedTool={activeTool}
+              toolConfig={activeToolConfig}
               toolStates={{ 
-                undo: draftBoardRef.current?.canUndo, 
-                redo: draftBoardRef.current?.canRedo 
+                undo: !!draftBoardRef.current?.canUndo, 
+                redo: !!draftBoardRef.current?.canRedo 
               }}
-              onToolChange={(tool) => draftBoardRef.current?.handleToolbarToolChange(tool)}
-              onConfigChange={(cfg) => draftBoardRef.current?.handleToolbarConfigChange(cfg)}
+              onToolChange={(tool) => {
+                setActiveTool(tool)
+                draftBoardRef.current?.handleToolbarToolChange(tool)
+              }}
+              onConfigChange={(cfg: ToolConfigState) => {
+                setActiveToolConfig({
+                  ...activeToolConfig,
+                  ...cfg
+                } as ToolConfig)
+                draftBoardRef.current?.handleToolbarConfigChange(cfg)
+              }}
               onUndo={() => draftBoardRef.current?.undo()}
               onRedo={() => draftBoardRef.current?.redo()}
               onClear={handleDraftClearClick}
+              onAskAi={handleAskAiClick}
             />
           </div>
         </div>
@@ -537,7 +663,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
           showSplitters={true}
           splitterClass={mode === 'left' ? 'handle-blue' : 'handle-indigo'}
           disabled={isBoardCapturing}
-          left={({ isVisible }) => (
+          left={({ isVisible }: { isVisible?: boolean }) => (
             <div className="panel-bg1">
               <div className={`panel-content ${!isVisible ? 'panel-hidden' : 'panel-visible'}`} style={{ width: '100%', minWidth: '300px' }}>
                 <div className="panel-card problem-card">
@@ -545,16 +671,19 @@ export const ExerciseSolveViewNew: React.FC = () => {
                     <QuestionList
                       ref={questionListRef}
                       type="exercise"
-                      externalQuestions={questionStore.questions}
+                      questions={questions}
+                      currentQuestion={currentQuestion}
+                      loading={isLoadingQuestions}
                       showPhotoSearch={true}
                       showSendToAi={true}
                       showQuestionActions={true}
                       selectedSubjectFilter={selectedSubjectFilter}
-                      onQuestionSelected={(q: any) => handleQuestionSelected(q, questionStore.questions.indexOf(q))}
+                      onQuestionSelected={(q: ExerciseItem) => handleQuestionSelected(q, questions.indexOf(q))}
                       onQuestionDeleted={handleQuestionDeleted}
                       onStartAiGuidance={handleStartAiGuidance}
                       onOpenMiniClass={handleOpenMiniClass}
                       onPasteToDraft={handlePasteToDraft}
+                      onRefresh={handleRefresh}
                     />
                   </div>
                 </div>
@@ -582,8 +711,12 @@ export const ExerciseSolveViewNew: React.FC = () => {
                 </div>
                 {/* 草稿本区域 */}
                 <div className="panel-card-body draft-body">
-                  <DrawingBoard
+                  <DrawingBoardNew
                     ref={draftBoardRef}
+                    showToolbar={false}
+                    selectedTool={activeTool}
+                    toolConfig={activeToolConfig}
+                    onStateChange={refreshBoardUI}
                     onSave={handleDraftSave}
                     onClear={handleDraftClearClick}
                     onAskAiImageSelected={onBoardImageSelected}
@@ -600,7 +733,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
               </div>
             </div>
           )}
-          right={({ isVisible }) => (
+          right={({ isVisible }: { isVisible?: boolean }) => (
             <div className="panel-bg2">
               <div className={`panel-content ${!isVisible ? 'panel-hidden' : 'panel-visible'}`} style={{ width: '100%', minWidth: '300px' }}>
                 <div className="panel-card ai-chat-card">
@@ -649,8 +782,8 @@ export const ExerciseSolveViewNew: React.FC = () => {
       <ImageProcessorDialog
         open={showScreenshotDialog}
         initialShotId={currentEditingShotId}
-        existingScreenshots={aiExerciseChatStore.inputAttachedScreenshots}
-        drawingStatesFromParent={aiExerciseChatStore.inputScreenshotDrawingStates}
+        existingScreenshots={inputAttachedScreenshots}
+        drawingStatesFromParent={inputScreenshotDrawingStates}
         mode="multiple"
         onConfirm={handleScreenshotConfirm}
         onAddMore={handleScreenshotAddMore}

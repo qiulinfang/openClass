@@ -12,6 +12,7 @@ export interface ChatPanelHeaderProps {
   showCloseButton?: boolean
   onChange?: (value: string) => void
   onClose?: () => void
+  tabsNode?: React.ReactNode
 }
 
 export const ChatPanelHeader: React.FC<ChatPanelHeaderProps> = ({
@@ -20,22 +21,25 @@ export const ChatPanelHeader: React.FC<ChatPanelHeaderProps> = ({
   showCloseButton = false,
   onChange,
   onClose,
+  tabsNode,
 }) => {
   return (
     <div className="chat-panel-header">
-      <div className="chat-tabs">
-        <div className="tab-list">
-          {tabs.map((tab) => (
-            <div
-              key={tab.value}
-              className={`tab-item ${modelValue === tab.value ? 'tab-active' : ''}`}
-              onClick={() => onChange?.(tab.value)}
-            >
-              <span>{tab.label}</span>
-            </div>
-          ))}
+      {tabsNode || (
+        <div className="chat-tabs">
+          <div className="tab-list">
+            {tabs.map((tab) => (
+              <div
+                key={tab.value}
+                className={`tab-item ${modelValue === tab.value ? 'tab-active' : ''}`}
+                onClick={() => onChange?.(tab.value)}
+              >
+                <span>{tab.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       {showCloseButton && (
         <button className="close-button" onClick={onClose}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">

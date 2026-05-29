@@ -10,7 +10,7 @@
   justify-content: center;
   gap: 8px;
   padding: 16px 24px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #eee;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -19,31 +19,31 @@
 }
 
 .judgment-item:hover:not(.active) {
-  border-color: #6e55ff;
-  background: #f8f5ff;
+  border-color: #615efe;
+  background: #f9f9ff;
 }
 
 .judgment-item.active {
-  border-color: #6e55ff;
-  background: #f5f0ff;
+  border-color: #615efe;
+  background: #f0f0ff;
 }
 
 .judgment-item.is-correct {
-  border-color: #4caf50;
-  background: #e8f5e9;
+  border-color: #22c55e;
+  background: #f0fff4;
 }
 
 .judgment-item.is-wrong {
-  border-color: #f44336;
-  background: #ffebee;
+  border-color: #ef4444;
+  background: #fef2f2;
 }
 
 .judgment-item.correct .label {
-  color: #4caf50;
+  color: #22c55e;
 }
 
 .judgment-item.wrong .label {
-  color: #f44336;
+  color: #ef4444;
 }
 
 .status-icon {

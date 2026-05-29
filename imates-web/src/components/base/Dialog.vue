@@ -1,5 +1,5 @@
 <template>
-  <dialog ref="myDialog" id="myDialog">
+  <dialog ref="myDialog" id="myDialog" @click="handleBackdropClick">
     <div class="dialog-inner-content">
       <div class="dialog-header">
         <span class="dialog-title">
@@ -92,6 +92,15 @@ const closeDialog = () => {
     myDialog.value.close()
   }
   emit('update:modelValue', false)
+}
+
+/**
+ * 点击背景关闭对话框
+ */
+const handleBackdropClick = (e) => {
+  if (e.target === myDialog.value) {
+    closeDialog()
+  }
 }
 
 // 监听 modelValue 变化，控制对话框显示/隐藏

@@ -95,6 +95,7 @@ interface AiTextbookChatState {
   isChatLoading: boolean
   chatResponseTimes: number
   enableWebSearch: boolean
+  toggleWebSearch: () => void
   resourceId: string | null
   sectionName: string | null
   chapterInfo: {
@@ -148,6 +149,7 @@ interface AiTextbookChatState {
   deleteMessage: (messageId: string) => Promise<void>
   clearMessages: () => void
   resetState: () => void
+  addMessage: (message: ChatBubble) => void
   reloadHtmlImage: (messageId: string, url: string) => Promise<void>
 }
 
@@ -195,6 +197,7 @@ export const useAiTextbookChatStore = create<AiTextbookChatState>((set, get) => 
     isChatLoading: false,
     chatResponseTimes: 0,
     enableWebSearch: false,
+    toggleWebSearch: () => set((state) => ({ enableWebSearch: !state.enableWebSearch })),
     resourceId: null,
     sectionName: null,
     chapterInfo: null,
@@ -240,6 +243,8 @@ export const useAiTextbookChatStore = create<AiTextbookChatState>((set, get) => 
       return { inputScreenshotDrawingStates: copy }
     }),
     clearInputScreenshotDrawingStates: () => set({ inputScreenshotDrawingStates: {} }),
+
+    addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
 
     sendMessage: async (
       content,

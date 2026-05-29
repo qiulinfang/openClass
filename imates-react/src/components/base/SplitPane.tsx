@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
+import seekbarIcon from '/icons/seekbar.svg'
 import '@/components/base/SplitPane.css'
 
 export interface SplitPaneProps {
@@ -107,10 +108,7 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
                 onMouseDown={startDragging}
                 onTouchStart={startDragging}
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="splitter-handle">
-                  <circle cx="8" cy="12" r="2"/>
-                  <circle cx="16" cy="12" r="2"/>
-                </svg>
+                <img src={seekbarIcon} alt="拖动" className="splitter-handle" />
               </div>
             </div>
           </div>

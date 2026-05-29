@@ -47,7 +47,8 @@ export const DrawingBoard = forwardRef<any, DrawingBoardProps>(({
   // 暴露给外部的方法
   useImperativeHandle(ref, () => ({
     clearAll: () => {
-      clearCanvas()
+      // 外部调用时执行静默清空，不触发 onClear 回调
+      silentClearCanvas()
     },
     saveData: () => {
       // 简单实现，实际应保存所有笔迹对象
@@ -120,7 +121,7 @@ export const DrawingBoard = forwardRef<any, DrawingBoardProps>(({
     onRedo?.()
   }
 
-  const clearCanvas = () => {
+  const silentClearCanvas = () => {
     const canvas = canvasRef.current
     if (canvas) {
       const ctx = canvas.getContext('2d')
@@ -130,6 +131,10 @@ export const DrawingBoard = forwardRef<any, DrawingBoardProps>(({
         ctx.fillRect(0, 0, canvas.width, canvas.height)
       }
     }
+  }
+
+  const clearCanvas = () => {
+    silentClearCanvas()
     onClear?.()
   }
 

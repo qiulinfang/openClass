@@ -1,14 +1,22 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect, useRef } from 'react'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
+import { MathJaxUtils } from '@/utils/math/mathjax'
 import '@/components/exercise/BaseQuestion.css'
 
 export interface ExerciseItem {
+  id?: string
   type?: string
   bmNo?: string
   questionContent?: string
-  structuredContent?: { stem?: string }
+  structuredContent?: { 
+    stem?: string
+    answer?: any
+    explanation?: string
+    options?: any[]
+  }
   question?: string
   title?: string
-  answer?: string
+  answer?: any
   explanation?: string
 }
 
@@ -17,6 +25,7 @@ export interface BaseQuestionProps {
   showTitle?: boolean
   showId?: boolean
   showAnalysis?: boolean
+  extra?: React.ReactNode
   children?: React.ReactNode
 }
 
@@ -25,8 +34,12 @@ export const BaseQuestion: React.FC<BaseQuestionProps> = ({
   showTitle = false,
   showId = true,
   showAnalysis = false,
+  extra,
   children,
 }) => {
+  const { renderMessageContent } = useMessageRenderer()
+  const stemRef = useRef<HTMLDivElement>(null)
+
   const typeLabel = useMemo(() => {
     const map: Record<string, string> = {
       single_choice: '单选题',
@@ -46,17 +59,30 @@ export const BaseQuestion: React.FC<BaseQuestionProps> = ({
     return question.structuredContent?.stem || question.question || question.title || ''
   }, [question])
 
+  const formattedStem = useMemo(() => renderMessageContent(stemRaw), [stemRaw, renderMessageContent])
+  const formattedAnswer = useMemo(() => renderMessageContent(question.answer || ''), [question.answer, renderMessageContent])
+  const formattedExplanation = useMemo(() => renderMessageContent(question.explanation || ''), [question.explanation, renderMessageContent])
+
+  useEffect(() => {
+    if (stemRef.current) {
+      MathJaxUtils.renderMath(stemRef.current, true).catch(err => {
+        console.warn('[BaseQuestion] MathJax 渲染失败:', err)
+      })
+    }
+  }, [formattedStem, formattedAnswer, formattedExplanation])
+
   return (
     <div className="base-question">
       {showTitle && (
         <div className="question-header">
           {typeLabel && <span className="question-type-tag">{typeLabel}</span>}
           {question.bmNo && showId && <span className="question-bm-no">{question.bmNo}</span>}
+          {extra}
         </div>
       )}
     
-      <div className="question-stem">
-        <div dangerouslySetInnerHTML={{ __html: stemRaw }} />
+      <div className="question-stem" ref={stemRef}>
+        <div dangerouslySetInnerHTML={{ __html: formattedStem }} />
       </div>
 
       <div className="question-content">
@@ -68,13 +94,13 @@ export const BaseQuestion: React.FC<BaseQuestionProps> = ({
           {question.answer && (
             <div className="analysis-section">
               <div className="section-title">参考答案</div>
-              <div className="section-content answer" dangerouslySetInnerHTML={{ __html: question.answer }} />
+              <div className="section-content answer" dangerouslySetInnerHTML={{ __html: formattedAnswer }} />
             </div>
           )}
           {question.explanation && (
             <div className="analysis-section">
               <div className="section-title">题目解析</div>
-              <div className="section-content" dangerouslySetInnerHTML={{ __html: question.explanation }} />
+              <div className="section-content" dangerouslySetInnerHTML={{ __html: formattedExplanation }} />
             </div>
           )}
         </div>

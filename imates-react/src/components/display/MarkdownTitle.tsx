@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
 import '@/components/display/MarkdownTitle.css'
 
 export interface MarkdownTitleProps {
@@ -8,6 +9,8 @@ export interface MarkdownTitleProps {
 export const MarkdownTitle: React.FC<MarkdownTitleProps> = ({
   title = '',
 }) => {
+  const { renderMessageContent } = useMessageRenderer()
+
   const truncateTitle = (text: string): string => {
     const maxLength = 20
     if (text.length <= maxLength) return text
@@ -17,8 +20,9 @@ export const MarkdownTitle: React.FC<MarkdownTitleProps> = ({
   const renderedTitle = useMemo(() => {
     const content = title || '新会话'
     const truncated = truncateTitle(content)
-    return `<strong>${truncated}</strong>`
-  }, [title])
+    const rendered = renderMessageContent(truncated)
+    return `<strong>${rendered}</strong>`
+  }, [title, renderMessageContent])
 
   return (
     <div className="title-wrapper">

@@ -1,4 +1,5 @@
 import React from 'react'
+import Toolbar from '@/components/drawing/Toolbar'
 import '@/components/header/DrawingHeader.css'
 
 export interface DrawingHeaderProps {
@@ -40,23 +41,27 @@ export const DrawingHeader: React.FC<DrawingHeaderProps> = ({
   left,
   right,
 }) => {
+  const leftContent = left || (showBack && (
+    <button className="goback-btn" onClick={onBack}>
+      <img src="/icons/goback.svg" alt="返回" className="goback-icon" />
+    </button>
+  ))
+
   return (
-    <div className="drawing-header" style={{ backgroundColor }}>
-      <div className="header-left">
-        {left || (showBack && (
-          <button className="goback-btn" onClick={onBack}>
-            <img src="/icons/goback.svg" alt="返回" className="goback-icon" />
-          </button>
-        ))}
-      </div>
-      <div className="header-center">
-        {/* TODO: 集成 Toolbar 组件 */}
-        <span style={{ color: '#fff' }}>画板工具栏</span>
-      </div>
-      <div className="header-right">
-        {right}
-      </div>
-    </div>
+    <Toolbar
+      variant="browser"
+      selectedTool={selectedTool}
+      toolStates={toolStates}
+      toolConfig={toolConfig}
+      backgroundColor={backgroundColor}
+      onToolChange={onToolChange}
+      onConfigChange={onConfigChange}
+      onUndo={onUndo}
+      onRedo={onRedo}
+      onClear={onClear}
+      left={leftContent}
+      right={right}
+    />
   )
 }
 

@@ -57,9 +57,11 @@ function drawMultilineTextWithEllipsis(
 ) {
   if (!text) return
 
-  ctx.save()
+  const originalBaseline = ctx.textBaseline
+  const originalTextAlign = ctx.textAlign
+
   ctx.textAlign = textAlign
-  ctx.textBaseline = textBaseline
+  ctx.textBaseline = 'middle'
 
   const words = text.split('')
   const lines: string[] = []
@@ -76,34 +78,36 @@ function drawMultilineTextWithEllipsis(
     } else {
       currentLine = testLine
     }
-
-    if (lines.length >= maxLines) break
   }
+  lines.push(currentLine)
 
-  if (lines.length < maxLines) {
-    lines.push(currentLine)
-  } else {
-    // 最后一行加省略号
-    let lastLine = lines[maxLines - 1]
-    while (ctx.measureText(lastLine + '...').width > maxWidth && lastLine.length > 0) {
-      lastLine = lastLine.slice(0, -1)
+  if (lines.length > maxLines) {
+    const lastLineIndex = maxLines - 1
+    const fullRemaining = text.substring(lines.slice(0, lastLineIndex).join('').length)
+    let testStr = fullRemaining
+    while (ctx.measureText(testStr + '...').width > maxWidth && testStr.length > 0) {
+      testStr = testStr.slice(0, -1)
     }
-    lines[maxLines - 1] = lastLine + '...'
+    lines[lastLineIndex] = testStr + '...'
+    lines.length = maxLines
   }
 
   const totalHeight = lines.length * lineHeight
   let startY = y
   if (textBaseline === 'middle') {
     startY = y - totalHeight / 2 + lineHeight / 2
+  } else if (textBaseline === 'top') {
+    startY = y + lineHeight / 2
   } else if (textBaseline === 'bottom') {
-    startY = y - totalHeight + lineHeight
+    startY = y - totalHeight + lineHeight / 2
   }
 
   lines.forEach((line, index) => {
     ctx.fillText(line, x, startY + index * lineHeight)
   })
 
-  ctx.restore()
+  ctx.textBaseline = originalBaseline
+  ctx.textAlign = originalTextAlign
 }
 
 // 预加载图片并缓存
@@ -171,8 +175,13 @@ class Satellite {
     if (cachedCanvas) {
       ctx.drawImage(cachedCanvas, this.x - size / 2, this.y - size / 2, size, size)
     } else {
+      // 回退到原来的菱形绘制
       ctx.beginPath()
-      ctx.arc(this.x, this.y, r, 0, Math.PI * 2)
+      ctx.moveTo(this.x, this.y - r)
+      ctx.lineTo(this.x + r, this.y)
+      ctx.lineTo(this.x, this.y + r)
+      ctx.lineTo(this.x - r, this.y)
+      ctx.closePath()
       ctx.fillStyle = '#a29bfe'
       ctx.fill()
     }
@@ -309,9 +318,19 @@ class Moon {
 
     if (cachedCanvas) {
       ctx.drawImage(cachedCanvas, this.x - size / 2, this.y - size / 2, size, size)
+    } else {
+      const grad = ctx.createLinearGradient(this.x, this.y - r, this.x, this.y + r)
+      grad.addColorStop(0, '#a29bfe')
+      grad.addColorStop(1, '#6c5ce7')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(this.x, this.y, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowColor = 'rgba(108, 92, 231, 0.6)'
+      ctx.shadowBlur = 20
+      ctx.stroke()
+      ctx.shadowBlur = 0
     }
-
-    ctx.fillStyle = '#fff'
     const titleSize = 21
     ctx.font = `bold ${titleSize}px "Microsoft YaHei"`
     
@@ -348,6 +367,14 @@ class Moon {
     const cachedCanvas = getCachedImageCanvas(img)
     if (cachedCanvas) {
       ctx.drawImage(cachedCanvas, this.x - size / 2, this.y - size / 2, size, size)
+    } else {
+      ctx.fillStyle = 'rgba(108, 92, 231, 0.3)'
+      ctx.strokeStyle = 'rgba(162, 155, 254, 0.5)'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(this.x, this.y, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
     }
 
     const label = this.data.label || this.data.name
@@ -375,6 +402,8 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     data: null as KnowledgeNode | null
   })
 
+  const [moons, setMoons] = useState<Moon[]>([])
+
   const stateRef = useRef({
     globalAngle: 0,
     targetGlobalAngle: 0,
@@ -382,6 +411,10 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     focusedIndex: 0,
     moons: [] as Moon[],
     isInteracting: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    interactionMode: null as 'SWITCH' | null,
     forceRotation: false,
     autoShowBubbleAfterRotation: false,
     width: 0,
@@ -389,6 +422,46 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     cx: 0,
     cy: 0
   })
+
+  const [indicatorDragging, setIndicatorDragging] = useState(false)
+  const [indicatorCurrentIndex, setIndicatorCurrentIndex] = useState<number | null>(null)
+  const indicatorContainerRef = useRef<HTMLDivElement>(null)
+
+  const getMoonIndexFromIndicator = useCallback((displayIndex: number) => {
+    const total = stateRef.current.moons.length
+    if (total === 0) return -1
+    return total - 1 - displayIndex
+  }, [])
+
+  const isIndicatorActive = useCallback((displayIndex: number) => {
+    const moonIndex = getMoonIndexFromIndicator(displayIndex)
+    return moonIndex === stateRef.current.focusedIndex
+  }, [getMoonIndexFromIndicator])
+
+  const getIndicatorOpacity = useCallback((displayIndex: number) => {
+    const total = stateRef.current.moons.length
+    if (total === 0) return 1
+    const activeIndex = stateRef.current.focusedIndex
+    const activeDisplayIndex = getMoonIndexFromIndicator(activeIndex)
+    if (displayIndex === activeDisplayIndex) return 1
+    const distance = Math.abs(displayIndex - activeDisplayIndex)
+    const maxDistance = Math.max(activeDisplayIndex, total - 1 - activeDisplayIndex)
+    if (maxDistance === 0) return 1
+    return Math.max(0.2, 1 - (distance / maxDistance) * 0.8)
+  }, [getMoonIndexFromIndicator])
+
+  const getIndicatorSize = useCallback((displayIndex: number) => {
+    const total = stateRef.current.moons.length
+    if (total === 0) return 18
+    const activeIndex = stateRef.current.focusedIndex
+    const activeDisplayIndex = getMoonIndexFromIndicator(activeIndex)
+    if (displayIndex === activeDisplayIndex) return 18
+    const distance = Math.abs(displayIndex - activeDisplayIndex)
+    const maxDistance = Math.max(activeDisplayIndex, total - 1 - activeDisplayIndex)
+    if (maxDistance === 0) return 18
+    const size = 7 + (10 * (1 - distance / maxDistance))
+    return Math.max(14, Math.min(24, size))
+  }, [getMoonIndexFromIndicator])
 
   const requestRef = useRef<number>()
 
@@ -485,6 +558,141 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     }
   }, [hideBubble])
 
+  const handleIndicatorClick = useCallback((displayIndex: number) => {
+    const moonIndex = getMoonIndexFromIndicator(displayIndex)
+    if (moonIndex !== -1 && moonIndex !== stateRef.current.focusedIndex) {
+      focusOnIndex(moonIndex)
+    }
+  }, [getMoonIndexFromIndicator, focusOnIndex])
+
+  const getIndicatorIndexFromTouch = useCallback((touchY: number) => {
+    if (!indicatorContainerRef.current) return null
+    const indicatorDots = indicatorContainerRef.current.querySelectorAll('.indicator-dot')
+    if (indicatorDots.length === 0) return null
+    let minDistance = Infinity
+    let nearestIndex = 0
+    indicatorDots.forEach((dot, index) => {
+      const dotRect = dot.getBoundingClientRect()
+      const dotCenterY = dotRect.top + dotRect.height / 2
+      const distance = Math.abs(touchY - dotCenterY)
+      if (distance < minDistance) {
+        minDistance = distance
+        nearestIndex = index
+      }
+    })
+    return nearestIndex
+  }, [])
+
+  const handleIndicatorTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation()
+    setIndicatorDragging(true)
+    const touchY = e.touches[0].clientY
+    const displayIndex = getIndicatorIndexFromTouch(touchY)
+    if (displayIndex !== null) {
+      setIndicatorCurrentIndex(displayIndex)
+      const moonIndex = stateRef.current.moons.length - 1 - displayIndex
+      if (moonIndex !== -1 && moonIndex !== stateRef.current.focusedIndex) {
+        focusOnIndex(moonIndex)
+      }
+    }
+  }, [getIndicatorIndexFromTouch, focusOnIndex])
+
+  const handleIndicatorTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!indicatorDragging) return
+    e.stopPropagation()
+    const touchY = e.touches[0].clientY
+    const displayIndex = getIndicatorIndexFromTouch(touchY)
+    if (displayIndex !== null && indicatorCurrentIndex !== displayIndex) {
+      setIndicatorCurrentIndex(displayIndex)
+      const moonIndex = getMoonIndexFromIndicator(displayIndex)
+      if (moonIndex !== -1 && moonIndex !== stateRef.current.focusedIndex) {
+        focusOnIndex(moonIndex)
+      }
+    }
+  }, [indicatorDragging, indicatorCurrentIndex, getIndicatorIndexFromTouch, getMoonIndexFromIndicator, focusOnIndex])
+
+  const handleIndicatorTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation()
+    setIndicatorDragging(false)
+    setIndicatorCurrentIndex(null)
+  }, [])
+
+  const onStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const event = 'touches' in e ? e.touches[0] : e
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const clientX = event.clientX - rect.left
+    const clientY = event.clientY - rect.top
+    const state = stateRef.current
+    state.isInteracting = true
+    state.startX = clientX
+    state.startY = clientY
+    state.lastX = clientX
+    state.interactionMode = null
+  }, [])
+
+  const onMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const state = stateRef.current
+    if (!state.isInteracting) return
+    const event = 'touches' in e ? e.touches[0] : e
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const clientX = event.clientX - rect.left
+    const clientY = event.clientY - rect.top
+    const dx = clientX - state.startX
+    const dy = clientY - state.startY
+    if (!state.interactionMode) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (Math.abs(dy) > Math.abs(dx)) {
+          state.interactionMode = 'SWITCH'
+        }
+      }
+    }
+  }, [])
+
+  const switchFocus = useCallback((direction: 'next' | 'prev') => {
+    const state = stateRef.current
+    const len = state.moons.length
+    
+    if (len === 1) {
+      state.forceRotation = true
+      state.isAutoRotating = true
+      // 旋转一整圈
+      const rotationAmount = Math.PI * 2
+      const baseAngle = state.isAutoRotating ? state.targetGlobalAngle : state.globalAngle
+      state.targetGlobalAngle = baseAngle + (direction === 'next' ? rotationAmount : -rotationAmount)
+      return
+    }
+
+    const newIndex = direction === 'next' 
+      ? (state.focusedIndex + 1) % len 
+      : (state.focusedIndex - 1 + len) % len
+    focusOnIndex(newIndex)
+  }, [focusOnIndex])
+
+  const onEnd = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const state = stateRef.current
+    if (!state.isInteracting) return
+    state.isInteracting = false
+    const event = 'changedTouches' in e ? e.changedTouches[0] : e
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const clientX = event.clientX - rect.left
+    const clientY = event.clientY - rect.top
+    const dx = clientX - state.startX
+    const dy = clientY - state.startY
+    if (state.interactionMode === 'SWITCH') {
+      if (Math.abs(dy) > 30) {
+        switchFocus(dy > 0 ? 'prev' : 'next')
+      }
+    } else {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+        handleCanvasClick(e as any)
+      }
+    }
+    state.interactionMode = null
+  }, [switchFocus])
+
   const focusOnNodeId = useCallback((nodeId: string, instant = false) => {
     const idx = stateRef.current.moons.findIndex(m => m.data && m.data.id === nodeId)
     if (idx !== -1) {
@@ -497,7 +705,8 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     focusOnIndex
   }))
 
-  const animate = useCallback(() => {
+  const animateRef = useRef<() => void>()
+  animateRef.current = () => {
     const state = stateRef.current
     const canvas = canvasRef.current
     if (!canvas) return
@@ -530,6 +739,10 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     }
     state.moons.forEach(m => m.update(state.globalAngle, state.focusedIndex, state.cx, state.cy))
 
+    if (bubbleState.visible) {
+      updateBubblePosition()
+    }
+
     // Draw
     ctx.clearRect(0, 0, state.width, state.height)
     state.moons
@@ -540,8 +753,8 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
       state.moons[0].draw(ctx, state.focusedIndex)
     }
 
-    requestRef.current = requestAnimationFrame(animate)
-  }, [showBubble])
+    requestRef.current = requestAnimationFrame(animateRef.current!)
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -590,9 +803,18 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
       })
 
       stateRef.current.moons = moons
+      setMoons(moons)
       focusOnIndex(initialFocusIndex, true)
 
-      requestRef.current = requestAnimationFrame(animate)
+      // 检查聚焦月球是否有卫星，如果有则弹出第一个卫星框，否则弹出月球框
+      const focusedMoon = stateRef.current.moons[initialFocusIndex]
+      if (focusedMoon && focusedMoon.satellites && focusedMoon.satellites.length > 0) {
+        showBubble('satellite', initialFocusIndex, 0)
+      } else {
+        showBubble('moon', initialFocusIndex)
+      }
+
+      requestRef.current = requestAnimationFrame(animateRef.current!)
 
       return () => {
         window.removeEventListener('resize', resize)
@@ -601,7 +823,7 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
     }
 
     init()
-  }, [data, animate, focusOnIndex])
+  }, [data, focusOnIndex, showBubble])
 
   useEffect(() => {
     updateBubblePosition()
@@ -616,16 +838,19 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
 
     // 1. Satellite
     const currentMoon = state.moons[state.focusedIndex]
+    let satelliteHit = false
     if (currentMoon && currentMoon.scale > 1.1) {
       for (let j = 0; j < currentMoon.satellites.length; j++) {
         const sat = currentMoon.satellites[j]
         const hitR = 30
         if ((x - sat.x)**2 + (y - sat.y)**2 < hitR**2) {
           showBubble('satellite', state.focusedIndex, j)
-          return
+          satelliteHit = true
+          break
         }
       }
     }
+    if (satelliteHit) return
 
     // 2. Moon
     let minDist = Infinity
@@ -663,6 +888,8 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
         className={`manual-bubble-menu ${bubbleState.visible ? 'manual-bubble-menu--visible' : ''}`}
         style={{ left: bubbleState.x, top: bubbleState.y }}
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         <div className="bubble-menu-container">
           <button 
@@ -679,11 +906,48 @@ export const KnowledgeGraph = forwardRef<any, KnowledgeGraphProps>((props, ref) 
           </button>
         </div>
       </div>
+
       <canvas 
         ref={canvasRef} 
         className="space-canvas"
-        onClick={handleCanvasClick}
+        onMouseDown={onStart}
+        onMouseMove={onMove}
+        onMouseUp={onEnd}
+        onMouseLeave={onEnd}
+        onTouchStart={onStart}
+        onTouchMove={onMove}
+        onTouchEnd={onEnd}
       />
+
+      <div 
+        className="right-border-indicator"
+        ref={indicatorContainerRef}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleIndicatorTouchStart}
+        onTouchMove={handleIndicatorTouchMove}
+        onTouchEnd={handleIndicatorTouchEnd}
+      >
+        {moons.map((_, index) => (
+          <div 
+            key={index}
+            className={`indicator-dot ${isIndicatorActive(index) ? 'active' : ''}`}
+            style={{
+              opacity: getIndicatorOpacity(index),
+              width: `${getIndicatorSize(index)}px`,
+              height: `${getIndicatorSize(index)}px`
+            }}
+            onClick={() => handleIndicatorClick(index)}
+          >
+            {isIndicatorActive(index) && (
+              <img 
+                src={indicatorIcon} 
+                alt="Indicator" 
+                className="indicator-icon"
+              />
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 })

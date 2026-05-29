@@ -80,15 +80,19 @@ export const SimilarQuestionList: React.FC<SimilarQuestionListProps> = ({
     setShowImagePreview(true)
   }
 
-  const isInUserList = (bmNo: string) => {
+  const isInUserList = useCallback((bmNo: string) => {
     return questions.some(q => q.bmNo === bmNo)
+  }, [questions])
+
+  const getQuestionContent = (question: any) => {
+    return question.content || question.question || question.title || ''
   }
 
   if (!hasSelectedQuestion) {
     return (
       <div className="similar-question-list empty">
         <div className="native-empty-state">
-          <div className="empty-icon">❓</div>
+          <div className="empty-icon">🔍</div>
           <div className="empty-text">请先选择一道题目</div>
         </div>
       </div>
@@ -99,50 +103,63 @@ export const SimilarQuestionList: React.FC<SimilarQuestionListProps> = ({
     <div className="similar-question-list">
       <VirtualScroll ref={rubberBandRef} enableRefresh onRefresh={handleRefresh}>
         <div className="scroll-content">
-          {loading ? (
-            <div className="loading-container">
-              <Loading text="查找相似题目中..." size={48} theme="dark" />
-            </div>
-          ) : similarQuestions.length === 0 ? (
-            <div className="native-empty-state">
-              <div className="empty-icon">🔍</div>
-              <div className="empty-text">未找到相似题目</div>
-              <button className="re-find-btn" onClick={handleFindSimilar}>重新查找</button>
-            </div>
-          ) : (
-            <div className="similar-questions-container">
-              {similarQuestions.map((question, index) => (
-                <div
-                  key={question.bmNo || index}
-                  className={`similar-question-item ${isInUserList(question.bmNo) ? 'question-in-user-list' : ''}`}
-                >
-                  <div className="question-block">
-                    <div className="question-number">{index + 1}</div>
-                    <div className="question-content-wrapper">
-                      <div
-                        className="markdown-content"
-                        dangerouslySetInnerHTML={{ __html: renderMessageContent(question.question || question.title || '') }}
-                        onClick={(e) => {
-                          const target = e.target as HTMLElement
-                          if (target.tagName === 'IMG') {
-                            handleImagePreview((target as HTMLImageElement).src)
-                          }
-                        }}
-                      />
-                    </div>
-                    <button
-                      className="add-btn"
-                      disabled={isInUserList(question.bmNo)}
-                      onClick={() => addToMyList(question)}
-                      title={isInUserList(question.bmNo) ? '已在题库中' : '添加到第一题位置'}
+          <div className="padding-container">
+            {loading ? (
+              <div className="loading-container">
+                <Loading text="查找相似题目中..." size={48} theme="dark" />
+              </div>
+            ) : similarQuestions.length === 0 ? (
+              <div className="native-empty-state">
+                <div className="empty-icon">🔍</div>
+                <div className="empty-text">未找到相似题目</div>
+                <button className="re-find-btn" onClick={handleFindSimilar}>重新查找</button>
+              </div>
+            ) : (
+              <div className="similar-questions-container">
+                {similarQuestions.map((question, index) => {
+                  const inUserList = isInUserList(question.bmNo)
+                  return (
+                    <div
+                      key={question.bmNo || index}
+                      className={`similar-question-item ${inUserList ? 'question-in-user-list' : ''}`}
                     >
-                      {isInUserList(question.bmNo) ? '✓' : '+'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                      <div className="question-block">
+                        <div className="question-number">{index + 1}</div>
+                        <div className="question-content">
+                          <div
+                            className="markdown-content"
+                            dangerouslySetInnerHTML={{ __html: renderMessageContent(getQuestionContent(question)) }}
+                            onClick={(e) => {
+                              const target = e.target as HTMLElement
+                              if (target.tagName === 'IMG') {
+                                handleImagePreview((target as HTMLImageElement).src)
+                              }
+                            }}
+                          />
+                        </div>
+                        <button
+                          className="add-btn"
+                          disabled={inUserList}
+                          onClick={() => !inUserList && addToMyList(question)}
+                          title={inUserList ? '已在题库中' : '添加到第一题位置'}
+                        >
+                          {inUserList ? (
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </VirtualScroll>
       <ImageViewer

@@ -1,0 +1,358 @@
+/* ToolbarNew.css - Adapted from Toolbar.vue */
+
+:root {
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --color-primary: #6965db;
+  --color-border: #e8e8e8;
+  --color-text: #1e1e1e;
+  --color-text-secondary: #6b6b6b;
+  --color-text-tertiary: #9e9e9e;
+  --color-bg-hover: #f5f5f5;
+  --color-bg-selected: #e3e2fe;
+}
+
+/* ========== 悬浮风格（Excalidraw 风格） ========== */
+.variant-floating .unified-toolbar-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.unified-toolbar-floating {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ========== 浏览器式风格（顶部固定工具栏） ========== */
+.variant-browser .unified-toolbar-container {
+  width: 100%;
+  padding: 0;
+  align-items: stretch;
+  margin-top: -1px;
+}
+
+.unified-toolbar-browser {
+  width: 100%;
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
+
+/* 插槽容器样式 */
+.toolbar-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar-slot-left {
+  justify-content: flex-start;
+}
+
+.toolbar-slot-right {
+  justify-content: flex-end;
+}
+
+.toolbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  gap: 2px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  transition: all var(--transition-normal);
+}
+
+/* ========== 方向相关样式 ========== */
+
+/* 垂直方向整体：内部块纵向堆叠 */
+.unified-toolbar-orientation-vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* 垂直方向下，内容区域改为纵向布局 */
+.toolbar-content-orientation-vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* 左/中/右区块改为竖直排列 */
+.unified-toolbar-orientation-vertical .left-section,
+.unified-toolbar-orientation-vertical .center-section,
+.unified-toolbar-orientation-vertical .right-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.unified-toolbar-orientation-vertical .center-section .tool-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* 垂直模式下，竖直分隔线改成横向分隔线 */
+.unified-toolbar-orientation-vertical .toolbar-divider-vertical {
+  width: 100%;
+  height: 1px;
+  margin: 6px 0;
+}
+
+/* 操作按钮在竖直模式下左对齐，增加竖直间距 */
+.unified-toolbar-orientation-vertical .tool-icon-wrapper,
+.unified-toolbar-orientation-vertical .action-btn {
+  justify-content: flex-start;
+}
+
+.unified-toolbar-browser .toolbar-content {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 24px;
+  max-width: 100%;
+  overflow-x: auto;
+  border: none;
+  background: transparent;
+}
+
+.unified-toolbar-browser .left-section {
+  display: flex;
+  justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+.unified-toolbar-browser .center-section {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+}
+
+.unified-toolbar-browser .right-section {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.left-section,
+.center-section,
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.center-section .tool-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tool-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tool-icon-wrapper.tool-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tool-icon-wrapper.active {
+  background-color: var(--color-bg-selected);
+}
+
+/* 垂直分隔线 */
+.toolbar-divider-vertical {
+  width: 1px;
+  height: 24px;
+  background-color: var(--color-border);
+  margin: 0 6px;
+}
+
+/* 绘图工具图标 */
+.tool-icon {
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tool-icon:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.tool-icon:active {
+  transform: scale(0.96);
+}
+
+.unified-toolbar-browser .tool-icon {
+  padding: 8px;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  background-color: transparent;
+}
+
+/* 分隔线 */
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background-color: rgba(0, 0, 0, 0.1);
+  margin: 0 8px;
+}
+
+.unified-toolbar-browser .toolbar-divider {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 统一配置弹出框内容 */
+.combined-popup-content {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.popup-inner {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 265px;
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* 颜色选项 */
+.color-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  position: relative;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.color-option:hover {
+  transform: scale(1.08);
+}
+
+.color-display {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.color-selected .color-display {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 3px white;
+}
+
+.shape-grid-item {
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+}
+
+.shape-grid-item.item-selected {
+  border-color: var(--color-primary);
+  background-color: var(--color-bg-selected);
+}
+
+.shape-grid-icon {
+  width: 20px;
+  height: 20px;
+  background-color: #4b5563;
+}
+
+.item-selected .shape-grid-icon {
+  background-color: var(--color-primary);
+}
+
+/* 操作按钮 */
+.action-btn {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+
+.action-btn:hover:not(:disabled) {
+  background-color: var(--color-bg-hover);
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  width: 20px;
+  height: 20px;
+  background-color: #4b5563;
+}
+
+.unified-toolbar-browser .action-icon {
+  background-color: #ffffff;
+}
+
+/* mask-icon 基础样式 */
+.mask-icon {
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}

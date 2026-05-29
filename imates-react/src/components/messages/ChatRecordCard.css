@@ -1,87 +1,182 @@
 .chat-record-card {
-  background: #f5f5f5;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
   border-radius: 12px;
-  overflow: hidden;
-  max-width: 280px;
+  padding: 12px;
+  margin: 8px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  max-width: 80%;
 }
 
-.chat-record-header {
+.chat-record-card:hover {
+  background: #f1f3f4;
+  border-color: #d1d5db;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.chat-record-card:has(.card-content) .card-header {
+  margin-bottom: 8px;
+}
+
+.header-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  background: #e8e8e8;
-  color: #666;
-  font-size: 13px;
+}
+
+.header-title {
   font-weight: 500;
+  color: #2c3e50;
 }
 
-.chat-record-messages {
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.message-count {
+  font-size: 12px;
+  color: #6c757d;
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 10px;
 }
 
-.record-message {
+.header-right {
   display: flex;
-  gap: 8px;
+  align-items: center;
+}
+
+.card-content {
+  margin-top: 8px;
+  border-top: 1px solid #e9ecef;
+  padding-top: 8px;
+}
+
+.messages-preview {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.messages-preview::-webkit-scrollbar {
+  width: 4px;
+}
+
+.messages-preview::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 2px;
+}
+
+.preview-message {
+  display: flex;
   align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px;
+  border-radius: 6px;
 }
 
-.record-message-avatar {
+.preview-message:last-child {
+  margin-bottom: 0;
+}
+
+.preview-user {
+  background: rgba(122, 124, 255, 0.1);
+}
+
+.preview-ai {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.preview-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-circle {
   width: 24px;
   height: 24px;
+  background: #7a7cff;
+  color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  font-weight: 500;
-  flex-shrink: 0;
 }
 
-.record-message.user .record-message-avatar {
-  background: linear-gradient(135deg, #7c5cff 0%, #6366f1 100%);
-  color: white;
-}
-
-.record-message.ai .record-message-avatar {
-  background: #7a7cff;
-  color: white;
-}
-
-.record-message-content {
+.preview-content {
   flex: 1;
   min-width: 0;
 }
 
-.record-message-text {
+.preview-sender {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6c757d;
+  margin-bottom: 2px;
+}
+
+.preview-text {
   font-size: 13px;
-  color: #333;
+  color: #2c3e50;
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
-.record-message-time {
-  font-size: 10px;
-  color: #999;
-  margin-top: 2px;
+.additional-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(122, 124, 255, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid #7a7cff;
 }
 
-.chat-record-more {
-  text-align: center;
-  font-size: 12px;
-  color: #999;
-  padding: 4px 0;
+.additional-text {
+  font-size: 13px;
+  color: #2c3e50;
+  font-style: italic;
 }
 
-.chat-record-additional {
-  padding: 8px 12px;
-  background: #fff9e6;
-  font-size: 12px;
-  color: #666;
-  border-top: 1px solid #ffe58f;
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .chat-record-card {
+    background: #3a3a3a;
+    border-color: #4a4a4a;
+  }
+
+  .chat-record-card:hover {
+    background: #424242;
+    border-color: #5a5a5a;
+  }
+
+  .header-title {
+    color: #e0e0e0;
+  }
+
+  .message-count {
+    background: #4a4a4a;
+    color: #b0b0b0;
+  }
+
+  .preview-text {
+    color: #e0e0e0;
+  }
+
+  .preview-sender {
+    color: #b0b0b0;
+  }
+
+  .additional-text {
+    color: #e0e0e0;
+  }
+
+  .preview-ai {
+    background: rgba(255, 255, 255, 0.05);
+  }
 }

@@ -54,32 +54,26 @@ export const AnswerView: React.FC = () => {
   }
 
   return (
-    <div className="answer-view">
+    <div className="base-question">
       <VirtualScroll>
-        <div className="answer-container">
+        <div className="question-footer" style={{ borderTop: 'none', marginTop: 0 }}>
           {answer && (
-            <div className="answer-card">
-              <div className="card-header">
-                <span className="header-icon">✓</span>
-                标准答案
-              </div>
+            <div className="analysis-section">
+              <div className="section-title">参考答案</div>
               <div
                 ref={answerRef}
-                className="answer-content markdown-content"
+                className="section-content answer"
                 dangerouslySetInnerHTML={{ __html: formattedAnswer }}
               />
             </div>
           )}
 
           {explanation && (
-            <div className="explanation-card">
-              <div className="card-header">
-                <span className="header-icon">💡</span>
-                题目解析
-              </div>
+            <div className="analysis-section">
+              <div className="section-title">题目解析</div>
               <div
                 ref={explanationRef}
-                className="explanation-content markdown-content"
+                className="section-content"
                 dangerouslySetInnerHTML={{ __html: formattedExplanation }}
               />
             </div>

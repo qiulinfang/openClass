@@ -5,6 +5,7 @@ import { VoiceMessage } from '@/components/messages/VoiceMessage'
 import { ImageMessage } from '@/components/messages/ImageMessage'
 import { MultiImageMessage } from '@/components/messages/MultiImageMessage'
 import { ChatRecordCard } from '@/components/messages/ChatRecordCard'
+import { StreamingMessage } from '@/components/chat/message/StreamingMessage'
 import '@/components/ChatMessage.css'
 
 interface ChatMessageComponentProps {
@@ -22,6 +23,7 @@ interface ChatMessageComponentProps {
   onEditMessage: (content: string) => void
   onQuoteMessage: () => void
   onDeleteMessage: () => void
+  onOpenHtmlPreview?: (payload: { url: string; html?: string }) => void
 }
 
 const AI_AVATAR_MAP: Record<string, string> = {
@@ -89,6 +91,7 @@ export const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
   onEditMessage,
   onQuoteMessage,
   onDeleteMessage,
+  onOpenHtmlPreview,
 }) => {
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [actionMenuPosition, setActionMenuPosition] = useState({ x: 0, y: 0 })
@@ -216,7 +219,7 @@ export const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
           </div>
           <div className="ai-content">
             <div className="ai-message-content">
-              {renderMessageContent(message, false)}
+              {renderMessageContent(message, false, type, onOpenHtmlPreview)}
             </div>
             
             {showActionButtons && !isUser && (
@@ -246,7 +249,7 @@ export const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
               </div>
             )}
             <div className="user-bubble">
-              {renderMessageContent(message, true)}
+              {renderMessageContent(message, true, type, onOpenHtmlPreview)}
             </div>
             
             {showActionButtons && isUser && (
@@ -304,7 +307,12 @@ export const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
   )
 }
 
-function renderMessageContent(message: ChatBubble, isUser: boolean): React.ReactNode {
+function renderMessageContent(
+  message: ChatBubble,
+  isUser: boolean,
+  type: ChatType,
+  onOpenHtmlPreview?: (payload: { url: string; html?: string }) => void
+): React.ReactNode {
   // 语音消息
   if (message.messageType === 'voice' && message.voiceData) {
     return (
@@ -322,7 +330,11 @@ function renderMessageContent(message: ChatBubble, isUser: boolean): React.React
       message.imageList && message.imageList.length > 0) {
     return (
       <MultiImageMessage 
-        images={message.imageList}
+        images={message.imageList.map(img => ({
+          url: img.base64DataUrl || img.filePath || '',
+          width: img.width,
+          height: img.height
+        }))}
         textContent={message.content}
         isUser={isUser}
       />
@@ -353,16 +365,6 @@ function renderMessageContent(message: ChatBubble, isUser: boolean): React.React
     )
   }
 
-  // HTML 消息
-  if (message.messageType === 'html' && message.rawHtml) {
-    return (
-      <div 
-        className="html-message"
-        dangerouslySetInnerHTML={{ __html: message.rawHtml }}
-      />
-    )
-  }
-
   // 错误消息
   if (message.isError) {
     return (
@@ -377,14 +379,23 @@ function renderMessageContent(message: ChatBubble, isUser: boolean): React.React
     )
   }
 
-  // 文本消息
+  // AI/教师 消息使用 StreamingMessage
+  if (message.sender === 'ai' || message.sender === 'teacher') {
+    return (
+      <StreamingMessage
+        content={message.content}
+        isStreaming={message.isStreaming}
+        messageType={message.messageType === 'html' ? 'html' : 'text'}
+        rawHtmlMap={message.rawHtmlMap}
+        onOpenHtmlPreview={onOpenHtmlPreview}
+      />
+    )
+  }
+
+  // 用户文本消息
   return (
     <div className="message-text">
-      {message.isStreaming && !message.content && (
-        <span className="streaming-cursor"></span>
-      )}
       {message.content}
-      {message.isStreaming && <span className="streaming-cursor"></span>}
     </div>
   )
 }

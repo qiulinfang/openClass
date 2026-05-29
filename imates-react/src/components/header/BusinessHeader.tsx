@@ -2,7 +2,7 @@ import React from 'react'
 import '@/components/header/BusinessHeader.css'
 
 export interface BusinessHeaderProps {
-  title?: string
+  title?: React.ReactNode
   showBack?: boolean
   backIcon?: string
   backText?: string

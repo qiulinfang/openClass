@@ -1,25 +1,115 @@
 .streaming-message {
-  display: inline-block;
-  max-width: 80%;
-}
-
-.streaming-user {
-  text-align: right;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
 }
 
 .message-content {
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
+  flex: 1;
+  word-wrap: break-word;
+  white-space: normal;
 }
 
-.cursor {
-  display: inline-block;
+/* 绘图中骨架屏样式 */
+.skeleton-card {
+  width: 260px;
+  min-height: 160px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  background-color: #f8f9fa;
+}
+
+/* HTML 段落包装器样式 */
+.html-segment-wrapper {
+  position: relative;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.html-segment-wrapper:last-child {
+  margin-bottom: 0;
+}
+
+.html-text-segment {
+  margin-bottom: 4px;
+}
+
+.html-card {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: #f4f6ff;
+  border: 1px solid #7A7CFF;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.html-card-content {
+  background: white;
+  margin: 16px 8px;
+  padding: 0;
+  border-radius: 18px;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.html-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+.html-card-loading-wrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.html-message-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.typing-cursor {
+  display: inline;
+  color: #1976d2;
+  font-weight: bold;
   animation: blink 1s infinite;
-  color: #6e55ff;
+  font-size: 0.9em;
+  line-height: 1;
+  vertical-align: baseline;
 }
 
 @keyframes blink {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
+}
+
+.markdown-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 8px 0;
 }

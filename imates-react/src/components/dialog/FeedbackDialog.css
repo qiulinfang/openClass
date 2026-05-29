@@ -1,17 +1,33 @@
+.user-client-dialog {
+  .text-h6 {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: #495057 !important;
+  }
+
+  .dialog-header-section {
+    border-bottom: 1px solid #dee2e6 !important;
+  }
+}
+
 .user-client-content {
-  width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .chat-view-container {
-  width: 100%;
-  height: 500px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.placeholder-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #999;
+@media (max-width: 768px) {
+  .user-client-content {
+    margin: 10px;
+  }
 }

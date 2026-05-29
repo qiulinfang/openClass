@@ -2,84 +2,76 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding: 0 16px 16px 16px;
+  gap: 16px;
 }
 
 .photo-grid-section {
   flex: 1;
   overflow-y: auto;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
 }
 
 .question-sections {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .question-section {
-  padding: 16px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
 }
 
 .question-title {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
-  margin-bottom: 12px;
+  color: #111827;
+  margin-bottom: 10px;
 }
 
 .photo-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 12px;
 }
 
 .photo-item {
+  position: relative;
   aspect-ratio: 1;
   border-radius: 8px;
   overflow: hidden;
+  background: #e0e0e0;
 }
 
 .add-photo-btn {
   aspect-ratio: 1;
-  border: 2px dashed #ddd;
   border-radius: 8px;
+  border: 2px dashed #d0d0d0;
+  background: transparent;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
 }
 
 .add-photo-btn:hover {
   border-color: #6e55ff;
+  background: rgba(110, 85, 255, 0.05);
+}
+
+.add-photo-btn:hover svg {
+  fill: #6e55ff;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px;
-  border-top: 1px solid #eee;
-}
-
-.btn-outline {
-  padding: 8px 20px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: white;
-  color: #666;
-  cursor: pointer;
-}
-
-.btn-primary {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 6px;
-  background: #6e55ff;
-  color: white;
-  cursor: pointer;
-}
-
-.btn-primary:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+  flex-shrink: 0;
+  padding-top: 4px;
 }

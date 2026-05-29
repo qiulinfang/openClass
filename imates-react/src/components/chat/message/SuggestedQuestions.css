@@ -1,31 +1,190 @@
-.suggested-questions {
-  margin-top: 12px;
+/* ==================== 整体包裹容器 ==================== */
+.suggested-questions-wrapper {
+  position: relative;
+  padding-left: var(--card-padding-left, 40px);
+  margin: 0px 16px;
+  max-width: 90%;
 }
 
-.suggested-title {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 8px;
+.wrapper--small {
+  padding-left: 30px;
+  margin: 10px 8px;
 }
 
-.questions-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+/* 吉祥物图标定位 */
+.mascot-icon {
+  position: absolute;
+  left: var(--mascot-left, 0);
+  top: var(--mascot-top, -10px);
+  width: var(--mascot-width, 70px);
+  height: auto;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.question-item {
-  padding: 8px 16px;
-  background: #f5f5f5;
-  border: none;
+.wrapper--small .mascot-icon {
+  width: 50px;
+  top: -5px;
+}
+
+/* ==================== 主卡片样式 ==================== */
+.suggested-questions-card {
+  background-color: #f3f2ff;
   border-radius: 16px;
-  font-size: 13px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  box-shadow: none;
+  border: 1.5px solid transparent;
+  background-image: linear-gradient(#f3f2ff, #f3f2ff), 
+                    linear-gradient(to bottom, transparent, rgba(122, 124, 255, 0.5));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
 }
 
-.question-item:hover {
-  background: #6e55ff;
-  color: white;
+/* ==================== 头部区域 ==================== */
+.suggestion-header {
+  height: var(--header-height, 44px);
+  padding: 0 12px 0 var(--header-padding-left, 78px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+}
+
+.suggestion-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: var(--grid-bg-url);
+  background-size: cover;
+  background-repeat: no-repeat;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
+  z-index: -1;
+}
+
+.wrapper--small .suggestion-header {
+  height: 36px;
+  padding: 0 12px;
+}
+
+.title-img {
+  height: var(--title-img-height, 20px);
+  width: auto;
+  object-fit: contain;
+}
+
+.wrapper--small .title-img {
+  height: 16px;
+}
+
+/* ==================== 列表区域 ==================== */
+.suggestion-list {
+  position: relative;
+  z-index: 10;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--list-gap, 8px);
+}
+
+.wrapper--small .suggestion-list {
+  padding: 6px 8px 8px;
+  gap: 6px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--item-padding, 10px) 14px;
+  background: #ffffff;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+}
+
+.suggestion-item:hover {
+  transform: translateY(-1px);
+}
+
+.suggestion-item:active {
+  transform: scale(0.99);
+}
+
+.suggestion-text {
+  flex: 1;
+  font-size: var(--text-font-size, 14px);
+  color: #374151;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.wrapper--small .suggestion-text {
+  font-size: 13px;
+}
+
+.suggestion-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.suggestion-edit-btn-inline {
+  background: transparent;
+  border: none;
+  color: #d1d5db;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.suggestion-item:hover .suggestion-edit-btn-inline {
+  opacity: 1;
+}
+
+.suggestion-edit-btn-inline:hover {
+  color: #6366f1;
+  transform: scale(1.1);
+}
+
+.suggestion-arrow {
+  color: #d1d5db;
+  transition: color 0.2s;
+}
+
+.suggestion-item:hover .suggestion-arrow {
+  color: #7a7cff;
+}
+
+.suggestion-input {
+  flex: 1;
+  border: 1px solid #7a7cff;
+  border-radius: 6px;
+  outline: none;
+  font-size: 14px;
+  color: #374151;
+  background: #f8f8ff;
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+
+.suggestion-input::placeholder {
+  color: #9ca3af;
 }

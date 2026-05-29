@@ -38,15 +38,25 @@ export const Fab: React.FC<FabProps> = ({
 
   const isSingleItem = items.length === 1
 
-  const toggleMenu = useCallback(() => {
+  const closeMenu = useCallback(() => {
+    setMenuVisible(false)
+    onToggle?.(false)
+  }, [onToggle])
+
+  const toggleMenu = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (toggleOnly) {
+      onToggle?.(!menuVisible)
+      return
+    }
     const newVisible = !menuVisible
     setMenuVisible(newVisible)
     onToggle?.(newVisible)
-  }, [menuVisible, onToggle])
+  }, [menuVisible, onToggle, toggleOnly])
 
   const handleItemClick = (item: FabItem) => {
     onSelect?.(item)
-    setMenuVisible(false)
+    closeMenu()
   }
 
   const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -58,47 +68,56 @@ export const Fab: React.FC<FabProps> = ({
     }
   }
 
-  const handlePressEnd = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
+  const handlePressEnd = useCallback(() => {
     setIsPressed(false)
-    
     if (draggable && isDragging) {
       setIsDragging(false)
-      setPersistentOffsetY(prev => {
-        const newOffset = prev + dragOffsetY
-        return Math.min(dragMaxY, Math.max(dragMinY, newOffset))
-      })
+      // 如果拖动距离很小（小于5px），视为点击，不保存位置
+      if (Math.abs(dragOffsetY) < 5) {
+        setDragOffsetY(0)
+        return
+      }
+      setPersistentOffsetY(prev => prev + dragOffsetY)
       setDragOffsetY(0)
     }
-  }, [draggable, isDragging, dragOffsetY, dragMinY, dragMaxY])
+  }, [draggable, isDragging, dragOffsetY])
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (draggable && isDragging) {
-      const deltaY = e.clientY - dragStartY.current
-      setDragOffsetY(deltaY)
-    }
-  }, [draggable, isDragging])
-
-  const handleMouseUp = useCallback(() => {
-    if (isDragging) {
-      setIsDragging(false)
-      setPersistentOffsetY(prev => {
-        const newOffset = prev + dragOffsetY
-        return Math.min(dragMaxY, Math.max(dragMinY, newOffset))
-      })
-      setDragOffsetY(0)
-    }
-  }, [isDragging, dragOffsetY, dragMinY, dragMaxY])
+  const handleDrag = useCallback((clientY: number) => {
+    if (!isDragging || !draggable) return
+    const deltaY = clientY - dragStartY.current
+    const totalOffset = persistentOffsetY + deltaY
+    const clampedOffset = Math.max(dragMinY, Math.min(dragMaxY, totalOffset))
+    setDragOffsetY(clampedOffset - persistentOffsetY)
+  }, [isDragging, draggable, persistentOffsetY, dragMinY, dragMaxY])
 
   React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => handleDrag(e.clientY)
+    const handleTouchMove = (e: TouchEvent) => handleDrag(e.touches[0].clientY)
+    const handleGlobalUp = () => handlePressEnd()
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        closeMenu()
+      }
+    }
+
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('touchmove', handleTouchMove, { passive: false })
+      window.addEventListener('mouseup', handleGlobalUp)
+      window.addEventListener('touchend', handleGlobalUp)
     }
+    
+    window.addEventListener('click', handleClickOutside)
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('touchmove', handleTouchMove)
+      window.removeEventListener('mouseup', handleGlobalUp)
+      window.removeEventListener('touchend', handleGlobalUp)
+      window.removeEventListener('click', handleClickOutside)
     }
-  }, [isDragging, handleMouseMove, handleMouseUp])
+  }, [isDragging, handleDrag, handlePressEnd, closeMenu])
 
   return (
     <div className="bubble-container" ref={containerRef}>
@@ -137,6 +156,7 @@ export const Fab: React.FC<FabProps> = ({
         onMouseLeave={handlePressEnd}
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
+        onTouchCancel={handlePressEnd}
       >
         {children}
       </div>

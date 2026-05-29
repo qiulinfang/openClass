@@ -6,6 +6,7 @@ export interface LoadingProps {
   size?: number
   theme?: 'dark' | 'light'
   horizontal?: boolean
+  className?: string
 }
 
 export const Loading: React.FC<LoadingProps> = ({
@@ -13,9 +14,10 @@ export const Loading: React.FC<LoadingProps> = ({
   size = 48,
   theme = 'dark',
   horizontal = false,
+  className = '',
 }) => {
   return (
-    <div className={`base-loading is-${theme} ${horizontal ? 'is-horizontal' : ''}`} role="status" aria-live="polite">
+    <div className={`base-loading is-${theme} ${horizontal ? 'is-horizontal' : ''} ${className}`} role="status" aria-live="polite">
       <span className="spinner" style={{ width: `${size}px`, height: `${size}px` }}></span>
       {text && <div className="text">{text}</div>}
     </div>

@@ -16,6 +16,7 @@ import { createChatRetry } from '@/stores/utils/chatRetry'
 import { validateExerciseChatRequest } from '@/stores/utils/requestValidator'
 import { getApiPaths } from '@/config/env-config'
 import { getUserId } from '@/services/http/auth-service'
+import localforage from 'localforage'
 import { normalizeSubject } from '@/constants/subjects'
 
 /**
@@ -137,6 +138,8 @@ interface AiExerciseChatState {
   removeInputAttachedScreenshot: (id: string) => void
   clearInputAttachedScreenshots: () => void
   setInputScreenshotDrawingStates: (states: Record<string, any>) => void
+  addMessage: (message: ChatBubble) => void
+  clearMessages: () => void
   
   sendMessage: (
     content: string,
@@ -173,6 +176,7 @@ interface AiExerciseChatState {
   createNewSession: (questionBmNo: string) => Promise<string>
   saveCurrentSession: (questionBmNo: string) => Promise<void>
   loadSessionsList: (questionBmNo: string) => Promise<void>
+  deleteSession: (sessionId: string, questionBmNo: string) => Promise<void>
 }
 
 export const useAiExerciseChatStore = create<AiExerciseChatState>((set, get) => {
@@ -249,6 +253,9 @@ export const useAiExerciseChatStore = create<AiExerciseChatState>((set, get) => 
       inputScreenshotDrawingStates: {} 
     }),
     setInputScreenshotDrawingStates: (states) => set({ inputScreenshotDrawingStates: states }),
+
+    addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+    clearMessages: () => set({ messages: [], chatResponseTimes: 0, currentSessionId: null, canViewAnswer: false }),
 
     sendMessage: async (
       content,
@@ -625,6 +632,35 @@ export const useAiExerciseChatStore = create<AiExerciseChatState>((set, get) => 
           previewMessagesMarkdown: m.previewMessagesMarkdown || [] 
         })) 
       })
+    },
+
+    deleteSession: async (sessionId, questionBmNo) => {
+      const sessions = get().sessions.filter(s => s.id !== sessionId)
+      let currentSessionId = get().currentSessionId
+      let messages = get().messages
+      
+      if (currentSessionId === sessionId) {
+        currentSessionId = null
+        messages = []
+      }
+      
+      set({ sessions, currentSessionId, messages })
+      await localforage.removeItem(`chat_history_exercise_${sessionId}`)
+      
+      const metaList = sessions.map(s => ({
+        id: s.id,
+        questionBmNo: s.questionBmNo,
+        title: s.title,
+        chatResponseTimes: s.chatResponseTimes,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        messageCount: (s.messages || []).length,
+        aiMessage: s.aiMessage,
+        userMessage: s.userMessage,
+        lastMessage: s.lastMessage,
+        previewMessagesMarkdown: s.previewMessagesMarkdown,
+      }))
+      await chatStorage.saveSessionsList(questionBmNo, metaList)
     }
   }
 })

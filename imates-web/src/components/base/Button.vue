@@ -6,7 +6,7 @@ const props = defineProps<{
   loading?: boolean
   disabled?: boolean
   size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success'
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success' | 'expired'
   icon?: string
   type?: 'button' | 'submit' | 'reset'
 }>()
@@ -48,26 +48,26 @@ const handleClick = (evt: MouseEvent) => {
   <button
     v-else-if="icon && label"
     class="common-action-btn icon-text-btn"
-    type="button"
+    :type="type || 'button'"
     :disabled="disabled || loading"
     :class="[sizeClass, variantClass, { 'icon-text-btn--disabled': disabled }]"
     @click="handleClick"
   >
     <img :src="icon" :alt="label" class="btn-icon" />
     <span v-if="loading" class="spinner"></span>
-    <span v-else class="label">{{ label }}</span>
+    <span v-else class="label"><slot>{{ label }}</slot></span>
   </button>
   <!-- 否则显示普通按钮 -->
   <button
     v-else
     class="common-action-btn"
-    type="button"
+    :type="type || 'button'"
     :disabled="disabled || loading"
     :class="[sizeClass, variantClass]"
     @click="handleClick"
   >
     <span v-if="loading" class="spinner"></span>
-    <span class="label">{{ label }}</span>
+    <span class="label"><slot>{{ label }}</slot></span>
   </button>
 </template>
 

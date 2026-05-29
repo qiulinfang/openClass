@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import type { ChatBubble, AttachedScreenshot } from '@/types'
+import type { BuiltinToolType } from '@/types/toolbarTools'
 import type { ChatStrategy, ChatViewInterface } from '@/components/chat/strategies/ChatStrategy'
 import { ChatStrategyFactory, type ChatType } from '@/components/chat/strategies/ChatStrategyFactory'
 import { ChatMessageComponent } from '@/components/ChatMessage'
@@ -24,18 +25,25 @@ interface ChatViewProps {
   hideHistory?: boolean
   children?: React.ReactNode // 增加此属性
   compressedHeight?: number
+  toolbarTools?: (string | { type: BuiltinToolType; isActive?: boolean })[]
+  sessionId?: string
   onResponse?: () => void
+  onOpenTeacherDialog?: (data: { sessionId: string; message?: ChatBubble }) => void
   onSwitchToTeacher?: (data: {
     messages: ChatBubble[]
     currentQuestion: unknown
     additionalMessage?: string
+    sessionId?: string
   }) => void
   onFocus?: () => void
   onScrollToBottom?: () => void
   onScrollToMessage?: (messageId: string) => void
   onSendMessage?: (message: string) => void
   onScreenshotClick?: () => void
+  onRequestScreenshot?: (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => void
   onNewSessionClick?: () => void
+  onOpenHtmlPreview?: (payload: { url: string; html?: string }) => void
+  onPasteToDraft?: (payload: any) => void
 }
 
 export const ChatView = forwardRef<any, ChatViewProps>(({

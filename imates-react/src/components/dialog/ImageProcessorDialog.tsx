@@ -226,8 +226,15 @@ export const ImageProcessorDialog: React.FC<ImageProcessorDialogProps> = ({
     <Modal
       open={open}
       title="你想问什么问题呢？"
-      width={900}
-      height={700}
+      initialWidth={900}
+      initialHeight={900}
+      minWidth={500}
+      minHeight={450}
+      zIndex={14000}
+      closeOnOverlayClick={false}
+      titleAlign="left"
+      headerBackgroundColor="#ffffff"
+      showFooter={true}
       confirmText="给学伴"
       onConfirm={handleConfirm}
       onCancel={handleCancel}
@@ -239,6 +246,7 @@ export const ImageProcessorDialog: React.FC<ImageProcessorDialogProps> = ({
             <DrawingBoard
               key={currentShotId}
               ref={drawingBoardRef}
+              backgroundImage={previewImage}
               backgroundColor="transparent"
               onToolChange={(tool) => {
                 if (tool === 'crop') setIsCropping(true)

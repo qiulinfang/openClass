@@ -3,9 +3,11 @@ import '@/components/pdf/PdfNoteListPanel.css'
 
 export interface PageNote {
   id: string
+  pageIndex: number
+  x: number
+  y: number
   text: string
-  author?: string
-  createdAt?: string
+  createdAt?: string | number
 }
 
 export interface PdfNoteListPanelProps {
@@ -21,19 +23,39 @@ export const PdfNoteListPanel: React.FC<PdfNoteListPanelProps> = ({
   onSelect,
   onDelete,
 }) => {
-  const getAvatarLetter = (note: PageNote) => {
-    return (note.author || 'U')[0].toUpperCase()
+  const getAuthorName = () => {
+    try {
+      const raw = localStorage.getItem('userInfo')
+      if (!raw) return ''
+      const parsed = JSON.parse(raw)
+      return parsed?.name || ''
+    } catch {
+      return ''
+    }
   }
 
-  const getAuthorName = (note: PageNote) => {
-    return note.author || '用户'
+  const getAvatarLetter = () => {
+    const name = getAuthorName()
+    if (name && name.trim()) {
+      return name.trim().charAt(0)
+    }
+    return '记'
   }
 
   const formatNoteTime = (note: PageNote) => {
-    if (!note.createdAt) return ''
-    const date = new Date(note.createdAt)
-    return date.toLocaleDateString()
+    const ts = typeof note.createdAt === 'string' ? Number(note.createdAt) : note.createdAt
+    if (!ts) return ''
+    const d = new Date(ts)
+    if (Number.isNaN(d.getTime())) return ''
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const hh = d.getHours().toString().padStart(2, '0')
+    const mm = d.getMinutes().toString().padStart(2, '0')
+    return `${month}月${day}日 ${hh}:${mm}`
   }
+
+  const authorName = getAuthorName()
+  const avatarLetter = getAvatarLetter()
 
   return (
     <div className="note-panel-container">
@@ -50,11 +72,11 @@ export const PdfNoteListPanel: React.FC<PdfNoteListPanelProps> = ({
                   onClick={() => onSelect?.(note)}
                 >
                   <div className="note-avatar">
-                    {getAvatarLetter(note)}
+                    {avatarLetter}
                   </div>
                   <div className="note-info">
                     <div className="note-item-meta">
-                      <span className="note-item-author">{getAuthorName(note)}</span>
+                      <span className="note-item-author">{authorName}</span>
                       <span className="note-item-separator"> - </span>
                       <span className="note-item-time">{formatNoteTime(note)}</span>
                     </div>
@@ -64,9 +86,12 @@ export const PdfNoteListPanel: React.FC<PdfNoteListPanelProps> = ({
                   </div>
                   <button 
                     className="more-btn"
-                    onClick={(e) => { e.stopPropagation(); onDelete?.(note) }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete?.(note)
+                    }}
                   >
-                    ⋮
+                    <span className="material-icons" style={{ fontSize: '18px' }}>delete_outline</span>
                   </button>
                 </div>
               ))}

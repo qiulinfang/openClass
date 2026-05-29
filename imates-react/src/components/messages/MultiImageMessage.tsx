@@ -2,11 +2,12 @@ import React, { useState } from 'react'
 import '@/components/messages/MultiImageMessage.css'
 
 interface ImageItem {
-  filePath: string
+  filePath?: string
   width: number
   height: number
-  fileSize: number
+  fileSize?: number
   base64DataUrl?: string
+  url?: string
   isLargeImage?: boolean
 }
 
@@ -31,7 +32,7 @@ export const MultiImageMessage: React.FC<MultiImageMessageProps> = ({
     return 'grid-many'
   }
 
-  const handleImageClick = (index: number, e: React.MouseEvent) => {
+  const handleClick = (index: number, e: React.MouseEvent) => {
     e.stopPropagation()
     setPreviewIndex(index)
   }
@@ -53,23 +54,18 @@ export const MultiImageMessage: React.FC<MultiImageMessageProps> = ({
   }
 
   const renderImage = (image: ImageItem, index: number) => {
-    const src = image.base64DataUrl || image.filePath
-    const aspectRatio = image.width / image.height
-    
-    let style: React.CSSProperties = {}
-    if (aspectRatio > 1) {
-      style = { width: '100%', height: 'auto' }
-    } else {
-      style = { width: 'auto', height: '100%' }
-    }
-
     return (
       <div 
         key={index} 
         className="multi-image-item"
-        onClick={(e) => handleImageClick(index, e)}
+        onClick={(e) => handleClick(index, e)}
       >
-        <img src={src} alt={`图片 ${index + 1}`} style={style} />
+        <img 
+          src={image.base64DataUrl || image.url || image.filePath} 
+          alt="图片" 
+          className="multi-image-img"
+          onError={(e) => console.error('图片加载失败:', index, image.base64DataUrl || image.url || image.filePath, e)}
+        />
       </div>
     )
   }

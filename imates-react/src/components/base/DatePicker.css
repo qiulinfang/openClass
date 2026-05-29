@@ -16,7 +16,6 @@
   cursor: pointer;
   font-size: 14px;
   color: #111827;
-  transition: border-color 0.2s ease;
 }
 
 .date-trigger:hover {
@@ -62,7 +61,14 @@
   box-shadow: 0 14px 40px rgba(15, 0, 46, 0.18);
   padding: 12px 16px 10px;
   z-index: 30;
-  animation: fadeScaleIn 0.15s ease;
+}
+
+.fade-scale-enter {
+  animation: fadeScaleIn 0.15s ease forwards;
+}
+
+.fade-scale-leave {
+  animation: fadeScaleOut 0.15s ease forwards;
 }
 
 @keyframes fadeScaleIn {
@@ -73,6 +79,17 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeScaleOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
   }
 }
 
@@ -105,10 +122,6 @@
   background-color: transparent;
   cursor: pointer;
   color: #4b4b63;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .nav-btn:hover {
@@ -144,7 +157,6 @@
   font-size: 13px;
   cursor: pointer;
   color: #4b4b63;
-  transition: all 0.15s ease;
 }
 
 .date-cell--other {

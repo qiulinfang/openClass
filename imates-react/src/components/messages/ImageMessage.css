@@ -1,75 +1,121 @@
 .image-message {
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
+  min-width: 120px;
+  max-width: 220px;
   cursor: pointer;
-  display: inline-block;
+  user-select: none;
+  position: relative;
 }
 
-.image-message.ai {
-  background: rgba(255, 255, 255, 0.8);
+.image-container {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f5f5f5;
+  transition: all 0.2s ease;
 }
 
-.image-message.user {
-  background: rgba(255, 255, 255, 0.15);
+.image-message.ai .image-container {
+  background: #f5f5f5;
 }
 
-.image-message img {
-  display: block;
-  border-radius: 8px;
-  transition: transform 0.2s ease;
+.image-message.user .image-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
 }
 
-.image-message:hover img {
+.image-container:hover {
   transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.image-container img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}
+
+.image-loading,
 .image-message.error {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 40px 20px;
+  min-height: 120px;
+  color: #666;
   background: #f5f5f5;
-  color: #999;
-  gap: 8px;
+  border-radius: 12px;
 }
 
-.image-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.image-message.error.user {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.image-loading-dots {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
-.image-loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #7a7cff;
+.image-loading-dots span {
+  width: 6px;
+  height: 6px;
+  background-color: #7a7cff;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  display: inline-block;
+  animation: dots-pulse 1s infinite ease-in-out;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.image-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.image-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dots-pulse {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.loading-text,
+.error-text {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.retry-btn {
+  margin-top: 12px;
+  padding: 4px 12px;
+  border: none;
+  background: #7a7cff;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #6264ff;
 }
 
 .image-info {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(0, 0, 0, 0.6);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
   color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.image-container:hover .image-info {
+  opacity: 1;
 }
 
 /* 图片预览 */
@@ -115,4 +161,17 @@
 
 .image-preview-close:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .image-container {
+    background: #3a3a3a;
+  }
+  
+  .image-loading,
+  .image-message.error {
+    color: #ccc;
+    background: #3a3a3a;
+  }
 }

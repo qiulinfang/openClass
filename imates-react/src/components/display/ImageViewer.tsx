@@ -234,21 +234,76 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     resetTransform()
   }
 
+  const getExtFromDataUrl = (dataUrl: string) => {
+    const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/)
+    if (!match) return 'png'
+    const mime = match[1]
+    const ext = mime.split('/')[1]
+    return ext || 'png'
+  }
+
+  const dataUrlToBlob = (dataUrl: string) => {
+    const commaIndex = dataUrl.indexOf(',')
+    if (commaIndex < 0) throw new Error('invalid data url')
+    const base64 = dataUrl.slice(commaIndex + 1)
+    const mimeMatch = dataUrl.slice(0, commaIndex).match(/^data:([^;]+);base64$/)
+    const mime = mimeMatch?.[1] || 'application/octet-stream'
+    const binary = atob(base64)
+    const len = binary.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+    return new Blob([bytes], { type: mime })
+  }
+
+  const blobToDataUrl = (blob: Blob) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('read blob failed'))
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
+    try {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  const fetchAsBlob = async (url: string) => {
+    const resp = await fetch(url)
+    if (!resp.ok) {
+      throw new Error(`fetch failed: ${resp.status}`)
+    }
+    return await resp.blob()
+  }
+
   const handleSave = async () => {
     if (!currentImageUrl) return
     try {
       if (androidBridge.isAndroidBridgeAvailable() && androidBridge.saveBase64ImageToGallery) {
         let dataUrl = currentImageUrl
         if (!dataUrl.startsWith('data:image/')) {
-          const resp = await fetch(currentImageUrl)
-          const blob = await resp.blob()
-          dataUrl = await new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onload = () => resolve(String(reader.result))
-            reader.readAsDataURL(blob)
-          })
+          try {
+            const blob = await fetchAsBlob(currentImageUrl)
+            dataUrl = await blobToDataUrl(blob)
+          } catch (fetchErr) {
+            console.warn('[ImageViewer] fetch failed, falling back to window.open:', fetchErr)
+            window.open(currentImageUrl, '_blank', 'noopener')
+            showMessage('已在新窗口打开，请长按/右键保存', 'info')
+            return
+          }
         }
-        const ext = dataUrl.match(/data:image\/([^;]+);/)?.[1] || 'png'
+        const ext = getExtFromDataUrl(dataUrl)
         const filename = `image_${Date.now()}.${ext}`
         const result = androidBridge.saveBase64ImageToGallery(dataUrl, filename)
         if (result?.success) {
@@ -258,25 +313,33 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       }
 
       if (currentImageUrl.startsWith('data:image/')) {
-        const link = document.createElement('a')
-        link.href = currentImageUrl
-        link.download = `image_${Date.now()}.png`
-        link.click()
+        const ext = getExtFromDataUrl(currentImageUrl)
+        const filename = `image_${Date.now()}.${ext}`
+        downloadBlob(dataUrlToBlob(currentImageUrl), filename)
         showMessage('开始下载', 'success')
-      } else {
-        const resp = await fetch(currentImageUrl)
-        const blob = await resp.blob()
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `image_${Date.now()}.png`
-        link.click()
-        URL.revokeObjectURL(url)
+        return
+      }
+
+      try {
+        const blob = await fetchAsBlob(currentImageUrl)
+        const type = blob.type || ''
+        const ext = type.startsWith('image/') ? type.split('/')[1] : 'png'
+        const filename = `image_${Date.now()}.${ext}`
+        downloadBlob(blob, filename)
         showMessage('开始下载', 'success')
+      } catch (fetchErr) {
+        console.warn('[ImageViewer] fetch failed, falling back to window.open:', fetchErr)
+        window.open(currentImageUrl, '_blank', 'noopener')
+        showMessage('已在新窗口打开，请长按/右键保存', 'info')
       }
     } catch (err) {
-      window.open(currentImageUrl, '_blank', 'noopener')
-      showMessage('已在新窗口打开，请长按/右键保存', 'info')
+      console.error('[ImageViewer] 保存失败:', err)
+      try {
+        window.open(currentImageUrl, '_blank', 'noopener')
+        showMessage('已在新窗口打开，请长按/右键保存', 'info')
+      } catch (e) {
+        showMessage('保存失败', 'error')
+      }
     }
   }
 

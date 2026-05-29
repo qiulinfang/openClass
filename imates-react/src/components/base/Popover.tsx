@@ -14,6 +14,7 @@ export interface PopoverProps {
   maxWidth?: number | string
   maxHeight?: number | string
   onVisibleChange?: (visible: boolean) => void
+  popupStyle?: React.CSSProperties
   children?: React.ReactNode
   content?: React.ReactNode
 }
@@ -29,6 +30,7 @@ export const Popover: React.FC<PopoverProps> = ({
   minWidth,
   maxWidth,
   maxHeight,
+  popupStyle: extraPopupStyle,
   onVisibleChange,
   children,
   content,
@@ -60,9 +62,22 @@ export const Popover: React.FC<PopoverProps> = ({
 
     let finalPlacement = placement
     if (placement === 'auto') {
-      const spaceTop = triggerRect.top
-      const spaceBottom = viewportHeight - triggerRect.bottom
-      finalPlacement = spaceTop > spaceBottom ? 'top' : 'bottom'
+      const spaceBelow = viewportHeight - triggerRect.bottom
+      const spaceAbove = triggerRect.top
+      const spaceRight = viewportWidth - triggerRect.right
+      const spaceLeft = triggerRect.left
+
+      if (spaceBelow >= popupRect.height + offset) {
+        finalPlacement = 'bottom'
+      } else if (spaceAbove >= popupRect.height + offset) {
+        finalPlacement = 'top'
+      } else if (spaceRight >= popupRect.width + offset) {
+        finalPlacement = 'right'
+      } else if (spaceLeft >= popupRect.width + offset) {
+        finalPlacement = 'left'
+      } else {
+        finalPlacement = 'bottom'
+      }
     }
 
     let top = 0
@@ -94,6 +109,16 @@ export const Popover: React.FC<PopoverProps> = ({
         left = triggerRect.right + offset
         break
     }
+
+    // 边界裁剪
+    const margin = 8
+    const maxLeft = viewportWidth - popupRect.width - margin
+    const minLeft = margin
+    left = Math.min(Math.max(left, minLeft), maxLeft)
+
+    const maxTop = viewportHeight - popupRect.height - margin
+    const minTop = margin
+    top = Math.min(Math.max(top, minTop), maxTop)
 
     setPosition({ top, left })
   }, [placement, offset])
@@ -137,8 +162,9 @@ export const Popover: React.FC<PopoverProps> = ({
     zIndex,
     width: normalizeSize(width),
     minWidth: normalizeSize(minWidth),
-    maxWidth: normalizeSize(maxWidth) || '280px',
+    maxWidth: normalizeSize(maxWidth),
     maxHeight: normalizeSize(maxHeight),
+    ...extraPopupStyle,
   }
 
   return (
@@ -146,7 +172,10 @@ export const Popover: React.FC<PopoverProps> = ({
       <div
         ref={triggerRef}
         className="bubble-popup-trigger"
-        onClick={handleTriggerClick}
+        onClick={(e) => {
+          e.stopPropagation()
+          handleTriggerClick()
+        }}
       >
         {children}
       </div>

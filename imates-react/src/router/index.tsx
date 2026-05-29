@@ -1,8 +1,24 @@
-import { createHashRouter, Navigate } from 'react-router-dom'
-import { lazy, Suspense } from 'react'
+import { createHashRouter, Navigate, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
 import LoginView from '@/views/LoginView'
 import MainView from '@/views/MainView'
 import { getXuebanToken } from '@/services'
+
+/**
+ * 路由守卫组件 - 检查登录状态
+ */
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const token = getXuebanToken()
+  const isLoggedIn = !!token
+  const location = useLocation()
+
+  if (!isLoggedIn) {
+    // 重定向到登录页，并记录来源路径以便登录后跳转回来
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  return <>{children}</>
+}
 
 const ExerciseSolveView = lazy(() => import('@/views/ExerciseSolveView'))
 const ExerciseSolveViewNew = lazy(() => import('@/views/ExerciseSolveViewNew'))
@@ -36,7 +52,13 @@ const router = createHashRouter([
   },
   {
     path: '/app',
-    element: <Suspense fallback={<Loading />}><MainView /></Suspense>,
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<Loading />}>
+          <MainView />
+        </Suspense>
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
@@ -45,6 +67,10 @@ const router = createHashRouter([
       {
         path: 'exercise-solve',
         element: <Suspense fallback={<Loading />}><ExerciseSolveViewNew /></Suspense>
+      },
+      {
+        path: 'exercise-solve-new',
+        element: <Suspense fallback={<Loading />}><ExerciseSolveView /></Suspense>
       },
       {
         path: 'knowledge-graph',
@@ -99,6 +125,10 @@ const router = createHashRouter([
         element: <Suspense fallback={<Loading />}><HomeworkAnswerView /></Suspense>
       },
       {
+        path: 'homework-exercise',
+        element: <Suspense fallback={<Loading />}><ExerciseSolveView /></Suspense>
+      },
+      {
         path: 'draft-notebook',
         element: <Suspense fallback={<Loading />}><DraftNotebookView /></Suspense>
       }
@@ -106,11 +136,13 @@ const router = createHashRouter([
   },
   {
     path: '/photo-search',
-    element: <Suspense fallback={<Loading />}><PhotoSearchView /></Suspense>
-  },
-  {
-    path: '/exercise-solve-new',
-    element: <Suspense fallback={<Loading />}><ExerciseSolveView /></Suspense>
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<Loading />}>
+          <PhotoSearchView />
+        </Suspense>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/interactive-canvas',
@@ -138,26 +170,5 @@ const router = createHashRouter([
     element: <Navigate to="/app/learning" replace />
   }
 ])
-
-// 路由守卫
-router.beforeEach = (to, from, next) => {
-  const token = getXuebanToken()
-  const isLoggedIn = !!token
-
-  // 测试页面直接放行
-  const testPaths = ['/login', '/interactive-canvas']
-  if (testPaths.includes(to.path)) {
-    return next()
-  }
-
-  // /app 和 /photo-search 需要登录
-  if (to.path.startsWith('/app') || to.path.startsWith('/photo-search')) {
-    if (!isLoggedIn) {
-      return next('/login')
-    }
-  }
-
-  next()
-}
 
 export default router

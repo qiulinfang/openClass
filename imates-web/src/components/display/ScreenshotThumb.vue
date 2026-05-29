@@ -48,6 +48,7 @@ const handleClick = () => {
   overflow: hidden;
   background: #f5f5f5;
   position: relative;
+  cursor: pointer;
 }
 
 .screenshot-thumb--active {

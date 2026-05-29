@@ -44,6 +44,7 @@ export function useImagePicker() {
 
   return {
     isPickerVisible,
+    setIsPickerVisible: setVisible,
     pickImage,
     handleImageSelected,
     handleCancel

@@ -1,43 +1,197 @@
-.draft-note-chat-panel {
+.chat-panel-container {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #fff;
+  position: relative;
+  overflow: hidden;
 }
 
-.draft-note-chat-panel .panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #eee;
+.panel-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, #0a0020 50%, #ffffff 50%);
+  z-index: -1;
 }
 
-.draft-note-chat-panel .panel-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.draft-note-chat-panel .close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  font-size: 24px;
-  cursor: pointer;
-  color: #666;
-}
-
-.draft-note-chat-panel .panel-content {
+.panel-main {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 20px 0 0 20px;
+  overflow: hidden;
 }
 
-.draft-note-chat-panel .placeholder {
+.chat-panel-header {
+  background: #e8e9ff;
+  padding-top: 10px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
+  border-top-left-radius: 20px;
+}
+
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #393548;
+  z-index: 2222;
+}
+
+.tab-list {
+  display: flex;
+  gap: 2px;
+}
+
+.tab-item {
+  position: relative;
+  padding: 8px 18px;
+  color: #a19cb6;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  width: 100px;
+}
+
+.tab-active {
+  background-image: url('/icons/sessionbackfround.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center center;
+  color: #504b64;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  height: 40px;
+  line-height: 24px;
+  width: 100px;
+}
+
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 3px;
+  background: #6e55ff;
+  border-radius: 2px;
+}
+
+.chat-content-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-content {
+  flex: 1;
+  height: 100%;
+  display: flex;
+}
+
+.session-list-wrapper {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.main-chat-body {
+  flex: 1;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+  max-width: 100%;
+}
+
+.empty-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 16px;
+  background-color: #e8e9ff;
+}
+
+.empty-text {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #999999;
+}
+
+.explore-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(230, 225, 255, 0.75);
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: #999;
+  cursor: not-allowed;
+  border-radius: 16px;
+}
+
+.explore-icon {
+  position: absolute;
+  width: 120px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-icon.textbookip {
+  right: -60px;
+  bottom: 30%;
+}
+
+.explore-icon.ipWord {
+  right: 13%;
+  bottom: 41%;
+  width: 225px;
+  height: auto;
+}
+
+.explore-icon.pdf-toolbar-icon-overlay {
+  position: fixed;
+  z-index: 35;
+  pointer-events: auto;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.pdf-toolbar-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
 }

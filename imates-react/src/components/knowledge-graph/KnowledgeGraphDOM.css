@@ -1,0 +1,49 @@
+.knowledge-graph-container {
+  width: 66.67vw; /* 视口宽度的三分之二 */
+  height: 66.67vh; /* 视口高度的三分之二 */
+  max-width: 800px;
+  max-height: 800px;
+  min-width: 400px;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 0 auto; /* 水平居中 */
+}
+
+.knowledge-graph {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 背景圆形区域表示包含关系 */
+.containment-background {
+  position: absolute;
+  /* 宽高通过动态样式设置，根据节点数量调整 */
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.2);
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none; /* 不拦截点击事件，让子节点可以正常点击 */
+  transform-origin: center center;
+  /* 初始状态隐藏 */
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.containment-background:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.08) 100%);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* 展开状态 */
+.containment-background.expanded {
+  opacity: 1;
+  transform: scale(1);
+}

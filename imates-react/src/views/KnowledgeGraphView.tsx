@@ -45,17 +45,17 @@ export const KnowledgeGraphView: React.FC = () => {
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   
-  const {
-    setCurrentChapter,
-    setCurrentTextbook,
-    getCurrentTextbook,
-    setCurrentChapterExpandedGraph,
-    initializeChapterStates,
-    getCurrentChapter,
-    savePageState,
-    restorePageState,
-    getCurrentSubject,
-  } = useKnowledgeGraphStore()
+  const setCurrentChapter = useKnowledgeGraphStore(s => s.setCurrentChapter)
+  const setCurrentTextbook = useKnowledgeGraphStore(s => s.setCurrentTextbook)
+  const getCurrentTextbook = useKnowledgeGraphStore(s => s.getCurrentTextbook)
+  const setCurrentChapterExpandedGraph = useKnowledgeGraphStore(s => s.setCurrentChapterExpandedGraph)
+  const getCurrentChapterExpandedGraph = useKnowledgeGraphStore(s => s.getCurrentChapterExpandedGraph)
+  const initializeChapterStates = useKnowledgeGraphStore(s => s.initializeChapterStates)
+  const getCurrentChapter = useKnowledgeGraphStore(s => s.getCurrentChapter)
+  const savePageState = useKnowledgeGraphStore(s => s.savePageState)
+  const restorePageState = useKnowledgeGraphStore(s => s.restorePageState)
+  const getCurrentSubject = useKnowledgeGraphStore(s => s.getCurrentSubject)
+  const currentChapterIndex = useKnowledgeGraphStore(s => s.currentChapterIndex)
 
   // 响应式状态
   const [selectedSubject, setSelectedSubject] = useState<ApiSubjectType | ''>('')
@@ -87,6 +87,7 @@ export const KnowledgeGraphView: React.FC = () => {
   
   // 调试相关
   const [learningStatusPanelVisible, setLearningStatusPanelVisible] = useState(false)
+  const lastSavedStateRef = useRef<string>('')
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const knowledgeGraphRef = useRef<any>(null)
@@ -164,6 +165,7 @@ export const KnowledgeGraphView: React.FC = () => {
           section.learningStatus = 'notLearned'
         }
       } else {
+        // 没有任何知识点：直接用章节本身的 id 和 lastLearnedNodeId 比较
         section.learningStatus = getLearningStatus(sec.id)
       }
 
@@ -218,9 +220,9 @@ export const KnowledgeGraphView: React.FC = () => {
     const option = textbookOptions.find((opt) => opt.value === selectedTextbook)
     if (!option) return ''
 
-    const parts: string[] = [option.textbookPublisher || '']
+    const parts: string[] = [option.publisher || '']
     const labelParts = option.label.split(' ')
-    const subjectIndex = labelParts.findIndex((part) => part === option.textbookSubjectLabel)
+    const subjectIndex = labelParts.findIndex((part) => part === option.subject)
     
     if (subjectIndex !== -1) {
       const filteredParts = [
@@ -318,34 +320,68 @@ export const KnowledgeGraphView: React.FC = () => {
     return [...subChapters, exerciseNode].reverse()
   }, [])
 
-  const loadChaptersForTextbook = async (textbookId: string) => {
+  const ensureKGStoreInitialized = async () => {
+    const db = resourceManager.indexedDB
+    if (!db.isInitialized) {
+      await db.init()
+    }
+  }
+
+  const loadChapterStructureFromDB = async (textbookId: string): Promise<ChapterNode[] | null> => {
     try {
+      await ensureKGStoreInitialized()
       const db = resourceManager.indexedDB
-      if (!db.isInitialized) await db.init()
       const userId = getUserId() || ''
       const record = await db.get<KnowledgeGraphChapterStructureRecord>(
         'knowledge_graph_chapter_structure',
         buildKGRecordId(userId, textbookId)
       )
 
-      let chapterData: ChapterNode[] | null = null
-      if (record && !isCacheExpired(record.timestamp)) {
-        chapterData = record.data
-      } else {
-        chapterData = await apiService.getTextbookStructure(textbookId)
-        if (chapterData && chapterData.length > 0) {
-          await db.put<KnowledgeGraphChapterStructureRecord>('knowledge_graph_chapter_structure', {
-            id: buildKGRecordId(userId, textbookId),
-            userId,
-            textbookId,
-            data: chapterData,
-            timestamp: Date.now(),
-          })
-        }
+      if (!record || isCacheExpired(record.timestamp)) {
+        return null
       }
 
+      return record.data || null
+    } catch (error) {
+      console.warn('[KnowledgeGraph] 读取章节结构 IndexedDB 缓存失败', error)
+      return null
+    }
+  }
+
+  const saveChapterStructureToDB = async (textbookId: string, data: ChapterNode[]): Promise<boolean> => {
+    try {
+      await ensureKGStoreInitialized()
+      const db = resourceManager.indexedDB
+      const userId = getUserId() || ''
+      await db.put<KnowledgeGraphChapterStructureRecord>('knowledge_graph_chapter_structure', {
+        id: buildKGRecordId(userId, textbookId),
+        userId,
+        textbookId,
+        data,
+        timestamp: Date.now(),
+      })
+      return true
+    } catch (error) {
+      console.warn('[KnowledgeGraph] 保存章节结构到 IndexedDB 失败', error)
+      return false
+    }
+  }
+
+  const loadChaptersForTextbook = async (textbookId: string) => {
+    try {
+      const cachedChapterData = await loadChapterStructureFromDB(textbookId)
+
+      if (cachedChapterData && cachedChapterData.length > 0) {
+        setChapterStructure(cachedChapterData)
+        setChapters(cachedChapterData.map((c) => convertToChineseNumber(c.name)))
+        initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
+        return
+      }
+
+      const chapterData = await apiService.getTextbookStructure(textbookId)
       if (chapterData && chapterData.length > 0) {
         setChapterStructure(chapterData)
+        await saveChapterStructureToDB(textbookId, chapterData)
         setChapters(chapterData.map((c) => convertToChineseNumber(c.name)))
         initializeChapterStates(textbookId, chapterData, getSubChapters)
       } else {
@@ -379,6 +415,105 @@ export const KnowledgeGraphView: React.FC = () => {
     return 0
   }
 
+  const loadChaptersBySelectedTextbook = async (
+    options?: TextbookOption[],
+    prefer?: {
+      chapterIndex?: number
+      chapterId?: string
+    }
+  ) => {
+    const opts = options || textbookOptions
+    const selectedOption = opts.find((opt) => opt.value === selectedTextbook)
+    if (!selectedOption) {
+      setChapterStructure([])
+      setChapters([])
+      setSelectedChapterDetails(null)
+      return
+    }
+
+    if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
+      setCurrentTextbook(selectedOption.textbookId)
+      await loadChaptersForTextbook(selectedOption.textbookId)
+      if (chapterStructure.length > 0) {
+        const storedIndex = currentChapterIndex
+        const targetIndex = pickSelectedChapterIndex(
+          chapterStructure,
+          prefer?.chapterIndex ?? storedIndex,
+          prefer?.chapterId ?? selectedChapterDetails?.id
+        )
+        onChapterClick(targetIndex)
+      } else {
+        setSelectedChapterDetails(null)
+      }
+    } else {
+      setChapterStructure([])
+      setChapters([])
+      setSelectedChapterDetails(null)
+    }
+  }
+
+  const getCacheStatus = useCallback(() => {
+    try {
+      const keys = Object.keys(localStorage)
+      const knowledgeGraphKeys = keys.filter((key) => key.startsWith('knowledge_graph_'))
+      return {
+        totalKeys: knowledgeGraphKeys.length,
+        chapterStructures: knowledgeGraphKeys.filter((key) =>
+          key.startsWith('knowledge_graph_chapter_structure_')
+        ).length,
+      }
+    } catch {
+      return { totalKeys: 0, chapterStructures: 0 }
+    }
+  }, [])
+
+  const resetTextbookAndChapters = useCallback(() => {
+    setTextbookOptions([])
+    setSelectedTextbook('')
+    setChapterStructure([])
+    setChapters([])
+    setSelectedChapterDetails(null)
+  }, [])
+
+  const onSubjectChange = async (subjectValue: string) => {
+    try {
+      resetTextbookAndChapters()
+      await syncSubjectTextbookChapter({
+        subjectValue,
+        preferredTextbookValue: '',
+        preferredChapterIndex: 0,
+      })
+    } catch {
+      resetTextbookAndChapters()
+    }
+  }
+
+  const onTextbookChange = async (value: string) => {
+    try {
+      setSelectedTextbook(value)
+      await loadChaptersBySelectedTextbook(textbookOptions, {
+        chapterIndex: 0,
+      })
+    } catch {
+      // ignore
+    }
+  }
+
+  const onChapterClick = (index: number) => {
+    if (currentChapterIndex === index) return
+    setCurrentChapter(index)
+    if (chapterStructure && chapterStructure.length > index) {
+      setSelectedChapterDetails(chapterStructure[index])
+    }
+  }
+
+  const selectNode = useCallback((nodeId: string, instant: boolean = true) => {
+    if (!nodeId) return
+    if (knowledgeGraphRef.current?.focusOnNodeId) {
+      knowledgeGraphRef.current.focusOnNodeId(nodeId, instant)
+    }
+  }, [])
+
   const syncSubjectTextbookChapter = async (params?: {
     subjectValue?: string
     preferredTextbookId?: string
@@ -397,7 +532,8 @@ export const KnowledgeGraphView: React.FC = () => {
 
     let targetTextbookValue = ''
     if (params?.preferredTextbookId) {
-      const picked = filteredOptions.find(opt => opt.textbookId === params.preferredTextbookId || opt.value.includes(params.preferredTextbookId))
+      const targetId = params.preferredTextbookId
+      const picked = filteredOptions.find(opt => opt.textbookId === targetId || opt.value.includes(targetId))
       targetTextbookValue = picked?.value || ''
     } else {
       const keepable = filteredOptions.find(opt => opt.value === (params?.preferredTextbookValue ?? selectedTextbook))
@@ -413,52 +549,10 @@ export const KnowledgeGraphView: React.FC = () => {
       return
     }
 
-    const selectedOption = filteredOptions.find((opt) => opt.value === targetTextbookValue)
-    if (selectedOption?.textbookId) {
-      setCurrentTextbook(selectedOption.textbookId)
-      try {
-        const db = resourceManager.indexedDB
-        if (!db.isInitialized) await db.init()
-        const userId = getUserId() || ''
-        const record = await db.get<KnowledgeGraphChapterStructureRecord>(
-          'knowledge_graph_chapter_structure',
-          buildKGRecordId(userId, selectedOption.textbookId)
-        )
-        let structure: ChapterNode[] = []
-        if (record && !isCacheExpired(record.timestamp)) {
-          structure = record.data
-        } else {
-          structure = await apiService.getTextbookStructure(selectedOption.textbookId)
-          if (structure?.length > 0) {
-            await db.put('knowledge_graph_chapter_structure', {
-              id: buildKGRecordId(userId, selectedOption.textbookId),
-              userId,
-              textbookId: selectedOption.textbookId,
-              data: structure,
-              timestamp: Date.now(),
-            })
-          }
-        }
-        
-        if (structure && structure.length > 0) {
-          setChapterStructure(structure)
-          setChapters(structure.map((c) => convertToChineseNumber(c.name)))
-          initializeChapterStates(selectedOption.textbookId, structure, getSubChapters)
-          
-          const storedIndex = getCurrentChapter()
-          const targetIndex = pickSelectedChapterIndex(
-            structure,
-            params?.preferredChapterIndex ?? storedIndex,
-            params?.preferredChapterId ?? selectedChapterDetails?.id
-          )
-          
-          setCurrentChapter(targetIndex)
-          setSelectedChapterDetails(structure[targetIndex])
-        }
-      } catch (e) {
-        console.error(e)
-      }
-    }
+    await loadChaptersBySelectedTextbook(filteredOptions, {
+      chapterIndex: params?.preferredChapterIndex,
+      chapterId: params?.preferredChapterId,
+    })
   }
 
   const checkAndOpenLearningDialog = () => {
@@ -488,30 +582,40 @@ export const KnowledgeGraphView: React.FC = () => {
     }
   }
 
-  // 业务动作
-  const actionLearn = async (node: { id: string; name: string; level?: number }) => {
-    const textbookRecordId = getCurrentTextbookId()
-    if (!textbookRecordId) {
-      showMessage(`《${node.name}》暂无学习方案，请选择其他知识点进行学习`, 'warning')
-      return
-    }
+  const showNoLearningPackagesAlert = (sectionName: string) => {
+    showMessage(`《${sectionName}》暂无学习方案，请选择其他知识点进行学习`, 'warning', 3000)
+  }
 
+  const showNotDownloadedAlert = (sectionName: string) => {
+    showMessage(`《${sectionName}》学习资源未下载，请先下载教材资源`, 'warning', 3000)
+  }
+
+  const showErrorAlert = (sectionName: string) => {
+    showMessage(`检查《${sectionName}》学习资源时发生错误，请重试`, 'error', 3000)
+  }
+
+  // 检查本地学习方案数据
+  const loadNodeLearningResources = async (
+    textbookRecordId: string
+  ): Promise<{ hasPackages: boolean; reason: 'no_packages' | 'not_downloaded' | 'error' }> => {
     try {
+      if (!textbookRecordId) {
+        console.warn('教材记录ID为空，无法检查学习方案')
+        return { hasPackages: false, reason: 'error' }
+      }
+
       const textbooks = await resourceManager.getUserLocalTextbooks()
       const textbook = textbooks.find((t) => t.id === textbookRecordId)
-      
+
       if (!textbook) {
-        showMessage(`《${node.name}》学习资源未下载，请先下载教材资源`, 'warning')
-        return
+        return { hasPackages: false, reason: 'not_downloaded' }
       }
 
       const hasLocalFiles = Boolean(textbook.localFiles && textbook.localFiles.length > 0)
       if (!hasLocalFiles) {
-        showMessage(`《${node.name}》学习资源未下载，请先下载教材资源`, 'warning')
-        return
+        return { hasPackages: false, reason: 'not_downloaded' }
       }
 
-      // 检查本地文件是否真正存在
       const sampleFiles = textbook.localFiles.slice(0, Math.min(3, textbook.localFiles.length))
       let hasActualFileData = false
       for (const file of sampleFiles) {
@@ -523,12 +627,44 @@ export const KnowledgeGraphView: React.FC = () => {
       }
 
       if (!hasActualFileData && textbook.localFiles.length > 0) {
-        showMessage(`《${node.name}》学习资源未下载，请先下载教材资源`, 'warning')
+        return { hasPackages: false, reason: 'not_downloaded' }
+      }
+
+      const hasLearningPackages = Boolean(
+        textbook.learningPackages && textbook.learningPackages.length > 0
+      )
+      if (!hasLearningPackages) {
+        return { hasPackages: false, reason: 'no_packages' }
+      }
+
+      return { hasPackages: true, reason: 'no_packages' }
+    } catch (error) {
+      console.error('检查本地学习方案失败:', error)
+      return { hasPackages: false, reason: 'error' }
+    }
+  }
+
+  const actionLearn = async (node: { id: string; name: string; level?: number }) => {
+    const textbookRecordId = getCurrentTextbookId() || ''
+    try {
+      if (!textbookRecordId) {
+        console.warn('教材ID为空，无法检查学习方案')
+        showNoLearningPackagesAlert(node.name)
         return
       }
 
-      if (!textbook.learningPackages?.length) {
-        showMessage(`《${node.name}》暂无学习方案，请选择其他知识点进行学习`, 'warning')
+      // 检查本地学习方案
+      const checkResult = await loadNodeLearningResources(textbookRecordId)
+
+      // 如果没有学习方案，提示错误
+      if (!checkResult.hasPackages) {
+        if (checkResult.reason === 'not_downloaded') {
+          showNotDownloadedAlert(node.name)
+        } else if (checkResult.reason === 'no_packages') {
+          showNoLearningPackagesAlert(node.name)
+        } else {
+          showErrorAlert(node.name)
+        }
         return
       }
 
@@ -550,6 +686,21 @@ export const KnowledgeGraphView: React.FC = () => {
       setLearningDialogVisible(true)
     } catch (error) {
       console.error('检查学习方案失败:', error)
+      // 检查失败时仍然允许打开空数据学习对话框
+      if (selectedTextbook) {
+        const currentOption = textbookOptions.find(opt => opt.value === selectedTextbook)
+        setLearningDialogData({
+          nodeId: node.id,
+          sectionName: node.name,
+          level: node.level ?? 0,
+          textbookId: textbookRecordId,
+          chapterGrade: currentOption?.grade || '',
+          chapterSubject: currentOption?.subject || '',
+          chapterTextbook: currentOption ? currentOption.label.split(' ').slice(3).join(' ') : '',
+          chapterTitle: node.name,
+        })
+        setLearningDialogVisible(true)
+      }
     }
   }
 
@@ -567,7 +718,7 @@ export const KnowledgeGraphView: React.FC = () => {
       const subjectForApi = (selectedSubject || 'math') as ApiSubjectType
       const shijingshanBmNoList = await queryShijingshanBmNoList(textbookId, node.id, node.name, subjectForApi)
 
-      if (shijingshanBmNoList?.trim()) {
+      if (shijingshanBmNoList && shijingshanBmNoList.trim()) {
         navigate({
           pathname: '/find-exercise',
           search: `?bmNoList=${shijingshanBmNoList.trim()}&subject=${subjectForApi}&token=${getScopedStorageValue('token') || ''}`
@@ -588,9 +739,10 @@ export const KnowledgeGraphView: React.FC = () => {
     } catch (error: any) {
       if (error?.code === 'NO_QUESTIONS') {
         showMessage(error.message, 'warning')
-      } else {
-        showMessage('查询知识点失败，请重试', 'error')
+        return
       }
+      console.error('查询知识点ID失败:', error)
+      showMessage('查询知识点失败，请重试', 'error')
     }
   }
 
@@ -598,7 +750,16 @@ export const KnowledgeGraphView: React.FC = () => {
     const currentIdx = getCurrentChapter()
     if (currentIdx !== result.chapterIndex) {
       setCurrentChapter(result.chapterIndex)
-      setSelectedChapterDetails(chapterStructure[result.chapterIndex])
+      
+      // 等待章节切换完成
+      await new Promise(r => setTimeout(r, 0))
+
+      // 更新selectedChapterDetails
+      if (chapterStructure && chapterStructure.length > result.chapterIndex) {
+        setSelectedChapterDetails(chapterStructure[result.chapterIndex])
+      }
+      
+      // 再次等待DOM/状态更新
       await new Promise(r => setTimeout(r, 0))
     }
 
@@ -615,9 +776,9 @@ export const KnowledgeGraphView: React.FC = () => {
 
     if (result.node.level === 1) {
       targetNodeId = result.node.id
-    } else if (result.node.level && result.node.level > 1) {
+    } else if (result.node.level !== null && result.node.level > 1) {
       let current: ChapterNode | null = result.node
-      while (current && current.level !== 1) {
+      while (current && current.level !== 1 && current.level !== null) {
         if (!current.parentId) break
         const findParent = (nodes: ChapterNode[]): ChapterNode | null => {
           for (const n of nodes) {
@@ -638,62 +799,119 @@ export const KnowledgeGraphView: React.FC = () => {
       const exists = subChapters.some(s => s.id === targetNodeId)
       if (exists) {
         setCurrentChapterExpandedGraph(targetNodeId)
-        if (knowledgeGraphRef.current?.focusOnNodeId) {
-          knowledgeGraphRef.current.focusOnNodeId(targetNodeId, true)
-        }
+        
+        // 等待状态更新
+        await new Promise(r => setTimeout(r, 0))
+
+        selectNode(targetNodeId, true)
         setSearchQuery('')
       }
     }
   }
 
-  // 初始化 useEffect
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true)
-      cleanupExpiredCache()
+  // 初始化相关逻辑
+  const handleRouteParamsInitialization = useCallback(async (): Promise<boolean> => {
+    const initSubject = searchParams.get('initSubject')
+    const initTextbookId = searchParams.get('initTextbookId')
+    const hasRouteInitParams = !!(initSubject || initTextbookId)
+
+    if (!hasRouteInitParams) {
+      return false
+    }
+
+    console.log(`[KnowledgeGraph] 使用路由参数进行初始化: initSubject=${initSubject}, initTextbookId=${initTextbookId}`)
+
+    await syncSubjectTextbookChapter({
+      subjectValue: initSubject || undefined,
+      preferredTextbookId: initTextbookId || undefined,
+      preferredTextbookValue: selectedTextbook,
+      preferredChapterIndex: currentChapterIndex,
+      preferredChapterId: selectedChapterDetails?.id,
+    })
+
+    return true
+  }, [searchParams, selectedTextbook, currentChapterIndex, selectedChapterDetails])
+
+  const handleStateRestoration = useCallback(async (): Promise<boolean> => {
+    const savedState = restorePageState()
+    if (!savedState) {
+      return false
+    }
+
+    try {
+      setSelectedSubject(normalizeApiSubject(savedState.selectedSubject))
+      setChapters(savedState.chapters)
+      setChapterStructure(savedState.chapterStructure)
+      setTextbookOptions(savedState.textbookOptions || [])
+      setSelectedTextbook(savedState.selectedTextbook)
+
+      await syncSubjectTextbookChapter({
+        subjectValue: savedState.selectedSubject || 'math',
+        preferredTextbookValue: savedState.selectedTextbook,
+        preferredChapterIndex: savedState.selectedChapterIndex,
+        preferredChapterId: savedState.selectedChapterDetails?.id,
+      })
       
-      const initSubject = searchParams.get('initSubject')
-      const initTextbookId = searchParams.get('initTextbookId')
-      
-      const savedState = restorePageState()
-      
-      if (initSubject || initTextbookId) {
-        await syncSubjectTextbookChapter({
-          subjectValue: initSubject || undefined,
-          preferredTextbookId: initTextbookId || undefined,
-          preferredTextbookValue: selectedTextbook,
-          preferredChapterIndex: getCurrentChapter(),
-          preferredChapterId: selectedChapterDetails?.id,
-        })
-      } else if (savedState) {
-        setSelectedSubject(normalizeApiSubject(savedState.selectedSubject))
-        setChapters(savedState.chapters)
-        setChapterStructure(savedState.chapterStructure)
-        setTextbookOptions(savedState.textbookOptions || [])
-        setSelectedTextbook(savedState.selectedTextbook)
-        
-        await syncSubjectTextbookChapter({
-          subjectValue: savedState.selectedSubject || 'math',
-          preferredTextbookValue: savedState.selectedTextbook,
-          preferredChapterIndex: savedState.selectedChapterIndex,
-          preferredChapterId: savedState.selectedChapterDetails?.id,
-        })
-      } else {
-        await syncSubjectTextbookChapter({
-          subjectValue: getCurrentSubject() || 'math',
-          preferredTextbookId: getCurrentTextbook() || undefined,
-          preferredTextbookValue: selectedTextbook,
-          preferredChapterIndex: getCurrentChapter(),
-          preferredChapterId: selectedChapterDetails?.id,
-        })
+      // 恢复章节状态
+      if (
+        savedState.selectedChapterIndex >= 0 &&
+        savedState.selectedChapterIndex < savedState.chapterStructure.length
+      ) {
+        setCurrentChapter(savedState.selectedChapterIndex)
+        setSelectedChapterDetails(savedState.selectedChapterDetails)
+
+        // 恢复展开的知识图谱状态
+        if (savedState.selectedChapterDetails) {
+          const subChapters = getSubChapters(savedState.selectedChapterDetails)
+          if (subChapters.length > 0) {
+            const previousExpandedGraph = getCurrentChapterExpandedGraph()
+            if (previousExpandedGraph && subChapters.some((sub) => sub.id === previousExpandedGraph)) {
+              setCurrentChapterExpandedGraph(previousExpandedGraph)
+            }
+          }
+        }
       }
-      
+      return true
+    } catch (error) {
+      console.error('❌ [KnowledgeGraphView] 状态恢复失败:', error)
+      return false
+    }
+  }, [normalizeApiSubject, restorePageState, getSubChapters, getCurrentChapterExpandedGraph, setCurrentChapterExpandedGraph, setCurrentChapter])
+
+  const handleDefaultInitialization = useCallback(async (): Promise<void> => {
+    await syncSubjectTextbookChapter({
+      subjectValue: getCurrentSubject() || 'math',
+      preferredTextbookId: getCurrentTextbook() || undefined,
+      preferredTextbookValue: selectedTextbook,
+      preferredChapterIndex: currentChapterIndex,
+      preferredChapterId: selectedChapterDetails?.id,
+    })
+  }, [getCurrentSubject, getCurrentTextbook, selectedTextbook, currentChapterIndex, selectedChapterDetails])
+
+  const initGraph = useCallback(async () => {
+    setLoading(true)
+    try {
+      cleanupExpiredCache()
+
+      const routeHandled = await handleRouteParamsInitialization()
+      if (routeHandled) return
+
+      const stateRestored = await handleStateRestoration()
+      if (stateRestored) return
+
+      await handleDefaultInitialization()
+    } catch (error) {
+      console.error('❌ [KnowledgeGraphView] 图谱初始化失败:', error)
+    } finally {
       checkAndOpenLearningDialog()
       setLoading(false)
     }
-    init()
+  }, [handleRouteParamsInitialization, handleStateRestoration, handleDefaultInitialization])
+
+  // 初始化 useEffect
+  useEffect(() => {
+    initGraph()
     
-    const userId = getUserId()
     const lastNodeKey = getScopedStorageKey('LAST_LEARNED_NODE_ID')
     const lastNode = localStorage.getItem(lastNodeKey)
     setLastLearnedNodeId(lastNode)
@@ -703,23 +921,48 @@ export const KnowledgeGraphView: React.FC = () => {
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      
+      // 保存页面状态
+      const state = {
+        selectedSubject,
+        selectedTextbook,
+        selectedChapterIndex: currentChapterIndex,
+        selectedChapterDetails,
+        chapters,
+        chapterStructure,
+        textbookOptions,
+      }
+      savePageState(state)
     }
-  }, [])
+  }, [initGraph, selectedSubject, selectedTextbook, currentChapterIndex, selectedChapterDetails, chapters, chapterStructure, textbookOptions, savePageState])
 
   // 状态自动保存
   useEffect(() => {
     if (!loading) {
-      savePageState({
+      const currentState = JSON.stringify({
         selectedSubject,
         selectedTextbook,
-        selectedChapterIndex: getCurrentChapter(),
+        selectedChapterIndex: currentChapterIndex,
         selectedChapterDetails,
         chapters,
         chapterStructure,
         textbookOptions,
       })
+
+      if (currentState !== lastSavedStateRef.current) {
+        savePageState({
+          selectedSubject,
+          selectedTextbook,
+          selectedChapterIndex: currentChapterIndex,
+          selectedChapterDetails,
+          chapters,
+          chapterStructure,
+          textbookOptions,
+        })
+        lastSavedStateRef.current = currentState
+      }
     }
-  }, [selectedSubject, selectedTextbook, selectedChapterDetails, chapters, chapterStructure, textbookOptions, loading, getCurrentChapter, savePageState])
+  }, [selectedSubject, selectedTextbook, selectedChapterDetails, chapters, chapterStructure, textbookOptions, loading, currentChapterIndex, savePageState])
 
   const convertBrackets = (text: string): string => {
     return text.replace(/【/g, '[').replace(/】/g, ']')
@@ -757,9 +1000,7 @@ export const KnowledgeGraphView: React.FC = () => {
             className="subject-select"
             placeholder="请选择学科"
             onChange={(val) => {
-              const subject = String(val)
-              setSelectedSubject(subject as ApiSubjectType)
-              syncSubjectTextbookChapter({ subjectValue: subject, preferredTextbookValue: '' })
+              onSubjectChange(String(val))
             }}
           />
         </div>
@@ -773,13 +1014,7 @@ export const KnowledgeGraphView: React.FC = () => {
               placeholder="请选择教材"
               renderLabel={() => selectedTextbookLabel}
               onChange={(val) => {
-                const value = String(val)
-                setSelectedTextbook(value)
-                const opt = textbookOptions.find(o => o.value === value)
-                if (opt) {
-                  setCurrentTextbook(opt.textbookId)
-                  loadChaptersForTextbook(opt.textbookId)
-                }
+                onTextbookChange(String(val))
               }}
             />
           </div>
@@ -822,17 +1057,16 @@ export const KnowledgeGraphView: React.FC = () => {
           ) : filteredChapters.length === 0 ? (
             <div className="empty-chapters">
               <div className="empty-text">未下载任何教材</div>
+              <button className="go-resources-btn" onClick={() => navigate('/app/my-resources')}>
+                去下载教材
+              </button>
             </div>
           ) : (
             filteredChapters.map((item) => (
               <div
                 key={item.index}
-                className={`chapter-item touch-target ${getCurrentChapter() === item.index ? 'active' : ''}`}
-                onClick={() => {
-                  if (getCurrentChapter() === item.index) return
-                  setCurrentChapter(item.index)
-                  setSelectedChapterDetails(chapterStructure[item.index])
-                }}
+                className={`chapter-item touch-target ${currentChapterIndex === item.index ? 'active' : ''}`}
+                onClick={() => onChapterClick(item.index)}
               >
                 <span className="chapter-text">{highlightText(convertBrackets(item.chapter))}</span>
               </div>

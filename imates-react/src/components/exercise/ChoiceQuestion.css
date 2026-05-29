@@ -6,69 +6,73 @@
 
 .option-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding: 12px 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #eee;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   gap: 12px;
+  position: relative;
 }
 
 .option-item:hover:not(.selected) {
-  border-color: #6e55ff;
-  background: #f8f5ff;
+  background: #f9f9ff;
+  border-color: #615efe;
 }
 
 .option-item.selected {
-  border-color: #6e55ff;
-  background: #f5f0ff;
-}
-
-.option-item.correct {
-  border-color: #4caf50;
-  background: #e8f5e9;
-}
-
-.option-item.wrong {
-  border-color: #f44336;
-  background: #ffebee;
+  background: #f0f0ff;
+  border-color: #615efe;
 }
 
 .option-label {
   width: 28px;
   height: 28px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: #f0f0f0;
   font-weight: 600;
-  font-size: 14px;
+  color: #666;
   flex-shrink: 0;
 }
 
 .option-item.selected .option-label {
-  background: #6e55ff;
+  background: #615efe;
   color: white;
-}
-
-.option-item.correct .option-label {
-  background: #4caf50;
-  color: white;
-}
-
-.option-item.wrong .option-label {
-  background: #f44336;
-  color: white;
+  border-color: #615efe;
 }
 
 .option-text {
   flex: 1;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;
 }
 
 .option-status-icon {
-  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.option-item.correct {
+  border-color: #22c55e;
+  background: #f0fff4;
+}
+
+.option-item.correct .option-label {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: white;
+}
+
+.option-item.wrong {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.option-item.wrong .option-label {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: white;
 }

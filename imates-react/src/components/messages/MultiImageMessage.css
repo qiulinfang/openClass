@@ -1,104 +1,49 @@
 .multi-image-message {
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.multi-image-message.ai {
-  background: rgba(255, 255, 255, 0.8);
-}
-
-.multi-image-message.user {
-  background: rgba(255, 255, 255, 0.15);
+  max-width: 260px;
 }
 
 .multi-image-grid {
   display: grid;
-  gap: 4px;
-}
-
-.grid-1 {
-  grid-template-columns: 1fr;
-}
-
-.grid-2 {
-  grid-template-columns: 1fr 1fr;
-}
-
-.grid-3 {
-  grid-template-columns: 2fr 1fr;
-  grid-template-rows: 1fr 1fr;
-}
-
-.grid-3 .multi-image-item:first-child {
-  grid-row: 1 / 3;
-}
-
-.grid-4 {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-}
-
-.grid-many {
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 6px;
+  max-width: 260px;
 }
 
 .multi-image-item {
   position: relative;
   overflow: hidden;
   border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  aspect-ratio: 1 / 1;
   min-height: 80px;
-}
-
-.multi-image-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  cursor: pointer;
   transition: transform 0.2s ease;
 }
 
-.multi-image-item:hover img {
-  transform: scale(1.05);
+.multi-image-item:hover {
+  transform: scale(1.02);
 }
 
-.grid-many .multi-image-item:nth-child(9) .more-overlay {
-  display: flex;
-}
-
-.more-overlay {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-size: 24px;
-  font-weight: bold;
-  align-items: center;
-  justify-content: center;
+.multi-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .multi-image-text {
-  padding: 10px 12px;
+  margin-top: 8px;
   font-size: 14px;
-  line-height: 1.5;
-}
-
-.multi-image-message.ai .multi-image-text {
-  color: #374151;
+  line-height: 1.4;
+  color: inherit;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .multi-image-message.user .multi-image-text {
-  color: white;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-/* 预览 */
+/* 预览相关 */
 .multi-image-preview {
   position: fixed;
   top: 0;
@@ -145,20 +90,18 @@
   width: 50px;
   height: 50px;
   border: none;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.2s;
 }
 
-.preview-nav.prev {
-  left: 20px;
-}
-
-.preview-nav.next {
-  right: 20px;
+.preview-nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .preview-nav:disabled {
@@ -166,11 +109,17 @@
   cursor: not-allowed;
 }
 
+.preview-nav.prev { left: 20px; }
+.preview-nav.next { right: 20px; }
+
 .preview-counter {
   position: absolute;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 12px;
+  border-radius: 20px;
   font-size: 14px;
 }

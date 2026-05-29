@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react'
+import React, { useMemo, useCallback, useEffect, useState } from 'react'
 import { BaseQuestion, type ExerciseItem } from '@/components/exercise/BaseQuestion'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
 import '@/components/exercise/FillBlankQuestion.css'
 
 export interface FillBlankQuestionProps {
@@ -19,43 +20,70 @@ export const FillBlankQuestion: React.FC<FillBlankQuestionProps> = ({
   disabled = false,
   onChange,
 }) => {
-  const [answers, setAnswers] = useState<string[]>(modelValue)
+  const { renderMessageContent } = useMessageRenderer()
+  const [internalAnswers, setInternalAnswers] = useState<string[]>(modelValue)
+
+  useEffect(() => {
+    setInternalAnswers(modelValue)
+  }, [modelValue])
 
   const parsedParts = useMemo(() => {
-    const stem = question.structuredContent?.stem || question.question || ''
-    const parts: Array<{ type: 'text' | 'blank'; content?: string; blankIndex?: number }> = []
-    const blankCount = (stem.match(/_____/g) || []).length
+    const isChoice = question.type === 'single_choice' || question.type === 'multiple_choice'
+    const stem = (!isChoice && question.questionContent)
+      ? question.questionContent
+      : (question.structuredContent?.stem || question.title || '')
+      
+    const regex = /\[blank_\d+\]/g
+    const parts: Array<{ type: 'text' | 'blank', content?: string, blankIndex: number }> = []
     
     let lastIndex = 0
-    let blankIndex = 0
-    const regex = /_____+/g
+    let blankCount = 0
     let match
-    
+
     while ((match = regex.exec(stem)) !== null) {
+      // 添加文本部分
       if (match.index > lastIndex) {
-        parts.push({ type: 'text', content: stem.slice(lastIndex, match.index) })
+        parts.push({
+          type: 'text',
+          content: stem.substring(lastIndex, match.index),
+          blankIndex: -1
+        })
       }
-      parts.push({ type: 'blank', blankIndex: blankIndex++ })
-      lastIndex = match.index + match[0].length
+      // 添加填空部分
+      parts.push({
+        type: 'blank',
+        blankIndex: blankCount++
+      })
+      lastIndex = regex.lastIndex
     }
-    
+
+    // 添加剩余文本
     if (lastIndex < stem.length) {
-      parts.push({ type: 'text', content: stem.slice(lastIndex) })
+      parts.push({
+        type: 'text',
+        content: stem.substring(lastIndex),
+        blankIndex: -1
+      })
     }
-    
+
     return parts
   }, [question])
 
-  const getBlankWidth = (index: number) => {
-    const baseWidth = 100
-    const answerLength = answers[index]?.length || 3
-    return `${Math.max(baseWidth, answerLength * 20)}px`
-  }
+  const getBlankWidth = useCallback((index: number) => {
+    const content = internalAnswers[index] || ''
+    // 计算内容的实际宽度。汉字约 18px，字母/数字约 10px
+    let width = 0
+    for (let i = 0; i < content.length; i++) {
+      width += content.charCodeAt(i) > 127 ? 18 : 10
+    }
+    const minWidth = 80
+    return `${Math.max(minWidth, width + 30)}px`
+  }, [internalAnswers])
 
   const handleInput = (index: number, value: string) => {
-    const newAnswers = [...answers]
+    const newAnswers = [...internalAnswers]
     newAnswers[index] = value
-    setAnswers(newAnswers)
+    setInternalAnswers(newAnswers)
     onChange?.(newAnswers)
   }
 
@@ -69,17 +97,21 @@ export const FillBlankQuestion: React.FC<FillBlankQuestionProps> = ({
         <div className="question-stem-content">
           {parsedParts.map((part, index) => (
             part.type === 'text' ? (
-              <span key={`text-${index}`} className="text-part" dangerouslySetInnerHTML={{ __html: part.content || '' }} />
+              <span 
+                key={`text-${index}`} 
+                className="text-part" 
+                dangerouslySetInnerHTML={{ __html: renderMessageContent(part.content || '') }} 
+              />
             ) : (
               <input
                 key={`blank-${part.blankIndex}`}
                 type="text"
                 className={`blank-input ${disabled ? 'is-disabled' : ''}`}
-                style={{ width: getBlankWidth(part.blankIndex!) }}
+                style={{ width: getBlankWidth(part.blankIndex) }}
                 placeholder="填入"
                 disabled={disabled}
-                value={answers[part.blankIndex!] || ''}
-                onChange={(e) => handleInput(part.blankIndex!, e.target.value)}
+                value={internalAnswers[part.blankIndex] || ''}
+                onChange={(e) => handleInput(part.blankIndex, e.target.value)}
               />
             )
           ))}

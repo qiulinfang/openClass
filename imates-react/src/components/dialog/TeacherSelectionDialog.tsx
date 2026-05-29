@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog } from '@/components/base/Dialog'
 import '@/components/dialog/TeacherSelectionDialog.css'
 
@@ -25,6 +25,12 @@ export const TeacherSelectionDialog: React.FC<TeacherSelectionDialogProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<'biology' | 'math' | null>(null)
 
+  useEffect(() => {
+    if (open) {
+      setSelectedSubject(null)
+    }
+  }, [open])
+
   const handleConfirm = () => {
     if (selectedSubject) {
       onConfirm?.(selectedSubject)
@@ -39,6 +45,10 @@ export const TeacherSelectionDialog: React.FC<TeacherSelectionDialogProps> = ({
     <Dialog 
       open={open} 
       title="选择老师" 
+      confirmButtonText="确定"
+      cancelButtonText="取消"
+      onConfirm={handleConfirm}
+      onCancel={handleCancel}
       onClose={handleCancel}
     >
       <div className="teacher-selection-content">
@@ -50,7 +60,7 @@ export const TeacherSelectionDialog: React.FC<TeacherSelectionDialogProps> = ({
               onClick={() => setSelectedSubject(teacher.subject)}
             >
               <div className="teacher-avatar">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
@@ -58,7 +68,7 @@ export const TeacherSelectionDialog: React.FC<TeacherSelectionDialogProps> = ({
               <div className="teacher-name">{teacher.name}</div>
               {selectedSubject === teacher.subject && (
                 <div className="selection-indicator">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"></polyline>
                   </svg>
                 </div>

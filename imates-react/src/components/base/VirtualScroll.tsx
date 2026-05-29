@@ -72,6 +72,7 @@ export const VirtualScroll = forwardRef<VirtualScrollRef, VirtualScrollProps>(({
     currentTranslateY.current = 0
     setPullProgress(0)
     if (wrapperRef.current) {
+      wrapperRef.current.classList.add('spring-back')
       wrapperRef.current.style.transform = 'translate3d(0, 0, 0)'
     }
   }, [])
@@ -155,53 +156,43 @@ export const VirtualScroll = forwardRef<VirtualScrollRef, VirtualScrollProps>(({
     }
   }, [enableRefresh, refreshThreshold, onRefresh])
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    startDrag(e.touches[0].clientY)
-  }, [startDrag])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    moveDrag(e.touches[0].clientY, e.nativeEvent)
-  }, [moveDrag])
-
-  const handleTouchEnd = useCallback(() => {
-    endDrag()
-  }, [endDrag])
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    startDrag(e.clientY)
-  }, [startDrag])
-
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging.current) {
-        moveDrag(e.clientY, e)
-      }
-    }
+    const el = scrollContainerRef.current
+    if (!el) return
 
-    const handleMouseUp = () => {
-      if (isDragging.current) {
-        endDrag()
-      }
-    }
+    const handleTouchStartRaw = (e: TouchEvent) => startDrag(e.touches[0].clientY)
+    const handleTouchMoveRaw = (e: TouchEvent) => moveDrag(e.touches[0].clientY, e)
+    const handleTouchEndRaw = () => endDrag()
 
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
+    const handleMouseDownRaw = (e: MouseEvent) => startDrag(e.clientY)
+    const handleMouseMoveRaw = (e: MouseEvent) => moveDrag(e.clientY, e)
+    const handleMouseUpRaw = () => endDrag()
+
+    el.addEventListener('touchstart', handleTouchStartRaw, { passive: false })
+    el.addEventListener('touchmove', handleTouchMoveRaw, { passive: false })
+    el.addEventListener('touchend', handleTouchEndRaw)
+    el.addEventListener('touchcancel', handleTouchEndRaw)
+
+    el.addEventListener('mousedown', handleMouseDownRaw)
+    window.addEventListener('mousemove', handleMouseMoveRaw)
+    window.addEventListener('mouseup', handleMouseUpRaw)
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
+      el.removeEventListener('touchstart', handleTouchStartRaw)
+      el.removeEventListener('touchmove', handleTouchMoveRaw)
+      el.removeEventListener('touchend', handleTouchEndRaw)
+      el.removeEventListener('touchcancel', handleTouchEndRaw)
+      el.removeEventListener('mousedown', handleMouseDownRaw)
+      window.removeEventListener('mousemove', handleMouseMoveRaw)
+      window.removeEventListener('mouseup', handleMouseUpRaw)
     }
-  }, [moveDrag, endDrag])
+  }, [startDrag, moveDrag, endDrag])
 
   return (
     <div
       ref={scrollContainerRef}
       className={`rubber-band-scroll-view no-scrollbar ${className}`}
       onScroll={handleScroll}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleMouseDown}
     >
       <div ref={wrapperRef} className="content-wrapper">
         {enableRefresh && (

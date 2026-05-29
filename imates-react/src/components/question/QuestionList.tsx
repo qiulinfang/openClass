@@ -39,34 +39,67 @@ import juyifansanIcon from '/icons/juyifansan.svg'
 import '@/components/question/QuestionList.css'
 
 interface QuestionListProps {
+  // 搜索查询字符串
   searchQuery?: string
+  // 选中的学科过滤器
   selectedSubjectFilter?: string | null
-  externalQuestions?: ExerciseItem[]
+  // 题目列表数据
+  questions?: ExerciseItem[]
+  // 当前选中的题目
+  currentQuestion?: ExerciseItem | null
+  // 是否显示拍照搜题功能
   showPhotoSearch?: boolean
+  // 是否显示发送给AI功能
   showSendToAi?: boolean
+  // 是否显示题目操作按钮
   showQuestionActions?: boolean
+  // 是否显示错题标识
   showMistakeBadge?: boolean
+  // 是否处于加载状态
+  loading?: boolean
+  // 题目列表类型
   type?: QuestionListType
+  // 开始AI辅导的回调
   onStartAiGuidance?: (question: ExerciseItem) => void
+  // 题目被选中的回调
   onQuestionSelected?: (question: ExerciseItem, index: number) => void
+  // 打开微课的回调
   onOpenMiniClass?: (question: ExerciseItem) => void
+  // 查看答案的回调
   onViewAnswer?: () => void
+  // 查看相似题的回调
   onViewSimilar?: () => void
+  // 更新搜索查询的回调
   'update:searchQuery'?: (value: string) => void
+  // 题目删除的回调
   onQuestionDeleted?: (payload: { questionId: string; withDraft: boolean }) => void
+  // 粘贴到草稿的回调
   onPasteToDraft?: (payload: { dataUrl: string; questionId: string }) => void
+  // 刷新的回调
   onRefresh?: () => void
+  // 移动到顶部的回调
+  onMoveToTop?: (questionId: string) => void
+  // 渲染题目编号额外内容的回调
+  renderQuestionNumberExtra?: (question: ExerciseItem) => React.ReactNode
+  // 渲染题目状态的回调
+  renderQuestionStatus?: (question: ExerciseItem) => React.ReactNode
+  // 渲染操作按钮额外内容的回调
+  renderActionsAppend?: (question: ExerciseItem) => React.ReactNode
+  // 渲染更多操作额外内容的回调
+  renderMoreExtra?: (question: ExerciseItem, index: number, close: () => void) => React.ReactNode
 }
 
 export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
   const {
     searchQuery: propsSearchQuery,
     selectedSubjectFilter: propsSelectedSubjectFilter,
-    externalQuestions,
+    questions: propsQuestions = [],
+    currentQuestion: propsCurrentQuestion,
     showPhotoSearch = true,
     showSendToAi = true,
     showQuestionActions = true,
     showMistakeBadge = true,
+    loading = false,
     type = 'exercise',
     onStartAiGuidance,
     onQuestionSelected,
@@ -77,16 +110,22 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     onQuestionDeleted,
     onPasteToDraft,
     onRefresh,
+    onMoveToTop,
+    renderQuestionNumberExtra,
+    renderQuestionStatus,
+    renderActionsAppend,
+    renderMoreExtra,
   } = props
 
   const navigate = useNavigate()
   const PAGE_SIZE = 50
-  
+
   // 响应式数据
   const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [loading, setLoading] = useState(true)
   const [renderingQuestions, setRenderingQuestions] = useState(false)
+  // 题目渲染完成状态
+  const [questionRenderedMap, setQuestionRenderedMap] = useState<Map<string, boolean>>(new Map())
   const [favoriteStatus, setFavoriteStatus] = useState<Map<string, boolean>>(new Map())
   const [mistakeStatus, setMistakeStatus] = useState<Map<string, boolean>>(new Map())
   const [deletingIds, setDeletingIds] = useState(new Set<string>())
@@ -118,14 +157,27 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
   const searchQuery = propsSearchQuery !== undefined ? propsSearchQuery || '' : internalSearchQuery
   const selectedSubjectFilter = propsSelectedSubjectFilter || null
 
-  const questions = strategy.getQuestions()
-  const currentQuestion = strategy.getCurrentQuestion()
+  const questions = propsQuestions
+  const currentQuestion = propsCurrentQuestion || strategy.getCurrentQuestion()
 
+  // 拍照搜题处理
+  const currentSubjectForPhotoSearch = useMemo(() => {
+    if (currentQuestion?.subject) {
+      return normalizeSubject(currentQuestion.subject)
+    }
+    if (selectedSubjectFilter) {
+      return normalizeSubject(selectedSubjectFilter)
+    }
+    return 'math'
+  }, [currentQuestion, selectedSubjectFilter])
+
+  // 获取题目唯一标识 ID
   const getQuestionUniqueId = (question: ExerciseItem | null | undefined): string => {
     if (!question) return ''
     return (question.bmNo || question.id || (question as any).questionId || question.title || '').toString()
   }
 
+  // 判断指定题目 ID 是否被选中
   const isQuestionSelected = (questionId: string): boolean => {
     if (!currentQuestion) return false
     return getQuestionUniqueId(currentQuestion) === questionId
@@ -140,6 +192,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     return map
   }, [questions])
 
+  // 获取题目在当前显示列表中的 1-indexed 序号
   const getQuestionDisplayIndex = (questionId: string): number => {
     const idx = questionIndexMap.get(questionId)
     return typeof idx === 'number' ? idx + 1 : 0
@@ -153,7 +206,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     }
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
-      result = result.filter(q => 
+      result = result.filter(q =>
         (q.title && q.title.toLowerCase().includes(query)) ||
         (q.question && q.question.toLowerCase().includes(query))
       )
@@ -162,7 +215,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
   }, [questions, selectedSubjectFilter, searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(filteredQuestions.length / PAGE_SIZE))
-  
+
   const displayedQuestions = useMemo(() => {
     const page = Math.min(currentPage, totalPages)
     const start = (page - 1) * PAGE_SIZE
@@ -171,6 +224,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
 
   const canViewAnswer = aiExerciseStore.canViewAnswer
 
+  // 批量更新题目在本地存储中的错题状态标识
   const updateMistakeStatus = async () => {
     try {
       const allMistakes = await getAllMistakes()
@@ -190,6 +244,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     updateMistakeStatus()
   }, [questions])
 
+  // 从本地存储初始化题目的收藏状态映射
   const initFavoriteStatus = () => {
     const favorites = getFavoriteExercises()
     const statusMap = new Map<string, boolean>()
@@ -201,6 +256,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     initFavoriteStatus()
   }, [])
 
+  // 拦截并阻止 Markdown 内容中链接的默认点击行为
   const handleLinkClick = (event: React.MouseEvent) => {
     const target = event.target as HTMLElement | null
     const linkElement = target?.closest?.('a[href]') as HTMLAnchorElement | null
@@ -210,44 +266,73 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     }
   }
 
-  const handleSearchInput = (value: string) => {
+  // 处理搜索框输入变化，支持受控与非受控模式
+  const handleSearchInput = (value: string | number | null) => {
+    const next = (value || '').toString()
     if (onUpdateSearchQuery) {
-      onUpdateSearchQuery(value)
+      onUpdateSearchQuery(next)
     } else {
-      setInternalSearchQuery(value)
+      setInternalSearchQuery(next)
     }
     setCurrentPage(1)
   }
 
+  // 跳转至拍照搜题页面，并携带当前学科上下文
   const handlePhotoSearch = () => {
-    const subject = currentQuestion?.subject ? normalizeSubject(currentQuestion.subject) : (selectedSubjectFilter ? normalizeSubject(selectedSubjectFilter) : 'math')
+    const subject = currentSubjectForPhotoSearch
     navigate(`/photo-search?subject=${subject}`)
   }
 
+  // 触发选中题目回调事件
   const selectQuestion = async (question: ExerciseItem, index: number) => {
     const realIndex = questionIndexMap.get(getQuestionUniqueId(question)) ?? index
-    await strategy.selectQuestion(realIndex)
-    onQuestionSelected?.(question, realIndex)
+    if (realIndex >= 0 && realIndex < questions.length) {
+      onQuestionSelected?.(question, realIndex)
+    }
   }
 
+  // 选中指定索引题目并将其滚动至可视区域中央
+  const scrollToQuestionAndSelect = async (targetIndex: number) => {
+    if (targetIndex < 0 || targetIndex >= filteredQuestions.length) return
+    const question = filteredQuestions[targetIndex]
+    await selectQuestion(question, targetIndex)
+    setTimeout(() => scrollToCurrentQuestion(targetIndex), 100)
+  }
+
+  // 开启 AI 指导流程（已添加 3 秒节流）
   const sendToAi = useCallback(throttle(async (question: ExerciseItem) => {
     onStartAiGuidance?.(question)
   }, 3000), [onStartAiGuidance])
 
+  // 动态拼接微课链接并打开微课弹窗
   const openMiniClass = (question: ExerciseItem) => {
+    const bmNo = (question.bmNo || '').trim()
+    if (!bmNo) {
+      showMessage('题目编号缺失，无法打开微课', 'warning')
+      return
+    }
+    const subjectPrefix = (question.subject || 'math').toLowerCase()
+    const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
+
+    setMiniClassUrl(classUrl)
+    setMiniClassQuestionTitle(question.title || question.question || '')
+    setShowMiniClassDialog(true)
     onOpenMiniClass?.(question)
   }
 
+  // 弹出查看答案对话框
   const handleViewAnswer = () => {
     setShowAnswerDialog(true)
     onViewAnswer?.()
   }
 
+  // 弹出举一反三（相似题）对话框
   const handleViewSimilar = () => {
     setShowSimilarDialog(true)
     onViewSimilar?.()
   }
 
+  // 切换题目的收藏状态并同步至本地存储
   const toggleFavorite = (item: ExerciseItem) => {
     const id = getQuestionUniqueId(item)
     const isFav = favoriteStatus.get(id) ?? false
@@ -262,10 +347,11 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     }
   }
 
+  // 根据当前策略能力构造更多操作菜单列表
   const buildMoreActions = (question: ExerciseItem, index: number) => {
     const id = getQuestionUniqueId(question)
     const isFav = favoriteStatus.get(id) ?? false
-    
+
     return [
       {
         key: 'pin',
@@ -273,7 +359,11 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         icon: index === 0 ? quxiaozhidingIcon : zhidingIcon,
         visible: strategy.canMoveToTop(),
         onClick: () => {
-          (strategy as any).moveQuestionToTopById?.(id)
+          if (onMoveToTop) {
+            onMoveToTop(id)
+          } else {
+            (strategy as any).moveQuestionToTopById?.(id)
+          }
           setShowMoreMenu(prev => ({ ...prev, [id]: false }))
         }
       },
@@ -301,6 +391,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     ]
   }
 
+  // 执行题目删除逻辑，包括聊天记录和草稿的联动清理
   const handleDeleteConfirm = async () => {
     if (!deleteTargetQuestion) return
     const id = getQuestionUniqueId(deleteTargetQuestion)
@@ -308,8 +399,25 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     try {
       const index = questionIndexMap.get(id)
       if (index !== undefined) {
+        // 如果删除的是当前选中的题目
+        const deletedWasCurrent = getQuestionUniqueId(currentQuestion) === id
+
         await strategy.deleteQuestion(index, { subject: deleteTargetQuestion.subject, deleteChat: deleteWithChat })
+
+        if (deleteWithChat) {
+          await aiExerciseStore.clearChatHistory(id)
+        }
+
         onQuestionDeleted?.({ questionId: id, withDraft: deleteWithDraft })
+
+        // 如果删除的是当前题目且列表还有题目，自动选择第一个题目
+        const remainingQuestions = strategy.getQuestions()
+        if (deletedWasCurrent && remainingQuestions.length > 0) {
+          const newQuestion = remainingQuestions[0]
+          await strategy.selectQuestion(0)
+          onQuestionSelected?.(newQuestion, 0)
+        }
+
         showMessage('删除成功', 'success')
       }
     } catch (err) {
@@ -325,25 +433,17 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     }
   }
 
+  // 处理下拉刷新事件，通知父组件更新数据
   const handlePullDownRefresh = async () => {
-    setLoading(true)
-    try {
-      if (selectedSubjectFilter === null) {
-        await strategy.fetchAllSubjectsQuestions(false)
-      } else {
-        await strategy.fetchQuestions({ subject: selectedSubjectFilter, useLocalFirst: false })
-      }
-      onRefresh?.()
-    } finally {
-      setLoading(false)
-      scrollContainer.current?.finishRefresh()
-    }
+    onRefresh?.()
+    scrollContainer.current?.finishRefresh()
   }
 
+  // 绑定题目卡片 Ref 并监听其高度动态变化
   const setQuestionCardRef = (el: HTMLElement | null, id: string, index: number) => {
     if (!el || questionCardRefs.current.has(id)) return
     questionCardRefs.current.set(id, el)
-    
+
     const observer = new ResizeObserver(entries => {
       entries.forEach(entry => {
         const height = entry.target.getBoundingClientRect().height
@@ -368,6 +468,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     }, 300)
   }
 
+  // 为 Markdown 容器内的所有图片注入点击预览监听器
   const attachImageClickListeners = (container: HTMLElement) => {
     const images = container.querySelectorAll('img')
     images.forEach((img) => {
@@ -380,7 +481,8 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         img.parentNode?.insertBefore(wrapper, img)
         wrapper.appendChild(img)
       }
-      img.style.cursor = 'pointer'
+      img.style.cursor = 'default'
+      // React 版本保留点击预览功能，但将 cursor 设为 default 以对齐 Vue 的样式代码
       img.onclick = (e) => {
         e.stopPropagation()
         setPreviewImageUrl(img.src)
@@ -389,14 +491,23 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     })
   }
 
-  const handleContentRef = (el: HTMLElement | null, id: string) => {
+  // 题目内容挂载回调：执行 MathJax 渲染、图片监听注入及渲染状态记录
+  const handleContentRef = useCallback((el: HTMLElement | null, id: string) => {
     if (el) {
+      if (contentRefs.current.get(id) === el && questionRenderedMap.get(id)) return
+
       contentRefs.current.set(id, el)
-      MathJaxUtils.renderMath(el, false)
+      MathJaxUtils.renderMath(el, false).then(() => {
+        setQuestionRenderedMap(prev => {
+          if (prev.get(id)) return prev
+          return new Map(prev).set(id, true)
+        })
+      })
       attachImageClickListeners(el)
     }
-  }
+  }, [questionRenderedMap, renderMessageContent])
 
+  // 监听题目内容区域的粘贴事件，支持将图片粘贴至草稿本
   const handlePaste = (e: React.ClipboardEvent, questionId: string) => {
     const items = e.clipboardData?.items
     if (!items) return
@@ -416,6 +527,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     }
   }
 
+  // 将当前选中题目（或指定索引题目）平滑滚动至列表中央
   const scrollToCurrentQuestion = (targetIndex?: number) => {
     const indexToScroll = targetIndex !== undefined ? targetIndex : questionIndexMap.get(getQuestionUniqueId(currentQuestion)) ?? -1
     if (indexToScroll < 0 || !scrollContainer.current) return
@@ -429,7 +541,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
       const elementTop = (targetElement as HTMLElement).offsetTop
       const elementHeight = (targetElement as HTMLElement).offsetHeight
       const targetScrollTop = Math.max(0, elementTop - (containerHeight - elementHeight) / 2)
-      
+
       actualContainer.scrollTo({
         top: targetScrollTop,
         behavior: 'smooth',
@@ -441,30 +553,16 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
     scrollToCurrentQuestion,
     handlePullDownRefresh,
     selectQuestion,
+    scrollToQuestionAndSelect,
+    refreshQuestions: handlePullDownRefresh,
+    getSelectedQuestion: () => currentQuestion,
   }))
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [externalQuestions])
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      try {
-        if (selectedSubjectFilter === null) {
-          await strategy.fetchAllSubjectsQuestions(true)
-        } else {
-          await strategy.fetchQuestions({ subject: selectedSubjectFilter || 'math', useLocalFirst: true })
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [selectedSubjectFilter, strategy])
-
   return (
-    <div className="question-list" onClickCapture={handleLinkClick}>
+    /* 1. 主容器：拦截点击冒泡 */
+    <div className="question-list" onClickCapture={handleLinkClick} onClick={(e) => e.stopPropagation()}>
+      
+      {/* 2. 全局加载遮罩 */}
       {(loading || renderingQuestions) && (
         <div className="question-list-loading-overlay">
           <div className="question-list-loading-spinner"></div>
@@ -472,6 +570,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         </div>
       )}
 
+      {/* 3. 搜索与功能顶栏 */}
       <div className="search-container">
         {showPhotoSearch && strategy.canPhotoSearch() && (
           <button className="photo-search-btn" onClick={handlePhotoSearch}>
@@ -490,6 +589,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         </div>
       </div>
 
+      {/* 4. 虚拟滚动题目列表 */}
       <VirtualScroll
         ref={scrollContainer}
         className="question-cards-container"
@@ -497,9 +597,10 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         onRefresh={handlePullDownRefresh}
         loading={renderingQuestions}
       >
+        {/* 4.1 空状态展示 */}
         {displayedQuestions.length === 0 && !loading ? (
           <div className="native-empty-state">
-            <div className="empty-icon">❓</div>
+            <div className="empty-icon">quiz</div>
             <div className="empty-text">
               {searchQuery || selectedSubjectFilter ? strategy.getNoResultText() : strategy.getEmptyText()}
             </div>
@@ -508,6 +609,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
             )}
           </div>
         ) : (
+          /* 4.2 题目卡片列表 */
           <div className="question-cards-list">
             {displayedQuestions.map((question, index) => {
               const id = getQuestionUniqueId(question)
@@ -520,17 +622,21 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
                     onClick={() => selectQuestion(question, index)}
                   >
                     <div className="question-block">
+                      {/* 题目头部：序号、标签、操作按钮 */}
                       <div className="question-header">
                         <div className="question-title-row">
                           <div className="question-number">题目{getQuestionDisplayIndex(id)}</div>
+                          {renderQuestionNumberExtra?.(question)}
                           {showMistakeBadge && mistakeStatus.get(id) && (
                             <div className="mistake-badge">
-                              <span className="badge-icon">⌛</span>
+                              <span className="badge-icon">history</span>
                               <span>往日错题</span>
                             </div>
                           )}
                         </div>
+                        {/* 选中时的功能按钮区 */}
                         <div className="question-actions">
+                          {renderQuestionStatus?.(question)}
                           {isSelected && showQuestionActions && (
                             <>
                               {strategy.canSendToAi() && showSendToAi && (
@@ -546,24 +652,33 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
                               <button
                                 className={`action-btn ${!canViewAnswer ? 'disabled' : ''}`}
                                 disabled={!canViewAnswer}
+                                title={canViewAnswer ? '查看答案' : `需与AI交互${(aiExerciseStore as any).VIEW_ANSWER_CHAT_TIMES || 3}次后可查看`}
                                 onClick={(e) => { e.stopPropagation(); handleViewAnswer(); }}
                               >
-                                <img src={daanIcon} alt="答案" className="action-icon" />
+                                <img src={daanIcon} alt="答案" className={`action-icon ${!canViewAnswer ? 'icon-disabled' : ''}`} />
                               </button>
                               <button className="action-btn" onClick={(e) => { e.stopPropagation(); handleViewSimilar(); }}>
                                 <img src={juyifansanIcon} alt="相似" className="action-icon" />
                               </button>
+                              {/* 更多菜单：置顶、收藏、删除 */}
                               <BubblePopup
                                 visible={showMoreMenu[id]}
                                 onVisibleChange={(visible) => setShowMoreMenu(prev => ({ ...prev, [id]: visible }))}
-                                content={<ActionList items={buildMoreActions(question, index)} />}
+                                content={
+                                  <div className="action-list-wrapper">
+                                    <ActionList items={buildMoreActions(question, index)} />
+                                    {renderMoreExtra?.(question, index, () => setShowMoreMenu(prev => ({ ...prev, [id]: false })))}
+                                  </div>
+                                }
                               >
                                 <button className="action-btn more-btn" onClick={(e) => e.stopPropagation()}>⋮</button>
                               </BubblePopup>
+                              {renderActionsAppend?.(question)}
                             </>
                           )}
                         </div>
                       </div>
+                      {/* 题目正文：Markdown 解析 + 公式渲染 */}
                       <div className="question-content-area">
                         <div
                           ref={(el) => handleContentRef(el, id)}
@@ -580,6 +695,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
           </div>
         )}
 
+        {/* 4.3 底部分页器 */}
         {totalPages > 1 && (
           <div className="question-pagination">
             <div className="pagination-controls">
@@ -592,12 +708,14 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         )}
       </VirtualScroll>
 
+      {/* 图片全屏预览 */}
       <ImageViewer
         open={showImagePreview}
         onClose={() => setShowImagePreview(false)}
         imageUrl={previewImageUrl}
       />
 
+      {/* 微课视频播放器 */}
       <MiniClass
         open={showMiniClassDialog}
         onClose={() => setShowMiniClassDialog(false)}
@@ -605,6 +723,7 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         questionTitle={miniClassQuestionTitle}
       />
 
+      {/* 题目删除确认 */}
       <Dialog
         open={showDeleteDialog}
         title="确定要删除这道题目吗？"
@@ -615,11 +734,11 @@ export const QuestionList = forwardRef<any, QuestionListProps>((props, ref) => {
         <div className="delete-options">
           <label>
             <input type="checkbox" checked={deleteWithChat} onChange={e => setDeleteWithChat(e.target.checked)} />
-            同时删除对话记录
+            同时删除该题目的对话记录
           </label>
           <label>
             <input type="checkbox" checked={deleteWithDraft} onChange={e => setDeleteWithDraft(e.target.checked)} />
-            同时删除草稿
+            同时删除该题目的草稿
           </label>
         </div>
       </Dialog>
