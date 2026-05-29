@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import './SplitPanel.css'
 
 export interface SplitPanelProps {
+  mode?: 'left' | 'right'
   initialMode?: 'left' | 'right'
   leftConfig?: [number, number, number]
   centerConfig?: [number, number, number]
@@ -9,12 +10,15 @@ export interface SplitPanelProps {
   showSplitters?: boolean
   transitionDuration?: number
   transitionEasing?: string
+  disabled?: boolean
+  onModeChange?: (mode: 'left' | 'right') => void
   left?: (props: { width: number; percent: number; isVisible: boolean }) => React.ReactNode
   center?: (props: { width: number; percent: number }) => React.ReactNode
   right?: (props: { width: number; percent: number; isVisible: boolean }) => React.ReactNode
 }
 
 export const SplitPanel: React.FC<SplitPanelProps> = ({
+  mode: controlledMode,
   initialMode = 'left',
   leftConfig = [30, 20, 50],
   centerConfig = [40, 20, 60],
@@ -22,11 +26,15 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
   showSplitters = true,
   transitionDuration = 0.3,
   transitionEasing = 'cubic-bezier(0.4, 0, 0.2, 1)',
+  disabled = false,
+  onModeChange,
   left,
   center,
   right,
 }) => {
-  const [mode, setMode] = useState(initialMode)
+  const [internalMode, setInternalMode] = useState(initialMode)
+  const mode = controlledMode !== undefined ? controlledMode : internalMode
+
   const [containerWidth, setContainerWidth] = useState(0)
   const [offsetX, setOffsetX] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -64,12 +72,16 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
   }, [mode, w1Px, w2Px])
 
   const handleDrag1 = useCallback(() => {
-    setMode('left')
-  }, [])
+    if (disabled) return
+    if (controlledMode === undefined) setInternalMode('left')
+    onModeChange?.('left')
+  }, [disabled, controlledMode, onModeChange])
 
   const handleDrag2 = useCallback(() => {
-    setMode('right')
-  }, [])
+    if (disabled) return
+    if (controlledMode === undefined) setInternalMode('right')
+    onModeChange?.('right')
+  }, [disabled, controlledMode, onModeChange])
 
   const handlePointerUp = useCallback(() => {
     setIsDragging(false)

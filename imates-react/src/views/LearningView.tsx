@@ -8,15 +8,29 @@ export interface LearningPackage {
 }
 
 export interface LearningViewProps {
-  visible?: boolean
-  sectionName?: string
+  isOpen?: boolean
   onClose?: () => void
+  nodeId: string
+  sectionName: string
+  level: number
+  textbookId: string
+  chapterGrade?: string
+  chapterSubject?: string
+  chapterTextbook?: string
+  chapterTitle?: string
 }
 
 export const LearningView: React.FC<LearningViewProps> = ({
-  visible = false,
-  sectionName = '学习',
+  isOpen = false,
   onClose,
+  nodeId,
+  sectionName,
+  level,
+  textbookId,
+  chapterGrade,
+  chapterSubject,
+  chapterTextbook,
+  chapterTitle,
 }) => {
   const [loadingPackages] = useState(false)
   const [selectedSchemeIndex, setSelectedSchemeIndex] = useState(0)
@@ -36,7 +50,7 @@ export const LearningView: React.FC<LearningViewProps> = ({
     console.log('[LearningView] 更新难度', id, value)
   }
 
-  if (!visible) return null
+  if (!isOpen) return null
 
   return (
     <div className="learning-modal-overlay">

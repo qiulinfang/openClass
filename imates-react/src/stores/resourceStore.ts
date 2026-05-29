@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 
 interface ResourceState {
+  lastUpdateCheckTime: number | null
+  lastUpdateTime: number | null
   hasResourceNotification: boolean
-  updateCheckCompleted: boolean
-  textbookUpdatedTrigger: number
   
   setHasResourceNotification: (has: boolean) => void
   markUpdateCheckCompleted: () => void
@@ -11,11 +11,11 @@ interface ResourceState {
 }
 
 export const useResourceStore = create<ResourceState>((set) => ({
+  lastUpdateCheckTime: null,
+  lastUpdateTime: null,
   hasResourceNotification: false,
-  updateCheckCompleted: false,
-  textbookUpdatedTrigger: 0,
   
   setHasResourceNotification: (has) => set({ hasResourceNotification: has }),
-  markUpdateCheckCompleted: () => set({ updateCheckCompleted: true }),
-  markTextbookUpdated: () => set((state) => ({ textbookUpdatedTrigger: state.textbookUpdatedTrigger + 1 }))
+  markUpdateCheckCompleted: () => set({ lastUpdateCheckTime: Date.now() }),
+  markTextbookUpdated: () => set({ lastUpdateTime: Date.now() })
 }))

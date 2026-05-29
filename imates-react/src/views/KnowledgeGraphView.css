@@ -1,123 +1,373 @@
 .knowledge-graph-content {
-  width: 100%;
-  height: 100vh;
   display: flex;
+  height: 100vh;
+  background-repeat: no-repeat;
+  background-position: center center;
   background-size: cover;
-  background-position: center;
+  background-attachment: fixed;
 }
 
+/* 第二列：章节目录/内容导航（中间） */
 .chapter-sidebar {
-  width: 280px;
-  background: rgba(15, 0, 46, 0.9);
+  width: 35%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  position: relative;
 }
 
-.subject-header {
+.chapter-sidebar .subject-header {
+  flex-shrink: 0;
+  margin-top: 16px;
+  padding: 15px 15px;
+  margin: 2px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border-radius: 12px;
+  font-family: 'PingFang SC', sans-serif;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  min-height: 85px;
 }
 
 .subject-icon {
-  width: 24px;
-  height: 24px;
+  width: 98px;
+  height: 79px;
 }
 
-.subject-select,
-.textbook-select {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  font-size: 14px;
-  outline: none;
+.subject-select {
+  width: fit-content;
 }
 
-.subject-select option,
-.textbook-select option {
-  background: #0f002e;
-  color: white;
+/* Select component deep overrides in React are different, but we'll try to match the intent */
+.subject-select .select-label {
+  font-size: 36px;
+  color: #ffffff;
+  font-weight: 900;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, '黑体', sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.subject-select .select-trigger {
+  background-color: transparent;
+  border: none;
+}
+
+.subject-select .select-icon {
+  filter: brightness(0) invert(1);
 }
 
 .textbook-info {
-  margin-bottom: 16px;
+  flex-shrink: 0;
+  margin: 14px 20px;
 }
 
+.textbook-select {
+  width: 100%;
+}
+
+.textbook-info .select-trigger {
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(227, 224, 235, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.textbook-info .select-trigger:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.textbook-info .select-label {
+  width: 254px;
+  font-size: 19px;
+  color: #ffffff;
+  font-weight: 350;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  height: 22px;
+}
+
+/* 搜索框样式 */
 .chapter-search {
+  padding: 6px 5px;
+  margin: 14px 20px;
+  border-radius: 12px;
+  font-family: 'PingFang SC', sans-serif;
+}
+
+.search-input-wrapper {
   position: relative;
-  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(227, 224, 235, 0.3);
+  min-height: 44px;
+  transition: all 0.2s ease;
+}
+
+.search-input-wrapper:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(227, 224, 235, 0.4);
+}
+
+.search-input-wrapper:focus-within {
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.search-icon-prepend {
+  padding-left: 12px;
+  color: white;
+  font-size: 16px;
 }
 
 .search-input {
-  width: 100%;
-  padding: 10px 12px;
-  padding-right: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  font-size: 14px;
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-size: 16px;
   outline: none;
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .clear-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: none;
   color: white;
-  font-size: 18px;
+  padding-right: 12px;
   cursor: pointer;
+  font-size: 18px;
 }
 
+/* 章节列表 */
 .chapter-list {
   flex: 1;
   overflow-y: auto;
+  scroll-behavior: smooth;
+  margin-top: 16px;
 }
 
 .empty-chapters {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100px;
-  color: rgba(255, 255, 255, 0.5);
+  padding: 40px 20px;
+  color: #9ca3af;
 }
 
-.chapter-item {
-  padding: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  margin-bottom: 4px;
-}
-
-.chapter-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.chapter-item.active {
-  background: rgba(110, 85, 255, 0.5);
-}
-
-.chapter-name {
-  color: white;
+.empty-text {
+  margin-top: 12px;
   font-size: 14px;
 }
 
-.graph-area {
+.chapter-item {
+  padding: 11px 15px;
+  margin: 2px 20px;
+  cursor: pointer;
+  position: relative;
+  border-radius: 12px;
+  font-family: 'PingFang SC', sans-serif;
+  height: 50px;
+  width: 313px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+.chapter-item:active {
+  transform: scale(0.98);
+}
+
+.chapter-item.active {
+  background-color: #e0dbff;
+  height: auto;
+  white-space: normal;
+  min-height: 44px;
+  max-height: 80px;
+  align-items: flex-start;
+  padding-top: 11px;
+}
+
+.chapter-item.active .chapter-text {
+  color: #393548;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chapter-text {
+  font-size: 19px;
+  font-weight: 500;
+  color: #9e9aad;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 搜索高亮 */
+.search-highlight {
+  background: rgba(255, 215, 0, 0.4);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* 搜索结果项 */
+.chapter-item.search-result-item {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 15px;
+  height: auto;
+  min-height: 60px;
+  margin: 8px 20px;
+  white-space: normal;
+  overflow: visible;
+}
+
+.search-result-content {
+  width: 100%;
+}
+
+.search-result-node {
+  font-size: 18px;
+  font-weight: 500;
+  color: #393548;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.search-result-chapter {
+  font-size: 14px;
+  color: #9ca3af;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* 第三列：核心内容/知识图谱 */
+.main-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+}
+
+/* 右上角工具栏 */
+.top-right-toolbar {
+  position: absolute;
+  top: 13px;
+  right: 22px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.toolbar-icon-btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.toolbar-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.toolbar-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.toolbar-icon {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+}
+
+/* 知识图谱容器 */
+.circular-graphs-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 底部状态标识 */
+.status-indicators {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 16px 24px;
+  position: relative;
+  z-index: 50;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-icon {
+  width: 30px;
+  height: 30px;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.status-label {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .chapter-sidebar {
+    width: 240px;
+  }
 }

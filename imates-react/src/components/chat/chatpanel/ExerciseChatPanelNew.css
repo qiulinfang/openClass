@@ -1,43 +1,212 @@
-.exercise-chat-panel-new {
+.chat-panel-container {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #fff;
+  background-color: #e8e9ff;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
 }
 
-.exercise-chat-panel-new .panel-header {
+/* 聊天面板头部 */
+.chat-panel-header {
+  background: #e8e9ff;
+  padding-top: 10px;
+  height: 48px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #eee;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
 }
 
-.exercise-chat-panel-new .panel-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
+/* Tab 列表 */
+.tab-list {
+  display: flex;
+  gap: 2px;
 }
 
-.exercise-chat-panel-new .close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  font-size: 24px;
+/* 每个 Tab 项 */
+.tab-item {
+  position: relative;
+  padding: 8px 18px;
+  color: #a19cb6;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
   cursor: pointer;
-  color: #666;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  width: 100px;
 }
 
-.exercise-chat-panel-new .panel-content {
-  flex: 1;
-  overflow: auto;
+/* 激活的 Tab 项 */
+.tab-item.tab-active {
+  background-image: url('/icons/sessionbackfround.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center center;
+  color: #504b64;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  height: 40px;
+  line-height: 24px;
+  width: 100px;
 }
 
-.exercise-chat-panel-new .placeholder {
+/* 激活 Tab 底部下划线 */
+.tab-item.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 3px;
+  background: #6e55ff;
+  border-radius: 2px;
+}
+
+/* Tab hover */
+.tab-item:hover:not(.tab-active) {
+  opacity: 0.85;
+  background: transparent;
+}
+
+/* 关闭按钮 */
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #393548;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.chat-content-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+.tab-content {
   height: 100%;
-  color: #999;
+  border-radius: 20px;
+  background-color: #f7f6ff;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-card-wrapper {
+  flex: 1;
+  overflow: hidden;
+  padding: 12px;
+  min-height: 0;
+}
+
+/* 会话底部操作条样式 */
+.session-bottom-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f7f6ff;
+  z-index: 100;
+  width: 100%;
+}
+
+.chat-snapshot {
+  position: relative;
+  height: 100%;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.snapshot-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.snapshot-bubble {
+  max-width: 88%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.snapshot-bubble.user {
+  align-self: flex-end;
+  background: #6e55ff;
+  color: #ffffff;
+}
+
+.snapshot-bubble.ai {
+  align-self: flex-start;
+  background: #f4f2ff;
+  color: #393548;
+}
+
+.bubble-text {
+  overflow: hidden;
+}
+
+.snapshot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #8e89a3;
+  font-size: 14px;
+}
+
+.snapshot-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, #fff);
+  pointer-events: none;
+}
+
+/* 探索遮罩层 */
+.explore-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(230, 225, 255, 0.75);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  border-radius: 16px;
+}
+
+.explore-icon {
+  position: absolute;
+  width: 120px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.explore-icon.textbookip {
+  right: -60px;
+  bottom: 30%;
+}
+
+.explore-icon.ipWord {
+  right: 13%;
+  bottom: 41%;
+  width: 225px;
+  height: auto;
 }

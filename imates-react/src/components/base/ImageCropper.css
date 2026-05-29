@@ -1,49 +1,60 @@
+.image-crop-overlay.is-inline {
+  position: absolute;
+  z-index: 100;
+}
+
+/* ==================== 全屏矩形框选裁剪样式（对齐 PhotoSearchView） ==================== */
 .image-crop-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.image-crop-overlay.is-inline {
-  position: relative;
-  background: transparent;
+  background: #000;
+  z-index: 12000;
 }
 
 .image-crop-container {
+  width: 100%;
+  height: 100%;
   position: relative;
-  width: 400px;
-  max-width: 90vw;
 }
 
 .crop-container {
+  width: 100%;
+  height: 100%;
   position: relative;
-  background: #1a1a1a;
-  border-radius: 12px;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
 }
 
 .crop-canvas {
-  display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
   cursor: crosshair;
+  touch-action: none;
+  user-select: none;
 }
 
 .crop-canvas.is-dragging {
+  cursor: move;
+}
+
+.crop-canvas.is-drawing {
   cursor: crosshair;
 }
 
+/* 裁剪遮罩 */
 .crop-mask {
   position: absolute;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   pointer-events: none;
+  z-index: 1;
 }
 
 .crop-mask-full {
@@ -51,32 +62,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.crop-hint-box {
-  text-align: center;
-}
-
-.crop-hint-rect {
-  width: 200px;
-  height: 150px;
-  border: 2px dashed rgba(255, 255, 255, 0.5);
-  border-radius: 8px;
-  margin: 0 auto 12px;
-}
-
-.crop-hint-text {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .crop-mask-top {
-  top: 0;
   left: 0;
   right: 0;
+  top: 0;
 }
 
 .crop-mask-bottom {
@@ -85,78 +77,113 @@
 }
 
 .crop-mask-left {
-  position: absolute;
+  top: 0;
 }
 
 .crop-mask-right {
-  position: absolute;
+  top: 0;
 }
 
-.crop-overlay {
+/* 框选提示 */
+.crop-hint-box {
   position: absolute;
-  border: 2px solid #6e55ff;
-  background: transparent;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
 }
 
+.crop-hint-rect {
+  width: 56%;
+  max-width: 420px;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.crop-hint-text {
+  margin-top: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 13px;
+}
+
+/* 框选区域边框 */
+.crop-overlay {
+  position: absolute;
+  background: transparent;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 四个角的 L 形标记 */
 .crop-corner {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  border: 2px solid #6e55ff;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
 }
 
 .crop-corner-nw {
-  top: -6px;
-  left: -6px;
-  border-right: none;
-  border-bottom: none;
+  top: 0;
+  left: 0;
+  border-top: 4px solid #fff;
+  border-left: 4px solid #fff;
 }
 
 .crop-corner-ne {
-  top: -6px;
-  right: -6px;
-  border-left: none;
-  border-bottom: none;
+  top: 0;
+  right: 0;
+  border-top: 4px solid #fff;
+  border-right: 4px solid #fff;
 }
 
 .crop-corner-sw {
-  bottom: -6px;
-  left: -6px;
-  border-right: none;
-  border-top: none;
+  bottom: 0;
+  left: 0;
+  border-bottom: 4px solid #fff;
+  border-left: 4px solid #fff;
 }
 
 .crop-corner-se {
-  bottom: -6px;
-  right: -6px;
-  border-left: none;
-  border-top: none;
+  bottom: 0;
+  right: 0;
+  border-bottom: 4px solid #fff;
+  border-right: 4px solid #fff;
 }
 
+/* 框选模式下的操作按钮（底部居中） */
 .capture-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
+  z-index: 10001;
 }
 
+/* 返回按钮定位 */
 .capture-close-btn {
   position: absolute;
-  top: 12px;
   left: 12px;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+  top: 12px;
+  z-index: 10002;
 }
 
-.capture-close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+/* 返回按钮样式 - 参照 PdfViewerView */
+.goback-btn {
+  padding: 8px;
+}
+
+.goback-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
 }

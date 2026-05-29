@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import type { ChatBubble, AttachedScreenshot } from '../types'
 import type { ChatStrategy, ChatViewInterface } from './chat/strategies/ChatStrategy'
 import { ChatStrategyFactory, type ChatType } from './chat/strategies/ChatStrategyFactory'
@@ -22,6 +22,8 @@ interface ChatViewProps {
   showReadStatus?: boolean
   showTime?: boolean
   hideHistory?: boolean
+  children?: React.ReactNode // 增加此属性
+  compressedHeight?: number
   onResponse?: () => void
   onSwitchToTeacher?: (data: {
     messages: ChatBubble[]
@@ -36,7 +38,7 @@ interface ChatViewProps {
   onNewSessionClick?: () => void
 }
 
-export const ChatView: React.FC<ChatViewProps> = ({
+export const ChatView = forwardRef<any, ChatViewProps>(({
   type,
   resourceId,
   inputMode = 'full',
@@ -49,6 +51,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   showReadStatus = false,
   showTime = false,
   hideHistory = false,
+  children,
   onResponse,
   onSwitchToTeacher,
   onFocus,
@@ -57,7 +60,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSendMessage,
   onScreenshotClick,
   onNewSessionClick,
-}) => {
+}, ref) => {
   const [messages, setMessages] = useState<ChatBubble[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -129,13 +132,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
       setQuotedMessage(null)
       setAttachedScreenshots([])
       onResponse?.()
+      onSendMessage?.(messageContent)
       setTimeout(() => scrollToBottom(), 100)
     } catch (error) {
       console.error('Send message error:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [inputMessage, attachedScreenshots, selectedModel, quotedMessage, onResponse, scrollToBottom])
+  }, [inputMessage, attachedScreenshots, selectedModel, quotedMessage, onResponse, onSendMessage, scrollToBottom])
+
+  useImperativeHandle(ref, () => ({
+    sendMessage,
+    scrollToBottom,
+    setInputMessage: (val: string) => setInputMessage(val),
+    inputMessage
+  }))
 
   const handleMessageClick = useCallback((message: ChatBubble) => {
     if (isSelectionMode) {
@@ -391,6 +402,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
       {!isSelectionMode && (
         <div className="chat-input-area">
+          {children}
           {inputMode === 'full' ? (
             <ChatInputComponent
               value={inputMessage}
@@ -435,6 +447,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
       )}
     </div>
   )
-}
+})
 
 export default ChatView

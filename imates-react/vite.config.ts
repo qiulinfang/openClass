@@ -27,6 +27,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['mupdf'],
+    esbuildOptions: {
+      target: 'esnext',
+    },
   },
   server: {
     middlewareMode: false,
@@ -60,7 +63,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    target: 'es2022',
+    target: 'esnext',
     sourcemap: true,
+  },
+  esbuild: {
+    target: 'esnext',
   },
 })

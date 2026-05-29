@@ -15,7 +15,7 @@ import { Sender } from '../../types/enums'
  * - filePath: 用于发送给Android端（文件路径）
  * - base64DataUrl: 用于前端渲染显示（base64数据）
  */
-export interface ChatImageData {
+export interface ChatImageData { 
   filePath: string
   base64DataUrl?: string  // 可选，用于UI显示
   width?: number

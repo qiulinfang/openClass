@@ -11,6 +11,7 @@ export interface ButtonProps {
   type?: 'button' | 'submit' | 'reset'
   onClick?: (evt: React.MouseEvent) => void
   children?: React.ReactNode
+  className?: string
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -23,6 +24,7 @@ export const Button: React.FC<ButtonProps> = ({
   type = 'button',
   onClick,
   children,
+  className = '',
 }) => {
   const handleClick = (evt: React.MouseEvent) => {
     if (loading || disabled) return
@@ -36,7 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
   if (icon && !label && !children) {
     return (
       <div
-        className={`icon-button ${sizeClass} ${disabled ? 'icon-button--disabled' : ''}`}
+        className={`icon-button ${sizeClass} ${disabled ? 'icon-button--disabled' : ''} ${className}`}
         onClick={handleClick}
       >
         <img src={icon} alt="" className="icon-image" />
@@ -49,7 +51,7 @@ export const Button: React.FC<ButtonProps> = ({
     return (
       <button
         type={type}
-        className={`common-action-btn icon-text-btn ${sizeClass} ${variantClass} ${disabled ? 'icon-text-btn--disabled' : ''}`}
+        className={`common-action-btn icon-text-btn ${sizeClass} ${variantClass} ${disabled ? 'icon-text-btn--disabled' : ''} ${className}`}
         disabled={disabled || loading}
         onClick={handleClick}
       >
@@ -63,7 +65,7 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button
       type={type}
-      className={`common-action-btn ${sizeClass} ${variantClass}`}
+      className={`common-action-btn ${sizeClass} ${variantClass} ${className}`}
       disabled={disabled || loading}
       onClick={handleClick}
     >

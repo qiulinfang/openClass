@@ -64,15 +64,20 @@ export class AiGeneralStrategy implements ChatStrategy {
   
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     const skipUserMessage = !!options.imageData || !!(options.imageList && options.imageList.length > 0) || !!options.skipUserMessage
+    const { getUserInfo, getSubject } = await import('@/services/http/auth-service')
+    const userInfo = getUserInfo()
+    const subject = getSubject()
 
     await this.store.sendMessage(
       content,
+      userInfo,
+      subject,
       options.selectedModel || 'mate',
       skipUserMessage,
       options.quotedMessage as any,
       options.imageData,
       options.imageList,
-      options.focus,
+      options.focus as any,
     )
   }
   
@@ -171,21 +176,21 @@ export class AiGeneralStrategy implements ChatStrategy {
     if (shots.length === 1) {
       return {
         imageData: {
-          filePath: shots[0].filePath,
-          base64DataUrl: shots[0].base64DataUrl,
+          filePath: '', // AttachedScreenshot 不包含 filePath，通常是从 dataUrl 转换或占位
+          base64DataUrl: shots[0].dataUrl,
           width: shots[0].width,
           height: shots[0].height,
-          fileSize: shots[0].fileSize,
+          fileSize: 0,
         }
       }
     }
     return {
       imageList: shots.map(shot => ({
-        filePath: shot.filePath,
-        base64DataUrl: shot.base64DataUrl,
+        filePath: '',
+        base64DataUrl: shot.dataUrl,
         width: shot.width,
         height: shot.height,
-        fileSize: shot.fileSize,
+        fileSize: 0,
       }))
     }
   }
