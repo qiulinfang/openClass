@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAiExerciseChatStore } from '../../../stores/aiExerciseChatStore'
-import { useDraftStore } from '../../../stores/draftStore'
-import { useMessageRenderer } from '../../../composables/useMessageRenderer'
-import ChatView from '../../ChatView'
-import CardStack, { CardStackCard } from '../../base/CardStack'
-import MarkdownTitle from '../../display/MarkdownTitle'
-import Button from '../../base/Button'
-import Dialog from '../../base/Dialog'
+import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
+import { useDraftStore } from '@/stores/draftStore'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
+import ChatView from '@/components/ChatView'
+import CardStack, { CardStackCard } from '@/components/base/CardStack'
+import MarkdownTitle from '@/components/display/MarkdownTitle'
+import Button from '@/components/base/Button'
+import Dialog from '@/components/base/Dialog'
 import { showMessage } from '@/utils'
-import type { ExerciseItem } from '../../../types'
-import './ExerciseChatPanelNew.css'
+import type { ExerciseItem } from '@/types'
+import '@/components/chat/chatpanel/ExerciseChatPanelNew.css'
 
 // 图标资源
 import goBackBlackIcon from '/icons/goback_black.svg'
@@ -28,6 +28,7 @@ export interface ExerciseChatPanelNewProps {
   onOpenTeacherDialog?: (data: { sessionId: string }) => void
   onSwitchToTeacher?: (data: any) => void
   onPasteToDraft?: (payload: any) => void
+  onAddSession?: () => void
   onRequestScreenshot?: (payload: { kind: 'screen_snapshot' | 'pdf_page' }) => void
   onScreenshotClick?: (active: boolean) => void
   onOpenHtmlPreview?: (payload: { url: string; html?: string; sessionId?: string | null }) => void
@@ -41,6 +42,7 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
   onClose,
   onScrollToBottom,
   onSendMessage,
+  onAddSession,
   onSwitchToTeacher,
   onScreenshotClick,
   isExploring = false,
@@ -160,6 +162,7 @@ export const ExerciseChatPanelNew = forwardRef<any, ExerciseChatPanelNewProps>((
     if (questionBmNo) {
       await aiExerciseStore.createNewSession(questionBmNo)
       setActiveTab('ai-chat')
+      onAddSession?.()
     }
   }
 

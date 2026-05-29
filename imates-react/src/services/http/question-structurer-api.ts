@@ -1,4 +1,4 @@
-import { httpClient } from './http-client'
+import { httpClient } from '@/services/http/http-client'
 import { getQuestionStructurerBaseUrl } from '@/config/env-config'
 import type { ApiResponse } from '@/types'
 

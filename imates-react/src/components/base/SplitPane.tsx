@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import './SplitPane.css'
+import '@/components/base/SplitPane.css'
 
 export interface SplitPaneProps {
   value?: boolean

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './MultiImageMessage.css'
+import '@/components/messages/MultiImageMessage.css'
 
 interface ImageItem {
   filePath: string

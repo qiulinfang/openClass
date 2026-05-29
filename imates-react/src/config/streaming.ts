@@ -1,7 +1,7 @@
 /**
  * 流式响应配置
  */
-import type { StreamingConfig } from '../types'
+import type { StreamingConfig } from '@/types'
 
 /**
  * 默认流式响应配置

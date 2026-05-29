@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import './DebugStylePanel.css'
+import '@/components/debug/DebugStylePanel.css'
 
 interface ConfigItem {
   label: string

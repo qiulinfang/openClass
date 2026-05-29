@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { BaseQuestion, type ExerciseItem } from './BaseQuestion'
-import './JudgmentQuestion.css'
+import { BaseQuestion, type ExerciseItem } from '@/components/exercise/BaseQuestion'
+import '@/components/exercise/JudgmentQuestion.css'
 
 export interface JudgmentQuestionProps {
   question: ExerciseItem

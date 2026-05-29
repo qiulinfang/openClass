@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import type { ChatBubble } from '../types'
-import type { ChatType } from './chat/strategies/ChatStrategyFactory'
-import { VoiceMessage } from './messages/VoiceMessage'
-import { ImageMessage } from './messages/ImageMessage'
-import { MultiImageMessage } from './messages/MultiImageMessage'
-import { ChatRecordCard } from './messages/ChatRecordCard'
-import './ChatMessage.css'
+import type { ChatBubble } from '@/types'
+import type { ChatType } from '@/components/chat/strategies/ChatStrategyFactory'
+import { VoiceMessage } from '@/components/messages/VoiceMessage'
+import { ImageMessage } from '@/components/messages/ImageMessage'
+import { MultiImageMessage } from '@/components/messages/MultiImageMessage'
+import { ChatRecordCard } from '@/components/messages/ChatRecordCard'
+import '@/components/ChatMessage.css'
 
 interface ChatMessageComponentProps {
   message: ChatBubble

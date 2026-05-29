@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './RouteHistoryDebugPanel.css'
+import '@/components/debug/RouteHistoryDebugPanel.css'
 
 export interface RouteHistoryDebugPanelProps {
   visible?: boolean

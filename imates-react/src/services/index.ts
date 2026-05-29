@@ -4,14 +4,14 @@
  */
 
 // 统一类型定义
-export * from '../types'
+export * from '@/types'
 
 // 核心服务 - 业务层
-export { apiService, ApiService } from './http/api-service'
-export { androidBridge, AndroidBridge } from './business/android-bridge'
+export { apiService, ApiService } from '@/services/http/api-service'
+export { androidBridge, AndroidBridge } from '@/services/business/android-bridge'
 
 // 核心服务 - HTTP & 认证
-export { httpClient, HttpClient } from './http/http-client'
+export { httpClient, HttpClient } from '@/services/http/http-client'
 
 // 认证
 export {
@@ -32,4 +32,4 @@ export {
   getCurrentYanbanUserId,
   isYanbanLoggedIn,
   logout
-} from './http/auth-service'
+} from '@/services/http/auth-service'

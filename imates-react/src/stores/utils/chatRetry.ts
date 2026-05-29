@@ -1,4 +1,4 @@
-import type { ChatBubble } from '../../types'
+import type { ChatBubble } from '@/types'
 
 export interface ChatRetryOptions {
   maxRetries?: number

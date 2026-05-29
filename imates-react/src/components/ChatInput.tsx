@@ -1,9 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import type { ChatBubble, AttachedScreenshot } from '../types'
-import type { ChatType } from './chat/strategies/ChatStrategyFactory'
-import { MathFormulaEditor } from './MathFormulaEditor'
-import { VoiceInput } from './VoiceInput'
-import './ChatInput.css'
+import type { ChatBubble, AttachedScreenshot } from '@/types'
+import type { ChatType } from '@/components/chat/strategies/ChatStrategyFactory'
+import { MathFormulaEditor } from '@/components/MathFormulaEditor'
+import { VoiceInput } from '@/components/VoiceInput'
+import '@/components/ChatInput.css'
 
 interface ChatInputComponentProps {
   value: string

@@ -78,13 +78,13 @@ export const showMessage = (
 }
 
 // MathJax 工具
-export { MathJaxUtils } from './math/mathjax'
+export { MathJaxUtils } from '@/utils/math/mathjax'
 
 // 拍照搜题日志工具
-export { photoSearchLogger } from './logging/photoSearchLogger'
+export { photoSearchLogger } from '@/utils/logging/photoSearchLogger'
 
 // 节流和防抖工具
-export { throttle, debounce, ThrottleUtils, DebounceUtils } from './common/throttle'
+export { throttle, debounce, ThrottleUtils, DebounceUtils } from '@/utils/common/throttle'
 
 // 章节相关工具函数
 export {
@@ -93,7 +93,7 @@ export {
   extractChapterNumberFromName,
   parseChapterOrderFromFileName,
   sortChaptersByNumber
-} from './business/chapter-utils'
+} from '@/utils/business/chapter-utils'
 
 // 用户相关工具
 export {
@@ -104,7 +104,7 @@ export {
   getXuebanToken,
   getScopedStorageValue,
   isYanbanLoggedIn,
-} from '../services'
+} from '@/services'
 
 // 收藏功能工具
 export {
@@ -115,14 +115,14 @@ export {
   removeSessionFavorite,
   getFavoriteSessions,
   type FavoriteExercise
-} from './storage/favorites'
+} from '@/utils/storage/favorites'
 
 // 缩略图生成工具
-export { thumbnailQueue } from './thumbnail/thumbnail-queue'
-export { isPdfFile, generatePdfThumbnail } from './thumbnail/pdf-thumbnail'
-export { isImageFile, generateImageThumbnail } from './thumbnail/image-thumbnail'
-export { isHtmlFile, generateHtmlThumbnail } from './thumbnail/html-thumbnail'
-export { isVideoFile, generateVideoThumbnail } from './thumbnail/video-thumbnail'
+export { thumbnailQueue } from '@/utils/thumbnail/thumbnail-queue'
+export { isPdfFile, generatePdfThumbnail } from '@/utils/thumbnail/pdf-thumbnail'
+export { isImageFile, generateImageThumbnail } from '@/utils/thumbnail/image-thumbnail'
+export { isHtmlFile, generateHtmlThumbnail } from '@/utils/thumbnail/html-thumbnail'
+export { isVideoFile, generateVideoThumbnail } from '@/utils/thumbnail/video-thumbnail'
 
 // 类型定义
-export type { ExerciseItem, SimilarExercise } from '../types'
+export type { ExerciseItem, SimilarExercise } from '@/types'

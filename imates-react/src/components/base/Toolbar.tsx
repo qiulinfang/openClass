@@ -1,5 +1,5 @@
 import React from 'react'
-import './Toolbar.css'
+import '@/components/base/Toolbar.css'
 
 export interface NavItem {
   key: string

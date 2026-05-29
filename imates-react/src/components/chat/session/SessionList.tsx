@@ -1,6 +1,6 @@
 import React from 'react'
-import { SessionItem, SessionRecord } from './SessionItem'
-import './SessionList.css'
+import { SessionItem, SessionRecord } from '@/components/chat/session/SessionItem'
+import '@/components/chat/session/SessionList.css'
 
 export interface SessionListProps {
   records: SessionRecord[]

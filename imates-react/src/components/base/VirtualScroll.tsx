@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
-import './VirtualScroll.css'
+import '@/components/base/VirtualScroll.css'
 
 export interface VirtualScrollProps {
   maxDrag?: number
@@ -16,6 +16,7 @@ export interface VirtualScrollProps {
   onLoadTop?: () => void
   children?: React.ReactNode
   footer?: React.ReactNode
+  className?: string
 }
 
 export interface VirtualScrollRef {
@@ -38,6 +39,7 @@ export const VirtualScroll = forwardRef<VirtualScrollRef, VirtualScrollProps>(({
   onLoadTop,
   children,
   footer,
+  className = '',
 }, ref) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -194,7 +196,7 @@ export const VirtualScroll = forwardRef<VirtualScrollRef, VirtualScrollProps>(({
   return (
     <div
       ref={scrollContainerRef}
-      className="rubber-band-scroll-view no-scrollbar"
+      className={`rubber-band-scroll-view no-scrollbar ${className}`}
       onScroll={handleScroll}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

@@ -3,8 +3,8 @@
  * 使用 IndexedDB 替代 localStorage，支持更大的存储容量
  */
 
-import { IndexedDBService } from './indexeddb-service'
-import { getUserId } from '../http/auth-service'
+import { IndexedDBService } from '@/services/storage/indexeddb-service'
+import { getUserId } from '@/services/http/auth-service'
 import type { ExerciseItem } from '@/types'
 
 interface QuestionListData {

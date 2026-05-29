@@ -1,5 +1,5 @@
 import React from 'react'
-import './SimpleChatInput.css'
+import '@/components/SimpleChatInput.css'
 
 interface SimpleChatInputComponentProps {
   value: string

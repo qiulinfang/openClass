@@ -4,7 +4,7 @@
  */
 
 import type { ChatBubble, AttachedScreenshot } from '@/types'
-import type { SendMessageOptions, InitializeOptions } from './types'
+import type { SendMessageOptions, InitializeOptions } from '@/components/chat/strategies/types'
 import type { ChatImageData } from '@/stores/utils/chatStoreUtils'
 import { Sender } from '@/types/enums'
 

@@ -1,6 +1,6 @@
-import { httpClient } from '../http/http-client'
-import { getUserId } from './auth-service'
-import { getWebSocketService } from '../websocket/webSocketService'
+import { httpClient } from '@/services/http/http-client'
+import { getUserId } from '@/services/http/auth-service'
+import { getWebSocketService } from '@/services/websocket/webSocketService'
 import { getApiPaths } from '@/config/env-config'
 
 /**

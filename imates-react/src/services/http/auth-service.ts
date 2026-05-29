@@ -1,7 +1,7 @@
 import CryptoJS from 'crypto-js'
-import { httpClient } from './http-client'
+import { httpClient } from '@/services/http/http-client'
 import { getApiPaths, getCurrentEnvType, AppEnvType } from '@/config/env-config'
-import { AndroidBridge } from '../business/android-bridge'
+import { AndroidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
 import type {
   UserInfo,
@@ -151,7 +151,7 @@ export class AuthService {
 
     // 登录过期时断开 WebSocket 连接
     try {
-      const { useTeacherChatStore } = await import('../../stores/teacherChatStore')
+      const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
       const teacherStore = useTeacherChatStore()
       if (teacherStore.currentSessionId) {
         console.log('[AuthService] 登录过期，清除教师聊天会话')
@@ -465,7 +465,7 @@ export class AuthService {
     try {
       // 账户切换时断开教师WebSocket连接（用户ID改变需要重新连接）
       try {
-        const { useTeacherChatStore } = await import('../../stores/teacherChatStore')
+        const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
         const teacherStore = useTeacherChatStore()
         teacherStore.setCurrentSessionId(null)
         teacherStore.clearMessages()

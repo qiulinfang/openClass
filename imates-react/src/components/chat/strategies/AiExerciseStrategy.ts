@@ -1,11 +1,11 @@
 import type { ChatBubble, AttachedScreenshot } from '@/types'
 import { Sender } from '@/types/enums'
-import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
-import type { SendMessageOptions, InitializeOptions } from './types'
+import type { ChatStrategy, ForwardOptions, ForwardResult } from '@/components/chat/strategies/ChatStrategy'
+import type { SendMessageOptions, InitializeOptions } from '@/components/chat/strategies/types'
 import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 
 export class AiExerciseStrategy implements ChatStrategy {
-  private chatView?: import('./ChatStrategy').ChatViewInterface
+  private chatView?: import('@/components/chat/strategies/ChatStrategy').ChatViewInterface
 
   private get store() {
     return useAiExerciseChatStore.getState()
@@ -149,7 +149,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     return true
   }
 
-  setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void {
+  setChatView(chatView: import('@/components/chat/strategies/ChatStrategy').ChatViewInterface): void {
     this.chatView = chatView
   }
 

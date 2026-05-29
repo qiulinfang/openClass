@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { Dialog } from '../base/Dialog'
-import { ScreenshotThumb } from '../display/ScreenshotThumb'
-import './CameraUploadDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import { ScreenshotThumb } from '@/components/display/ScreenshotThumb'
+import '@/components/dialog/CameraUploadDialog.css'
 
 export interface PhotoItem {
   index: number

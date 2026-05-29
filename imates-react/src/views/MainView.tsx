@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
-import { ProfileDialog } from '../components/dialog/ProfileDialog'
-import { MyProfileView } from './MyProfileView'
-import { getUserInfo, setUserInfo, setXuebanToken, setYanbanToken } from '../services'
+import { ProfileDialog } from '@/components/dialog/ProfileDialog'
+import { MyProfileView } from '@/views/MyProfileView'
+import { getUserInfo, setUserInfo, setXuebanToken, setYanbanToken } from '@/services'
 
 // 导入普通状态图标
 import avatarIcon from '/icons/avatar.svg'
@@ -23,7 +23,7 @@ import homeworkSelectIcon from '/icons/homework_select.png'
 import photoQaSelectIcon from '/icons/paizhaodayi_select.svg'
 import mistakeBookSelectIcon from '/icons/cuotiben_select.svg'
 
-import './MainView.css'
+import '@/views/MainView.css'
 
 interface NavItem {
   key: string

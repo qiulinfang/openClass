@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './LearningView.css'
+import '@/views/LearningView.css'
 
 export interface LearningPackage {
   id: string

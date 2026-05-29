@@ -3,26 +3,24 @@
  * 绑定 homeworkStore，处理作业相关逻辑
  */
 
-import type { ExerciseItem } from '../../../types'
-import type { QuestionListStrategy } from './QuestionListStrategy'
-import type { FetchQuestionsOptions, DeleteQuestionOptions } from './types'
-import { useHomeworkStore } from '../../../stores/homeworkStore'
+import type { ExerciseItem } from '@/types'
+import type { QuestionListStrategy } from '@/components/question/strategies/QuestionListStrategy'
+import type { FetchQuestionsOptions, DeleteQuestionOptions } from '@/components/question/strategies/types'
+import { useHomeworkStore } from '@/stores/homeworkStore'
 
 export class MyHomeworkStrategy implements QuestionListStrategy {
-  private store = useHomeworkStore()
-  
   // ==================== 数据获取 ====================
   
   getQuestions(): ExerciseItem[] {
-    return this.store.questions
+    return useHomeworkStore.getState().questions
   }
   
   getCurrentQuestion(): ExerciseItem | null {
-    return this.store.currentQuestion
+    return useHomeworkStore.getState().getCurrentQuestion()
   }
   
   getCurrentQuestionIndex(): number {
-    return this.store.currentQuestionIndex
+    return useHomeworkStore.getState().currentQuestionIndex
   }
   
   isLoading(): boolean {
@@ -31,7 +29,7 @@ export class MyHomeworkStrategy implements QuestionListStrategy {
   }
   
   hasQuestions(): boolean {
-    return this.store.hasQuestions
+    return useHomeworkStore.getState().getHasQuestions()
   }
   
   // ==================== 数据操作 ====================
@@ -50,7 +48,7 @@ export class MyHomeworkStrategy implements QuestionListStrategy {
   }
   
   async selectQuestion(index: number): Promise<void> {
-    await this.store.selectQuestion(index)
+    await useHomeworkStore.getState().selectQuestion(index)
   }
   
   async deleteQuestion(index: number, options?: DeleteQuestionOptions): Promise<void> {
@@ -59,7 +57,7 @@ export class MyHomeworkStrategy implements QuestionListStrategy {
   }
   
   async setQuestions(questions: ExerciseItem[], subject?: string): Promise<void> {
-    await this.store.setQuestions(questions, subject)
+    await useHomeworkStore.getState().setQuestions(questions, subject)
   }
   
   async loadQuestionsFromLocal(subject: string): Promise<boolean> {

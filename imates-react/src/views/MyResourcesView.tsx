@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './MyResourcesView.css'
+import '@/views/MyResourcesView.css'
 
 // 导入组件
 import Tag from '@/components/base/Tag'
@@ -10,12 +10,12 @@ import Dialog from '@/components/base/Dialog'
 import ResourceDebugPanel from '@/components/debug/ResourceDebugPanel'
 
 // 导入服务与工具
-import { resourceManager } from '../services/storage/resource-storage'
-import { apiService } from '../services/http/api-service'
-import { httpClient } from '../services/http/http-client'
-import { showMessage, getUserId } from '../utils'
-import { useResourceStore } from '../stores/resourceStore'
-import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
+import { resourceManager } from '@/services/storage/resource-storage'
+import { apiService } from '@/services/http/api-service'
+import { httpClient } from '@/services/http/http-client'
+import { showMessage, getUserId } from '@/utils'
+import { useResourceStore } from '@/stores/resourceStore'
+import { useKnowledgeGraphStore } from '@/stores/KnowledgeGraphStore'
 
 // 导入常量与类型
 import { RESOURCE_SUBJECT_OPTIONS } from '@/constants/subjects'
@@ -24,7 +24,7 @@ import {
   RESOURCE_VERSION_OPTIONS,
   RESOURCE_DOWNLOAD_STATUS_OPTIONS,
 } from '@/constants/options'
-import type { UserTextbookInfo, TextbookVersion, ChapterNode, ResourceFile } from '../types'
+import type { UserTextbookInfo, TextbookVersion, ChapterNode, ResourceFile } from '@/types'
 
 // 导入图标资源
 const bookIcon = '/images/book.png'

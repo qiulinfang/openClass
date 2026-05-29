@@ -2,9 +2,9 @@
  * Android 图片选择适配器
  * 使用 Android Bridge 实现图片选择功能
  */
-import type { IImagePickerAdapter } from './IImagePickerAdapter'
-import type { ImageData } from '../types'
-import { androidBridge } from '../services/business/android-bridge'
+import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
+import type { ImageData } from '@/types'
+import { androidBridge } from '@/services/business/android-bridge'
 
 export class AndroidImagePickerAdapter implements IImagePickerAdapter {
   private eventListeners: Map<string, (event: Event) => void> = new Map()

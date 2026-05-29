@@ -1,5 +1,5 @@
 import React from 'react'
-import './SelectMulti.css'
+import '@/components/base/SelectMulti.css'
 
 export interface SelectMultiProps {
   value: string[]

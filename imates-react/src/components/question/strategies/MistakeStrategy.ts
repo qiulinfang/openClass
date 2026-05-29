@@ -3,53 +3,51 @@
  * 绑定 mistakeStore，处理错题本相关逻辑
  */
 
-import type { ExerciseItem } from '../../../types'
-import type { QuestionListStrategy } from './QuestionListStrategy'
-import type { FetchQuestionsOptions, DeleteQuestionOptions } from './types'
-import { useMistakeStore } from '../../../stores/mistakeStore'
+import type { ExerciseItem } from '@/types'
+import type { QuestionListStrategy } from '@/components/question/strategies/QuestionListStrategy'
+import type { FetchQuestionsOptions, DeleteQuestionOptions } from '@/components/question/strategies/types'
+import { useMistakeStore } from '@/stores/mistakeStore'
 
 export class MistakeStrategy implements QuestionListStrategy {
-  private store = useMistakeStore()
-  
   // ==================== 数据获取 ====================
   
   getQuestions(): ExerciseItem[] {
-    return this.store.questions
+    return useMistakeStore.getState().getQuestions()
   }
   
   getCurrentQuestion(): ExerciseItem | null {
-    return this.store.currentQuestion
+    return useMistakeStore.getState().getCurrentQuestion()
   }
   
   getCurrentQuestionIndex(): number {
-    return this.store.currentMistakeIndex
+    return useMistakeStore.getState().getCurrentMistakeIndex()
   }
   
   isLoading(): boolean {
-    return this.store.isLoading
+    return useMistakeStore.getState().isLoading
   }
   
   hasQuestions(): boolean {
-    return this.store.hasQuestions
+    return useMistakeStore.getState().getHasQuestions()
   }
   
   // ==================== 数据操作 ====================
   
   async fetchQuestions(options?: FetchQuestionsOptions): Promise<void> {
     // 错题本不需要学科过滤，直接拉取全部
-    await this.store.fetchMistakes()
+    await useMistakeStore.getState().fetchMistakes()
   }
   
   async fetchAllSubjectsQuestions(useLocalFirst?: boolean): Promise<void> {
-    await this.store.fetchMistakes()
+    await useMistakeStore.getState().fetchMistakes()
   }
   
   async selectQuestion(index: number): Promise<void> {
-    this.store.selectMistake(index)
+    useMistakeStore.getState().selectMistake(index)
   }
   
   async deleteQuestion(index: number, options?: DeleteQuestionOptions): Promise<void> {
-    await this.store.deleteMistake(index)
+    await useMistakeStore.getState().deleteMistake(index)
   }
   
   async setQuestions(questions: ExerciseItem[], subject?: string): Promise<void> {
@@ -58,7 +56,7 @@ export class MistakeStrategy implements QuestionListStrategy {
   }
   
   async loadQuestionsFromLocal(subject: string): Promise<boolean> {
-    await this.store.fetchMistakes()
+    await useMistakeStore.getState().fetchMistakes()
     return true
   }
   

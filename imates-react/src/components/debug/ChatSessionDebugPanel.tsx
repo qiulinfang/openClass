@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './ChatSessionDebugPanel.css'
+import '@/components/debug/ChatSessionDebugPanel.css'
 
 export interface ChatSessionDebugPanelProps {
   visible?: boolean

@@ -1,5 +1,5 @@
 import React from 'react'
-import './DrawingHeader.css'
+import '@/components/header/DrawingHeader.css'
 
 export interface DrawingHeaderProps {
   tools?: any

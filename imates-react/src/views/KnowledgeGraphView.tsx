@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
-import { KnowledgeGraph } from '../components/knowledge-graph/KnowledgeGraph'
-import VirtualScroll from '../components/base/VirtualScroll'
-import Select from '../components/base/Select'
-import LearningView from './LearningView'
-import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel'
-import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import { apiService } from '../services/http/api-service'
-import { resourceManager } from '../services/storage/resource-storage'
-import { getUserId, getScopedStorageValue, getScopedStorageKey } from '../services'
-import { showMessage } from '../utils'
-import { KNOWLEDGE_GRAPH_SUBJECT_OPTIONS, type ApiSubjectType } from '../constants/subjects'
+import { KnowledgeGraph } from '@/components/knowledge-graph/KnowledgeGraph'
+import VirtualScroll from '@/components/base/VirtualScroll'
+import Select from '@/components/base/Select'
+import LearningView from '@/views/LearningView'
+import LearningStatusControlPanel from '@/components/debug/LearningStatusControlPanel'
+import { useKnowledgeGraphStore } from '@/stores/KnowledgeGraphStore'
+import { apiService } from '@/services/http/api-service'
+import { resourceManager } from '@/services/storage/resource-storage'
+import { getUserId, getScopedStorageValue, getScopedStorageKey } from '@/services'
+import { showMessage } from '@/utils'
+import { KNOWLEDGE_GRAPH_SUBJECT_OPTIONS, type ApiSubjectType } from '@/constants/subjects'
 import {
   queryShijingshanKnowledgeId,
   queryShijingshanBmNoList,
-} from '../utils/business/shijingshan-knowledge-utils'
-import { convertToChineseNumber } from '../utils/business/chapter-utils'
+} from '@/utils/business/shijingshan-knowledge-utils'
+import { convertToChineseNumber } from '@/utils/business/chapter-utils'
 import type { ChapterNode, TextbookOption } from '@/types'
 
 // 导入图标资源
@@ -26,7 +26,7 @@ import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
 import backgroundImage from '/icons/background.svg'
 import chapterSearchIcon from '/icons/chapter_search.svg'
 
-import './KnowledgeGraphView.css'
+import '@/views/KnowledgeGraphView.css'
 
 interface KnowledgeGraphChapterStructureRecord {
   id: string // 主键：`${userId}_${textbookId}`

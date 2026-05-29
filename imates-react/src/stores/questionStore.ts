@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { apiService } from '../services/http/api-service'
-import type { ExerciseItem } from '../types'
+import { apiService } from '@/services/http/api-service'
+import type { ExerciseItem } from '@/types'
 import {
   saveQuestionsToIndexedDB,
   loadQuestionsFromIndexedDB,
   deleteQuestionsFromIndexedDB,
-} from '../services/storage/question-storage'
+} from '@/services/storage/question-storage'
 import { showMessage } from '@/utils'
 import { normalizeSubject } from '@/constants/subjects'
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import './HistoryDebugPanel.css'
+import '@/components/debug/HistoryDebugPanel.css'
 
 export interface HistoryDebugPanelProps {
   visible?: boolean

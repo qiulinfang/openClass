@@ -1,5 +1,5 @@
 import React from 'react'
-import './Loading.css'
+import '@/components/base/Loading.css'
 
 export interface LoadingProps {
   text?: string

@@ -1,22 +1,22 @@
 import { create } from 'zustand'
-import type { ChatBubble, ExerciseItem, UserInfo, AttachedScreenshot, AiChatMessageRequest, HtmlPreviewFocus } from '../types'
-import { Sender } from '../types/enums'
-import { apiService } from '../services/http/api-service'
-import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
+import type { ChatBubble, ExerciseItem, UserInfo, AttachedScreenshot, AiChatMessageRequest, HtmlPreviewFocus } from '@/types'
+import { Sender } from '@/types/enums'
+import { apiService } from '@/services/http/api-service'
+import { chatStorage, type ChatHistoryData } from '@/services/storage/chat-storage'
 import { 
   createUserMessage, 
   generateUniqueId, 
   createTempAiReplyMessage,
   type ChatImageData, 
   type ChatQuotedMessage 
-} from './utils/chatStoreUtils'
-import { createChatEngine } from './utils/chatEngine'
-import { createChatPersistence } from './utils/chatPersistence'
-import { createChatRetry } from './utils/chatRetry'
-import { validateExerciseChatRequest } from './utils/requestValidator'
-import { getApiPaths } from '../config/env-config'
-import { getUserId } from '../services/http/auth-service'
-import { normalizeSubject } from '../constants/subjects'
+} from '@/stores/utils/chatStoreUtils'
+import { createChatEngine } from '@/stores/utils/chatEngine'
+import { createChatPersistence } from '@/stores/utils/chatPersistence'
+import { createChatRetry } from '@/stores/utils/chatRetry'
+import { validateExerciseChatRequest } from '@/stores/utils/requestValidator'
+import { getApiPaths } from '@/config/env-config'
+import { getUserId } from '@/services/http/auth-service'
+import { normalizeSubject } from '@/constants/subjects'
 
 /**
  * 构建AI题目聊天消息请求
@@ -192,7 +192,7 @@ export const useAiExerciseChatStore = create<AiExerciseChatState>((set, get) => 
 
   const chatEngine = createChatEngine({
     getMessages: () => get().messages,
-    lastHistorySignature: get().lastHistorySignature || '',
+    getLastHistorySignature: () => get()?.lastHistorySignature || '',
     setMessages: (messages) => set({ messages }),
     setLastHistorySignature: (signature) => set({ lastHistorySignature: signature }),
   })

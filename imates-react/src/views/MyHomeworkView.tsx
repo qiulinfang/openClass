@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './MyHomeworkView.css'
+import '@/views/MyHomeworkView.css'
 
 export interface HomeworkItem {
   id: string

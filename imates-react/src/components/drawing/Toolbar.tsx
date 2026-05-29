@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './Toolbar.css'
+import '@/components/drawing/Toolbar.css'
 
 export interface Tool {
   value: string

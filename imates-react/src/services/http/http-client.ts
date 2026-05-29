@@ -6,7 +6,7 @@
 import type { ApiResponse, RequestConfig } from '@/types'
 import { createTimeoutController } from '@/utils/common/polyfills'
 import { getRouteBaseMap } from '@/config/env-config'
-import { authService } from './auth-service'
+import { authService } from '@/services/http/auth-service'
 
 export class HttpClient {
   private baseURL: string

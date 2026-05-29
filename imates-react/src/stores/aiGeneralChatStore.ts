@@ -1,22 +1,22 @@
 import { create } from 'zustand'
-import type { ChatBubble, AiGeneralSession, UserInfo, AttachedScreenshot, AiChatMessageRequest, HtmlPreviewFocus } from '../types'
-import { Sender } from '../types/enums'
-import { apiService } from '../services/http/api-service'
-import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
+import type { ChatBubble, AiGeneralSession, UserInfo, AttachedScreenshot, AiChatMessageRequest, HtmlPreviewFocus } from '@/types'
+import { Sender } from '@/types/enums'
+import { apiService } from '@/services/http/api-service'
+import { chatStorage, type ChatHistoryData } from '@/services/storage/chat-storage'
 import { 
   createUserMessage, 
   generateUniqueId, 
   createTempAiReplyMessage,
   type ChatImageData, 
   type ChatQuotedMessage 
-} from './utils/chatStoreUtils'
-import { createChatEngine } from './utils/chatEngine'
-import { createChatPersistence } from './utils/chatPersistence'
-import { createChatRetry } from './utils/chatRetry'
-import { createChatSessions } from './utils/chatSessions'
-import { validateGeneralChatRequest } from './utils/requestValidator'
-import { getApiPaths } from '../config/env-config'
-import { getUserId } from '../services/http/auth-service'
+} from '@/stores/utils/chatStoreUtils'
+import { createChatEngine } from '@/stores/utils/chatEngine'
+import { createChatPersistence } from '@/stores/utils/chatPersistence'
+import { createChatRetry } from '@/stores/utils/chatRetry'
+import { createChatSessions } from '@/stores/utils/chatSessions'
+import { validateGeneralChatRequest } from '@/stores/utils/requestValidator'
+import { getApiPaths } from '@/config/env-config'
+import { getUserId } from '@/services/http/auth-service'
 import localforage from 'localforage'
 
 /**
@@ -147,7 +147,7 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => {
 
   const chatEngine = createChatEngine({
     getMessages: () => get().messages,
-    lastHistorySignature: get().lastHistorySignature || '',
+    getLastHistorySignature: () => get()?.lastHistorySignature || '',
     setMessages: (messages) => set({ messages }),
     setLastHistorySignature: (signature) => set({ lastHistorySignature: signature }),
     onAfterHistorySync: () => get().saveChatHistory(),

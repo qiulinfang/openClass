@@ -2,10 +2,10 @@
  * 图片选择适配器工厂
  * 根据环境自动选择合适的适配器实现
  */
-import type { IImagePickerAdapter } from './IImagePickerAdapter'
-import { AndroidImagePickerAdapter } from './AndroidImagePickerAdapter'
-import { WebImagePickerAdapter } from './WebImagePickerAdapter'
-import { androidBridge } from '../services/business/android-bridge'
+import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
+import { AndroidImagePickerAdapter } from '@/adapters/AndroidImagePickerAdapter'
+import { WebImagePickerAdapter } from '@/adapters/WebImagePickerAdapter'
+import { androidBridge } from '@/services/business/android-bridge'
 
 /**
  * 适配器工厂类

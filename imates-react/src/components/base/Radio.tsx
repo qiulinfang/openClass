@@ -1,5 +1,5 @@
 import React from 'react'
-import './Radio.css'
+import '@/components/base/Radio.css'
 
 export interface RadioProps {
   checked: boolean

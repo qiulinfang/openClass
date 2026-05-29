@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import './Tag.css'
+import '@/components/base/Tag.css'
 
 export interface TagProps {
   text: string

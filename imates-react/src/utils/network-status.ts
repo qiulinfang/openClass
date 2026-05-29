@@ -4,7 +4,7 @@
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { showMessage } from './index'
+import { showMessage } from '@/utils/index'
 
 /**
  * 网络状态

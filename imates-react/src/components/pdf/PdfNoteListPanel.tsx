@@ -1,5 +1,5 @@
 import React from 'react'
-import './PdfNoteListPanel.css'
+import '@/components/pdf/PdfNoteListPanel.css'
 
 export interface PageNote {
   id: string

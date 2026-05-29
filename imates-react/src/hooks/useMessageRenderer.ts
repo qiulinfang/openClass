@@ -1,7 +1,9 @@
+import { useCallback, useMemo } from 'react'
 import MarkdownIt from 'markdown-it'
 // @ts-ignore
 import mathjax3 from 'markdown-it-mathjax3'
 
+// 初始化 markdown-it 实例
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -10,10 +12,11 @@ const md = new MarkdownIt({
 }).use(mathjax3)
 
 export function useMessageRenderer() {
-  const renderCache = new Map<string, string>()
+  // 渲染缓存，避免重复渲染相同内容
+  const renderCache = useMemo(() => new Map<string, string>(), [])
   const MAX_CACHE_SIZE = 100
 
-  const preprocessMarkdownHeadings = (contentStr: string): string => {
+  const preprocessMarkdownHeadings = useCallback((contentStr: string): string => {
     const parts = contentStr.split(/(```[\s\S]*?```)/g)
     return parts
       .map((part) => {
@@ -21,9 +24,9 @@ export function useMessageRenderer() {
         return part.replace(/([^\n])\s*(#{1,6}\s+)/g, '$1\n$2')
       })
       .join('')
-  }
+  }, [])
 
-  const preprocessLatexFormats = (contentStr: string): string => {
+  const preprocessLatexFormats = useCallback((contentStr: string): string => {
     let processedContent = contentStr
 
     const lonelyDollarBlockRegex = /(^|\n)\s*\$(?:\s*)\n([\s\S]*?)\n\s*\$\s*(?=\n|$)/g
@@ -63,9 +66,9 @@ export function useMessageRenderer() {
     })
 
     return processedContent
-  }
+  }, [])
 
-  const renderMessageContent = (content: unknown): string => {
+  const renderMessageContent = useCallback((content: unknown): string => {
     try {
       const contentStr = typeof content === 'string' ? content : String(content || '')
       if (renderCache.has(contentStr)) {
@@ -104,10 +107,14 @@ export function useMessageRenderer() {
     } catch {
       return typeof content === 'string' ? content : String(content || '')
     }
-  }
+  }, [preprocessMarkdownHeadings, preprocessLatexFormats, renderCache])
+
+  const clearRenderCache = useCallback(() => {
+    renderCache.clear()
+  }, [renderCache])
 
   return {
     renderMessageContent,
-    clearRenderCache: () => renderCache.clear(),
+    clearRenderCache,
   }
 }

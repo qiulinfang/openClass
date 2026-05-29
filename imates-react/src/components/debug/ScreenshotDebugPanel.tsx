@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react'
-import './ScreenshotDebugPanel.css'
+import '@/components/debug/ScreenshotDebugPanel.css'
 
 export interface DebugImageData {
   source?: string

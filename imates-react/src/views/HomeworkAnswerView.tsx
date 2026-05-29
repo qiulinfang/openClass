@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './HomeworkAnswerView.css'
+import '@/views/HomeworkAnswerView.css'
 
 export const HomeworkAnswerView: React.FC = () => {
   const navigate = useNavigate()

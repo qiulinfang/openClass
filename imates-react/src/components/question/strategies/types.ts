@@ -2,7 +2,7 @@
  * QuestionList 策略模式 - 类型定义
  */
 
-import type { ExerciseItem } from '../../../types'
+import type { ExerciseItem } from '@/types'
 
 /**
  * 加载题目的选项

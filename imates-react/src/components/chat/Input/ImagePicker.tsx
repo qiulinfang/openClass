@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Modal } from '../../base/Modal'
-import './ImagePicker.css'
+import { Modal } from '@/components/base/Modal'
+import '@/components/chat/Input/ImagePicker.css'
 
 export interface ImagePickerProps {
   onImageSelected?: (imageInfo: { path: string; width?: number; height?: number }) => void

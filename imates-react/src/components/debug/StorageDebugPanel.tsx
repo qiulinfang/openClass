@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './StorageDebugPanel.css'
+import '@/components/debug/StorageDebugPanel.css'
 
 export interface StorageDebugPanelProps {
   visible?: boolean

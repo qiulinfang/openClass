@@ -2,7 +2,7 @@
  * 图片选择适配器接口
  * 定义统一的图片选择接口，支持不同环境的实现
  */
-import type { ImageData } from '../types'
+import type { ImageData } from '@/types'
 
 /**
  * 图片选择适配器接口

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Dialog } from '../base/Dialog'
-import './ForwardModeDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/chat/ForwardModeDialog.css'
 
 export interface ForwardModeDialogProps {
   open?: boolean

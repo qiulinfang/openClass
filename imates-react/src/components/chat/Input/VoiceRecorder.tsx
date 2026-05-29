@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import './VoiceRecorder.css'
+import '@/components/chat/Input/VoiceRecorder.css'
 
 export interface VoiceRecorderProps {
   isRecording?: boolean

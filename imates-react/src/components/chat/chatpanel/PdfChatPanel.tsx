@@ -1,5 +1,5 @@
 import React from 'react'
-import './PdfChatPanel.css'
+import '@/components/chat/chatpanel/PdfChatPanel.css'
 
 export interface PdfChatPanelProps {
   visible?: boolean

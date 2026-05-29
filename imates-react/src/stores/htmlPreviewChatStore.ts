@@ -1,12 +1,12 @@
 import { create } from 'zustand'
-import { apiService } from '../services/http/api-service'
+import { apiService } from '@/services/http/api-service'
 import { getApiPaths } from '@/config/env-config'
 import { Sender } from '@/types/enums'
 import type { ChatBubble, AiChatMessageRequest, UserInfo, HtmlPreviewFocus, AttachedScreenshot } from '@/types'
-import { createChatEngine } from './utils/chatEngine'
-import { createChatRetry } from './utils/chatRetry'
-import { generateUniqueId, type ChatQuotedMessage, type ChatImageData } from './utils/chatStoreUtils'
-import { getUserId } from '../services/http/auth-service'
+import { createChatEngine } from '@/stores/utils/chatEngine'
+import { createChatRetry } from '@/stores/utils/chatRetry'
+import { generateUniqueId, type ChatQuotedMessage, type ChatImageData } from '@/stores/utils/chatStoreUtils'
+import { getUserId } from '@/services/http/auth-service'
 
 interface HtmlPreviewChatState {
   messages: ChatBubble[]
@@ -60,7 +60,7 @@ interface HtmlPreviewChatState {
 export const useHtmlPreviewChatStore = create<HtmlPreviewChatState>((set, get) => {
   const chatEngine = createChatEngine({
     getMessages: () => get().messages,
-    lastHistorySignature: get().lastHistorySignature || '',
+    getLastHistorySignature: () => get()?.lastHistorySignature || '',
     setMessages: (messages) => set({ messages }),
     setLastHistorySignature: (signature) => set({ lastHistorySignature: signature }),
     onAfterHistorySync: () => {}, // HTML 预览不同步历史

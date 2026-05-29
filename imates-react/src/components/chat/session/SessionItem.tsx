@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
-import { Checkbox } from '../../base/Checkbox'
-import './SessionItem.css'
+import { Checkbox } from '@/components/base/Checkbox'
+import '@/components/chat/session/SessionItem.css'
 
 export interface SessionRecord {
   id: string

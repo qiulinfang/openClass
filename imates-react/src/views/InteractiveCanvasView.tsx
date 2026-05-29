@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import './InteractiveCanvasView.css'
+import '@/views/InteractiveCanvasView.css'
 
 export interface CanvasItem {
   id: string

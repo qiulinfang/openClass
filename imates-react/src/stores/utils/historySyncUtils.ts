@@ -1,4 +1,4 @@
-import type { BackendHistoryMessage, ChatBubble } from '../../types'
+import type { BackendHistoryMessage, ChatBubble } from '@/types'
 
 /**
  * 构建历史消息摘要签名

@@ -10,7 +10,7 @@ import {
   hasDraftInIndexedDB,
   cleanupExpiredDrafts,
   getDraftStorageInfo
-} from '../services/storage/draft-storage'
+} from '@/services/storage/draft-storage'
 
 /**
  * 题目草稿数据类型

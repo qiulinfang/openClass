@@ -3,8 +3,8 @@
  * 用于存储学生收藏的错题，包含原始作答和题目详情
  */
 
-import { IndexedDBService } from './indexeddb-service'
-import { getUserId } from '../http/auth-service'
+import { IndexedDBService } from '@/services/storage/indexeddb-service'
+import { getUserId } from '@/services/http/auth-service'
 import type { ExerciseItem } from '@/types'
 
 /** 

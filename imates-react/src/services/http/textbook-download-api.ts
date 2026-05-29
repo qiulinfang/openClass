@@ -1,6 +1,6 @@
-import { httpClient } from '../http/http-client'
-import { resourceManager, ResourceManager } from '../storage/resource-storage'
-import { AndroidBridge } from '../business/android-bridge'
+import { httpClient } from '@/services/http/http-client'
+import { resourceManager, ResourceManager } from '@/services/storage/resource-storage'
+import { AndroidBridge } from '@/services/business/android-bridge'
 import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '@/utils/business/chapter-utils'
 import { getApiPaths, getIsInternalTest } from '@/config/env-config'
 import type {

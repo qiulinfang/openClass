@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Dialog } from '../base/Dialog'
-import './PerfectFreehandConfigDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/debug/PerfectFreehandConfigDialog.css'
 
 export interface PerfectFreehandConfigDialogProps {
   open?: boolean

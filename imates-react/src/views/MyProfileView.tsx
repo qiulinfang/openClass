@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { androidBridge } from '@/services/business/android-bridge'
-import { authService, getUserInfo, getXuebanToken, setUserInfo } from '../services'
+import { authService, getUserInfo, getXuebanToken, setUserInfo } from '@/services'
 import { showMessage } from '@/utils'
-import { Dialog } from '../components/base/Dialog'
-import './MyProfileView.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/views/MyProfileView.css'
 
 // 导入图标
 import drawIcon from '/icons/draw.svg'

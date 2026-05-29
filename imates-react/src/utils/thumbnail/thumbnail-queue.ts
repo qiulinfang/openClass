@@ -3,11 +3,11 @@
  * 在后台异步生成PDF、图片、HTML和视频缩略图，不阻塞主流程
  */
 
-import { generatePdfThumbnail, isPdfFile } from './pdf-thumbnail'
-import { generateImageThumbnail, isImageFile } from './image-thumbnail'
-import { generateHtmlThumbnail, isHtmlFile } from './html-thumbnail'
-import { generateVideoThumbnail, isVideoFile } from './video-thumbnail'
-import { resourceManager } from '../../services/storage/resource-storage'
+import { generatePdfThumbnail, isPdfFile } from '@/utils/thumbnail/pdf-thumbnail'
+import { generateImageThumbnail, isImageFile } from '@/utils/thumbnail/image-thumbnail'
+import { generateHtmlThumbnail, isHtmlFile } from '@/utils/thumbnail/html-thumbnail'
+import { generateVideoThumbnail, isVideoFile } from '@/utils/thumbnail/video-thumbnail'
+import { resourceManager } from '@/services/storage/resource-storage'
 
 interface ThumbnailTask {
   fileId: string

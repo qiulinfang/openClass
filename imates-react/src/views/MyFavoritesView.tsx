@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './MyFavoritesView.css'
+import '@/views/MyFavoritesView.css'
 
 export interface FavoriteSession {
   id?: string

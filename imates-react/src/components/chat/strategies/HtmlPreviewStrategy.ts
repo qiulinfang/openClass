@@ -1,11 +1,11 @@
 import type { ChatBubble, AttachedScreenshot } from '@/types'
 import { Sender } from '@/types/enums'
-import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
-import type { SendMessageOptions, InitializeOptions } from './types'
+import type { ChatStrategy, ForwardOptions, ForwardResult } from '@/components/chat/strategies/ChatStrategy'
+import type { SendMessageOptions, InitializeOptions } from '@/components/chat/strategies/types'
 import { useHtmlPreviewChatStore } from '@/stores/htmlPreviewChatStore'
 
 export class HtmlPreviewStrategy implements ChatStrategy {
-  private chatView?: import('./ChatStrategy').ChatViewInterface
+  private chatView?: import('@/components/chat/strategies/ChatStrategy').ChatViewInterface
 
   private get store() {
     return useHtmlPreviewChatStore.getState()
@@ -39,6 +39,6 @@ export class HtmlPreviewStrategy implements ChatStrategy {
   getScreenshotEntryKind(): 'screen_snapshot' | 'pdf_page' { return 'screen_snapshot' }
   async updateEditedMessage(messageId: string, newContent: string, options?: SendMessageOptions): Promise<void> {}
   shouldShowForwardButton(): boolean { return false }
-  setChatView(chatView: import('./ChatStrategy').ChatViewInterface): void { this.chatView = chatView }
+  setChatView(chatView: import('@/components/chat/strategies/ChatStrategy').ChatViewInterface): void { this.chatView = chatView }
   clearMessages(): void { this.store.clearMessages() }
 }

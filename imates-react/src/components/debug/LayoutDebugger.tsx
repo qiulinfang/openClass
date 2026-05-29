@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './LayoutDebugger.css'
+import '@/components/debug/LayoutDebugger.css'
 
 export interface LayoutDebuggerProps {
   modelValue: Record<string, number>

@@ -1,5 +1,5 @@
 import React from 'react'
-import './ScreenshotThumb.css'
+import '@/components/display/ScreenshotThumb.css'
 
 export interface ScreenshotThumbProps {
   imageUrl: string

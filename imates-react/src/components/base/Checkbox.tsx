@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import './Checkbox.css'
+import '@/components/base/Checkbox.css'
 
 export interface CheckboxProps {
   checked: boolean

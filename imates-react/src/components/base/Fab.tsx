@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react'
-import './Fab.css'
+import '@/components/base/Fab.css'
 
 export interface FabItem {
   label: string

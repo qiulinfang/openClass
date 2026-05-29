@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Dialog } from '../base/Dialog'
-import './ProfileDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/dialog/ProfileDialog.css'
 
 export interface ProfileDialogProps {
   open?: boolean

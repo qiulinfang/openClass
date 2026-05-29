@@ -3,8 +3,8 @@
  * 用于存储已提交作业的作答内容、画板数据和提交状态
  */
 
-import { IndexedDBService } from './indexeddb-service'
-import { getUserId } from '../http/auth-service'
+import { IndexedDBService } from '@/services/storage/indexeddb-service'
+import { getUserId } from '@/services/http/auth-service'
 
 /** 
  * 单个作业的存储数据结构 

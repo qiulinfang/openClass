@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChatView } from '../components/ChatView'
-import type { ChatType } from '../components/chat/strategies/ChatStrategyFactory'
-import { getXuebanToken, getUserInfo, authService, logout } from '../services'
-import './ChatDemoPage.css'
+import { ChatView } from '@/components/ChatView'
+import type { ChatType } from '@/components/chat/strategies/ChatStrategyFactory'
+import { getXuebanToken, getUserInfo, authService, logout } from '@/services'
+import '@/pages/ChatDemoPage.css'
 
 const chatTypes: { value: ChatType; label: string }[] = [
   { value: 'ai-general', label: 'AI 对话' },

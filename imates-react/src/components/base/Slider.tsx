@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import './Slider.css'
+import '@/components/base/Slider.css'
 
 export interface SliderProps {
   value: number

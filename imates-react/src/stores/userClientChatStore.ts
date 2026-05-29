@@ -1,10 +1,10 @@
 import { create } from 'zustand'
-import type { ChatBubble, AttachedScreenshot } from '../types'
-import { showMessage } from '../utils'
+import type { ChatBubble, AttachedScreenshot } from '@/types'
+import { showMessage } from '@/utils'
 import { getImBaseUrl, getImWebSocketUrl } from '@/config/env-config'
-import { getUserId } from '../services/http/auth-service'
-import { generateUniqueId } from './utils/chatStoreUtils'
-import { apiService } from '../services/http/api-service'
+import { getUserId } from '@/services/http/auth-service'
+import { generateUniqueId } from '@/stores/utils/chatStoreUtils'
+import { apiService } from '@/services/http/api-service'
 import { Sender } from '@/types/enums'
 
 // WebSocket消息类型定义

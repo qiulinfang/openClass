@@ -3,34 +3,32 @@
  * 绑定 questionStore，处理习题相关逻辑
  */
 
-import type { ExerciseItem } from '../../../types'
-import type { QuestionListStrategy } from './QuestionListStrategy'
-import type { FetchQuestionsOptions, DeleteQuestionOptions } from './types'
-import { useQuestionStore } from '../../../stores/questionStore'
+import type { ExerciseItem } from '@/types'
+import type { QuestionListStrategy } from '@/components/question/strategies/QuestionListStrategy'
+import type { FetchQuestionsOptions, DeleteQuestionOptions } from '@/components/question/strategies/types'
+import { useQuestionStore } from '@/stores/questionStore'
 
 export class MyExerciseStrategy implements QuestionListStrategy {
-  private store = useQuestionStore()
-  
   // ==================== 数据获取 ====================
   
   getQuestions(): ExerciseItem[] {
-    return this.store.questions
+    return useQuestionStore.getState().questions
   }
   
   getCurrentQuestion(): ExerciseItem | null {
-    return this.store.currentQuestion
+    return useQuestionStore.getState().getCurrentQuestion()
   }
   
   getCurrentQuestionIndex(): number {
-    return this.store.currentQuestionIndex
+    return useQuestionStore.getState().currentQuestionIndex
   }
   
   isLoading(): boolean {
-    return this.store.isLoading
+    return useQuestionStore.getState().isLoading
   }
   
   hasQuestions(): boolean {
-    return this.store.hasQuestions
+    return useQuestionStore.getState().getHasQuestions()
   }
   
   // ==================== 数据操作 ====================
@@ -38,27 +36,27 @@ export class MyExerciseStrategy implements QuestionListStrategy {
   async fetchQuestions(options?: FetchQuestionsOptions): Promise<void> {
     const subject = options?.subject || 'math'
     const useLocalFirst = options?.useLocalFirst ?? true
-    await this.store.fetchQuestions(subject, useLocalFirst)
+    await useQuestionStore.getState().fetchQuestions(subject, useLocalFirst)
   }
   
   async fetchAllSubjectsQuestions(useLocalFirst?: boolean): Promise<void> {
-    await this.store.fetchAllSubjectsQuestions(useLocalFirst ?? true)
+    await useQuestionStore.getState().fetchAllSubjectsQuestions(useLocalFirst ?? true)
   }
   
   async selectQuestion(index: number): Promise<void> {
-    await this.store.selectQuestion(index)
+    await useQuestionStore.getState().selectQuestion(index)
   }
   
   async deleteQuestion(index: number, options?: DeleteQuestionOptions): Promise<void> {
-    await this.store.deleteQuestion(index, options?.subject)
+    await useQuestionStore.getState().deleteQuestion(index, options?.subject)
   }
   
   async setQuestions(questions: ExerciseItem[], subject?: string): Promise<void> {
-    await this.store.setQuestions(questions, subject)
+    await useQuestionStore.getState().setQuestions(questions, subject)
   }
   
   async loadQuestionsFromLocal(subject: string): Promise<boolean> {
-    return await this.store.loadQuestionsFromLocal(subject)
+    return await useQuestionStore.getState().loadQuestionsFromLocal(subject)
   }
   
   // ==================== 场景特有功能 ====================

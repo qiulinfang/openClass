@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import './VoiceInput.css'
+import '@/components/VoiceInput.css'
 
 interface VoiceInputProps {
   onResult?: (text: string) => void

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './PdfNoteAnchor.css'
+import '@/components/pdf/PdfNoteAnchor.css'
 
 export interface PdfNoteAnchorProps {
   mode?: 'marker' | 'create' | 'display'

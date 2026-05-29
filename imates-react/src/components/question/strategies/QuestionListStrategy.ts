@@ -3,8 +3,8 @@
  * 定义题目列表组件需要的所有方法，不同场景（习题/作业）各自实现
  */
 
-import type { ExerciseItem } from '../../../types'
-import type { FetchQuestionsOptions, DeleteQuestionOptions } from './types'
+import type { ExerciseItem } from '@/types'
+import type { FetchQuestionsOptions, DeleteQuestionOptions } from '@/components/question/strategies/types'
 
 export interface QuestionListStrategy {
   // ==================== 数据获取 ====================

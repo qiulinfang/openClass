@@ -3,15 +3,15 @@
  * 处理所有网络请求相关的接口调用
  */
 
-import { AndroidBridge } from '../business/android-bridge'
+import { AndroidBridge } from '@/services/business/android-bridge'
 
-import { AiChatApi } from './ai-chat-api'
-import { TeacherChatApi } from './teacher-chat-api'
-import { QuestionStructurerApi, type StructureQuestionReq, type StructureQuestionBatchReq } from './question-structurer-api'
+import { AiChatApi } from '@/services/http/ai-chat-api'
+import { TeacherChatApi } from '@/services/http/teacher-chat-api'
+import { QuestionStructurerApi, type StructureQuestionReq, type StructureQuestionBatchReq } from '@/services/http/question-structurer-api'
 import { getApiPaths, getImBaseUrl, getTeacherWsUrl } from '@/config/env-config'
-import { httpClient } from './http-client'
-import { QuestionSearchApi } from './question-search-api'
-import { TextbookDownloadApi } from './textbook-download-api'
+import { httpClient } from '@/services/http/http-client'
+import { QuestionSearchApi } from '@/services/http/question-search-api'
+import { TextbookDownloadApi } from '@/services/http/textbook-download-api'
 import {
   HomeworkApi,
   type HomeworkSubmitSaveResult,
@@ -19,7 +19,7 @@ import {
   type GaokaoAgentResponse,
   type GaokaoQuestionTypeData,
   type GaokaoChoiceParseData,
-} from './homework-api'
+} from '@/services/http/homework-api'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 使用统一类型定义
@@ -473,14 +473,14 @@ export interface FetchHtmlResponse {
 }
 
 // 习题分页接口响应类型（作业套餐 + 套餐内题目列表）
-export type TopicQuestionItem = import('./textbook-download-api').TopicQuestionItem
+export type TopicQuestionItem = import('@/services/http/textbook-download-api').TopicQuestionItem
 
-export type TopicPackageItem = import('./textbook-download-api').TopicPackageItem
+export type TopicPackageItem = import('@/services/http/textbook-download-api').TopicPackageItem
 
-export type TopicPackagePageResponse = import('./textbook-download-api').TopicPackagePageResponse
+export type TopicPackagePageResponse = import('@/services/http/textbook-download-api').TopicPackagePageResponse
 
 // 教师聊天相关类型
-export type TeacherHistoryMessage = import('./teacher-chat-api').TeacherHistoryMessage
+export type TeacherHistoryMessage = import('@/services/http/teacher-chat-api').TeacherHistoryMessage
 
 // 创建默认的 API 服务实例
 export const apiService = ApiService.getInstance()

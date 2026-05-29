@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FindExerciseQuestionList } from '../components/FindExerciseQuestionList'
-import './FindExerciseView.css'
+import { FindExerciseQuestionList } from '@/components/FindExerciseQuestionList'
+import '@/views/FindExerciseView.css'
 
 export const FindExerciseView: React.FC = () => {
   const navigate = useNavigate()

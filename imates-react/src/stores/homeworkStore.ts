@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import type { ExerciseItem, HomeworkUndoItem } from '../types'
-import { saveQuestionsToIndexedDB } from '../services/storage/question-storage'
-import { saveHomeworkSubmission, loadHomeworkSubmission } from '../services/storage/homework-storage'
+import type { ExerciseItem, HomeworkUndoItem } from '@/types'
+import { saveQuestionsToIndexedDB } from '@/services/storage/question-storage'
+import { saveHomeworkSubmission, loadHomeworkSubmission } from '@/services/storage/homework-storage'
 import { showMessage } from '@/utils'
 import { apiService } from '@/services/http/api-service'
 

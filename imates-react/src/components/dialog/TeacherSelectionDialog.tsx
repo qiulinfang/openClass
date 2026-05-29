@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Dialog } from '../base/Dialog'
-import './TeacherSelectionDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/dialog/TeacherSelectionDialog.css'
 
 export interface Teacher {
   subject: 'biology' | 'math'

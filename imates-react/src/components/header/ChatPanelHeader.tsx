@@ -1,5 +1,5 @@
 import React from 'react'
-import './ChatPanelHeader.css'
+import '@/components/header/ChatPanelHeader.css'
 
 export interface TabOption {
   label: string

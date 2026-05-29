@@ -1,5 +1,5 @@
 import React from 'react'
-import './SuggestedQuestions.css'
+import '@/components/chat/message/SuggestedQuestions.css'
 
 export interface SuggestedQuestionsProps {
   questions?: string[]

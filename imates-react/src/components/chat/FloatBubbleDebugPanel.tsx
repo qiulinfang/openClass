@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './FloatBubbleDebugPanel.css'
+import '@/components/chat/FloatBubbleDebugPanel.css'
 
 export interface FloatBubbleConfig {
   side?: 'left' | 'right'

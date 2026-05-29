@@ -1,9 +1,9 @@
-import type { BackendHistoryMessage, ChatBubble } from '../../types'
-import { alignTailMessageIdsFromHistory, buildHistorySignature } from './historySyncUtils'
+import type { BackendHistoryMessage, ChatBubble } from '@/types'
+import { alignTailMessageIdsFromHistory, buildHistorySignature } from '@/stores/utils/historySyncUtils'
 
 export interface ChatEngineOptions {
   getMessages: () => ChatBubble[]
-  lastHistorySignature: string
+  getLastHistorySignature: () => string
   setMessages: (messages: ChatBubble[]) => void
   setLastHistorySignature: (signature: string) => void
   onAfterHistorySync?: () => void | Promise<void>
@@ -22,7 +22,7 @@ export interface SendChatCallbacks {
 export const createChatEngine = (options: ChatEngineOptions) => {
   const { 
     getMessages, 
-    lastHistorySignature, 
+    getLastHistorySignature, 
     setMessages, 
     setLastHistorySignature,
     onAfterHistorySync 
@@ -31,7 +31,7 @@ export const createChatEngine = (options: ChatEngineOptions) => {
   const applyHistoryUpdate = async (history: BackendHistoryMessage[]) => {
     if (!history || history.length === 0) return
     const signature = buildHistorySignature(history)
-    if (signature && signature === lastHistorySignature) return
+    if (signature && signature === getLastHistorySignature()) return
     
     setLastHistorySignature(signature)
 

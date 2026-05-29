@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import './StreamingMessage.css'
+import '@/components/chat/message/StreamingMessage.css'
 
 export interface StreamingMessageProps {
   content?: string

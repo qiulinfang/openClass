@@ -1,5 +1,5 @@
 import React from 'react'
-import './SelectSingle.css'
+import '@/components/base/SelectSingle.css'
 
 export interface SelectSingleProps {
   value: string

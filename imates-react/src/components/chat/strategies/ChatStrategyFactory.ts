@@ -1,12 +1,12 @@
-import type { ChatStrategy } from './ChatStrategy'
-import type { TeacherSessionInfo } from './types'
+import type { ChatStrategy } from '@/components/chat/strategies/ChatStrategy'
+import type { TeacherSessionInfo } from '@/components/chat/strategies/types'
 
 export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client' | 'html-preview'
 
 export interface ChatStrategyFactoryOptions {
   subject?: string
   session?: TeacherSessionInfo
-  chatView?: import('./ChatStrategy').ChatViewInterface
+  chatView?: import('@/components/chat/strategies/ChatStrategy').ChatViewInterface
 }
 
 export class ChatStrategyFactory {
@@ -54,10 +54,10 @@ export class ChatStrategyFactory {
   }
 }
 
-import { AiGeneralStrategy } from './AiGeneralStrategy'
-import { AiExerciseStrategy } from './AiExerciseStrategy'
-import { AiTextbookStrategy } from './AiTextbookStrategy'
-import { AiHomeworkStrategy } from './AiHomeworkStrategy'
-import { TeacherStrategy } from './TeacherStrategy'
-import { UserClientStrategy } from './UserClientStrategy'
-import { HtmlPreviewStrategy } from './HtmlPreviewStrategy'
+import { AiGeneralStrategy } from '@/components/chat/strategies/AiGeneralStrategy'
+import { AiExerciseStrategy } from '@/components/chat/strategies/AiExerciseStrategy'
+import { AiTextbookStrategy } from '@/components/chat/strategies/AiTextbookStrategy'
+import { AiHomeworkStrategy } from '@/components/chat/strategies/AiHomeworkStrategy'
+import { TeacherStrategy } from '@/components/chat/strategies/TeacherStrategy'
+import { UserClientStrategy } from '@/components/chat/strategies/UserClientStrategy'
+import { HtmlPreviewStrategy } from '@/components/chat/strategies/HtmlPreviewStrategy'

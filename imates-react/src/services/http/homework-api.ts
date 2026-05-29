@@ -3,7 +3,7 @@
  * 处理作业相关的网络请求
  */
 
-import { httpClient } from './http-client'
+import { httpClient } from '@/services/http/http-client'
 import type { ApiResponse } from '@/types'
 import { getApiPaths } from '@/config/env-config'
 

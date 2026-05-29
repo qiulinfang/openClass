@@ -1,5 +1,5 @@
 import React, { useRef, useState, forwardRef, useImperativeHandle } from 'react'
-import './SearchInput.css'
+import '@/components/base/SearchInput.css'
 
 export interface SearchInputProps {
   value?: string

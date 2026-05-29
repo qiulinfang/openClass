@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import './HighSchoolMathEditor.css'
+import '@/components/chat/Input/HighSchoolMathEditor.css'
 
 export interface HighSchoolMathEditorProps {
   value?: string

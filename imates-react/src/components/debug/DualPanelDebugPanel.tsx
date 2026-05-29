@@ -1,5 +1,5 @@
 import React from 'react'
-import './DualPanelDebugPanel.css'
+import '@/components/debug/DualPanelDebugPanel.css'
 
 export interface DualPanelDebugPanelProps {
   modelValue: number

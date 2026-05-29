@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { SessionList } from './SessionList'
-import type { SessionRecord } from './SessionItem'
-import './SessionTree.css'
+import { SessionList } from '@/components/chat/session/SessionList'
+import type { SessionRecord } from '@/components/chat/session/SessionItem'
+import '@/components/chat/session/SessionTree.css'
 
 export interface SessionTreeProps {
   groups?: Array<{

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './ResourceDebugPanel.css'
+import '@/components/debug/ResourceDebugPanel.css'
 
 export interface ResourceDebugPanelProps {
   visible?: boolean

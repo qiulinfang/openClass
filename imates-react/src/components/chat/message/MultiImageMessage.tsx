@@ -1,5 +1,5 @@
 import React from 'react'
-import './MultiImageMessage.css'
+import '@/components/chat/message/MultiImageMessage.css'
 
 export interface MultiImageMessageProps {
   images?: Array<{ url: string; width: number; height: number }>

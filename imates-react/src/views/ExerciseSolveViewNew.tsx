@@ -1,22 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useQuestionStore } from '../stores/questionStore'
-import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useDraftStore } from '../stores/draftStore'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { MathJaxUtils } from '../utils/math/mathjax'
-import SplitPanel from '../components/base/SplitPanel'
-import QuestionList from '../components/question/QuestionList'
-import DrawingBoard from '../components/drawing/DrawingBoard'
-import ExerciseChatPanelNew from '../components/chat/chatpanel/ExerciseChatPanelNew'
-import Dialog from '../components/base/Dialog'
-import Toolbar from '../components/drawing/Toolbar'
-import Select from '../components/base/Select'
-import Fab from '../components/base/Fab'
-import ImageProcessorDialog from '../components/dialog/ImageProcessorDialog'
-import { SUBJECT_OPTIONS } from '../constants/subjects'
-import type { AttachedScreenshot } from '../types'
-import './ExerciseSolveViewNew.css'
+import { useQuestionStore } from '@/stores/questionStore'
+import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
+import { useDraftStore } from '@/stores/draftStore'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
+import { MathJaxUtils } from '@/utils/math/mathjax'
+import SplitPanel from '@/components/base/SplitPanel'
+import QuestionList from '@/components/question/QuestionList'
+import DrawingBoard from '@/components/drawing/DrawingBoard'
+import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew'
+import Dialog from '@/components/base/Dialog'
+import Toolbar from '@/components/drawing/Toolbar'
+import Select from '@/components/base/Select'
+import Fab from '@/components/base/Fab'
+import ImageProcessorDialog from '@/components/dialog/ImageProcessorDialog'
+import { SUBJECT_OPTIONS } from '@/constants/subjects'
+import type { AttachedScreenshot } from '@/types'
+import '@/views/ExerciseSolveViewNew.css'
 
 // 图标资源 (根据项目实际路径调整)
 import goBackIcon from '/icons/goback.svg'
@@ -51,6 +51,9 @@ export const ExerciseSolveViewNew: React.FC = () => {
   const currentDraftQuestionId = useRef<string | null>(null)
   const draftAutoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const DRAFT_AUTO_SAVE_DELAY_MS = 800
+  
+  // 用于追踪上一个会话 ID，以便在切换时保存草稿
+  const previousSessionIdRef = useRef<string | null>(aiExerciseChatStore.currentSessionId)
   
   // Refs
   const splitPanelRef = useRef<any>(null)
@@ -142,6 +145,40 @@ export const ExerciseSolveViewNew: React.FC = () => {
     await draftStore.saveDraft(targetDraftKey, data)
   }, [currentQuestion, getCurrentDraftKey, getDraftDataFromBoard, draftStore])
   
+  // 调度自动保存
+  const scheduleDraftAutoSave = useCallback(() => {
+    if (draftAutoSaveTimer.current) {
+      clearTimeout(draftAutoSaveTimer.current)
+      draftAutoSaveTimer.current = null
+    }
+
+    draftAutoSaveTimer.current = setTimeout(() => {
+      draftAutoSaveTimer.current = null
+      saveDraftNow()
+    }, DRAFT_AUTO_SAVE_DELAY_MS)
+  }, [saveDraftNow])
+  
+  // 处理画板保存事件
+  const handleDraftSave = useCallback(async (data: {
+    objects: any[]
+    history: any[][]
+    historyIndex: number
+  }) => {
+    const currentDraftKey = getCurrentDraftKey()
+    if (currentQuestion && currentDraftKey) {
+      // 验证当前草稿键与当前上下文是否一致
+      if (currentDraftQuestionId.current && currentDraftQuestionId.current !== currentDraftKey) {
+        return
+      }
+
+      await draftStore.saveDraft(currentDraftKey, {
+        objects: data.objects,
+        history: data.history,
+        historyIndex: data.historyIndex,
+      })
+    }
+  }, [currentQuestion, getCurrentDraftKey, draftStore])
+  
   // 刷新自动保存
   const flushDraftAutoSave = useCallback(async (draftKey?: string | null) => {
     if (draftAutoSaveTimer.current) {
@@ -181,21 +218,24 @@ export const ExerciseSolveViewNew: React.FC = () => {
   
   // 处理题目选择
   const handleQuestionSelected = useCallback(async (question: any, index: number) => {
-    // 保存当前草稿
+    if (!question) return
+
+    // 先保存当前题目的草稿（如果有）
     if (currentDraftQuestionId.current) {
       await flushDraftAutoSave(currentDraftQuestionId.current)
     }
-    
-    // 选择题目
-    await questionStore.selectQuestion(index)
     
     // 立即清空画板
     if (draftBoardRef.current && typeof draftBoardRef.current.clearAll === 'function') {
       draftBoardRef.current.clearAll()
     }
     
+    // 选择题目
+    await questionStore.selectQuestion(index)
+    
     const questionBmNo = (question?.bmNo || question?.id || '').toString()
     if (questionBmNo) {
+      console.log(`[ExerciseSolveViewNew] handleQuestionSelected: 更新 AI 上下文, questionBmNo=${questionBmNo}`)
       await aiExerciseChatStore.loadChatHistory(questionBmNo)
     }
     
@@ -216,6 +256,102 @@ export const ExerciseSolveViewNew: React.FC = () => {
     }, 0)
   }, [questionStore, aiExerciseChatStore, renderMessageContent, loadCurrentDraft, flushDraftAutoSave])
   
+  const handleSessionDraftChange = useCallback(async (
+    nextSessionId?: string | null,
+    previousSessionId?: string | null
+  ) => {
+    if (!currentQuestion?.id) return
+
+    const questionBmNo = (currentQuestion.bmNo || currentQuestion.id || '').toString()
+    const previousDraftKey = buildDraftKey(questionBmNo, previousSessionId)
+    const nextDraftKey = buildDraftKey(questionBmNo, nextSessionId)
+
+    if (previousDraftKey && previousDraftKey === currentDraftQuestionId.current) {
+      await flushDraftAutoSave(previousDraftKey)
+    }
+
+    // 特殊处理：如果是从默认会话（null）切换到第一个正式会话，且该会话没有草稿，则继承默认会话的草稿
+    if ((previousSessionId === null || previousSessionId === undefined) && nextSessionId && nextDraftKey) {
+      const nextDraft = await draftStore.getDraft(nextDraftKey)
+      if (!nextDraft) {
+        const defaultDraftKey = buildDraftKey(questionBmNo, null) as string
+        const defaultDraft = await draftStore.getDraft(defaultDraftKey)
+        if (defaultDraft && defaultDraft.objects.length > 0) {
+          console.log('[草稿链路] 新会话继承默认草稿:', nextDraftKey)
+          await draftStore.saveDraft(nextDraftKey, {
+            objects: defaultDraft.objects,
+            history: defaultDraft.history,
+            historyIndex: defaultDraft.historyIndex,
+          })
+        }
+      }
+    }
+
+    await loadCurrentDraft(nextDraftKey)
+  }, [currentQuestion, buildDraftKey, flushDraftAutoSave, draftStore, loadCurrentDraft])
+
+  const handleAddSessionCard = useCallback(async () => {
+    const previousSessionId = aiExerciseChatStore.currentSessionId
+    const chatView = exerciseChatPanelRef.current?.getChatViewRef?.()
+    if (chatView?.addSessionCard) {
+      await chatView.addSessionCard()
+      await handleSessionDraftChange(aiExerciseChatStore.currentSessionId, previousSessionId)
+    } else {
+      // 如果 ChatView 没有暴露 addSessionCard，则尝试直接通过 store 创建
+      const questionBmNo = (currentQuestion?.bmNo || currentQuestion?.id || '').toString()
+      if (questionBmNo) {
+        await aiExerciseChatStore.createNewSession(questionBmNo)
+        await handleSessionDraftChange(aiExerciseChatStore.currentSessionId, previousSessionId)
+      }
+    }
+  }, [aiExerciseChatStore, handleSessionDraftChange, currentQuestion])
+
+  const onBoardImageSelected = useCallback(async (imageInfo: {
+    base64DataUrl?: string
+    width: number
+    height: number
+    fileSize: number
+  }) => {
+    setIsBoardCapturing(false)
+    // 切换回画笔模式
+    draftBoardRef.current?.handleToolbarToolChange?.('draw')
+
+    if (!imageInfo.base64DataUrl) return
+
+    // 仿照 PDF 流程：将截图存入 store 并打开编辑弹窗
+    const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const shot = {
+      id: shotId,
+      dataUrl: imageInfo.base64DataUrl,
+      originalDataUrl: imageInfo.base64DataUrl,
+      width: imageInfo.width || 0,
+      height: imageInfo.height || 0,
+    }
+
+    // 1. 先同步数据到 Store
+    aiExerciseChatStore.appendInputAttachedScreenshots([shot])
+    aiExerciseChatStore.setInputScreenshotDrawingStates({
+      ...aiExerciseChatStore.inputScreenshotDrawingStates,
+      [shotId]: { objects: [], history: [], historyIndex: -1 },
+    })
+
+    // 2. 关键：等待 DOM 和响应式数据同步
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    // 3. 再打开弹窗，确保 props 已经拿到最新数据
+    setCurrentEditingShotId(shotId)
+    setShowScreenshotDialog(true)
+  }, [aiExerciseChatStore])
+
+  const handleSendSuggestion = (message: string) => {
+    const chatViewRef = exerciseChatPanelRef.current?.getChatViewRef?.()
+    if (chatViewRef?.sendMessage) {
+      // 设置输入内容并发送
+      chatViewRef.inputMessage = message
+      chatViewRef.sendMessage()
+    }
+  }
+
   const handleStartAiGuidance = () => {
     if (mode === 'left') {
       setMode('right')
@@ -225,6 +361,14 @@ export const ExerciseSolveViewNew: React.FC = () => {
   const handleOpenMiniClass = (question: any) => {
     // 根据项目需求实现打开微课逻辑，目前先占位
     console.log('Open mini class for:', question)
+  }
+
+  const handleOpenTeacherDialog = () => {
+    // 打开老师对话框
+  }
+
+  const handleSwitchToTeacher = () => {
+    // 切换到老师聊天
   }
 
   const handlePasteToDraft = async (payload: { dataUrl: string }) => {
@@ -310,9 +454,8 @@ export const ExerciseSolveViewNew: React.FC = () => {
   useEffect(() => {
     // 初始加载
     if (currentQuestion) {
-      const raw = (currentQuestion.question || currentQuestion.title || '').toString()
-      setQuestionHtml(renderMessageContent(raw))
-      loadCurrentDraft()
+      console.log('[ExerciseSolveViewNew] 检测到已有选中题目，执行同步渲染')
+      handleQuestionSelected(currentQuestion, questionStore.questions.indexOf(currentQuestion))
     }
     
     const handleBeforeUnload = () => {
@@ -335,10 +478,11 @@ export const ExerciseSolveViewNew: React.FC = () => {
   
   // 监听会话变化
   useEffect(() => {
-    if (currentQuestion && aiExerciseChatStore.currentSessionId) {
-      loadCurrentDraft()
+    if (currentQuestion && aiExerciseChatStore.currentSessionId !== previousSessionIdRef.current) {
+      handleSessionDraftChange(aiExerciseChatStore.currentSessionId, previousSessionIdRef.current)
+      previousSessionIdRef.current = aiExerciseChatStore.currentSessionId
     }
-  }, [aiExerciseChatStore.currentSessionId])
+  }, [aiExerciseChatStore.currentSessionId, currentQuestion, handleSessionDraftChange])
   
   return (
     <div className="exercise-solve-container">
@@ -373,7 +517,10 @@ export const ExerciseSolveViewNew: React.FC = () => {
           <Select
             options={SUBJECT_OPTIONS}
             value={selectedSubjectFilter}
-            onChange={(val) => setSelectedSubjectFilter(val.toString())}
+            onChange={(val) => {
+              setSelectedSubjectFilter(val.toString())
+              console.log('[ExerciseSolveViewNew] 学科过滤条件改变:', val)
+            }}
             className="subject-filter-select"
           />
         </div>
@@ -388,6 +535,7 @@ export const ExerciseSolveViewNew: React.FC = () => {
           centerConfig={[64, 50, 80]}
           rightConfig={[36, 36, 60]}
           showSplitters={true}
+          splitterClass={mode === 'left' ? 'handle-blue' : 'handle-indigo'}
           disabled={isBoardCapturing}
           left={({ isVisible }) => (
             <div className="panel-bg1">
@@ -397,9 +545,10 @@ export const ExerciseSolveViewNew: React.FC = () => {
                     <QuestionList
                       ref={questionListRef}
                       type="exercise"
-                      questions={questionStore.questions}
-                      currentQuestion={currentQuestion}
+                      externalQuestions={questionStore.questions}
                       showPhotoSearch={true}
+                      showSendToAi={true}
+                      showQuestionActions={true}
                       selectedSubjectFilter={selectedSubjectFilter}
                       onQuestionSelected={(q: any) => handleQuestionSelected(q, questionStore.questions.indexOf(q))}
                       onQuestionDeleted={handleQuestionDeleted}
@@ -435,7 +584,9 @@ export const ExerciseSolveViewNew: React.FC = () => {
                 <div className="panel-card-body draft-body">
                   <DrawingBoard
                     ref={draftBoardRef}
+                    onSave={handleDraftSave}
                     onClear={handleDraftClearClick}
+                    onAskAiImageSelected={onBoardImageSelected}
                   />
                 </div>
               </div>
@@ -462,6 +613,13 @@ export const ExerciseSolveViewNew: React.FC = () => {
                       isExploring={isBoardCapturing}
                       isCapturing={isBoardCapturing}
                       onOpenHtmlPreview={handleOpenHtmlPreview}
+                      onSendMessage={handleSendSuggestion}
+                      onAddSession={handleAddSessionCard}
+                      onScrollToBottom={() => {}}
+                      onOpenTeacherDialog={handleOpenTeacherDialog}
+                      onSwitchToTeacher={handleSwitchToTeacher}
+                      onPasteToDraft={handlePasteToDraft}
+                      onRequestScreenshot={() => handleAskAiClick()}
                       onScreenshotClick={(active) => {
                         if (active) handleAskAiClick()
                         else setIsBoardCapturing(false)

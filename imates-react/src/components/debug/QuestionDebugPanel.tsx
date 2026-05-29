@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './QuestionDebugPanel.css'
+import '@/components/debug/QuestionDebugPanel.css'
 
 export interface QuestionDebugPanelProps {
   visible?: boolean

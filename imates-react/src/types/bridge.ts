@@ -3,9 +3,9 @@
  * 包含所有原生桥接相关类型，按功能分组
  */
 
-import type { UserInfo } from './user'
-import type { FindExerciseConfig } from './exercise'
-import type { JSONString } from './base'
+import type { UserInfo } from '@/types/user'
+import type { FindExerciseConfig } from '@/types/exercise'
+import type { JSONString } from '@/types/base'
 
 // ========== 基础数据类型 ==========
 

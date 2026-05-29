@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
-import { BaseQuestion, type ExerciseItem } from './BaseQuestion'
-import './ChoiceQuestion.css'
+import { BaseQuestion, type ExerciseItem } from '@/components/exercise/BaseQuestion'
+import '@/components/exercise/ChoiceQuestion.css'
 
 export interface ChoiceQuestionProps {
   question: ExerciseItem

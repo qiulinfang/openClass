@@ -3,10 +3,10 @@ import {
   getAllMistakes, 
   deleteMistake as deleteMistakeFromDB, 
   type MistakeItem 
-} from '../services/storage/mistake-storage'
+} from '@/services/storage/mistake-storage'
 import { showMessage } from '@/utils'
 import { normalizeSubject } from '@/constants/subjects'
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem } from '@/types'
 
 interface MistakeFilters {
   subject: string

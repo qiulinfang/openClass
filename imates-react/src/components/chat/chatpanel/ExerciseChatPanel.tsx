@@ -1,5 +1,5 @@
 import React from 'react'
-import './ExerciseChatPanel.css'
+import '@/components/chat/chatpanel/ExerciseChatPanel.css'
 
 export interface ExerciseChatPanelProps {
   visible?: boolean

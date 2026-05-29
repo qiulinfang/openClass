@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import './ImageMessage.css'
+import '@/components/chat/message/ImageMessage.css'
 
 export interface ImageMessageProps {
   base64DataUrl?: string

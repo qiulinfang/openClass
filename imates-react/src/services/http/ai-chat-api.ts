@@ -1,6 +1,6 @@
-import { httpClient } from '../http/http-client'
+import { httpClient } from '@/services/http/http-client'
 import { generateUniqueId } from '@/stores/utils/chatStoreUtils'
-import { AndroidBridge } from '../business/android-bridge'
+import { AndroidBridge } from '@/services/business/android-bridge'
 import type {
   AiChatMessageRequest,
   BackendHistoryMessage,

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import './MainChatPanel.css'
+import '@/components/chat/chatpanel/MainChatPanel.css'
 
 export interface MainChatPanelProps {
   visible?: boolean

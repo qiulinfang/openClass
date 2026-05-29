@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './FindExerciseQuestionList.css'
+import '@/components/FindExerciseQuestionList.css'
 
 export interface ExerciseQuestion {
   bmNo: string

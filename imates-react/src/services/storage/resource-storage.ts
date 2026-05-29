@@ -3,14 +3,14 @@
  * 对应Android LearnResourceManager，提供统一的资源管理功能
  */
 
-import { IndexedDBService } from './indexeddb-service'
+import { IndexedDBService } from '@/services/storage/indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '@/utils'
-import { getUserId, isYanbanLoggedIn, getCurrentYanbanAuth } from '../http/auth-service'
+import { getUserId, isYanbanLoggedIn, getCurrentYanbanAuth } from '@/services/http/auth-service'
 import { AppEnvType, getCurrentEnvType } from '@/config/env-config'
 // 注释掉缩略图相关导入以提升性能
-// import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
-// import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
+// import { isPdfFile } from '@/services/utils/thumbnail/pdf-thumbnail'
+// import { thumbnailQueue } from '@/services/utils/thumbnail/thumbnail-queue'
 import type {
   UserTextbookInfo,
   ResourceFile,

@@ -4,4 +4,4 @@
  */
 
 // 导出 MathJax 工具类
-export { MathJaxUtils } from './mathjax'
+export { MathJaxUtils } from '@/utils/math/mathjax'

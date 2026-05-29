@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import './LearningContentView.css'
+import '@/views/LearningContentView.css'
 
 export const LearningContentView: React.FC = () => {
   const navigate = useNavigate()

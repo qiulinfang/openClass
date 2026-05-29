@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import './DropdownMenu.css'
+import '@/components/base/DropdownMenu.css'
 
 export interface ActionItem {
   key: string

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import './VoiceMessage.css'
+import '@/components/chat/message/VoiceMessage.css'
 
 export interface VoiceMessageProps {
   audioUrl?: string

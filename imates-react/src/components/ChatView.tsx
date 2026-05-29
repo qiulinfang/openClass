@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
-import type { ChatBubble, AttachedScreenshot } from '../types'
-import type { ChatStrategy, ChatViewInterface } from './chat/strategies/ChatStrategy'
-import { ChatStrategyFactory, type ChatType } from './chat/strategies/ChatStrategyFactory'
-import { ChatMessageComponent } from './ChatMessage'
-import { ChatInputComponent } from './ChatInput'
-import { SimpleChatInputComponent } from './SimpleChatInput'
-import './ChatView.css'
+import type { ChatBubble, AttachedScreenshot } from '@/types'
+import type { ChatStrategy, ChatViewInterface } from '@/components/chat/strategies/ChatStrategy'
+import { ChatStrategyFactory, type ChatType } from '@/components/chat/strategies/ChatStrategyFactory'
+import { ChatMessageComponent } from '@/components/ChatMessage'
+import { ChatInputComponent } from '@/components/ChatInput'
+import { SimpleChatInputComponent } from '@/components/SimpleChatInput'
+import '@/components/ChatView.css'
 
 interface ChatViewProps {
   type: ChatType

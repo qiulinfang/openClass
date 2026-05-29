@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService, getUserId, getPassword, httpClient } from '../services'
-import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '../config/env-config'
-import { Dialog } from '../components/base/Dialog'
-import { Loading } from '../components/base/Loading'
+import { authService, getUserId, getPassword, httpClient } from '@/services'
+import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv, getAppUpdateUrl } from '@/config/env-config'
+import { Dialog } from '@/components/base/Dialog'
+import { Loading } from '@/components/base/Loading'
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'
-import './LoginView.css'
+import '@/views/LoginView.css'
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate()

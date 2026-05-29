@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './NewGrapDebugPanel.css'
+import '@/components/debug/NewGrapDebugPanel.css'
 
 export interface NewGrapDebugPanelProps {
   visible?: boolean

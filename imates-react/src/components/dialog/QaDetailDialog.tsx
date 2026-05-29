@@ -1,6 +1,6 @@
 import React from 'react'
-import { Dialog } from '../base/Dialog'
-import './QaDetailDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/dialog/QaDetailDialog.css'
 
 export interface QaDetailDialogProps {
   open?: boolean

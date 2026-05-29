@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import './BaseQuestion.css'
+import '@/components/exercise/BaseQuestion.css'
 
 export interface ExerciseItem {
   type?: string

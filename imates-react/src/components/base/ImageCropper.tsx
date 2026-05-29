@@ -1,8 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Button } from './Button'
+import { Button } from '@/components/base/Button'
 import goBackIcon from '/icons/goback.svg'
-import './ImageCropper.css'
+import '@/components/base/ImageCropper.css'
 
 export interface ImageCropperProps {
   open: boolean

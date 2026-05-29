@@ -1,5 +1,5 @@
 import React from 'react'
-import './BusinessHeader.css'
+import '@/components/header/BusinessHeader.css'
 
 export interface BusinessHeaderProps {
   title?: string

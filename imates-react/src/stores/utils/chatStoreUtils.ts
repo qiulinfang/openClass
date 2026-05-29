@@ -1,5 +1,5 @@
-import type { ChatBubble } from '../../types'
-import { Sender } from '../../types/enums'
+import type { ChatBubble } from '@/types'
+import { Sender } from '@/types/enums'
 
 /**
  * 简化的图片数据接口（用于聊天）

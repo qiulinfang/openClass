@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import './VideoViewerView.css'
+import '@/views/VideoViewerView.css'
 
 export const VideoViewerView: React.FC = () => {
   const navigate = useNavigate()

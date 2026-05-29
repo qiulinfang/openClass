@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { DrawingBoard } from '../components/drawing/DrawingBoard'
-import './PdfViewerView.css'
+import { DrawingBoard } from '@/components/drawing/DrawingBoard'
+import '@/views/PdfViewerView.css'
 
 export const PdfViewerView: React.FC = () => {
   const navigate = useNavigate()

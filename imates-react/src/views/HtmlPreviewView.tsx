@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import './HtmlPreviewView.css'
+import '@/views/HtmlPreviewView.css'
 
 export const HtmlPreviewView: React.FC = () => {
   const navigate = useNavigate()

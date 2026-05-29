@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Button } from './Button'
-import './Modal.css'
+import { Button } from '@/components/base/Button'
+import '@/components/base/Modal.css'
 
 export interface ModalProps {
   open: boolean

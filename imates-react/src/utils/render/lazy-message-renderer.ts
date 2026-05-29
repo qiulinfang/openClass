@@ -1,6 +1,6 @@
 // 懒加载消息渲染器 - 按需处理 Markdown 解析和 MathJax 渲染
 import { ref, onMounted, onUnmounted } from 'vue'
-import { MathJaxUtils } from '../math/mathjax'
+import { MathJaxUtils } from '@/utils/math/mathjax'
 
 export interface LazyRenderOptions {
   rootMargin?: string

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
-import './CardStack.css'
+import '@/components/base/CardStack.css'
 
 export interface CardStackCard {
   id: string | number

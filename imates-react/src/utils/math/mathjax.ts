@@ -1,5 +1,5 @@
 // MathJax 工具类 - 性能优化版本
-import type { RenderTask } from '../../types'
+import type { RenderTask } from '@/types'
 
 declare global {
   interface Window {

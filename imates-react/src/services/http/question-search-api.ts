@@ -1,4 +1,4 @@
-import { httpClient } from '../http/http-client'
+import { httpClient } from '@/services/http/http-client'
 import type { FindSimilarQuestionByBmNoRequest, ApiResponse } from '@/types'
 import { validateKnowledgeTopicAndAck2Request } from '@/stores/utils/requestValidator'
 import { normalizeSubject, SUBJECT_TO_EXERCISE_LIST_ENDPOINT, type ApiSubjectType } from '@/constants/subjects'

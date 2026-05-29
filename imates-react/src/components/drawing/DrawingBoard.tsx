@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react'
-import { Toolbar } from './Toolbar'
-import './DrawingBoard.css'
+import { Toolbar } from '@/components/drawing/Toolbar'
+import '@/components/drawing/DrawingBoard.css'
 
 export interface DrawingBoardProps {
   toolbarPosition?: 'top' | 'left'
@@ -9,8 +9,19 @@ export interface DrawingBoardProps {
   backgroundImage?: string
   onUndo?: () => void
   onRedo?: () => void
+  onSave?: (data: {
+    objects: any[]
+    history: any[][]
+    historyIndex: number
+  }) => void
   onClear?: () => void
   onToolChange?: (tool: string) => void
+  onAskAiImageSelected?: (imageInfo: {
+    base64DataUrl?: string
+    width: number
+    height: number
+    fileSize: number
+  }) => void
   children?: React.ReactNode
 }
 
@@ -21,8 +32,10 @@ export const DrawingBoard = forwardRef<any, DrawingBoardProps>(({
   backgroundImage,
   onUndo,
   onRedo,
+  onSave,
   onClear,
   onToolChange,
+  onAskAiImageSelected,
   children,
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)

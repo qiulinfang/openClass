@@ -2,8 +2,8 @@
  * Web 图片选择适配器
  * 使用 HTML input file 实现图片选择功能
  */
-import type { IImagePickerAdapter } from './IImagePickerAdapter'
-import type { ImageData } from '../types'
+import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
+import type { ImageData } from '@/types'
 
 export class WebImagePickerAdapter implements IImagePickerAdapter {
   /**

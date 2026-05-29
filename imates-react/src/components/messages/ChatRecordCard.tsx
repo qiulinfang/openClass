@@ -1,6 +1,6 @@
 import React from 'react'
-import type { ChatBubble } from '../../types'
-import './ChatRecordCard.css'
+import type { ChatBubble } from '@/types'
+import '@/components/messages/ChatRecordCard.css'
 
 interface ChatRecordCardProps {
   messages: ChatBubble[]

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import './MathFormulaEditor.css'
+import '@/components/MathFormulaEditor.css'
 
 interface MathFormulaEditorProps {
   value: string

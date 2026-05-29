@@ -2,18 +2,18 @@
  * QuestionList 策略模式 - 导出入口
  */
 
-export type { QuestionListStrategy } from './QuestionListStrategy'
-export type { QuestionListType, FetchQuestionsOptions, DeleteQuestionOptions } from './types'
+export type { QuestionListStrategy } from '@/components/question/strategies/QuestionListStrategy'
+export type { QuestionListType, FetchQuestionsOptions, DeleteQuestionOptions } from '@/components/question/strategies/types'
 
-export { MyExerciseStrategy } from './MyExerciseStrategy'
-export { MyHomeworkStrategy } from './MyHomeworkStrategy'
-export { MistakeStrategy } from './MistakeStrategy'
+export { MyExerciseStrategy } from '@/components/question/strategies/MyExerciseStrategy'
+export { MyHomeworkStrategy } from '@/components/question/strategies/MyHomeworkStrategy'
+export { MistakeStrategy } from '@/components/question/strategies/MistakeStrategy'
 
-import type { QuestionListStrategy } from './QuestionListStrategy'
-import type { QuestionListType } from './types'
-import { MyExerciseStrategy } from './MyExerciseStrategy'
-import { MyHomeworkStrategy } from './MyHomeworkStrategy'
-import { MistakeStrategy } from './MistakeStrategy'
+import type { QuestionListStrategy } from '@/components/question/strategies/QuestionListStrategy'
+import type { QuestionListType } from '@/components/question/strategies/types'
+import { MyExerciseStrategy } from '@/components/question/strategies/MyExerciseStrategy'
+import { MyHomeworkStrategy } from '@/components/question/strategies/MyHomeworkStrategy'
+import { MistakeStrategy } from '@/components/question/strategies/MistakeStrategy'
 
 /**
  * 根据类型创建对应的策略实例

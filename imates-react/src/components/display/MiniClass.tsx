@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Dialog } from '../base/Dialog'
-import './MiniClass.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/display/MiniClass.css'
 
 export interface MiniClassProps {
   open?: boolean

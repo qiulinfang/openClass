@@ -3,7 +3,7 @@
  * 包含语音、图片、压缩、录制等所有媒体相关类型
  */
 
-import type { ChatBubble } from './chat'
+import type { ChatBubble } from '@/types/chat'
 
 // ========== 语音相关类型 ==========
 

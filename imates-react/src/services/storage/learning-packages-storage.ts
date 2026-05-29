@@ -1,6 +1,6 @@
 import type { LearningPackage } from '@/types'
-import { getUserId } from '../http/auth-service'
-import { resourceManager } from './resource-storage'
+import { getUserId } from '@/services/http/auth-service'
+import { resourceManager } from '@/services/storage/resource-storage'
 
 // 与 TextbookStorage 共用同一个 IndexedDB，单独建一个 learning_packages 表
 const STORE_NAME = 'learning_packages'

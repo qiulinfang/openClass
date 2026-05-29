@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import './PhotoSearchView.css'
+import '@/views/PhotoSearchView.css'
 
 // 导入组件
 import { ImageCropper } from '@/components/base/ImageCropper'
@@ -10,12 +10,12 @@ import { ChatView } from '@/components/ChatView'
 import Textarea from '@/components/base/Textarea'
 
 // 导入服务与工具
-import { apiService } from '../services/http/api-service'
-import { ImagePickerAdapterFactory } from '../adapters/ImagePickerAdapterFactory'
-import { showMessage } from '../utils'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
-import { useQuestionStore } from '../stores/questionStore'
+import { apiService } from '@/services/http/api-service'
+import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
+import { showMessage } from '@/utils'
+import { useMessageRenderer } from '@/hooks/useMessageRenderer'
+import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
+import { useQuestionStore } from '@/stores/questionStore'
 
 // 导入图标
 import goBackIcon from '/icons/goback.svg'
@@ -29,7 +29,7 @@ import shoucangIcon from '/icons/shoucang1.svg'
 import xingxingLightIcon from '/icons/xingxing-light.svg'
 import jiarulianxiLightIcon from '/icons/jiarulianxi-light.svg'
 
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem } from '@/types'
 
 export const PhotoSearchView: React.FC = () => {
   const navigate = useNavigate()
@@ -513,7 +513,7 @@ export const PhotoSearchView: React.FC = () => {
           showMessage('已从练习列表中移除', 'success')
           // 立即从本地列表中移除该题目（Immutable 方式），确保 isInPracticeList 立即更新 (对齐 Vue 零延迟反馈)
           const updatedQuestions = questions.filter((q) => (q.bmNo || q.id) !== currentId)
-          useQuestionStore.setState({ questions: updatedQuestions, hasQuestions: updatedQuestions.length > 0 })
+          useQuestionStore.setState({ questions: updatedQuestions })
           await fetchQuestions(selectedSubject, false)
         }
       } else {

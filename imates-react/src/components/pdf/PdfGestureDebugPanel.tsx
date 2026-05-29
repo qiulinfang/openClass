@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './PdfGestureDebugPanel.css'
+import '@/components/pdf/PdfGestureDebugPanel.css'
 
 export interface PdfGestureDebugPanelProps {
   minScale?: number

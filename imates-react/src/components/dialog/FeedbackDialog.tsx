@@ -1,6 +1,6 @@
 import React from 'react'
-import { Dialog } from '../base/Dialog'
-import './FeedbackDialog.css'
+import { Dialog } from '@/components/base/Dialog'
+import '@/components/dialog/FeedbackDialog.css'
 
 export interface FeedbackDialogProps {
   open?: boolean

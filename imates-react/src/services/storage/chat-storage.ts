@@ -1,6 +1,6 @@
 ﻿// 异步数据存储服务 - 使用 IndexedDB 替代 localStorage
 import localforage from 'localforage'
-import { getUserId } from '../http/auth-service'
+import { getUserId } from '@/services/http/auth-service'
 import type { ChatBubble, AiGeneralSession } from '@/types'
 
 /**

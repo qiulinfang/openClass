@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import './DragDebugPanel.css'
+import '@/components/debug/DragDebugPanel.css'
 
 export interface DragState {
   isDragging: boolean

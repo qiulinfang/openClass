@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import './MarkdownTitle.css'
+import '@/components/display/MarkdownTitle.css'
 
 export interface MarkdownTitleProps {
   title?: string

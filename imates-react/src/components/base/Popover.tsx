@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import './Popover.css'
+import '@/components/base/Popover.css'
 
 export interface PopoverProps {
   visible?: boolean

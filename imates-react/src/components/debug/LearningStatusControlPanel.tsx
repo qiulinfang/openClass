@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import type { ChapterNode } from '@/types'
-import { getScopedStorageKey } from '../../services'
-import './LearningStatusControlPanel.css'
+import { getScopedStorageKey } from '@/services'
+import '@/components/debug/LearningStatusControlPanel.css'
 
 export interface LearningStatusControlPanelProps {
   isOpen?: boolean

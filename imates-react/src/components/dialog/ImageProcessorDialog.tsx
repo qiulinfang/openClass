@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import Modal from '../base/Modal'
-import DrawingBoard from '../drawing/DrawingBoard'
-import ImageCropper from '../base/ImageCropper'
-import ScreenshotThumb from '../display/ScreenshotThumb'
+import Modal from '@/components/base/Modal'
+import DrawingBoard from '@/components/drawing/DrawingBoard'
+import ImageCropper from '@/components/base/ImageCropper'
+import ScreenshotThumb from '@/components/display/ScreenshotThumb'
 import { showMessage } from '@/utils'
 import type { AttachedScreenshot } from '@/types'
-import './ImageProcessorDialog.css'
+import '@/components/dialog/ImageProcessorDialog.css'
 
 interface ScreenshotDrawingState {
   objects: any[]

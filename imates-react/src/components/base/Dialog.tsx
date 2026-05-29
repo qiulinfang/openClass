@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
-import { Button } from './Button'
-import './Dialog.css'
+import { Button } from '@/components/base/Button'
+import '@/components/base/Dialog.css'
 
 export interface DialogProps {
   open: boolean

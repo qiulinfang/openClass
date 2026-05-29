@@ -3,7 +3,7 @@
  * 处理教师聊天的实时通信
  */
 
-import { getUserId } from '../http/auth-service'
+import { getUserId } from '@/services/http/auth-service'
 import { getYanbanBaseUrl, getApiPaths } from '@/config/env-config'
 
 export interface TeacherWebSocketMessage {

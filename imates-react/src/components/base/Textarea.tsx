@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react'
-import './Textarea.css'
+import '@/components/base/Textarea.css'
 
 export interface TextareaProps {
   value: string

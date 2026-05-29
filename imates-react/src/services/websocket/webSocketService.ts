@@ -3,7 +3,7 @@
  * 支持多种聊天类型的WebSocket连接管理
  */
 
-import { getUserId, getCurrentYanbanUserId } from '../http/auth-service'
+import { getUserId, getCurrentYanbanUserId } from '@/services/http/auth-service'
 import { getYanbanBaseUrl, getTeacherWsUrl, getApiPaths } from '@/config/env-config'
 
 export interface WebSocketMessage {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import './SplitPanel.css'
+import '@/components/base/SplitPanel.css'
 
 export interface SplitPanelProps {
   mode?: 'left' | 'right'
@@ -8,6 +8,7 @@ export interface SplitPanelProps {
   centerConfig?: [number, number, number]
   rightConfig?: [number, number, number]
   showSplitters?: boolean
+  splitterClass?: string
   transitionDuration?: number
   transitionEasing?: string
   disabled?: boolean
@@ -24,6 +25,7 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
   centerConfig = [40, 20, 60],
   rightConfig = [30, 20, 50],
   showSplitters = true,
+  splitterClass,
   transitionDuration = 0.3,
   transitionEasing = 'cubic-bezier(0.4, 0, 0.2, 1)',
   disabled = false,
@@ -110,7 +112,7 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
             </div>
 
             <div
-              className={`split-panel-splitter ${mode === 'right' || !showSplitters ? 'splitter-hidden' : ''} ${isDragging ? 'no-transition' : ''}`}
+              className={`split-panel-splitter ${mode === 'right' || !showSplitters ? 'splitter-hidden' : ''} ${isDragging ? 'no-transition' : ''} ${splitterClass || ''}`}
               style={{ left: w1Px }}
               onPointerDown={handleDrag1}
             >
@@ -130,7 +132,7 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
             </div>
 
             <div
-              className={`split-panel-splitter ${mode === 'left' || !showSplitters ? 'splitter-hidden' : ''} ${isDragging ? 'no-transition' : ''}`}
+              className={`split-panel-splitter ${mode === 'left' || !showSplitters ? 'splitter-hidden' : ''} ${isDragging ? 'no-transition' : ''} ${splitterClass || ''}`}
               style={{ left: w1Px + w2Px }}
               onPointerDown={handleDrag2}
             >

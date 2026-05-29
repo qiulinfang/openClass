@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import './Select.css'
+import '@/components/base/Select.css'
 
 export interface SelectProps {
   options: Array<{ label: string; value: string | number }>

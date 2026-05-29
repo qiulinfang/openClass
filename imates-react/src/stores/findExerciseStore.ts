@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { apiService } from '../services/http/api-service'
+import { apiService } from '@/services/http/api-service'
 import type {
   ExerciseItem,
   FindSimilarQuestionByKnowledgeRequest,
   AddQuestionRequest,
   FindExerciseConfig
-} from '../types'
+} from '@/types'
 
 interface FindExerciseState {
   config: FindExerciseConfig | null

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DrawingBoard } from '../components/drawing/DrawingBoard'
-import './DraftNotebookView.css'
+import { DrawingBoard } from '@/components/drawing/DrawingBoard'
+import '@/views/DraftNotebookView.css'
 
 export const DraftNotebookView: React.FC = () => {
   const navigate = useNavigate()

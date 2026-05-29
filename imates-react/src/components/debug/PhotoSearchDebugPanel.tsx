@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import './PhotoSearchDebugPanel.css'
+import '@/components/debug/PhotoSearchDebugPanel.css'
 
 export interface PhotoSearchDebugPanelProps {
   visible?: boolean

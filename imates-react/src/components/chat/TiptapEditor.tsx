@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import './TiptapEditor.css'
+import '@/components/chat/TiptapEditor.css'
 
 export interface TiptapEditorProps {
   value?: string

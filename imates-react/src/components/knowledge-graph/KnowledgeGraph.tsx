@@ -4,7 +4,7 @@ import learnedIcon from '/icons/learned.svg'
 import lastLearnedIcon from '/icons/lastLearned.svg'
 import notLearnedIcon from '/icons/notLearned.svg'
 import indicatorIcon from '/icons/Indicator.svg'
-import './KnowledgeGraph.css'
+import '@/components/knowledge-graph/KnowledgeGraph.css'
 
 export interface KnowledgeNode {
   id: string

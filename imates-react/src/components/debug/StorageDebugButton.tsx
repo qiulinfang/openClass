@@ -1,5 +1,5 @@
 import React from 'react'
-import './StorageDebugButton.css'
+import '@/components/debug/StorageDebugButton.css'
 
 export interface StorageDebugButtonProps {
   isPanelVisible?: boolean

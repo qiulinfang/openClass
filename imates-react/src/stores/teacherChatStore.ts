@@ -1,22 +1,22 @@
 import { create } from 'zustand'
-import type { ChatBubble, UserInfo } from '../types'
-import { Sender } from '../types/enums'
-import { apiService } from '../services/http/api-service'
+import type { ChatBubble, UserInfo } from '@/types'
+import { Sender } from '@/types/enums'
+import { apiService } from '@/services/http/api-service'
 import { showMessage } from '@/utils'
-import { getUserInfo, getUserId } from '../services/http/auth-service'
+import { getUserInfo, getUserId } from '@/services/http/auth-service'
 import { resolveTeacherImageUrl } from '@/config/env-config'
-import { useUnreadMessageStore } from './unreadMessageStore'
-import { getWebSocketService, destroyWebSocketService } from '../services/websocket/webSocketService'
-import type { WebSocketMessage } from '../services/websocket/webSocketService'
+import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
+import { getWebSocketService, destroyWebSocketService } from '@/services/websocket/webSocketService'
+import type { WebSocketMessage } from '@/services/websocket/webSocketService'
 import {
   checkAccountStatus,
   checkNotificationPermission,
   sendSystemNotification,
-} from '../utils/account-status'
+} from '@/utils/account-status'
 import {
   findMessageIndex,
   type ChatImageData,
-} from './utils/chatStoreUtils'
+} from '@/stores/utils/chatStoreUtils'
 import { validateAndFixTimestamp, validateSendMessagePreconditions } from '@/stores/utils/validation'
 
 /**

@@ -5,7 +5,7 @@
 
 import type { QuestionRecord, AiGeneralSession, AiTextbookSession } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
-import { getUserId } from '../../services'
+import { getUserId } from '@/services'
 
 // 收藏数据类型
 export interface FavoriteExercise {

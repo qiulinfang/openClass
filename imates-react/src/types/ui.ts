@@ -3,7 +3,7 @@
  * 包含所有Vue组件Props、UI状态、界面交互等类型
  */
 
-import type { ExerciseItem } from './exercise'
+import type { ExerciseItem } from '@/types/exercise'
 
 // ========== 通用UI组件类型 ==========
 

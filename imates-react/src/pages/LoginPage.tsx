@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService, getXuebanToken } from '../services'
-import './LoginPage.css'
-import { LoginForm } from './LoginForm'
+import { authService, getXuebanToken } from '@/services'
+import '@/pages/LoginPage.css'
+import { LoginForm } from '@/pages/LoginForm'
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()

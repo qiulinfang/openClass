@@ -3,8 +3,8 @@
  * 包含消息、会话、转发、组件Props等所有聊天相关类型
  */
 
-import type { MessageType, Sender, SessionType } from './enums'
-import type { ExerciseItem } from './exercise'
+import type { MessageType, Sender, SessionType } from '@/types/enums'
+import type { ExerciseItem } from '@/types/exercise'
 
 // ========== 基础聊天类型 ==========
 

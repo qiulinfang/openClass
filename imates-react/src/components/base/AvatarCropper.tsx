@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import './AvatarCropper.css'
+import '@/components/base/AvatarCropper.css'
 
 export interface AvatarCropperProps {
   open: boolean

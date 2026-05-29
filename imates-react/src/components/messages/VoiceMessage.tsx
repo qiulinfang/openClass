@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import './VoiceMessage.css'
+import '@/components/messages/VoiceMessage.css'
 
 interface VoiceMessageProps {
   filePath: string

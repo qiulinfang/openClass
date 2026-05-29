@@ -4,7 +4,7 @@
  * 场景42：学生关闭了通知权限 - 通知权限检测
  */
 
-import { showMessage } from '../utils'
+import { showMessage } from '@/utils'
 
 /**
  * 账号状态接口
