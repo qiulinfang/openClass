@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChatView } from '../components/ChatView'
-import type { ChatType } from '../strategies/ChatStrategyFactory'
-import { logout, isLoggedIn, getUserInfo } from '../services/auth'
+import type { ChatType } from '../components/chat/strategies/ChatStrategyFactory'
+import { getXuebanToken, getUserInfo, authService, logout } from '../services'
 import './ChatDemoPage.css'
 
 const chatTypes: { value: ChatType; label: string }[] = [
@@ -25,7 +25,7 @@ export const ChatDemoPage: React.FC = () => {
   const [showReadStatus, setShowReadStatus] = useState(false)
 
   useEffect(() => {
-    if (!isLoggedIn()) {
+    if (!getXuebanToken()) {
       navigate('/')
     }
   }, [navigate])

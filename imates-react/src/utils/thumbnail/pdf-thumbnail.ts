@@ -49,19 +49,19 @@ export async function generatePdfThumbnail(
     canvas.height = scaledHeight
     
     // 创建变换矩阵并渲染PDF页面到canvas
-    const matrix: mupdf.Matrix = [
+    const matrix = [
       scale, // sx
       0, // shx
       0, // shy
       scale, // sy
       0, // tx
       0, // ty
-    ]
+    ] as const
     
     // 使用 RGB 颜色空间渲染页面
     const pixmap = page.toPixmap(
-      matrix,
-      mupdf.ColorSpace.DeviceRGB,
+      matrix as any,
+      (mupdf as any).ColorSpace.DeviceRGB,
       false, // 不需要 alpha 通道
     )
     

@@ -151,12 +151,12 @@ export class AuthService {
 
     // 登录过期时断开 WebSocket 连接
     try {
-      // 动态导入避免循环依赖
-      const { useUserClientStore } = await import('../../stores/userClientStore')
-      const userClientStore = useUserClientStore()
-      if (userClientStore.isConnected) {
-        console.log('[AuthService] 登录过期，断开 WebSocket 连接')
-        userClientStore.disconnect()
+      const { useTeacherChatStore } = await import('../../stores/teacherChatStore')
+      const teacherStore = useTeacherChatStore()
+      if (teacherStore.currentSessionId) {
+        console.log('[AuthService] 登录过期，清除教师聊天会话')
+        teacherStore.setCurrentSessionId(null)
+        teacherStore.clearMessages()
       }
     } catch (error) {
       console.error('[AuthService] 断开 WebSocket 连接失败:', error)
@@ -184,6 +184,13 @@ export class AuthService {
       }
     } catch {
     }
+  }
+
+  /**
+   * 退出登录
+   */
+  public logout(): void {
+    this.forceLogoutToLogin()
   }
 
   /**
@@ -458,16 +465,9 @@ export class AuthService {
     try {
       // 账户切换时断开教师WebSocket连接（用户ID改变需要重新连接）
       try {
-        const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
+        const { useTeacherChatStore } = await import('../../stores/teacherChatStore')
         const teacherStore = useTeacherChatStore()
-        await teacherStore.cleanupMessageReceiver()
-      } catch {
-      }
-
-      try {
-        const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
-        const teacherStore = useTeacherChatStore()
-        teacherStore.clearSession()
+        teacherStore.setCurrentSessionId(null)
         teacherStore.clearMessages()
       } catch {
       }
@@ -509,3 +509,5 @@ export class AuthService {
 }
 
 export const authService = AuthService.getInstance()
+
+export const logout = () => authService.logout()

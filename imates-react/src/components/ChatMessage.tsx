@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import type { ChatBubble } from '../types'
-import type { ChatType } from '../strategies/ChatStrategyFactory'
+import type { ChatType } from './chat/strategies/ChatStrategyFactory'
 import { VoiceMessage } from './messages/VoiceMessage'
 import { ImageMessage } from './messages/ImageMessage'
 import { MultiImageMessage } from './messages/MultiImageMessage'

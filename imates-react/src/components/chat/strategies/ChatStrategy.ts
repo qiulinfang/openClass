@@ -3,10 +3,10 @@
  * 定义不同对话类型需要实现的方法
  */
 
-import type { ChatBubble, AttachedScreenshot } from '../types'
+import type { ChatBubble, AttachedScreenshot } from '@/types'
 import type { SendMessageOptions, InitializeOptions } from './types'
-import type { ChatImageData } from '../stores/utils/chatStoreUtils'
-import { Sender } from '../types/enums'
+import type { ChatImageData } from '@/stores/utils/chatStoreUtils'
+import { Sender } from '@/types/enums'
 
 export interface ChatViewInterface {
   scrollToBottom(instant?: boolean): Promise<void>

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import type { ChatBubble, AttachedScreenshot } from '../types'
-import type { ChatType } from '../strategies/ChatStrategyFactory'
+import type { ChatType } from './chat/strategies/ChatStrategyFactory'
 import { MathFormulaEditor } from './MathFormulaEditor'
 import { VoiceInput } from './VoiceInput'
 import './ChatInput.css'

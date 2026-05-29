@@ -25,6 +25,9 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  optimizeDeps: {
+    exclude: ['mupdf'],
+  },
   server: {
     middlewareMode: false,
     port: 8080,

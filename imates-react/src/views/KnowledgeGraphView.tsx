@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { KnowledgeGraph } from '../components/knowledge-graph/KnowledgeGraph'
 import './KnowledgeGraphView.css'
 
@@ -10,12 +11,26 @@ export interface ChapterNode {
 }
 
 export const KnowledgeGraphView: React.FC = () => {
+  const [searchParams] = useSearchParams()
   const [selectedSubject, setSelectedSubject] = useState('')
   const [selectedTextbook, setSelectedTextbook] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showNodeSearch] = useState(true)
   const [chapterList] = useState<ChapterNode[]>([])
   const [currentChapter, setCurrentChapter] = useState<ChapterNode | null>(null)
+
+  // 处理来自 URL 的初始化参数
+  useEffect(() => {
+    const initSubject = searchParams.get('initSubject')
+    const initTextbookId = searchParams.get('initTextbookId')
+
+    if (initSubject) {
+      setSelectedSubject(initSubject)
+    }
+    if (initTextbookId) {
+      setSelectedTextbook(initTextbookId)
+    }
+  }, [searchParams])
 
   const subjectOptions = [
     { label: '请选择学科', value: '' },

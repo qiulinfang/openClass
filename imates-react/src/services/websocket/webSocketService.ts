@@ -3,7 +3,6 @@
  * 支持多种聊天类型的WebSocket连接管理
  */
 
-import { ref, readonly } from 'vue'
 import { getUserId, getCurrentYanbanUserId } from '../http/auth-service'
 import { getYanbanBaseUrl, getTeacherWsUrl, getApiPaths } from '@/config/env-config'
 
@@ -533,44 +532,39 @@ if (typeof window !== 'undefined') {
 
 /**
  * 创建WebSocket连接状态监控组件
- * 可以嵌入到Vue组件中使用
+ * 可以嵌入到React组件中使用
  */
 export function useWebSocketStatusMonitor() {
-  const status = ref<{
-    teacher: { isConnected: boolean; readyStateText: string; url: string } | null
-    client: { isConnected: boolean; readyStateText: string; url: string } | null
-  }>({
-    teacher: null,
-    client: null
-  })
+  const status = {
+    teacher: null as { isConnected: boolean; readyStateText: string; url: string } | null,
+    client: null as { isConnected: boolean; readyStateText: string; url: string } | null
+  }
 
   const updateStatus = () => {
     const teacherWs = webSocketInstances.get('teacher')
     const clientWs = webSocketInstances.get('client')
 
-    status.value = {
-      teacher: teacherWs ? {
-        isConnected: teacherWs.isConnected(),
-        readyStateText: teacherWs.getConnectionStatus().readyStateText,
-        url: teacherWs.getConnectionStatus().url
-      } : null,
-      client: clientWs ? {
-        isConnected: clientWs.isConnected(),
-        readyStateText: clientWs.getConnectionStatus().readyStateText,
-        url: clientWs.getConnectionStatus().url
-      } : null
-    }
+    status.teacher = teacherWs ? {
+      isConnected: teacherWs.isConnected(),
+      readyStateText: teacherWs.getConnectionStatus().readyStateText,
+      url: teacherWs.getConnectionStatus().url
+    } : null
+    status.client = clientWs ? {
+      isConnected: clientWs.isConnected(),
+      readyStateText: clientWs.getConnectionStatus().readyStateText,
+      url: clientWs.getConnectionStatus().url
+    } : null
   }
 
   // 定期更新状态
   const startMonitoring = () => {
     updateStatus()
-    const interval = setInterval(updateStatus, 2000) // 每2秒更新一次
-    return () => clearInterval(interval) // 返回停止函数
+    const interval = setInterval(updateStatus, 2000)
+    return () => clearInterval(interval)
   }
 
   return {
-    status: readonly(status),
+    status,
     updateStatus,
     startMonitoring
   }

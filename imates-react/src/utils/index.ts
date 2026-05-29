@@ -3,14 +3,64 @@
  * 提供项目中所有工具函数的统一入口
  */
 
-import { Notify } from 'quasar'
 import { androidBridge } from '@/services/business/android-bridge'
+
+let toastContainer: HTMLDivElement | null = null
+
+function createToastContainer() {
+  if (toastContainer) return toastContainer
+  toastContainer = document.createElement('div')
+  toastContainer.id = 'toast-container'
+  toastContainer.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  `
+  document.body.appendChild(toastContainer)
+  return toastContainer
+}
+
+function showToast(message: string, type: string) {
+  const container = createToastContainer()
+  const toast = document.createElement('div')
+  const colors: Record<string, string> = {
+    success: '#4caf50',
+    positive: '#4caf50',
+    error: '#f44336',
+    negative: '#f44336',
+    warning: '#ff9800',
+    info: '#2196f3'
+  }
+  toast.textContent = message
+  toast.style.cssText = `
+    background: ${colors[type] || colors.info};
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-size: 14px;
+    animation: fadeIn 0.3s ease;
+    pointer-events: auto;
+  `
+  container.appendChild(toast)
+  setTimeout(() => {
+    toast.style.opacity = '0'
+    toast.style.transition = 'opacity 0.3s ease'
+    setTimeout(() => toast.remove(), 300)
+  }, 2000)
+}
 
 /**
  * 统一的消息提示函数（智能选择实现方式）
  * 判断运行环境（Android WebView 或 Web）
  * Android WebView 使用 androidBridge.showToast
- * Web 环境使用 Quasar Notify
+ * Web 环境使用自定义 Toast
  */
 export const showMessage = (
   message: string,
@@ -22,27 +72,8 @@ export const showMessage = (
     // 使用原生 Toast
     androidBridge.showToast(message)
   } else {
-    // 使用 Quasar Notify（Web 环境）
-    const typeMap: Record<string, { color: string; icon: string }> = {
-      success: { color: 'positive', icon: 'check_circle' },
-      positive: { color: 'positive', icon: 'check_circle' },
-      error: { color: 'negative', icon: 'error' },
-      negative: { color: 'negative', icon: 'error' },
-      warning: { color: 'warning', icon: 'warning' },
-      info: { color: 'info', icon: 'info' }
-    }
-
-    const config = typeMap[type] || typeMap.info
-
-    Notify.create({
-      message,
-      color: config.color,
-      icon: config.icon,
-      position: 'top',
-      timeout,
-      classes: 'gemini-notify',
-      actions: [{ icon: 'close', color: 'white', round: true, size: 'sm' }]
-    })
+    // 使用自定义 Toast（Web 环境）
+    showToast(message, type)
   }
 }
 

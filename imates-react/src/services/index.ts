@@ -30,5 +30,6 @@ export {
   getScopedStorageValue,
   loadFromStorage,
   getCurrentYanbanUserId,
-  isYanbanLoggedIn
+  isYanbanLoggedIn,
+  logout
 } from './http/auth-service'

@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import type { ChatBubble } from '../types'
 import type { ChatImageData } from './utils/chatStoreUtils'
 import { Sender } from '../types/enums'
-import { sendChatMessage } from '../services/aiChatApi'
+import { AiChatApi } from '../services/http/ai-chat-api'
+
+const aiChatApi = new AiChatApi()
 
 const generateId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
@@ -103,27 +105,11 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
     
     // 调用真实 API
     try {
-      const response = await sendChatMessage(
-        content,
-        currentSessionId || undefined,
-        selectedModel || 'mate',
-        false,
-        (chunk, isComplete) => {
-          console.log('[Store] onStream:', { chunk: chunk?.substring(0, 30), isComplete })
-          // 流式更新
-          const msgs = get().messages
-          const idx = msgs.findIndex(m => m.id === tempAiId)
-          console.log('[Store] 流式更新 idx:', idx, 'current content:', msgs[idx]?.content?.substring(0, 30))
-          if (idx >= 0) {
-            const updated = [...msgs]
-            updated[idx] = {
-              ...updated[idx],
-              content: updated[idx].content + chunk,
-              isStreaming: !isComplete,
-            }
-            console.log('[Store] 更新后 content:', updated[idx].content?.substring(0, 50))
-            set({ messages: updated })
-          }
+      const response = await aiChatApi.sendChatMessage(
+        {
+          content,
+          sessionId: currentSessionId || undefined,
+          selectedModel: selectedModel || 'mate',
         },
         (result) => {
           console.log('[Store] onComplete 回调:', result)

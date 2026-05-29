@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import React, { useState, useRef, useMemo, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import './Select.css'
 
 export interface SelectProps {
@@ -8,6 +9,8 @@ export interface SelectProps {
   placeholder?: string
   variant?: 'default' | 'outline'
   onChange?: (value: string | number) => void
+  renderLabel?: (label: string) => React.ReactNode
+  className?: string
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -17,9 +20,11 @@ export const Select: React.FC<SelectProps> = ({
   placeholder = '请选择',
   variant = 'default',
   onChange,
+  renderLabel,
+  className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [rootRef, setRootRef] = useState<HTMLElement | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const currentLabel = useMemo(() => {
     const found = options.find((o) => o.value === value)
@@ -27,10 +32,9 @@ export const Select: React.FC<SelectProps> = ({
     return placeholder ?? '请选择'
   }, [options, value, placeholder])
 
-
   const dropdownStyle = useMemo(() => {
-    if (!rootRef || !isOpen) return {}
-    const rect = rootRef.getBoundingClientRect()
+    if (!rootRef.current || !isOpen) return {}
+    const rect = rootRef.current.getBoundingClientRect()
     const dropdownHeight = 320 // 与 CSS 中的 max-height 保持一致
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
@@ -46,10 +50,11 @@ export const Select: React.FC<SelectProps> = ({
       minWidth: `${rect.width}px`,
       zIndex: 9999,
     }
-  }, [rootRef, isOpen])
+  }, [isOpen])
 
-  const toggleDropdown = () => {
-    setIsOpen(prev => !prev) // 使用函数式更新，确保拿到的是最新状态
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(!isOpen)
   }
 
   const handleSelect = (val: string | number) => {
@@ -59,7 +64,7 @@ export const Select: React.FC<SelectProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (rootRef && !rootRef.contains(event.target as Node)) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
@@ -70,17 +75,17 @@ export const Select: React.FC<SelectProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, rootRef])
+  }, [isOpen])
 
   return (
-    <div className="common-select" ref={setRootRef}>
+    <div className={`common-select ${className}`} ref={rootRef}>
       <button
         className={`select-trigger ${variant === 'outline' ? 'select-trigger--outline' : ''}`}
         type="button"
         onClick={toggleDropdown}
       >
         <span className="select-label">
-          {currentLabel}
+          {renderLabel ? renderLabel(currentLabel) : currentLabel}
         </span>
         {showArrow && (
           <span className={`select-icon-wrapper ${isOpen ? 'select-icon--open' : ''}`}>
@@ -89,8 +94,8 @@ export const Select: React.FC<SelectProps> = ({
         )}
       </button>
 
-      {isOpen && (
-        <div className="select-dropdown" style={dropdownStyle}>
+      {isOpen && createPortal(
+        <div className="select-dropdown" style={dropdownStyle} onClick={(e) => e.stopPropagation()}>
           <ul className="select-options">
             {options.map((o) => (
               <li
@@ -102,8 +107,11 @@ export const Select: React.FC<SelectProps> = ({
               </li>
             ))}
           </ul>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
 }
+
+export default Select

@@ -1,21 +1,30 @@
+/**
+ * 枚举类型定义
+ * 所有枚举类型定义
+ */
+
+/** 消息类型枚举 */
 export enum MessageType {
   TEXT = 'TEXT',
   VOICE = 'VOICE',
   IMAGE = 'IMAGE'
 }
 
+/** 发送者/角色枚举（用于 sender 和 type） */
 export enum Sender {
   USER = 'user',
   AI = 'ai',
   TEACHER = 'teacher'
 }
 
+/** 会话类型枚举 */
 export enum SessionType {
   USER_TALK_AI = 'USER_TALK_AI',
   USER_TALK_TEACHER_BIOLOGY = 'USER_TALK_TEACHER_BIOLOGY',
   USER_TALK_TEACHER_MATH = 'USER_TALK_TEACHER_MATH'
 }
 
+/** 科目枚举 */
 export enum Subject {
   SUBJECT_MATH = 'SUBJECT_MATH',
   SUBJECT_BIOLOGY = 'SUBJECT_BIOLOGY',
@@ -25,5 +34,17 @@ export enum Subject {
   SUBJECT_ENGLISH = 'SUBJECT_ENGLISH'
 }
 
-export type SceneType = 'homework' | 'favorites' | 'exercise'
+/**
+ * 场景类型枚举
+ * 用于标识用户进入不同页面的场景来源
+ */
+export type SceneType =
+  /** 作业场景 - 从作业页面跳转进入 */
+  | 'homework'
+  /** 收藏场景 - 从收藏页面跳转进入 */
+  | 'favorites'
+  /** 习题场景 - 从主页面"我的习题"导航跳转进入 */
+  | 'exercise'
+
+/** 环境类型枚举 */
 export type EnvType = 'RELEASE' | 'INTERNAL_TEST' | 'DEVELOPMENT'

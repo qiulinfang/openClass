@@ -10,6 +10,8 @@ export interface TagProps {
   color?: string
   bgColor?: string
   borderColor?: string
+  className?: string
+  style?: React.CSSProperties
 }
 
 const colorMap: Record<string, { color: string; bgColor: string; borderColor: string }> = {
@@ -32,6 +34,8 @@ export const Tag: React.FC<TagProps> = ({
   color,
   bgColor,
   borderColor,
+  className = '',
+  style = {},
 }) => {
   const tagStyle = useMemo(() => {
     const colorConfig = colorMap[type] || colorMap.gray
@@ -44,8 +48,9 @@ export const Tag: React.FC<TagProps> = ({
       color: color || colorConfig.color,
       backgroundColor: finalBgColor,
       border: `1px solid ${finalBorderColor}`,
+      ...style,
     }
-  }, [type, variant, color, bgColor, borderColor])
+  }, [type, variant, color, bgColor, borderColor, style])
 
   const dotStyle = useMemo(() => {
     const colorConfig = colorMap[type] || colorMap.gray
@@ -55,9 +60,9 @@ export const Tag: React.FC<TagProps> = ({
   }, [type, color])
 
   return (
-    <span className={`status-tag size-${size} variant-${variant}`} style={tagStyle}>
+    <span className={`status-tag size-${size} variant-${variant} ${className}`} style={tagStyle}>
       {dot && <span className="status-dot" style={dotStyle} />}
-      {text}
+      <span className="status-text">{text}</span>
     </span>
   )
 }

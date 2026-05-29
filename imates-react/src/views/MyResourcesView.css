@@ -1,28 +1,36 @@
 .my-resources-view {
-  width: 100%;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f5f5f5;
+  overflow: hidden;
+  background: #edeeff; /* 对应 Vue .q-layout 背景 */
 }
 
+.scroll-content {
+  min-height: calc(100% + 1px);
+}
+
+/* 筛选区域固定在顶部 */
 .filter-section {
-  padding: 16px;
-  background: white;
-  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .filter-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.87);
+  padding: 16px 20px 12px;
 }
 
 .filter-content {
   display: flex;
-  gap: 16px;
+  justify-content: space-between;
   flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 20px;
 }
 
 .filter-dropdown-item {
@@ -33,107 +41,520 @@
 
 .filter-label {
   font-size: 14px;
-  color: #666;
+  color: rgba(0, 0, 0, 0.87);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .filter-select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  background: white;
-  min-width: 120px;
-  outline: none;
+  min-width: 150px;
 }
 
-.filter-select:focus {
-  border-color: #6e55ff;
-}
-
-.resource-content {
-  flex: 1;
-  overflow-y: auto;
+/* Quasar 工具类对齐 */
+.q-pa-md {
   padding: 16px;
 }
 
-.empty-state {
+.q-pa-xl {
+  padding: 48px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* 教材列表容器 */
+.textbooks-container {
+  padding: 0;
+}
+
+.textbooks-scroll-container {
+  overflow: visible;
+}
+
+.textbooks-grid {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  padding: 16px 22px;
+}
+
+@media (min-width: 768px) {
+  .textbooks-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+/* 图片样式布局：左右结构卡片 */
+.textbook-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #ffffff;
+  contain: layout style paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  position: relative;
+}
+
+/* 删除按钮（右上角）- Material Design 风格 */
+.textbook-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border: none;
+  outline: none;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.54);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.textbook-delete-btn .material-icons {
+  font-size: 18px;
+}
+
+.textbook-delete-btn:hover {
+  background-color: rgba(255, 255, 255, 1);
+  color: rgba(193, 0, 21, 0.87);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.textbook-delete-btn:active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);
+}
+
+/* 左侧：封面图片 */
+.textbook-cover {
+  width: 120px;
+  height: 160px;
+  flex-shrink: 0;
+  background: #f5f5f5;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.textbook-cover img {
+  width: 100%;
   height: 100%;
+  object-fit: cover;
 }
 
-.empty-text {
-  margin-top: 16px;
-  font-size: 16px;
-  color: #999;
-}
-
-.resource-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.resource-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.resource-info {
+/* 右侧：内容区域 */
+.textbook-content {
   flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
 }
 
-.resource-name {
-  font-size: 16px;
+/* 左侧：标题、版本和状态指示器 */
+.textbook-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.textbook-header .textbook-title {
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
-  margin-bottom: 8px;
+  color: #1f2937;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
 }
 
-.resource-meta {
-  font-size: 12px;
-  color: #999;
+.textbook-header .textbook-version {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 400;
 }
 
-.resource-actions {
+.textbook-header .textbook-semester {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+/* 状态指示器 */
+.status-indicator {
   display: flex;
   align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  margin-top: 44px; /* 对应 Vue 原版 */
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #4a4a4a;
+}
+
+/* 状态颜色对齐 */
+.status-dot-red { background: #ff4d4f; }
+.status-dot-blue { background: #6e55ff; }
+.status-dot-green { background: #34c759; }
+.status-dot-orange { background: #fa8c16; }
+.status-dot-gray { background: #8c8c8c; }
+
+.status-indicator-blue { background: rgba(110, 85, 255, 0.12); }
+.status-indicator-blue .status-text { color: #6e55ff; }
+
+.status-indicator-green { background: rgba(16, 185, 129, 0.16); }
+.status-indicator-green .status-text { color: #34c759; }
+
+.status-indicator-gray { background: rgba(107, 114, 128, 0.12); }
+.status-indicator-gray .status-text { color: #8c8c8c; }
+
+.status-indicator-orange { background: rgba(249, 115, 22, 0.16); }
+.status-indicator-orange .status-text { color: #fa8c16; }
+
+.status-indicator-red { background: rgba(239, 68, 68, 0.16); }
+.status-indicator-red .status-text { color: #ff4d4f; }
+
+/* 右侧：操作按钮 */
+.textbook-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  width: 90px;
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .action-btn {
-  padding: 6px 16px;
+  min-width: 90px;
+  width: 90px;
+  height: 43px; /* 对应 Vue 原版 */
+  border-radius: 12px;
+  font-weight: 500;
   border: none;
-  border-radius: 6px;
-  font-size: 14px;
+  outline: none;
   cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
 }
 
-.action-btn.download {
-  background: #6e55ff;
-  color: white;
+.action-btn-download {
+  background-color: #6e55ff !important;
+  color: #ffffff !important;
 }
 
-.action-btn.delete {
-  background: #f44336;
-  color: white;
+.action-btn-learn {
+  background-color: #ffffff !important;
+  color: #6e55ff !important;
+  border: 1px solid #6e55ff !important;
 }
 
-.progress-bar {
-  width: 100px;
-  height: 6px;
-  background: #f0f0f0;
-  border-radius: 3px;
+.action-btn-update {
+  background-color: #ffffff !important;
+  color: #6e55ff !important;
+  border: 1px solid #6e55ff !important;
+}
+
+/* 下载进度条（可点击暂停） */
+.download-progress-bar {
+  min-width: 90px;
+  width: 90px;
+}
+
+.download-progress-bar.clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.download-progress-bar.clickable:hover .progress-bar-container {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
+}
+
+.download-progress-bar.clickable:active .progress-bar-container {
+  transform: scale(0.98);
+}
+
+.progress-bar-container {
+  position: relative;
+  width: 100%;
+  height: 43px; /* 对应 Vue 原版 */
+  background: #ffffff;
+  border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.progress {
+.progress-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
   height: 100%;
-  background: #6e55ff;
-  transition: width 0.3s;
+  background: rgba(110, 85, 255, 0.3); /* 对应 Vue 原版 */
+  transition: width 0.3s ease;
+  border-radius: 12px;
+  z-index: 1;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 500;
+  color: #6e55ff;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 空状态 */
+.empty-state {
+  flex: 1;
+  text-align: center;
+  padding: 48px 24px; /* Material Design 间距 */
+  background: #ffffff;
+  border-radius: 4px; /* Material Design 圆角 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  margin: 20px;
+}
+
+.empty-icon {
+  font-size: 80px !important;
+  opacity: 0.38;
+  margin-bottom: 16px;
+  color: #000;
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.87);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.empty-description {
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.reload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 24px;
+  border: none;
+  outline: none;
+  border-radius: 4px;
+  background-color: rgba(110, 85, 255, 0.64);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reload-btn:hover {
+  background-color: rgba(90, 66, 230, 0.64);
+  box-shadow: 0 2px 4px rgba(110, 85, 255, 0.3);
+}
+
+/* 调试按钮区域样式 */
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 8px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  gap: 8px;
+}
+
+.debug-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  outline: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #6e55ff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.debug-btn:hover {
+  background: rgba(110, 85, 255, 0.1);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .my-resources-view {
+    padding: 16px;
+    background: #f5f5f5; /* 移动端背景变浅 */
+    min-height: calc(100vh - 56px);
+  }
+
+  .filter-section .filter-title {
+    font-size: 18px;
+    padding: 12px 16px 8px;
+  }
+
+  .filter-section .filter-content {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 16px;
+    gap: 12px;
+  }
+
+  .filter-dropdown-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .filter-select {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .textbooks-scroll-container {
+    max-height: calc(100vh - 150px);
+    padding-right: 4px;
+  }
+
+  .textbooks-grid {
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .textbook-card {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .textbook-card .textbook-delete-btn {
+    top: 4px;
+    right: 4px;
+  }
+
+  .textbook-cover {
+    width: 100px;
+    height: 133px;
+  }
+
+  .textbook-header .textbook-title {
+    font-size: 16px;
+  }
+
+  .textbook-header .textbook-version {
+    font-size: 13px;
+  }
+
+  .textbook-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .status-indicator .status-text {
+    font-size: 13px;
+  }
+
+  .textbook-info .status-indicator {
+    margin-top: 10px; /* 移动端减小间距 */
+  }
+
+  .textbook-actions {
+    align-self: flex-end;
+    width: 100%;
+  }
+
+  .action-btn, .download-progress-bar, .progress-bar-container {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .filter-actions .debug-btn {
+    width: 100%;
+  }
+}
+
+/* 加载状态 */
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+.loading-text {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }

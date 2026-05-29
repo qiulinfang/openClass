@@ -1,9 +1,9 @@
-import type { ChatBubble, AttachedScreenshot } from '../types'
-import { Sender } from '../types/enums'
+import type { ChatBubble, AttachedScreenshot } from '@/types'
+import { Sender } from '@/types/enums'
 import type { ChatStrategy, ForwardOptions, ForwardResult } from './ChatStrategy'
 import type { SendMessageOptions } from './types'
 import type { InitializeOptions } from './types'
-import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 
 export class AiGeneralStrategy implements ChatStrategy {
   private chatView?: import('./ChatStrategy').ChatViewInterface

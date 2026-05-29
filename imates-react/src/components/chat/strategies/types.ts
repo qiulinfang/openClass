@@ -1,4 +1,4 @@
-import type { ChatImageData } from '../stores/utils/chatStoreUtils'
+import type { ChatImageData } from '@/stores/utils/chatStoreUtils'
 
 export interface SendMessageOptions {
   selectedModel?: string

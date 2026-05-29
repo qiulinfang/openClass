@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import type { ChatBubble } from '../types'
 import { Sender } from '../types/enums'
-import { sendExerciseChatMessage } from '../services/aiChatApi'
+import { AiChatApi } from '../services/http/ai-chat-api'
+
+const aiChatApi = new AiChatApi()
 
 const generateId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
@@ -66,19 +68,12 @@ export const useAiExerciseChatStore = create<AiExerciseChatState>((set, get) => 
     set({ messages: [...get().messages, tempAiMessage], isChatLoading: true })
     
     try {
-      await sendExerciseChatMessage(
-        content,
-        questionId || '',
-        undefined,
-        'BIOLOGY',
-        (chunk, isComplete) => {
-          const msgs = get().messages
-          const idx = msgs.findIndex(m => m.id === tempAiId)
-          if (idx >= 0) {
-            const updated = [...msgs]
-            updated[idx] = { ...updated[idx], content: updated[idx].content + chunk, isStreaming: !isComplete }
-            set({ messages: updated })
-          }
+      await aiChatApi.sendChatMessage(
+        {
+          content,
+          questionId: questionId || '',
+          selectedModel: undefined,
+          type: 'BIOLOGY',
         },
         (result) => {
           const msgs = get().messages
