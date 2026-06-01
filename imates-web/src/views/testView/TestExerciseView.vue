@@ -39,45 +39,11 @@
 
           <q-card-section class="q-pa-lg scroll" style="max-height: 70vh">
             <!-- 渲染逻辑分支 -->
-             
-            <!-- 1. 复合材料题 (Composite) -->
-            <div v-if="currentQuestion.question.type === 'composite'" class="composite-container">
-              <div class="material-section q-mb-md">
-                <div class="text-subtitle1 text-weight-bold">【主题干/材料】</div>
-                <div class="q-mt-sm markdown-content" v-html="renderMessageContent(currentQuestion.question.material || '')"></div>
-              </div>
-              
-              <div class="sub-questions-list">
-                <div v-for="(sub, sIdx) in currentQuestion.question.subQuestions" :key="sub.id || sIdx" class="sub-question-item q-ml-md q-mt-lg">
-                   <!-- 递归渲染或组件分发 -->
-                   <div class="text-weight-bold text-primary">子题 ({{ sIdx + 1 }}):</div>
-                   
-                   <!-- 如果子题还是 composite -->
-                   <div v-if="sub.type === 'composite'" class="q-ml-md q-mt-sm">
-                      <div class="markdown-content" v-html="renderMessageContent(sub.material || '')"></div>
-                      <!-- 继续渲染二级子题 -->
-                      <div v-for="(subSub, ssIdx) in sub.subQuestions" :key="subSub.id || ssIdx" class="q-ml-md q-mt-md">
-                        <div class="text-weight-bold text-secondary">({{ ssIdx + 1 }})</div>
-                        <component 
-                          :is="getComponent(subSub.type)" 
-                          :question="wrapQuestion(subSub)" 
-                          v-model="subSubAnswers[subSub.id]"
-                          show-title
-                        />
-                      </div>
-                   </div>
-
-                   <!-- 普通子题 -->
-                   <component 
-                    v-else
-                    :is="getComponent(sub.type)" 
-                    :question="wrapQuestion(sub)" 
-                    v-model="subAnswers[sub.id]"
-                    show-title
-                   />
-                </div>
-              </div>
-            </div>
+            <CompositeQuestion 
+              v-if="currentQuestion.question.type === 'composite'"
+              :question="safeQuestion"
+              v-model="compositeAnswers"
+            />
 
             <!-- 2. 普通题型 -->
             <component 
@@ -106,10 +72,10 @@
         </q-card-section>
         <q-card-section class="q-pt-none markdown-content">
           <div class="text-subtitle2 text-grey-7 q-mb-xs">参考答案:</div>
-          <div v-html="renderMessageContent(currentQuestion.question.answer || '无')"></div>
+          <div v-html="renderMessageContent(safeQuestion.answer || '无')"></div>
           <q-separator class="q-my-md" />
           <div class="text-subtitle2 text-grey-7 q-mb-xs">详细解析:</div>
-          <div v-html="renderMessageContent(currentQuestion.question.analysis || '暂无解析')"></div>
+          <div v-html="renderMessageContent(safeQuestion.analysis || '暂无解析')"></div>
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="关闭" color="primary" v-close-popup />
@@ -124,6 +90,7 @@ import { ref, computed, reactive, watch } from 'vue'
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
+import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 
@@ -207,17 +174,17 @@ const testQuestions = [
 
 const currentIndex = ref(0)
 const currentQuestion = computed(() => testQuestions[currentIndex.value])
+const safeQuestion = computed(() => currentQuestion.value.question as any)
 const showAnalysis = ref(false)
 
 // 响应式答案存储
 const answers = reactive<Record<string, any>>({})
-const subAnswers = reactive<Record<string, any>>({})
-const subSubAnswers = reactive<Record<string, any>>({})
+const compositeAnswers = reactive<Record<string, any>>({})
 
 const currentAnswer = computed(() => {
   const qId = currentQuestion.value.id
   if (currentQuestion.value.question.type === 'composite') {
-    return { subAnswers, subSubAnswers }
+    return compositeAnswers
   }
   return answers[qId]
 })

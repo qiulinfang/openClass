@@ -30,12 +30,12 @@ export interface StructuredQuestionContent {
 /** 练习题目接口 */
 export interface ExerciseItem {
   id: string
-  bmNo: string
-  title: string
+  bmNo?: string
+  title?: string
   question?: string // 题目内容，兼容旧版本
-  answer: string
-  explanation: string // aiExplanation
-  analysisData: string // answerAnalysis
+  answer?: string
+  explanation?: string // aiExplanation
+  analysisData?: string // answerAnalysis
   subject?: string // 科目
   type?: string // 题目类型 (choice, fill, judgment, essay)
   questionContent?: string // 完整题目内容 (包含图片和文字)
@@ -52,6 +52,10 @@ export interface ExerciseItem {
   isAiGuiding?: boolean
   userSelect?: boolean
   beginGuideToSolve?: boolean
+
+  // 复合材料题相关
+  material?: string
+  subQuestions?: any[]
 }
 
 /** 相似题目接口，继承 ExerciseItem 并添加相似度 */

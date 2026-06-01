@@ -27,6 +27,12 @@
   </BaseQuestion>
 </template>
 
+<script lang="ts">
+export default {
+  name: 'FillBlankQuestion'
+}
+</script>
+
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
