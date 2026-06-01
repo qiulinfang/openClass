@@ -38,6 +38,14 @@ const MistakeBookView = lazy(() => import('@/views/MistakeBookView'))
 const HomeworkAnswerView = lazy(() => import('@/views/HomeworkAnswerView'))
 const DraftNotebookView = lazy(() => import('@/views/DraftNotebookView'))
 const InteractiveCanvasView = lazy(() => import('@/views/InteractiveCanvasView'))
+const TeacherDebugView = lazy(() => import('@/views/testView/TeacherDebugView'))
+const ApiDebugView = lazy(() => import('@/views/testView/ApiDebugView'))
+const ChatSessionTestView = lazy(() => import('@/views/testView/ChatSessionTestView'))
+const RenderTestView = lazy(() => import('@/views/testView/RenderTestView'))
+const LottieTest = lazy(() => import('@/views/testView/LottieTest'))
+const MarkdownRenderTestView = lazy(() => import('@/views/testView/MarkdownRenderTestView'))
+const TestExerciseView = lazy(() => import('@/views/testView/TestExerciseView'))
+const TestNavView = lazy(() => import('@/views/testView/TestNavView'))
 
 const Loading = () => <div>Loading...</div>
 
@@ -147,6 +155,38 @@ const router = createHashRouter([
   {
     path: '/interactive-canvas',
     element: <Suspense fallback={<Loading />}><InteractiveCanvasView /></Suspense>
+  },
+  {
+    path: '/teacher-debug',
+    element: <Suspense fallback={<Loading />}><TeacherDebugView /></Suspense>
+  },
+  {
+    path: '/debug-api',
+    element: <Suspense fallback={<Loading />}><ApiDebugView /></Suspense>
+  },
+  {
+    path: '/chat-session-test',
+    element: <Suspense fallback={<Loading />}><ChatSessionTestView /></Suspense>
+  },
+  {
+    path: '/render-test',
+    element: <Suspense fallback={<Loading />}><RenderTestView /></Suspense>
+  },
+  {
+    path: '/lottie-test',
+    element: <Suspense fallback={<Loading />}><LottieTest /></Suspense>
+  },
+  {
+    path: '/markdown-test',
+    element: <Suspense fallback={<Loading />}><MarkdownRenderTestView /></Suspense>
+  },
+  {
+    path: '/test-exercise',
+    element: <Suspense fallback={<Loading />}><TestExerciseView /></Suspense>
+  },
+  {
+    path: '/test-nav',
+    element: <Suspense fallback={<Loading />}><TestNavView /></Suspense>
   },
   // 重定向旧路由到新路由
   {

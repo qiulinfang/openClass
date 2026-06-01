@@ -1,0 +1,170 @@
+.test-exercise-view {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.title-h1 {
+  font-size: 2rem;
+  font-weight: 400;
+  margin-bottom: 24px;
+}
+
+.test-layout {
+  display: flex;
+  gap: 16px;
+}
+
+.test-cases-sidebar {
+  width: 33.333%;
+}
+
+.preview-main {
+  width: 66.666%;
+}
+
+.list-container {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.list-header {
+  padding: 16px;
+  color: #666;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.list-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #ddd;
+  transition: background 0.2s;
+}
+
+.list-item:hover {
+  background: #f5f5f5;
+}
+
+.list-item.active {
+  background: #6e55ff;
+  color: white;
+}
+
+.item-caption {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.active .item-caption {
+  color: #eee;
+}
+
+.real-time-data {
+  margin-top: 16px;
+  background: #eeeeee;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.data-title {
+  font-weight: bold;
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+}
+
+.data-pre {
+  margin: 0;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-toolbar {
+  background: #f5f5f5;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ddd;
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.card-content {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.composite-container {
+  border-left: 4px solid #6e55ff;
+  padding-left: 16px;
+}
+
+.sub-question-item {
+  border-top: 1px dashed #ddd;
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.text-primary { color: #6e55ff; }
+.text-secondary { color: #03dac6; }
+
+.markdown-content {
+  line-height: 1.6;
+  font-size: 1.1rem;
+}
+
+.card-actions {
+  padding: 8px 16px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 4px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  padding: 16px;
+  font-size: 1.25rem;
+  font-weight: 500;
+  border-bottom: 1px solid #ddd;
+}
+
+.dialog-body {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.dialog-footer {
+  padding: 8px 16px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: flex-end;
+}

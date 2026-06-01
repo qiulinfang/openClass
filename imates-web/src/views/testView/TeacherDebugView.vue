@@ -33,7 +33,7 @@
           <div 
             v-for="session in sessions" 
             :key="session.id"
-            :class="['session-card', { active: currentSessionId === session.id }]"
+            :class="['session-card', { active: currentSessionId === session.id, 'is-pinned': session.pinStatus === 1 }]"
             @click="selectSession(session)"
           >
             <div class="session-avatar">
@@ -41,12 +41,24 @@
             </div>
             <div class="session-detail">
               <div class="session-top">
-                <span class="name">{{ session.studentName || '学生' }}</span>
+                <span class="name">
+                  <span v-if="session.pinStatus === 1" class="pin-tag">📌</span>
+                  {{ session.studentName || '学生' }}
+                </span>
                 <span class="time">{{ session.msgTime }}</span>
               </div>
               <div class="session-bottom">
                 <p class="preview">{{ session.msgContent }}</p>
-                <div v-if="session.unreadCount" class="unread-dot"></div>
+                <div class="session-actions">
+                  <div v-if="session.unreadCount" class="unread-dot"></div>
+                  <button 
+                    class="pin-btn" 
+                    :title="session.pinStatus === 1 ? '取消置顶' : '置顶'"
+                    @click.stop="togglePinSession(session)"
+                  >
+                    {{ session.pinStatus === 1 ? '📍' : '📌' }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -151,6 +163,7 @@ interface TeacherSession {
   msgContent: string
   msgTime: string
   hasUnRead: boolean
+  pinStatus?: number // 0: 未置顶, 1: 已置顶
   // 前端辅助字段
   unreadCount?: number 
 }
@@ -293,6 +306,35 @@ const fetchSessions = async () => {
     }
   } catch (err) {
     console.error('[TeacherDebug] ❌ 获取会话列表捕获到异常:', err)
+  }
+}
+
+const togglePinSession = async (session: TeacherSession) => {
+  try {
+    const newStatus = session.pinStatus === 1 ? 0 : 1
+    
+    // 根据环境手动构建置顶接口路径
+    const isTest = getCurrentEnvType() === AppEnvType.INTERNAL_TEST
+    const prefix = isTest ? '/yb-teacher-test/yb-teacher/' : '/teacher-ws-release/blw-edu-yb/'
+    const apiPath = `${prefix}api/question/pinSession`
+    
+    console.log(`[TeacherDebug] 📌 执行置顶操作: session=${session.id}, status=${newStatus}, url=${apiPath}`)
+    
+    const res = await httpClient.post<any>(apiPath, {
+      sessionId: session.id,
+      pinStatus: newStatus
+    })
+
+    if (res.success) {
+      console.log('[TeacherDebug] ✅ 置顶操作成功')
+      // 成功后重新获取列表以反映排序变化
+      await fetchSessions()
+    } else {
+      console.error('[TeacherDebug] ❌ 置顶操作失败:', res.message)
+      alert('操作失败: ' + (res.message || '未知错误'))
+    }
+  } catch (err) {
+    console.error('[TeacherDebug] ❌ 置顶操作异常:', err)
   }
 }
 
@@ -604,6 +646,48 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.session-card.is-pinned {
+  background: #fff9f0;
+}
+
+.session-card.is-pinned:hover {
+  background: #fff0db;
+}
+
+.pin-tag {
+  font-size: 10px;
+  margin-right: 2px;
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pin-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 12px;
+  opacity: 0.3;
+  transition: all 0.2s;
+}
+
+.session-card:hover .pin-btn {
+  opacity: 0.8;
+}
+
+.pin-btn:hover {
+  transform: scale(1.2);
+  opacity: 1 !important;
+}
+
+.is-pinned .pin-btn {
+  opacity: 0.8;
 }
 
 .unread-dot {
