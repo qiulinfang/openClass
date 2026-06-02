@@ -56,6 +56,18 @@
 - 资源下载与断点续传
 - Webview 首屏优化与权限管理
 
+#### [实时通信与 AI 对话](web/communication-ai.md)
+- WebSocket 心跳与指数退避重连
+- 单连接多会话消息分发架构
+- AI 流式输出缓冲区处理
+- 消息发送幂等性与重试机制
+
+#### [工程化与质量保证](web/engineering-qa.md)
+- 多框架共存架构（Vue & React）下的构建挑战
+- Webview 离线包构建优化策略
+- 复杂交互的自动化测试 (Vitest + Playwright)
+- Webview 性能监控与异常上报
+
 ---
 
 ## 核心技术栈

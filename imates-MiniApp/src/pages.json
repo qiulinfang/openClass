@@ -1,0 +1,136 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "Login"
+      }
+    },
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "imates"
+      }
+    },
+    {
+      "path": "pages/homework/list",
+      "style": {
+        "navigationBarTitleText": "My Homework"
+      }
+    },
+    {
+      "path": "pages/chat/chat",
+      "style": {
+        "navigationBarTitleText": "AI Chat"
+      }
+    },
+    {
+      "path": "pages/photo-search/index",
+      "style": {
+        "navigationBarTitleText": "Photo Search"
+      }
+    },
+    {
+      "path": "pages/resources/list",
+      "style": {
+        "navigationBarTitleText": "Resources"
+      }
+    },
+    {
+      "path": "pages/knowledge/graph",
+      "style": {
+        "navigationBarTitleText": "Knowledge Graph"
+      }
+    },
+    {
+      "path": "pages/mistakes/list",
+      "style": {
+        "navigationBarTitleText": "Mistake Book"
+      }
+    },
+    {
+      "path": "pages/favorites/list",
+      "style": {
+        "navigationBarTitleText": "Favorites"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "Profile"
+      }
+    },
+    {
+      "path": "pages/canvas/canvas",
+      "style": {
+        "navigationBarTitleText": "Interactive Canvas"
+      }
+    },
+    {
+      "path": "pages/homework/answer",
+      "style": {
+        "navigationBarTitleText": "Homework Answer"
+      }
+    },
+    {
+      "path": "pages/exercise/solve",
+      "style": {
+        "navigationBarTitleText": "Exercise Solve"
+      }
+    },
+    {
+      "path": "pages/exercise/list",
+      "style": {
+        "navigationBarTitleText": "My Exercises"
+      }
+    },
+    {
+      "path": "pages/pdf-viewer/index",
+      "style": {
+        "navigationBarTitleText": "PDF Viewer"
+      }
+    },
+    {
+      "path": "pages/video-viewer/index",
+      "style": {
+        "navigationBarTitleText": "Video Viewer"
+      }
+    },
+    {
+      "path": "pages/html-viewer/index",
+      "style": {
+        "navigationBarTitleText": "HTML Viewer"
+      }
+    },
+    {
+      "path": "pages/html-preview/index",
+      "style": {
+        "navigationBarTitleText": "Preview"
+      }
+    },
+    {
+      "path": "pages/draft/notebook",
+      "style": {
+        "navigationBarTitleText": "Draft Notebook"
+      }
+    },
+    {
+      "path": "pages/exercise/solve-new",
+      "style": {
+        "navigationBarTitleText": "Exercise Solve New"
+      }
+    },
+    {
+      "path": "pages/webview/index",
+      "style": {
+        "navigationBarTitleText": "imates"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "imates",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  }
+}

@@ -1,0 +1,372 @@
+<template>
+  <view class="voice-recorder" :class="{ 'recording': isRecording }">
+    <!-- 录音状态显示 -->
+    <view v-if="isRecording && !props.showCancelHint" class="recording-status">
+      <view class="recording-animation">
+        <view class="pulse-circle"></view>
+        <text class="mic-icon-text">🎤</text>
+      </view>
+      <view class="recording-info">
+        <view class="recording-text">正在录音...</view>
+        <view class="recording-time">{{ formatTime(recordingTime) }}</view>
+      </view>
+      <view class="recording-hint">
+        <view class="hint-text">松开发送，上滑取消</view>
+        <text class="arrow-up-icon">↑</text>
+      </view>
+    </view>
+    
+    <!-- 取消录音提示 -->
+    <view v-if="props.showCancelHint" class="cancel-hint">
+      <image :src="deleteIcon" mode="aspectFit" style="width: 32px; height: 32px;" />
+      <view class="cancel-text">松开取消发送</view>
+    </view>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref, watch, onUnmounted } from 'vue'
+
+// 导入类型定义
+import type { VoiceRecorderProps } from '../../../types'
+
+// 导入图标
+import deleteIcon from '/icons/delete.svg'
+
+// 定义Props
+const props = withDefaults(defineProps<VoiceRecorderProps>(), {
+  showCancelHint: false
+})
+
+const recordingTime = ref(0)
+let recordingTimer: number | null = null
+
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const startTimer = () => {
+  recordingTime.value = 0
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+  }
+  recordingTimer = setInterval(() => {
+    recordingTime.value++
+  }, 1000) as unknown as number
+}
+
+const stopTimer = () => {
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+  recordingTime.value = 0
+}
+
+// 监听录音状态变化
+watch(() => props.isRecording, (newValue) => {
+  if (newValue) {
+    startTimer()
+  } else {
+    stopTimer()
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  stopTimer()
+})
+</script>
+
+<style scoped>
+/* 主容器样式 - 无遮罩层，仅显示内容 */
+.voice-recorder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
+}
+
+/* 录音状态激活时的样式 */
+.voice-recorder.recording {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 录音状态容器布局 */
+.recording-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  color: #333;
+  text-align: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mic-icon-text {
+  font-size: 32px;
+}
+
+.arrow-up-icon {
+  font-size: 18px;
+  color: #999;
+}
+
+/* 录音动画容器 - 麦克风图标和脉冲效果 */
+.recording-animation {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  background: linear-gradient(135deg, #ff4444 0%, #ff6666 100%);
+  border-radius: 50%;
+  box-shadow: 
+    0 8px 32px rgba(255, 68, 68, 0.4),
+    0 4px 16px rgba(255, 68, 68, 0.3),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  animation: recording-bounce 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 脉冲圆圈动画效果 */
+.pulse-circle {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* 脉冲动画关键帧 */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* 录音信息容器 */
+.recording-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 录音文字样式 */
+.recording-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+/* 录音时间显示样式 */
+.recording-time {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ff4444;
+  text-shadow: 0 2px 4px rgba(255, 68, 68, 0.2);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  min-width: 80px;
+}
+
+/* 录音提示容器 */
+.recording-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+/* 提示文字样式 */
+.hint-text {
+  font-size: 13px;
+  color: #999;
+  font-weight: 400;
+}
+
+/* 取消提示容器 */
+.cancel-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #ff4444;
+  text-align: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: fadeInScale 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 取消提示图标容器 */
+.cancel-hint-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 68, 68, 0.15);
+  border-radius: 50%;
+  padding: 12px;
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+/* 取消文字样式 */
+.cancel-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ff4444;
+  letter-spacing: 0.5px;
+}
+
+/* 录音动画进入效果 */
+@keyframes recording-bounce {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 淡入上移动画 */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 淡入缩放动画 */
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 摇晃动画（用于取消提示） */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* 响应式设计 - 平板设备 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .recording-animation {
+    width: 112px;
+    height: 112px;
+  }
+  
+  .recording-time {
+    font-size: 36px;
+  }
+  
+  .recording-text {
+    font-size: 18px;
+  }
+  
+  .hint-text {
+    font-size: 14px;
+  }
+}
+
+/* 响应式设计 - 手机设备 */
+@media (max-width: 768px) {
+  .recording-status {
+    gap: 24px;
+    padding: 20px;
+  }
+  
+  .recording-animation {
+    width: 88px;
+    height: 88px;
+  }
+  
+  .recording-time {
+    font-size: 28px;
+  }
+  
+  .recording-text {
+    font-size: 15px;
+  }
+  
+  .hint-text {
+    font-size: 12px;
+  }
+  
+  .cancel-text {
+    font-size: 16px;
+  }
+  
+  .cancel-hint {
+    gap: 12px;
+    padding: 20px;
+  }
+}
+
+/* 响应式设计 - 小屏手机 */
+@media (max-width: 480px) {
+  .recording-animation {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .recording-time {
+    font-size: 24px;
+  }
+  
+  .recording-status {
+    gap: 20px;
+    padding: 16px;
+  }
+}
+</style>

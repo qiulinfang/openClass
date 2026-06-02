@@ -218,3 +218,22 @@
   const props = defineProps<{ modelValue: string }>()
   const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   ```
+
+### Q28: 在复杂的 Store（如 `aiExerciseChatStore`）中，如何利用 Composables 实现逻辑解耦？
+- **背景**: `aiExerciseChatStore` 承担了消息发送、历史同步、渲染引擎、重试机制等重度逻辑，直接写在 Store 内部会导致代码臃肿。
+- **方案**: 将逻辑抽离为独立的 Composables。
+  - `useChatEngine`: 处理消息的追加、打字机效果、DOM 滚动等 UI 逻辑。
+  - `useChatPersistence`: 处理与 `LocalForage` 的读写交互。
+  - `useChatRetry`: 处理错误状态管理与重发队列。
+- **优势**: 
+  - **职责单一**: 每个 Composable 只关注一个功能维度。
+  - **可测试性**: 独立的逻辑块更容易编写单元测试。
+  - **复用性**: `useChatEngine` 可以被不同的 AI 会话 Store（题目、教师、客服）复用。
+
+### Q29: 项目中存在大量的聊天消息列表且包含 Markdown 和公式，如何保证渲染性能？
+- **挑战**: 每一条消息都可能触发复杂的 Markdown 解析和 KaTeX 渲染，大量 DOM 节点会导致卡顿。
+- **方案**:
+  - **虚拟列表 (Virtual List)**: 只渲染可视区域内的消息，减少 DOM 节点数。
+  - **计算结果缓存**: 使用 `useHtmlMessageRawMap` 缓存已解析的 HTML 字符串，避免重复解析相同的 Markdown 内容。
+  - **按需加载渲染器**: 只有当消息进入可视区域时，才启动 `MathLive` 或 `Lottie` 的初始化。
+  - **`v-memo` 应用**: 对静态消息内容使用 `v-memo`，跳过不必要的 Patch 过程。

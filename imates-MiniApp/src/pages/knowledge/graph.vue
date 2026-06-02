@@ -1,0 +1,1 @@
+<template><MainView><KnowledgeGraphView /></MainView></template><script setup>import MainView from "../../views/MainView.vue"; import KnowledgeGraphView from "../../views/KnowledgeGraphView.vue";</script>
