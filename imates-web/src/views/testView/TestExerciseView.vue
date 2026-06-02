@@ -179,7 +179,7 @@ const showAnalysis = ref(false)
 
 // 响应式答案存储
 const answers = reactive<Record<string, any>>({})
-const compositeAnswers = reactive<Record<string, any>>({})
+const compositeAnswers = ref<Record<string, any>>({})
 
 const currentAnswer = computed(() => {
   const qId = currentQuestion.value.id

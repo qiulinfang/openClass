@@ -19,7 +19,8 @@
         <CompositeQuestion 
           v-if="sub.type === 'composite'" 
           :question="sub"
-          v-model="modelValue"
+          :model-value="modelValue"
+          @update:model-value="$emit('update:modelValue', $event)"
           show-title
         />
 
@@ -28,7 +29,8 @@
           v-else
           :is="getComponent(sub.type)" 
           :question="wrapQuestion(sub)" 
-          v-model="modelValue[sub.id]"
+          :model-value="modelValue[sub.id]"
+          @update:model-value="handleUpdate(sub.id, $event)"
           show-title
           :disabled="disabled"
         />
@@ -66,6 +68,11 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits(['update:modelValue', 'change'])
 
 const { renderMessageContent } = useMessageRenderer()
+
+const handleUpdate = (id: string, value: any) => {
+  const newValue = { ...props.modelValue, [id]: value }
+  emit('update:modelValue', newValue)
+}
 
 // 组件映射逻辑
 const getComponent = (type: string) => {
