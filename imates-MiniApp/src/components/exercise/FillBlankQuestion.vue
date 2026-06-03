@@ -18,7 +18,7 @@
               :style="{ width: getBlankWidth(part.blankIndex) }"
               placeholder="填入"
               :disabled="disabled"
-              @input="(e) => handleInput(e, part.blankIndex)"
+              @input="(e: any) => handleInput(e, part.blankIndex)"
             />
           </template>
         </view>
@@ -36,7 +36,7 @@ export default {
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
-import { useMessageRenderer } from '../../composables/useMessageRenderer.js'
+import { useMessageRenderer } from '../../composables/useMessageRenderer'
 
 const props = withDefaults(defineProps<{
   question: any
@@ -60,7 +60,7 @@ const { renderMessageContent } = useMessageRenderer()
 const answers = ref<string[]>(props.modelValue || [])
 
 // 监听外部值变化同步到内部
-watch(() => props.modelValue, (newVal) => {
+watch(() => props.modelValue, (newVal: any) => {
   if (newVal) {
     answers.value = [...newVal]
   }

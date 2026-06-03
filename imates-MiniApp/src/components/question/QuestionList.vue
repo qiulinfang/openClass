@@ -19,7 +19,7 @@
       <view class="search-input-wrapper">
         <input
           :value="searchQuery"
-          @input="(e) => handleSearchInput(e.detail.value)"
+          @input="(e: any) => handleSearchInput(e.detail.value)"
           placeholder="搜索题目..."
           class="search-input"
         />
@@ -223,7 +223,7 @@
           <switch
             class="delete-dialog-switch"
             :checked="deleteWithChat"
-            @change="(e) => deleteWithChat = e.detail.value"
+            @change="(e: any) => deleteWithChat = e.detail.value"
             color="#6e55ff"
           />
         </view>
@@ -232,7 +232,7 @@
           <switch
             class="delete-dialog-switch"
             :checked="deleteWithDraft"
-            @change="(e) => deleteWithDraft = e.detail.value"
+            @change="(e: any) => deleteWithDraft = e.detail.value"
             color="#6e55ff"
           />
         </view>
@@ -261,17 +261,17 @@
     >
       <SimilarQuestionList @questionAdded="refreshQuestions" />
     </Modal>
-  </div>
+  </view>
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { showMessage, ThrottleUtils, throttle } from '../../utils'
 import { useQuestionStore } from '../../stores/questionStore'
 import { useHomeworkStore } from '../../stores/homeworkStore'
 import { useAiExerciseChatStore } from '../../stores/aiExerciseChatStore'
 import type { ExerciseItem } from '../../types'
-import { MathJaxUtils } from '../../utils/math/mathjax'
+import { apiService } from '../../services/api-service'
+// import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 
 import BaseButton from '../base/Button.vue'
@@ -293,16 +293,16 @@ import type { QuestionListType } from './strategies'
 import { createQuestionListStrategy } from './strategies'
 
 // 导入拍照搜题图标
-import searchQuestionIcon from '/icons/search_question.svg'
+import searchQuestionIcon from '@/static/icons/search_question.svg'
 // 导入功能图标
-import zhidingIcon from '/icons/zhiding.svg'
-import quxiaozhidingIcon from '/icons/quxiaozhiding.svg'
-import shoucangIcon from '/icons/shoucang1.svg'
-import xingxingLightIcon from '/icons/xingxing-light.svg'
-import askXuebanIcon from '/icons/askXueban.svg'
-import weikeIcon from '/icons/weike.svg'
-import daanIcon from '/icons/daan.svg'
-import juyifansanIcon from '/icons/juyifansan.svg'
+import zhidingIcon from '@/static/icons/zhiding.svg'
+import quxiaozhidingIcon from '@/static/icons/quxiaozhiding.svg'
+import shoucangIcon from '@/static/icons/shoucang1.svg'
+import xingxingLightIcon from '@/static/icons/xingxing-light.svg'
+import askXuebanIcon from '@/static/icons/askXueban.svg'
+import weikeIcon from '@/static/icons/weike.svg'
+import daanIcon from '@/static/icons/daan.svg'
+import juyifansanIcon from '@/static/icons/juyifansan.svg'
 
 const handleLinkClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement | null
@@ -386,7 +386,7 @@ const searchQuery = computed(() => {
 const selectedSubjectFilter = computed(() => props.selectedSubjectFilter || null) //全部学科
 
 // 处理搜索输入
-const handleSearchInput = (value: string | number | null) => {
+const handleSearchInput = (value: any) => {
   const next = (value || '').toString()
   if (props.searchQuery !== undefined) {
     emit('update:searchQuery', next)
@@ -402,7 +402,7 @@ const questionStore = useQuestionStore()
 const currentQuestion = computed(() => strategy.value.getCurrentQuestion())
 
 // 路由
-const router = useRouter()
+// const router = useRouter()
 
 // 当前科目（用于拍照搜题）
 const currentSubjectForPhotoSearch = computed(() => {
@@ -419,11 +419,10 @@ const currentSubjectForPhotoSearch = computed(() => {
 
 // 拍照搜题处理
 const handlePhotoSearch = () => {
-  // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
+  // 统一使用路由跳转到 PhotoSearchView
   const subject = currentSubjectForPhotoSearch.value || 'math'
-  router.push({
-    path: '/photo-search',
-    query: { subject },
+  ;(uni as any).navigateTo({
+    url: `/pages/photo-search/index?subject=${subject}`
   })
 }
 
@@ -438,7 +437,7 @@ const isQuestionSelected = (questionId: string): boolean => {
 // 题目全局序号映射：根据原始 questions 列表的位置计算（从 1 开始）
 const questionIndexMap = computed(() => {
   const map = new Map<string, number>()
-  questions.value.forEach((q, idx) => {
+  questions.value.forEach((q: ExerciseItem, idx: number) => {
     const key = getQuestionUniqueId(q)
     if (key) map.set(key, idx)
   })
@@ -513,7 +512,7 @@ const filteredQuestions = computed(() => {
   if (selectedSubjectFilter.value) {
     const filterSubject = normalizeSubject(selectedSubjectFilter.value)
     result = result.filter(
-      (question) => normalizeSubject((question as any).subject) === filterSubject
+      (question: ExerciseItem) => normalizeSubject((question as any).subject) === filterSubject
     )
   }
 
@@ -521,7 +520,7 @@ const filteredQuestions = computed(() => {
   if (searchQuery.value?.trim()) {
     const query = searchQuery.value.toLowerCase().trim()
     result = result.filter(
-      (question) =>
+      (question: ExerciseItem) =>
         (question.title && question.title.toLowerCase().includes(query)) ||
         (question.question && question.question.toLowerCase().includes(query))
     )
@@ -578,7 +577,7 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
     contentRefs.value.set(questionId, el)
 
     // 渲染MathJax
-    await MathJaxUtils.renderMath(el, false)
+    // await MathJaxUtils.renderMath(el, false)
 
     // 给图片添加点击事件监听器
     await nextTick()
@@ -591,20 +590,7 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
 
 // 给元素内的所有图片添加点击事件监听器
 const attachImageClickListeners = (container: HTMLElement) => {
-  const images = container.querySelectorAll('img')
-  images.forEach((img) => {
-    if (!img.parentElement?.classList.contains('question-img-wrap')) {
-      const wrapper = document.createElement('span')
-      wrapper.className = 'question-img-wrap'
-      wrapper.style.display = 'inline-block'
-      wrapper.style.position = 'relative'
-      wrapper.style.lineHeight = '0'
-      img.parentNode?.insertBefore(wrapper, img)
-      wrapper.appendChild(img)
-    }
-
-    img.style.cursor = 'default'
-  })
+  // 小程序中无法直接操作 rich-text 内部 DOM，建议通过 rich-text 的相关属性或全局拦截处理
 }
 
 // 设置实际题目卡片的引用并开始监听高度变化
@@ -613,39 +599,15 @@ setQuestionCardRefImpl = (el: HTMLElement | null, questionId: string, index: num
 
   questionCardRefs.value.set(questionId, el)
 
-  // 使用 ResizeObserver 监听高度变化
-  const resizeObserver = new ResizeObserver((entries) => {
-    entries.forEach((entry) => {
-      // 使用 contentRect 或 target 的 getBoundingClientRect
-      const height = entry.target.getBoundingClientRect().height
-
-      // 等待内容稳定后再记录（避免频繁更新）
-      clearTimeout(heightMeasurementTimers.get(questionId))
-      const timer = setTimeout(() => {
-        if (height > 0) {
-          questionHeights.value.set(questionId, height)
-          indexToHeight.value.set(index, height)
-        }
-      }, 200) // 延迟200ms，等待MathJax渲染完成
-
-      heightMeasurementTimers.set(questionId, timer)
-    })
-  })
-
-  resizeObserver.observe(el)
-  resizeObservers.set(questionId, resizeObserver)
-
-  // 立即尝试测量一次（用于快速显示的题目）
+  // 小程序建议使用 uni.createSelectorQuery 测量高度
   nextTick(() => {
-    const height = el.getBoundingClientRect().height
-    if (height > 0) {
-      // 延迟测量，等待可能的MathJax渲染
-      setTimeout(() => {
-        const finalHeight = el.getBoundingClientRect().height
-        questionHeights.value.set(questionId, finalHeight)
-        indexToHeight.value.set(index, finalHeight)
-      }, 300) // 给MathJax更多时间
-    }
+    const query = (uni as any).createSelectorQuery().in(null)
+    query.select(`.question-card[data-index="${index}"]`).boundingClientRect((data: any) => {
+      if (data && data.height > 0) {
+        questionHeights.value.set(questionId, data.height)
+        indexToHeight.value.set(index, data.height)
+      }
+    }).exec()
   })
 }
 
@@ -686,10 +648,10 @@ const mistakeStatus = ref<Map<string, boolean>>(new Map())
 const updateMistakeStatus = async () => {
   try {
     const allMistakes = await getAllMistakes()
-    const mistakeIds = new Set(allMistakes.map(m => m.bmNo))
+    const mistakeIds = new Set(allMistakes.map((m: any) => m.bmNo))
     
     const statusMap = new Map<string, boolean>()
-    questions.value.forEach((q) => {
+    questions.value.forEach((q: ExerciseItem) => {
       const id = getQuestionUniqueId(q)
       if (id) {
         statusMap.set(id, mistakeIds.has(id))
@@ -706,7 +668,8 @@ watch(questions, () => {
 }, { deep: true })
 
 // 检查题目是否已收藏
-const isExerciseFavorite = (itemId: string): boolean => {
+const isExerciseFavorite = (itemId: string | undefined): boolean => {
+  if (!itemId) return false
   return favoriteStatus.value.get(itemId) ?? false
 }
 
@@ -714,7 +677,7 @@ const isExerciseFavorite = (itemId: string): boolean => {
 const initFavoriteStatus = () => {
   const favorites = getFavoriteExercises()
   favoriteStatus.value.clear()
-  favorites.forEach((f) => {
+  favorites.forEach((f: any) => {
     favoriteStatus.value.set(f.item.bmNo, true)
   })
 }
@@ -726,7 +689,7 @@ const toggleFavorite = (item: ExerciseItem) => {
 
   if (success) {
     // 更新收藏状态
-    favoriteStatus.value.set(item.bmNo, !wasFavorite)
+    favoriteStatus.value.set(item.bmNo || '', !wasFavorite)
     showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
   } else {
     showMessage('操作失败，请重试', 'error')
@@ -739,7 +702,7 @@ const throttledToggleFavorite = ThrottleUtils.fast((item: ExerciseItem) => {
 
 // 通用操作列表：构造更多菜单的 actions（根据策略能力决定显示哪些操作）
 const buildMoreActions = (question: ExerciseItem, index: number) => {
-  const bmNo = question.bmNo
+  const bmNo = question.bmNo || ''
   const currentStrategy = strategy.value
 
   const wrap = (handler: () => void) => {
@@ -820,7 +783,7 @@ const applyLocalRemove = (question: ExerciseItem) => {
   }
 
   const localIndex = questions.value.findIndex(
-    (q) => q.id === question.id || q.bmNo === question.bmNo
+    (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo
   )
   if (localIndex !== -1) {
     questions.value.splice(localIndex, 1)
@@ -1154,47 +1117,8 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
     return
   }
 
-  try {
-    const list = displayList.value
-    if (indexToScroll >= list.length) {
-      return
-    }
-
-    // 获取实际的滚动容器 DOM 元素
-    // scrollContainer 可能是 RubberBandList 组件实例或原生 HTMLElement
-    let actualContainer: HTMLElement | null = null
-    const container = scrollContainer.value as any
-    if (container.scrollContainerRef) {
-      // RubberBandList 组件，获取其内部的滚动容器
-      actualContainer = container.scrollContainerRef
-    } else if (container instanceof HTMLElement) {
-      // 原生 HTMLElement
-      actualContainer = container
-    }
-
-    if (!actualContainer) {
-      return
-    }
-
-    // 找到目标元素
-    const targetElement = actualContainer.querySelector(`[data-index="${indexToScroll}"]`)
-    if (targetElement) {
-      const containerHeight = actualContainer.clientHeight
-      const elementTop = (targetElement as HTMLElement).offsetTop
-      const elementHeight = (targetElement as HTMLElement).offsetHeight
-
-      // 计算滚动位置，使目标元素居中
-      const targetScrollTop = Math.max(0, elementTop - (containerHeight - elementHeight) / 2)
-
-      // 滚动到目标位置
-      actualContainer.scrollTo({
-        top: targetScrollTop,
-        behavior: 'smooth',
-      })
-    }
-  } catch {
-    // 滚动失败
-  }
+  // 小程序中建议通过设置 scroll-view 的 scroll-top 或 scroll-into-view
+  // 这里暂时通过暴露给父组件处理，或者在 RubberBandList 中实现
 }
 
 // 分页切换处理
@@ -1203,10 +1127,8 @@ const handlePageChange = (page: number) => {
 
   // 切页后回到列表顶部
   nextTick(() => {
-    const container = document.querySelector('.question-cards-container') as HTMLElement | null
-    if (container) {
-      // 直接跳到顶部，不使用平滑滚动
-      container.scrollTop = 0
+    if (scrollContainer.value && (scrollContainer.value as any).scrollToTop) {
+      (scrollContainer.value as any).scrollToTop()
     }
   })
 }
@@ -1241,7 +1163,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
 
 // 拍照搜题功能已移至父组件 ExerciseSolveView
 
-// 发送给AI
+// 问问学伴
 const sendToAi = async (question: ExerciseItem) => {
   try {
     // 发出事件通知父组件切换到AI聊天界面
@@ -1276,7 +1198,7 @@ const sendToAi = async (question: ExerciseItem) => {
       }
 
       const questionBmNo = current.bmNo
-      await aiExerciseStore.clearChatHistory(questionBmNo)
+      await aiExerciseStore.clearChatHistory(questionBmNo || '')
 
       const questionContent = current.question || current.title || '题目内容为空'
       const initialMessage = `我们开始吧，${questionContent}`
@@ -1317,7 +1239,7 @@ const sendToAi = async (question: ExerciseItem) => {
 
       // 清除聊天记录
       const questionBmNo = questionStore.currentQuestion.bmNo
-      await aiExerciseStore.clearChatHistory(questionBmNo)
+      await aiExerciseStore.clearChatHistory(questionBmNo || '')
       // 发送题目内容给AI进行分析（每次都是新的开始）
       const questionContent =
         questionStore.currentQuestion.question ||
@@ -1417,11 +1339,11 @@ const cleanupQuestionHeight = (questionId: string) => {
   questionHeights.value.delete(questionId)
 
   // 清理观察器
-  const observer = resizeObservers.get(questionId)
-  if (observer) {
-    observer.disconnect()
-    resizeObservers.delete(questionId)
-  }
+  // const observer = resizeObservers.get(questionId)
+  // if (observer) {
+  //   observer.disconnect()
+  //   resizeObservers.delete(questionId)
+  // }
 
   // 清理定时器
   const timer = heightMeasurementTimers.get(questionId)
@@ -1437,7 +1359,7 @@ const cleanupQuestionHeight = (questionId: string) => {
 // 监听搜索变化，重置分页
 watch(
   searchQuery,
-  () => {
+  (newVal: any) => {
     displayedCount.value = INITIAL_DISPLAY_COUNT
     currentPage.value = 1
   },
@@ -1447,7 +1369,7 @@ watch(
 // 监听外部传入的题目列表变化（例如 HomeworkAnswerView 在 onMounted 后解析路由再赋值）
 watch(
   () => props.externalQuestions,
-  (newVal) => {
+  (newVal: any) => {
     if (newVal && Array.isArray(newVal)) {
       questions.value = [...newVal]
       if (questions.value.length > 0) {
@@ -1462,7 +1384,7 @@ watch(
 // 监听学科过滤变化，重置分页并可能需要重新加载题目
 watch(
   selectedSubjectFilter,
-  async (newFilter) => {
+  async (newFilter: any) => {
     // 外部题目模式：不触发任何 store/API 加载，仅重置分页，让过滤逻辑基于 externalQuestions 生效
     if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
       displayedCount.value = INITIAL_DISPLAY_COUNT
@@ -1489,7 +1411,7 @@ watch(
       const currentQuestions = currentStrategy.getQuestions()
       const hasTargetSubjectQuestions =
         currentQuestions.length > 0 &&
-        currentQuestions.some((q) => {
+        currentQuestions.some((q: any) => {
           const qSubject = (q.subject || '').toLowerCase()
           return (
             qSubject === targetSubject ||
@@ -1518,10 +1440,10 @@ onUnmounted(() => {
   intersectionObservers.clear()
 
   // 清理所有 ResizeObserver
-  resizeObservers.forEach((observer) => {
-    observer.disconnect()
-  })
-  resizeObservers.clear()
+  // resizeObservers.forEach((observer) => {
+  //   observer.disconnect()
+  // })
+  // resizeObservers.clear()
 
   // 清理所有定时器
   heightMeasurementTimers.forEach((timer) => {
@@ -1536,7 +1458,7 @@ onUnmounted(() => {
   }
 
   // 清理 MathJax
-  MathJaxUtils.cleanup()
+  // MathJaxUtils.cleanup()
 })
 
 // 窗口大小变化处理（可选，用于响应式布局）
@@ -1552,31 +1474,45 @@ watch(
   { deep: true }
 )
 
-onMounted(() => {
-  loadQuestions()
-  initFavoriteStatus()
-
-  // 设置窗口大小变化监听
-  let resizeTimeout: ReturnType<typeof setTimeout>
-  const handleResize = () => {
-    clearTimeout(resizeTimeout)
-    resizeTimeout = setTimeout(() => {
-      // 重新测量所有已渲染的题目
-      questionCardRefs.value.forEach((el, questionId) => {
-        const index = displayList.value.findIndex((q) => q.bmNo === questionId)
-        if (index >= 0 && el) {
-          const height = el.getBoundingClientRect().height
-          if (height > 0) {
-            questionHeights.value.set(questionId, height)
-            indexToHeight.value.set(index, height)
-          }
-        }
-      })
-    }, 300)
+// 监听搜索词变化，执行重新加载（节流）
+watch(
+  () => searchQuery.value,
+  (newVal: string) => {
+    if (newVal !== undefined) {
+      throttledLoadQuestions()
+    }
   }
+)
 
-  window.addEventListener('resize', handleResize)
-  windowResizeCleanup = handleResize
+// 监听学科过滤变化
+watch(
+  () => props.selectedSubjectFilter,
+  (newFilter: any) => {
+    currentPage.value = 1
+    throttledLoadQuestions()
+  }
+)
+
+// 监听外部传入题目
+watch(
+  () => props.externalQuestions,
+  (newQuestions: ExerciseItem[] | undefined) => {
+    if (newQuestions) {
+      questions.value = [...newQuestions]
+      currentPage.value = 1
+      loading.value = false
+    }
+  },
+  { immediate: true }
+)
+
+// 组件挂载时加载数据
+onMounted(async () => {
+  if (!props.externalQuestions) {
+    await loadQuestions()
+  }
+  initFavoriteStatus()
+  updateMistakeStatus()
 })
 
 // 暴露方法给父组件

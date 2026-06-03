@@ -104,13 +104,13 @@ const switchFunction = (key: string) => {
 }
 
 const handleQuestionSelected = () => {
-  if (uni.getSystemInfoSync().windowWidth < 600) {
+  if ((uni as any).getSystemInfoSync().windowWidth < 600) {
     showQuestionList.value = false
   }
 }
 
 const goBack = () => {
-  uni.navigateBack()
+  (uni as any).navigateBack()
 }
 
 onMounted(() => {

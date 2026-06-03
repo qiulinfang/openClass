@@ -196,19 +196,19 @@ const confirmJoinClass = () => {
 
 const showFeedback = () => {
   // 小程序端反馈通常跳转到专门的反馈页面或使用客服功能
-  uni.navigateTo({ url: '/pages/feedback/index' })
+  ;(uni as any).navigateTo({ url: '/pages/feedback/index' })
 }
 
 const showFavorites = () => {
-  uni.navigateTo({ url: '/pages/favorites/list' })
+  ;(uni as any).navigateTo({ url: '/pages/favorites/list' })
 }
 
 const openDraftNotebook = () => {
-  uni.navigateTo({ url: '/pages/canvas/canvas' })
+  ;(uni as any).navigateTo({ url: '/pages/canvas/canvas' })
 }
 
 const openTeacherQA = () => {
-  uni.navigateTo({ url: '/pages/chat/chat?type=teacher' })
+  ;(uni as any).navigateTo({ url: '/pages/chat/chat?type=teacher' })
 }
 
 const handleLogout = () => {
@@ -229,7 +229,7 @@ const confirmLogout = async () => {
     }
 
     // 清理存储并重定向
-    uni.reLaunch({ url: '/pages/login/login' })
+    ;(uni as any).reLaunch({ url: '/pages/login/login' })
     showMessage('已退出登录', 'success')
   } catch (error) {
     console.error('退出登录失败:', error)

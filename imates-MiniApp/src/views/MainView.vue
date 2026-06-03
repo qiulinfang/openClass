@@ -52,10 +52,10 @@ const getNavIcon = (item: any) => {
 
 const handleNavItemClick = (item: any) => {
   activeNavItem.value = item.key
-  uni.switchTab({
+  ;(uni as any).switchTab({
     url: item.route,
     fail: () => {
-      uni.navigateTo({ url: item.route })
+      ;(uni as any).navigateTo({ url: item.route })
     }
   })
 }

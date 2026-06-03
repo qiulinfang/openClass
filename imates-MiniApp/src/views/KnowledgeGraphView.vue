@@ -121,10 +121,10 @@ import NewGrap from '../components/knowledge-graph/newGrap.vue'
 import RubberBandList from '../components/base/VirtualScroll.vue'
 import CommonSelect from '../components/base/Select.vue'
 import LearningView from './LearningView.vue'
-import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore.js'
-import { resourceManager } from '../services/storage/resource-storage.js'
-import { apiService } from '../services/http/api-service.js'
-import { KNOWLEDGE_GRAPH_SUBJECT_OPTIONS } from '../constants/subjects.js'
+import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
+import { resourceManager } from '../services/storage/resource-storage'
+import { apiService } from '../services/http/api-service'
+import { KNOWLEDGE_GRAPH_SUBJECT_OPTIONS } from '../constants/subjects'
 
 const bookIcon = '/static/images/book.png'
 const notLearnedStarIcon = '/static/icons/notLearnedStar.svg'
@@ -154,12 +154,12 @@ const learningDialogVisible = ref(false)
 const learningDialogData = ref<any>(null)
 
 const selectedTextbookLabel = computed(() => {
-  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  const option = textbookOptions.value.find((opt: any) => opt.value === selectedTextbook.value)
   return option ? option.label : ''
 })
 
 const filteredChapters = computed(() => {
-  return chapters.value.map((chapter, index) => ({ chapter, index }))
+  return chapters.value.map((chapter: string, index: number) => ({ chapter, index }))
 })
 
 const newGrapData = computed(() => {

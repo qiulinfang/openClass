@@ -177,9 +177,9 @@ const displayHomeworkList = computed(() => {
     const statusType = getHomeworkStatusType(homework.status)
     const statusTagType = getHomeworkStatusTagType(statusType, homework.deadline)
 
-    const tags = []
+    const tags: string[] = []
     if (homework.subject) {
-      const subjectName = SUBJECT_ID_TO_NAME[homework.subject] || homework.subject
+      const subjectName = (SUBJECT_ID_TO_NAME as any)[homework.subject] || homework.subject
       tags.push(subjectName)
     }
     if (homework.fullSubmit === '1') tags.push(getHomeworkTagText('fullSubmit'))
@@ -265,14 +265,14 @@ const goAnswer = async (item: any) => {
       homeworkStore.setHomeworkName(item.homework.title)
       homeworkStore.setResubmitType(item.homework.resubmit || '0')
 
-      uni.navigateTo({
+      ;(uni as any).navigateTo({
         url: `/pages/homework/answer?homeworkId=${item.id}&scene=homework`
       })
     } else {
-      uni.showToast({ title: '作业题目为空', icon: 'none' })
+      (uni as any).showToast({ title: '作业题目为空', icon: 'none' })
     }
   } catch (error) {
-    uni.showToast({ title: '获取作业详情失败', icon: 'none' })
+    (uni as any).showToast({ title: '获取作业详情失败', icon: 'none' })
   }
 }
 </script>

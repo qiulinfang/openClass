@@ -225,18 +225,18 @@ import StatusTag from '../components/base/Tag.vue'
 import CommonSelect from '../components/base/Select.vue'
 import RubberBandList from '../components/base/VirtualScroll.vue'
 import Dialog from '../components/base/Dialog.vue'
-import { resourceManager } from '../services/storage/resource-storage.js'
-import { apiService } from '../services/http/api-service.js'
-import { httpClient } from '../services/http/http-client.js'
-import { showMessage } from '../utils/index.js'
-import { useResourceStore } from '../stores/resourceStore.js'
-import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore.js'
-import { RESOURCE_SUBJECT_OPTIONS } from '../constants/subjects.js'
+import { resourceManager } from '../services/storage/resource-storage'
+import { apiService } from '../services/http/api-service'
+import { httpClient } from '../services/http/http-client'
+import { showMessage } from '../utils/index'
+import { useResourceStore } from '../stores/resourceStore'
+import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
+import { RESOURCE_SUBJECT_OPTIONS } from '../constants/subjects'
 import {
   RESOURCE_GRADE_OPTIONS,
   RESOURCE_VERSION_OPTIONS,
   RESOURCE_DOWNLOAD_STATUS_OPTIONS,
-} from '../constants/options.js'
+} from '../constants/options'
 
 const resourceStore = useResourceStore()
 const { setCurrentSubject, setCurrentTextbook } = useKnowledgeGraphStore()
@@ -288,28 +288,28 @@ const getStatusRank = (textbook: any): number => {
 }
 
 const filteredTextbooks = computed(() => {
-  let result = textbooks.value.filter(t => t)
+  let result = textbooks.value.filter((t: any) => t)
 
   if (selectedGrade.value) {
-    result = result.filter(t => t.textbookGradeLabel === selectedGrade.value)
+    result = result.filter((t: any) => t.textbookGradeLabel === selectedGrade.value)
   }
   if (selectedVersion.value) {
-    result = result.filter(t => t.textbookPublisher === selectedVersion.value)
+    result = result.filter((t: any) => t.textbookPublisher === selectedVersion.value)
   }
   if (selectedSubject.value) {
-    result = result.filter(t => t.textbookSubjectLabel === selectedSubject.value)
+    result = result.filter((t: any) => t.textbookSubjectLabel === selectedSubject.value)
   }
   if (selectedStatus.value) {
     if (selectedStatus.value === 'notDownloaded') {
-      result = result.filter(t => !t.isDownloaded || t.downloadStatus === 0)
+      result = result.filter((t: any) => !t.isDownloaded || t.downloadStatus === 0)
     } else if (selectedStatus.value === 'downloaded') {
-      result = result.filter(t => t.isDownloaded && t.downloadStatus === 2 && !t.hasUpdatesAvailable)
+      result = result.filter((t: any) => t.isDownloaded && t.downloadStatus === 2 && !t.hasUpdatesAvailable)
     } else if (selectedStatus.value === 'pendingUpdate') {
-      result = result.filter(t => t.isDownloaded && t.hasUpdatesAvailable)
+      result = result.filter((t: any) => t.isDownloaded && t.hasUpdatesAvailable)
     }
   }
 
-  return result.sort((a, b) => {
+  return result.sort((a: any, b: any) => {
     const rankA = getStatusRank(a)
     const rankB = getStatusRank(b)
     if (rankA !== rankB) return rankA - rankB
@@ -356,7 +356,7 @@ const handlePullDownRefresh = async () => {
 const handleFilterChange = () => {}
 
 const handleLearnTextbook = (textbook: any) => {
-  uni.navigateTo({
+  ;(uni as any).navigateTo({
     url: `/pages/knowledge/graph?initSubject=${textbook.textbookSubjectLabel}&initTextbookId=${textbook.textbookId}`
   })
 }

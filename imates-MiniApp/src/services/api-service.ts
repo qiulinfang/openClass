@@ -35,6 +35,14 @@ export class ApiService {
     const endpoint = getApiPaths().yanban.teacher.uploadImg;
     return httpClient.post<any>(endpoint, { file: base64Data });
   }
+
+  /**
+   * 删除习题
+   */
+  public async deleteExercise(exerciseId: string, subject: string) {
+    // 模拟实现或按需调用真实 API
+    return httpClient.delete<any>(`/xb-release/permission/exercises/${exerciseId}`, { params: { subject } });
+  }
 }
 
 export const apiService = ApiService.getInstance();

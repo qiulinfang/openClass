@@ -137,7 +137,7 @@ const APP_VERSION_STORAGE_KEY = 'app_version'
 // 从存储读取版本号
 const loadAppVersion = (): string => {
   try {
-    const savedVersion = uni.getStorageSync(APP_VERSION_STORAGE_KEY)
+    const savedVersion = (uni as any).getStorageSync(APP_VERSION_STORAGE_KEY)
     return savedVersion || '1.0.0'
   } catch (error) {
     console.error('[LoginView] 读取版本号失败:', error)
@@ -148,7 +148,7 @@ const loadAppVersion = (): string => {
 // 保存版本号到存储
 const saveAppVersion = (version: string): void => {
   try {
-    uni.setStorageSync(APP_VERSION_STORAGE_KEY, version)
+    (uni as any).setStorageSync(APP_VERSION_STORAGE_KEY, version)
     console.log('[LoginView] 版本号已保存:', version)
   } catch (error) {
     console.error('[LoginView] 保存版本号失败:', error)
@@ -274,7 +274,7 @@ const handleEnvSwitchConfirm = () => {
     const success = trySwitchEnv(targetEnv, password)
     if (success) {
       currentEnv.value = targetEnv
-      uni.reLaunch({ url: '/pages/login/login' })
+      ;(uni as any).reLaunch({ url: '/pages/login/login' })
     } else {
       errorMessage.value = '密码错误，切换失败'
       setTimeout(() => {
@@ -284,7 +284,7 @@ const handleEnvSwitchConfirm = () => {
   } else {
     trySwitchEnv(targetEnv)
     currentEnv.value = targetEnv
-    uni.reLaunch({ url: '/pages/login/login' })
+    ;(uni as any).reLaunch({ url: '/pages/login/login' })
   }
 }
 
@@ -311,7 +311,7 @@ const handleLogin = async () => {
     await authService.getUserInfo(token)
     
     // 小程序端跳转
-    uni.switchTab({
+    ;(uni as any).switchTab({
       url: '/pages/index/index'
     })
     

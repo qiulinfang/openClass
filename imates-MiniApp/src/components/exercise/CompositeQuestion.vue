@@ -13,7 +13,7 @@
         :key="sub.id || sIdx" 
         class="sub-question-item q-ml-md q-mt-lg"
       >
-        <view class="text-weight-bold text-primary q-mb-sm">子题 ({{ sIdx + 1 }}):</view>
+        <view class="text-weight-bold text-primary q-mb-sm">子题 ({{ Number(sIdx) + 1 }}):</view>
         
         <!-- 如果子题还是 composite，递归渲染 -->
         <CompositeQuestion 
@@ -24,13 +24,31 @@
         />
 
         <!-- 普通子题渲染 -->
-        <component 
-          v-else
-          :is="getComponent(sub.type)" 
-          :question="wrapQuestion(sub)" 
+        <ChoiceQuestion
+          v-if="sub.type === 'single_choice' || sub.type === 'multiple_choice'"
+          :question="wrapQuestion(sub)"
           v-model="modelValue[sub.id]"
           show-title
           :disabled="disabled"
+        />
+        <FillBlankQuestion
+          v-else-if="sub.type === 'fill_in_blank'"
+          :question="wrapQuestion(sub)"
+          v-model="modelValue[sub.id]"
+          show-title
+          :disabled="disabled"
+        />
+        <JudgmentQuestion
+          v-else-if="sub.type === 'true_false' || sub.type === 'judgment'"
+          :question="wrapQuestion(sub)"
+          v-model="modelValue[sub.id]"
+          show-title
+          :disabled="disabled"
+        />
+        <BaseQuestion
+          v-else
+          :question="wrapQuestion(sub)"
+          show-title
         />
       </view>
     </view>
@@ -45,7 +63,7 @@ export default {
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ExerciseItem } from '../../types/exercise'
+import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import ChoiceQuestion from './ChoiceQuestion.vue'
 import FillBlankQuestion from './FillBlankQuestion.vue'
@@ -67,19 +85,9 @@ const emit = defineEmits(['update:modelValue', 'change'])
 
 const { renderMessageContent } = useMessageRenderer()
 
-// 组件映射逻辑
-const getComponent = (type: string) => {
-  switch (type) {
-    case 'single_choice':
-    case 'multiple_choice':
-      return ChoiceQuestion
-    case 'fill_in_blank':
-      return FillBlankQuestion
-    case 'true_false':
-      return JudgmentQuestion
-    default:
-      return BaseQuestion
-  }
+const handleUpdate = (id: string, value: any) => {
+  const newValue = { ...props.modelValue, [id]: value }
+  emit('update:modelValue', newValue)
 }
 
 // 包装普通子题为组件需要的格式 (保持与 TestExerciseView 逻辑一致)

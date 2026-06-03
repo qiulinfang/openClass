@@ -229,12 +229,12 @@ const addToExerciseList = async (item: MistakeItem | null) => {
     const subject = item.questionData.subject || 'math'
     const response = await apiService.addQuestionToList(item.questionData, subject)
     if (response.success) {
-      uni.showToast({ title: '已成功加入习题列表', icon: 'success' })
+      (uni as any).showToast({ title: '已成功加入习题列表', icon: 'success' })
     } else {
-      uni.showToast({ title: '此题暂不支持加入习题集', icon: 'none' })
+      (uni as any).showToast({ title: '此题暂不支持加入习题集', icon: 'none' })
     }
   } catch (error) {
-    uni.showToast({ title: '操作失败', icon: 'none' })
+    (uni as any).showToast({ title: '操作失败', icon: 'none' })
   }
 }
 
@@ -242,19 +242,19 @@ const confirmDelete = (item: MistakeItem | null) => {
   if (!item) return
   pendingDeleteItem.value = item
   if (deleteDialogRef.value) {
-    (deleteDialogRef.value as any).open()
+    (deleteDialogRef.value as any).openDialog()
   }
 }
 
 const doDelete = async () => {
   if (pendingDeleteItem.value) {
-    const index = mistakeStore.mistakes.findIndex(m => m.id === pendingDeleteItem.value?.id)
+    const index = mistakeStore.mistakes.findIndex((m: any) => m.id === pendingDeleteItem.value?.id)
     if (index !== -1) {
       await mistakeStore.deleteMistake(index)
     }
   }
   if (deleteDialogRef.value) {
-    (deleteDialogRef.value as any).close()
+    (deleteDialogRef.value as any).closeDialog()
   }
 }
 

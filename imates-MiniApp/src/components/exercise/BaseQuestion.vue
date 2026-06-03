@@ -39,7 +39,7 @@ export default {
 import { computed, nextTick, watch } from 'vue'
 import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import { MathJaxUtils } from '../../utils/math/mathjax'
+// import { MathJaxUtils } from '../../utils/math/mathjax'
 
 defineOptions({
   name: 'BaseQuestion'

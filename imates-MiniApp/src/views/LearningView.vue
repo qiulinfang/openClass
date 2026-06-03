@@ -211,7 +211,7 @@ const startLearning = async (resource: any) => {
   if (!currentScheme.value) return
 
   // 小程序端预览文件通常使用 uni.openDocument
-  uni.navigateTo({
+  ;(uni as any).navigateTo({
     url: `/pages/pdf-viewer/index?id=${textbookId.value}&resourceId=${resource.id}&fileName=${resource.fileName}`
   })
 }

@@ -30,7 +30,7 @@ export class HttpClient {
     }
 
     // Auth headers
-    const token = uni.getStorageSync('XUEBAN_TOKEN') || uni.getStorageSync('YANBAN_TOKEN');
+    const token = (uni as any).getStorageSync('XUEBAN_TOKEN') || (uni as any).getStorageSync('YANBAN_TOKEN');
     if (token) {
       header['Token'] = token;
       header['sa-token'] = token;
@@ -38,7 +38,7 @@ export class HttpClient {
     }
 
     return new Promise((resolve) => {
-      uni.request({
+      (uni as any).request({
         url: fullUrl,
         method,
         data,
@@ -46,7 +46,7 @@ export class HttpClient {
           'Content-Type': 'application/json',
           ...header,
         },
-        success: (res) => {
+        success: (res: any) => {
           const data = res.data as any;
           resolve({
             success: res.statusCode >= 200 && res.statusCode < 300 && (data.success !== false),
@@ -55,7 +55,7 @@ export class HttpClient {
             code: data.code || res.statusCode,
           });
         },
-        fail: (err) => {
+        fail: (err: any) => {
           resolve({
             success: false,
             data: null as any,
@@ -73,6 +73,16 @@ export class HttpClient {
 
   post<T>(url: string, data?: any, header?: any) {
     return this.request<T>({ url, method: 'POST', data, header });
+  }
+
+  put<T>(url: string, data?: any, header?: any) {
+    return this.request<T>({ url, method: 'PUT', data, header });
+  }
+
+  delete<T>(url: string, config?: { data?: any; params?: any; header?: any }) {
+    // 兼容 imates-web 的 delete 调用方式
+    const data = config?.data || config?.params;
+    return this.request<T>({ url, method: 'DELETE', data, header: config?.header });
   }
 }
 

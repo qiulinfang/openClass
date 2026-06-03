@@ -51,15 +51,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue'
-import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
-import { resourceManager } from '../../services/storage/resource-storage.js'
-import { showMessage } from '../../utils/index.js'
-import { apiService } from '../../services/http/api-service.js'
-import { getScopedStorageKey, getScopedStorageValue } from '../../services/index.js'
-import { normalizeSubject } from '../../constants/subjects.js'
+import { resourceManager } from '../../services/storage/resource-storage'
+import { showMessage } from '../../utils/index'
+import { apiService } from '../../services/http/api-service'
+import { getScopedStorageKey, getScopedStorageValue } from '../../services/index'
+import { normalizeSubject } from '../../constants/subjects'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
-import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils.js'
+import { queryShijingshanKnowledgeId, queryShijingshanBmNoList } from '../../utils/business/shijingshan-knowledge-utils'
 
 interface ChapterNode {
   id: string
@@ -94,7 +93,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 // 调试：监听props变化
-watch(() => props.textbookRecordId, (newValue) => {
+watch(() => props.textbookRecordId, (newValue: any) => {
 }, { immediate: true })
 
 // 定义事件
@@ -105,7 +104,7 @@ const emit = defineEmits<{
 }>()
 
 // 路由
-const router = useRouter()
+// const router = useRouter()
 
 // 注入调试参数（可选）
 const debugParams = inject<{ value: KnowledgeGraphDebugParams } | undefined>('knowledgeGraphDebugParams', undefined)
@@ -199,7 +198,7 @@ onUnmounted(() => {
 })
 
 // 处理localStorage变化
-const handleStorageChange = (event: StorageEvent) => {
+const handleStorageChange = (event: any) => {
   const lastLearnedKey = getLastLearnedNodeKey()
   const learnedNodesKey = getLearnedNodesKey()
   if (event.key === lastLearnedKey) {
@@ -221,7 +220,7 @@ defineExpose({
 })
 
 // 监听展开状态变化，管理动画状态
-watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, newHasExpandedGraph], [oldIsExpanded, oldHasExpandedGraph]) => {
+watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, newHasExpandedGraph]: any[], [oldIsExpanded, oldHasExpandedGraph]: any[]) => {
   // 获取动画持续时间（毫秒）
   const animationDuration = (debugParams?.value?.nodeEnterExitDuration ?? 0.8) * 1000
   
@@ -502,13 +501,8 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     if (shijingshanBmNoList && shijingshanBmNoList.trim()) {
       const subjectParam = subjectForApi
 
-      router.push({
-        path: '/find-exercise',
-        query: {
-          bmNoList: shijingshanBmNoList.trim(),
-          subject: subjectParam,
-          token: getScopedStorageValue('token') || ''
-        }
+      ;(uni as any).navigateTo({
+        url: `/pages/exercise/find?bmNoList=${shijingshanBmNoList.trim()}&subject=${subjectParam}&token=${getScopedStorageValue('token') || ''}`
       })
       return
     }
@@ -541,13 +535,8 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     // 统一使用后端小写学科码作为路由参数
     const subjectParam = subjectForApi
     
-    router.push({
-      path: '/find-exercise',
-      query: {
-        knowledgeList: knowledgeList,
-        subject: subjectParam,
-        token: getScopedStorageValue('token') || ''
-      }
+    ;(uni as any).navigateTo({
+      url: `/pages/exercise/find?knowledgeList=${knowledgeList}&subject=${subjectParam}&token=${getScopedStorageValue('token') || ''}`
     })
   } catch (error) {
     // 检查是否是"没有题目"的错误

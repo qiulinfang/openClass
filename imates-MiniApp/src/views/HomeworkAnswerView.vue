@@ -179,11 +179,11 @@ const currentQuestionChooseList = computed({
     const key = currentAnswerQuestion.value?.id
     return key ? (answerDataCache.value as any)[key]?.chooseList || [] : []
   },
-  set: (val) => {
+  set: (val: any) => {
     const key = currentAnswerQuestion.value?.id
     if (key) {
       if (!(answerDataCache.value as any)[key]) (answerDataCache.value as any)[key] = {}
-      (answerDataCache.value as any)[key].chooseList = val
+      ;(answerDataCache.value as any)[key].chooseList = val
     }
   }
 })
@@ -193,11 +193,11 @@ const currentQuestionJudgment = computed({
     const key = currentAnswerQuestion.value?.id
     return key ? (answerDataCache.value as any)[key]?.judgmentValue || '' : ''
   },
-  set: (val) => {
+  set: (val: any) => {
     const key = currentAnswerQuestion.value?.id
     if (key) {
       if (!(answerDataCache.value as any)[key]) (answerDataCache.value as any)[key] = {}
-      (answerDataCache.value as any)[key].judgmentValue = val
+      ;(answerDataCache.value as any)[key].judgmentValue = val
     }
   }
 })
@@ -207,36 +207,36 @@ const currentQuestionFillList = computed({
     const key = currentAnswerQuestion.value?.id
     return key ? (answerDataCache.value as any)[key]?.fillList || [] : []
   },
-  set: (val) => {
+  set: (val: any) => {
     const key = currentAnswerQuestion.value?.id
     if (key) {
       if (!(answerDataCache.value as any)[key]) (answerDataCache.value as any)[key] = {}
-      (answerDataCache.value as any)[key].fillList = val
+      ;(answerDataCache.value as any)[key].fillList = val
     }
   }
 })
 
 const handleStartAnswer = (question: ExerciseItem) => {
   currentAnswerQuestion.value = question
-  if (uni.getSystemInfoSync().windowWidth < 600) {
+  if ((uni as any).getSystemInfoSync().windowWidth < 600) {
     showQuestionList.value = false
   }
 }
 
 const handleSubmit = async () => {
-  uni.showLoading({ title: '提交中...' })
+  (uni as any).showLoading({ title: '提交中...' })
   try {
     isHomeworkSubmitted.value = true
-    uni.showToast({ title: '提交成功', icon: 'success' })
+    (uni as any).showToast({ title: '提交成功', icon: 'success' })
   } catch (error) {
-    uni.showToast({ title: '提交失败', icon: 'none' })
+    (uni as any).showToast({ title: '提交失败', icon: 'none' })
   } finally {
-    uni.hideLoading()
+    (uni as any).hideLoading()
   }
 }
 
 const goBack = () => {
-  uni.navigateBack()
+  (uni as any).navigateBack()
 }
 
 onMounted(async () => {

@@ -48,7 +48,7 @@
             <view class="question-block">
               <!-- 题目序号和复选框 -->
               <view class="question-header">
-                <view class="question-number">题目{{ index + 1 }}</view>
+                <view class="question-number">题目{{ Number(index) + 1 }}</view>
                 <view class="question-checkbox">
                   <BaseCheckbox
                     :model-value="isSelected(question.bmNo)"
@@ -127,7 +127,7 @@ const isLoadMorePending = ref(false)
 // 计算属性
 const isSelected = (questionId: string) => {
   // 如果题目已在用户列表中，则始终显示为选中状态
-  const question = similarQuestions.value.find((q) => q.bmNo === questionId)
+  const question = similarQuestions.value.find((q: any) => q.bmNo === questionId)
   if (question?.atUserList) {
     return true
   }
@@ -143,7 +143,7 @@ const handleQuestionClick = (question: { bmNo: string; atUserList?: boolean }) =
 
 const handleToggleSelection = (questionId: string) => {
   // 检查题目是否已在用户列表中
-  const question = similarQuestions.value.find((q) => q.bmNo === questionId)
+  const question = similarQuestions.value.find((q: any) => q.bmNo === questionId)
   if (question?.atUserList) {
     // 已收藏的题目不允许取消选择
     return
@@ -190,11 +190,11 @@ const renderQuestionContent = (question: {
   return renderMessageContent(content)
 }
 
-const handleContentTouchStart = (event: TouchEvent) => {
+const handleContentTouchStart = (event: any) => {
   // 小程序中阻止冒泡
 }
 
-const handleContentTouchMove = (event: TouchEvent) => {
+const handleContentTouchMove = (event: any) => {
   // 小程序中阻止冒泡
 }
 
@@ -409,29 +409,19 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   // 增加整体点击区域
   min-width: 32px;
   min-height: 32px;
-  padding: 6px;
-
-  :deep(.q-checkbox__bg) {
-    border-radius: 6px;
-    border-width: 2px;
-    transition: all 0.2s ease;
-    width: 20px;
-    height: 20px;
-  }
-
 }
 
 // 选中状态的复选框样式 - 蓝色
 .question-item.question-selected .checkbox-btn {
-  :deep(.q-checkbox__inner--truthy .q-checkbox__bg){
-      background-color: #5e80fe; // 蓝色
-      border-color: #5e80fe;
+  :deep(.base-checkbox__bg) {
+    background-color: #5e80fe; // 蓝色
+    border-color: #5e80fe;
   }
 }
 
 // 已在题库状态的复选框样式 - 橙色
 .question-item.question-selected.question-in-user-list .checkbox-btn {
-  :deep(.q-checkbox__inner--truthy .q-checkbox__bg) {
+  :deep(.base-checkbox__bg) {
     background-color: #ff9767;
     border-color: #ff9767;
   }
