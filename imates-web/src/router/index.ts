@@ -1,33 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import MainView from '@/views/MainView.vue'
-import MainViewJk from '@/views/JK/MainViewJK.vue'
-import ExerciseSolveView from '@/views/ExerciseSolveView.vue'
-import LoginView from '@/views/LoginView.vue'
-import KnowledgeGraphView from '@/views/KnowledgeGraphView.vue'
-import MyResourcesView from '@/views/MyResourcesView.vue'
-import PdfViewerView from '@/views/PdfViewerView.vue'
-import PdfViewerViewZGC from '@/views/PdfViewerViewZGC.vue'
-import PdfViewerViewJK from '@/views/JK/PdfViewerViewJK.vue'
-import PdfViewerViewJK2 from '@/views/JK/PdfViewerViewJK2.vue'
-import PdfViewerViewSdsf from '@/views/PdfViewerViewSdsf.vue'
-import HtmlViewerView from '@/views/HtmlViewerView.vue'
-import HtmlPreviewView from '@/views/HtmlPreviewView.vue'
-import VideoViewerView from '@/views/VideoViewerView.vue'
-import FindExerciseView from '@/views/FindExerciseView.vue'
-import LearningView from '@/views/LearningView.vue'
-import LearningContentView from '@/views/LearningContentView.vue'
-import MyFavoritesView from '@/views/MyFavoritesView.vue'
-import PhotoSearchView from '@/views/PhotoSearchView.vue'
-import MyHomeworkView from '@/views/MyHomeworkView.vue'
-import HomeworkAnswerView from '@/views/HomeworkAnswerView.vue'
-import HomeworkAnswerViewJK from '@/views/JK/HomeworkAnswerViewJK.vue'
-import HomeworkPreviewAnalysisView from '@/views/JK/HomeworkPreviewAnalysisView.vue'
-import JKStatsDashboard from '@/views/JK/JKStatsDashboard.vue'
-import ChatSessionTestView from '@/views/ChatSessionTestView.vue'
-import ApiDebugView from '@/views/ApiDebugView.vue'
-import RenderTestView from '@/views/RenderTestView.vue'
-import LottieTest from '@/views/LottieTest.vue'
-import MiniExerciseView from '@/views/MiniExerciseView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -42,176 +13,176 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView
+      component: () => import('@/views/LoginView.vue')
     },
     // 经开二中主页路由
     {
       path: '/app-jk',
       name: 'mainJk',
-      component: MainViewJk,
+      component: () => import('@/views/JK/MainViewJK.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/app',
-      component: MainView,
+      component: () => import('@/views/MainView.vue'),
       redirect: '/app/knowledge-graph', // 默认重定向到知识图谱
       children: [
         // 我的习题路由
         {
           path: 'exercise-solve',
           name: 'exerciseSolve',
-          component: ExerciseSolveView
+          component: () => import('@/views/ExerciseSolveView.vue')
         },
         // 知识图谱路由
         {
           path: 'knowledge-graph',
           name: 'knowledgeGraph',
-          component: KnowledgeGraphView
+          component: () => import('@/views/KnowledgeGraphView.vue')
         },
         // 我的资源路由
         {
           path: 'my-resources',
           name: 'myResources',
-          component: MyResourcesView
+          component: () => import('@/views/MyResourcesView.vue')
         },
         // PDF查看器路由
         {
           path: 'pdf-viewer',
           name: 'pdfViewer',
-          component: PdfViewerView
+          component: () => import('@/views/PdfViewerView.vue')
         },
         // 中关村一小PDF查看器路由
         {
           path: 'pdf-viewer-zgc',
           name: 'pdfViewerZgc',
-          component: PdfViewerViewZGC
+          component: () => import('@/views/PdfViewerViewZGC.vue')
         },
         // 经开二中PDF查看器路由
         {
           path: 'pdf-viewer-jk',
           name: 'pdfViewerJk',
-          component: PdfViewerViewJK
+          component: () => import('@/views/JK/PdfViewerViewJK.vue')
         },
         // 首都师范PDF查看器路由
         {
           path: 'pdf-viewer-sdsf',
           name: 'pdfViewerSdsf',
-          component: PdfViewerViewSdsf
+          component: () => import('@/views/PdfViewerViewSdsf.vue')
         },
         // HTML查看器路由
         {
           path: 'html-viewer',
           name: 'htmlViewer',
-          component: HtmlViewerView
+          component: () => import('@/views/HtmlViewerView.vue')
         },
         // HTML预览器路由（用于URL预览）
         {
           path: 'html-preview',
           name: 'htmlPreview',
-          component: HtmlPreviewView
+          component: () => import('@/views/HtmlPreviewView.vue')
         },
         // 视频查看器路由
         {
           path: 'video-viewer',
           name: 'videoViewer',
-          component: VideoViewerView
+          component: () => import('@/views/VideoViewerView.vue')
         },
         // 找题路由
         {
           path: 'find-exercise',
           name: 'findExercise',
-          component: FindExerciseView
+          component: () => import('@/views/FindExerciseView.vue')
         },
         // 去学习路由
         {
           path: 'learning',
           name: 'learning',
-          component: LearningView
+          component: () => import('@/views/LearningView.vue')
         },
         // 学习内容详情路由
         {
           path: 'learning-content',
           name: 'learningContent',
-          component: LearningContentView
+          component: () => import('@/views/LearningContentView.vue')
         },
         // 我的收藏路由
         {
           path: 'my-favorites',
           name: 'myFavorites',
-          component: MyFavoritesView
+          component: () => import('@/views/MyFavoritesView.vue')
         },
         // 我的作业路由
         {
           path: 'my-homework',
           name: 'myHomework',
-          component: MyHomeworkView
+          component: () => import('@/views/MyHomeworkView.vue')
         },
         // 作业回答路由
         {
           path: 'homework-answer/:homeworkId?',
           name: 'homeworkAnswer',
-          component: HomeworkAnswerView
+          component: () => import('@/views/HomeworkAnswerView.vue')
         },
         // 经开二中作业回答路由
         {
           path: 'homework-answer-jk/:homeworkId?',
           name: 'homeworkAnswerJk',
-          component: HomeworkAnswerViewJK
+          component: () => import('@/views/JK/HomeworkAnswerViewJK.vue')
         },
         // 经开二中作业预习统计路由
         {
           path: 'homework-preview-analysis/:homeworkId?',
           name: 'homeworkPreviewAnalysis',
-          component: HomeworkPreviewAnalysisView
+          component: () => import('@/views/JK/HomeworkPreviewAnalysisView.vue')
         },
         // 经开二中综合统计分析看板路由
         {
           path: 'jk-stats-dashboard/:homeworkId?',
           name: 'jkStatsDashboard',
-          component: JKStatsDashboard
+          component: () => import('@/views/JK/JKStatsDashboard.vue')
         },
         // 作业答题跳转到学伴（从 homeworkAnswer 跳转专用）
         {
           path: 'homework-exercise',
           name: 'homeworkExercise',
-          component: ExerciseSolveView
+          component: () => import('@/views/ExerciseSolveView.vue')
         }
       ]
     },
     {
       path: '/photo-search',
       name: 'photoSearch',
-      component: PhotoSearchView
+      component: () => import('@/views/PhotoSearchView.vue')
     },
     {
       path: '/chat-session-test',
       name: 'chatSessionTest',
-      component: ChatSessionTestView
+      component: () => import('@/views/ChatSessionTestView.vue')
     },
     {
       path: '/debug-api',
       name: 'debugApi',
-      component: ApiDebugView
+      component: () => import('@/views/ApiDebugView.vue')
     },
     {
       path: '/render-test',
       name: 'renderTest',
-      component: RenderTestView
+      component: () => import('@/views/RenderTestView.vue')
     },
     {
       path: '/lottie-test',
       name: 'lottieTest',
-      component: LottieTest
+      component: () => import('@/views/LottieTest.vue')
     },
     {
       path: '/mini-exercise',
       name: 'miniExercise',
-      component: MiniExerciseView
+      component: () => import('@/views/MiniExerciseView.vue')
     },
     {
       path: '/pdf-viewer-jk2',
       name: 'pdfViewerJk2',
-      component: PdfViewerViewJK2
+      component: () => import('@/views/JK/PdfViewerViewJK2.vue')
     },
     // 重定向旧路由到新路由
     {
