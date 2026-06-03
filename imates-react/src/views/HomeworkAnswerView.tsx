@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import SplitPanel from '@/components/base/SplitPanel'
 import BusinessHeader from '@/components/header/BusinessHeader'
 import QuestionList from '@/components/question/QuestionList'
-import DrawingBoard from '@/components/drawing/DrawingBoard'
+import DrawingBoardNew from '@/components/drawing/DrawingBoardNew'
 import Button from '@/components/base/Button'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog'
 import type { ExerciseItem, HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
@@ -27,6 +27,7 @@ import { parseQuestionStructure, mapBackendTypeToFrontend } from '@/utils/busine
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion'
+import CompositeQuestion from '@/components/exercise/CompositeQuestion'
 import BaseQuestion from '@/components/exercise/BaseQuestion'
 import Radio from '@/components/base/Radio'
 
@@ -158,8 +159,9 @@ export const HomeworkAnswerView: React.FC = () => {
     const hasSelectedOption = Array.isArray(cache.chooseList) && cache.chooseList.length > 0
     const hasFillData = Array.isArray(cache.fillList) && cache.fillList.some((v: string) => v && v.trim() !== '')
     const hasJudgmentData = !!cache.judgmentValue
+    const hasCompositeData = cache.compositeAnswers && Object.keys(cache.compositeAnswers).length > 0
 
-    if (hasBoardData || hasSelectedOption || hasFillData || hasJudgmentData) return 'answered'
+    if (hasBoardData || hasSelectedOption || hasFillData || hasJudgmentData || hasCompositeData) return 'answered'
 
     return 'unanswered'
   }, [getQuestionKey, answerDataCache])
@@ -175,7 +177,7 @@ export const HomeworkAnswerView: React.FC = () => {
   }, [getQuestionStatus])
 
   const isObjective = useCallback((question: ExerciseItem): boolean => {
-    return ['single_choice', 'multiple_choice', 'true_false'].includes(question.type || '')
+    return ['single_choice', 'multiple_choice', 'true_false', 'judgment'].includes(question.type || '')
   }, [])
 
   const checkQuestionCorrect = useCallback((question: ExerciseItem): boolean => {
@@ -205,13 +207,28 @@ export const HomeworkAnswerView: React.FC = () => {
       const userVal = cache.judgmentValue
       if (!userVal) return false
       
-      const rawAnswer = question.structuredContent?.answer ?? question.answer
+      const structured = question.structuredContent
+      const options = structured?.options
+      const rawAnswer = structured?.answer ?? question.answer
       
       let standardAnswer = ''
       if (typeof rawAnswer === 'boolean') {
         standardAnswer = rawAnswer ? 'true' : 'false'
       } else if (rawAnswer) {
         standardAnswer = String(rawAnswer).trim().toLowerCase()
+      }
+
+      // 如果有自定义选项
+      if (options && options.length > 0) {
+        const correctOpt = options[0]
+        const wrongOpt = options.length > 1 ? options[1] : null
+        
+        if (userVal === correctOpt.text) {
+          return ['true', '1', '对', '正确', '√', correctOpt.text.toLowerCase(), correctOpt.label.toLowerCase()].includes(standardAnswer) || (rawAnswer as any) === true
+        }
+        if (wrongOpt && userVal === wrongOpt.text) {
+          return ['false', '0', '错', '错误', '×', wrongOpt.text.toLowerCase(), wrongOpt.label.toLowerCase()].includes(standardAnswer) || (rawAnswer as any) === false
+        }
       }
 
       if (userVal === '对' || userVal === '正确') {
@@ -239,14 +256,28 @@ export const HomeworkAnswerView: React.FC = () => {
     
     try {
       // 增加超时控制，防止 saveCurrentPage 永久挂起
-      // await saveCurrentPage() 
+      const savePromise = saveCurrentPage()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Save timeout')), 2500)
+      )
+
+      console.log('[HOMEWORK_BACK] 1. 正在调用 saveCurrentPage (带2.5s超时保护)...')
+      try {
+        await Promise.race([savePromise, timeoutPromise])
+        console.log('[HOMEWORK_BACK] saveCurrentPage 执行完毕')
+      } catch (e: any) {
+        console.warn('[HOMEWORK_BACK] saveCurrentPage 保存可能已挂起或超时:', e.message)
+      }
+      
+      console.log('[HOMEWORK_BACK] 2. 正在持久化作答数据到本地数据库...')
       await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted)
+      console.log('[HOMEWORK_BACK] 持久化保存指令已发出')
     } catch (err) {
       console.error('[HOMEWORK_BACK] 返回过程中捕获到异常:', err)
     } finally {
       navigate('/app/my-homework')
     }
-  }, [homeworkId, navigate, homeworkStore, isHomeworkSubmitted])
+  }, [homeworkId, navigate, homeworkStore, isHomeworkSubmitted, saveCurrentPage])
 
   const handleModeChange = (newMode: 'left' | 'right') => {
     setMode(newMode)
@@ -255,12 +286,191 @@ export const HomeworkAnswerView: React.FC = () => {
     }
   }
 
+  // 将当前题目的画板数据与导出图片缓存到全局缓存中
+  const saveCurrentPage = useCallback(async (questionToSave: ExerciseItem | null = currentAnswerQuestion, asyncImage = false) => {
+    try {
+      if (!questionToSave) return
+
+      const questionKey = getQuestionKey(questionToSave)
+      if (!questionKey) return
+
+      console.log(`[HOMEWORK_IMAGE_PROCESS] 开始保存题目数据: ${questionKey}, 是否异步: ${asyncImage}`)
+
+      // 1. 保存笔迹数据 (JSON)
+      const board = drawingBoardRef.current
+      if (board && questionToSave === currentAnswerQuestion) {
+        const boardData = board.saveData()
+        if (boardData) {
+          const existingCache = (answerDataCache as Record<string, any>)[questionKey] || {}
+          const newCache = {
+            ...answerDataCache,
+            [questionKey]: {
+              ...existingCache,
+              boardData: boardData,
+              timestamp: Date.now(),
+            }
+          }
+          useHomeworkStore.setState({ answerDataCache: newCache })
+
+          // 2. 保存画板图片数据 (笔迹 + 背景)
+          const captureBoardImage = () => {
+            const imageData = board.exportToJpg?.(0.9)
+            if (imageData) {
+              const currentCache = (useHomeworkStore.getState().answerDataCache as Record<string, any>)[questionKey] || {}
+              const updatedCache = {
+                ...useHomeworkStore.getState().answerDataCache,
+                [questionKey]: {
+                  ...currentCache,
+                  imageData: imageData
+                }
+              }
+              useHomeworkStore.setState({ answerDataCache: updatedCache })
+              console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${questionKey}`)
+            }
+          }
+
+          if (asyncImage) {
+            setTimeout(captureBoardImage, 0)
+          } else {
+            captureBoardImage()
+          }
+        }
+      }
+
+      // 3. 结构化题目（选择、填空、判断）的截图处理
+      const isStructured = ['single_choice', 'multiple_choice', 'judgment', 'true_false', 'fill', 'composite'].includes(questionToSave.type || '')
+      if (isStructured && questionRenderRef.current) {
+        const renderEl = questionRenderRef.current
+        
+        const captureStructuredImage = async () => {
+          try {
+            await MathJaxUtils.renderMathAndWait(renderEl)
+            
+            const imgs = Array.from(renderEl.querySelectorAll('img'))
+            await Promise.all(imgs.map(img => {
+              if (img.complete) return Promise.resolve()
+              return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
+            }))
+
+            const dataUrl = await htmlToImage.toPng(renderEl, {
+              backgroundColor: '#ffffff',
+              pixelRatio: 1.5,
+              cacheBust: true,
+            })
+
+            const existingCache = (useHomeworkStore.getState().answerDataCache as Record<string, any>)[questionKey] || {}
+            const updatedCache = {
+              ...useHomeworkStore.getState().answerDataCache,
+              [questionKey]: {
+                ...existingCache,
+                imageData: dataUrl,
+                timestamp: Date.now(),
+              }
+            }
+            useHomeworkStore.setState({ answerDataCache: updatedCache })
+          } catch (err) {
+            console.error(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图失败: ${questionKey}`, err)
+          }
+        }
+
+        if (asyncImage) {
+          setTimeout(captureStructuredImage, 100)
+        } else {
+          await captureStructuredImage()
+        }
+      }
+    } catch (globalSaveError) {
+      console.error('[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 全局错误:', globalSaveError)
+    }
+  }, [currentAnswerQuestion, getQuestionKey, answerDataCache])
+
+  // 根据缓存恢复当前题目的画布数据
+  const restoreCurrentPage = useCallback((question: ExerciseItem | null) => {
+    const questionKey = getQuestionKey(question)
+    const board = drawingBoardRef.current
+
+    if (!questionKey) {
+      board?.clearAll()
+      return
+    }
+
+    if (!board) return
+
+    const cache = (answerDataCache as Record<string, any>)[questionKey]
+    if (cache && cache.boardData) {
+      board.loadData(cache.boardData)
+    } else {
+      board.clearAll()
+    }
+  }, [getQuestionKey, answerDataCache])
+
+  const updateQuestionBackgroundImage = useCallback(async (seq: number) => {
+    const isStale = () => seq !== questionBgCaptureSeq.current
+
+    const questionKey = getQuestionKey(currentAnswerQuestion)
+    if (!currentAnswerQuestion) {
+      setQuestionBgImage('')
+      return
+    }
+
+    if (questionKey && questionImageCache.current.has(questionKey)) {
+      setQuestionBgImage(questionImageCache.current.get(questionKey) || '')
+      return
+    }
+
+    if (!questionHtml) {
+      setQuestionBgImage('')
+      return
+    }
+
+    const el = questionRenderRef.current
+    if (!el) return
+
+    try {
+      await MathJaxUtils.renderMathAndWait(el)
+      if (isStale()) return
+
+      const imgs = Array.from(el.querySelectorAll('img'))
+      if (imgs.length > 0) {
+        await Promise.all(imgs.map((img) => {
+          if (img.complete) return Promise.resolve()
+          return new Promise((resolve) => {
+            img.onload = resolve
+            img.onerror = resolve
+          })
+        }))
+      }
+      if (isStale()) return
+
+      const dataUrl = await htmlToImage.toPng(el, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 1.5,
+        cacheBust: true,
+      })
+      if (isStale()) return
+      setQuestionBgImage(dataUrl)
+
+      if (questionKey) {
+        questionImageCache.current.set(questionKey, dataUrl)
+      }
+    } catch (e) {
+      console.error('[HOMEWORK_RENDER] 背景图截图过程出错:', e)
+      if (isStale()) return
+      setQuestionBgImage('')
+    }
+  }, [currentAnswerQuestion, getQuestionKey, questionHtml])
+
   const handleStartAnswer = useCallback(async (question: ExerciseItem) => {
     const questionKey = getQuestionKey(question)
     const oldQuestionKey = getQuestionKey(currentAnswerQuestion)
     
     if (oldQuestionKey === questionKey && questionKey !== '') {
       return
+    }
+
+    // 保存上一题
+    if (oldQuestionKey) {
+      await saveCurrentPage(currentAnswerQuestion, true)
     }
 
     setCurrentAnswerQuestion(question)
@@ -276,8 +486,19 @@ export const HomeworkAnswerView: React.FC = () => {
       setQuestionBgImage(questionImageCache.current.get(questionKey) || '')
     }
 
-    // 恢复笔迹等逻辑...
-  }, [currentAnswerQuestion, getQuestionKey, renderMessageContent])
+    // 恢复笔迹
+    setTimeout(() => {
+      restoreCurrentPage(question)
+    }, 100)
+
+    // 生成背景图
+    const seq = ++questionBgCaptureSeq.current
+    if (!questionImageCache.current.has(questionKey)) {
+      setTimeout(() => {
+        updateQuestionBackgroundImage(seq)
+      }, 50)
+    }
+  }, [currentAnswerQuestion, getQuestionKey, renderMessageContent, saveCurrentPage, restoreCurrentPage, updateQuestionBackgroundImage])
 
   const handleOpenMiniClass = useCallback((question: ExerciseItem) => {
     try {
@@ -336,6 +557,34 @@ export const HomeworkAnswerView: React.FC = () => {
     return (answerDataCache as Record<string, any>)[questionKey]?.chooseList || []
   }, [currentAnswerQuestion, getQuestionKey, answerDataCache])
 
+  const setCurrentQuestionCompositeAnswers = useCallback((value: Record<string, any>) => {
+    const questionKey = getQuestionKey(currentAnswerQuestion)
+    if (!questionKey) return
+    const cache = (answerDataCache as Record<string, any>)[questionKey] || {}
+    const newCache = { ...answerDataCache, [questionKey]: { ...cache, compositeAnswers: value } }
+    useHomeworkStore.setState({ answerDataCache: newCache })
+  }, [currentAnswerQuestion, getQuestionKey, answerDataCache])
+
+  const currentQuestionCompositeAnswers = useMemo(() => {
+    const questionKey = getQuestionKey(currentAnswerQuestion)
+    if (!questionKey) return {}
+    return (answerDataCache as Record<string, any>)[questionKey]?.compositeAnswers || {}
+  }, [currentAnswerQuestion, getQuestionKey, answerDataCache])
+
+  const setCurrentQuestionFillList = useCallback((value: string[]) => {
+    const questionKey = getQuestionKey(currentAnswerQuestion)
+    if (!questionKey) return
+    const cache = (answerDataCache as Record<string, any>)[questionKey] || {}
+    const newCache = { ...answerDataCache, [questionKey]: { ...cache, fillList: value } }
+    useHomeworkStore.setState({ answerDataCache: newCache })
+  }, [currentAnswerQuestion, getQuestionKey, answerDataCache])
+
+  const currentQuestionFillList = useMemo(() => {
+    const questionKey = getQuestionKey(currentAnswerQuestion)
+    if (!questionKey) return []
+    return (answerDataCache as Record<string, any>)[questionKey]?.fillList || []
+  }, [currentAnswerQuestion, getQuestionKey, answerDataCache])
+
   const handleMistakeChange = async (val: string) => {
     if (!currentAnswerQuestion) return
     setMistakeAddedStatus(val as any)
@@ -389,13 +638,55 @@ export const HomeworkAnswerView: React.FC = () => {
     }
   }
 
+  const autoRecordMistakes = useCallback(async () => {
+    console.log('[HomeworkAnswerView] 开始自动记录错题...')
+    if (!homeworkId) return
+    
+    let mistakeCount = 0
+    
+    for (const question of questions) {
+      const isObjectiveType = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(question.type || '')
+      
+      if (isObjectiveType && !checkQuestionCorrect(question)) {
+        const questionKey = getQuestionKey(question)
+        const originalAnswer = (answerDataCache as Record<string, any>)[questionKey]
+        
+        try {
+          await addMistake({
+            bmNo: questionKey,
+            homeworkId: homeworkId,
+            homeworkName: homeworkName,
+            originalAnswer: originalAnswer,
+            questionData: question
+          })
+          mistakeCount++
+        } catch (err) {
+          console.error(`[HomeworkAnswerView] 自动记录错题失败: ${questionKey}`, err)
+        }
+      }
+    }
+    
+    if (mistakeCount > 0) {
+      console.log(`[HomeworkAnswerView] 自动记录完成，共记录 ${mistakeCount} 道错题`)
+    }
+  }, [homeworkId, questions, checkQuestionCorrect, getQuestionKey, answerDataCache, homeworkName])
+
   const doSubmit = async () => {
     try {
       if (!homeworkId) return
+      
+      // 提交前保存当前页
+      await saveCurrentPage(currentAnswerQuestion, false)
+      
       await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, true)
       setIsHomeworkSubmitted(true)
+      
+      // 自动记录错题
+      await autoRecordMistakes()
+      
       showMessage('作业提交成功', 'success')
     } catch (error) {
+      console.error('[HomeworkAnswerView] 提交失败:', error)
       showMessage('作业提交失败', 'error')
     }
   }
@@ -578,13 +869,21 @@ export const HomeworkAnswerView: React.FC = () => {
                       </div>
 
                       <div className="question-render-area">
-                        {['single_choice', 'multiple_choice', 'true_false'].includes(currentAnswerQuestion.type || '') ? (
+                        {['single_choice', 'multiple_choice', 'true_false', 'judgment', 'composite'].includes(currentAnswerQuestion.type || '') ? (
                           <>
-                            {currentAnswerQuestion.type === 'true_false' ? (
+                            {['true_false', 'judgment'].includes(currentAnswerQuestion.type || '') ? (
                               <JudgmentQuestion
                                 question={currentAnswerQuestion}
                                 value={currentQuestionJudgment}
                                 onChange={setCurrentQuestionJudgment}
+                                disabled={isHomeworkSubmitted}
+                                showTitle
+                              />
+                            ) : currentAnswerQuestion.type === 'composite' ? (
+                              <CompositeQuestion
+                                question={currentAnswerQuestion}
+                                value={currentQuestionCompositeAnswers}
+                                onChange={setCurrentQuestionCompositeAnswers}
                                 disabled={isHomeworkSubmitted}
                                 showTitle
                               />
@@ -600,9 +899,16 @@ export const HomeworkAnswerView: React.FC = () => {
                           </>
                         ) : (
                           <div className="drawing-board-wrapper">
-                            <DrawingBoard
+                            <DrawingBoardNew
                               ref={drawingBoardRef}
+                              showGrid={false}
+                              enableAskAi={true}
+                              showToolbar={!isHomeworkLocked}
+                              disabled={isHomeworkLocked}
+                              showZoomControls={false}
                               backgroundImage={questionBgImage}
+                              backgroundPosition="topLeft"
+                              initialZoom={70}
                               onClear={handleClearRequest}
                             />
                           </div>
@@ -715,6 +1021,50 @@ export const HomeworkAnswerView: React.FC = () => {
           第{incompleteDialogData.incompleteQuestionNumbers.join('、')}题未完成，确定要提交吗？
         </div>
       </Dialog>
+
+      {/* 隐藏的题目渲染容器，用于生成截图 */}
+      <div
+        ref={questionRenderRef}
+        className="question-render-hidden markdown-content"
+        style={{ position: 'fixed', left: '-9999px', top: '-9999px', width: '800px' }}
+      >
+        {currentAnswerQuestion?.structuredContent ? (
+          <>
+            {currentAnswerQuestion.type === 'true_false' ? (
+              <JudgmentQuestion
+                question={currentAnswerQuestion}
+                value={currentQuestionJudgment}
+                showTitle
+              />
+            ) : currentAnswerQuestion.type === 'composite' ? (
+              <CompositeQuestion
+                question={currentAnswerQuestion}
+                value={currentQuestionCompositeAnswers}
+                showTitle
+              />
+            ) : currentAnswerQuestion.type === 'fill_in_blank' ? (
+              <FillBlankQuestion
+                question={currentAnswerQuestion}
+                modelValue={currentQuestionFillList}
+                showTitle
+              />
+            ) : (currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice') ? (
+              <ChoiceQuestion
+                question={currentAnswerQuestion}
+                value={currentQuestionChooseList}
+                showTitle
+              />
+            ) : (
+              <BaseQuestion
+                question={currentAnswerQuestion}
+                showTitle
+              />
+            )}
+          </>
+        ) : (
+          <div dangerouslySetInnerHTML={{ __html: questionHtml }} />
+        )}
+      </div>
     </div>
   )
 }

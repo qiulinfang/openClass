@@ -70,6 +70,13 @@
                 :disabled="isHomeworkSubmitted"
                 show-title
               />
+              <CompositeQuestion
+                v-else-if="currentAnswerQuestion.type === 'composite'"
+                :question="currentAnswerQuestion"
+                v-model="currentQuestionCompositeData"
+                :disabled="isHomeworkSubmitted"
+                show-title
+              />
               <BaseQuestion
                 v-else
                 :question="currentAnswerQuestion"
@@ -130,6 +137,7 @@ import QuestionList from '../components/question/QuestionList.vue'
 import ChoiceQuestion from '../components/exercise/ChoiceQuestion.vue'
 import JudgmentQuestion from '../components/exercise/JudgmentQuestion.vue'
 import FillBlankQuestion from '../components/exercise/FillBlankQuestion.vue'
+import CompositeQuestion from '../components/exercise/CompositeQuestion.vue'
 import BaseQuestion from '../components/exercise/BaseQuestion.vue'
 import HomeworkChatPanel from '../components/chat/chatpanel/HomeworkChatPanel.vue'
 import Button from '../components/base/Button.vue'
@@ -212,6 +220,20 @@ const currentQuestionFillList = computed({
     if (key) {
       if (!(answerDataCache.value as any)[key]) (answerDataCache.value as any)[key] = {}
       ;(answerDataCache.value as any)[key].fillList = val
+    }
+  }
+})
+
+const currentQuestionCompositeData = computed({
+  get: () => {
+    const key = currentAnswerQuestion.value?.id
+    return key ? (answerDataCache.value as any)[key]?.compositeData || {} : {}
+  },
+  set: (val: any) => {
+    const key = currentAnswerQuestion.value?.id
+    if (key) {
+      if (!(answerDataCache.value as any)[key]) (answerDataCache.value as any)[key] = {}
+      ;(answerDataCache.value as any)[key].compositeData = val
     }
   }
 })

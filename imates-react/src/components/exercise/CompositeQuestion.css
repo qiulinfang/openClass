@@ -1,0 +1,45 @@
+.composite-question {
+  border-left: 4px solid #1976D2;
+  padding-left: 16px;
+}
+.sub-question-item {
+  border-top: 1px dashed #ddd;
+  padding-top: 16px;
+}
+.markdown-content {
+  line-height: 1.6;
+  font-size: 1.1rem;
+}
+.drawing-board-wrapper {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 400px;
+}
+.material-section {
+  margin-bottom: 16px;
+}
+.q-mb-md {
+  margin-bottom: 16px;
+}
+.q-mt-sm {
+  margin-top: 8px;
+}
+.q-mt-md {
+  margin-top: 16px;
+}
+.q-mt-lg {
+  margin-top: 24px;
+}
+.q-ml-md {
+  margin-left: 16px;
+}
+.text-subtitle1 {
+  font-size: 1rem;
+}
+.text-weight-bold {
+  font-weight: bold;
+}
+.text-primary {
+  color: #1976D2;
+}

@@ -82,7 +82,7 @@
               <!-- 情况 A: 交互式组件 (仅限 选择 和 判断) -->
               <div 
                 class="question-render-container" 
-                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false'].includes(currentAnswerQuestion.type || '')"
+                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false', 'composite'].includes(currentAnswerQuestion.type || '')"
               >
                 <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
                 <div class="question-render-toolbar" v-if="!isHomeworkLocked">
@@ -116,6 +116,13 @@
                     v-else-if="currentAnswerQuestion.type === 'true_false'"
                     :question="currentAnswerQuestion"
                     v-model="currentQuestionJudgment"
+                    :disabled="isHomeworkSubmitted"
+                    show-title
+                  />
+                  <CompositeQuestion
+                    v-else-if="currentAnswerQuestion.type === 'composite'"
+                    :question="currentAnswerQuestion"
+                    v-model="currentQuestionCompositeAnswers"
                     :disabled="isHomeworkSubmitted"
                     show-title
                   />
@@ -343,24 +350,18 @@ import Tag from '@/components/base/Tag.vue'
 import HomeworkChatPanel from '@/components/chat/chatpanel/HomeworkChatPanel.vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { addMistake, isMistake, deleteMistake } from '@/services/storage/mistake-storage'
-import { AI_ROLE_OPTIONS } from '@/constants/options'
-import goBackIcon from '/icons/goback.svg'
-import pagePrevIcon from '/icons/left.svg'
-import pageAddIcon from '/icons/addPaper.svg'
-import pageNextIcon from '/icons/right.svg'
+import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import textbookipIcon from '/icons/textbookip.png'
 import wodezuodaSelectIcon from '/icons/wodezuoda_select.svg'
 import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
 import askXuebanIcon from '/icons/askXueban.svg'
 import duileIcon from '/icons/duile.svg'
 import cuoleIcon from '/icons/cuole.svg'
-import SelectMulti from '@/components/base/SelectMulti.vue'
-import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
+import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import Radio from '@/components/base/Radio.vue'
-import { parseQuestionStructure, mapBackendTypeToFrontend } from '@/utils/business/exercise-utils'
 
 defineOptions({
   name: 'HomeworkAnswerView',
@@ -436,10 +437,9 @@ const currentQuestionRenderRef = ref<HTMLElement | null>(null)
 const previousQuestionKey = ref<string>('')
 
 // DrawingBoard 组件引用
-const MAX_BOARD_PAGES = 3
 const drawingBoardRefs = ref<Array<InstanceType<typeof DrawingBoardNew> | null>>([])
 
-const setDrawingBoardRef = (el: any, pageIndex: number) => {
+const setDrawingBoardRef = (el: unknown, pageIndex: number) => {
   drawingBoardRefs.value[pageIndex] = el as InstanceType<typeof DrawingBoardNew> | null
 }
 

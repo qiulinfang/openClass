@@ -45,6 +45,28 @@
           show-title
           :disabled="disabled"
         />
+        
+        <!-- 材料题/主观题渲染手写区域 -->
+        <view v-else-if="sub.type === 'essay'" class="essay-question-container">
+          <BaseQuestion
+            :question="wrapQuestion(sub)"
+            show-title
+          />
+          <view class="drawing-board-wrapper q-mt-md">
+            <DrawingBoardNew
+              :ref="(el: any) => setDrawingBoardRef(el, sub.id)"
+              :showGrid="false"
+              :enableAskAi="false"
+              :show-toolbar="!disabled"
+              :disabled="disabled"
+              :show-zoom-controls="false"
+              background-position="topLeft"
+              :initial-zoom="70"
+              @save="(data: any) => handleBoardSave(sub.id, data)"
+            />
+          </view>
+        </view>
+
         <BaseQuestion
           v-else
           :question="wrapQuestion(sub)"
@@ -62,13 +84,14 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import ChoiceQuestion from './ChoiceQuestion.vue'
 import FillBlankQuestion from './FillBlankQuestion.vue'
 import JudgmentQuestion from './JudgmentQuestion.vue'
 import BaseQuestion from './BaseQuestion.vue'
+import DrawingBoardNew from '../drawing/drawingBoardNew.vue'
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
@@ -84,6 +107,31 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits(['update:modelValue', 'change'])
 
 const { renderMessageContent } = useMessageRenderer()
+
+// 手写板引用管理
+const drawingBoardRefs = ref<Record<string, any>>({})
+const setDrawingBoardRef = (el: any, id: string) => {
+  if (el) {
+    drawingBoardRefs.value[id] = el
+    // 延迟加载初始数据，确保组件已就绪
+    setTimeout(() => {
+      const initialData = props.modelValue[id]?.boardData
+      if (initialData) {
+        el.loadData(initialData)
+      }
+    }, 100)
+  }
+}
+
+// 处理手写板数据更新
+const handleBoardSave = (id: string, boardData: any) => {
+  const currentVal = props.modelValue[id] || {}
+  handleUpdate(id, {
+    ...currentVal,
+    boardData: boardData,
+    type: 'board'
+  })
+}
 
 const handleUpdate = (id: string, value: any) => {
   const newValue = { ...props.modelValue, [id]: value }
