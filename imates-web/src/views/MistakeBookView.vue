@@ -37,7 +37,7 @@
           <div class="question-section">
             <div class="question-body scroll-container">
               <!-- A. 客观题 (单选、多选、判断) -->
-              <template v-if="['single_choice', 'multiple_choice', 'true_false', 'judgment'].includes(currentQuestionData?.type || '')">
+              <template v-if="['single_choice', 'multiple_choice', 'true_false'].includes(currentQuestionData?.type || '')">
                 <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
                   <ChoiceQuestion
                     v-if="currentQuestionData.type === 'single_choice' || currentQuestionData.type === 'multiple_choice'"
@@ -55,7 +55,7 @@
                     </template>
                   </ChoiceQuestion>
                   <JudgmentQuestion
-                    v-else
+                    v-else-if="currentQuestionData.type === 'true_false'"
                     :question="currentQuestionData"
                     :model-value="currentQuestionJudgment"
                     :disabled="true"
@@ -81,11 +81,10 @@
                     :show-grid="false"
                   />
                 </div>
-                <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
               </template>
 
               <!-- B. 填空题 -->
-              <template v-else-if="['fill_in_blank', 'fill'].includes(currentQuestionData?.type || '')">
+              <template v-else-if="currentQuestionData?.type === 'fill_in_blank'">
                 <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
                   <FillBlankQuestion
                     :question="currentQuestionData"
@@ -114,7 +113,6 @@
                     :enable-buffer="false"
                   />
                 </div>
-                <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
               </template>
 
               <!-- C. 主观题 (Essay, Subjective 等) -> 直接渲染图片 -->

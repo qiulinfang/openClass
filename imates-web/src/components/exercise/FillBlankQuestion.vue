@@ -1,29 +1,41 @@
 <template>
-  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId">
+  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId" :show-analysis="showAnalysis">
     <template #extra>
       <slot name="extra"></slot>
     </template>
+    
+    <!-- 题干部分：支持渲染 [blank_n] 占位符 -->
     <template #stem>
-      <div class="fill-blank-question">
-        <div class="question-stem-content">
-          <template v-for="(part, index) in parsedParts">
-            <span v-if="part.type === 'text'" :key="'text-' + index" class="text-part" v-html="renderMessageContent(part.content || '')"></span>
-            <input
-              v-else
-              :key="'blank-' + part.blankIndex"
-              v-model="answers[part.blankIndex]"
-              type="text"
-              class="blank-input"
-              :class="{ 'is-disabled': disabled }"
-              :style="{ width: getBlankWidth(part.blankIndex) }"
-              placeholder="填入"
-              :disabled="disabled"
-              @input="handleInput"
-            />
-          </template>
-        </div>
+      <div class="fill-blank-question-stem">
+        <template v-for="(part, index) in parsedParts" :key="index">
+          <span v-if="part.type === 'text'" class="text-part" v-html="renderMessageContent(part.content || '')"></span>
+          <span v-else class="blank-tag">({{ part.blankIndex }})</span>
+        </template>
       </div>
     </template>
+
+    <!-- 填空输入区域 -->
+    <div class="blank-inputs-container q-mt-md">
+      <div 
+        v-for="i in blankCount" 
+        :key="'blank-item-' + (i - 1)"
+        class="blank-item"
+        :class="{ 'is-active': activeBlank === i - 1 }"
+      >
+        <MixedInputArea
+          :model-value="finalAnswers[i-1]"
+          question-type="fill"
+          :disabled="disabled"
+          :placeholder="'请输入第 ' + i + ' 空的答案'"
+          @update:model-value="val => handleBlankUpdate(i - 1, val)"
+          @focus="activeBlank = i - 1"
+        >
+          <template #header-left>
+            <div class="blank-number">{{ i }}</div>
+          </template>
+        </MixedInputArea>
+      </div>
+    </div>
   </BaseQuestion>
 </template>
 
@@ -34,19 +46,23 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
+import MixedInputArea from './MixedInputArea.vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
+import type { ExerciseItem } from '../../types/exercise'
 
 const props = withDefaults(defineProps<{
-  question: any
+  question: ExerciseItem
   modelValue?: string[]
   showTitle?: boolean
   showId?: boolean
+  showAnalysis?: boolean
   disabled?: boolean
 }>(), {
   showTitle: false,
   showId: true,
+  showAnalysis: false,
   disabled: false
 })
 
@@ -56,32 +72,30 @@ const emit = defineEmits<{
 
 const { renderMessageContent } = useMessageRenderer()
 
-// 内部维护答案数组
-const answers = ref<string[]>(props.modelValue || [])
+// 状态管理
+const activeBlank = ref<number | null>(null)
 
-// 监听外部值变化同步到内部
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    answers.value = [...newVal]
-  }
-}, { deep: true })
+// 内部最终答案数组
+const finalAnswers = ref<string[]>(props.modelValue || [])
 
-// 解析题干，将括号拆分为输入框
+// 填空数量
+const blankCount = computed(() => {
+  const blanks = props.question.structuredContent?.blanks
+  if (Array.isArray(blanks)) return blanks.length
+  if (typeof blanks === 'number') return blanks
+  return 0
+})
+
+// 解析题干
 const parsedParts = computed(() => {
-  const isChoice = props.question.type === 'single_choice' || props.question.type === 'multiple_choice'
-  const stem = (!isChoice && props.question.questionContent)
-    ? props.question.questionContent
-    : (props.question.structuredContent?.stem || props.question.title || '')
-    
-  const regex = /\[blank_\d+\]/g
+  const stem = props.question.structuredContent?.stem || ''
+  const regex = /\[blank_(\d+)\]/g
   const parts: Array<{ type: 'text' | 'blank', content?: string, blankIndex: number }> = []
   
   let lastIndex = 0
-  let blankCount = 0
   let match
 
   while ((match = regex.exec(stem)) !== null) {
-    // 添加文本部分
     if (match.index > lastIndex) {
       parts.push({
         type: 'text',
@@ -89,15 +103,13 @@ const parsedParts = computed(() => {
         blankIndex: -1
       })
     }
-    // 添加填空部分
     parts.push({
       type: 'blank',
-      blankIndex: blankCount++
+      blankIndex: parseInt(match[1])
     })
     lastIndex = regex.lastIndex
   }
 
-  // 添加剩余文本
   if (lastIndex < stem.length) {
     parts.push({
       type: 'text',
@@ -106,86 +118,77 @@ const parsedParts = computed(() => {
     })
   }
 
-  // 初始化 answers 数组长度
-  if (answers.value.length < blankCount) {
-    const newAnswers = [...answers.value]
-    for (let i = answers.value.length; i < blankCount; i++) {
-      newAnswers[i] = ''
-    }
-    answers.value = newAnswers
-  }
-
   return parts
 })
 
-const getBlankWidth = (index: number) => {
-  const content = answers.value[index] || ''
-  // 计算内容的实际宽度。汉字约 18px，字母/数字约 10px
-  let width = 0
-  for (let i = 0; i < content.length; i++) {
-    width += content.charCodeAt(i) > 127 ? 18 : 10
+// 初始化
+onMounted(() => {
+  if (props.modelValue) {
+    finalAnswers.value = [...props.modelValue]
   }
-  const minWidth = 80
-  return `${Math.max(minWidth, width + 30)}px`
-}
+})
 
-const handleInput = () => {
-  emit('update:modelValue', [...answers.value])
+// 监听外部 modelValue 变化
+watch(() => props.modelValue, (newVal) => {
+  if (newVal) {
+    finalAnswers.value = [...newVal]
+  }
+}, { deep: true })
+
+const handleBlankUpdate = (index: number, val: any) => {
+  finalAnswers.value[index] = val
+  emit('update:modelValue', [...finalAnswers.value])
 }
 </script>
 
 <style scoped lang="scss">
-.fill-blank-question {
-  .question-stem-content {
-    font-size: 16px;
-    line-height: 1.6;
-    color: #333;
-    word-break: break-all;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    font-weight: 500;
-  }
+.fill-blank-question-stem {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #333;
+  word-break: break-all;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-weight: 500;
 
   .text-part {
-    white-space: pre-wrap;
-    display: inline;
-    
     :deep(p) {
       display: inline;
       margin: 0;
     }
   }
 
-  .blank-input {
-    border: none;
-    border-bottom: 2px solid #6e55ff;
-    background: transparent;
-    padding: 0 8px;
+  .blank-tag {
+    color: #615efe;
     margin: 0 4px;
-    font-size: 16px;
-    color: #6e55ff;
-    font-weight: 600;
-    text-align: center;
-    outline: none;
-    height: 28px;
-
-    &::placeholder {
-      color: #cbd5e1;
-      font-weight: 400;
-      font-size: 14px;
-    }
-
-    &:focus {
-      border-bottom-color: #4f39f6;
-      background: rgba(110, 85, 255, 0.05);
-    }
-
-    &.is-disabled {
-      border-bottom-color: #e2e8f0;
-      color: #64748b;
-      cursor: not-allowed;
-    }
+    font-weight: bold;
+    text-decoration: underline;
   }
+}
+
+.blank-inputs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.blank-item {
+  &.is-active {
+    // 激活状态由 MixedInputArea 内部处理，这里保留结构
+  }
+}
+
+.blank-number {
+  width: 24px;
+  height: 24px;
+  background: #615efe;
+  color: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
 }
 </style>

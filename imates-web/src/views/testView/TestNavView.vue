@@ -146,7 +146,7 @@ defineOptions({
 
 const searchText = ref('')
 const activeCategory = ref('all')
-const searchInputRef = ref<any>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const categories = [
   { id: 'all', label: '全部模块', icon: 'grid_view' },
@@ -212,6 +212,14 @@ const navItems = [
     category: 'component',
     color: '#795548',
     description: '测试各类习题（选择、填空、判断）在不同数据下的渲染和交互。'
+  },
+  {
+    title: '作业渲染极限测试',
+    path: '/homework-render-test',
+    icon: 'assignment_turned_in',
+    category: 'render',
+    color: '#673ab7',
+    description: '测试 HomeworkAnswerView 的各种题型渲染情况，包含复杂 LaTeX、长文本、多图等边缘情况。'
   }
 ]
 

@@ -62,31 +62,35 @@ const typeLabel = computed(() => {
   const map: Record<string, string> = {
     single_choice: '单选题',
     multiple_choice: '多选题',
-    fill: '填空题',
-    judgment: '判断题',
-    essay: '问答题'
+    fill_in_blank: '填空题',
+    true_false: '判断题',
+    subjective: '解答题',
+    composite: '复合题'
   }
-  return props.question.type ? map[props.question.type] : ''
+  const type = props.question.structuredContent?.type
+  return type ? map[type] : ''
 })
 
 const stemRaw = computed(() => {
-  // 综合题或其他非选择题，优先使用完整内容 questionContent
-  const isChoice = props.question.type === 'single_choice' || props.question.type === 'multiple_choice'
-  if (!isChoice && props.question.questionContent) {
-    return props.question.questionContent
-  }
-  return props.question.structuredContent?.stem || props.question.question || props.question.title || ''
+  return props.question.structuredContent?.stem || ''
 })
 
 const formattedStem = computed(() => renderMessageContent(stemRaw.value))
-const formattedAnswer = computed(() => renderMessageContent(props.question.answer || ''))
-const formattedExplanation = computed(() => renderMessageContent(props.question.explanation || ''))
+const formattedAnswer = computed(() => {
+  const answer = props.question.structuredContent?.answer
+  if (Array.isArray(answer)) return renderMessageContent(answer.join(', '))
+  if (answer === undefined || answer === null) return ''
+  return renderMessageContent(String(answer))
+})
+const formattedExplanation = computed(() => renderMessageContent(props.question.structuredContent?.analysis || ''))
 
 let stemElement: HTMLElement | null = null
 
-const setStemRef = (el: any) => {
-  stemElement = el
-  if (el) renderMath(el)
+const setStemRef = (el: unknown) => {
+  if (el && typeof el === 'object' && 'nodeType' in (el as any)) {
+    stemElement = el as HTMLElement
+    renderMath(el as HTMLElement)
+  }
 }
 
 const renderMath = (el: HTMLElement) => {

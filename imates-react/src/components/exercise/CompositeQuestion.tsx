@@ -3,6 +3,7 @@ import { BaseQuestion, type ExerciseItem } from '@/components/exercise/BaseQuest
 import ChoiceQuestion from './ChoiceQuestion'
 import FillBlankQuestion from './FillBlankQuestion'
 import JudgmentQuestion from './JudgmentQuestion'
+import SubjectiveQuestion from './SubjectiveQuestion'
 import DrawingBoardNew from '@/components/drawing/DrawingBoardNew'
 import { useMessageRenderer } from '@/hooks/useMessageRenderer'
 import './CompositeQuestion.css'

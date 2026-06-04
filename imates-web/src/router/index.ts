@@ -171,6 +171,11 @@ const router = createRouter({
       component: RenderTestView
     },
     {
+      path: '/homework-render-test',
+      name: 'homeworkRenderTest',
+      component: () => import('@/views/testView/HomeworkRenderTestView.vue')
+    },
+    {
       path: '/markdown-test',
       name: 'markdownTest',
       component: MarkdownRenderTestView

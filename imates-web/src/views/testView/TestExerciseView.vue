@@ -48,7 +48,7 @@
             <!-- 2. 普通题型 -->
             <component 
               v-else
-              :is="getComponent(currentQuestion.question.type)" 
+              :is="getComponent(currentQuestion.question.type || '')" 
               :question="currentQuestion.question" 
               v-model="answers[currentQuestion.id]"
               show-title
@@ -75,7 +75,7 @@
           <div v-html="renderMessageContent(safeQuestion.answer || '无')"></div>
           <q-separator class="q-my-md" />
           <div class="text-subtitle2 text-grey-7 q-mb-xs">详细解析:</div>
-          <div v-html="renderMessageContent(safeQuestion.analysis || '暂无解析')"></div>
+          <div v-html="renderMessageContent(safeQuestion.structuredContent?.analysis || '暂无解析')"></div>
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="关闭" color="primary" v-close-popup />
@@ -86,12 +86,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
+import type { ExerciseItem } from '@/types/exercise'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 
 const { renderMessageContent } = useMessageRenderer()
@@ -101,7 +102,7 @@ const testQuestions = [
   {
     id: 'test_composite_nested',
     title: '嵌套复合材料题 (用户指定用例)',
-    question: {
+    question: ({
       "id": "q_1001",
       "subject": "math",
       "score": 5.0,
@@ -110,41 +111,48 @@ const testQuestions = [
       "subQuestions": [
         {
           "id": "cq_1",
+          "bmNo": "BM_SUB_1",
           "type": "composite",
           "material": "子题干，这题还带两个子题",
           "subQuestions": [
             {
               "id": "cq_2_1",
+              "bmNo": "BM_SUB_2_1",
               "type": "subjective",
-              "stem": "第一小题的第一小小题干",
-              "answer": "答案for第一小题的第一小小题干",
-              "analysis": "解析for第一小题的第一小小题干"
+              "structuredContent": {
+                "stem": "第一小题的第一小小题干",
+                "answer": "答案for第一小题的第一小小题干",
+                "analysis": "解析for第一小题的第一小小题干"
+              }
             },
             {
               "id": "cq_2_2",
+              "bmNo": "BM_SUB_2_2",
               "type": "single_choice",
-              "stem": "第一小题的第二小小题干",
-              "options": [
-                {
-                  "id": "A",
-                  "content": "a选项内容"
-                },
-                {
-                  "id": "B",
-                  "content": "b选项内容（设置为正确选项）"
-                }
-              ],
-              "answer": "B"
+              "structuredContent": {
+                "stem": "第一小题的第二小小题干",
+                "options": [
+                  {
+                    "id": "A",
+                    "content": "a选项内容"
+                  },
+                  {
+                    "id": "B",
+                    "content": "b选项内容（设置为正确选项）"
+                  }
+                ],
+                "answer": "B"
+              }
             }
           ]
         }
       ]
-    }
+    } as unknown) as ExerciseItem
   },
   {
     id: 'test_choice',
     title: '单选题测试',
-    question: {
+    question: ({
       id: 'q_001',
       type: 'single_choice',
       structuredContent: {
@@ -156,25 +164,26 @@ const testQuestions = [
         ]
       },
       answer: 'B'
-    }
+    } as unknown) as ExerciseItem
   },
   {
     id: 'test_fill',
     title: '填空题测试',
-    question: {
+    question: ({
       id: 'q_002',
       type: 'fill_in_blank',
       structuredContent: {
-        stem: '床前明月光，[blank_1]，举头望明月，[blank_2]。'
+        stem: '床前明月光，[blank_1]，举头望明月，[blank_2]。',
+        blanks: 2
       },
       answer: '疑是地上霜, 低头思故乡'
-    }
+    } as unknown) as ExerciseItem
   }
 ]
 
 const currentIndex = ref(0)
 const currentQuestion = computed(() => testQuestions[currentIndex.value])
-const safeQuestion = computed(() => currentQuestion.value.question as any)
+const safeQuestion = computed(() => currentQuestion.value.question)
 const showAnalysis = ref(false)
 
 // 响应式答案存储
@@ -184,7 +193,7 @@ const compositeAnswers = ref<Record<string, any>>({})
 const currentAnswer = computed(() => {
   const qId = currentQuestion.value.id
   if (currentQuestion.value.question.type === 'composite') {
-    return compositeAnswers
+    return compositeAnswers.value
   }
   return answers[qId]
 })
@@ -202,30 +211,6 @@ const getComponent = (type: string) => {
     default:
       return BaseQuestion
   }
-}
-
-// 包装普通子题为组件需要的格式
-const wrapQuestion = (sub: any) => {
-  if (!sub) return sub
-  
-  // 提取原始选项数据，支持直接在 sub 下或在 structuredContent 下
-  const rawOptions = sub.options || sub.structuredContent?.options || []
-  
-  // 统一选项格式为 { label, text }，这是系统组件通常期望的格式
-  const wrappedOptions = rawOptions.map((opt: any) => ({
-    label: opt.id || opt.label, 
-    text: opt.content || opt.text 
-  }))
-  
-  const wrapped = {
-    ...sub,
-    questionContent: sub.stem || sub.questionContent || sub.structuredContent?.stem || '',
-    structuredContent: {
-      stem: sub.stem || sub.questionContent || sub.structuredContent?.stem || '',
-      options: wrappedOptions
-    }
-  }
-  return wrapped
 }
 </script>
 

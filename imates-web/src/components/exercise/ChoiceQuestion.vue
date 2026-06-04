@@ -5,20 +5,20 @@
     </template>
     <div class="choice-options">
       <div 
-        v-for="opt in options" 
-        :key="opt.label"
+        v-for="opt in processedOptions" 
+        :key="opt.value"
         class="option-item"
         :class="{ 
-          selected: isSelected(opt.label),
-          correct: isSelected(opt.label) && isCorrect(opt.label) && disabled,
-          wrong: isSelected(opt.label) && !isCorrect(opt.label) && disabled
+          selected: isSelected(opt.value),
+          correct: isSelected(opt.value) && isCorrect(opt.value) && disabled,
+          wrong: isSelected(opt.value) && !isCorrect(opt.value) && disabled
         }"
-        @click="handleSelect(opt.label)"
+        @click="handleSelect(opt.value)"
       >
         <div class="option-label">{{ opt.label }}</div>
         <div class="option-text" v-html="renderMessageContent(opt.text)"></div>
-        <div class="option-status-icon" v-if="disabled && isSelected(opt.label)">
-          <q-icon v-if="isCorrect(opt.label)" name="check_circle" color="green" size="20px" />
+        <div class="option-status-icon" v-if="disabled && isSelected(opt.value)">
+          <q-icon v-if="isCorrect(opt.value)" name="check_circle" color="green" size="20px" />
           <q-icon v-else name="cancel" color="red" size="20px" />
         </div>
       </div>
@@ -56,39 +56,41 @@ const emit = defineEmits(['update:modelValue', 'change'])
 
 const { renderMessageContent } = useMessageRenderer()
 
-const options = computed(() => props.question.structuredContent?.options || [])
+const processedOptions = computed(() => {
+  const rawOptions = props.question.structuredContent?.options || []
+  return rawOptions.map((opt) => ({
+    // 新结构：使用 id 作为标识和显示卷标，content 作为内容
+    value: opt.id || '',
+    label: opt.id || '',
+    text: opt.content || ''
+  }))
+})
 
-const isSelected = (label: string) => props.modelValue?.includes(label)
-const isCorrect = (label: string) => {
-  const answer = props.question.answer
+const isSelected = (value: string) => props.modelValue?.includes(value)
+const isCorrect = (value: string) => {
+  const answer = props.question.structuredContent?.answer
   if (Array.isArray(answer)) {
-    return answer.includes(label)
+    return answer.includes(value)
   }
-  // 某些情况下后端可能返回 "C,D" 格式
-  if (typeof answer === 'string' && answer.includes(',')) {
-    return answer.split(',').map((s) => s.trim()).includes(label)
-  }
-  return answer === label
+  // 仅保留对字符串化的支持，不再处理旧版的布尔值回退（已在数据层统一）
+  return String(answer) === value
 }
 
-const handleSelect = (label: string) => {
-  if (props.disabled) return // 禁用交互
+const handleSelect = (value: string) => {
+  if (props.disabled) return 
 
   let newValue = [...(props.modelValue || [])]
-  const index = newValue.indexOf(label)
+  const index = newValue.indexOf(value)
   if (index > -1) {
     newValue.splice(index, 1)
   } else {
-    // 判断是否为多选题
-    const isMultiple =
-      props.question.type === 'multiple_choice' ||
-      props.question.structuredContent?.type === 'multiple_choice'
+    const isMultiple = props.question.structuredContent?.type === 'multiple_choice'
 
     if (isMultiple) {
-      newValue.push(label)
-      newValue.sort() // 排序以保持一致性
+      newValue.push(value)
+      newValue.sort()
     } else {
-      newValue = [label]
+      newValue = [value]
     }
   }
   emit('update:modelValue', newValue)

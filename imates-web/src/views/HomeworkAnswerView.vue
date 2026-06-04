@@ -79,10 +79,10 @@
           <div class="panel-bg"></div>
           <div class="panel-content" :style="{ width: '100%', minWidth: '500px' }">
             <div class="panel-card question-solve-card">
-              <!-- 情况 A: 交互式组件 (仅限 选择 和 判断) -->
+              <!-- 情况 A: 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
               <div 
                 class="question-render-container" 
-                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false', 'composite'].includes(currentAnswerQuestion.type || '')"
+                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false', 'composite', 'fill_in_blank', 'subjective'].includes(currentAnswerQuestion.type || '')"
               >
                 <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
                 <div class="question-render-toolbar" v-if="!isHomeworkLocked">
@@ -126,6 +126,21 @@
                     :disabled="isHomeworkSubmitted"
                     show-title
                   />
+                  <FillBlankQuestion
+                    v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
+                    :question="currentAnswerQuestion"
+                    v-model="currentQuestionFillList"
+                    :disabled="isHomeworkSubmitted"
+                    show-title
+                  />
+                  <SubjectiveQuestion
+                    v-else-if="currentAnswerQuestion.type === 'subjective'"
+                    ref="subjectiveQuestionRef"
+                    :question="currentAnswerQuestion"
+                    v-model="currentQuestionSubjectiveData"
+                    :disabled="isHomeworkSubmitted"
+                    show-title
+                  />
 
                   <!-- 单道题提交后的答案和解析 -->
                   <div v-if="isHomeworkSubmitted" class="answer-analysis-wrapper">
@@ -133,11 +148,11 @@
                     <div class="result-section">
                       <div class="result-item answer-item">
                         <div class="item-label">参考答案：</div>
-                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                        <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                       </div>
                       <div class="result-item analysis-item">
                         <div class="item-label">解析：</div>
-                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                        <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                       </div>
                       <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
                         <span class="item-label">是否添加到错题本：</span>
@@ -331,7 +346,6 @@ import SplitPanel from '@/components/base/SplitPanel.vue'
 import BusinessHeader from '@/components/header/BusinessHeader.vue'
 import QuestionList from '@/components/question/QuestionList.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
-import FloatBubble from '@/components/base/Fab.vue'
 import Button from '@/components/base/Button.vue'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
 import type { ExerciseItem } from '@/types'
@@ -360,6 +374,7 @@ import cuoleIcon from '/icons/cuole.svg'
 import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
+import SubjectiveQuestion from '@/components/exercise/SubjectiveQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import Radio from '@/components/base/Radio.vue'
 
@@ -447,20 +462,18 @@ const setDrawingBoardRef = (el: unknown, pageIndex: number) => {
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 // 用于绑定题目列表搜索关键字
 const questionSearchQuery = ref('')
-// 用于多选题右面板的选项集，绑定到多选控件
-const rightPanelOptions = ['A', 'B', 'C', 'D']
 // 当前题目的选中选项（从缓存中获取或默认空字符串）
 const currentQuestionChooseList = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return []
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey]
     return cache?.chooseList || []
   },
   set: (value: string[]) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey] || {}
     cache.chooseList = value
     ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   },
@@ -470,13 +483,13 @@ const currentQuestionJudgment = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return ''
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey]
     return cache?.judgmentValue || ''
   },
   set: (value: string) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey] || {}
     cache.judgmentValue = value
     ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   },
@@ -486,40 +499,17 @@ const currentQuestionFillList = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return []
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey]
     return cache?.fillList || []
   },
   set: (value: string[]) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
+    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey] || {}
     cache.fillList = value
     ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
   },
 })
-
-/** 是否有任何题目已作答 */
-const isAnyQuestionAnswered = computed(() => {
-  return externalQuestions.value.some(q => getQuestionStatus(q) === 'answered')
-})
-// Float 气泡菜单配置
-const floatMenuItems = computed(() => {
-  return [
-    { label: '学伴答疑', icon: xuebandayiUnselectIcon },
-    { label: '我的作答', icon: wodezuodaSelectIcon },
-  ]
-})
-// 处理 FloatBubble 菜单项选择，控制学伴对话弹窗显示
-const handleFloatMenuSelect = async (item: { label: string }) => {
-  if (item.label === '学伴答疑') {
-    handleToggle()
-  } else if (item.label === '我的作答') {
-    if (mode.value === 'right') {
-      handleToggle()
-    }
-    return
-  }
-}
 
 // 切换模式并发送题目给 AI
 const handleToggle = async (question?: ExerciseItem) => {
@@ -720,7 +710,7 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
   } 
   
   // 3. 结构化题目（选择、填空、判断）的截图处理 - 统一使用隐藏渲染容器 questionRenderRef 确保样式完整
-  const isStructured = ['single_choice', 'multiple_choice', 'judgment', 'fill'].includes(questionToSave.type || '')
+  const isStructured = ['single_choice', 'multiple_choice', 'true_false', 'fill_in_blank'].includes(questionToSave.type || '')
   if (isStructured && questionRenderRef.value) {
     const renderEl = questionRenderRef.value
     
@@ -829,67 +819,33 @@ const { renderMessageContent } = useMessageRenderer()
 /** 判断题目是否回答正确 */
 const checkQuestionCorrect = (question: ExerciseItem): boolean => {
   if (!isHomeworkSubmitted.value) return true
-  const answer = question.answer
+  
+  const structured = question.structuredContent
+  if (!structured) return false
 
   const questionKey = getQuestionKey(question)
   const cache = (answerDataCache.value as Record<string, any>)[questionKey]
   if (!cache) return false
 
   // 1. 选择题判断
-  if (question.type === 'single_choice' || question.type === 'multiple_choice') {
+  if (structured.type === 'single_choice' || structured.type === 'multiple_choice') {
     const userChoices = cache.chooseList
     if (!userChoices || userChoices.length === 0) return false
 
-    let standardChoices: string[] = []
-    if (Array.isArray(answer)) {
-      standardChoices = answer
-    } else if (typeof answer === 'string') {
-      // 兼容 "A,B" 或 "A" 格式
-      standardChoices = answer.split(',').map((s) => s.trim()).filter(Boolean)
-    }
+    const standardChoices = Array.isArray(structured.answer) 
+      ? structured.answer 
+      : [String(structured.answer)]
 
     if (userChoices.length !== standardChoices.length) return false
     return userChoices.every((c: string) => standardChoices.includes(c))
   }
 
   // 2. 判断题判断
-  if (question.type === 'judgment' || question.type === 'true_false') {
+  if (structured.type === 'true_false') {
     const userVal = cache.judgmentValue
     if (!userVal) return false
     
-    const structured = question.structuredContent
-    const options = structured?.options
-    const rawAnswer = structured?.answer ?? question.answer
-    
-    // 转换标准答案为字符串
-    let standardAnswer = ''
-    if (typeof rawAnswer === 'boolean') {
-      standardAnswer = rawAnswer ? 'true' : 'false'
-    } else if (rawAnswer) {
-      standardAnswer = String(rawAnswer).trim().toLowerCase()
-    }
-
-    // 如果有自定义选项
-    if (options && options.length > 0) {
-      const correctOpt = options[0]
-      const wrongOpt = options.length > 1 ? options[1] : null
-      
-      if (userVal === correctOpt.text) {
-        return ['true', '1', '对', '正确', '√', correctOpt.text.toLowerCase(), correctOpt.label.toLowerCase()].includes(standardAnswer) || (rawAnswer as any) === true
-      }
-      if (wrongOpt && userVal === wrongOpt.text) {
-        return ['false', '0', '错', '错误', '×', wrongOpt.text.toLowerCase(), wrongOpt.label.toLowerCase()].includes(standardAnswer) || (rawAnswer as any) === false
-      }
-    }
-
-    // 默认判断逻辑
-    if (userVal === '对' || userVal === '正确') {
-      return ['true', '1', '对', '正确', '√', 't'].includes(standardAnswer) || (rawAnswer as any) === true
-    }
-    if (userVal === '错' || userVal === '错误') {
-      return ['false', '0', '错', '错误', '×', 'f'].includes(standardAnswer) || (rawAnswer as any) === false
-    }
-    return false
+    return String(structured.answer) === String(userVal)
   }
 
   // 3. 其他题型（填空、问答等）无法自动判题
@@ -994,16 +950,12 @@ const handleStartAnswer = async (question: ExerciseItem) => {
       console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${saveError.message}`)
     }
   }
-
   // 2. 立即更新 UI 状态
   currentAnswerQuestion.value = question
   previousQuestionKey.value = questionKey
   questionBgImage.value = ''
   
-  const isChoice = question.type === 'single_choice' || question.type === 'multiple_choice'
-  const raw = (!isChoice && question.questionContent)
-    ? question.questionContent
-    : (question.question || question.title || '').toString()
+  const raw = question.structuredContent?.stem || ''
   questionHtml.value = renderMessageContent(raw)
 
   // 3. 检查背景图缓存

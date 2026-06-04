@@ -236,6 +236,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { ZOOM_PRESET_OPTIONS } from '../../constants/options'
 import Toolbar from './Toolbar.vue'
 import CommonSelect from '../base/Select.vue'
+// @ts-expect-error
 import Dialog from '../base/Dialog.vue'
 import ScreenshotInputDialog from '../dialog/ImageProcessorDialog.vue'
 import { showMessage } from '@/utils'
@@ -373,7 +374,7 @@ const eraserCursor = reactive({
 })
 
 // 工具状态配置
-const toolStates = reactive({
+const toolStates: Record<string, { color: string; size: number; opacity: number }> = reactive({
   draw: { color: '#212529', size: 1.5, opacity: 1 },
   highlighter: { color: '#ffc107', size: 12, opacity: 0.4 },
   rectangle: { color: '#212529', size: 3, opacity: 1 },
@@ -460,7 +461,7 @@ watch(currentSize, (v) => (toolbarToolConfig.value.size = v))
 watch(currentOpacity, (v) => (toolbarToolConfig.value.opacity = v))
 watch(selectMode, (v) => (toolbarToolConfig.value.selectMode = v))
 
-function handleToolbarToolChange(tool) {
+function handleToolbarToolChange(tool: string) {
   console.log('[drawingBoardNew] handleToolbarToolChange:', tool)
   // 问问学伴工具：进入截图模式
   if (tool === 'askAi') {
@@ -510,7 +511,14 @@ function handleToolbarToolChange(tool) {
   return setMode(tool)
 }
 
-function handleToolbarConfigChange(cfg) {
+interface ToolbarConfig {
+  color?: string
+  size?: number
+  opacity?: number
+  selectMode?: string
+}
+
+function handleToolbarConfigChange(cfg: ToolbarConfig) {
   if (cfg?.color) {
     if (cfg.color !== currentColor.value) {
       currentColor.value = cfg.color
@@ -547,6 +555,54 @@ const inputState = reactive({
   height: 'auto',
 })
 
+// --- 核心类型定义 ---
+interface Bounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+interface StrokePoint {
+  x: number
+  y: number
+  p?: number
+}
+
+interface StrokeBase {
+  type?: 'stroke' | 'image' | 'text' | 'rect' | 'circle' | string
+  bounds?: Bounds
+}
+
+interface DrawingStroke extends StrokeBase {
+  type: 'stroke'
+  points: StrokePoint[]
+  color: string
+  lineWidth: number
+}
+
+interface DrawingImage extends StrokeBase {
+  type: 'image'
+  x: number
+  y: number
+  width: number
+  height: number
+  dataUrl: string
+}
+
+interface DrawingText extends StrokeBase {
+  type: 'text'
+  x: number
+  y: number
+  text: string
+  color: string
+  fontSize: number
+  width?: number
+  height?: number
+}
+
+type DrawingObject = DrawingStroke | DrawingImage | DrawingText | any
+
 // --- 核心数据 ---
 // 双 Context
 let historyCtx: CanvasRenderingContext2D | null = null
@@ -563,10 +619,10 @@ const MAX_ZOOM = 10.0
 
 const imageCache = new Map<string, HTMLImageElement>()
 
-let strokes: any[] = []
-let history: any[] = [JSON.stringify([])]
-const activePointers = new Map()
-let activeAction = null
+let strokes: DrawingObject[] = []
+let history: string[] = [JSON.stringify([])]
+const activePointers = new Map<number, { x: number; y: number }>()
+let activeAction: any = null
 
 function getCachedImage(dataUrl: string) {
   if (!dataUrl) return null
@@ -586,7 +642,7 @@ function normalizeZoom(z: number) {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
 }
 
-function ensureBoundsForStroke(obj: any) {
+function ensureBoundsForStroke(obj: DrawingObject) {
   if (!obj) return
   if (obj.bounds) return
 
@@ -595,7 +651,7 @@ function ensureBoundsForStroke(obj: any) {
       minY = Infinity,
       maxX = -Infinity,
       maxY = -Infinity
-    obj.points.forEach((p: any) => {
+    obj.points.forEach((p: StrokePoint) => {
       minX = Math.min(minX, p.x)
       minY = Math.min(minY, p.y)
       maxX = Math.max(maxX, p.x)
@@ -655,9 +711,9 @@ function handleZoomPresetChange(v: string | number | null) {
 }
 
 const isSpacePressed = ref(false)
-let resizeTimer = null
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
 
-function loadBackgroundImage(url) {
+function loadBackgroundImage(url: string | null) {
   if (!url) {
     backgroundImg.value = null
     backgroundLoaded.value = false
@@ -683,9 +739,9 @@ watch(() => props.backgroundImage, loadBackgroundImage, { immediate: true })
 
 // 多选状态
 const selectedIndices = reactive(new Set<number>())
-let groupBounds = null
-let selectionRect = null
-let activeHandle = null
+let groupBounds: Bounds | null = null
+let selectionRect: Bounds | null = null
+let activeHandle: string | null = null
 
 const canUndo = computed(() => {
   return historyStep.value > 0
@@ -714,20 +770,20 @@ const cursorClass = computed(() => {
 const renderTick = ref(0)
 
 // --- 坐标系统 ---
-function screenToWorld(sx, sy) {
+function screenToWorld(sx: number, sy: number) {
   if (!liveCanvasRef.value) return { x: 0, y: 0 }
   const rect = liveCanvasRef.value.getBoundingClientRect()
 
   // 获取相对于 Canvas 元素左上角的 client 坐标
-  let localX = sx - rect.left
-  let localY = sy - rect.top
+  const localX = sx - rect.left
+  const localY = sy - rect.top
 
   const x = (localX - camera.x) / camera.zoom
   const y = (localY - camera.y) / camera.zoom
   return { x, y }
 }
 
-function worldToScreen(wx, wy) {
+function worldToScreen(wx: number, wy: number) {
   if (!liveCanvasRef.value) return { x: 0, y: 0 }
   const sx = wx * camera.zoom + camera.x
   const sy = wy * camera.zoom + camera.y
@@ -747,7 +803,7 @@ const selectedImageDeleteButtonVisible = computed(() => {
 })
 
 const selectedImageDeleteButtonStyle = computed(() => {
-  renderTick.value
+  void renderTick.value
   const idx = selectedImageIndex.value
   if (idx === null) return {}
   const obj = strokes[idx]
@@ -770,15 +826,15 @@ function handleDeleteSelectedImage() {
   requestRenderAll()
 }
 
-function getDistance(p1, p2) {
+function getDistance(p1: { x: number; y: number }, p2: { x: number; y: number }) {
   return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
 }
 
-function getCenter(p1, p2) {
+function getCenter(p1: { x: number; y: number }, p2: { x: number; y: number }) {
   return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
 }
 
-function getGroupBounds(indices) {
+function getGroupBounds(indices: Set<number>) {
   if (!indices || indices.size === 0) return null
   let minX = Infinity,
     minY = Infinity,
@@ -822,7 +878,7 @@ function resizeCanvas() {
   requestRenderAll()
 }
 
-function drawGrid(ctx, width, height) {
+function drawGrid(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const zoom = camera.zoom
   const step = 20 * zoom
   let gridSize = 20
@@ -848,7 +904,7 @@ function drawGrid(ctx, width, height) {
   ctx.stroke()
 }
 
-function drawStrokeToContext(targetCtx, obj) {
+function drawStrokeToContext(targetCtx: CanvasRenderingContext2D, obj: any) {
   if (!obj) return
   if (!obj.type || obj.type === 'stroke') {
     if (!obj.points || obj.points.length === 0) return
@@ -882,7 +938,7 @@ function drawStrokeToContext(targetCtx, obj) {
     targetCtx.textBaseline = 'top'
     const lines = obj.text.split('\n')
     const lineHeight = obj.size * 5 * 1.2
-    lines.forEach((line, i) => {
+    lines.forEach((line: string, i: number) => {
       targetCtx.fillText(line, obj.x, obj.y + i * lineHeight)
     })
   } else if (obj.type === 'rectangle') {
@@ -1689,7 +1745,7 @@ function handlePointerDown(e) {
   }
 }
 
-function handlePointerMove(e) {
+function handlePointerMove(e: PointerEvent) {
   const wp = screenToWorld(e.clientX, e.clientY)
   hoverPos.value = wp
 
@@ -1943,12 +1999,12 @@ function handleResize(currPos) {
   requestRenderAll()
 }
 
-function handlePointerLeave(e) {
+function handlePointerLeave(e: PointerEvent) {
   hoverPos.value = null
   renderLive()
 }
 
-function endAction(e) {
+function endAction(e: PointerEvent) {
   activePointers.delete(e.pointerId)
   
   // 如果从双指变为单指，结束手势缩放
@@ -2072,16 +2128,17 @@ function finishInput() {
   inputState.height = 'auto'
 }
 
-function handleInputKeydown(e) {
+function handleInputKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') finishInput()
 }
-function autoResizeInput(e) {
-  e.target.style.height = 'auto'
-  inputState.height = e.target.scrollHeight + 'px'
+function autoResizeInput(e: Event) {
+  const target = e.target as HTMLTextAreaElement
+  target.style.height = 'auto'
+  inputState.height = target.scrollHeight + 'px'
 }
 
 // --- 通用事件 ---
-function handleWheel(e) {
+function handleWheel(e: WheelEvent) {
   e.preventDefault()
   const zoomIntensity = 0.1
   const delta = -Math.sign(e.deltaY)
@@ -2099,7 +2156,7 @@ function handleWheel(e) {
   requestRenderAll()
 }
 
-function handleKeydown(e) {
+function handleKeydown(e: KeyboardEvent) {
   if (inputState.visible) return
   if (e.code === 'Space' && !isSpacePressed.value) isSpacePressed.value = true
   if (e.ctrlKey || e.metaKey) {

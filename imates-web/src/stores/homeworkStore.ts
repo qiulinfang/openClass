@@ -199,6 +199,32 @@ export const useHomeworkStore = defineStore('homework', () => {
   }
 
   /**
+   * 仅更新 IndexedDB 中的题目列表，保留已有的作答记录
+   * 用于 MyHomeworkView.vue 获取到新题目后覆盖旧缓存
+   */
+  const updateQuestionsInDB = async (homeworkId: string): Promise<void> => {
+    if (!homeworkId) return
+
+    try {
+      const existing = await loadHomeworkSubmission(homeworkId)
+      if (existing) {
+        // 保留已有的 answerDataCache，只更新 questions
+        await saveHomeworkSubmission({
+          homeworkId,
+          homeworkName: homeworkName.value || existing.homeworkName,
+          isSubmitted: existing.isSubmitted,
+          answerDataCache: existing.answerDataCache,
+          questions: questions.value
+        })
+        console.log(`[HOMEWORK_STORAGE] ✅ 题目列表已更新到 IndexedDB: ${homeworkId}`)
+      }
+      // 如果 DB 中不存在，不创建新记录（等 HomeworkAnswerView 中作答时再创建）
+    } catch (error) {
+      console.error('[HOMEWORK_STORAGE] ❌ 更新题目列表失败:', error)
+    }
+  }
+
+  /**
    * 从 IndexedDB 加载指定作业的内容
    */
   const loadHomeworkSubmissionFromDB = async (homeworkId: string): Promise<{ isSubmitted: boolean } | null> => {
@@ -287,6 +313,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     clearHomeworkListCache,
     clearHomeworkListCacheByCondition,
     saveCurrentHomeworkSubmission,
+    updateQuestionsInDB,
     loadHomeworkSubmissionFromDB,
     resetAnswerState
   }

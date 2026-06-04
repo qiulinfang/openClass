@@ -355,6 +355,9 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
       homeworkStore.setHomeworkName(item.homework.title)
       homeworkStore.setResubmitType(item.homework.resubmit || '0')
 
+      // 用新获取的题目覆盖 IndexedDB 中的旧题目，保留已有的作答记录
+      await homeworkStore.updateQuestionsInDB(item.id)
+
       router.push({
         name: 'homeworkAnswer',
         params: {
@@ -377,7 +380,7 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
 </script>
 
 <style scoped>
-.my-homework-view {
+.my-homework-view { 
   width: 100%;
   height: 100%;
   box-sizing: border-box;

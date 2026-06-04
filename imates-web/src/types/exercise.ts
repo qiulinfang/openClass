@@ -9,8 +9,16 @@ import type { AllSubjectType } from '@/constants/subjects'
 
 /** 结构化题目选项 */
 export interface StructuredOption {
-  label: string
-  text: string
+  id?: string
+  label?: string
+  text?: string
+  content?: string
+}
+
+/** 填空项定义 */
+export interface BlankItem {
+  id: string
+  answer?: string[]
 }
 
 /** 结构化题目内容 */
@@ -22,8 +30,8 @@ export interface StructuredQuestionContent {
   stem: string
   analysis?: string
   options?: StructuredOption[]
-  answer?: string | string[]
-  blanks?: number
+  answer?: string | string[] | boolean
+  blanks?: number | BlankItem[]
   judgmentResult?: boolean
 }
 
@@ -33,7 +41,7 @@ export interface ExerciseItem {
   bmNo?: string
   title?: string
   question?: string // 题目内容，兼容旧版本
-  answer?: string
+  answer?: string | string[] | boolean // 答案内容，兼容各种格式
   explanation?: string // aiExplanation
   analysisData?: string // answerAnalysis
   subject?: string // 科目
@@ -46,6 +54,7 @@ export interface ExerciseItem {
   // 结构化相关
   questionStructureData?: string
   structuredContent?: StructuredQuestionContent
+  options?: StructuredOption[]
 
   // 显示相关属性
   atUserList?: boolean
@@ -55,7 +64,7 @@ export interface ExerciseItem {
 
   // 复合材料题相关
   material?: string
-  subQuestions?: any[]
+  subQuestions?: ExerciseItem[]
 }
 
 /** 相似题目接口，继承 ExerciseItem 并添加相似度 */

@@ -55,6 +55,9 @@ export default defineConfig(() => {
       exclude: ['mupdf'],
     },
     server: {
+      watch: {
+        usePolling: true,
+      },
       // 配置中间件以正确处理 WASM 文件的 MIME 类型
       middlewareMode: false,
       fs: {
