@@ -40,7 +40,16 @@ export class MigrationService {
 
     const startTime = Date.now()
     try {
-      // 1. 执行聊天数据迁移
+      // 检查新版聊天数据库中是否已有数据，作为兜底判断
+      const chatDB = IndexedDBService.getInstance(IDB_CONFIGS.CHAT_STORAGE())
+      const existingSessions = await chatDB.getAll(STORE_NAMES.AI_GENERAL_SESSIONS)
+      if (existingSessions.length > 0) {
+        console.log('[Migration] 检测到新版聊天数据库中已有通用会话，可能已经迁移过，记录状态并跳过')
+        localStorage.setItem(`${MIGRATION_KEY}_${userId}`, 'true')
+        return
+      }
+
+      // 执行聊天数据迁移
       await this.migrateAllChatData()
 
       localStorage.setItem(`${MIGRATION_KEY}_${userId}`, 'true')
@@ -68,64 +77,91 @@ export class MigrationService {
       history: localforage.createInstance({ name: oldDBName, storeName: 'chat_history' })
     }
 
-    console.log('[Migration] 正在读取旧版 ExerciseSolveApp 数据...')
+    console.log(`[Migration] 🔍 正在扫描旧数据库: ${oldDBName}`)
 
     // 1. 迁移通用 AI 会话
+    console.log('[Migration] ⏳ 开始迁移通用 AI 会话...')
     try {
       const sessions = await oldStores.general.getItem<any[]>('ai_general_sessions')
       if (sessions?.length) {
-        console.log(`[Migration] 发现旧版通用会话 ${sessions.length} 条`)
+        console.log(`[Migration] 📂 发现旧版通用会话 ${sessions.length} 条`)
         await chatStorage.saveGeneralSessions(sessions)
         for (const s of sessions) {
+          console.log(`[Migration] 📦 正在搬运通用会话内容: ${s.sessionName || s.sessionId}`)
           await this.migrateHistoryItem(s.sessionId, `ai-general-${s.sessionId}`, oldStores.history)
         }
+        console.log('[Migration] ✅ 通用 AI 会话迁移完成')
+      } else {
+        console.log('[Migration] ℹ️ 未发现旧版通用 AI 会话')
       }
-    } catch (e) { console.warn('[Migration] 通用会话迁移失败', e) }
+    } catch (e) { console.error('[Migration] ❌ 通用会话迁移失败', e) }
 
     // 2. 迁移作业 AI 会话
+    console.log('[Migration] ⏳ 开始迁移作业 AI 会话...')
     try {
       const key = `ai_homework_sessions_${userId}`
       const sessions = await oldStores.homework.getItem<any[]>(key)
       if (sessions?.length) {
-        console.log(`[Migration] 发现旧版作业会话 ${sessions.length} 条`)
+        console.log(`[Migration] 📂 发现旧版作业会话 ${sessions.length} 条`)
         await chatStorage.saveHomeworkSessions(sessions)
         for (const s of sessions) {
+          console.log(`[Migration] 📦 正在搬运作业会话内容: ${s.sessionName || s.sessionId}`)
           await this.migrateHistoryItem(s.sessionId, `ai-homework-${s.sessionId}`, oldStores.history)
         }
+        console.log('[Migration] ✅ 作业 AI 会话迁移完成')
+      } else {
+        console.log('[Migration] ℹ️ 未发现旧版作业 AI 会话')
       }
-    } catch (e) { console.warn('[Migration] 作业会话迁移失败', e) }
+    } catch (e) { console.error('[Migration] ❌ 作业会话迁移失败', e) }
 
     // 3. 迁移题目练习会话
+    console.log('[Migration] ⏳ 开始迁移题目练习会话...')
     try {
       const allKeys = await oldStores.exercise.keys()
       const sessionKeys = allKeys.filter(k => k.startsWith('sessions_'))
       if (sessionKeys.length) {
-        console.log(`[Migration] 发现旧版练习会话列表 ${sessionKeys.length} 个`)
+        console.log(`[Migration] 📂 发现旧版练习会话列表 ${sessionKeys.length} 个`)
         for (const key of sessionKeys) {
           const bmNo = key.replace('sessions_', '')
           const sessions = await oldStores.exercise.getItem<any[]>(key)
           if (sessions?.length) {
-            await chatStorage.saveSessionsList(bmNo, sessions)
+            console.log(`[Migration] 📦 正在迁移题目 ${bmNo} 的 ${sessions.length} 个会话列表`)
+            await chatStorage.saveSessionsList(sessions)
             for (const s of sessions) {
-              if (s.id) await this.migrateHistoryItem(s.id, `ai-exercise-${s.id}`, oldStores.history)
+              if (s.id) {
+                console.log(`[Migration] 📦 正在搬运练习对话记录: ${s.id}`)
+                await this.migrateHistoryItem(s.id, `ai-exercise-${s.id}`, oldStores.history)
+              }
             }
           }
         }
+        console.log('[Migration] ✅ 题目练习会话迁移完成')
+      } else {
+        console.log('[Migration] ℹ️ 未发现旧版题目练习会话')
       }
-    } catch (e) { console.warn('[Migration] 练习会话迁移失败', e) }
+    } catch (e) { console.error('[Migration] ❌ 练习会话迁移失败', e) }
 
     // 4. 迁移教师题目会话
+    console.log('[Migration] ⏳ 开始迁移教师题目会话...')
     try {
       const sessions = await oldStores.teacher.getItem<Record<string, any>>('teacher_exercise_sessions')
       if (sessions) {
         const ids = Object.keys(sessions)
-        console.log(`[Migration] 发现旧版教师会话 ${ids.length} 条`)
-        await chatStorage.saveTeacherExerciseSessions(sessions)
-        for (const id of ids) {
-          await this.migrateHistoryItem(id, `teacher-exercise-${id}`, oldStores.history)
+        if (ids.length) {
+          console.log(`[Migration] 📂 发现旧版教师会话 ${ids.length} 条`)
+          await chatStorage.saveTeacherExerciseSessions(sessions)
+          for (const id of ids) {
+            console.log(`[Migration] 📦 正在搬运教师对话记录: ${id}`)
+            await this.migrateHistoryItem(id, `teacher-exercise-${id}`, oldStores.history)
+          }
+          console.log('[Migration] ✅ 教师题目会话迁移完成')
+        } else {
+          console.log('[Migration] ℹ️ 旧版教师会话列表为空')
         }
+      } else {
+        console.log('[Migration] ℹ️ 未发现旧版教师题目会话')
       }
-    } catch (e) { console.warn('[Migration] 教师会话迁移失败', e) }
+    } catch (e) { console.error('[Migration] ❌ 教师会话迁移失败', e) }
   }
 
   /**
@@ -134,13 +170,31 @@ export class MigrationService {
   private async migrateHistoryItem(oldId: string, newId: string, historyStore: LocalForage): Promise<void> {
     try {
       const userId = getUserId()
-      const oldKey = `${userId}_chat_history_${oldId}`
+      
+      // 旧版 Key 格式固定为: ${userId}_chat_history_${newId}
+      // 注意：这里的 newId 就是带场景前缀的 ID（如 ai-general-sessionId）
+      const oldKey = `${userId}_chat_history_${newId}`
+
       const data = await historyStore.getItem<any>(oldKey)
+
       if (data) {
+        // 直接存入新库，新库现在直接使用 newId 作为主键，不再补齐前缀
         await chatStorage.saveChatHistory(newId, data)
+        console.log(`[Migration]   ∟ ✅ 成功迁移历史详情: [${oldKey}] -> ${newId} (${data.messages?.length || 0} 条消息)`)
+      } else {
+        // 兜底：尝试不带场景前缀的原始 ID
+        const fallbackKey = `${userId}_chat_history_${oldId}`
+        const fallbackData = await historyStore.getItem<any>(fallbackKey)
+        
+        if (fallbackData) {
+          await chatStorage.saveChatHistory(newId, fallbackData)
+          console.log(`[Migration]   ∟ ✅ 成功迁移历史详情 (兜底): [${fallbackKey}] -> ${newId} (${fallbackData.messages?.length || 0} 条消息)`)
+        } else {
+          console.log(`[Migration]   ∟ ℹ️ 未找到历史数据。尝试过的 Key: ${oldKey}, ${fallbackKey}`)
+        }
       }
     } catch (e) {
-      console.warn(`[Migration] 历史记录搬运失败: ${oldId}`, e)
+      console.warn(`[Migration]   ∟ ❌ 历史记录搬运异常: ${oldId}`, e)
     }
   }
 }

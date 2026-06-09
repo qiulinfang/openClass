@@ -632,6 +632,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { STORE_NAMES } from '@/services/storage/db-config'
 import type { AiGeneralSession, ChatBubble } from '@/types'
 import type { TeacherSession } from '@/stores/teacherChatStore'
 import { getUserId } from '@/services'

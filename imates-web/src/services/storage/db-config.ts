@@ -3,11 +3,6 @@ import { AppEnvType, getCurrentEnvType } from '@/config/env-config'
 import type { IndexedDBConfig } from './indexeddb-service'
 
 /**
- * 数据库配置管理
- * 集中管理所有 IndexedDB 数据库名、表名和版本
- */
-
-/**
  * 获取环境后缀 (非 RELEASE 环境下增加环境标识)
  */
 function getEnvSuffix() {
@@ -42,7 +37,7 @@ export const DB_NAMES = {
  * 数据库版本号管理
  */
 export const DB_VERSIONS = {
-  CHAT_STORAGE: 11, // 聊天数据库版本
+  CHAT_STORAGE: 12, // 聊天数据库版本 (增加 exercise 会话索引)
   TEXTBOOK_STORAGE: 21, 
   QUESTION_LISTS: 6,
   HOMEWORK_SUBMISSION: 6,
@@ -92,7 +87,13 @@ export const IDB_CONFIGS: Record<string, () => IndexedDBConfig> = {
     version: DB_VERSIONS.CHAT_STORAGE,
     stores: [
       { name: STORE_NAMES.CHAT_HISTORY, keyPath: 'id' },
-      { name: STORE_NAMES.AI_EXERCISE_SESSIONS, keyPath: 'id' },
+      { 
+        name: STORE_NAMES.AI_EXERCISE_SESSIONS, 
+        keyPath: 'id',
+        indexes: [
+          { name: 'questionBmNo', keyPath: 'questionBmNo' }
+        ]
+      },
       { name: STORE_NAMES.AI_HOMEWORK_SESSIONS, keyPath: 'id' },
       { name: STORE_NAMES.TEACHER_EXERCISE_SESSIONS, keyPath: 'id' },
       { name: STORE_NAMES.AI_GENERAL_SESSIONS, keyPath: 'id' }

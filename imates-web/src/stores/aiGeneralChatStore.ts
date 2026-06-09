@@ -13,6 +13,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
+import { STORE_NAMES } from '../services/storage/db-config'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
@@ -127,6 +128,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     load: async () => {
       return await chatStorage.loadGeneralSessions()
     },
+    saveSingle: async (session) => {
+      await chatStorage.saveGeneralSession(session)
+    },
+    deleteSingle: async (sessionId) => {
+      await chatStorage.deleteGeneralSession(sessionId)
+    }
   })
 
   const retryHelper = useChatRetry({ maxRetries: 3 })
@@ -513,8 +520,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     try {
       await chatPersistence.save(`ai-general-${currentSession.value.sessionId}`, historyData)
       
-      // 保存会话列表
-      await saveSessions()
+      // 保存会话状态（原子更新当前会话即可）
+      await saveSingleSession(currentSession.value)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存聊天历史失败:', error)
     }
@@ -595,6 +602,28 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       console.error('[AI_GENERAL] ❌ 保存会话列表失败:', error)
     }
   }
+
+  /**
+   * 保存单个会话（原子更新）
+   */
+  const saveSingleSession = async (session: AiGeneralSession): Promise<void> => {
+    try {
+      await sessionPersistence.saveSingle(session)
+    } catch (error) {
+      console.error('[AI_GENERAL] ❌ 保存单个会话失败:', error)
+    }
+  }
+
+  /**
+   * 删除单个会话（原子更新）
+   */
+  const deleteSingleSession = async (sessionId: string): Promise<void> => {
+    try {
+      await sessionPersistence.deleteSingle(sessionId)
+    } catch (error) {
+      console.error('[AI_GENERAL] ❌ 删除单个会话失败:', error)
+    }
+  }
   
   /**
    * 加载会话列表
@@ -635,8 +664,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       session.sessionName = newName
       session.updateTime = Date.now()
       
-      // 保存会话列表
-      await saveSessions()
+      // 保存会话（原子更新）
+      await saveSingleSession(session)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 重命名会话失败:', error)
       throw error
@@ -658,15 +687,15 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       session.pinned = !session.pinned
       session.updateTime = Date.now()
       
-      // 重新排序（置顶的排在前面）
+      // 重新排序（内存中也保持同步，方便 UI 立即响应）
       sessions.value.sort((a, b) => {
         if (a.pinned && !b.pinned) return -1
         if (!a.pinned && b.pinned) return 1
-        return b.updateTime - a.updateTime
+        return (b.updateTime || 0) - (a.updateTime || 0)
       })
       
-      // 保存会话列表
-      await saveSessions()
+      // 保存会话（原子更新）
+      await saveSingleSession(session)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 置顶操作失败:', error)
       throw error
@@ -693,8 +722,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       // 使用统一的历史记录删除逻辑
       await chatStorage.removeChatHistory(`ai-general-${sessionId}`)
 
-      // 保存会话列表
-      await saveSessions()
+      // 保存会话状态（从 IndexedDB 中删除该条记录）
+      await deleteSingleSession(sessionId)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 删除会话失败:', error)
       throw error

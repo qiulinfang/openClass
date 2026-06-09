@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/http/api-service'
 import { chatStorage, type ChatHistoryData } from '../services/storage/chat-storage'
+import { STORE_NAMES } from '../services/storage/db-config'
 import type { AiChatMessageRequest, AiGeneralSession, AiHomeworkSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot, ExerciseItem } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
@@ -122,6 +123,12 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     load: async () => {
       return await chatStorage.loadHomeworkSessions()
     },
+    saveSingle: async (session) => {
+      await chatStorage.saveHomeworkSession(session)
+    },
+    deleteSingle: async (sessionId) => {
+      await chatStorage.deleteHomeworkSession(sessionId)
+    }
   })
 
   const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
@@ -162,7 +169,8 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
       lastUpdated: Date.now()
     }
     await chatPersistence.save(`ai-homework-${currentSession.value.sessionId}`, historyData)
-    await saveSessions()
+    // 保存会话状态（原子更新当前会话即可）
+    await saveSingleSession(currentSession.value)
   }
 
   const chatEngine = useChatEngine({
@@ -432,7 +440,8 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
       sessions.value.unshift(newSession)
       currentSession.value = newSession
       messages.value = []
-      await saveSessions()
+      // 保存会话状态（原子更新）
+      await saveSingleSession(newSession)
     } finally {
       isCreatingSession.value = false
     }
@@ -459,6 +468,28 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     await sessionPersistence.save(sessions.value)
   }
 
+  /**
+   * 保存单个会话（原子更新）
+   */
+  const saveSingleSession = async (session: AiHomeworkSession): Promise<void> => {
+    try {
+      await sessionPersistence.saveSingle(session)
+    } catch (error) {
+      console.error('[AI_HOMEWORK] ❌ 保存单个会话失败:', error)
+    }
+  }
+
+  /**
+   * 删除单个会话（原子更新）
+   */
+  const deleteSingleSession = async (sessionId: string): Promise<void> => {
+    try {
+      await sessionPersistence.deleteSingle(sessionId)
+    } catch (error) {
+      console.error('[AI_HOMEWORK] ❌ 删除单个会话失败:', error)
+    }
+  }
+
   const loadSessions = async () => {
     sessions.value = await sessionPersistence.load()
   }
@@ -481,7 +512,8 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
       }
       // 使用统一的历史记录删除逻辑
       await chatStorage.removeChatHistory(`ai-homework-${sessionId}`)
-      await saveSessions()
+      // 保存会话状态（从 IndexedDB 中删除该条记录）
+      await deleteSingleSession(sessionId)
     }
   }
 

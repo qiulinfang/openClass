@@ -83,7 +83,7 @@ const buildAiExerciseMessage = (
     newValue: '1',
     coversation: conversationContent,
     question: currentQuestion.question || currentQuestion.title || '',
-    answer: currentQuestion.answer || '',
+    answer: Array.isArray(currentQuestion.answer) ? currentQuestion.answer.join(', ') : String(currentQuestion.answer || ''),
     name: getUserId() || 'User',
     reason: 'start',
     bmNo: questionId, // 修复：使用题目的 bmNo 而不是 sessionId
@@ -807,17 +807,41 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       sessions.value.push(sessionData)
     }
 
-    // 持久化：只存储元数据（不含完整消息）
-    await saveSessionsList(questionBmNo)
+    // 持久化：只存储该条会话的元数据（原子更新）
+    await saveSingleExerciseSession(sessionData)
 
     // 单独存储当前会话的消息（使用 chatStorage）
     await saveChatHistory(questionBmNo)
   }
 
   /**
+   * 保存单个题目会话 (原子更新)
+   */
+  const saveSingleExerciseSession = async (session: ExerciseSession): Promise<void> => {
+    try {
+      const meta = {
+        id: session.id,
+        questionBmNo: session.questionBmNo,
+        title: session.title,
+        chatResponseTimes: session.chatResponseTimes,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        messageCount: session.messages.length,
+        aiMessage: session.aiMessage,
+        userMessage: session.userMessage,
+        lastMessage: session.lastMessage,
+        previewMessagesMarkdown: session.previewMessagesMarkdown,
+      }
+      await chatStorage.saveExerciseSession(meta)
+    } catch (error) {
+      console.error('[AI_EXERCISE] ❌ 原子保存会话失败:', error)
+    }
+  }
+
+  /**
    * 保存会话列表到存储（使用 IndexedDB，只存储元数据）
    */
-  const saveSessionsList = async (questionBmNo: string): Promise<void> => {
+  const saveSessionsList = async (): Promise<void> => {
     try {
       // 只保存元数据，不保存完整消息
       const metaList = sessions.value.map(s => ({
@@ -834,7 +858,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         previewMessagesMarkdown: s.previewMessagesMarkdown,
       }))
 
-      await chatStorage.saveSessionsList(questionBmNo, metaList)
+      await chatStorage.saveSessionsList(metaList)
     } catch (error) {
       console.error('[AI_EXERCISE] 保存会话列表失败:', error)
     }
@@ -955,7 +979,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       console.warn('[AI_EXERCISE] 删除会话时清理本地历史失败:', error)
     }
 
-    await saveSessionsList(questionBmNo)
+    // 保存会话列表（原子删除）
+    await chatStorage.deleteExerciseSession(sessionId)
   }
 
   /**

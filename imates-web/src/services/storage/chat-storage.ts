@@ -1,6 +1,6 @@
-﻿// 异步数据存储服务 - 使用 IndexedDB 替代 localStorage
+// 异步数据存储服务 - 使用 IndexedDB 替代 localStorage
 import { getUserId } from '../http/auth-service'
-import type { ChatBubble, AiGeneralSession } from '@/types'
+import type { ChatBubble, AiGeneralSession, AiHomeworkSession } from '@/types'
 import { DB_NAMES, DB_VERSIONS, STORE_NAMES, IDB_CONFIGS } from './db-config'
 import { IndexedDBService } from './indexeddb-service'
 
@@ -36,10 +36,85 @@ export class ChatStorageService {
 
     try {
       await this.dbInstance.init()
+      // 执行数据迁移逻辑（从打包格式迁移到原子记录格式）
+      await this.performDataMigration()
       this.isInitialized = true
     } catch (error) {
       console.warn('⚠️ IndexedDB 不可用:', error)
       this.isInitialized = true 
+    }
+  }
+
+  /**
+   * 数据迁移：将旧的“打包格式”会话列表迁移为“原子记录”格式
+   */
+  private async performDataMigration(): Promise<void> {
+    try {
+      const userId = getUserId()
+      
+      // 1. 迁移 AI 通用会话
+      const generalKey = 'ai_general_sessions'
+      const legacyGeneral = await this.dbInstance.get<{sessions: AiGeneralSession[]}>(
+        STORE_NAMES.AI_GENERAL_SESSIONS, 
+        generalKey
+      )
+      
+      if (legacyGeneral && Array.isArray(legacyGeneral.sessions)) {
+        for (const session of legacyGeneral.sessions) {
+          if (session.sessionId) {
+            await this.dbInstance.put(STORE_NAMES.AI_GENERAL_SESSIONS, {
+              id: session.sessionId,
+              ...session
+            })
+          }
+        }
+        await this.dbInstance.delete(STORE_NAMES.AI_GENERAL_SESSIONS, generalKey)
+      }
+
+      // 2. 迁移 AI 作业会话
+      const homeworkKey = `ai_homework_sessions_${userId}`
+      const legacyHomework = await this.dbInstance.get<{sessions: AiHomeworkSession[]}>(
+        STORE_NAMES.AI_HOMEWORK_SESSIONS,
+        homeworkKey
+      )
+
+      if (legacyHomework && Array.isArray(legacyHomework.sessions)) {
+        for (const session of legacyHomework.sessions) {
+          if (session.sessionId) {
+            await this.dbInstance.put(STORE_NAMES.AI_HOMEWORK_SESSIONS, {
+              id: session.sessionId,
+              ...session
+            })
+          }
+        }
+        await this.dbInstance.delete(STORE_NAMES.AI_HOMEWORK_SESSIONS, homeworkKey)
+      }
+
+      // 3. 迁移 AI 练习会话 (按题目分组的打包记录)
+      const exerciseKeys = await this.dbInstance.getAllKeys(STORE_NAMES.AI_EXERCISE_SESSIONS)
+      const legacyExerciseKeys = exerciseKeys.filter(k => typeof k === 'string' && k.startsWith('sessions_'))
+      
+      if (legacyExerciseKeys.length > 0) {
+        for (const key of legacyExerciseKeys) {
+          const legacyData = await this.dbInstance.get<{sessions: any[]}>(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
+          if (legacyData && Array.isArray(legacyData.sessions)) {
+            for (const session of legacyData.sessions) {
+              const sessionId = session.id || session.sessionId
+              if (sessionId) {
+                await this.dbInstance.put(STORE_NAMES.AI_EXERCISE_SESSIONS, {
+                  id: sessionId,
+                  ...session
+                })
+              }
+            }
+          }
+          await this.dbInstance.delete(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
+        }
+      }
+
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 数据迁移过程中出错:', error)
+      // 迁移失败不应阻塞正常使用
     }
   }
 
@@ -177,8 +252,7 @@ export class ChatStorageService {
     try {
       await this.initialize()
       
-      const userId = getUserId()
-      const key = `${userId}_chat_history_${questionId}`
+      const key = questionId
       
       // 序列化数据，确保可以被存储
       const serializedData = this.serializeChatData(data)
@@ -189,8 +263,7 @@ export class ChatStorageService {
       console.warn('⚠️ IndexedDB保存聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getUserId()
-        const key = `${userId}_chat_history_${questionId}`
+        const key = questionId
         const serializedData = this.serializeChatData(data)
         localStorage.setItem(key, JSON.stringify(serializedData))
       } catch (localError) {
@@ -207,8 +280,7 @@ export class ChatStorageService {
   async saveTeacherChatHistory(questionId: string, data: ChatHistoryData): Promise<void> {
     try {
       await this.initialize()
-      const userId = getUserId()
-      const key = `${userId}_teacher_chat_history_${questionId}`
+      const key = questionId
       
       // 序列化数据，确保可以被存储
       const serializedData = this.serializeChatData(data)
@@ -218,8 +290,7 @@ export class ChatStorageService {
       console.warn('[TEACHER_CHAT_DEBUG] ❌ IndexedDB保存老师聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getUserId()
-        const key = `${userId}_teacher_chat_history_${questionId}`
+        const key = questionId
         const serializedData = this.serializeChatData(data)
         localStorage.setItem(key, JSON.stringify(serializedData))
       } catch (localError) {
@@ -237,8 +308,7 @@ export class ChatStorageService {
   async loadChatHistory(questionId: string): Promise<ChatHistoryData | null> {
     try {
       await this.initialize()
-      const userId = getUserId()
-      const key = `${userId}_chat_history_${questionId}`
+      const key = questionId
       const data = await this.dbInstance.get<ChatHistoryData>(STORE_NAMES.CHAT_HISTORY, key)
       
       if (data) {
@@ -262,8 +332,7 @@ export class ChatStorageService {
   async loadTeacherChatHistory(questionId: string): Promise<ChatHistoryData | null> {
     try {
       await this.initialize()
-      const userId = getUserId()
-      const key = `${userId}_teacher_chat_history_${questionId}`
+      const key = questionId
       const data = await this.dbInstance.get<ChatHistoryData>(STORE_NAMES.CHAT_HISTORY, key)
       
       if (data) {
@@ -286,15 +355,13 @@ export class ChatStorageService {
   async removeChatHistory(questionId: string): Promise<void> {
     try {
       await this.initialize()
-      const userId = getUserId()
-      const key = `${userId}_chat_history_${questionId}`
+      const key = questionId
       await this.dbInstance.delete(STORE_NAMES.CHAT_HISTORY, key)
     } catch (error) {
       console.warn('删除聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getUserId()
-        const key = `${userId}_chat_history_${questionId}`
+        const key = questionId
         localStorage.removeItem(key)
       } catch (localError) {
         console.error('localStorage 删除也失败:', localError)
@@ -304,113 +371,49 @@ export class ChatStorageService {
   }
 
   /**
-   * 删除老师聊天历史记录
-   * @param questionId 题目ID
-   */
-  async removeTeacherChatHistory(questionId: string): Promise<void> {
-    try {
-      await this.initialize()
-      const userId = getUserId()
-      const key = `${userId}_teacher_chat_history_${questionId}`
-      await this.dbInstance.delete(STORE_NAMES.CHAT_HISTORY, key)
-    } catch (error) {
-      console.warn('删除老师聊天记录失败，降级到 localStorage:', error)
-      // 降级到 localStorage
-      try {
-        const userId = getUserId()
-        const key = `${userId}_teacher_chat_history_${questionId}`
-        localStorage.removeItem(key)
-      } catch (localError) {
-        console.error('localStorage 删除老师聊天记录也失败:', localError)
-        throw localError
-      }
-    }
-  }
-
-  /**
-   * 获取所有聊天记录的键
-   * @returns 所有聊天记录的键列表（仅返回当前用户的数据）
+   * 获取所有聊天历史的 Keys (用于统计或清理)
    */
   async getAllChatHistoryKeys(): Promise<string[]> {
     try {
       await this.initialize()
-      const userId = getUserId()
-      const prefix = `${userId}_chat_history_`
-      const allRecords = await this.dbInstance.getAll<{id: string}>(STORE_NAMES.CHAT_HISTORY)
-      return allRecords.map(r => r.id).filter(key => key.startsWith(prefix))
+      return await this.dbInstance.getAllKeys(STORE_NAMES.CHAT_HISTORY)
     } catch (error) {
-      console.warn('获取聊天记录键失败，降级到 localStorage:', error)
-      // 降级到 localStorage
-      const userId = getUserId()
-      const prefix = `${userId}_chat_history_`
-      const keys: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && key.startsWith(prefix)) {
-          keys.push(key)
-        }
-      }
-      return keys
+      console.error('获取所有聊天历史Keys失败:', error)
+      return []
     }
   }
 
   /**
-   * 清理过期的聊天记录
-   * @param maxAge 最大保存时间（毫秒），默认30天
+   * 获取存储使用情况统计
    */
-  async cleanupExpiredChatHistory(maxAge: number = 30 * 24 * 60 * 60 * 1000): Promise<void> {
-    try {
-      await this.initialize()
-      const keys = await this.getAllChatHistoryKeys()
-      const now = Date.now()
-      let cleanedCount = 0
-
-      for (const key of keys) {
-        const data = await this.dbInstance.get<ChatHistoryData>(STORE_NAMES.CHAT_HISTORY, key)
-        if (data && (now - data.lastUpdated) > maxAge) {
-          await this.dbInstance.delete(STORE_NAMES.CHAT_HISTORY, key)
-          cleanedCount++
-        }
-      }
-
-      if (cleanedCount > 0) {
-      }
-    } catch (error) {
-      console.warn('清理过期聊天记录失败:', error)
-    }
-  }
-
-  /**
-   * 获取存储使用情况
-   * @returns 存储使用情况信息
-   */
-  async getStorageInfo(): Promise<{
-    totalKeys: number
+  async getStorageUsage(): Promise<{
     chatHistoryKeys: number
     estimatedSize: number
   }> {
     try {
       await this.initialize()
-      const userId = getUserId()
-      const prefix = `${userId}_chat_history_`
-      const allRecords = await this.dbInstance.getAll<{id: string}>(STORE_NAMES.CHAT_HISTORY)
-      const chatRecords = allRecords.filter(r => r.id.startsWith(prefix))
+      const keys = await this.getAllChatHistoryKeys()
       
-      // 估算存储大小（粗略计算）
+      // 估算大小（仅作为参考）
       let estimatedSize = 0
-      for (const record of chatRecords) {
-        estimatedSize += JSON.stringify(record).length
+      for (const key of keys.slice(0, 10)) { // 抽样前10条估算
+        const data = await this.loadChatHistory(key)
+        if (data) {
+          estimatedSize += new Blob([JSON.stringify(data)]).size
+        }
+      }
+      
+      if (keys.length > 10) {
+        estimatedSize = (estimatedSize / 10) * keys.length
       }
 
       return {
-        totalKeys: allRecords.length,
-        chatHistoryKeys: chatRecords.length,
+        chatHistoryKeys: keys.length,
         estimatedSize
       }
     } catch (error) {
-      console.warn('获取存储信息失败:', error)
+      console.error('获取存储统计失败:', error)
       return {
-        totalKeys: 0,
         chatHistoryKeys: 0,
         estimatedSize: 0
       }
@@ -435,35 +438,30 @@ export class ChatStorageService {
     }
   }
 
-  /**
-   * 导出聊天记录数据（用于调试）
-   * @param questionId 题目ID
-   */
-  async exportChatHistory(questionId: string): Promise<ChatHistoryData | null> {
-    try {
-      const data = await this.loadChatHistory(questionId)
-      if (data) {
-      }
-      return data
-    } catch (error) {
-      console.error('导出聊天记录失败:', error)
-      return null
-    }
-  }
 
   // ==================== AI 作业会话列表存储 ====================
 
   /**
-   * 保存 AI 作业会话列表
+   * 保存 AI 作业会话列表 (批量)
    */
-  async saveHomeworkSessions(sessions: any[]): Promise<void> {
+  async saveHomeworkSessions(sessions: AiHomeworkSession[]): Promise<void> {
     try {
       await this.initialize()
       const userId = getUserId()
-      const key = `ai_homework_sessions_${userId}`
+      const oldKey = `ai_homework_sessions_${userId}`
+      
       const plainSessions = JSON.parse(JSON.stringify(sessions))
-      const record = { id: key, sessions: plainSessions }
-      await this.dbInstance.put(STORE_NAMES.AI_HOMEWORK_SESSIONS, record)
+      for (const session of plainSessions) {
+        if (session.sessionId) {
+          await this.dbInstance.put(STORE_NAMES.AI_HOMEWORK_SESSIONS, { 
+            id: session.sessionId, 
+            ...session 
+          })
+        }
+      }
+
+      // 清理旧记录
+      try { await this.dbInstance.delete(STORE_NAMES.AI_HOMEWORK_SESSIONS, oldKey) } catch (e) {}
     } catch (error) {
       console.error('[CHAT_STORAGE] 保存作业会话列表失败:', error)
       throw error
@@ -471,19 +469,52 @@ export class ChatStorageService {
   }
 
   /**
+   * 保存单个 AI 作业会话 (原子更新)
+   */
+  async saveHomeworkSession(session: AiHomeworkSession): Promise<void> {
+    try {
+      await this.initialize()
+      const plain = JSON.parse(JSON.stringify(session))
+      await this.dbInstance.put(STORE_NAMES.AI_HOMEWORK_SESSIONS, {
+        id: session.sessionId,
+        ...plain
+      })
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 保存单个作业会话失败:', error)
+    }
+  }
+
+  /**
+   * 删除单个 AI 作业会话 (原子操作)
+   */
+  async deleteHomeworkSession(sessionId: string): Promise<void> {
+    try {
+      await this.initialize()
+      await this.dbInstance.delete(STORE_NAMES.AI_HOMEWORK_SESSIONS, sessionId)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 删除作业会话失败:', error)
+    }
+  }
+
+  /**
    * 加载 AI 作业会话列表
    */
-  async loadHomeworkSessions(): Promise<any[]> {
+  async loadHomeworkSessions(): Promise<AiHomeworkSession[]> {
     try {
       await this.initialize()
       const userId = getUserId()
-      const key = `ai_homework_sessions_${userId}`
-      const record = await this.dbInstance.get<{sessions: any[]}>(STORE_NAMES.AI_HOMEWORK_SESSIONS, key)
-      const sessions = record?.sessions || []
-      console.log(`[CHAT_STORAGE] ✅ 加载作业会话列表成功: ${sessions.length} 条`)
-      return sessions
+      const oldKey = `ai_homework_sessions_${userId}`
+      
+      const allRecords = await this.dbInstance.getAll<any>(STORE_NAMES.AI_HOMEWORK_SESSIONS)
+      const sessions = allRecords.filter(r => r.id !== oldKey) as AiHomeworkSession[]
+      
+      return sessions.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1
+        if (!a.pinned && b.pinned) return 1
+        return (b.updateTime || 0) - (a.updateTime || 0)
+      })
     } catch (error) {
-      console.error('[CHAT_STORAGE] 加载作业会话列表失败:', error)
+      console.error('[CHAT_STORAGE] 加载 AI 作业会话列表失败:', error)
       return []
     }
   }
@@ -491,22 +522,47 @@ export class ChatStorageService {
   // ==================== AI 题目会话列表存储 ====================
 
   /**
-   * 保存 AI 题目会话列表
-   * @param questionBmNo 题目 bmNo
+   * 保存 AI 题目会话列表 (批量原子化保存)
    * @param sessions 会话列表元数据
    */
-  async saveSessionsList(questionBmNo: string, sessions: SessionMeta[]): Promise<void> {
+  async saveSessionsList(sessions: SessionMeta[]): Promise<void> {
     try {
       await this.initialize()
-      const key = `sessions_${questionBmNo}`
-      // 使用 JSON 深拷贝，确保写入的是可结构化克隆的纯 JSON 数据
       const plainSessions: SessionMeta[] = JSON.parse(JSON.stringify(sessions))
-      const record = { id: key, sessions: plainSessions }
-      await this.dbInstance.put(STORE_NAMES.AI_EXERCISE_SESSIONS, record)
-      console.log('[CHAT_STORAGE] ✅ 保存会话列表成功:', questionBmNo, plainSessions.length)
+      
+      for (const session of plainSessions) {
+        if (session.id) {
+          await this.dbInstance.put(STORE_NAMES.AI_EXERCISE_SESSIONS, session)
+        }
+      }
     } catch (error) {
       console.error('[CHAT_STORAGE] 保存会话列表失败:', error)
       throw error
+    }
+  }
+
+  /**
+   * 保存单个 AI 题目会话 (原子更新)
+   */
+  async saveExerciseSession(session: SessionMeta): Promise<void> {
+    try {
+      await this.initialize()
+      const plain = JSON.parse(JSON.stringify(session))
+      await this.dbInstance.put(STORE_NAMES.AI_EXERCISE_SESSIONS, plain)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 保存单个题目会话失败:', error)
+    }
+  }
+
+  /**
+   * 删除单个 AI 题目会话 (原子操作)
+   */
+  async deleteExerciseSession(sessionId: string): Promise<void> {
+    try {
+      await this.initialize()
+      await this.dbInstance.delete(STORE_NAMES.AI_EXERCISE_SESSIONS, sessionId)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 删除题目会话失败:', error)
     }
   }
 
@@ -518,11 +574,15 @@ export class ChatStorageService {
   async loadSessionsList(questionBmNo: string): Promise<SessionMeta[]> {
     try {
       await this.initialize()
-      const key = `sessions_${questionBmNo}`
-      const record = await this.dbInstance.get<{sessions: SessionMeta[]}>(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
-      const sessions = record?.sessions || []
-      console.log(`[CHAT_STORAGE] ✅ 加载会话列表成功: ${questionBmNo}, 会话数: ${sessions.length}`)
-      return sessions
+      
+      // 使用索引查询该题目下的所有会话
+      const sessions = await this.dbInstance.getAllByIndex<SessionMeta>(
+        STORE_NAMES.AI_EXERCISE_SESSIONS,
+        'questionBmNo',
+        questionBmNo
+      )
+      
+      return sessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     } catch (error) {
       console.error('[CHAT_STORAGE] 加载会话列表失败:', error)
       return []
@@ -530,15 +590,17 @@ export class ChatStorageService {
   }
 
   /**
-   * 删除 AI 题目会话列表
+   * 删除 AI 题目下所有的会话列表
    * @param questionBmNo 题目 bmNo
    */
   async removeSessionsList(questionBmNo: string): Promise<void> {
     try {
       await this.initialize()
-      const key = `sessions_${questionBmNo}`
-      await this.dbInstance.delete(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
-      console.log('[CHAT_STORAGE] 删除会话列表成功:', questionBmNo)
+      const sessions = await this.loadSessionsList(questionBmNo)
+      for (const s of sessions) {
+        await this.deleteExerciseSession(s.id)
+      }
+      console.log('[CHAT_STORAGE] 删除题目所有会话成功:', questionBmNo)
     } catch (error) {
       console.error('[CHAT_STORAGE] 删除会话列表失败:', error)
       throw error
@@ -597,20 +659,56 @@ export class ChatStorageService {
   // ==================== AI 通用会话列表存储 ====================
 
   /**
-   * 保存 AI 通用会话列表
-   * 存储位置：ExerciseSolveApp_{userId} / ai_general_sessions 表
+   * 保存 AI 通用会话列表 (批量)
    */
   async saveGeneralSessions(sessions: AiGeneralSession[]): Promise<void> {
     try {
       await this.initialize()
-      const key = 'ai_general_sessions'
-      // 使用 JSON 深拷贝，确保写入的是可结构化克隆的纯 JSON 数据
+      const oldKey = 'ai_general_sessions'
+      
       const plainSessions: AiGeneralSession[] = JSON.parse(JSON.stringify(sessions))
-      const record = { id: key, sessions: plainSessions }
-      await this.dbInstance.put(STORE_NAMES.AI_GENERAL_SESSIONS, record)
+      for (const session of plainSessions) {
+        if (session.sessionId) {
+          await this.dbInstance.put(STORE_NAMES.AI_GENERAL_SESSIONS, { 
+            id: session.sessionId, 
+            ...session 
+          })
+        }
+      }
+
+      // 清理旧记录
+      try { await this.dbInstance.delete(STORE_NAMES.AI_GENERAL_SESSIONS, oldKey) } catch (e) {}
     } catch (error) {
       console.error('[CHAT_STORAGE] 保存 AI 通用会话列表失败:', error)
       throw error
+    }
+  }
+
+  /**
+   * 保存单个 AI 通用会话 (原子更新)
+   */
+  async saveGeneralSession(session: AiGeneralSession): Promise<void> {
+    try {
+      await this.initialize()
+      const plain = JSON.parse(JSON.stringify(session))
+      await this.dbInstance.put(STORE_NAMES.AI_GENERAL_SESSIONS, {
+        id: session.sessionId,
+        ...plain
+      })
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 保存单个通用会话失败:', error)
+    }
+  }
+
+  /**
+   * 删除单个 AI 通用会话 (原子操作)
+   */
+  async deleteGeneralSession(sessionId: string): Promise<void> {
+    try {
+      await this.initialize()
+      await this.dbInstance.delete(STORE_NAMES.AI_GENERAL_SESSIONS, sessionId)
+    } catch (error) {
+      console.error('[CHAT_STORAGE] 删除通用会话失败:', error)
     }
   }
 
@@ -620,11 +718,16 @@ export class ChatStorageService {
   async loadGeneralSessions(): Promise<AiGeneralSession[]> {
     try {
       await this.initialize()
-      const key = 'ai_general_sessions'
-      const record = await this.dbInstance.get<{sessions: AiGeneralSession[]}>(STORE_NAMES.AI_GENERAL_SESSIONS, key)
-      const sessions = record?.sessions || []
-      console.log(`[CHAT_STORAGE] ✅ 加载 AI 通用会话列表成功: ${sessions.length} 条`)
-      return sessions
+      const oldKey = 'ai_general_sessions'
+      
+      const allRecords = await this.dbInstance.getAll<any>(STORE_NAMES.AI_GENERAL_SESSIONS)
+      const sessions = allRecords.filter(r => r.id !== oldKey) as AiGeneralSession[]
+      
+      return sessions.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1
+        if (!a.pinned && b.pinned) return 1
+        return (b.updateTime || 0) - (a.updateTime || 0)
+      })
     } catch (error) {
       console.error('[CHAT_STORAGE] 加载 AI 通用会话列表失败:', error)
       return []

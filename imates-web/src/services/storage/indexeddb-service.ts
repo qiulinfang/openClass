@@ -537,6 +537,26 @@ export class IndexedDBService {
   }
 
   /**
+   * 获取存储中的所有主键
+   */
+  public async getAllKeys(storeName: string): Promise<any[]> {
+    await this.ensureInitialized()
+    
+    if (!this.db!.objectStoreNames.contains(storeName)) {
+      return []
+    }
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readonly')
+      const store = transaction.objectStore(storeName)
+      const request = store.getAllKeys()
+
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(new Error(`获取所有Keys失败: ${request.error?.message}`))
+    })
+  }
+
+  /**
    * 分页查询数据
    */
   public async getPage<T>(
