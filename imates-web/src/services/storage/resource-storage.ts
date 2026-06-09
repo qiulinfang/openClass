@@ -7,14 +7,14 @@ import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '@/utils'
 import { getUserId, isYanbanLoggedIn, getCurrentYanbanAuth } from '../http/auth-service'
-import { AppEnvType, getCurrentEnvType } from '@/config/env-config'
+import { getCurrentEnvType } from '@/config/env-config'
+import { DB_NAMES, DB_VERSIONS, STORE_NAMES, IDB_CONFIGS } from './db-config'
 // 注释掉缩略图相关导入以提升性能
 // import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 // import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import type {
   UserTextbookInfo,
   ResourceFile,
-  ChapterNode,
   LearningPackage,
   LocalFileInfo
 } from '@/types'
@@ -40,56 +40,8 @@ export class ResourceManager {
 
   private constructor() {
     // 初始化IndexedDB配置 - 分离存储架构：元数据和二进制数据分离
-    // 使用用户ID作为数据库名称前缀，实现账号隔离
-    const userId = getUserId()
-    const envType = getCurrentEnvType()
-    const dbName =
-      envType === AppEnvType.RELEASE ? `TextbookStorage_${userId}` : `TextbookStorage_${userId}_${envType}`
-    this.indexedDBInstance = IndexedDBService.getInstance({
-      dbName: dbName,
-      // 升级版本号，新增 knowledge_graph_chapter_structure 表用于缓存知识图谱章节结构
-      version: 13,
-      stores: [
-        {
-          name: 'textbooks',
-          keyPath: 'id',
-          indexes: [
-            { name: 'isDownloaded', keyPath: 'isDownloaded' },
-            { name: 'downloadStatus', keyPath: 'downloadStatus' },
-            { name: 'lastDownloadTime', keyPath: 'lastDownloadTime' },
-            { name: 'subjectLabel', keyPath: 'textbookSubjectLabel' },
-            { name: 'gradeLabel', keyPath: 'textbookGradeLabel' },
-            { name: 'textbookId', keyPath: 'textbookId' }
-          ]
-        },
-        {
-          name: 'textbook_files',
-          keyPath: 'fileId',
-          indexes: [
-            { name: 'textbookId', keyPath: 'textbookId' }
-          ]
-        },
-        {
-          name: 'ai_textbook_sessions',
-          keyPath: 'sessionId',
-          indexes: [
-            { name: 'resourceId', keyPath: 'resourceId' },
-            { name: 'pinned', keyPath: 'pinned' },
-            { name: 'updateTime', keyPath: 'updateTime' }
-          ]
-        },
-        {
-          // 知识图谱章节结构缓存表（/app/teacher-textbook-section-tree）
-          name: 'knowledge_graph_chapter_structure',
-          keyPath: 'id',
-          indexes: [
-            { name: 'userId', keyPath: 'userId' },
-            { name: 'textbookId', keyPath: 'textbookId' },
-            { name: 'timestamp', keyPath: 'timestamp' }
-          ]
-        }
-      ]
-    })
+    // 使用统一配置获取实例
+    this.indexedDBInstance = IndexedDBService.getInstance(IDB_CONFIGS.TEXTBOOK_STORAGE())
     
     // 初始化防抖函数 - 使用1秒延迟的防抖
     this.debouncedFlush = DebounceUtils.verySlow(async () => {
@@ -106,7 +58,7 @@ export class ResourceManager {
           // 立即刷新教材信息到IndexedDB（自动序列化）
           updatePromises.push((async () => {
             try {
-              return await this.indexedDBInstance.update('textbooks', textbook)
+              return await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOKS, textbook)
             } catch {
               return false
             }
@@ -226,7 +178,7 @@ export class ResourceManager {
       
       // 立即更新到IndexedDB（自动序列化）
       try {
-        const result = await this.indexedDBInstance.update('textbooks', textbook)
+        const result = await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOKS, textbook)
         return result
       } catch {
         return false
@@ -255,7 +207,7 @@ export class ResourceManager {
         // 立即刷新教材信息到IndexedDB（自动序列化）
         updatePromises.push((async () => {
           try {
-            const result = await this.indexedDBInstance.update('textbooks', textbook)
+            const result = await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOKS, textbook)
             return result
           } catch {
             return false
@@ -296,7 +248,7 @@ export class ResourceManager {
   }, fileData: Uint8Array, textbook?: UserTextbookInfo): Promise<void> {
     try {
       // 存储文件数据到textbook_files表（分离存储）
-      await this.indexedDBInstance.update('textbook_files', {
+      await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOK_FILES, {
         fileId: fileInfo.id,
         textbookId: fileInfo.textbookId,
         fileData: fileData
@@ -368,8 +320,8 @@ export class ResourceManager {
         throw new Error('更新教材信息失败')
       }
       
-    } catch (error) {
-      throw error
+    } catch (err) {
+      throw err
     }
   }
 
@@ -384,7 +336,7 @@ export class ResourceManager {
   public async getFileData(id: string, fileId: string): Promise<Uint8Array | null> {
     try {
       // 直接从textbook_files表查询文件数据（按需读取，性能优化）
-      const fileRecord = await this.indexedDBInstance.get('textbook_files', fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
+      const fileRecord = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOK_FILES, fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
       if (fileRecord && fileRecord.fileData && fileRecord.fileData.length > 0) {
         return fileRecord.fileData
       }
@@ -404,16 +356,16 @@ export class ResourceManager {
   public async updateFileData(fileId: string, fileData: Uint8Array): Promise<void> {
     try {
       const fileRecord = (await this.indexedDBInstance.get(
-        'textbook_files',
+        STORE_NAMES.TEXTBOOK_FILES,
         fileId,
       )) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
 
       if (fileRecord) {
         fileRecord.fileData = fileData
-        await this.indexedDBInstance.update('textbook_files', fileRecord)
+        await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOK_FILES, fileRecord)
       } else {
         // 如果记录不存在，降级为插入一条新的记录，仅包含 fileData
-        await this.indexedDBInstance.update('textbook_files', {
+        await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOK_FILES, {
           fileId,
           textbookId: '',
           fileData,
@@ -434,7 +386,7 @@ export class ResourceManager {
   public async hasFileData(id: string, fileId: string): Promise<boolean> {
     try {
       // 直接从textbook_files表查询是否存在（轻量级查询）
-      const fileRecord = await this.indexedDBInstance.get('textbook_files', fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
+      const fileRecord = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOK_FILES, fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
       return !!(fileRecord && fileRecord.fileData && fileRecord.fileData.length > 0)
     } catch {
       return false
@@ -468,7 +420,7 @@ export class ResourceManager {
           await this.updateTextbookInfo(textbook, undefined)
         }
       }
-    } catch (error) {
+    } catch {
     }
   }
 
@@ -492,7 +444,7 @@ export class ResourceManager {
       // 删除textbook_files表中该教材的所有文件
       if (textbook.localFiles && textbook.localFiles.length > 0) {
         const deletePromises = textbook.localFiles.map(file => 
-          this.indexedDBInstance.delete('textbook_files', file.id)
+          this.indexedDBInstance.delete(STORE_NAMES.TEXTBOOK_FILES, file.id)
         )
         await Promise.all(deletePromises)
       }
@@ -502,7 +454,7 @@ export class ResourceManager {
       textbook.downloadedFiles = 0
       textbook.isDownloaded = false
       textbook.downloadStatus = 0
-      await this.indexedDBInstance.update('textbooks', textbook)
+      await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOKS, textbook)
       
     } catch {
       // 清理教材相关数据失败
@@ -520,7 +472,7 @@ export class ResourceManager {
       }
       
       // 从IndexedDB获取所有教材
-      const textbooks = await this.indexedDBInstance.getAll('textbooks')
+      const textbooks = await this.indexedDBInstance.getAll(STORE_NAMES.TEXTBOOKS)
       // 转换为UserTextbookInfo对象
       const userTextbooks: UserTextbookInfo[] = textbooks.map((data: unknown) => {
         const dataRecord = data as Record<string, unknown>
@@ -600,7 +552,7 @@ export class ResourceManager {
   public async getTextbookInfoById(id: string): Promise<UserTextbookInfo | null> {
     try {
       // 使用主键id直接查询
-      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+      const textbook = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOKS, id) as UserTextbookInfo
       return textbook || null
     } catch {
       return null
@@ -619,13 +571,13 @@ export class ResourceManager {
   ): Promise<UserTextbookInfo | null> {
     try {
       // 优先使用 textbookId 索引查询
-      return await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      return await this.indexedDBInstance.getByIndex(STORE_NAMES.TEXTBOOKS, 'textbookId', textbookId) as UserTextbookInfo
     } catch (error: unknown) {
       // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
       const errorMessage = error instanceof Error ? error.message : String(error)
       const errorName = (error as { name?: string })?.name
       if (errorName === 'NotFoundError' || errorMessage.includes('index')) {
-        const allTextbooks = await this.indexedDBInstance.getAll<UserTextbookInfo>('textbooks')
+        const allTextbooks = await this.indexedDBInstance.getAll<UserTextbookInfo>(STORE_NAMES.TEXTBOOKS)
         return allTextbooks.find(t => t.textbookId === textbookId) || null
       } else {
         // 其他错误，返回null
@@ -644,13 +596,12 @@ export class ResourceManager {
    */
   public async getTextbookByIdOrTextbookIdWithFallback(
     id?: string,
-    textbookId?: string,
-    context?: string
+    textbookId?: string
   ): Promise<UserTextbookInfo | null> {
     // 优先使用主键 id 查询（性能最优）
     if (id) {
       try {
-        const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+        const textbook = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOKS, id) as UserTextbookInfo
         if (textbook) {
           return textbook
         }
@@ -676,7 +627,7 @@ export class ResourceManager {
   public async clearTextbookFiles(id: string): Promise<void> {
     try {
       // 获取教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+      const textbook = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOKS, id) as UserTextbookInfo
       if (!textbook) {
         return
       }
@@ -684,7 +635,7 @@ export class ResourceManager {
       // 删除textbook_files表中该教材的所有文件
       if (textbook.localFiles && textbook.localFiles.length > 0) {
         const deletePromises = textbook.localFiles.map(file => 
-          this.indexedDBInstance.delete('textbook_files', file.id)
+          this.indexedDBInstance.delete(STORE_NAMES.TEXTBOOK_FILES, file.id)
         )
         await Promise.all(deletePromises)
       }
@@ -696,13 +647,13 @@ export class ResourceManager {
       textbook.downloadStatus = 0
       textbook.lastDownloadTime = ''
       textbook.learningPackages = []
-      await this.indexedDBInstance.update('textbooks', textbook)
+      await this.indexedDBInstance.update(STORE_NAMES.TEXTBOOKS, textbook)
 
       // 清理知识图谱章节结构缓存
       const userId = getUserId()
       if (userId) {
         const kgRecordId = `${userId}_${textbook.textbookId}`
-        await this.indexedDBInstance.delete('knowledge_graph_chapter_structure', kgRecordId)
+        await this.indexedDBInstance.delete(STORE_NAMES.KNOWLEDGE_GRAPH_CHAPTER, kgRecordId)
       }
       
     } catch {
@@ -720,7 +671,7 @@ export class ResourceManager {
   public async deleteTextbook(id: string): Promise<boolean> {
     try {
       // 获取教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+      const textbook = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOKS, id) as UserTextbookInfo
       if (!textbook) {
         return false
       }
@@ -728,16 +679,16 @@ export class ResourceManager {
       // 删除textbook_files表中该教材的所有文件
       if (textbook.localFiles && textbook.localFiles.length > 0) {
         const deletePromises = textbook.localFiles.map(file => 
-          this.indexedDBInstance.delete('textbook_files', file.id)
+          this.indexedDBInstance.delete(STORE_NAMES.TEXTBOOK_FILES, file.id)
         )
         await Promise.all(deletePromises)
       }
       
       // 删除textbooks表中的教材记录
-      await this.indexedDBInstance.delete('textbooks', id)
+      await this.indexedDBInstance.delete(STORE_NAMES.TEXTBOOKS, id)
       
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -832,10 +783,9 @@ class ResourceManagerProxy {
   
   async getTextbookByIdOrTextbookIdWithFallback(
     id?: string,
-    textbookId?: string,
-    context?: string
+    textbookId?: string
   ): Promise<UserTextbookInfo | null> {
-    return this.instance.getTextbookByIdOrTextbookIdWithFallback(id, textbookId, context)
+    return this.instance.getTextbookByIdOrTextbookIdWithFallback(id, textbookId)
   }
   
   async clearTextbookFiles(id: string): Promise<void> {

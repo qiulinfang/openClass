@@ -52,9 +52,16 @@ import MixedInputArea from './MixedInputArea.vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import type { ExerciseItem } from '../../types/exercise'
 
+export interface StructuredAnswer {
+  type: 'text' | 'board'
+  textContent?: string
+  boardData?: any
+  timestamp?: number
+}
+
 const props = withDefaults(defineProps<{
   question: ExerciseItem
-  modelValue?: string[]
+  modelValue?: (string | StructuredAnswer)[]
   showTitle?: boolean
   showId?: boolean
   showAnalysis?: boolean
@@ -67,7 +74,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string[]): void
+  (e: 'update:modelValue', value: (string | StructuredAnswer)[]): void
 }>()
 
 const { renderMessageContent } = useMessageRenderer()
@@ -76,7 +83,7 @@ const { renderMessageContent } = useMessageRenderer()
 const activeBlank = ref<number | null>(null)
 
 // 内部最终答案数组
-const finalAnswers = ref<string[]>(props.modelValue || [])
+const finalAnswers = ref<(string | StructuredAnswer)[]>(props.modelValue || [])
 
 // 填空数量
 const blankCount = computed(() => {

@@ -5,7 +5,6 @@ import { chatStorage, type ChatHistoryData } from '../services/storage/chat-stor
 import type { AiChatMessageRequest, AiGeneralSession, AiHomeworkSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot, ExerciseItem } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
-import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 import { useChatPersistence } from '@/composables/useChatPersistence'
 import { useChatSessions } from '@/composables/useChatSessions'
@@ -62,7 +61,7 @@ const buildAiHomeworkMessage = (
     newValue,
     coversation: content, 
     question: fullQuestion,
-    answer: question?.answer || '',
+    answer: Array.isArray(question?.answer) ? question.answer.join(', ') : String(question?.answer || ''),
     name: getUserId() || 'User',
     reason: 'start', // 这里可以根据消息数量判断是 start 还是 continue，目前暂保持原逻辑
     bmNo: question?.bmNo || finalSessionId,
@@ -118,13 +117,10 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
 
   const sessionPersistence = useChatSessions<AiHomeworkSession>({
     save: async (data) => {
-      // 强制转换为纯对象，解决 DataCloneError
-      const sanitizedData = JSON.parse(JSON.stringify(data))
-      await localforage.setItem(`ai_homework_sessions_${getUserId()}`, sanitizedData)
+      await chatStorage.saveHomeworkSessions(data)
     },
     load: async () => {
-      const data = await localforage.getItem<AiHomeworkSession[]>(`ai_homework_sessions_${getUserId()}`)
-      return data || []
+      return await chatStorage.loadHomeworkSessions()
     },
   })
 
@@ -483,7 +479,8 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
         currentSession.value = null
         messages.value = []
       }
-      await localforage.removeItem(`chat_history_session_${sessionId}`)
+      // 使用统一的历史记录删除逻辑
+      await chatStorage.removeChatHistory(`ai-homework-${sessionId}`)
       await saveSessions()
     }
   }

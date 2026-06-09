@@ -16,7 +16,6 @@ import { chatStorage, type ChatHistoryData } from '../services/storage/chat-stor
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo, BackendHistoryMessage, HtmlPreviewFocus, AttachedScreenshot } from '../types'
 import type { ChatQuotedMessage, ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
-import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 import { alignTailMessageIdsFromHistory, buildHistorySignature } from './utils/historySyncUtils'
 import { useChatPersistence } from '@/composables/useChatPersistence'
@@ -691,9 +690,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         messages.value = []
       }
       
-      // 删除本地聊天历史
-      const key = `chat_history_session_${sessionId}`
-      await localforage.removeItem(key)
+      // 使用统一的历史记录删除逻辑
+      await chatStorage.removeChatHistory(`ai-general-${sessionId}`)
 
       // 保存会话列表
       await saveSessions()

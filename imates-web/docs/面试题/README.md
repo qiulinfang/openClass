@@ -21,48 +21,53 @@
 - **混合开发**: Capacitor JS Bridge、离线资源管理、IndexedDB 分离存储
 - **业务难点**: 数学公式渲染（MathLive/KaTeX）、PDF 标注与双层 Canvas
 
-### 2. Web 开发 (按模块划分)
+### 2. Web 开发 (按技术栈划分)
 
-#### [核心框架与状态管理](web/vue-core.md)
-- Vue 3 响应式系统（ref vs reactive、shallowRef）
-- 性能优化（v-memo、Virtual DOM 靶向更新）
-- Pinia 状态管理（storeToRefs、热更新）
-- TypeScript 类型最佳实践
-
-#### [UI 框架与样式](web/styling-ui.md)
+#### [Web 基础与样式](web/web-basics.md)
 - Tailwind CSS JIT 模式与配置
 - Quasar 响应式断点与插件系统
 - 滚动优化（@better-scroll）
 - Lottie 动画与性能优化
+- CSS vs JS 动画方案选择
 
-#### [图形与交互](web/canvas-graphics.md)
+#### [Vue 生态与核心](web/vue-ecosystem.md)
+- Vue 3 响应式系统深度理解 (ref vs reactive, shallowRef)
+- 组件通信 (defineExpose, toRef)
+- 性能优化 (v-memo, Virtual DOM 靶向更新, 虚拟滚动)
+- Pinia 状态管理与 HMR
+- Composables 逻辑复用最佳实践
+
+#### [Canvas 与图形互动](web/canvas.md)
 - 双层 Canvas 架构与坐标对齐
 - 贝塞尔曲线平滑算法
 - 空间索引与图形拾取
-- 性能优化（离屏渲染、脏矩形）
-- Fabric.js vs Konva 对比
+- 性能优化 (离屏渲染、脏矩形)
 
-#### [富文本、文档与公式](web/rich-text-pdf.md)
-- Tiptap 自定义节点与图片上传
-- PDF.js vs MuPDF 选型理由
-- LaTeX 多格式预处理与缓存
-- KaTeX vs MathJax 性能对比
-- MathLive 虚拟键盘集成
+#### [设计模式与架构](web/design-patterns.md)
+- 依赖注入 (DI) 在 Vue 中的实现
+- 逻辑解耦与单一职责原则 (SRP)
+- 观察者模式与发布订阅
+- 策略模式在多媒体渲染中的应用
 
-#### [移动端混合开发](web/mobile-hybrid.md)
-- Capacitor vs Cordova 架构对比
-- JS Bridge 通信原理
-- IndexedDB 性能优化与分离存储
-- 资源下载与断点续传
-- Webview 首屏优化与权限管理
-
-#### [实时通信与 AI 对话](web/communication-ai.md)
+#### [WebSocket 与实时通信](web/websocket.md)
 - WebSocket 心跳与指数退避重连
 - 单连接多会话消息分发架构
 - AI 流式输出缓冲区处理
 - 消息发送幂等性与重试机制
 
-#### [工程化与质量保证](web/engineering-qa.md)
+#### [混合开发 (Hybrid)](web/hybrid.md)
+- Capacitor vs Cordova 架构对比
+- JS Bridge 通信原理
+- IndexedDB 性能优化与分离存储
+- 资源下载与断点续传
+
+#### [文档处理与富文本](web/document-rich-text.md)
+- Tiptap 自定义节点与图片上传
+- PDF.js vs MuPDF 选型理由
+- LaTeX 多格式预处理与缓存
+- KaTeX vs MathJax 性能对比
+
+#### [工程化 (Engineering)](web/engineering.md)
 - 多框架共存架构（Vue & React）下的构建挑战
 - Webview 离线包构建优化策略
 - 复杂交互的自动化测试 (Vitest + Playwright)

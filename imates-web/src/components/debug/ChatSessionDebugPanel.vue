@@ -634,7 +634,6 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import type { AiGeneralSession, ChatBubble } from '@/types'
 import type { TeacherSession } from '@/stores/teacherChatStore'
-import localforage from 'localforage'
 import { getUserId } from '@/services'
 import { chatStorage } from '@/services/storage/chat-storage'
 import { showMessage } from '@/utils'
@@ -787,10 +786,9 @@ const calculateStorageSize = async () => {
     
     // 计算学伴会话消息大小
     for (const session of aiSessions.value) {
-      const key = `chat_history_session_${session.sessionId}`
-      const data = await localforage.getItem(key)
-      if (data) {
-        totalSize += new Blob([JSON.stringify(data)]).size
+      const history = await chatStorage.loadChatHistory(`ai-general-${session.sessionId}`)
+      if (history) {
+        totalSize += new Blob([JSON.stringify(history)]).size
       }
     }
     
@@ -831,12 +829,11 @@ const clearAllSessions = async () => {
   try {
     // 删除所有学伴会话的聊天历史
     for (const session of aiSessions.value) {
-      const key = `chat_history_session_${session.sessionId}`
-      await localforage.removeItem(key)
+      await chatStorage.removeChatHistory(`ai-general-${session.sessionId}`)
     }
     
     // 清空学伴会话列表
-    await localforage.removeItem('ai_general_sessions')
+    await chatStorage.saveGeneralSessions([])
     
     // 重置学伴Store
     aiGeneralStore.sessions = []
@@ -887,8 +884,7 @@ const viewAiSessionDetail = async (session: AiGeneralSession) => {
     selectedAiSession.value = session
     
     // 加载会话消息
-    const key = `chat_history_session_${session.sessionId}`
-    const historyData = await localforage.getItem(key) as { messages?: ChatBubble[] } | null
+    const historyData = await chatStorage.loadChatHistory(`ai-general-${session.sessionId}`)
     
     if (historyData && historyData.messages) {
       sessionMessages.value = historyData.messages
@@ -955,8 +951,7 @@ const exportData = async () => {
     
     // 导出学伴会话的消息
     for (const session of aiSessions.value) {
-      const key = `chat_history_session_${session.sessionId}`
-      const data = await localforage.getItem(key)
+      const data = await chatStorage.loadChatHistory(`ai-general-${session.sessionId}`)
       if (data) {
         exportData.aiMessages[session.sessionId] = data
       }
@@ -1013,19 +1008,17 @@ const handleFileImport = async (event: Event) => {
     try {
       // 导入学伴会话（兼容旧格式）
       if (importData.sessions && importData.messages) {
-        await localforage.setItem('ai_general_sessions', importData.sessions)
+        await chatStorage.saveGeneralSessions(importData.sessions)
         for (const sessionId in importData.messages) {
-          const key = `chat_history_session_${sessionId}`
-          await localforage.setItem(key, importData.messages[sessionId])
+          await chatStorage.saveChatHistory(`ai-general-${sessionId}`, importData.messages[sessionId])
         }
       }
       
       // 导入新格式的学伴会话
       if (importData.aiSessions && importData.aiMessages) {
-        await localforage.setItem('ai_general_sessions', importData.aiSessions)
+        await chatStorage.saveGeneralSessions(importData.aiSessions)
         for (const sessionId in importData.aiMessages) {
-          const key = `chat_history_session_${sessionId}`
-          await localforage.setItem(key, importData.aiMessages[sessionId])
+          await chatStorage.saveChatHistory(`ai-general-${sessionId}`, importData.aiMessages[sessionId])
         }
       }
       

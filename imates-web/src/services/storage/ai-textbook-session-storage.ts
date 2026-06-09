@@ -1,8 +1,9 @@
 import type { AiTextbookSession } from '@/types'
 import { resourceManager } from '@/services/storage/resource-storage'
+import { STORE_NAMES } from './db-config'
 
 // 与 TextbookStorage 共用同一个 IndexedDB，单独建一个 ai_textbook_sessions 表
-const STORE_NAME = 'ai_textbook_sessions'
+const STORE_NAME = STORE_NAMES.AI_TEXTBOOK_SESSIONS
 
 // 确保表已创建（依赖 IndexedDBService 的动态 store 支持）
 async function ensureStore() {

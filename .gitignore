@@ -17,6 +17,7 @@
 /pdflibrary/build
 /production/
 /staging/
+imates-web/docs/
 /dev/
 captures
 .externalNativeBuild
@@ -80,3 +81,4 @@ skills
 /imates-react/dist
 /imates-next/.next
 /imates-next/node_modules
+docs

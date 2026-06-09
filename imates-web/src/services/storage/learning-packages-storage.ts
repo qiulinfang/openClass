@@ -2,8 +2,10 @@ import type { LearningPackage } from '@/types'
 import { getUserId } from '../http/auth-service'
 import { resourceManager } from './resource-storage'
 
+import { STORE_NAMES } from './db-config'
+
 // 与 TextbookStorage 共用同一个 IndexedDB，单独建一个 learning_packages 表
-const STORE_NAME = 'learning_packages'
+const STORE_NAME = STORE_NAMES.LEARNING_PACKAGES
 
 export interface LearningPackageCacheRecord {
   id: string              // 主键：`${userId}_${packageId}`
@@ -37,6 +39,7 @@ export async function saveLearningPackagesToDB(
     await ensureStoreInitialized()
     const db = resourceManager.indexedDB
     const userId = getUserId()
+    if (!userId) return false
     const record: LearningPackageCacheRecord = {
       id: buildRecordId(userId, id),
       userId,
@@ -64,6 +67,7 @@ export async function loadLearningPackagesFromDB(
     await ensureStoreInitialized()
     const db = resourceManager.indexedDB
     const userId = getUserId()
+    if (!userId) return null
     const record = await db.get<LearningPackageCacheRecord>(
       STORE_NAME,
       buildRecordId(userId, id),

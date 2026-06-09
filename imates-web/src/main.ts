@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
 import { initQuestionStorage } from './services/storage/question-storage'
+import { migrationService } from './services/storage/migration-service'
 import { initNetworkStatusListener } from './utils/network-status'
 import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
 import { AndroidBridge } from './services/business/android-bridge'
@@ -18,6 +19,11 @@ import router from './router'
 
 // 初始化 WebView 兼容性 polyfills
 initPolyfills()
+
+// 执行数据迁移 (异步执行，不阻塞后续初始化)
+migrationService.runMigrations().catch(err => {
+  console.error('[APP] 迁移失败:', err)
+})
 
 // 立即初始化模拟老师对话功能（必须在 store 初始化之前）
 // 这样确保在 store 检查 AndroidBridge 时，模拟功能已经就绪

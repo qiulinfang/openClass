@@ -4,8 +4,8 @@
  */
 
 import { IndexedDBService } from './indexeddb-service'
-import { getUserId } from '../http/auth-service'
 import type { ExerciseItem } from '@/types'
+import { STORE_NAMES, IDB_CONFIGS } from './db-config'
 
 interface QuestionListData {
   subject: string
@@ -15,61 +15,19 @@ interface QuestionListData {
 
 /**
  * 获取题目列表专用的 IndexedDB 服务实例
- * 使用用户ID作为数据库名前缀，实现账号隔离
  */
 function getQuestionStorage(): IndexedDBService {
-  const userId = getUserId()
-  const dbName = `ExerciseQuestionsDB_${userId}`
-  return IndexedDBService.getInstance({
-    dbName: dbName,
-    version: 1,
-    stores: [
-      {
-        name: 'question_lists',
-        keyPath: 'subject', // 使用 subject 作为主键，每个科目一条记录
-        indexes: [
-          { name: 'timestamp', keyPath: 'timestamp' },
-          { name: 'subject', keyPath: 'subject', unique: true }
-        ]
-      }
-    ]
-  })
+  return IndexedDBService.getInstance(IDB_CONFIGS.QUESTION_LISTS())
 }
 
 /**
- * 初始化数据库（带缓存，避免重复初始化）
- * 注意：每次调用都会获取当前用户的存储实例，确保账号隔离
+ * 初始化数据库
  */
-const initPromises: Map<string, Promise<void>> = new Map()
 export async function initQuestionStorage(): Promise<void> {
-  const userId = getUserId()
   const questionStorage = getQuestionStorage()
-  
-  // 如果已经初始化，直接返回
-  if (questionStorage.isInitialized) {
-    return
+  if (!questionStorage.isInitialized) {
+    await questionStorage.init()
   }
-  
-  // 如果正在初始化，返回同一个 Promise
-  const existingPromise = initPromises.get(userId)
-  if (existingPromise) {
-    return existingPromise
-  }
-  
-  // 开始初始化
-  const initPromise = (async () => {
-    try {
-      await questionStorage.init()
-    } catch (error) {
-      console.error(`[QUESTION_STORAGE] ❌ IndexedDB 初始化失败 (用户: ${userId}):`, error)
-      throw error
-    } finally {
-      initPromises.delete(userId)
-    }
-  })()
-  
-  initPromises.set(userId, initPromise)
-  return initPromise
 }
 
 /**
@@ -82,7 +40,6 @@ export async function saveQuestionsToIndexedDB(
   questions: ExerciseItem[]
 ): Promise<void> {
   try {
-    await initQuestionStorage()
     const questionStorage = getQuestionStorage()
     
     const data: QuestionListData = {
@@ -91,9 +48,9 @@ export async function saveQuestionsToIndexedDB(
       timestamp: Date.now()
     }
     
-    await questionStorage.put('question_lists', data)
+    await questionStorage.put(STORE_NAMES.QUESTION_LISTS, data)
   } catch (error) {
-    console.error('[QUESTION_STORAGE] ❌ 保存题目列表到 IndexedDB 失败:', error)
+    console.error('[QUESTION_STORAGE] ❌ 保存题目列表失败:', error)
     throw error
   }
 }
@@ -106,46 +63,29 @@ export async function saveQuestionsToIndexedDB(
 export async function loadQuestionsFromIndexedDB(
   subject: string
 ): Promise<ExerciseItem[] | null> {
-  const loadStartTime = performance.now()
   try {
-    await initQuestionStorage()
     const questionStorage = getQuestionStorage()
-    
-    const data = await questionStorage.get<QuestionListData>('question_lists', subject)
+    const data = await questionStorage.get<QuestionListData>(STORE_NAMES.QUESTION_LISTS, subject)
     
     if (!data || !data.questions || !Array.isArray(data.questions)) {
       return null
     }
     
-    // 检查科目是否匹配
-    if (data.subject !== subject) {
-      const loadDuration = performance.now() - loadStartTime
-      console.warn(`[QUESTION_STORAGE] ⚠️ 科目不匹配 (耗时: ${loadDuration.toFixed(2)}ms):`, {
-        stored: data.subject,
-        requested: subject
-      })
-      return null
-    }
-    
     return data.questions
   } catch (error) {
-    const loadDuration = performance.now() - loadStartTime
-    console.error(`[QUESTION_STORAGE] ❌ 从 IndexedDB 加载题目列表失败 (耗时: ${loadDuration.toFixed(2)}ms):`, error)
+    console.error(`[QUESTION_STORAGE] ❌ 加载题目列表失败:`, error)
     return null
   }
 }
 
 /**
  * 检查指定科目的题目列表是否存在
- * @param subject 科目类型
- * @returns 是否存在
  */
 export async function hasQuestionsInIndexedDB(subject: string): Promise<boolean> {
   try {
-    await initQuestionStorage()
     const questionStorage = getQuestionStorage()
-    const data = await questionStorage.get<QuestionListData>('question_lists', subject)
-    return data !== undefined && data !== null
+    const data = await questionStorage.get<QuestionListData>(STORE_NAMES.QUESTION_LISTS, subject)
+    return !!data
   } catch (error) {
     console.error('[QUESTION_STORAGE] ❌ 检查题目列表是否存在失败:', error)
     return false
@@ -154,13 +94,11 @@ export async function hasQuestionsInIndexedDB(subject: string): Promise<boolean>
 
 /**
  * 删除指定科目的题目列表
- * @param subject 科目类型
  */
 export async function deleteQuestionsFromIndexedDB(subject: string): Promise<void> {
   try {
-    await initQuestionStorage()
     const questionStorage = getQuestionStorage()
-    await questionStorage.delete('question_lists', subject)
+    await questionStorage.delete(STORE_NAMES.QUESTION_LISTS, subject)
   } catch (error) {
     console.error('[QUESTION_STORAGE] ❌ 删除题目列表失败:', error)
     throw error
@@ -172,9 +110,8 @@ export async function deleteQuestionsFromIndexedDB(subject: string): Promise<voi
  */
 export async function clearAllQuestionsFromIndexedDB(): Promise<void> {
   try {
-    await initQuestionStorage()
     const questionStorage = getQuestionStorage()
-    await questionStorage.clear('question_lists')
+    await questionStorage.clear(STORE_NAMES.QUESTION_LISTS)
   } catch (error) {
     console.error('[QUESTION_STORAGE] ❌ 清空题目列表失败:', error)
     throw error

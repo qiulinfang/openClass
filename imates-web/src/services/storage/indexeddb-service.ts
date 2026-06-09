@@ -359,6 +359,29 @@ export class IndexedDBService {
   }
 
   /**
+   * 根据索引获取所有匹配的数据
+   */
+  public async getAllByIndex<T>(storeName: string, indexName: string, key: IDBValidKey): Promise<T[]> {
+    await this.ensureInitialized()
+    
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = this.db!.transaction([storeName], 'readonly')
+        const store = transaction.objectStore(storeName)
+        const index = store.index(indexName)
+        const request = index.getAll(key)
+
+        request.onsuccess = () => resolve(request.result || [])
+        request.onerror = () => {
+          reject(new Error(`根据索引获取所有数据失败: ${request.error?.message}`))
+        }
+      } catch (error) {
+        reject(new Error(`创建索引事务失败: ${error}`))
+      }
+    })
+  }
+
+  /**
    * 查询数据列表
    */
   public async query<T>(storeName: string, options: QueryOptions = {}): Promise<T[]> {

@@ -4,7 +4,7 @@
  */
 
 import { IndexedDBService } from './indexeddb-service'
-import { getUserId } from '../http/auth-service'
+import { STORE_NAMES, IDB_CONFIGS } from './db-config'
 
 /** 
  * 单个作业的存储数据结构 
@@ -13,8 +13,8 @@ export interface HomeworkSubmissionData {
   homeworkId: string
   homeworkName: string
   isSubmitted: boolean
-  answerDataCache: Record<string, any> // key 是题目 ID，value 是作答数据
-  questions: any[] // 作业包含的所有题目详情
+  answerDataCache: Record<string, unknown> // key 是题目 ID，value 是作答数据
+  questions: unknown[] // 作业包含的所有题目详情
   timestamp: number
 }
 
@@ -22,22 +22,7 @@ export interface HomeworkSubmissionData {
  * 获取作业存储专用的 IndexedDB 服务实例
  */
 function getHomeworkStorage(): IndexedDBService {
-  const userId = getUserId()
-  const dbName = `HomeworkStorageDB_${userId}`
-  return IndexedDBService.getInstance({
-    dbName: dbName,
-    version: 1,
-    stores: [
-      {
-        name: 'submissions',
-        keyPath: 'homeworkId',
-        indexes: [
-          { name: 'homeworkId', keyPath: 'homeworkId', unique: true },
-          { name: 'timestamp', keyPath: 'timestamp' }
-        ]
-      }
-    ]
-  })
+  return IndexedDBService.getInstance(IDB_CONFIGS.HOMEWORK_SUBMISSION())
 }
 
 /**
@@ -55,8 +40,6 @@ export async function initHomeworkStorage(): Promise<void> {
  */
 export async function saveHomeworkSubmission(data: Omit<HomeworkSubmissionData, 'timestamp'>): Promise<void> {
   try {
-    console.log(`[IDB_DB_LAYER] 准备执行 put 操作, ID: ${data.homeworkId}`)
-    await initHomeworkStorage()
     const homeworkStorage = getHomeworkStorage()
     
     const submission: HomeworkSubmissionData = {
@@ -64,11 +47,9 @@ export async function saveHomeworkSubmission(data: Omit<HomeworkSubmissionData, 
       timestamp: Date.now()
     }
     
-    // 使用 put 操作，如果存在则更新，不存在则创建
-    await homeworkStorage.put('submissions', submission)
-    console.log(`[IDB_DB_LAYER] ✅ put 操作完成: ${data.homeworkId}`)
+    await homeworkStorage.put(STORE_NAMES.SUBMISSIONS, submission)
   } catch (error) {
-    console.error(`[IDB_DB_LAYER] ❌ put 操作失败: ${data.homeworkId}`, error)
+    console.error(`[HOMEWORK_STORAGE] ❌ 保存作业数据失败: ${data.homeworkId}`, error)
     throw error
   }
 }
@@ -78,15 +59,11 @@ export async function saveHomeworkSubmission(data: Omit<HomeworkSubmissionData, 
  */
 export async function loadHomeworkSubmission(homeworkId: string): Promise<HomeworkSubmissionData | null> {
   try {
-    console.log(`[IDB_DB_LAYER] 准备执行 get 操作, ID: ${homeworkId}`)
-    await initHomeworkStorage()
     const homeworkStorage = getHomeworkStorage()
-    
-    const data = await homeworkStorage.get<HomeworkSubmissionData>('submissions', homeworkId)
-    console.log(`[IDB_DB_LAYER] ✅ get 操作完成, ID: ${homeworkId}, 是否有结果: ${!!data}`)
+    const data = await homeworkStorage.get<HomeworkSubmissionData>(STORE_NAMES.SUBMISSIONS, homeworkId)
     return data || null
   } catch (error) {
-    console.error(`[IDB_DB_LAYER] ❌ get 操作失败 (ID: ${homeworkId}):`, error)
+    console.error(`[HOMEWORK_STORAGE] ❌ 加载作业数据失败 (ID: ${homeworkId}):`, error)
     return null
   }
 }
@@ -96,9 +73,8 @@ export async function loadHomeworkSubmission(homeworkId: string): Promise<Homewo
  */
 export async function deleteHomeworkSubmission(homeworkId: string): Promise<void> {
   try {
-    await initHomeworkStorage()
     const homeworkStorage = getHomeworkStorage()
-    await homeworkStorage.delete('submissions', homeworkId)
+    await homeworkStorage.delete(STORE_NAMES.SUBMISSIONS, homeworkId)
   } catch (error) {
     console.error(`[HOMEWORK_STORAGE] ❌ 删除作业数据失败 (ID: ${homeworkId}):`, error)
     throw error

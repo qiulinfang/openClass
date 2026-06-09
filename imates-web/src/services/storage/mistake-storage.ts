@@ -4,15 +4,15 @@
  */
 
 import { IndexedDBService } from './indexeddb-service'
-import { getUserId } from '../http/auth-service'
 import type { ExerciseItem } from '@/types'
+import { STORE_NAMES, IDB_CONFIGS } from './db-config'
 
 /** 
  * 单个练习记录
  */
 export interface PracticeRecord {
   timestamp: number
-  originalAnswer: any
+  originalAnswer: unknown
   homeworkId?: string
   homeworkName?: string
 }
@@ -33,22 +33,7 @@ export interface MistakeItem {
  * 获取错题存储专用的 IndexedDB 服务实例
  */
 function getMistakeStorage(): IndexedDBService {
-  const userId = getUserId()
-  const dbName = `MistakeStorageDB_${userId}`
-  return IndexedDBService.getInstance({
-    dbName: dbName,
-    version: 2, // 升级版本以支持新结构
-    stores: [
-      {
-        name: 'mistakes',
-        keyPath: 'bmNo', // 使用 bmNo 作为主键，方便更新
-        indexes: [
-          { name: 'timestamp', keyPath: 'timestamp' },
-          { name: 'lastPracticeTime', keyPath: 'lastPracticeTime' }
-        ]
-      }
-    ]
-  })
+  return IndexedDBService.getInstance(IDB_CONFIGS.MISTAKE_STORAGE())
 }
 
 /**
@@ -67,16 +52,15 @@ export async function initMistakeStorage(): Promise<void> {
 export async function addMistake(params: {
   bmNo: string
   questionData: ExerciseItem
-  originalAnswer?: any
+  originalAnswer?: unknown
   homeworkId?: string
   homeworkName?: string
 }): Promise<void> {
   try {
-    await initMistakeStorage()
     const mistakeStorage = getMistakeStorage()
     
     // 1. 尝试获取现有记录
-    const existing = await mistakeStorage.get<MistakeItem>('mistakes', params.bmNo)
+    const existing = await mistakeStorage.get<MistakeItem>(STORE_NAMES.MISTAKES, params.bmNo)
     
     const newRecord: PracticeRecord = {
       timestamp: Date.now(),
@@ -93,7 +77,7 @@ export async function addMistake(params: {
         lastPracticeTime: Date.now(),
         practiceHistory: [newRecord, ...existing.practiceHistory].slice(0, 10) // 保留最近10次
       }
-      await mistakeStorage.put('mistakes', updated)
+      await mistakeStorage.put(STORE_NAMES.MISTAKES, updated)
     } else {
       // 3. 如果不存在，创建新记录
       const newItem: MistakeItem = {
@@ -104,10 +88,8 @@ export async function addMistake(params: {
         lastPracticeTime: Date.now(),
         practiceHistory: [newRecord]
       }
-      await mistakeStorage.put('mistakes', newItem)
+      await mistakeStorage.put(STORE_NAMES.MISTAKES, newItem)
     }
-    
-    console.log(`[MISTAKE_STORAGE] ✅ 已记录错题: ${params.bmNo}`)
   } catch (error) {
     console.error('[MISTAKE_STORAGE] ❌ 记录错题失败:', error)
     throw error
@@ -119,9 +101,8 @@ export async function addMistake(params: {
  */
 export async function getAllMistakes(): Promise<MistakeItem[]> {
   try {
-    await initMistakeStorage()
     const mistakeStorage = getMistakeStorage()
-    const mistakes = await mistakeStorage.getAll<MistakeItem>('mistakes')
+    const mistakes = await mistakeStorage.getAll<MistakeItem>(STORE_NAMES.MISTAKES)
     // 按时间倒序排序
     return mistakes.sort((a, b) => b.timestamp - a.timestamp)
   } catch (error) {
@@ -135,9 +116,8 @@ export async function getAllMistakes(): Promise<MistakeItem[]> {
  */
 export async function isMistake(bmNo: string): Promise<boolean> {
   try {
-    await initMistakeStorage()
     const mistakeStorage = getMistakeStorage()
-    const result = await mistakeStorage.get('mistakes', bmNo)
+    const result = await mistakeStorage.get(STORE_NAMES.MISTAKES, bmNo)
     return !!result
   } catch (error) {
     console.error(`[MISTAKE_STORAGE] ❌ 检查错题状态失败 (bmNo: ${bmNo}):`, error)
@@ -150,9 +130,8 @@ export async function isMistake(bmNo: string): Promise<boolean> {
  */
 export async function deleteMistake(id: string): Promise<void> {
   try {
-    await initMistakeStorage()
     const mistakeStorage = getMistakeStorage()
-    await mistakeStorage.delete('mistakes', id)
+    await mistakeStorage.delete(STORE_NAMES.MISTAKES, id)
   } catch (error) {
     console.error(`[MISTAKE_STORAGE] ❌ 删除错题失败 (ID: ${id}):`, error)
     throw error

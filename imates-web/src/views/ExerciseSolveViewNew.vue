@@ -235,9 +235,6 @@ const { renderMessageContent } = useMessageRenderer()
 
 // ExerciseChatPanelNew 内部已配置工具栏
 
-// 截图工具
-const { captureScreenSnapshot } = useScreenSnapshot()
-
 // 学科过滤相关
 const selectedSubjectFilter = ref<string>('') // 空字符串表示显示所有学科
 

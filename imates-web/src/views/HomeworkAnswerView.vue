@@ -78,74 +78,115 @@
         <template #center="{}">
           <div class="panel-bg"></div>
           <div class="panel-content" :style="{ width: '100%', minWidth: '500px' }">
-            <div class="panel-card question-solve-card">
-              <!-- 情况 A: 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
-              <div 
-                class="question-render-container" 
-                v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false', 'composite', 'fill_in_blank', 'subjective'].includes(currentAnswerQuestion.type || '')"
-              >
-                <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
-                <div class="question-render-toolbar" v-if="!isHomeworkLocked">
-                  <div class="toolbar-right">
-                    <Button
-                      v-if="!isHomeworkLocked"
-                      :label="homeworkButtonText"
-                      variant="primary"
-                      size="mdCompact"
-                      @click="handleBoardUpload"
-                    />
-                    <div v-else class="submitted-tip">
-                      <q-icon name="check_circle" color="green" size="24px" />
-                      <span>{{ isHomeworkSubmitted ? '作业已提交' : '作业已截止' }}</span>
+            <div class="panel-card question-solve-card" :class="{ 'is-submitted': isHomeworkSubmitted }">
+              <!-- 工具栏 (与 handleBoardUpload 按钮同行) -->
+              <div class="question-render-toolbar" v-if="currentAnswerQuestion && !isHomeworkLocked">
+                <div class="toolbar-right">
+                  <Button
+                    :label="homeworkButtonText"
+                    variant="primary"
+                    size="mdCompact"
+                    @click="handleBoardUpload"
+                  />
+                </div>
+              </div>
+
+              <!-- 题目区域（可收缩） -->
+              <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
+                <div class="question-image-content">
+                  <!-- 情况 A: 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
+                  <div
+                    class="question-render-container"
+                    v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false', 'composite', 'fill_in_blank', 'subjective'].includes(currentAnswerQuestion.type || '')"
+                  >
+                    <div
+                      class="question-render-area"
+                      ref="currentQuestionRenderRef"
+                    >
+                      <ChoiceQuestion
+                        v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
+                        :question="currentAnswerQuestion"
+                        v-model="currentQuestionChooseList"
+                        :disabled="isHomeworkSubmitted"
+                        show-title
+                      />
+                      <JudgmentQuestion
+                        v-else-if="currentAnswerQuestion.type === 'true_false'"
+                        :question="currentAnswerQuestion"
+                        v-model="currentQuestionJudgment"
+                        :disabled="isHomeworkSubmitted"
+                        show-title
+                      />
+                      <CompositeQuestion
+                        v-else-if="currentAnswerQuestion.type === 'composite'"
+                        :question="currentAnswerQuestion"
+                        v-model="currentQuestionCompositeAnswers"
+                        :disabled="isHomeworkSubmitted"
+                        show-title
+                      />
+                      <FillBlankQuestion
+                        v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
+                        :question="currentAnswerQuestion"
+                        v-model="currentQuestionFillList"
+                        :disabled="isHomeworkSubmitted"
+                        show-title
+                      />
+                      <SubjectiveQuestion
+                        v-else-if="currentAnswerQuestion.type === 'subjective'"
+                        ref="subjectiveQuestionRef"
+                        :question="currentAnswerQuestion"
+                        v-model="currentQuestionSubjectiveData"
+                        :disabled="isHomeworkSubmitted"
+                        show-title
+                      />
                     </div>
+                  </div>
+
+                  <!-- 情况 B: 渲染 HTML (白板手写 及 其他) -->
+                  <div class="question-render-container" v-else-if="currentAnswerQuestion">
+                    <div class="question-render-area">
+                      <div
+                        v-if="currentAnswerQuestion"
+                        class="question-html-preview markdown-content"
+                        v-html="questionHtml"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div v-else class="empty-render-area">
+                    <div class="empty-tip">请选择题目开始作答</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 收缩切换按钮 -->
+              <div class="collapse-toggle-btn" v-if="currentAnswerQuestion" @click="toggleQuestionImage">
+                <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
+              </div>
+
+              <!-- 下方区域：提交前显示草稿本，提交后显示答案解析 -->
+              <div class="panel-card-body solve-body" v-if="currentAnswerQuestion">
+                <!-- 1. 提交前：草稿本区域 (带工具栏) -->
+                <div class="draft-board-section" v-if="!isHomeworkLocked">
+                  <!-- 画板 -->
+                  <div class="drawing-board-wrapper">
+                    <DrawingBoardNew
+                      :ref="(el) => setDrawingBoardRef(el, 0)"
+                      :showGrid="false"
+                      :enableAskAi="true"
+                      :show-toolbar="true"
+                      :disabled="false"
+                      :show-zoom-controls="false"
+                      :background-image="''"
+                      :initial-zoom="100"
+                      @clear="handleClearRequest"
+                    />
                   </div>
                 </div>
 
-                <div 
-                  class="question-render-area" 
-                  ref="currentQuestionRenderRef"
-                >
-                  <ChoiceQuestion
-                    v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
-                    :question="currentAnswerQuestion"
-                    v-model="currentQuestionChooseList"
-                    :disabled="isHomeworkSubmitted"
-                    show-title
-                  />
-                  <JudgmentQuestion
-                    v-else-if="currentAnswerQuestion.type === 'true_false'"
-                    :question="currentAnswerQuestion"
-                    v-model="currentQuestionJudgment"
-                    :disabled="isHomeworkSubmitted"
-                    show-title
-                  />
-                  <CompositeQuestion
-                    v-else-if="currentAnswerQuestion.type === 'composite'"
-                    :question="currentAnswerQuestion"
-                    v-model="currentQuestionCompositeAnswers"
-                    :disabled="isHomeworkSubmitted"
-                    show-title
-                  />
-                  <FillBlankQuestion
-                    v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
-                    :question="currentAnswerQuestion"
-                    v-model="currentQuestionFillList"
-                    :disabled="isHomeworkSubmitted"
-                    show-title
-                  />
-                  <SubjectiveQuestion
-                    v-else-if="currentAnswerQuestion.type === 'subjective'"
-                    ref="subjectiveQuestionRef"
-                    :question="currentAnswerQuestion"
-                    v-model="currentQuestionSubjectiveData"
-                    :disabled="isHomeworkSubmitted"
-                    show-title
-                  />
-
-                  <!-- 单道题提交后的答案和解析 -->
-                  <div v-if="isHomeworkSubmitted" class="answer-analysis-wrapper">
-                    <div class="divider"></div>
-                    <div class="result-section">
+                <!-- 2. 提交后：答案和解析区域 -->
+                <div v-else class="answer-analysis-wrapper">
+                  <div class="result-section">
                       <div class="result-item answer-item">
                         <div class="item-label">参考答案：</div>
                         <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
@@ -154,77 +195,15 @@
                         <div class="item-label">解析：</div>
                         <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                       </div>
-                      <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
-                        <span class="item-label">是否添加到错题本：</span>
-                        <div class="item-controls">
-                          <Radio v-model="mistakeAddedStatus" val="yes" label="是" @update:model-value="handleMistakeChange" />
-                          <Radio v-model="mistakeAddedStatus" val="no" label="否" @update:model-value="handleMistakeChange" />
-                        </div>
+                    <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
+                      <span class="item-label">是否添加到错题本：</span>
+                      <div class="item-controls">
+                        <Radio v-model="mistakeAddedStatus" val="yes" label="是" @update:model-value="handleMistakeChange" />
+                        <Radio v-model="mistakeAddedStatus" val="no" label="否" @update:model-value="handleMistakeChange" />
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <!-- 情况 B: 白板手写 (填空、问答 及 其他) -->
-              <div class="question-render-container" v-else-if="currentAnswerQuestion">
-                <!-- 模拟画板工具栏布局的顶部栏 (仅在未锁定/未提交时显示) -->
-                <div class="question-render-toolbar" v-if="!isHomeworkLocked">
-                  <div class="toolbar-right">
-                    <Button
-                      :label="homeworkButtonText"
-                      variant="primary"
-                      size="mdCompact"
-                      @click="handleBoardUpload"
-                    />
-                  </div>
-                </div>
-
-                <div class="question-render-area">
-                  <div class="drawing-board-wrapper" :class="{ 'is-submitted': isHomeworkLocked }">
-                    <!-- 预览层：在截图生成前立即显示渲染后的 HTML，实现零延迟感 -->
-                    <div 
-                      v-if="!questionBgImage && currentAnswerQuestion" 
-                      class="question-html-preview markdown-content" 
-                      v-html="questionHtml"
-                    ></div>
-
-                    <DrawingBoardNew
-                      :ref="(el) => setDrawingBoardRef(el, 0)"
-                      :showGrid="false"
-                      :enableAskAi="true"
-                      :show-toolbar="!isHomeworkLocked"
-                      :disabled="isHomeworkLocked"
-                      :show-zoom-controls="false"
-                      :background-image="questionBgImage"
-                      background-position="topLeft"
-                      :initial-zoom="70"
-                      @clear="handleClearRequest"
-                    />
-                  </div>
-
-                  <!-- 提交后的答案和解析 -->
-                  <div v-if="isHomeworkLocked" class="answer-analysis-wrapper">
-                    <div class="divider"></div>
-                    <div class="result-section">
-                      <div class="result-item answer-item">
-                        <div class="item-label">参考答案：</div>
-                        <div class="item-content" v-html="renderMessageContent((currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
-                      </div>
-                      <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
-                        <span class="item-label">是否添加到错题本：</span>
-                        <div class="item-controls">
-                          <Radio v-model="mistakeAddedStatus" val="yes" label="是" @update:model-value="handleMistakeChange" />
-                          <Radio v-model="mistakeAddedStatus" val="no" label="否" @update:model-value="handleMistakeChange" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-else class="empty-render-area">
-                <div class="empty-tip">请选择题目开始作答</div>
               </div>
 
               <!-- 底部留白 -->
@@ -366,17 +345,39 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { addMistake, isMistake, deleteMistake } from '@/services/storage/mistake-storage'
 import ChoiceQuestion from '@/components/exercise/ChoiceQuestion.vue'
 import textbookipIcon from '/icons/textbookip.png'
-import wodezuodaSelectIcon from '/icons/wodezuoda_select.svg'
-import xuebandayiUnselectIcon from '/icons/xuebandayi_unselect.svg'
 import askXuebanIcon from '/icons/askXueban.svg'
 import duileIcon from '/icons/duile.svg'
 import cuoleIcon from '/icons/cuole.svg'
+import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
 import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import SubjectiveQuestion from '@/components/exercise/SubjectiveQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import Radio from '@/components/base/Radio.vue'
+
+interface StructuredAnswer {
+  type: 'text' | 'board'
+  textContent?: string
+  boardData?: any
+  timestamp?: number
+}
+
+interface SubjectiveAnswer extends StructuredAnswer {}
+
+interface AnswerCacheItem {
+  chooseList?: string[]
+  judgmentValue?: string
+  fillList?: StructuredAnswer[]
+  boardData?: {
+    objects: unknown[]
+    [key: string]: unknown
+  }
+  compositeAnswers?: Record<string, any>
+  subjectiveData?: SubjectiveAnswer
+  imageData?: string | null
+  timestamp?: number
+}
 
 defineOptions({
   name: 'HomeworkAnswerView',
@@ -452,10 +453,10 @@ const currentQuestionRenderRef = ref<HTMLElement | null>(null)
 const previousQuestionKey = ref<string>('')
 
 // DrawingBoard 组件引用
-const drawingBoardRefs = ref<Array<InstanceType<typeof DrawingBoardNew> | null>>([])
+const drawingBoardRefs = ref<Array<any>>([])
 
-const setDrawingBoardRef = (el: unknown, pageIndex: number) => {
-  drawingBoardRefs.value[pageIndex] = el as InstanceType<typeof DrawingBoardNew> | null
+const setDrawingBoardRef = (el: any, pageIndex: number) => {
+  drawingBoardRefs.value[pageIndex] = el
 }
 
 // QuestionList 组件引用
@@ -467,15 +468,15 @@ const currentQuestionChooseList = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return []
-    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey]
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
     return cache?.chooseList || []
   },
   set: (value: string[]) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey] || {}
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
     cache.chooseList = value
-    ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
   },
 })
 
@@ -483,15 +484,15 @@ const currentQuestionJudgment = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return ''
-    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey]
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
     return cache?.judgmentValue || ''
   },
   set: (value: string) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey] || {}
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
     cache.judgmentValue = value
-    ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
   },
 })
 
@@ -499,22 +500,55 @@ const currentQuestionFillList = computed({
   get: () => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return []
-    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey]
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
     return cache?.fillList || []
   },
-  set: (value: string[]) => {
+  set: (value: StructuredAnswer[]) => {
     const questionKey = getQuestionKey(currentAnswerQuestion.value)
     if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, { chooseList?: string[], judgmentValue?: string, fillList?: string[], boardData?: any }>)[questionKey] || {}
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
     cache.fillList = value
-    ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
+  },
+})
+
+const currentQuestionCompositeAnswers = computed({
+  get: () => {
+    const questionKey = getQuestionKey(currentAnswerQuestion.value)
+    if (!questionKey) return {}
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
+    return cache?.compositeAnswers || {}
+  },
+  set: (value: Record<string, unknown>) => {
+    const questionKey = getQuestionKey(currentAnswerQuestion.value)
+    if (!questionKey) return
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
+    cache.compositeAnswers = value
+    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
+  },
+})
+
+const currentQuestionSubjectiveData = computed({
+  get: () => {
+    const questionKey = getQuestionKey(currentAnswerQuestion.value)
+    if (!questionKey) return { type: 'text' } as SubjectiveAnswer
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
+    return cache?.subjectiveData || ({ type: 'text' } as SubjectiveAnswer)
+  },
+  set: (value: SubjectiveAnswer) => {
+    const questionKey = getQuestionKey(currentAnswerQuestion.value)
+    if (!questionKey) return
+    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
+    cache.subjectiveData = value
+    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
   },
 })
 
 // 切换模式并发送题目给 AI
 const handleToggle = async (question?: ExerciseItem) => {
-  console.log('[HOMEWORK_ANSWER_VIEW] handleToggle 触发, 传入题目 ID:', (question as any)?.bmNo || '无')
-  
+  const qId = question?.bmNo || question?.id || '无'
+  console.log('[HOMEWORK_ANSWER_VIEW] handleToggle 触发, 传入题目 ID:', qId)
+
   // 实时从 IndexedDB 检查最新的提交状态
   const homeworkId = route.params.homeworkId as string
   if (homeworkId) {
@@ -541,7 +575,7 @@ const handleToggle = async (question?: ExerciseItem) => {
 
   // 逻辑调整：
   // 1. 如果传入了题目（点击了问问学伴图标），确保面板是打开的
-  if (question && (question as any).bmNo) {
+  if (question && (question.bmNo || question.id)) {
     console.log('[HOMEWORK_ANSWER_VIEW] 点击了具体题目, 准备确保面板开启')
     if (mode.value === 'left') {
       splitPanelRef.value?.toggle()
@@ -553,12 +587,13 @@ const handleToggle = async (question?: ExerciseItem) => {
   }
 
   // 如果传了题目，则调用 AI 面板发送消息
-  if (question && (question as any).bmNo && homeworkChatPanelRef.value) {
-    console.log('[HOMEWORK_ANSWER_VIEW] 准备调用 HomeworkChatPanel.sendQuestion:', (question as any).bmNo)
+  if (question && (question.bmNo || question.id) && homeworkChatPanelRef.value) {
+    console.log('[HOMEWORK_ANSWER_VIEW] 准备调用 HomeworkChatPanel.sendQuestion:', question.bmNo || question.id)
     nextTick(() => {
       // 假设 HomeworkChatPanel 有 sendQuestion 方法
       // 如果方法名不同，请根据组件内部定义修改
-      (homeworkChatPanelRef.value as any).sendQuestion?.(question)
+      const panel = homeworkChatPanelRef.value as { sendQuestion?: (q: ExerciseItem) => void }
+      panel.sendQuestion?.(question)
     })
   }
 }
@@ -592,6 +627,13 @@ const questionBgImage = ref<string>('')
 const questionImageCache = new Map<string, string>()
 // 用于标记题目背景截图的序列号，防止重复截图冲突
 const questionBgCaptureSeq = ref(0)
+// 题目区域是否收起
+const isQuestionImageCollapsed = ref(false)
+
+// 切换题目区域展开/收起
+const toggleQuestionImage = () => {
+  isQuestionImageCollapsed.value = !isQuestionImageCollapsed.value
+}
 // 保存上传图片对应的题目索引的响应式数组
 const lastUploadPageIndices = ref<number[]>([])
 // 在 HomeworkAnswerView.vue 中返回作业页面的标题
@@ -608,14 +650,16 @@ const displayTitle = computed(() => {
 // 获取题目唯一标识
 const getQuestionKey = (question: ExerciseItem | null): string => {
   if (!question) return ''
-  return (question.bmNo || question.id || '').toString()
+  // 使用可选链和类型收窄避免 any 强转
+  const qId = question.bmNo || (question as { id?: string | number }).id || ''
+  return qId.toString()
 }
 
 // 获取题目状态
 type QuestionStatus = 'unanswered' | 'answered'
 
 // 判断白板数据是否包含绘制对象
-const hasBoardAnswerData = (boardData: any): boolean => {
+const hasBoardAnswerData = (boardData: AnswerCacheItem['boardData']): boolean => {
   const objects = boardData?.objects
   return Array.isArray(objects) && objects.length > 0
 }
@@ -625,12 +669,15 @@ const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
   const questionKey = getQuestionKey(question)
   if (!questionKey) return 'unanswered'
 
-  const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+  const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
   if (!cache) return 'unanswered'
 
   const hasBoardData = hasBoardAnswerData(cache.boardData)
   const hasSelectedOption = Array.isArray(cache.chooseList) && cache.chooseList.length > 0
-  const hasFillData = Array.isArray(cache.fillList) && cache.fillList.some((v: string) => v && v.trim() !== '')
+  const hasFillData = Array.isArray(cache.fillList) && cache.fillList.some((v: any) => {
+    if (typeof v === 'string') return v && v.trim() !== ''
+    return v && (v.textContent || v.boardData)
+  })
   const hasJudgmentData = !!cache.judgmentValue
 
   // 已作答：任一作答数据存在即可
@@ -679,8 +726,8 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
   if (board && questionToSave === currentAnswerQuestion.value) {
     const boardData = board.saveData()
     if (boardData) {
-      const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-      ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+      const existingCache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
+      ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = {
         ...existingCache,
         boardData: boardData,
         timestamp: Date.now(),
@@ -690,8 +737,8 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
       const captureBoardImage = () => {
         const imageData = board.exportToJpg?.(0.9)
         if (imageData) {
-          const currentCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-          ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+          const currentCache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
+          ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = {
             ...currentCache,
             imageData: imageData
           }
@@ -744,8 +791,8 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
         })
         console.log(`[HOMEWORK_IMAGE_PROCESS] htmlToImage.toPng 完成`)
 
-        const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-        ;(answerDataCache.value as Record<string, any>)[questionKey] = {
+        const existingCache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
+        ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = {
           ...existingCache,
           imageData: dataUrl,
           timestamp: Date.now(),
@@ -862,17 +909,16 @@ const isCurrentQuestionCorrect = computed(() => {
 const autoRecordMistakes = async () => {
   console.log('[HomeworkAnswerView] 开始自动记录错题...')
   const homeworkId = route.params.homeworkId as string
-  const subject = getSubject() || 'math'
   
   let mistakeCount = 0
   
   for (const question of externalQuestions.value) {
     // 仅对客观题进行自动判定（选择、判断）
-    const isObjective = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(question.type || '')
+    const isObjectiveType = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(question.type || '')
     
-    if (isObjective && !checkQuestionCorrect(question)) {
+    if (isObjectiveType && !checkQuestionCorrect(question)) {
       const questionKey = getQuestionKey(question)
-      const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
+      const originalAnswer = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
       
       try {
         await addMistake({
@@ -892,33 +938,6 @@ const autoRecordMistakes = async () => {
   
   if (mistakeCount > 0) {
     console.log(`[HomeworkAnswerView] 自动记录完成，共记录 ${mistakeCount} 道错题`)
-  }
-}
-
-/** 加入错题本逻辑 */
-const handleAddToMistakeBook = async () => {
-  if (!currentAnswerQuestion.value) return
-
-  try {
-    const question = currentAnswerQuestion.value
-    
-    // 1. 仅保存到本地错题本数据库，包含原始作答和来源信息
-    const questionKey = getQuestionKey(question)
-    const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
-    const homeworkId = route.params.homeworkId as string
-    
-    await addMistake({
-      bmNo: questionKey,
-      homeworkId: homeworkId,
-      homeworkName: homeworkName.value,
-      originalAnswer: originalAnswer,
-      questionData: question
-    })
-
-    showMessage('已成功加入错题本', 'success')
-  } catch (error) {
-    console.error('[HomeworkAnswerView] 加入错题本异常:', error)
-    showMessage('加入错题本失败', 'error')
   }
 }
 
@@ -946,8 +965,9 @@ const handleStartAnswer = async (question: ExerciseItem) => {
       )
       await Promise.race([savePromise, timeoutPromise])
       console.log(`[HOMEWORK_IMAGE_PROCESS] 上一题 ${oldQuestionKey} 保存完成或超时继续`)
-    } catch (saveError: any) {
-      console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${saveError.message}`)
+    } catch (saveError: unknown) {
+      const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
+      console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${errMsg}`)
     }
   }
   // 2. 立即更新 UI 状态
@@ -985,7 +1005,7 @@ const handleMistakeChange = async (val: 'yes' | 'no') => {
   
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
   if (val === 'yes') {
-    const originalAnswer = (answerDataCache.value as Record<string, any>)[questionKey]
+    const originalAnswer = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
     const homeworkId = route.params.homeworkId as string
     
     await addMistake({
@@ -1174,8 +1194,9 @@ const goBack = async () => {
       try {
         await Promise.race([savePromise, timeoutPromise])
         console.log('[HOMEWORK_BACK] saveCurrentPage 执行完毕')
-      } catch (e: any) {
-        console.warn('[HOMEWORK_BACK] saveCurrentPage 保存可能已挂起或超时:', e.message)
+      } catch (e: unknown) {
+        const errMsg = e instanceof Error ? e.message : String(e)
+        console.warn('[HOMEWORK_BACK] saveCurrentPage 保存可能已挂起或超时:', errMsg)
       }
       
       console.log('[HOMEWORK_BACK] 2. 正在持久化作答数据到本地数据库...')
@@ -1326,7 +1347,7 @@ const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
   externalQuestions.value.forEach((question, index) => {
     const questionKey = getQuestionKey(question)
     if (questionKey) {
-      const cache = (answerDataCache.value as Record<string, any>)[questionKey]
+      const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
       if (cache) {
         if (keptQuestionIndices.includes(index)) {
           // 这个题目的图片被保留，数据已存在，无需操作
@@ -1334,7 +1355,7 @@ const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
         } else {
           // 这个题目的图片被删除，清空图片数据
           cache.imageData = null
-          ;(answerDataCache.value as Record<string, any>)[questionKey] = cache
+          ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
           console.log(`[HomeworkAnswerView] 清空题目图片数据: ${questionKey}`)
         }
       }
@@ -1344,52 +1365,171 @@ const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
 
 // 准备提交数据
 const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], questionIndexMap?: number[]) => {
-  const questionAnswerList: Array<{ questionId: string; answerList: string[]; chooseList?: string[] }> = []
+  const questionAnswerList: Array<{ 
+    questionId: string; 
+    answerList: string[]; 
+    answer: {
+      type: string;
+      content: any;
+    };
+  }> = []
+
+  // 递归处理题目结构，在 subQuestions 中注入答案，并在缺失 ID 时生成临时 ID
+  const injectAnswersRecursively = (structuredData: any, compositeAnswers: Record<string, any>, parentId: string = '') => {
+    if (!structuredData || !compositeAnswers) return;
+
+    const currentParentId = structuredData.id || parentId;
+
+    if (Array.isArray(structuredData.subQuestions)) {
+      structuredData.subQuestions.forEach((sub: any, index: number) => {
+        // 自造临时 ID
+        if (!sub.id) {
+          sub.id = currentParentId ? `${currentParentId}_sub_${index}` : `sub_${index}`;
+        }
+        
+        const answerKey = sub.id;
+        const userAns = compositeAnswers[answerKey] || compositeAnswers[`sub_${index}`];
+        
+        if (userAns !== undefined) {
+          sub.userAnswer = userAns;
+        }
+
+        if (Array.isArray(sub.subQuestions)) {
+          injectAnswersRecursively(sub, compositeAnswers, sub.id);
+        }
+      });
+    }
+  };
 
   const mapUsable = Array.isArray(questionIndexMap) && questionIndexMap.length === photos.length
-
+  
+  // 建立题目索引到图片的映射
+  const imageBuckets = new Map<number, string[]>()
   if (mapUsable) {
-    // 每题多图：按题目索引分组
-    const buckets = new Map<number, string[]>()
     for (let i = 0; i < photos.length; i++) {
       const qIndex = questionIndexMap![i]
       if (typeof qIndex !== 'number') continue
-      if (!buckets.has(qIndex)) buckets.set(qIndex, [])
-      buckets.get(qIndex)!.push(photos[i])
+      if (!imageBuckets.has(qIndex)) imageBuckets.set(qIndex, [])
+      imageBuckets.get(qIndex)!.push(photos[i])
     }
-
-    keptQuestionIndices.forEach((questionIndex) => {
-      const answerPhotos = buckets.get(questionIndex) || []
-      if (!answerPhotos.length) return
-      const question = externalQuestions.value[questionIndex]
-      if (!question) return
-      const questionKey = getQuestionKey(question)
-      const cache = questionKey ? (answerDataCache.value as Record<string, any>)[questionKey] : undefined
-      const chooseList = Array.isArray(cache?.chooseList) ? cache.chooseList : []
-
-      questionAnswerList.push({
-        questionId: question.id || question.bmNo || '',
-        answerList: answerPhotos,
-        chooseList: chooseList.length ? chooseList : undefined,
-      })
-    })
   } else {
-    // 兼容旧逻辑：每题一张图，按顺序映射
+    // 兼容旧逻辑：虽然本场景基本都是 mapUsable，但也保留顺序映射的兜底
     keptQuestionIndices.forEach((questionIndex, photoIndex) => {
-      const question = externalQuestions.value[questionIndex]
-      if (question && photos[photoIndex]) {
-        const questionKey = getQuestionKey(question)
-        const cache = questionKey ? (answerDataCache.value as Record<string, any>)[questionKey] : undefined
-        const chooseList = Array.isArray(cache?.chooseList) ? cache.chooseList : []
-
-        questionAnswerList.push({
-          questionId: question.id || question.bmNo || '',
-          answerList: [photos[photoIndex]],
-          chooseList: chooseList.length ? chooseList : undefined,
-        })
+      if (!imageBuckets.has(questionIndex)) imageBuckets.set(questionIndex, [])
+      if (photos[photoIndex]) {
+        imageBuckets.get(questionIndex)!.push(photos[photoIndex])
       }
     })
   }
+
+  // 遍历所有保留的题目，构造结构化提交数据
+  keptQuestionIndices.forEach((questionIndex) => {
+    const question = externalQuestions.value[questionIndex]
+    if (!question) return
+    
+    const questionKey = getQuestionKey(question)
+    const cache = questionKey ? (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] : undefined
+    
+    // 建立结构化答案内容
+    let answerContent: any = undefined
+
+    if (cache) {
+      if (question.type === 'single_choice' || question.type === 'multiple_choice') {
+        // 选择题
+        if (question.structuredContent) {
+          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
+          structuredData.userAnswer = Array.isArray(cache.chooseList) && cache.chooseList.length ? cache.chooseList : undefined
+          answerContent = structuredData
+        } else {
+          answerContent = Array.isArray(cache.chooseList) && cache.chooseList.length ? cache.chooseList : undefined
+        }
+      } else if (question.type === 'true_false') {
+        // 判断题
+        if (question.structuredContent) {
+          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
+          structuredData.userAnswer = cache.judgmentValue || undefined
+          answerContent = structuredData
+        } else {
+          answerContent = cache.judgmentValue || undefined
+        }
+      } else if (question.type === 'fill_in_blank') {
+        // 填空题
+        if (question.structuredContent) {
+          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
+          const userFillList = Array.isArray(cache.fillList) 
+            ? cache.fillList.map(item => {
+                if (typeof item === 'object' && item !== null) return item as StructuredAnswer;
+                return {
+                  type: 'text',
+                  textContent: String(item || ''),
+                  boardData: null
+                } as StructuredAnswer;
+              })
+            : undefined
+          
+          if (Array.isArray(structuredData.blanks) && userFillList) {
+            structuredData.blanks.forEach((blank: any, index: number) => {
+              if (userFillList[index]) {
+                blank.userAnswer = userFillList[index]
+              }
+            })
+          }
+          answerContent = structuredData
+        } else {
+          answerContent = Array.isArray(cache.fillList) 
+            ? cache.fillList.map(item => {
+                if (typeof item === 'object' && item !== null) return item as StructuredAnswer;
+                return {
+                  type: 'text',
+                  textContent: String(item || ''),
+                  boardData: null
+                } as StructuredAnswer;
+              })
+            : undefined
+        }
+      } else if (question.type === 'composite') {
+        // 对于复合题，使用递归处理可能存在的嵌套 subQuestions
+        if (question.structuredContent) {
+          try {
+            const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
+            if (cache.compositeAnswers) {
+              injectAnswersRecursively(structuredData, cache.compositeAnswers, structuredData.id || question.id)
+            }
+            answerContent = structuredData
+          } catch (e) {
+            console.error('[HomeworkAnswerView] 复合题结构化处理失败:', e)
+            answerContent = cache.compositeAnswers && Object.keys(cache.compositeAnswers).length ? cache.compositeAnswers : undefined
+          }
+        } else {
+          answerContent = cache.compositeAnswers && Object.keys(cache.compositeAnswers).length ? cache.compositeAnswers : undefined
+        }
+      } else if (question.type === 'subjective') {
+        // 主观题
+        if (question.structuredContent) {
+          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
+          structuredData.userAnswer = cache.subjectiveData || undefined
+          answerContent = structuredData
+        } else {
+          answerContent = cache.subjectiveData || undefined
+        }
+      }
+    }
+
+    const currentImages = imageBuckets.get(questionIndex) || []
+    const hasImages = currentImages.length > 0
+    const hasContent = answerContent !== undefined
+
+    if (!hasImages && !hasContent) return
+
+    questionAnswerList.push({
+      questionId: question.id || question.bmNo || '',
+      answerList: currentImages,
+      answer: {
+        type: question.type,
+        content: answerContent
+      }
+    })
+  })
 
   console.log('[HomeworkAnswerView] 准备提交数据', {
     totalQuestions: externalQuestions.value.length,
@@ -1426,7 +1566,7 @@ const handleIncompleteHomeworkCancel = () => {
 }
 
 // 执行作业答案提交
-const submitHomeworkAnswers = async (questionAnswerList: Array<{ questionId: string; answerList: string[] }>) => {
+const submitHomeworkAnswers = async (questionAnswerList: any[]) => {
   const homeworkId = route.params.homeworkId as string
   if (!homeworkId) {
     throw new Error('作业信息缺失')
@@ -1732,8 +1872,166 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.ai-chat-card {
-  border-radius: 20px;
+.question-solve-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+/* 题目图片区域 - 使用 flex 优化动画性能 */
+.question-image-section {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(110, 85, 255, 0.32);
+  flex: 7 0 0; /* 默认展开占 70% */
+  min-height: 0;
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  margin: 8px 12px 0 12px;
+  position: relative;
+  will-change: flex;
+  contain: layout paint;
+}
+
+.question-image-section.collapsed {
+  flex: 0.25 0 0; /* 收起时占约 20% */
+}
+
+.question-image-content {
+  flex: 1;
+  padding: 12px 16px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.collapse-toggle-btn {
+  position: relative;
+  top: -1px;
+  height: auto;
+  width: auto;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.collapse-toggle-svg {
+  width: 54px;
+  height: auto;
+}
+
+.question-render-hidden {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 600px;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.question-render-hidden img {
+  max-width: 300px;
+  height: auto;
+}
+
+.solve-body {
+  flex: 3 0 0; /* 下方区域占约 30% */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 12px 12px 12px;
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: flex;
+}
+
+.draft-board-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.question-image-section.collapsed + .collapse-toggle-btn + .solve-body {
+  flex: 10 0 0;
+}
+
+.question-image-section.collapsed .collapse-toggle-svg {
+  transform: rotate(180deg);
+}
+
+.drawing-board-wrapper {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  min-height: 0;
+}
+
+.question-render-container {
+  height: 100%;
+}
+
+.question-render-area {
+  padding: 0;
+}
+
+.question-solve-card.is-submitted {
+  background: #ffffff;
+}
+
+.question-html-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  z-index: 0;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.answer-analysis-wrapper {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.result-item {
+  .item-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+  }
+  
+  .item-content {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #334155;
+    word-break: break-all;
+  }
+}
+
+.empty-render-area {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
 }
 
 .textbookip-float {
@@ -1758,330 +2056,18 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 
-.right-panel-options {
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 100;
-}
-
-.drawing-board-wrapper {
-  width: 100%;
-  height: 600px;
-  position: relative;
-  flex-shrink: 0;
-  transition: height 0.3s ease-in-out;
-}
-
-.drawing-board-wrapper.is-submitted {
-  height: 320px;
-  margin-bottom: 20px;
-}
-
-/* 立即渲染的预览层样式 */
-.question-html-preview {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  padding: 10px 20px;
-  background: #ffffff;
-  z-index: 0;
-  overflow-y: auto;
-  pointer-events: none; /* 确保不影响画板书写 */
-}
-
-.answer-analysis-wrapper {
-  margin-top: 30px;
-  .divider {
-    height: 1px;
-    background: #e2e8f0;
-    margin-bottom: 24px;
-  }
-}
-
-.result-section {
+.question-render-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 0 4px;
-}
-
-.result-item {
-  .item-label {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 4px;
-  }
-  
-  .item-content {
-    font-size: 15px;
-    line-height: 1.6;
-    color: #334155;
-    word-break: break-all;
-
-    :deep(h1),
-    :deep(h2),
-    :deep(h3),
-    :deep(h4),
-    :deep(h5),
-    :deep(h6) {
-      font-size: 16px;
-      line-height: 1.5;
-      font-weight: 600;
-      margin: 8px 0;
-    }
-  }
-}
-
-.analysis-item {
-  .item-content {
-    color: #64748b; /* 灰色解析 */
-  }
-}
-
-.mistake-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  
-  .item-label {
-    margin-bottom: 0;
-    white-space: nowrap;
-  }
-  
-  .item-controls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    
-    :deep(.q-radio__label) {
-      font-size: 14px;
-      color: #475569;
-    }
-  }
-}
-
-.submitted-tip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #10b981;
-  font-weight: 500;
-  font-size: 16px;
-}
-
-.question-render-hidden {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 600px;
-  background: #ffffff;
-  opacity: 1;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.question-render-hidden img {
-  max-width: 300px;
-  height: auto;
-}
-
-.more-menu-item-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
-  font-size: 14px;
-  line-height: 1.4;
-  padding: 6px 6px;
-  cursor: pointer;
-}
-
-.delete-confirm-content {
-  height: 100%;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 14px;
-  line-height: 1.5;
-  border: none;
-}
-
-.more-menu-item-row:hover {
-  background-color: rgba(15, 23, 42, 0.03);
-}
-
-.more-menu-item-row > .q-icon {
-  flex-shrink: 0;
-}
-
-.page-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px dashed #d1d5db;
-  border-radius: 6px;
+  justify-content: flex-end;
+  padding: 8px 0;
   background: transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.page-btn:hover:not(:disabled) {
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.05);
-}
-
-.page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.page-btn-icon {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* 左右页切换图标尺寸（略小） */
-.nav-icon-left,
-.nav-icon-right {
-  width: 42px;
-  height: 42px;
-}
-
-/* 中间新增页图标尺寸（略大一点） */
-.nav-icon-center {
-  width: 42px;
-  height: 42px;
-}
-
-.page-btn.add-page-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
-}
-
-.page-btn.add-page-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5);
-}
-
-.page-btn.add-page-btn .add-icon {
-  width: 100%;
-  height: 100%;
-  filter: brightness(0) invert(1);
-}
-
-.page-info-bottom {
-  font-size: 14px;
-  font-weight: 500;
-  color: #6b7280;
-  margin-left: 4px;
-}
-
-.question-status-icon {
-  width: 44px;
+.action-footer-placeholder {
   height: 20px;
-  margin-left: 8px;
-  vertical-align: middle;
+  flex-shrink: 0;
 }
 
-.xueban-action-btn {
-  width: 28px !important;
-  height: 28px !important;
-  margin-right: 4px;
-}
-
-.xueban-action-btn .action-icon {
-  width: 22px !important;
-  height: 22px !important;
-}
-
-:deep(.status-tag) {
-  margin-left: 8px;
-}
-
-.incomplete-homework-content {
-  text-align: center;
-  padding: 16px 0;
-  color: #374151;
-  line-height: 1.5;
-}
-.result-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 0 4px;
-}
-
-.result-item {
-  .item-label {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 4px;
-  }
-  
-  .item-content {
-    font-size: 15px;
-    line-height: 1.6;
-    color: #334155;
-    word-break: break-all;
-
-    :deep(h1),
-    :deep(h2),
-    :deep(h3),
-    :deep(h4),
-    :deep(h5),
-    :deep(h6) {
-      font-size: 16px;
-      line-height: 1.5;
-      font-weight: 600;
-      margin: 8px 0;
-    }
-  }
-}
-
-.analysis-item {
-  .item-content {
-    color: #64748b; /* 灰色解析 */
-  }
-}
-
-.mistake-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  
-  .item-label {
-    margin-bottom: 0;
-    white-space: nowrap;
-  }
-  
-  .item-controls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    
-    :deep(.q-radio__label) {
-      font-size: 14px;
-      color: #475569;
-    }
-  }
-}
 
 .question-status-container {
   display: flex;
@@ -2104,3 +2090,10 @@ onUnmounted(() => {
 }
 
 </style>
+
+
+
+
+
+
+
