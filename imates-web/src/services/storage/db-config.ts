@@ -19,8 +19,8 @@ function getEnvSuffix() {
  * 数据库名称常量定义
  */
 export const DB_NAMES = {
-  // 练习与聊天数据库
-  EXERCISE_SOLVE: () => `ExerciseSolveApp_${getUserId()}${getEnvSuffix()}`,
+  // AI 聊天与对话数据库 (包含练习、作业、通用等所有场景)
+  CHAT_STORAGE: () => `ChatStorageDB_${getUserId()}${getEnvSuffix()}`,
   
   // 教材资源数据库
   TEXTBOOK_STORAGE: () => `TextbookStorage_${getUserId()}${getEnvSuffix()}`,
@@ -42,19 +42,19 @@ export const DB_NAMES = {
  * 数据库版本号管理
  */
 export const DB_VERSIONS = {
-  EXERCISE_SOLVE: 1.0,
-  TEXTBOOK_STORAGE: 14, // 升级版本以包含新表
-  QUESTION_LISTS: 1,
-  HOMEWORK_SUBMISSION: 1,
-  MISTAKE_STORAGE: 2,
-  DRAFTS_STORAGE: 1,
+  CHAT_STORAGE: 11, // 聊天数据库版本
+  TEXTBOOK_STORAGE: 21, 
+  QUESTION_LISTS: 6,
+  HOMEWORK_SUBMISSION: 6,
+  MISTAKE_STORAGE: 11, 
+  DRAFTS_STORAGE: 6,
 }
 
 /**
  * 存储表名定义 (Store Names)
  */
 export const STORE_NAMES = {
-  // EXERCISE_SOLVE 数据库下的表
+  // CHAT_STORAGE 数据库下的表
   CHAT_HISTORY: 'chat_history',
   AI_EXERCISE_SESSIONS: 'ai_exercise_sessions',
   AI_HOMEWORK_SESSIONS: 'ai_homework_sessions',
@@ -87,9 +87,9 @@ export const STORE_NAMES = {
  * 完整数据库配置
  */
 export const IDB_CONFIGS: Record<string, () => IndexedDBConfig> = {
-  EXERCISE_SOLVE: () => ({
-    dbName: DB_NAMES.EXERCISE_SOLVE(),
-    version: DB_VERSIONS.EXERCISE_SOLVE,
+  CHAT_STORAGE: () => ({
+    dbName: DB_NAMES.CHAT_STORAGE(),
+    version: DB_VERSIONS.CHAT_STORAGE,
     stores: [
       { name: STORE_NAMES.CHAT_HISTORY, keyPath: 'id' },
       { name: STORE_NAMES.AI_EXERCISE_SESSIONS, keyPath: 'id' },

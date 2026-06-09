@@ -67,15 +67,19 @@ export async function loadDraftFromIndexedDB(
     const draftStorage = getDraftStorage()
     const data = await draftStorage.get<DraftStorageData>(STORE_NAMES.QUESTION_DRAFTS, questionId)
 
-    if (!data) return null
+    if (data) {
+      console.log(`[DRAFT_STORAGE] ✅ 加载草稿成功: ${questionId}`)
+    } else {
+      console.log(`[DRAFT_STORAGE] ℹ️ 未找到草稿: ${questionId}`)
+    }
 
-    return {
+    return data ? {
       questionId: data.questionId,
       objects: data.objects,
       history: data.history,
       historyIndex: data.historyIndex,
       updatedAt: data.updatedAt
-    }
+    } : null
   } catch (error) {
     console.error('[DRAFT_STORAGE] ❌ 加载草稿失败:', error)
     return null

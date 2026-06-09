@@ -24,7 +24,8 @@ export async function getScreenshotSessionsFromDB(resourceId?: string): Promise<
     try {
       const list = await db.getAllByIndex<AiTextbookSession>(STORE_NAME, 'resourceId', resourceId)
       return list || []
-    } catch {
+    } catch (error) {
+      console.warn(`[AI_TEXTBOOK_STORAGE] 根据 resourceId 索引查询失败，尝试全表过滤: ${resourceId}`, error)
       // 如果索引不存在，降级为 getAll 过滤
       const all = await db.getAll<AiTextbookSession>(STORE_NAME)
       return (all || []).filter((s) => s.resourceId === resourceId)
@@ -50,7 +51,8 @@ export async function addScreenshotSessionToDB(session: AiTextbookSession): Prom
   try {
     await db.update<AiTextbookSession>(STORE_NAME, session)
     return true
-  } catch {
+  } catch (error) {
+    console.error(`[AI_TEXTBOOK_STORAGE] 添加会话失败: ${session.sessionId || session.id}`, error)
     return false
   }
 }
@@ -61,7 +63,8 @@ export async function deleteScreenshotSessionFromDB(id: string): Promise<boolean
   try {
     await db.delete(STORE_NAME, id)
     return true
-  } catch {
+  } catch (error) {
+    console.error(`[AI_TEXTBOOK_STORAGE] 删除会话失败: ${id}`, error)
     return false
   }
 }
@@ -73,7 +76,8 @@ export async function batchDeleteScreenshotSessionsFromDB(ids: string[]): Promis
     const tasks = ids.map((id) => db.delete(STORE_NAME, id))
     await Promise.all(tasks)
     return true
-  } catch {
+  } catch (error) {
+    console.error(`[AI_TEXTBOOK_STORAGE] 批量删除会话失败: ${ids.length}个`, error)
     return false
   }
 }
@@ -89,7 +93,8 @@ export async function updateScreenshotSessionInDB(session: AiTextbookSession): P
   try {
     await db.update<AiTextbookSession>(STORE_NAME, session)
     return true
-  } catch {
+  } catch (error) {
+    console.error(`[AI_TEXTBOOK_STORAGE] 更新会话失败: ${session.sessionId || session.id}`, error)
     return false
   }
 }

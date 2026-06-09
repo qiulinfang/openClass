@@ -338,11 +338,14 @@ export class ResourceManager {
       // 直接从textbook_files表查询文件数据（按需读取，性能优化）
       const fileRecord = await this.indexedDBInstance.get(STORE_NAMES.TEXTBOOK_FILES, fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
       if (fileRecord && fileRecord.fileData && fileRecord.fileData.length > 0) {
+        console.log(`[RESOURCE_STORAGE] ✅ 成功读取文件数据: ${fileId}, 大小: ${fileRecord.fileData.length} 字节`)
         return fileRecord.fileData
       }
       
+      console.log(`[RESOURCE_STORAGE] ℹ️ 未找到文件数据: ${fileId}`)
       return null
-    } catch {
+    } catch (error) {
+      console.error(`[RESOURCE_STORAGE] ❌ 读取文件数据失败: ${fileId}`, error)
       return null
     }
   }
@@ -571,15 +574,28 @@ export class ResourceManager {
   ): Promise<UserTextbookInfo | null> {
     try {
       // 优先使用 textbookId 索引查询
-      return await this.indexedDBInstance.getByIndex(STORE_NAMES.TEXTBOOKS, 'textbookId', textbookId) as UserTextbookInfo
+      const tb = await this.indexedDBInstance.getByIndex(STORE_NAMES.TEXTBOOKS, 'textbookId', textbookId) as UserTextbookInfo
+      if (tb) {
+        console.log(`[RESOURCE_STORAGE] ✅ 根据 textbookId 索引查找到教材: ${textbookId}`)
+      }
+      return tb
     } catch (error: unknown) {
       // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
       const errorMessage = error instanceof Error ? error.message : String(error)
       const errorName = (error as { name?: string })?.name
+      console.warn(`[RESOURCE_STORAGE] ⚠️ 根据 textbookId 索引查询失败 (${errorName})，尝试全表扫描: ${textbookId}`, errorMessage)
+      
       if (errorName === 'NotFoundError' || errorMessage.includes('index')) {
         const allTextbooks = await this.indexedDBInstance.getAll<UserTextbookInfo>(STORE_NAMES.TEXTBOOKS)
-        return allTextbooks.find(t => t.textbookId === textbookId) || null
+        const tb = allTextbooks.find(t => t.textbookId === textbookId) || null
+        if (tb) {
+          console.log(`[RESOURCE_STORAGE] ✅ 全表扫描查找到教材: ${textbookId}`)
+        } else {
+          console.log(`[RESOURCE_STORAGE] ℹ️ 全表扫描也未找到教材: ${textbookId}`)
+        }
+        return tb
       } else {
+        console.error(`[RESOURCE_STORAGE] ❌ 查询教材时发生不可恢复错误: ${textbookId}`, error)
         // 其他错误，返回null
         return null
       }

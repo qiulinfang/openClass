@@ -103,6 +103,7 @@ export async function getAllMistakes(): Promise<MistakeItem[]> {
   try {
     const mistakeStorage = getMistakeStorage()
     const mistakes = await mistakeStorage.getAll<MistakeItem>(STORE_NAMES.MISTAKES)
+    console.log(`[MISTAKE_STORAGE] ✅ 加载错题列表成功: ${mistakes.length} 条`)
     // 按时间倒序排序
     return mistakes.sort((a, b) => b.timestamp - a.timestamp)
   } catch (error) {
@@ -118,6 +119,9 @@ export async function isMistake(bmNo: string): Promise<boolean> {
   try {
     const mistakeStorage = getMistakeStorage()
     const result = await mistakeStorage.get(STORE_NAMES.MISTAKES, bmNo)
+    if (result) {
+      console.log(`[MISTAKE_STORAGE] ✅ 题目已在错题本中: ${bmNo}`)
+    }
     return !!result
   } catch (error) {
     console.error(`[MISTAKE_STORAGE] ❌ 检查错题状态失败 (bmNo: ${bmNo}):`, error)

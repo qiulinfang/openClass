@@ -67,11 +67,13 @@ export async function loadQuestionsFromIndexedDB(
     const questionStorage = getQuestionStorage()
     const data = await questionStorage.get<QuestionListData>(STORE_NAMES.QUESTION_LISTS, subject)
     
-    if (!data || !data.questions || !Array.isArray(data.questions)) {
-      return null
+    if (data && data.questions && Array.isArray(data.questions)) {
+      console.log(`[QUESTION_STORAGE] ✅ 成功加载题目列表: ${subject}, 题目数: ${data.questions.length}`)
+      return data.questions
     }
     
-    return data.questions
+    console.log(`[QUESTION_STORAGE] ℹ️ 未找到题目列表: ${subject}`)
+    return null
   } catch (error) {
     console.error(`[QUESTION_STORAGE] ❌ 加载题目列表失败:`, error)
     return null

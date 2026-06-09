@@ -17,7 +17,7 @@ export class ChatStorageService {
   private isInitialized = false
 
   private constructor() {
-    this.dbInstance = IndexedDBService.getInstance(IDB_CONFIGS.EXERCISE_SOLVE())
+    this.dbInstance = IndexedDBService.getInstance(IDB_CONFIGS.CHAT_STORAGE())
   }
 
   static getInstance(): ChatStorageService {
@@ -241,6 +241,12 @@ export class ChatStorageService {
       const key = `${userId}_chat_history_${questionId}`
       const data = await this.dbInstance.get<ChatHistoryData>(STORE_NAMES.CHAT_HISTORY, key)
       
+      if (data) {
+        console.log(`[CHAT_STORAGE] ✅ 成功加载聊天记录: ${questionId}, 消息数: ${data.messages?.length || 0}`)
+      } else {
+        console.log(`[CHAT_STORAGE] ℹ️ 未找到聊天记录: ${questionId}`)
+      }
+      
       return data || null
     } catch (error) {
       console.error('[CHAT_DEBUG] ❌ IndexedDB加载聊天记录失败:', error)
@@ -259,6 +265,12 @@ export class ChatStorageService {
       const userId = getUserId()
       const key = `${userId}_teacher_chat_history_${questionId}`
       const data = await this.dbInstance.get<ChatHistoryData>(STORE_NAMES.CHAT_HISTORY, key)
+      
+      if (data) {
+        console.log(`[CHAT_STORAGE] ✅ 成功加载老师聊天记录: ${questionId}, 消息数: ${data.messages?.length || 0}`)
+      } else {
+        console.log(`[CHAT_STORAGE] ℹ️ 未找到老师聊天记录: ${questionId}`)
+      }
       
       return data || null
     } catch (error) {
@@ -467,7 +479,9 @@ export class ChatStorageService {
       const userId = getUserId()
       const key = `ai_homework_sessions_${userId}`
       const record = await this.dbInstance.get<{sessions: any[]}>(STORE_NAMES.AI_HOMEWORK_SESSIONS, key)
-      return record?.sessions || []
+      const sessions = record?.sessions || []
+      console.log(`[CHAT_STORAGE] ✅ 加载作业会话列表成功: ${sessions.length} 条`)
+      return sessions
     } catch (error) {
       console.error('[CHAT_STORAGE] 加载作业会话列表失败:', error)
       return []
@@ -489,7 +503,7 @@ export class ChatStorageService {
       const plainSessions: SessionMeta[] = JSON.parse(JSON.stringify(sessions))
       const record = { id: key, sessions: plainSessions }
       await this.dbInstance.put(STORE_NAMES.AI_EXERCISE_SESSIONS, record)
-      console.log('[CHAT_STORAGE] 保存会话列表成功:', questionBmNo, plainSessions.length)
+      console.log('[CHAT_STORAGE] ✅ 保存会话列表成功:', questionBmNo, plainSessions.length)
     } catch (error) {
       console.error('[CHAT_STORAGE] 保存会话列表失败:', error)
       throw error
@@ -506,8 +520,9 @@ export class ChatStorageService {
       await this.initialize()
       const key = `sessions_${questionBmNo}`
       const record = await this.dbInstance.get<{sessions: SessionMeta[]}>(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
-      console.log('[CHAT_STORAGE] 加载会话列表成功:', questionBmNo, record?.sessions?.length || 0)
-      return record?.sessions || []
+      const sessions = record?.sessions || []
+      console.log(`[CHAT_STORAGE] ✅ 加载会话列表成功: ${questionBmNo}, 会话数: ${sessions.length}`)
+      return sessions
     } catch (error) {
       console.error('[CHAT_STORAGE] 加载会话列表失败:', error)
       return []
@@ -607,7 +622,9 @@ export class ChatStorageService {
       await this.initialize()
       const key = 'ai_general_sessions'
       const record = await this.dbInstance.get<{sessions: AiGeneralSession[]}>(STORE_NAMES.AI_GENERAL_SESSIONS, key)
-      return record?.sessions || []
+      const sessions = record?.sessions || []
+      console.log(`[CHAT_STORAGE] ✅ 加载 AI 通用会话列表成功: ${sessions.length} 条`)
+      return sessions
     } catch (error) {
       console.error('[CHAT_STORAGE] 加载 AI 通用会话列表失败:', error)
       return []

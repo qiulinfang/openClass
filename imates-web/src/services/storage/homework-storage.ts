@@ -61,6 +61,13 @@ export async function loadHomeworkSubmission(homeworkId: string): Promise<Homewo
   try {
     const homeworkStorage = getHomeworkStorage()
     const data = await homeworkStorage.get<HomeworkSubmissionData>(STORE_NAMES.SUBMISSIONS, homeworkId)
+    
+    if (data) {
+      console.log(`[HOMEWORK_STORAGE] ✅ 成功加载作业数据: ${homeworkId}, 作答数: ${Object.keys(data.answerDataCache || {}).length}`)
+    } else {
+      console.log(`[HOMEWORK_STORAGE] ℹ️ 未找到作业数据: ${homeworkId}`)
+    }
+    
     return data || null
   } catch (error) {
     console.error(`[HOMEWORK_STORAGE] ❌ 加载作业数据失败 (ID: ${homeworkId}):`, error)

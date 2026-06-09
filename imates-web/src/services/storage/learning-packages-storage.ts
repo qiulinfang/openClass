@@ -74,13 +74,16 @@ export async function loadLearningPackagesFromDB(
     )
 
     if (!record) {
+      console.log(`[LearningPackagesStorage] ℹ️ 未找到学习包缓存: ${id}`)
       return null
     }
 
     if (Date.now() - record.timestamp > maxAgeMs) {
+      console.log(`[LearningPackagesStorage] ℹ️ 学习包缓存已过期: ${id}`)
       return null
     }
 
+    console.log(`[LearningPackagesStorage] ✅ 加载学习包缓存成功: ${id}, 数量: ${record.data?.length || 0}`)
     return record.data || null
   } catch (error) {
     console.warn('[LearningPackagesStorage] 读取学习包缓存失败', error)
