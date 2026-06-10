@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
 import { initQuestionStorage } from './services/storage/question-storage'
-import { migrationService } from './services/storage/migration-service'
+import { runAllMigrations } from './services/storage/migrations'
 import { initNetworkStatusListener } from './utils/network-status'
 import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
 import { AndroidBridge } from './services/business/android-bridge'
@@ -21,8 +21,8 @@ import router from './router'
 initPolyfills()
 
 // 执行数据迁移 (异步执行，不阻塞后续初始化)
-migrationService.runMigrations().catch(err => {
-  console.error('[APP] 聊天数据迁移失败:', err)
+runAllMigrations().catch(err => {
+  console.error('[APP] 数据库迁移失败:', err)
 })
 
 // 立即初始化模拟老师对话功能（必须在 store 初始化之前）

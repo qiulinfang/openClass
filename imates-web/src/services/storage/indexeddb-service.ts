@@ -31,14 +31,23 @@ export interface QueryOptions {
 }
 
 export class IndexedDBService {
+  // 可以维持多个实例
   private static instances: Map<string, IndexedDBService> = new Map()
   private db: IDBDatabase | null = null
   private config: IndexedDBConfig
   public isInitialized = false
   private initPromise: Promise<void> | null = null
+  private oldVersion: number | null = null // 记录数据库升级前的版本号
 
   private constructor(config: IndexedDBConfig) {
     this.config = config
+  }
+
+  /**
+   * 获取数据库升级前的旧版本号
+   */
+  public getOldVersion(): number {
+    return this.oldVersion || 0
   }
 
   /**
@@ -134,6 +143,11 @@ export class IndexedDBService {
         this.isInitialized = true
         this.initPromise = null
         
+        // 如果没有触发 upgradeneeded，说明版本没变，旧版本号就是当前版本
+        if (this.oldVersion === null) {
+          this.oldVersion = this.db.version
+        }
+
         // 监听版本变更（比如其它页面升级了数据库）
         this.db.onversionchange = () => {
           console.warn(`[IndexedDB] 数据库 ${this.config.dbName} 版本正在变更，关闭连接`)
@@ -154,6 +168,7 @@ export class IndexedDBService {
 
       request.onupgradeneeded = (event) => {
         console.log(`[IndexedDB] 数据库 ${this.config.dbName} 需要升级/初始化`)
+        this.oldVersion = event.oldVersion // 👈 捕捉旧版本号！
         const db = (event.target as IDBOpenDBRequest).result
         const transaction = (event.target as IDBOpenDBRequest).transaction
         this.createStores(db, transaction)

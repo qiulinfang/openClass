@@ -1,23 +1,23 @@
 import localforage from 'localforage'
-import { getUserId } from '../http/auth-service'
-import { chatStorage } from './chat-storage'
-import { IndexedDBService } from './indexeddb-service'
-import { STORE_NAMES, IDB_CONFIGS } from './db-config'
+import { getUserId } from '@/services/http/auth-service'
+import { chatStorage } from '@/services/storage/chat-storage'
+import { IndexedDBService } from '@/services/storage/indexeddb-service'
+import { STORE_NAMES, IDB_CONFIGS } from '@/services/storage/db-config'
 
 const MIGRATION_KEY = 'storage_migration_v2_done'
 
 /**
- * 数据迁移服务
+ * 数据迁移服务 (V2)
  * 负责将旧版 localforage 存储的数据搬迁到新版 IndexedDBService 架构中
  */
-export class MigrationService {
-  private static instance: MigrationService
+export class V2StorageMigration {
+  private static instance: V2StorageMigration
 
-  public static getInstance(): MigrationService {
-    if (!MigrationService.instance) {
-      MigrationService.instance = new MigrationService()
+  public static getInstance(): V2StorageMigration {
+    if (!V2StorageMigration.instance) {
+      V2StorageMigration.instance = new V2StorageMigration()
     }
-    return MigrationService.instance
+    return V2StorageMigration.instance
   }
 
   /**
@@ -40,15 +40,6 @@ export class MigrationService {
 
     const startTime = Date.now()
     try {
-      // 检查新版聊天数据库中是否已有数据，作为兜底判断
-      const chatDB = IndexedDBService.getInstance(IDB_CONFIGS.CHAT_STORAGE())
-      const existingSessions = await chatDB.getAll(STORE_NAMES.AI_GENERAL_SESSIONS)
-      if (existingSessions.length > 0) {
-        console.log('[Migration] 检测到新版聊天数据库中已有通用会话，可能已经迁移过，记录状态并跳过')
-        localStorage.setItem(`${MIGRATION_KEY}_${userId}`, 'true')
-        return
-      }
-
       // 执行聊天数据迁移
       await this.migrateAllChatData()
 
@@ -190,13 +181,11 @@ export class MigrationService {
           await chatStorage.saveChatHistory(newId, fallbackData)
           console.log(`[Migration]   ∟ ✅ 成功迁移历史详情 (兜底): [${fallbackKey}] -> ${newId} (${fallbackData.messages?.length || 0} 条消息)`)
         } else {
-          console.log(`[Migration]   ∟ ℹ️ 未找到历史数据。尝试过的 Key: ${oldKey}, ${fallbackKey}`)
+          console.log(`[Migration]   ∟ ℹ️ 未找到历史详情: ${oldId}`)
         }
       }
     } catch (e) {
-      console.warn(`[Migration]   ∟ ❌ 历史记录搬运异常: ${oldId}`, e)
+      console.error(`[Migration]   ∟ ❌ 迁移历史详情失败: ${newId}`, e)
     }
   }
 }
-
-export const migrationService = MigrationService.getInstance()

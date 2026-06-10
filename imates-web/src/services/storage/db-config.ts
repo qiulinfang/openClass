@@ -37,7 +37,7 @@ export const DB_NAMES = {
  * 数据库版本号管理
  */
 export const DB_VERSIONS = {
-  CHAT_STORAGE: 12, // 聊天数据库版本 (增加 exercise 会话索引)
+  CHAT_STORAGE: 13, // 聊天数据库版本
   TEXTBOOK_STORAGE: 21, 
   QUESTION_LISTS: 6,
   HOMEWORK_SUBMISSION: 6,

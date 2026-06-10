@@ -36,8 +36,6 @@ export class ChatStorageService {
 
     try {
       await this.dbInstance.init()
-      // 执行数据迁移逻辑（从打包格式迁移到原子记录格式）
-      await this.performDataMigration()
       this.isInitialized = true
     } catch (error) {
       console.warn('⚠️ IndexedDB 不可用:', error)
@@ -46,76 +44,11 @@ export class ChatStorageService {
   }
 
   /**
-   * 数据迁移：将旧的“打包格式”会话列表迁移为“原子记录”格式
+   * 获取数据库升级前的旧版本号
+   * 利用 IndexedDB 原生 version，替代自定义 system_config 表
    */
-  private async performDataMigration(): Promise<void> {
-    try {
-      const userId = getUserId()
-      
-      // 1. 迁移 AI 通用会话
-      const generalKey = 'ai_general_sessions'
-      const legacyGeneral = await this.dbInstance.get<{sessions: AiGeneralSession[]}>(
-        STORE_NAMES.AI_GENERAL_SESSIONS, 
-        generalKey
-      )
-      
-      if (legacyGeneral && Array.isArray(legacyGeneral.sessions)) {
-        for (const session of legacyGeneral.sessions) {
-          if (session.sessionId) {
-            await this.dbInstance.put(STORE_NAMES.AI_GENERAL_SESSIONS, {
-              id: session.sessionId,
-              ...session
-            })
-          }
-        }
-        await this.dbInstance.delete(STORE_NAMES.AI_GENERAL_SESSIONS, generalKey)
-      }
-
-      // 2. 迁移 AI 作业会话
-      const homeworkKey = `ai_homework_sessions_${userId}`
-      const legacyHomework = await this.dbInstance.get<{sessions: AiHomeworkSession[]}>(
-        STORE_NAMES.AI_HOMEWORK_SESSIONS,
-        homeworkKey
-      )
-
-      if (legacyHomework && Array.isArray(legacyHomework.sessions)) {
-        for (const session of legacyHomework.sessions) {
-          if (session.sessionId) {
-            await this.dbInstance.put(STORE_NAMES.AI_HOMEWORK_SESSIONS, {
-              id: session.sessionId,
-              ...session
-            })
-          }
-        }
-        await this.dbInstance.delete(STORE_NAMES.AI_HOMEWORK_SESSIONS, homeworkKey)
-      }
-
-      // 3. 迁移 AI 练习会话 (按题目分组的打包记录)
-      const exerciseKeys = await this.dbInstance.getAllKeys(STORE_NAMES.AI_EXERCISE_SESSIONS)
-      const legacyExerciseKeys = exerciseKeys.filter(k => typeof k === 'string' && k.startsWith('sessions_'))
-      
-      if (legacyExerciseKeys.length > 0) {
-        for (const key of legacyExerciseKeys) {
-          const legacyData = await this.dbInstance.get<{sessions: any[]}>(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
-          if (legacyData && Array.isArray(legacyData.sessions)) {
-            for (const session of legacyData.sessions) {
-              const sessionId = session.id || session.sessionId
-              if (sessionId) {
-                await this.dbInstance.put(STORE_NAMES.AI_EXERCISE_SESSIONS, {
-                  id: sessionId,
-                  ...session
-                })
-              }
-            }
-          }
-          await this.dbInstance.delete(STORE_NAMES.AI_EXERCISE_SESSIONS, key)
-        }
-      }
-
-    } catch (error) {
-      console.error('[CHAT_STORAGE] 数据迁移过程中出错:', error)
-      // 迁移失败不应阻塞正常使用
-    }
+  getDatabaseOldVersion(): number {
+    return this.dbInstance.getOldVersion()
   }
 
   /**
