@@ -29,6 +29,7 @@
 
       <div class="dialog-actions">
         <Button
+          v-if="showCancelButton"
           :label="cancelButtonText"
           size="mdCompact"
           variant="ghost"
@@ -62,6 +63,10 @@ const props = defineProps({
   cancelButtonText: {
     type: String,
     default: '取消',
+  },
+  showCancelButton: {
+    type: Boolean,
+    default: true,
   },
   modelValue: {
     type: Boolean,

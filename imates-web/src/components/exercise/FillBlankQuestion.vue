@@ -30,9 +30,6 @@
           @update:model-value="val => handleBlankUpdate(i - 1, val)"
           @focus="activeBlank = i - 1"
         >
-          <template #header-left>
-            <div class="blank-number">{{ i }}</div>
-          </template>
         </MixedInputArea>
       </div>
     </div>
@@ -53,9 +50,10 @@ import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import type { ExerciseItem } from '../../types/exercise'
 
 export interface StructuredAnswer {
-  type: 'text' | 'board'
-  textContent?: string
+  type: 'board' | 'photo'
   boardData?: any
+  photoUrl?: string
+  boardImg?: string
   timestamp?: number
 }
 
@@ -184,18 +182,5 @@ const handleBlankUpdate = (index: number, val: any) => {
   &.is-active {
     // 激活状态由 MixedInputArea 内部处理，这里保留结构
   }
-}
-
-.blank-number {
-  width: 24px;
-  height: 24px;
-  background: #615efe;
-  color: white;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
 }
 </style>

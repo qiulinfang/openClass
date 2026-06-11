@@ -1878,6 +1878,10 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none;
         border: 1px solid #8b5cf6;
       }
+
+      .markdown-content {
+        color: $text-primary !important;
+      }
     }
   }
 

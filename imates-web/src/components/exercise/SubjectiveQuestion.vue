@@ -14,7 +14,7 @@
         <MixedInputArea
           :model-value="modelValue"
           question-type="subjective"
-          :label="showTitle ? '作答区：' : ''"
+          :label="''"
           :disabled="disabled"
           :rows="12"
           placeholder="请输入您的作答内容..."
@@ -37,9 +37,10 @@ import MixedInputArea from './MixedInputArea.vue'
 import type { ExerciseItem } from '../../types/exercise'
 
 interface SubjectiveAnswer {
-  type: 'text' | 'board'
-  textContent?: string
+  type: 'board' | 'photo'
   boardData?: unknown
+  photoUrl?: string
+  boardImg?: string
   timestamp?: number
 }
 

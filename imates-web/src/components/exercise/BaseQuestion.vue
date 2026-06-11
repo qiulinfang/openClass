@@ -75,7 +75,7 @@ const props = withDefaults(defineProps<{
   showAnalysis?: boolean
 }>(), {
   showTitle: false,
-  showId: true,
+  showId: false,
   showTypeTag: false,
   showAnalysis: false
 })
