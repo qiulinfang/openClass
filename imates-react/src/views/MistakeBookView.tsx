@@ -64,10 +64,11 @@ export const MistakeBookView: React.FC = () => {
   }, [currentMistake])
 
   const latestRecord = useMemo(() => currentMistake?.practiceHistory?.[0] || null, [currentMistake])
+  const latestAnswer = useMemo(() => latestRecord?.originalAnswer as any, [latestRecord])
   
-  const currentQuestionChooseList = useMemo(() => latestRecord?.originalAnswer?.chooseList || [], [latestRecord])
-  const currentQuestionJudgment = useMemo(() => latestRecord?.originalAnswer?.judgmentValue || '', [latestRecord])
-  const currentQuestionFillList = useMemo(() => latestRecord?.originalAnswer?.fillList || [], [latestRecord])
+  const currentQuestionChooseList = useMemo(() => latestAnswer?.chooseList || [], [latestAnswer])
+  const currentQuestionJudgment = useMemo(() => latestAnswer?.judgmentValue || '', [latestAnswer])
+  const currentQuestionFillList = useMemo(() => latestAnswer?.fillList || [], [latestAnswer])
 
   useEffect(() => {
     setShowAnalysis(false)
@@ -222,9 +223,9 @@ export const MistakeBookView: React.FC = () => {
                       </div>
                     ) : (
                       <div className="generic-question-content">
-                        {latestRecord?.originalAnswer?.imageData ? (
+                        {latestAnswer?.imageData ? (
                           <div className="mistake-board-wrapper">
-                            <img src={latestRecord.originalAnswer.imageData} alt="作答过程" style={{ width: '100%', height: 'auto' }} />
+                            <img src={latestAnswer.imageData} alt="作答过程" style={{ width: '100%', height: 'auto' }} />
                           </div>
                         ) : (
                           <div 

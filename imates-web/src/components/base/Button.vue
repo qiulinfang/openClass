@@ -8,6 +8,7 @@ const props = defineProps<{
   size?: 'xs' | 'sm' | 'mdCompact' | 'md' | 'lg'
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success' | 'expired'
   icon?: string
+  iconPosition?: 'left' | 'right'
   type?: 'button' | 'submit' | 'reset'
 }>()
 
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 
 const loading = computed(() => props.loading ?? false)
 const disabled = computed(() => props.disabled ?? false)
+const iconPos = computed(() => props.iconPosition ?? 'left')
 
 const sizeClass = computed(() => {
   const size = props.size || 'md'
@@ -35,39 +37,43 @@ const handleClick = (evt: MouseEvent) => {
 </script>
 
 <template>
-  <!-- 如果有图标但没传 label，只显示图标 -->
-  <div
-    v-if="icon && !label"
-    class="icon-button"
-    :class="[sizeClass, { 'icon-button--disabled': disabled }]"
-    @click="handleClick"
-  >
-    <img :src="icon" alt="" class="icon-image" />
-  </div>
-  <!-- 如果有图标且传了 label，显示图标+文字按钮 -->
+  <!-- 只显示图标按钮 (有 icon 属性或 icon 插槽，且没有文字 label 或默认插槽) -->
   <button
-    v-else-if="icon && label"
-    class="common-action-btn icon-text-btn"
+    v-if="(icon || $slots.icon) && !label && !$slots.default"
+    class="icon-button"
     :type="type || 'button'"
     :disabled="disabled || loading"
-    :class="[sizeClass, variantClass, { 'icon-text-btn--disabled': disabled }]"
+    :class="[sizeClass, variantClass, { 'icon-button--disabled': disabled }]"
     @click="handleClick"
   >
-    <img :src="icon" :alt="label" class="btn-icon" />
-    <span v-if="loading" class="spinner"></span>
-    <span v-else class="label"><slot>{{ label }}</slot></span>
+    <slot name="icon">
+      <img :src="icon" alt="" class="icon-image" />
+    </slot>
   </button>
-  <!-- 否则显示普通按钮 -->
+  
+  <!-- 普通按钮（支持带图标或不带图标，支持通过 slot 传递内容） -->
   <button
     v-else
     class="common-action-btn"
     :type="type || 'button'"
     :disabled="disabled || loading"
-    :class="[sizeClass, variantClass]"
+    :class="[
+      sizeClass,
+      variantClass,
+      { 'icon-text-btn': icon || $slots.icon },
+      { 'flex-row-reverse': iconPos === 'right' }
+    ]"
     @click="handleClick"
   >
     <span v-if="loading" class="spinner"></span>
-    <span class="label"><slot>{{ label }}</slot></span>
+    <template v-else-if="icon || $slots.icon">
+      <slot name="icon">
+        <img :src="icon" :alt="label" class="btn-icon" />
+      </slot>
+    </template>
+    <span class="label">
+      <slot>{{ label }}</slot>
+    </span>
   </button>
 </template>
 
@@ -87,10 +93,23 @@ const handleClick = (evt: MouseEvent) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   transition: background-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
   box-shadow: none;
   white-space: nowrap;
+}
+
+/* 统一控制插槽中的 SVG，使其大小和颜色跟随按钮文字 */
+.common-action-btn :deep(svg),
+.icon-button :deep(svg) {
+  width: 1.25em;
+  height: 1.25em;
+  fill: currentColor;
+  display: block;
+}
+
+.flex-row-reverse {
+  flex-direction: row-reverse;
 }
 
 .common-action-btn--xs {
@@ -99,6 +118,7 @@ const handleClick = (evt: MouseEvent) => {
   font-size: 12px;
   border-radius: 6px;
   padding: 4px 12px;
+  gap: 4px;
 }
 
 .common-action-btn--xs .label {
@@ -115,6 +135,7 @@ const handleClick = (evt: MouseEvent) => {
   min-height: 32px;
   font-size: 14px;
   border-radius: 8px;
+  gap: 6px;
 }
 
 .common-action-btn--sm .label {
@@ -126,6 +147,7 @@ const handleClick = (evt: MouseEvent) => {
   min-width: 80px;
   min-height: 36px;
   font-size: 15px;
+  gap: 6px;
 }
 
 .common-action-btn--mdCompact .label {
@@ -136,6 +158,7 @@ const handleClick = (evt: MouseEvent) => {
   min-width: 100px;
   min-height: 44px;
   font-size: 18px;
+  gap: 8px;
 }
 
 .common-action-btn--lg .label {
@@ -235,7 +258,6 @@ const handleClick = (evt: MouseEvent) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
 }
 
 .icon-text-btn .btn-icon {
@@ -254,24 +276,30 @@ const handleClick = (evt: MouseEvent) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
   border-radius: 8px;
+  color: inherit;
 }
 
-.icon-button:hover:not(.icon-button--disabled) {
-  opacity: 0.8;
+.icon-button:hover:not(.icon-button--disabled):not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.05);
   transform: scale(1.05);
 }
 
-.icon-button--disabled {
+.icon-button--disabled,
+.icon-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.icon-button--disabled:hover {
+.icon-button--disabled:hover,
+.icon-button:disabled:hover {
   opacity: 0.5;
   transform: none;
+  background-color: transparent;
 }
 
 .icon-image {
@@ -285,21 +313,28 @@ const handleClick = (evt: MouseEvent) => {
   border-radius: 4px;
   height: 28px;
   width: 28px;
+  padding: 4px;
 }
 
 .icon-button.common-action-btn--sm {
   border-radius: 6px;
   height: 32px;
+  width: 32px;
+  padding: 6px;
 }
 
 .icon-button.common-action-btn--md {
   border-radius: 8px;
   height: 44px;
+  width: 44px;
+  padding: 10px;
 }
 
 .icon-button.common-action-btn--lg {
   border-radius: 10px;
   height: 56px;
+  width: 56px;
+  padding: 14px;
 }
 
 /* 图标按钮样式 */

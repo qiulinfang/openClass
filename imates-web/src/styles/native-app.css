@@ -306,3 +306,11 @@ math-field {
   -ms-user-select: text !important;
   user-select: text !important;
 }
+
+/* ==================== Markdown 图片溢出限制 ==================== */
+.markdown-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
+}
+

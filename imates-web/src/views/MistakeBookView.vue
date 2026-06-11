@@ -70,12 +70,12 @@
                     </template>
                   </JudgmentQuestion>
                 </div>
-                <div v-else-if="latestRecord?.originalAnswer?.imageData" class="mistake-board-wrapper">
+                <div v-else-if="latestAnswer?.imageData" class="mistake-board-wrapper">
                   <DrawingBoardNew
                     :show-toolbar="false"
                     :disabled="true"
                     :show-zoom-controls="false"
-                    :background-image="latestRecord.originalAnswer.imageData"
+                    :background-image="latestAnswer.imageData"
                     background-position="topLeft"
                     :initial-zoom="100"
                     :show-grid="false"
@@ -101,12 +101,12 @@
                     </template>
                   </FillBlankQuestion>
                 </div>
-                <div v-else-if="latestRecord?.originalAnswer?.imageData" class="mistake-board-wrapper">
+                <div v-else-if="latestAnswer?.imageData" class="mistake-board-wrapper">
                   <DrawingBoardNew
                     :show-toolbar="false"
                     :disabled="true"
                     :show-zoom-controls="false"
-                    :background-image="latestRecord.originalAnswer.imageData"
+                    :background-image="latestAnswer.imageData"
                     background-position="topLeft"
                     :show-grid="false"
                     :background-contain="true"
@@ -117,12 +117,12 @@
 
               <!-- C. 主观题 (Essay, Subjective 等) -> 直接渲染图片 -->
               <template v-else>
-                <div v-if="latestRecord?.originalAnswer?.imageData" class="mistake-board-wrapper">
+                <div v-if="latestAnswer?.imageData" class="mistake-board-wrapper">
                   <DrawingBoardNew
                     :show-toolbar="false"
                     :disabled="true"
                     :show-zoom-controls="false"
-                    :background-image="latestRecord.originalAnswer.imageData"
+                    :background-image="latestAnswer.imageData"
                     background-position="topLeft"
                     :show-grid="false"
                     :background-contain="true"
@@ -172,7 +172,7 @@
               <div class="explanation-content markdown-content">
                 <div v-if="currentMistake?.questionData?.answer" class="standard-answer-section">
                   <div class="section-title">标准答案</div>
-                  <div class="answer-text" v-html="renderMessageContent((currentMistake.questionData.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                  <div class="answer-text" v-html="renderMessageContent(String(currentMistake.questionData.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                 </div>
               </div>
             </div>
@@ -288,11 +288,12 @@ const currentQuestionData = computed(() => {
 
 /** 最新的一条作答记录 */
 const latestRecord = computed(() => currentMistake.value?.practiceHistory?.[0] || null)
+const latestAnswer = computed(() => latestRecord.value?.originalAnswer as any)
 
 /** 这里的题目渲染是只读展示，所以 v-model 绑定到历史记录或空 */
-const currentQuestionChooseList = computed(() => latestRecord.value?.originalAnswer?.chooseList || [])
-const currentQuestionJudgment = computed(() => latestRecord.value?.originalAnswer?.judgmentValue || '')
-const currentQuestionFillList = computed(() => latestRecord.value?.originalAnswer?.fillList || [])
+const currentQuestionChooseList = computed(() => latestAnswer.value?.chooseList || [])
+const currentQuestionJudgment = computed(() => latestAnswer.value?.judgmentValue || '')
+const currentQuestionFillList = computed(() => latestAnswer.value?.fillList || [])
 
 // 监听题目切换，重置解析显示状态
 watch(() => currentMistake.value, (newVal) => {

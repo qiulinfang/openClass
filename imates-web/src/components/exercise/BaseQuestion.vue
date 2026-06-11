@@ -1,7 +1,18 @@
 <template>
   <div class="base-question">
+    <!-- 开发环境调试按钮 -->
+    <button 
+      v-if="isDev"
+      class="dev-debug-btn"
+      title="打印题目调试信息"
+      type="button"
+      @click="logQuestionInfo"
+    >
+      Debug
+    </button>
+
     <div class="question-header" v-if="showTitle">
-      <span class="question-type-tag" v-if="typeLabel">{{ typeLabel }}</span>
+      <span class="question-type-tag" v-if="showTypeTag && typeLabel">{{ typeLabel }}</span>
       <span class="question-bm-no" v-if="question.bmNo && showId">{{ question.bmNo }}</span>
       <slot name="extra"></slot>
     </div>
@@ -45,14 +56,27 @@ defineOptions({
   name: 'BaseQuestion'
 })
 
+const isDev = import.meta.env.DEV
+
+const logQuestionInfo = () => {
+  console.log('=== [DEBUG] Question Info ===')
+  console.log('ID:', props.question.id)
+  console.log('bmNo:', props.question.bmNo)
+  console.log('Type:', props.question.type)
+  console.log('Raw Question Object:', props.question)
+  console.log('=============================')
+}
+
 const props = withDefaults(defineProps<{
   question: ExerciseItem
   showTitle?: boolean
   showId?: boolean
+  showTypeTag?: boolean
   showAnalysis?: boolean
 }>(), {
   showTitle: false,
   showId: true,
+  showTypeTag: false,
   showAnalysis: false
 })
 
@@ -72,7 +96,7 @@ const typeLabel = computed(() => {
 })
 
 const stemRaw = computed(() => {
-  return props.question.structuredContent?.stem || ''
+  return props.question.structuredContent?.stem || props.question.question || props.question.title || ''
 })
 
 const formattedStem = computed(() => renderMessageContent(stemRaw.value))
@@ -108,10 +132,33 @@ watch([formattedStem, formattedAnswer, formattedExplanation], () => {
 
 <style scoped>
 .base-question {
+  position: relative;
   padding: 16px;
   background: white;
   border-radius: 8px;
   color: #333;
+}
+
+.dev-debug-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ef4444;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.dev-debug-btn:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
 }
 
 .question-header {
@@ -168,5 +215,14 @@ watch([formattedStem, formattedAnswer, formattedExplanation], () => {
 .section-content.answer {
   color: #22c55e;
   font-weight: 600;
+}
+
+/* 强制所有富文本和题干中的图片不能超过容器宽度，并防变形 */
+:deep(img) {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 8px 0;
+  border-radius: 6px;
 }
 </style>

@@ -112,6 +112,17 @@ const handleSelect = (val: string) => {
     font-size: 15px;
     font-weight: 500;
     color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    :deep(p) {
+      margin: 0;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 
   &:hover:not(.active):not(.disabled) {

@@ -230,9 +230,40 @@ export interface HomeworkSubmitSaveReq {
 export interface HomeworkQuestionAnswer {
   /** 问题ID */
   questionId: string
-  /** 回答图片列表 */
-  answerList: string[]
+  /** 题目类型，例如：single_choice, multiple_choice, true_false, fill_in_blank, composite, subjective */
+  type?: string
+  /** 
+   * 根据题型包含不同格式的答案
+   * - 选择题 (single_choice, multiple_choice): string[]
+   * - 判断题 (true_false): string
+   * - 填空题 (fill_in_blank): AnswerDetail[]
+   * - 主观题 (subjective): AnswerDetail
+   * - 复合题 (composite): HomeworkQuestionAnswer[]
+   */
+  answers?: any
+  /** 回答图片列表 (可选) */
+  images?: string[]
+
+  // ===== 兼容老数据结构字段 =====
+  answerList?: string[]
   chooseList?: string[]
+  judgmentValue?: string
+  fillList?: any[]
+  compositeAnswers?: Record<string, any>
+  subjectiveData?: any
+}
+
+/** 填空题/主观题的具体作答载荷 */
+export interface AnswerDetail {
+  /** 数据类型：'text' (文本输入) | 'board' (手写画板/草稿笔迹) | 'photo' (照片上传) */
+  type: 'text' | 'board' | 'photo'
+  /** 
+   * 具体答案数据：
+   * - 'text': 文本字符串
+   * - 'board': 笔迹数据对象 (包含 objects 等)
+   * - 'photo': 图片的 base64 或 OSS 地址字符串
+   */
+  content: any
 }
 
 /** 未完成作业列表项 */

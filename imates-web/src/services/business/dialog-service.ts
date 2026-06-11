@@ -1,8 +1,9 @@
 import { h, render } from 'vue'
-import Dialog from '../components/base/Dialog.vue'
+import Dialog from '@/components/base/Dialog.vue'
 
 export interface ConfirmDialogOptions {
   title?: string
+  message?: string
   confirmButtonText?: string
   cancelButtonText?: string
   // 透传给 Dialog 组件的附加配置（如选项、勾选等）
@@ -29,6 +30,8 @@ export function ConfirmDialog(options: ConfirmDialogOptions = {}): ConfirmDialog
       render(null, container)
       container.remove()
     },
+  }, {
+    default: () => options.message || ''
   })
 
   render(vnode, container)

@@ -97,7 +97,8 @@ const convertSubQuestionToExercise = (
     type,
     structuredContent,
     question: sub.stem || '',
-    title: sub.stem || ''
+    title: sub.stem || '',
+    material: sub.material || ''
   }
 
   // 递归处理嵌套子题
@@ -107,7 +108,52 @@ const convertSubQuestionToExercise = (
     )
   }
 
+  initExerciseAnswerFields(exercise)
   return exercise
+}
+
+/**
+ * 初始化作业题目的作答结构化数据字段
+ */
+export const initExerciseAnswerFields = (exercise: ExerciseItem): void => {
+  if (!exercise.structuredContent) {
+    const anyEx = exercise as any
+    exercise.structuredContent = {
+      stem: anyEx.stem || exercise.title || exercise.question || '',
+      type: exercise.type || 'subjective'
+    }
+  }
+  
+  const structured = exercise.structuredContent
+  
+  if (structured.userAnswer === undefined) {
+    if (exercise.type === 'single_choice' || exercise.type === 'multiple_choice') {
+      structured.userAnswer = []
+    } else if (exercise.type === 'true_false') {
+      structured.userAnswer = ''
+    } else if (exercise.type === 'fill_in_blank') {
+      structured.userAnswer = []
+    } else if (exercise.type === 'composite') {
+      structured.userAnswer = {}
+    } else if (exercise.type === 'subjective') {
+      structured.userAnswer = { type: 'text' }
+    } else {
+      structured.userAnswer = null
+    }
+  }
+  
+  if (structured.boardData === undefined) {
+    structured.boardData = { objects: [], history: [[]], historyIndex: 0 }
+  }
+  
+  if (structured.imageData === undefined) {
+    structured.imageData = null
+  }
+  
+  // 递归处理子题
+  if (exercise.subQuestions && Array.isArray(exercise.subQuestions)) {
+    exercise.subQuestions.forEach(sub => initExerciseAnswerFields(sub))
+  }
 }
 
 /**
@@ -185,5 +231,6 @@ export const mapHomeworkQuestionToExercise = (
     }
   }
 
+  initExerciseAnswerFields(exercise)
   return exercise
 }

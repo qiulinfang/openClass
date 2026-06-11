@@ -97,7 +97,7 @@
                   <!-- 情况 A: 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
                   <div
                     class="question-render-container"
-                    v-if="currentAnswerQuestion && ['single_choice', 'multiple_choice', 'true_false', 'composite', 'fill_in_blank', 'subjective'].includes(currentAnswerQuestion.type || '')"
+                    v-if="currentAnswerQuestion && currentAnswerQuestion.structuredContent && ['single_choice', 'multiple_choice', 'true_false', 'composite', 'fill_in_blank', 'subjective'].includes(currentAnswerQuestion.type || '')"
                   >
                     <div
                       class="question-render-area"
@@ -106,28 +106,28 @@
                       <ChoiceQuestion
                         v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
                         :question="currentAnswerQuestion"
-                        v-model="currentQuestionChooseList"
+                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
                         :disabled="isHomeworkSubmitted"
                         show-title
                       />
                       <JudgmentQuestion
                         v-else-if="currentAnswerQuestion.type === 'true_false'"
                         :question="currentAnswerQuestion"
-                        v-model="currentQuestionJudgment"
+                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
                         :disabled="isHomeworkSubmitted"
                         show-title
                       />
                       <CompositeQuestion
                         v-else-if="currentAnswerQuestion.type === 'composite'"
                         :question="currentAnswerQuestion"
-                        v-model="currentQuestionCompositeAnswers"
+                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
                         :disabled="isHomeworkSubmitted"
                         show-title
                       />
                       <FillBlankQuestion
                         v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
                         :question="currentAnswerQuestion"
-                        v-model="currentQuestionFillList"
+                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
                         :disabled="isHomeworkSubmitted"
                         show-title
                       />
@@ -135,7 +135,7 @@
                         v-else-if="currentAnswerQuestion.type === 'subjective'"
                         ref="subjectiveQuestionRef"
                         :question="currentAnswerQuestion"
-                        v-model="currentQuestionSubjectiveData"
+                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
                         :disabled="isHomeworkSubmitted"
                         show-title
                       />
@@ -190,10 +190,6 @@
                       <div class="result-item answer-item">
                         <div class="item-label">参考答案：</div>
                         <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
-                      </div>
-                      <div class="result-item analysis-item">
-                        <div class="item-label">解析：</div>
-                        <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.explanation || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
                       </div>
                     <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
                       <span class="item-label">是否添加到错题本：</span>
@@ -251,17 +247,17 @@
         <ChoiceQuestion
           v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
           :question="currentAnswerQuestion"
-          v-model="currentQuestionChooseList"
+          v-model="currentAnswerQuestion.structuredContent.userAnswer"
         />
         <FillBlankQuestion
           v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
           :question="currentAnswerQuestion"
-          v-model="currentQuestionFillList"
+          v-model="currentAnswerQuestion.structuredContent.userAnswer"
         />
         <JudgmentQuestion
           v-else-if="currentAnswerQuestion.type === 'true_false'"
           :question="currentAnswerQuestion"
-          v-model="currentQuestionJudgment"
+          v-model="currentAnswerQuestion.structuredContent.userAnswer"
         />
         <BaseQuestion
           v-else
@@ -327,13 +323,14 @@ import QuestionList from '@/components/question/QuestionList.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import Button from '@/components/base/Button.vue'
 import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
-import type { ExerciseItem } from '@/types'
+import type { ExerciseItem, HomeworkQuestionAnswer } from '@/types'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { MathJaxUtils } from '@/utils/math/mathjax'
 import { apiService } from '@/services/http/api-service'
 import { showMessage } from '@/utils'
 import * as htmlToImage from 'html-to-image'
+import { initExerciseAnswerFields } from '@/utils/business/exercise-utils'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
 import { normalizeSubject } from '@/constants/subjects'
@@ -402,7 +399,6 @@ const {
   currentQuestionIndex,
   homeworkName,
   resubmitType,
-  answerDataCache,
   currentHomeworkInfo,
 } = storeToRefs(homeworkStore)
 
@@ -463,86 +459,6 @@ const setDrawingBoardRef = (el: any, pageIndex: number) => {
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 // 用于绑定题目列表搜索关键字
 const questionSearchQuery = ref('')
-// 当前题目的选中选项（从缓存中获取或默认空字符串）
-const currentQuestionChooseList = computed({
-  get: () => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return []
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-    return cache?.chooseList || []
-  },
-  set: (value: string[]) => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-    cache.chooseList = value
-    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
-  },
-})
-
-const currentQuestionJudgment = computed({
-  get: () => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return ''
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-    return cache?.judgmentValue || ''
-  },
-  set: (value: string) => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-    cache.judgmentValue = value
-    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
-  },
-})
-
-const currentQuestionFillList = computed({
-  get: () => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return []
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-    return cache?.fillList || []
-  },
-  set: (value: StructuredAnswer[]) => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-    cache.fillList = value
-    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
-  },
-})
-
-const currentQuestionCompositeAnswers = computed({
-  get: () => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return {}
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-    return cache?.compositeAnswers || {}
-  },
-  set: (value: Record<string, unknown>) => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-    cache.compositeAnswers = value
-    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
-  },
-})
-
-const currentQuestionSubjectiveData = computed({
-  get: () => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return { type: 'text' } as SubjectiveAnswer
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-    return cache?.subjectiveData || ({ type: 'text' } as SubjectiveAnswer)
-  },
-  set: (value: SubjectiveAnswer) => {
-    const questionKey = getQuestionKey(currentAnswerQuestion.value)
-    if (!questionKey) return
-    const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-    cache.subjectiveData = value
-    ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
-  },
-})
 
 // 切换模式并发送题目给 AI
 const handleToggle = async (question?: ExerciseItem) => {
@@ -590,8 +506,6 @@ const handleToggle = async (question?: ExerciseItem) => {
   if (question && (question.bmNo || question.id) && homeworkChatPanelRef.value) {
     console.log('[HOMEWORK_ANSWER_VIEW] 准备调用 HomeworkChatPanel.sendQuestion:', question.bmNo || question.id)
     nextTick(() => {
-      // 假设 HomeworkChatPanel 有 sendQuestion 方法
-      // 如果方法名不同，请根据组件内部定义修改
       const panel = homeworkChatPanelRef.value as { sendQuestion?: (q: ExerciseItem) => void }
       panel.sendQuestion?.(question)
     })
@@ -639,18 +553,19 @@ const lastUploadPageIndices = ref<number[]>([])
 // 在 HomeworkAnswerView.vue 中返回作业页面的标题
 const title = computed(() => {
   const homeworkId = route.params.homeworkId as string | undefined
-  return homeworkId ? `作业作答 - ${homeworkId}` : '作业作答'
+  return homeworkId ? `作业作伤 - ${homeworkId}` : '作业作答'
 })
 
 // 展示用标题：优先显示作业名称，缺省时回退到原有 title
 const displayTitle = computed(() => {
-  return (homeworkName.value && homeworkName.value.trim()) || title.value
+  // 修正标题错字"作业作伤" -> "作业作答"
+  const defaultTitle = route.params.homeworkId ? `作业作答 - ${route.params.homeworkId}` : '作业作答'
+  return (homeworkName.value && homeworkName.value.trim()) || defaultTitle
 })
 
 // 获取题目唯一标识
 const getQuestionKey = (question: ExerciseItem | null): string => {
   if (!question) return ''
-  // 使用可选链和类型收窄避免 any 强转
   const qId = question.bmNo || (question as { id?: string | number }).id || ''
   return qId.toString()
 }
@@ -659,31 +574,38 @@ const getQuestionKey = (question: ExerciseItem | null): string => {
 type QuestionStatus = 'unanswered' | 'answered'
 
 // 判断白板数据是否包含绘制对象
-const hasBoardAnswerData = (boardData: AnswerCacheItem['boardData']): boolean => {
+const hasBoardAnswerData = (boardData: any): boolean => {
   const objects = boardData?.objects
   return Array.isArray(objects) && objects.length > 0
 }
 
 // 在 HomeworkAnswerView.vue 中判断题目是否已作答
 const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
-  const questionKey = getQuestionKey(question)
-  if (!questionKey) return 'unanswered'
+  const structured = question.structuredContent
+  if (!structured) return 'unanswered'
 
-  const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-  if (!cache) return 'unanswered'
+  const hasBoardData = hasBoardAnswerData(structured.boardData)
+  
+  let hasUserAnswer = false
+  const type = question.type || ''
+  const val = structured.userAnswer
 
-  const hasBoardData = hasBoardAnswerData(cache.boardData)
-  const hasSelectedOption = Array.isArray(cache.chooseList) && cache.chooseList.length > 0
-  const hasFillData = Array.isArray(cache.fillList) && cache.fillList.some((v: any) => {
-    if (typeof v === 'string') return v && v.trim() !== ''
-    return v && (v.textContent || v.boardData)
-  })
-  const hasJudgmentData = !!cache.judgmentValue
+  if (type === 'single_choice' || type === 'multiple_choice') {
+    hasUserAnswer = Array.isArray(val) && val.length > 0
+  } else if (type === 'true_false') {
+    hasUserAnswer = val !== undefined && val !== null && val !== ''
+  } else if (type === 'fill_in_blank') {
+    hasUserAnswer = Array.isArray(val) && val.some((v: any) => {
+      if (typeof v === 'string') return v && v.trim() !== ''
+      return v && (v.textContent || v.boardData)
+    })
+  } else if (type === 'composite') {
+    hasUserAnswer = val && typeof val === 'object' && Object.keys(val).length > 0
+  } else if (type === 'subjective') {
+    hasUserAnswer = val && (val.textContent?.trim() || hasBoardAnswerData(val.boardData))
+  }
 
-  // 已作答：任一作答数据存在即可
-  if (hasBoardData || hasSelectedOption || hasFillData || hasJudgmentData) return 'answered'
-
-  // 未作答
+  if (hasBoardData || hasUserAnswer) return 'answered'
   return 'unanswered'
 }
 
@@ -711,110 +633,118 @@ const isObjective = (question: ExerciseItem): boolean => {
   return ['single_choice', 'multiple_choice', 'true_false'].includes(question.type || '')
 }
 
-// 将当前题目的画板数据与导出图片缓存到全局缓存中
+// 将当前题目的画板数据与导出图片保存到题目中
 const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnswerQuestion.value, asyncImage = false) => {
   try {
     if (!questionToSave) return
 
-  const questionKey = getQuestionKey(questionToSave)
-  if (!questionKey) return
+    const questionKey = getQuestionKey(questionToSave)
+    if (!questionKey) return
 
-  console.log(`[HOMEWORK_IMAGE_PROCESS] 开始保存题目数据: ${questionKey}, 是否异步: ${asyncImage}`)
+    console.log(`[HOMEWORK_IMAGE_PROCESS] 开始保存题目数据: ${questionKey}, 是否异步: ${asyncImage}`)
 
-  // 1. 保存笔迹数据 (JSON)
-  const board = drawingBoardRefs.value[0]
-  if (board && questionToSave === currentAnswerQuestion.value) {
-    const boardData = board.saveData()
-    if (boardData) {
-      const existingCache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-      ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = {
-        ...existingCache,
-        boardData: boardData,
-        timestamp: Date.now(),
+    if (!questionToSave.structuredContent) {
+      questionToSave.structuredContent = {
+        stem: questionToSave.title || '',
+        type: questionToSave.type || 'subjective'
       }
-      
-      // 2. 保存画板图片数据 (笔迹 + 背景)
-      const captureBoardImage = () => {
+    }
+
+    const board = drawingBoardRefs.value[0]
+    let hasStrokes = false
+    let boardData: any = null
+
+    if (board && questionToSave === currentAnswerQuestion.value) {
+      boardData = board.saveData()
+      if (boardData) {
+        questionToSave.structuredContent.boardData = boardData
+        const objects = boardData.objects
+        hasStrokes = Array.isArray(objects) && objects.length > 0
+      }
+    }
+
+    const isObjectiveType = ['single_choice', 'multiple_choice', 'true_false'].includes(questionToSave.type || '')
+
+    const captureBoardImage = () => {
+      if (board && questionToSave === currentAnswerQuestion.value) {
         const imageData = board.exportToJpg?.(0.9)
         if (imageData) {
-          const currentCache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-          ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = {
-            ...currentCache,
-            imageData: imageData
-          }
+          questionToSave.structuredContent!.imageData = imageData
           console.log(`[HOMEWORK_IMAGE_PROCESS] 画板截图完成: ${questionKey}`)
+        }
+      }
+    }
+
+    // 1. 客观题的处理：没有笔迹则清除图片，有笔迹则做画板截图
+    if (isObjectiveType) {
+      if (!hasStrokes) {
+        questionToSave.structuredContent.imageData = null
+        console.log(`[HOMEWORK_IMAGE_PROCESS] 客观题无笔迹，清除图片缓存并跳过截图: ${questionKey}`)
+        return
+      } else {
+        if (asyncImage) {
+          setTimeout(captureBoardImage, 0)
+        } else {
+          captureBoardImage()
+        }
+        return
+      }
+    }
+
+    // 2. 非客观题且有笔迹：做画板截图
+    if (hasStrokes) {
+      if (asyncImage) {
+        setTimeout(captureBoardImage, 0)
+      } else {
+        captureBoardImage()
+      }
+      return
+    }
+
+    // 3. 非客观题（如填空题）且没有笔迹：使用 questionRenderRef 结构化截图 (仅限 fill_in_blank)
+    const isStructured = ['fill_in_blank'].includes(questionToSave.type || '')
+    if (isStructured && questionRenderRef.value) {
+      const renderEl = questionRenderRef.value
+      
+      const captureStructuredImage = async () => {
+        try {
+          console.log(`[HOMEWORK_IMAGE_PROCESS] captureStructuredImage 开始: ${questionKey}`)
+          await MathJaxUtils.renderMathAndWait(renderEl)
+          
+          const imgs = Array.from(renderEl.querySelectorAll('img'))
+          await Promise.all(imgs.map(img => {
+            if (img.complete) return Promise.resolve()
+            return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
+          }))
+
+          const dataUrl = await htmlToImage.toPng(renderEl, {
+            backgroundColor: '#ffffff',
+            pixelRatio: 1.5,
+            cacheBust: true,
+            style: {
+              transform: 'scale(1)',
+              transformOrigin: 'top left'
+            }
+          })
+
+          questionToSave.structuredContent!.imageData = dataUrl
+          console.log(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图成功: ${questionKey}`)
+        } catch (err) {
+          console.error(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图失败: ${questionKey}`, err)
         }
       }
 
       if (asyncImage) {
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 准备异步执行 captureBoardImage: ${questionKey}`)
-        setTimeout(captureBoardImage, 0)
+        setTimeout(captureStructuredImage, 100)
       } else {
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 准备同步执行 captureBoardImage: ${questionKey}`)
-        captureBoardImage()
-      }
-    }
-  } 
-  
-  // 3. 结构化题目（选择、填空、判断）的截图处理 - 统一使用隐藏渲染容器 questionRenderRef 确保样式完整
-  const isStructured = ['single_choice', 'multiple_choice', 'true_false', 'fill_in_blank'].includes(questionToSave.type || '')
-  if (isStructured && questionRenderRef.value) {
-    const renderEl = questionRenderRef.value
-    
-    const captureStructuredImage = async () => {
-      try {
-        console.log(`[HOMEWORK_IMAGE_PROCESS] captureStructuredImage 开始: ${questionKey}`)
-        // 确保 MathJax 渲染完成
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 等待 MathJax 渲染...`)
-        await MathJaxUtils.renderMathAndWait(renderEl)
-        console.log(`[HOMEWORK_IMAGE_PROCESS] MathJax 渲染完成`)
-        
-        // 等待所有图片加载
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 等待图片加载...`)
-        const imgs = Array.from(renderEl.querySelectorAll('img'))
-        await Promise.all(imgs.map(img => {
-          if (img.complete) return Promise.resolve()
-          return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
-        }))
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 所有图片加载完成`)
-
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 开始 htmlToImage.toPng...`)
-        const dataUrl = await htmlToImage.toPng(renderEl, {
-          backgroundColor: '#ffffff',
-          pixelRatio: 1.5, // 提高采样率保证清晰度
-          cacheBust: true,
-          style: {
-            // 强制应用一些关键样式，防止丢失
-            transform: 'scale(1)',
-            transformOrigin: 'top left'
-          }
-        })
-        console.log(`[HOMEWORK_IMAGE_PROCESS] htmlToImage.toPng 完成`)
-
-        const existingCache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] || {}
-        ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = {
-          ...existingCache,
-          imageData: dataUrl,
-          timestamp: Date.now(),
-        }
-        console.log(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图成功: ${questionKey}`)
-      } catch (err) {
-        console.error(`[HOMEWORK_IMAGE_PROCESS] 结构化题目截图失败: ${questionKey}`, err)
+        await captureStructuredImage()
       }
     }
 
-    if (asyncImage) {
-      console.log(`[HOMEWORK_IMAGE_PROCESS] 准备异步执行 captureStructuredImage: ${questionKey}`)
-      setTimeout(captureStructuredImage, 100)
-    } else {
-      console.log(`[HOMEWORK_IMAGE_PROCESS] 准备同步执行 captureStructuredImage: ${questionKey}`)
-      await captureStructuredImage()
-    }
+    console.log(`[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 执行结束: ${questionKey}`)
+  } catch (globalSaveError) {
+    console.error('[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 全局错误:', globalSaveError)
   }
-  console.log(`[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 执行结束: ${questionKey}`)
-} catch (globalSaveError) {
-  console.error('[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 全局错误:', globalSaveError)
-}
 }
 
 // 在当前题目的画布执行清空请求并打开确认对话框
@@ -829,32 +759,29 @@ const cancelClearCanvas = () => {
 
 // 在当前题目的画布执行清空并同步缓存数据的操作
 const confirmClearCanvas = () => {
-  const board = drawingBoardRefs.value[0] // 只有一个页面，使用索引0
+  const board = drawingBoardRefs.value[0]
   if (!board) {
     clearDialogRef.value?.closeDialog()
     return
   }
 
-  // 先清空画布数据
   board.loadData({
     objects: [],
     history: [[]],
     historyIndex: 0,
   })
-
-  // 再调用clearAll来重置工具状态
   board.clearAll()
 
-  const questionKey = getQuestionKey(currentAnswerQuestion.value)
-  if (questionKey) {
-    const clearedBoardData = board.saveData()
-    const existingCache = (answerDataCache.value as Record<string, any>)[questionKey] || {}
-    ;(answerDataCache.value as Record<string, any>)[questionKey] = {
-      ...existingCache,
-      boardData: clearedBoardData || { objects: [], history: [[]], historyIndex: 0 },
-      imageData: null, // 清空后没有图片数据
-      timestamp: Date.now(),
+  if (currentAnswerQuestion.value) {
+    if (!currentAnswerQuestion.value.structuredContent) {
+      currentAnswerQuestion.value.structuredContent = {
+        stem: currentAnswerQuestion.value.title || '',
+        type: currentAnswerQuestion.value.type || 'subjective'
+      }
     }
+    const structured = currentAnswerQuestion.value.structuredContent
+    structured.boardData = { objects: [], history: [[]], historyIndex: 0 }
+    structured.imageData = null
   }
 
   clearDialogRef.value?.closeDialog()
@@ -870,14 +797,13 @@ const checkQuestionCorrect = (question: ExerciseItem): boolean => {
   const structured = question.structuredContent
   if (!structured) return false
 
-  const questionKey = getQuestionKey(question)
-  const cache = (answerDataCache.value as Record<string, any>)[questionKey]
-  if (!cache) return false
+  const type = question.type || ''
+  const val = structured.userAnswer
 
   // 1. 选择题判断
-  if (structured.type === 'single_choice' || structured.type === 'multiple_choice') {
-    const userChoices = cache.chooseList
-    if (!userChoices || userChoices.length === 0) return false
+  if (type === 'single_choice' || type === 'multiple_choice') {
+    const userChoices = val
+    if (!userChoices || !Array.isArray(userChoices) || userChoices.length === 0) return false
 
     const standardChoices = Array.isArray(structured.answer) 
       ? structured.answer 
@@ -888,14 +814,13 @@ const checkQuestionCorrect = (question: ExerciseItem): boolean => {
   }
 
   // 2. 判断题判断
-  if (structured.type === 'true_false') {
-    const userVal = cache.judgmentValue
-    if (!userVal) return false
+  if (type === 'true_false') {
+    const userVal = val
+    if (userVal === undefined || userVal === null || userVal === '') return false
     
     return String(structured.answer) === String(userVal)
   }
 
-  // 3. 其他题型（填空、问答等）无法自动判题
   return false
 }
 
@@ -913,12 +838,33 @@ const autoRecordMistakes = async () => {
   let mistakeCount = 0
   
   for (const question of externalQuestions.value) {
-    // 仅对客观题进行自动判定（选择、判断）
     const isObjectiveType = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(question.type || '')
     
     if (isObjectiveType && !checkQuestionCorrect(question)) {
       const questionKey = getQuestionKey(question)
-      const originalAnswer = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
+      const structured = question.structuredContent
+      let originalAnswer: any = null
+      if (structured) {
+        originalAnswer = {}
+        const type = question.type || ''
+        if (type === 'single_choice' || type === 'multiple_choice') {
+          originalAnswer.chooseList = structured.userAnswer || []
+        } else if (type === 'true_false') {
+          originalAnswer.judgmentValue = structured.userAnswer || ''
+        } else if (type === 'fill_in_blank') {
+          originalAnswer.fillList = structured.userAnswer || []
+        } else if (type === 'composite') {
+          originalAnswer.compositeAnswers = structured.userAnswer || {}
+        } else if (type === 'subjective') {
+          originalAnswer.subjectiveData = structured.userAnswer || { type: 'text' }
+        }
+        if (structured.boardData) {
+          originalAnswer.boardData = structured.boardData
+        }
+        if (structured.imageData !== undefined) {
+          originalAnswer.imageData = structured.imageData
+        }
+      }
       
       try {
         await addMistake({
@@ -1005,7 +951,29 @@ const handleMistakeChange = async (val: 'yes' | 'no') => {
   
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
   if (val === 'yes') {
-    const originalAnswer = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
+    const structured = currentAnswerQuestion.value.structuredContent
+    let originalAnswer: any = null
+    if (structured) {
+      originalAnswer = {}
+      const type = currentAnswerQuestion.value.type || ''
+      if (type === 'single_choice' || type === 'multiple_choice') {
+        originalAnswer.chooseList = structured.userAnswer || []
+      } else if (type === 'true_false') {
+        originalAnswer.judgmentValue = structured.userAnswer || ''
+      } else if (type === 'fill_in_blank') {
+        originalAnswer.fillList = structured.userAnswer || []
+      } else if (type === 'composite') {
+        originalAnswer.compositeAnswers = structured.userAnswer || {}
+      } else if (type === 'subjective') {
+        originalAnswer.subjectiveData = structured.userAnswer || { type: 'text' }
+      }
+      if (structured.boardData) {
+        originalAnswer.boardData = structured.boardData
+      }
+      if (structured.imageData !== undefined) {
+        originalAnswer.imageData = structured.imageData
+      }
+    }
     const homeworkId = route.params.homeworkId as string
     
     await addMistake({
@@ -1045,14 +1013,12 @@ const updateQuestionBackgroundImage = async (seq: number) => {
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
   console.log(`[HOMEWORK_RENDER] updateQuestionBackgroundImage 开始: ${questionKey || '无'}, Seq: ${seq}`)
 
-  // 如果没有当前题目，清空背景图
   if (!currentAnswerQuestion.value) {
     console.warn('[HOMEWORK_RENDER] 没有当前题目，清空背景图')
     questionBgImage.value = ''
     return
   }
 
-  // 如果已有缓存，直接复用避免重复截图
   const val = currentAnswerQuestion.value
   const key = (val.bmNo || val.id || '').toString()
   if (key && questionImageCache.has(key)) {
@@ -1061,7 +1027,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
     return
   }
 
-  // 如果没有题目 HTML 内容，清空背景图并返回
   const html = questionHtml.value
   if (!html) {
     console.warn('[HOMEWORK_RENDER] 题目 HTML 内容为空，清空背景图')
@@ -1069,14 +1034,12 @@ const updateQuestionBackgroundImage = async (seq: number) => {
     return
   }
 
-  // 获取题目渲染容器的DOM引用
   const el = questionRenderRef.value
   if (!el) {
     console.warn('[HOMEWORK_RENDER] questionRenderRef 为空，放弃本次题目截图')
     return
   }
 
-  // 检查容器内容是否已渲染完成，如果为空则等待一段时间
   if (!el.innerHTML || el.innerHTML.trim() === '') {
     console.warn('[HOMEWORK_RENDER] 隐藏容器内容为空，等待渲染...')
     await nextTick()
@@ -1085,12 +1048,10 @@ const updateQuestionBackgroundImage = async (seq: number) => {
 
   try {
     console.log(`[HOMEWORK_RENDER] 1. 正在调用 MathJaxUtils.renderMathAndWait...`)
-    // el渲染数学公式
     await MathJaxUtils.renderMathAndWait(el)
     console.log(`[HOMEWORK_RENDER] MathJax 渲染完成`)
     if (isStale()) return
 
-    // 等待所有图片加载完成，确保截图包含图片内容
     const imgs = Array.from(el.querySelectorAll('img'))
     if (imgs.length > 0) {
       console.log(`[HOMEWORK_RENDER] 2. 正在等待 ${imgs.length} 张图片加载...`)
@@ -1107,7 +1068,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
     }
     if (isStale()) return
 
-    // el规范图像
     imgs.forEach((img) => {
       img.removeAttribute('width')
       img.removeAttribute('height')
@@ -1117,7 +1077,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
     })
 
     console.log(`[HOMEWORK_RENDER] 3. 正在执行 htmlToImage.toPng...`)
-    // el转换为图片
     const dataUrl = await htmlToImage.toPng(el, {
       backgroundColor: '#ffffff',
       pixelRatio: 1.5,
@@ -1127,7 +1086,6 @@ const updateQuestionBackgroundImage = async (seq: number) => {
     if (isStale()) return
     questionBgImage.value = dataUrl
 
-    // 写入缓存
     if (key) {
       questionImageCache.set(key, dataUrl)
       console.log(`[HOMEWORK_RENDER] 背景图已写入缓存: ${key}`)
@@ -1147,7 +1105,6 @@ const restoreCurrentPage = (question: ExerciseItem | null) => {
   console.log(`[HOMEWORK_RENDER] restoreCurrentPage 开始: ${questionKey || '无'}`)
 
   if (!questionKey) {
-    // 没有题目，清空画布
     console.log('[HOMEWORK_RENDER] 无题目 Key，清空画布')
     board?.clearAll()
     return
@@ -1158,14 +1115,12 @@ const restoreCurrentPage = (question: ExerciseItem | null) => {
     return
   }
 
-  const rawCache = (answerDataCache.value as Record<string, any>)[questionKey]
-  if (rawCache && rawCache.boardData) {
-    // 加载缓存的画板状态数据
+  const structured = question?.structuredContent
+  if (structured && structured.boardData) {
     console.log(`[HOMEWORK_RENDER] 正在从缓存恢复笔迹数据: ${questionKey}`)
-    board.loadData(rawCache.boardData as any)
+    board.loadData(structured.boardData as any)
     console.log('[HOMEWORK_RENDER] 笔迹恢复完成')
   } else {
-    // 没有缓存数据，清空画布
     console.log(`[HOMEWORK_RENDER] 无缓存笔迹，清空画布: ${questionKey}`)
     board.clearAll()
   }
@@ -1184,7 +1139,6 @@ const goBack = async () => {
     if (homeworkId) {
       console.log('[HOMEWORK_BACK] 检测到 homeworkId:', homeworkId)
       
-      // 增加超时控制，防止 saveCurrentPage 永久挂起
       const savePromise = saveCurrentPage()
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Save timeout')), 2500)
@@ -1200,7 +1154,6 @@ const goBack = async () => {
       }
       
       console.log('[HOMEWORK_BACK] 2. 正在持久化作答数据到本地数据库...')
-      // 即使截图超时，也要尝试保存内存中的数据
       await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
       console.log('[HOMEWORK_BACK] 持久化保存指令已发出')
     } else {
@@ -1212,7 +1165,6 @@ const goBack = async () => {
     console.log('[HOMEWORK_BACK] 准备执行路由跳转')
     router.push({ name: 'myHomework' })
     console.log('[HOMEWORK_BACK] 路由跳转指令已发出')
-    // 延迟一点点重置，防止快速连续点击
     setTimeout(() => { isBacking.value = false }, 500)
   }
 }
@@ -1226,7 +1178,6 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       return
     }
 
-    // 规范化学科前缀（支持数字ID/英文/中文/SUBJECT_*）
     const subjectPrefix = normalizeSubject((question.subject || getSubject() || 'SUBJECT_MATH').toString())
 
     const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
@@ -1260,7 +1211,6 @@ const incompleteDialogData = ref({
 })
 let incompleteHomeworkResolve: (value: boolean) => void
 
-// 白板上传按钮点击 - 收集所有题目的图片并打开对话框
 const handleBoardUpload = async () => {
   console.log('[HomeworkAnswerView][handleBoardUpload] start collecting all homework images')
 
@@ -1272,13 +1222,11 @@ const handleBoardUpload = async () => {
 
   // 2. 遍历所有题目，收集已保存的图片数据
   externalQuestions.value.forEach((question, index) => {
-    const questionKey = getQuestionKey(question)
-    const cache = (answerDataCache.value as Record<string, any>)[questionKey]
-
-    if (cache && cache.imageData) {
-      photos.push(cache.imageData)
+    const structured = question.structuredContent
+    if (structured && structured.imageData) {
+      photos.push(structured.imageData)
       pageIndexMap.push(index) // 使用题目在列表中的索引
-      console.log(`[HomeworkAnswerView] 收集题目图片: ${questionKey}, 索引: ${index}`)
+      console.log(`[HomeworkAnswerView] 收集题目图片: ${getQuestionKey(question)}, 索引: ${index}`)
     }
   })
 
@@ -1288,13 +1236,21 @@ const handleBoardUpload = async () => {
     pageIndexMap: pageIndexMap.slice(),
   })
 
-  // 3. 如果没有任何图片数据，提示用户
-  if (!photos.length) {
+  // 3. 检查是否有任何作答内容（不再仅根据图片有无来判断）
+  const hasAnyAnswer = externalQuestions.value.some(q => getQuestionStatus(q) === 'answered')
+  if (!hasAnyAnswer) {
     showMessage('没有找到任何作答内容，请先在题目上进行作答', 'warning')
     return
   }
 
-  // 4. 打开上传确认对话框，展示所有收集的图片
+  // 4. 如果没有手写图片（例如全是无笔迹的客观题），直接进入提交流程，无需弹窗确认图片
+  if (photos.length === 0) {
+    console.log('[HomeworkAnswerView][handleBoardUpload] no photos but has answers, submitting directly')
+    await handleUploadConfirm([], [])
+    return
+  }
+
+  // 5. 打开上传确认对话框，展示所有收集的图片
   lastUploadPageIndices.value = pageIndexMap
   initialUploadPhotos.value = photos
   showCameraDialog.value = true
@@ -1329,7 +1285,7 @@ const calculateKeptQuestionIndices = (photos: string[]): number[] => {
     }
   }
 
-  // 计算保留的题目索引
+  // 计算保留 of 题目索引
   const keptQuestionIndices: number[] = []
   for (let i = 0; i < originalPhotos.length; i++) {
     if (keepFlags[i]) {
@@ -1345,61 +1301,129 @@ const calculateKeptQuestionIndices = (photos: string[]): number[] => {
 // 根据保留的题目更新缓存数据
 const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
   externalQuestions.value.forEach((question, index) => {
-    const questionKey = getQuestionKey(question)
-    if (questionKey) {
-      const cache = (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey]
-      if (cache) {
-        if (keptQuestionIndices.includes(index)) {
-          // 这个题目的图片被保留，数据已存在，无需操作
-          console.log(`[HomeworkAnswerView] 保留题目数据: ${questionKey}`)
-        } else {
-          // 这个题目的图片被删除，清空图片数据
-          cache.imageData = null
-          ;(answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] = cache
-          console.log(`[HomeworkAnswerView] 清空题目图片数据: ${questionKey}`)
-        }
+    const structured = question.structuredContent
+    if (structured) {
+      if (keptQuestionIndices.includes(index)) {
+        // 这个题目的图片被保留，数据已存在，无需操作
+        console.log(`[HomeworkAnswerView] 保留题目数据: ${getQuestionKey(question)}`)
+      } else {
+        // 这个题目的图片被删除，清空图片数据
+        structured.imageData = null
+        console.log(`[HomeworkAnswerView] 清空题目图片数据: ${getQuestionKey(question)}`)
       }
     }
   })
 }
 
-// 准备提交数据
-const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], questionIndexMap?: number[]) => {
-  const questionAnswerList: Array<{ 
-    questionId: string; 
-    answerList: string[]; 
-    answer: {
-      type: string;
-      content: any;
-    };
-  }> = []
+// 辅助函数：递归构建题目的结构化提交答案
+const buildAnswerForQuestion = (
+  question: ExerciseItem, 
+  questionIndex: number, 
+  imageBuckets: Map<number, string[]>,
+  parentUserAnswer?: any
+): HomeworkQuestionAnswer | null => {
+  if (!question) return null
+  const structured = question.structuredContent
+  if (!structured) return null
 
-  // 递归处理题目结构，在 subQuestions 中注入答案，并在缺失 ID 时生成临时 ID
-  const injectAnswersRecursively = (structuredData: any, compositeAnswers: Record<string, any>, parentId: string = '') => {
-    if (!structuredData || !compositeAnswers) return;
+  // 优先使用传入的子题作答数据，否则使用自身的 userAnswer
+  const userAnswer = parentUserAnswer !== undefined ? parentUserAnswer : structured.userAnswer
 
-    const currentParentId = structuredData.id || parentId;
+  const type = question.type || ''
+  let answers: any = null
 
-    if (Array.isArray(structuredData.subQuestions)) {
-      structuredData.subQuestions.forEach((sub: any, index: number) => {
-        // 自造临时 ID
-        if (!sub.id) {
-          sub.id = currentParentId ? `${currentParentId}_sub_${index}` : `sub_${index}`;
+  if (type === 'single_choice' || type === 'multiple_choice') {
+    answers = Array.isArray(userAnswer) ? userAnswer.map(String) : []
+  } else if (type === 'true_false') {
+    answers = (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') ? String(userAnswer) : ''
+  } else if (type === 'fill_in_blank') {
+    if (Array.isArray(userAnswer)) {
+      answers = userAnswer.map((item: any) => {
+        if (typeof item === 'object' && item !== null) {
+          const itemType = item.type || 'text'
+          let content: any = ''
+          if (itemType === 'board') {
+            content = item.boardData || null
+          } else if (itemType === 'photo') {
+            content = item.photoUrl || ''
+          } else {
+            content = item.textContent || ''
+          }
+          return { type: itemType, content }
         }
         
-        const answerKey = sub.id;
-        const userAns = compositeAnswers[answerKey] || compositeAnswers[`sub_${index}`];
-        
-        if (userAns !== undefined) {
-          sub.userAnswer = userAns;
+        const valStr = String(item || '')
+        if (valStr.startsWith('{') && valStr.includes('"objects"')) {
+          try {
+            return { type: 'board', content: JSON.parse(valStr) }
+          } catch(e) {}
+        } else if (valStr.startsWith('{') && valStr.includes('"type":"photo"')) {
+          try {
+            const parsed = JSON.parse(valStr)
+            return { type: 'photo', content: parsed.photoUrl || '' }
+          } catch(e) {}
         }
-
-        if (Array.isArray(sub.subQuestions)) {
-          injectAnswersRecursively(sub, compositeAnswers, sub.id);
-        }
-      });
+        return { type: 'text', content: valStr }
+      })
+    } else {
+      answers = []
     }
-  };
+  } else if (type === 'subjective') {
+    let item = userAnswer
+    if (typeof item === 'string' && item.startsWith('{')) {
+      try {
+        item = JSON.parse(item)
+      } catch(e) {}
+    }
+    if (typeof item === 'object' && item !== null) {
+      const itemType = item.type || 'text'
+      let content: any = ''
+      if (itemType === 'board') {
+        content = item.boardData || null
+      } else if (itemType === 'photo') {
+        content = item.photoUrl || ''
+      } else {
+        content = item.textContent || ''
+      }
+      answers = { type: itemType, content }
+    } else {
+      answers = { type: 'text', content: String(item || '') }
+    }
+  } else if (type === 'composite') {
+    const nestedAnswers: HomeworkQuestionAnswer[] = []
+    if (question.subQuestions && Array.isArray(question.subQuestions)) {
+      question.subQuestions.forEach((subQuestion, subIndex) => {
+        const subUserAnswer = (userAnswer && typeof userAnswer === 'object') ? userAnswer[subQuestion.id] : undefined
+        const subAns = buildAnswerForQuestion(subQuestion, subIndex, imageBuckets, subUserAnswer)
+        if (subAns) {
+          nestedAnswers.push(subAns)
+        }
+      })
+    }
+    answers = nestedAnswers
+  }
+
+  const currentImages = imageBuckets.get(questionIndex) || []
+  const hasImages = currentImages.length > 0
+  const hasContent = answers !== null && (
+    (Array.isArray(answers) && answers.length > 0) || 
+    (typeof answers === 'string' && answers !== '') ||
+    (typeof answers === 'object' && Object.keys(answers).length > 0)
+  )
+
+  if (!hasImages && !hasContent) return null
+
+  return {
+    questionId: question.id || question.bmNo || '',
+    type: question.type || 'subjective',
+    answers,
+    images: currentImages.length ? currentImages : undefined
+  }
+}
+
+// 准备提交数据
+const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], questionIndexMap?: number[]): HomeworkQuestionAnswer[] => {
+  const questionAnswerList: HomeworkQuestionAnswer[] = []
 
   const mapUsable = Array.isArray(questionIndexMap) && questionIndexMap.length === photos.length
   
@@ -1422,118 +1446,16 @@ const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], ques
     })
   }
 
-  // 遍历所有保留的题目，构造结构化提交数据
-  keptQuestionIndices.forEach((questionIndex) => {
-    const question = externalQuestions.value[questionIndex]
-    if (!question) return
-    
-    const questionKey = getQuestionKey(question)
-    const cache = questionKey ? (answerDataCache.value as Record<string, AnswerCacheItem>)[questionKey] : undefined
-    
-    // 建立结构化答案内容
-    let answerContent: any = undefined
-
-    if (cache) {
-      if (question.type === 'single_choice' || question.type === 'multiple_choice') {
-        // 选择题
-        if (question.structuredContent) {
-          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
-          structuredData.userAnswer = Array.isArray(cache.chooseList) && cache.chooseList.length ? cache.chooseList : undefined
-          answerContent = structuredData
-        } else {
-          answerContent = Array.isArray(cache.chooseList) && cache.chooseList.length ? cache.chooseList : undefined
-        }
-      } else if (question.type === 'true_false') {
-        // 判断题
-        if (question.structuredContent) {
-          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
-          structuredData.userAnswer = cache.judgmentValue || undefined
-          answerContent = structuredData
-        } else {
-          answerContent = cache.judgmentValue || undefined
-        }
-      } else if (question.type === 'fill_in_blank') {
-        // 填空题
-        if (question.structuredContent) {
-          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
-          const userFillList = Array.isArray(cache.fillList) 
-            ? cache.fillList.map(item => {
-                if (typeof item === 'object' && item !== null) return item as StructuredAnswer;
-                return {
-                  type: 'text',
-                  textContent: String(item || ''),
-                  boardData: null
-                } as StructuredAnswer;
-              })
-            : undefined
-          
-          if (Array.isArray(structuredData.blanks) && userFillList) {
-            structuredData.blanks.forEach((blank: any, index: number) => {
-              if (userFillList[index]) {
-                blank.userAnswer = userFillList[index]
-              }
-            })
-          }
-          answerContent = structuredData
-        } else {
-          answerContent = Array.isArray(cache.fillList) 
-            ? cache.fillList.map(item => {
-                if (typeof item === 'object' && item !== null) return item as StructuredAnswer;
-                return {
-                  type: 'text',
-                  textContent: String(item || ''),
-                  boardData: null
-                } as StructuredAnswer;
-              })
-            : undefined
-        }
-      } else if (question.type === 'composite') {
-        // 对于复合题，使用递归处理可能存在的嵌套 subQuestions
-        if (question.structuredContent) {
-          try {
-            const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
-            if (cache.compositeAnswers) {
-              injectAnswersRecursively(structuredData, cache.compositeAnswers, structuredData.id || question.id)
-            }
-            answerContent = structuredData
-          } catch (e) {
-            console.error('[HomeworkAnswerView] 复合题结构化处理失败:', e)
-            answerContent = cache.compositeAnswers && Object.keys(cache.compositeAnswers).length ? cache.compositeAnswers : undefined
-          }
-        } else {
-          answerContent = cache.compositeAnswers && Object.keys(cache.compositeAnswers).length ? cache.compositeAnswers : undefined
-        }
-      } else if (question.type === 'subjective') {
-        // 主观题
-        if (question.structuredContent) {
-          const structuredData = JSON.parse(JSON.stringify(question.structuredContent))
-          structuredData.userAnswer = cache.subjectiveData || undefined
-          answerContent = structuredData
-        } else {
-          answerContent = cache.subjectiveData || undefined
-        }
-      }
+  // 遍历全部题目，构造结构化提交数据 (包含子题嵌套)
+  externalQuestions.value.forEach((question, questionIndex) => {
+    const ans = buildAnswerForQuestion(question, questionIndex, imageBuckets)
+    if (ans) {
+      questionAnswerList.push(ans)
     }
-
-    const currentImages = imageBuckets.get(questionIndex) || []
-    const hasImages = currentImages.length > 0
-    const hasContent = answerContent !== undefined
-
-    if (!hasImages && !hasContent) return
-
-    questionAnswerList.push({
-      questionId: question.id || question.bmNo || '',
-      answerList: currentImages,
-      answer: {
-        type: question.type,
-        content: answerContent
-      }
-    })
   })
 
   console.log('[HomeworkAnswerView] 准备提交数据', {
     totalQuestions: externalQuestions.value.length,
-    keptQuestions: keptQuestionIndices.length,
     submittedAnswers: questionAnswerList.length,
   })
 
@@ -1585,11 +1507,6 @@ const submitHomeworkAnswers = async (questionAnswerList: any[]) => {
 
 // 上传确认回调
 const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]) => {
-  if (!photos.length) {
-    showMessage('请选择要上传的图片', 'warning')
-    return
-  }
-
   // 获取当前题目 ID
   const questionId = currentAnswerQuestion.value?.id || currentAnswerQuestion.value?.bmNo
   if (!questionId) {
@@ -1659,8 +1576,6 @@ const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]
   }
 }
 
-
-
 // 题目列表已从 homeworkStore 获取，根据 currentQuestionIndex 恢复当前选中题目
 onMounted(async () => {
   const homeworkId = route.params.homeworkId as string
@@ -1690,24 +1605,11 @@ onMounted(async () => {
   }
 
   // 初始化所有题目状态为未作答
-  console.log(`[HOMEWORK_STORAGE] 2. 正在初始化 ${externalQuestions.value.length} 道题目的本地缓存...`)
+  console.log(`[HOMEWORK_STORAGE] 2. 正在初始化 ${externalQuestions.value.length} 道题目的本地结构...`)
   externalQuestions.value.forEach((question) => {
-    const questionKey = getQuestionKey(question)
-    if (questionKey) {
-      const cache = (answerDataCache.value as Record<string, any>)[questionKey]
-      if (!cache) {
-        // 初始化未作答状态
-        // 初始化题目的缓存数据结构
-        ;(answerDataCache.value as Record<string, any>)[questionKey] = {
-          boardData: { objects: [], history: [[]], historyIndex: 0 }, // 画板状态数据
-          imageData: null, // 导出的图片数据
-          chooseList: [], // 选择的选项（A/B/C/D）
-          timestamp: Date.now(), // 创建时间戳
-        }
-      }
-    }
+    initExerciseAnswerFields(question)
   })
-  console.log('[HOMEWORK_STORAGE] 题目本地缓存初始化完成')
+  console.log('[HOMEWORK_STORAGE] 题目本地结构初始化完成')
 
   // 优先使用 store 中记录的选中索引
   let targetIndex = currentQuestionIndex.value ?? -1
@@ -1717,7 +1619,7 @@ onMounted(async () => {
     targetIndex = 0
   }
 
-  // 等待 QuestionList 渲染完成后再调用滚动
+  // 等待 QuestionList 渲染完成后再滚动
   await nextTick()
   await new Promise((resolve) => setTimeout(resolve, 300))
 
@@ -2090,10 +1992,3 @@ onUnmounted(() => {
 }
 
 </style>
-
-
-
-
-
-
-

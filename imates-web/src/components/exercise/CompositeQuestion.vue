@@ -14,53 +14,75 @@
     </template>
 
     <!-- 子题列表作为 default 插槽内容 -->
-    <div class="sub-questions-list q-mt-md">
-      <div 
-        v-for="(sub, sIdx) in question.subQuestions" 
-        :key="sub.id || sIdx" 
-        class="sub-question-item"
-      >
-        <div class="sub-question-header q-mb-md">
-          <span class="sub-question-index">子题 {{ sIdx + 1 }}</span>
-        </div>
-        
-        <!-- 如果子题还是 composite，递归渲染 -->
-        <CompositeQuestion
-          v-if="sub.type === 'composite'"
-          :question="sub"
-          :model-value="modelValue"
-          @update:model-value="$emit('update:modelValue', $event)"
-          :show-title="false"
-          :show-id="false"
-          :disabled="disabled"
-          :show-analysis="showAnalysis"
-        />
-
-        <!-- 主观题渲染 -->
-        <SubjectiveQuestion 
-          v-else-if="sub.structuredContent?.type === 'subjective' || sub.type === 'subjective'"
-          :question="sub"
-          :model-value="modelValue[sub.id]"
-          @update:model-value="handleUpdate(sub.id, $event)"
-          :show-title="true"
-          :show-id="showId"
-          :disabled="disabled"
-          :show-analysis="showAnalysis"
-        />
-
-        <!-- 普通子题渲染 -->
-        <component 
-          v-else
-          :is="getComponent(sub.structuredContent?.type || sub.type)" 
-          :question="sub" 
-          :model-value="modelValue[sub.id]"
-          @update:model-value="handleUpdate(sub.id, $event)"
-          :show-title="true"
-          :show-id="showId"
-          :disabled="disabled"
-          :show-analysis="showAnalysis"
-        />
+    <!-- 子题 Tab 切换栏 -->
+    <div class="sub-question-tabs-container q-mt-md" v-if="question.subQuestions && question.subQuestions.length > 1">
+      <div class="tabs-label">子题：</div>
+      <div class="tabs-wrapper">
+        <button
+          v-for="(sub, sIdx) in question.subQuestions"
+          :key="'tab-' + (sub.id || sIdx)"
+          class="sub-tab-btn"
+          :class="{ 
+            active: activeSubIdx === sIdx,
+            answered: isSubAnswered(sub)
+          }"
+          type="button"
+          @click="activeSubIdx = sIdx"
+        >
+          <span>{{ sIdx + 1 }}</span>
+          <span class="status-dot" v-if="isSubAnswered(sub)"></span>
+        </button>
       </div>
+    </div>
+
+    <!-- 子题内容区域 -->
+    <div class="sub-questions-list q-mt-md" v-if="question.subQuestions && question.subQuestions.length > 0">
+      <Transition name="fade-slide" mode="out-in">
+        <div 
+          :key="activeSubIdx" 
+          class="sub-question-item"
+        >
+          <template v-if="question.subQuestions[activeSubIdx]">
+            
+            <!-- 如果子题还是 composite，递归渲染 -->
+            <CompositeQuestion
+              v-if="question.subQuestions[activeSubIdx].type === 'composite'"
+              :question="question.subQuestions[activeSubIdx]"
+              :model-value="(modelValue[question.subQuestions[activeSubIdx].id] as any) || {}"
+              @update:model-value="handleUpdate(question.subQuestions[activeSubIdx].id, $event)"
+              :show-title="false"
+              :show-id="false"
+              :disabled="disabled"
+              :show-analysis="showAnalysis"
+            />
+
+            <!-- 主观题渲染 -->
+            <SubjectiveQuestion 
+              v-else-if="question.subQuestions[activeSubIdx].structuredContent?.type === 'subjective' || question.subQuestions[activeSubIdx].type === 'subjective'"
+              :question="question.subQuestions[activeSubIdx]"
+              :model-value="modelValue[question.subQuestions[activeSubIdx].id]"
+              @update:model-value="handleUpdate(question.subQuestions[activeSubIdx].id, $event)"
+              :show-title="true"
+              :show-id="showId"
+              :disabled="disabled"
+              :show-analysis="showAnalysis"
+            />
+
+            <!-- 普通子题渲染 -->
+            <component 
+              v-else
+              :is="getComponent(question.subQuestions[activeSubIdx].structuredContent?.type || question.subQuestions[activeSubIdx].type)" 
+              :question="question.subQuestions[activeSubIdx]" 
+              :model-value="modelValue[question.subQuestions[activeSubIdx].id]"
+              @update:model-value="handleUpdate(question.subQuestions[activeSubIdx].id, $event)"
+              :show-title="true"
+              :show-id="showId"
+              :disabled="disabled"
+              :show-analysis="showAnalysis"
+            />
+          </template>
+        </div>
+      </Transition>
     </div>
   </BaseQuestion>
 </template>
@@ -72,6 +94,7 @@ export default {
 </script>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { ExerciseItem } from '../../types/exercise'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import ChoiceQuestion from './ChoiceQuestion.vue'
@@ -96,6 +119,34 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits(['update:modelValue', 'change'])
+
+const activeSubIdx = ref(0)
+
+console.log('[COMPOSITE_RENDER_DEBUG] rendering CompositeQuestion: ', {
+  id: props.question.id,
+  type: props.question.type,
+  materialLength: props.question.material?.length || 0,
+  subQuestionsCount: props.question.subQuestions?.length || 0,
+  subQuestions: props.question.subQuestions
+})
+
+const isSubAnswered = (sub: any): boolean => {
+  if (!props.modelValue) return false
+  if (sub.type === 'composite' && sub.subQuestions) {
+    return sub.subQuestions.some((child: any) => isSubAnswered(child))
+  }
+  const val = props.modelValue[sub.id]
+  if (!val) return false
+  if (typeof val === 'string') return val.trim().length > 0
+  if (Array.isArray(val)) return val.length > 0
+  if (typeof val === 'object') {
+    const subVal = val as any
+    if (subVal.type === 'text') return !!subVal.textContent?.trim()
+    if (subVal.type === 'board') return !!subVal.boardData
+    if (subVal.type === 'photo') return !!subVal.photoUrl
+  }
+  return true
+}
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -136,8 +187,87 @@ const getComponent = (type: string | undefined) => {
   gap: 24px;
 }
 
+.sub-question-tabs-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  background: transparent;
+  padding: 4px 0;
+  border-bottom: 1px dashed #e2e8f0;
+  gap: 12px;
+
+  .tabs-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8; /* 更优雅的浅灰蓝 */
+    white-space: nowrap;
+  }
+
+  .tabs-wrapper {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .sub-tab-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px; /* 扁平微圆角比纯圆更现代 */
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover {
+      border-color: #615efe;
+      color: #615efe;
+      background: rgba(97, 94, 254, 0.04);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &.active {
+      background: #615efe;
+      border-color: #615efe;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(97, 94, 254, 0.25);
+    }
+
+    &.answered:not(.active) {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+
+    .status-dot {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 6px;
+      height: 6px;
+      background-color: #22c55e;
+      border-radius: 50%;
+      border: 1.5px solid #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
 .sub-question-item {
-  padding: 20px;
+  padding: 12px 14px;
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid #edf2f7;
@@ -162,10 +292,34 @@ const getComponent = (type: string | undefined) => {
     }
   }
 
-  /* 覆盖子题内部 BaseQuestion 的 padding，因为外部已经有 padding 了 */
+  /* 消除子题目由于层层嵌套而产生的累加 padding 积压 */
   :deep(.base-question) {
-    padding: 0;
-    background: transparent;
+    padding: 0 !important;
+    background: transparent !important;
   }
+
+  /* 递归复合子题包裹器不需要重复的边框和背景，消除嵌套厚重感 */
+  :deep(.sub-question-item) {
+    padding: 8px 0 0 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* 过渡动画 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
 }
 </style>

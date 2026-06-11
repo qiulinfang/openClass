@@ -33,6 +33,9 @@ export interface StructuredQuestionContent {
   answer?: string | string[] | boolean
   blanks?: number | BlankItem[]
   judgmentResult?: boolean
+  userAnswer?: any
+  boardData?: any
+  imageData?: string | null
 }
 
 /** 练习题目接口 */

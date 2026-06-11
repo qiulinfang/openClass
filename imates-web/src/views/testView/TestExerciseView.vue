@@ -94,6 +94,7 @@ import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import type { ExerciseItem } from '@/types/exercise'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
+import { initExerciseAnswerFields } from '@/utils/business/exercise-utils'
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -101,50 +102,102 @@ const { renderMessageContent } = useMessageRenderer()
 const testQuestions = [
   {
     id: 'test_composite_nested',
-    title: '嵌套复合材料题 (用户指定用例)',
+    title: '物理过山车 (嵌套复合题测试)',
     question: ({
-      "id": "q_1001",
-      "subject": "math",
-      "score": 5.0,
+      "id": "416431632091811840",
+      "subject": "物理",
+      "score": 10.0,
       "type": "composite",
-      "material": "这是主题干",
+      "material": "模型的修正和完善伴随着我们对物理本质更深入的认识。某学习小组对过山车的运动进行了深入研究。已知重力加速度为 g，不计摩擦及空气阻力。",
       "subQuestions": [
         {
-          "id": "cq_1",
-          "bmNo": "BM_SUB_1",
+          "id": "sub_group_1",
           "type": "composite",
-          "material": "子题干，这题还带两个子题",
+          "material": "(1) 先将过山车用可视为质点的小球来替代。\n<img src=\"https://k12-picture.tos-cn-beijing.volces.com/ocr_uploads/2f9ffb9acbb5/manual_region_0_98020054.jpg\" style=\"display:block;\"/>",
           "subQuestions": [
             {
-              "id": "cq_2_1",
-              "bmNo": "BM_SUB_2_1",
+              "id": "sub_1_a",
               "type": "subjective",
-              "structuredContent": {
-                "stem": "第一小题的第一小小题干",
-                "answer": "答案for第一小题的第一小小题干",
-                "analysis": "解析for第一小题的第一小小题干"
-              }
+              "stem": "a. 求小球在圆轨道最高点的速度大小  $v_{1}$；",
+              "answer": "$v_{1} = \\sqrt{gR}$"
             },
             {
-              "id": "cq_2_2",
-              "bmNo": "BM_SUB_2_2",
-              "type": "single_choice",
-              "structuredContent": {
-                "stem": "第一小题的第二小小题干",
-                "options": [
-                  {
-                    "id": "A",
-                    "content": "a选项内容"
-                  },
-                  {
-                    "id": "B",
-                    "content": "b选项内容（设置为正确选项）"
-                  }
-                ],
-                "answer": "B"
-              }
+              "id": "sub_1_b",
+              "type": "subjective",
+              "stem": "b. 实际的过山车竖直回环轨道不是正圆，而是设计成图乙所示的扁轨道，可将其简化为图丙所示的轨道。研究一般的曲线运动时，我们可将运动过程分割为许多很短的小段，每小段的运动均可看作是圆周运动的一部分。若轨道承压足够大，请比较小球从同一位置 P 由静止释放，分别沿扁轨道、正圆轨道到达最高点 Q 时轨道对其压力的大小关系，并说明这种设计的优点。\n<img src=\"https://k12-picture.tos-cn-beijing.volces.com/ocr_uploads/2f9ffb9acbb5/manual_region_1_3501d816.jpg\" style=\"display:block;\"/>\n\n<img src=\"https://k12-picture.tos-cn-beijing.volces.com/ocr_uploads/2f9ffb9acbb5/manual_region_2_cd08c57d.jpg\" style=\"display:block;\"/>",
+              "answer": "扁轨道压力更大。优点：压力大，更不易脱轨，安全性更高。"
             }
           ]
+        },
+        {
+          "id": "sub_group_2",
+          "type": "composite",
+          "material": "(2) 实际的过山车并不能视为质点。如图丁所示，一列长为 L、质量为 M 的玩具过山车，在无动力情况下，从水平轨道冲上半径为 r 的竖直圆轨道。已知  $L > 2\\pi r$，不计过山车自身高度及相邻车体间碰撞。在车体始终布满轨道的一段时间内，过山车的速率保持不变，请在该段时间内分析下列问题：",
+          "subQuestions": [
+            {
+              "id": "sub_2_a",
+              "type": "subjective",
+              "stem": "a. 推导最高点处车体之间的拉力大小  $T=\\frac{2r}{L}Mg$；",
+              "answer": "$T = \\frac{2r}{L} Mg$"
+            },
+            {
+              "id": "sub_2_b",
+              "type": "subjective",
+              "stem": "b. 取轨道最高点处的一小段长度为 s 的车体为研究对象。若此时左、右侧车体对其拉力大小可视为相等，且两力的合力大小为 a 问中拉力的  \\frac{s}{r} 倍，求该小段车体通过最高点时的最小速度  $v_{m}$。",
+              "answer": "$v_{\\mathrm{m}} = \\sqrt{3gr}$"
+            }
+          ]
+        }
+      ]
+    } as unknown) as ExerciseItem
+  },
+  {
+    id: 'test_composite_flat',
+    title: '多子题扁平复合题 (测试 Tab 导航与已答状态)',
+    question: ({
+      "id": "q_1002",
+      "subject": "english",
+      "score": 10.0,
+      "type": "composite",
+      "material": "阅读下面的短文，完成下列各题：<br/>Reading is a very good habit. It helps us learn new things, keep our minds active, and improve our language skills.",
+      "subQuestions": [
+        {
+          "id": "cq_f1",
+          "type": "single_choice",
+          "structuredContent": {
+            "stem": "1. What is the passage mainly about?",
+            "options": [
+              { "id": "A", "content": "The importance of reading" },
+              { "id": "B", "content": "How to write a book" },
+              { "id": "C", "content": "Different types of habits" }
+            ],
+            "answer": "A"
+          }
+        },
+        {
+          "id": "cq_f2",
+          "type": "true_false",
+          "structuredContent": {
+            "stem": "2. Reading does not help us learn new things. (True/False)",
+            "answer": "False"
+          }
+        },
+        {
+          "id": "cq_f3",
+          "type": "fill_in_blank",
+          "structuredContent": {
+            "stem": "3. According to the text, reading is a very [blank_1] habit.",
+            "blanks": 1
+          },
+          "answer": "good"
+        },
+        {
+          "id": "cq_f4",
+          "type": "subjective",
+          "structuredContent": {
+            "stem": "4. Why do you like reading? Write down your own reason.",
+            "answer": "I like reading because..."
+          }
         }
       ]
     } as unknown) as ExerciseItem
@@ -178,8 +231,60 @@ const testQuestions = [
       },
       answer: '疑是地上霜, 低头思故乡'
     } as unknown) as ExerciseItem
+  },
+  {
+    id: 'test_judgment',
+    title: '判断题测试',
+    question: ({
+      id: 'q_003',
+      type: 'true_false',
+      structuredContent: {
+        stem: '光在真空中传播的速度大约是 30 万千米每秒。',
+        options: [
+          { id: 'true', content: '正确' },
+          { id: 'false', content: '错误' }
+        ]
+      },
+      answer: 'true'
+    } as unknown) as ExerciseItem
+  },
+  {
+    id: 'test_multiple_choice',
+    title: '多选题测试',
+    question: ({
+      id: 'q_004',
+      type: 'multiple_choice',
+      structuredContent: {
+        stem: '以下哪些属于太阳系内的八大行星？',
+        options: [
+          { id: 'A', content: '地球' },
+          { id: 'B', content: '火星' },
+          { id: 'C', content: '冥王星' },
+          { id: 'D', content: '木星' }
+        ]
+      },
+      answer: 'A,B,D'
+    } as unknown) as ExerciseItem
+  },
+  {
+    id: 'test_subjective',
+    title: '主观题测试',
+    question: ({
+      id: 'q_005',
+      type: 'subjective',
+      structuredContent: {
+        stem: '请简述牛顿第一运动定律的内容并举出一个生活中的例子。',
+        analysis: '牛顿第一定律又称惯性定律：任何物体都要保持匀速直线运动或静止状态，直到外力迫使它改变运动状态为止。例如：汽车紧急刹车时，乘客会向前倾。'
+      },
+      answer: '一切物体在没有受到外力作用的时候，总保持匀速直线运动状态或静止状态。例如，乘车人因汽车紧急刹车而向前倾倒。'
+    } as unknown) as ExerciseItem
   }
 ]
+
+// 运行初始化以给测试大题及子题补全 structuredContent 属性
+testQuestions.forEach(item => {
+  initExerciseAnswerFields(item.question)
+})
 
 const currentIndex = ref(0)
 const currentQuestion = computed(() => testQuestions[currentIndex.value])
