@@ -8,11 +8,6 @@
         <div class="input-type-tabs">
           <div 
             class="type-tab" 
-            :class="{ active: currentType === 'text' }"
-            @click="switchType('text')"
-          >键盘</div>
-          <div 
-            class="type-tab" 
             :class="{ active: currentType === 'drawing' }"
             @click="switchType('drawing')"
           >手写</div>
@@ -37,34 +32,8 @@
 
     <div class="mixed-input-body">
       <Transition name="mode-fade" mode="out-in">
-        <!-- 文本输入 -->
-        <div v-if="currentType === 'text'" key="text" class="text-input-wrapper">
-          <Textarea
-            v-if="isTextArea"
-            v-model="textContent"
-            :placeholder="placeholder"
-            :disabled="disabled"
-            :minHeight="240"
-            :maxHeight="320"
-            @update:modelValue="handleTextUpdate"
-            @focus="$emit('focus')"
-            @blur="$emit('blur')"
-          />
-          <input
-            v-else
-            v-model="textContent"
-            class="native-input"
-            type="text"
-            :placeholder="placeholder"
-            :disabled="disabled"
-            @input="e => handleTextUpdate((e.target as HTMLInputElement).value)"
-            @focus="$emit('focus')"
-            @blur="$emit('blur')"
-          />
-        </div>
-
         <!-- 画板输入 -->
-        <div v-else-if="currentType === 'drawing'" key="drawing" class="drawing-board-wrapper" :style="{ height: boardHeight }">
+        <div v-if="currentType === 'drawing'" key="drawing" class="drawing-board-wrapper" :style="{ height: boardHeight }">
           <DrawingBoardNew
             ref="drawingBoardRef"
             :showGrid="false"
@@ -81,21 +50,9 @@
         </div>
 
         <!-- 照片上传 -->
-        <div v-else key="photo" class="photo-input-wrapper" :class="{ 'is-disabled': disabled }" :style="{ minHeight: props.questionType === 'subjective' ? '300px' : '120px' }">
+        <div v-else key="photo" class="photo-input-wrapper" :class="{ 'is-disabled': disabled }" :style="{ minHeight: props.questionType === 'subjective' ? '400px' : '120px' }">
           <div v-if="photoUrl" class="uploaded-photo-container">
             <img :src="photoUrl" alt="作答照片" class="uploaded-photo-img" />
-            <div class="photo-overlay" v-if="!disabled">
-              <Button 
-                title="删除照片"
-                size="xs"
-                variant="danger"
-                @click="handleRemovePhoto" 
-              >
-                <template #icon>
-                  <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
-                </template>
-              </Button>
-            </div>
           </div>
           <div v-else class="upload-placeholder" @click="handleUploadPhoto" :class="{ disabled }">
             <svg class="camera-icon" xmlns="http://www.w3.org/2000/svg" height="36" viewBox="0 -960 960 960" width="36" fill="#94a3b8"><path d="M480-280q67 0 113.5-46.5T640-440q0-67-46.5-113.5T480-600q-67 0-113.5 46.5T320-440q0 67 46.5 113.5T480-280Zm0-80q-33 0-56.5-23.5T400-440q0-33 23.5-56.5T480-520q33 0 56.5 23.5T560-440q0 33-23.5 56.5T480-360ZM160-160q-33 0-56.5-23.5T80-240v-400q0-33 23.5-56.5T160-720h114l66-80h280l66 80h114q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H656l-66-80H370l-66 80H160v400Zm320-200Z"/></svg>
@@ -115,18 +72,10 @@ import Button from '@/components/base/Button.vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 import { ConfirmDialog } from '@/services/business/dialog-service'
-
-interface SubjectiveAnswer {
-  type: 'text' | 'board' | 'photo'
-  textContent?: string
-  boardData?: unknown
-  photoUrl?: string
-}
-
-type MixedModelValue = string | SubjectiveAnswer
+import type { StructuredAnswerItem } from '@/types/exercise'
 
 interface Props {
-  modelValue?: MixedModelValue
+  modelValue?: StructuredAnswerItem
   questionType?: 'fill' | 'subjective'
   label?: string
   placeholder?: string
@@ -141,68 +90,35 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: MixedModelValue): void
-  (e: 'change', value: MixedModelValue): void
+  (e: 'update:modelValue', value: StructuredAnswerItem): void
+  (e: 'change', value: StructuredAnswerItem): void
   (e: 'focus'): void
   (e: 'blur'): void
   }>()
 
-const drawingBoardRef = ref<ComponentPublicInstance & { loadData: (data: unknown) => void; saveData: () => unknown; clearAll: () => void } | null>(null)
-const currentType = ref<'text' | 'drawing' | 'photo'>('text')
-const textContent = ref('')
+const drawingBoardRef = ref<ComponentPublicInstance & { loadData: (data: unknown) => void; saveData: () => unknown; clearAll: () => void; exportToJpg?: (quality?: number) => string } | null>(null)
+const currentType = ref<'drawing' | 'photo'>('drawing')
 const photoUrl = ref('')
 
-const isTextArea = computed(() => props.questionType === 'subjective')
-const boardHeight = computed(() => props.questionType === 'subjective' ? '400px' : '160px')
+const boardHeight = computed(() => props.questionType === 'subjective' ? '500px' : '160px')
 
 // 全局图片选择器
 const { pickImage } = useImagePicker()
 
 // 解析数据并初始化模式
-const initFromValue = (val: MixedModelValue | undefined) => {
+const initFromValue = (val: StructuredAnswerItem | undefined) => {
   if (!val) {
-    currentType.value = 'text'
-    textContent.value = ''
+    currentType.value = 'drawing'
     photoUrl.value = ''
     return
   }
 
-  // 填空题
-  if (props.questionType === 'fill') {
-    const valStr = typeof val === 'string' ? val : ''
-    if (valStr.startsWith('{') && valStr.includes('"objects"')) {
-      currentType.value = 'drawing'
-      photoUrl.value = ''
-    } else if (valStr.startsWith('{') && valStr.includes('"type":"photo"')) {
-      currentType.value = 'photo'
-      try {
-        const parsed = JSON.parse(valStr)
-        photoUrl.value = parsed.photoUrl || ''
-      } catch (e) {
-        photoUrl.value = ''
-      }
-      textContent.value = ''
-    } else {
-      currentType.value = 'text'
-      textContent.value = valStr
-      photoUrl.value = ''
-    }
-  } 
-  // 主观题
-  else {
-    const subVal = val as SubjectiveAnswer
-    if (subVal.type === 'board') {
-      currentType.value = 'drawing'
-      photoUrl.value = ''
-    } else if (subVal.type === 'photo') {
-      currentType.value = 'photo'
-      photoUrl.value = subVal.photoUrl || ''
-      textContent.value = ''
-    } else {
-      currentType.value = 'text'
-      textContent.value = subVal.textContent || ''
-      photoUrl.value = ''
-    }
+  if (val.type === 'photo') {
+    currentType.value = 'photo'
+    photoUrl.value = val.photoUrl || ''
+  } else {
+    currentType.value = 'drawing'
+    photoUrl.value = ''
   }
 }
 
@@ -210,21 +126,7 @@ onMounted(() => {
   initFromValue(props.modelValue)
   // 画板数据加载
   if (currentType.value === 'drawing' && drawingBoardRef.value) {
-    let data = null
-    if (props.questionType === 'fill') {
-      const val = typeof props.modelValue === 'string' ? props.modelValue : ''
-      if (val && val.startsWith('{') && val.includes('"objects"')) {
-        try {
-          data = JSON.parse(val)
-        } catch (e) {
-          console.error('Parse drawing data failed', e)
-        }
-      }
-    } else {
-      const subVal = props.modelValue as SubjectiveAnswer | undefined
-      data = subVal?.boardData
-    }
-    
+    const data = props.modelValue?.boardData
     if (data) {
       drawingBoardRef.value.loadData(data)
     }
@@ -233,20 +135,7 @@ onMounted(() => {
 
 watch(() => props.modelValue, (newVal) => {
   if (currentType.value === 'drawing' && drawingBoardRef.value) {
-    let data = null
-    if (props.questionType === 'fill') {
-      const val = typeof newVal === 'string' ? newVal : ''
-      if (val && val.startsWith('{') && val.includes('"objects"')) {
-        try {
-          data = JSON.parse(val)
-        } catch (e) {
-          console.error('Parse drawing data failed', e)
-        }
-      }
-    } else {
-      const subVal = newVal as SubjectiveAnswer | undefined
-      data = subVal?.boardData
-    }
+    const data = newVal?.boardData
 
     if (data) {
       const currentData = drawingBoardRef.value.saveData()
@@ -255,42 +144,15 @@ watch(() => props.modelValue, (newVal) => {
       }
     }
   } else if (currentType.value === 'photo') {
-    let incomingUrl = ''
-    if (props.questionType === 'fill') {
-      const val = typeof newVal === 'string' ? newVal : ''
-      if (val && val.startsWith('{') && val.includes('"type":"photo"')) {
-        try {
-          const parsed = JSON.parse(val)
-          incomingUrl = parsed.photoUrl || ''
-        } catch (e) {
-          incomingUrl = ''
-        }
-      }
-    } else {
-      const subVal = newVal as SubjectiveAnswer | undefined
-      incomingUrl = subVal?.photoUrl || ''
-    }
+    const incomingUrl = newVal?.photoUrl || ''
     if (photoUrl.value !== incomingUrl) {
       photoUrl.value = incomingUrl
-    }
-  } else if (currentType.value === 'text') {
-    let incomingText = ''
-    if (props.questionType === 'fill') {
-      incomingText = typeof newVal === 'string' ? newVal : ''
-    } else {
-      const subVal = newVal as SubjectiveAnswer | undefined
-      incomingText = subVal?.textContent || ''
-    }
-    if (textContent.value !== incomingText) {
-      textContent.value = incomingText
     }
   }
 }, { deep: true })
 
 const hasContent = (): boolean => {
-  if (currentType.value === 'text') {
-    return textContent.value.trim().length > 0
-  } else if (currentType.value === 'drawing') {
+  if (currentType.value === 'drawing') {
     const currentData = drawingBoardRef.value?.saveData() as any
     const objects = currentData?.objects
     return Array.isArray(objects) && objects.length > 0
@@ -300,7 +162,7 @@ const hasContent = (): boolean => {
   return false
 }
 
-const performSwitch = (type: 'text' | 'drawing' | 'photo') => {
+const performSwitch = (type: 'drawing' | 'photo') => {
   const prevType = currentType.value
   currentType.value = type
 
@@ -310,21 +172,16 @@ const performSwitch = (type: 'text' | 'drawing' | 'photo') => {
   }
   
   // 互斥逻辑：切换时，清空其他作答方式的数据并立即保存
-  if (type === 'text') {
-    photoUrl.value = ''
-    handleTextUpdate(textContent.value)
-  } else if (type === 'drawing') {
-    textContent.value = ''
+  if (type === 'drawing') {
     photoUrl.value = ''
     const currentData = { objects: [], history: [[]], historyIndex: 0 }
     handleBoardSave(currentData)
   } else if (type === 'photo') {
-    textContent.value = ''
     handlePhotoSave(photoUrl.value)
   }
 }
 
-const switchType = (type: 'text' | 'drawing' | 'photo') => {
+const switchType = (type: 'drawing' | 'photo') => {
   if (props.disabled || currentType.value === type) return
 
   // 方案 1：防误触二次确认
@@ -340,34 +197,15 @@ const switchType = (type: 'text' | 'drawing' | 'photo') => {
   }
 }
 
-const handleTextUpdate = (val: string | number | null) => {
-  const finalVal = val === null ? '' : String(val)
-  if (props.questionType === 'fill') {
-    emit('update:modelValue', finalVal)
-    emit('change', finalVal)
-  } else {
-    const newValue: SubjectiveAnswer = {
-      type: 'text',
-      textContent: finalVal
-    }
-    emit('update:modelValue', newValue)
-    emit('change', newValue)
+const handleBoardSave = (boardData: any) => {
+  const boardImg = drawingBoardRef.value?.exportToJpg?.(0.9) || undefined
+  const newValue: StructuredAnswerItem = {
+    type: 'board',
+    boardData,
+    boardImg
   }
-}
-
-const handleBoardSave = (boardData: unknown) => {
-  if (props.questionType === 'fill') {
-    const str = JSON.stringify(boardData)
-    emit('update:modelValue', str)
-    emit('change', str)
-  } else {
-    const newValue: SubjectiveAnswer = {
-      boardData,
-      type: 'board'
-    }
-    emit('update:modelValue', newValue)
-    emit('change', newValue)
-  }
+  emit('update:modelValue', newValue)
+  emit('change', newValue)
 }
 
 const handleUploadPhoto = async () => {
@@ -389,18 +227,12 @@ const handleUploadPhoto = async () => {
 }
 
 const handlePhotoSave = (url: string) => {
-  if (props.questionType === 'fill') {
-    const str = url ? JSON.stringify({ type: 'photo', photoUrl: url }) : ''
-    emit('update:modelValue', str)
-    emit('change', str)
-  } else {
-    const newValue: SubjectiveAnswer = {
-      type: 'photo',
-      photoUrl: url
-    }
-    emit('update:modelValue', newValue)
-    emit('change', newValue)
+  const newValue: StructuredAnswerItem = {
+    type: 'photo',
+    photoUrl: url
   }
+  emit('update:modelValue', newValue)
+  emit('change', newValue)
 }
 
 const handleRemovePhoto = () => {
@@ -415,9 +247,6 @@ const handleClear = () => {
     handleBoardSave({ objects: [], history: [[]], historyIndex: 0 })
   } else if (currentType.value === 'photo') {
     handleRemovePhoto()
-  } else {
-    textContent.value = ''
-    handleTextUpdate('')
   }
 }
 
@@ -429,7 +258,7 @@ defineExpose({
 
 <style scoped lang="scss">
 .mixed-input-area {
-  padding: 16px;
+  padding: 10px 12px;
   border-radius: 12px;
   background: #fff;
   transition: all 0.3s ease;
@@ -443,9 +272,9 @@ defineExpose({
 
 .mixed-input-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .input-label {
@@ -457,17 +286,18 @@ defineExpose({
 .input-controls {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .input-type-tabs {
   display: flex;
   background: #e2e8f0;
-  padding: 3px;
+  padding: 2px;
   border-radius: 8px;
   gap: 2px;
 
   .type-tab {
-    padding: 3px 12px;
+    padding: 2px 10px;
     font-size: 13px;
     border-radius: 6px;
     cursor: pointer;

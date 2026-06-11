@@ -1,9 +1,6 @@
 <template>
   <div class="homework-answer-view">
-    <BusinessHeader
-      :title="displayTitle"
-      @back="goBack"
-    />
+    <BusinessHeader :title="displayTitle" @back="goBack" />
     <div class="answer-body">
       <SplitPanel
         ref="splitPanelRef"
@@ -13,7 +10,7 @@
         :right-config="[36, 36, 60]"
         :transition-duration="0.5"
         :transition-easing="'ease-in-out'"
-        :show-splitters="true" 
+        :show-splitters="true"
         @mode-change="handleModeChange"
       >
         <!-- 左侧：题目列表 -->
@@ -57,7 +54,10 @@
                     <template #actions-append="{ question }">
                       <!-- 作业提交后，仅在当前选中的题目功能区追加显示"问问学伴"图标 -->
                       <q-btn
-                        v-if="isHomeworkSubmitted && getQuestionKey(question) === getQuestionKey(currentAnswerQuestion)"
+                        v-if="
+                          isHomeworkSubmitted &&
+                          getQuestionKey(question) === getQuestionKey(currentAnswerQuestion)
+                        "
                         flat
                         round
                         dense
@@ -78,9 +78,31 @@
         <template #center="{}">
           <div class="panel-bg"></div>
           <div class="panel-content" :style="{ width: '100%', minWidth: '500px' }">
-            <div class="panel-card question-solve-card" :class="{ 'is-submitted': isHomeworkSubmitted }">
+            <div
+              class="panel-card question-solve-card"
+              :class="{ 'is-submitted': isHomeworkSubmitted }"
+            >
               <!-- 工具栏 (与 handleBoardUpload 按钮同行) -->
-              <div class="question-render-toolbar" v-if="currentAnswerQuestion && !isHomeworkLocked">
+              <div
+                class="question-render-toolbar"
+                v-if="currentAnswerQuestion && !isHomeworkLocked"
+              >
+                <div class="toolbar-center-wrapper" v-if="drawingBoardRefs[0]">
+                  <Toolbar
+                    :tools="drawingBoardRefs[0].toolbarTools"
+                    :selected-tool="drawingBoardRefs[0].toolbarSelectedTool"
+                    :tool-config="drawingBoardRefs[0].toolbarToolConfig"
+                    :tool-states="{ undo: drawingBoardRefs[0].canUndo, redo: drawingBoardRefs[0].canRedo }"
+                    :allow-popup="true"
+                    variant="floating"
+                    orientation="horizontal"
+                    @tool-change="handleToolbarToolChange"
+                    @config-change="(cfg) => drawingBoardRefs[0].handleToolbarConfigChange(cfg)"
+                    @undo="() => drawingBoardRefs[0].undo()"
+                    @redo="() => drawingBoardRefs[0].redo()"
+                    @clear="handleClearRequest"
+                  />
+                </div>
                 <div class="toolbar-right">
                   <Button
                     :label="homeworkButtonText"
@@ -97,14 +119,25 @@
                   <!-- 情况 A: 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
                   <div
                     class="question-render-container"
-                    v-if="currentAnswerQuestion && currentAnswerQuestion.structuredContent && ['single_choice', 'multiple_choice', 'true_false', 'composite', 'fill_in_blank', 'subjective'].includes(currentAnswerQuestion.type || '')"
+                    v-if="
+                      currentAnswerQuestion &&
+                      currentAnswerQuestion.structuredContent &&
+                      [
+                        'single_choice',
+                        'multiple_choice',
+                        'true_false',
+                        'composite',
+                        'fill_in_blank',
+                        'subjective',
+                      ].includes(currentAnswerQuestion.type || '')
+                    "
                   >
-                    <div
-                      class="question-render-area"
-                      ref="currentQuestionRenderRef"
-                    >
+                    <div class="question-render-area" ref="currentQuestionRenderRef">
                       <ChoiceQuestion
-                        v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
+                        v-if="
+                          currentAnswerQuestion.type === 'single_choice' ||
+                          currentAnswerQuestion.type === 'multiple_choice'
+                        "
                         :question="currentAnswerQuestion"
                         v-model="currentAnswerQuestion.structuredContent.userAnswer"
                         :disabled="isHomeworkSubmitted"
@@ -160,7 +193,11 @@
               </div>
 
               <!-- 收缩切换按钮 -->
-              <div class="collapse-toggle-btn" v-if="currentAnswerQuestion" @click="toggleQuestionImage">
+              <div
+                class="collapse-toggle-btn"
+                v-if="currentAnswerQuestion"
+                @click="toggleQuestionImage"
+              >
                 <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
               </div>
 
@@ -174,7 +211,7 @@
                       :ref="(el) => setDrawingBoardRef(el, 0)"
                       :showGrid="false"
                       :enableAskAi="true"
-                      :show-toolbar="true"
+                      :show-toolbar="false"
                       :disabled="false"
                       :show-zoom-controls="false"
                       :background-image="''"
@@ -187,15 +224,34 @@
                 <!-- 2. 提交后：答案和解析区域 -->
                 <div v-else class="answer-analysis-wrapper">
                   <div class="result-section">
-                      <div class="result-item answer-item">
-                        <div class="item-label">参考答案：</div>
-                        <div class="item-content" v-html="renderMessageContent(String(currentAnswerQuestion.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
-                      </div>
+                    <div class="result-item answer-item">
+                      <div class="item-label">参考答案：</div>
+                      <div
+                        class="item-content"
+                        v-html="
+                          renderMessageContent(
+                            String(currentAnswerQuestion.answer || '')
+                              .replace(/\$\s+/g, '$')
+                              .replace(/\s+\$/g, '$'),
+                          )
+                        "
+                      ></div>
+                    </div>
                     <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
                       <span class="item-label">是否添加到错题本：</span>
                       <div class="item-controls">
-                        <Radio v-model="mistakeAddedStatus" val="yes" label="是" @update:model-value="handleMistakeChange" />
-                        <Radio v-model="mistakeAddedStatus" val="no" label="否" @update:model-value="handleMistakeChange" />
+                        <Radio
+                          v-model="mistakeAddedStatus"
+                          val="yes"
+                          label="是"
+                          @update:model-value="handleMistakeChange"
+                        />
+                        <Radio
+                          v-model="mistakeAddedStatus"
+                          val="no"
+                          label="否"
+                          @update:model-value="handleMistakeChange"
+                        />
                       </div>
                     </div>
                   </div>
@@ -239,13 +295,13 @@
     </div>
 
     <!-- 隐藏的题目渲染容器，用于生成截图 -->
-    <div
-      ref="questionRenderRef"
-      class="question-render-hidden markdown-content"
-    >
+    <div ref="questionRenderRef" class="question-render-hidden markdown-content">
       <template v-if="currentAnswerQuestion?.structuredContent">
         <ChoiceQuestion
-          v-if="currentAnswerQuestion.type === 'single_choice' || currentAnswerQuestion.type === 'multiple_choice'"
+          v-if="
+            currentAnswerQuestion.type === 'single_choice' ||
+            currentAnswerQuestion.type === 'multiple_choice'
+          "
           :question="currentAnswerQuestion"
           v-model="currentAnswerQuestion.structuredContent.userAnswer"
         />
@@ -259,21 +315,12 @@
           :question="currentAnswerQuestion"
           v-model="currentAnswerQuestion.structuredContent.userAnswer"
         />
-        <BaseQuestion
-          v-else
-          :question="currentAnswerQuestion"
-        />
+        <BaseQuestion v-else :question="currentAnswerQuestion" />
       </template>
       <div v-else v-html="questionHtml"></div>
     </div>
 
-    <!-- 上传对话框（相机上传 / 白板上传共用） -->
-    <CameraUploadDialog
-      v-model="showCameraDialog"
-      :initial-photos="initialUploadPhotos"
-      :question-index-map="lastUploadPageIndices"
-      @confirm="handleUploadConfirm"
-    />
+    <!-- 上传对话框（相机上传 / 白板上传共用）已在重构中停用 -->
 
     <Dialog
       ref="clearDialogRef"
@@ -286,17 +333,19 @@
       确定要清空画布吗？此操作不可撤销。
     </Dialog>
 
-    <!-- 漏题确认对话框 -->
+    <!-- 漏题提示对话框 -->
     <Dialog
       ref="incompleteHomeworkDialogRef"
-      title="作业提交确认"
-      :confirmButtonText="'继续提交'"
-      :cancelButtonText="'取消提交'"
+      title="作业未完成"
+      :confirmButtonText="'去作答'"
+      :showCancelButton="false"
       @confirm="handleIncompleteHomeworkConfirm"
       @cancel="handleIncompleteHomeworkCancel"
     >
       <div class="incomplete-homework-content">
-        第{{ incompleteDialogData.incompleteQuestionNumbers.join('、') }}题未完成，确定要提交吗？
+        第{{
+          incompleteDialogData.incompleteQuestionNumbers.join('、')
+        }}题未完成，请全部完成后再提交！
       </div>
     </Dialog>
 
@@ -321,8 +370,8 @@ import SplitPanel from '@/components/base/SplitPanel.vue'
 import BusinessHeader from '@/components/header/BusinessHeader.vue'
 import QuestionList from '@/components/question/QuestionList.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
+import Toolbar from '@/components/drawing/Toolbar.vue'
 import Button from '@/components/base/Button.vue'
-import CameraUploadDialog from '@/components/dialog/CameraUploadDialog.vue'
 import type { ExerciseItem, HomeworkQuestionAnswer } from '@/types'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
@@ -354,10 +403,10 @@ import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import Radio from '@/components/base/Radio.vue'
 
 interface StructuredAnswer {
-  type: 'text' | 'board'
-  textContent?: string
+  type: 'board' | 'photo'
   boardData?: any
-  timestamp?: number
+  photoUrl?: string
+  boardImg?: string
 }
 
 interface SubjectiveAnswer extends StructuredAnswer {}
@@ -373,7 +422,6 @@ interface AnswerCacheItem {
   compositeAnswers?: Record<string, any>
   subjectiveData?: SubjectiveAnswer
   imageData?: string | null
-  timestamp?: number
 }
 
 defineOptions({
@@ -410,7 +458,7 @@ const homeworkButtonText = computed(() => {
   const deadlineMs = info.deadline ? new Date(info.deadline).getTime() : NaN
   const isExpired = Number.isFinite(deadlineMs) ? deadlineMs <= Date.now() : false
   const canLateSubmit = info.lateSubmit === '1'
-  
+
   return getHomeworkButtonText(info.status, isExpired, canLateSubmit)
 })
 
@@ -418,13 +466,13 @@ const homeworkButtonText = computed(() => {
 const isHomeworkLocked = computed(() => {
   if (isHomeworkSubmitted.value) return true
   if (!currentHomeworkInfo.value) return false
-  
+
   const info = currentHomeworkInfo.value
   const deadlineMs = info.deadline ? new Date(info.deadline).getTime() : NaN
   const isExpired = Number.isFinite(deadlineMs) ? deadlineMs <= Date.now() : false
   const canLateSubmit = info.lateSubmit === '1'
   const canResubmit = resubmitType.value === '1'
-  
+
   // 核心锁定逻辑：
   // 1. 如果服务端状态已结束(status='3')，且既不能重交也不能补交
   if (info.status === '3' && !canResubmit && !canLateSubmit) {
@@ -435,7 +483,7 @@ const isHomeworkLocked = computed(() => {
   if (isExpired && !canLateSubmit && !canResubmit) {
     return true
   }
-  
+
   return false
 })
 
@@ -453,6 +501,16 @@ const drawingBoardRefs = ref<Array<any>>([])
 
 const setDrawingBoardRef = (el: any, pageIndex: number) => {
   drawingBoardRefs.value[pageIndex] = el
+}
+
+const handleToolbarToolChange = (tool: string) => {
+  const board = drawingBoardRefs.value[0]
+  if (!board) return
+  if (tool === 'clear') {
+    handleClearRequest()
+  } else {
+    board.handleToolbarToolChange(tool)
+  }
 }
 
 // QuestionList 组件引用
@@ -504,7 +562,10 @@ const handleToggle = async (question?: ExerciseItem) => {
 
   // 如果传了题目，则调用 AI 面板发送消息
   if (question && (question.bmNo || question.id) && homeworkChatPanelRef.value) {
-    console.log('[HOMEWORK_ANSWER_VIEW] 准备调用 HomeworkChatPanel.sendQuestion:', question.bmNo || question.id)
+    console.log(
+      '[HOMEWORK_ANSWER_VIEW] 准备调用 HomeworkChatPanel.sendQuestion:',
+      question.bmNo || question.id,
+    )
     nextTick(() => {
       const panel = homeworkChatPanelRef.value as { sendQuestion?: (q: ExerciseItem) => void }
       panel.sendQuestion?.(question)
@@ -559,7 +620,9 @@ const title = computed(() => {
 // 展示用标题：优先显示作业名称，缺省时回退到原有 title
 const displayTitle = computed(() => {
   // 修正标题错字"作业作伤" -> "作业作答"
-  const defaultTitle = route.params.homeworkId ? `作业作答 - ${route.params.homeworkId}` : '作业作答'
+  const defaultTitle = route.params.homeworkId
+    ? `作业作答 - ${route.params.homeworkId}`
+    : '作业作答'
   return (homeworkName.value && homeworkName.value.trim()) || defaultTitle
 })
 
@@ -579,13 +642,41 @@ const hasBoardAnswerData = (boardData: any): boolean => {
   return Array.isArray(objects) && objects.length > 0
 }
 
+// 判断具体作答内容（包括序列化 JSON 字符串或对象）是否已填
+const hasValueContent = (item: any): boolean => {
+  if (!item) return false
+  if (typeof item === 'object') {
+    if (item.type === 'photo') {
+      return !!item.photoUrl
+    }
+    const boardData = item.boardData || item
+    return Array.isArray(boardData?.objects) && boardData.objects.length > 0
+  }
+  if (typeof item === 'string') {
+    if (item.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(item)
+        if (parsed.type === 'photo') {
+          return !!parsed.photoUrl
+        }
+        const boardData = parsed.boardData || parsed
+        return Array.isArray(boardData?.objects) && boardData.objects.length > 0
+      } catch (e) {
+        return false
+      }
+    }
+    return !!item.trim()
+  }
+  return false
+}
+
 // 在 HomeworkAnswerView.vue 中判断题目是否已作答
 const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
   const structured = question.structuredContent
   if (!structured) return 'unanswered'
 
   const hasBoardData = hasBoardAnswerData(structured.boardData)
-  
+
   let hasUserAnswer = false
   const type = question.type || ''
   const val = structured.userAnswer
@@ -595,14 +686,11 @@ const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
   } else if (type === 'true_false') {
     hasUserAnswer = val !== undefined && val !== null && val !== ''
   } else if (type === 'fill_in_blank') {
-    hasUserAnswer = Array.isArray(val) && val.some((v: any) => {
-      if (typeof v === 'string') return v && v.trim() !== ''
-      return v && (v.textContent || v.boardData)
-    })
+    hasUserAnswer = Array.isArray(val) && val.some(hasValueContent)
   } else if (type === 'composite') {
     hasUserAnswer = val && typeof val === 'object' && Object.keys(val).length > 0
   } else if (type === 'subjective') {
-    hasUserAnswer = val && (val.textContent?.trim() || hasBoardAnswerData(val.boardData))
+    hasUserAnswer = hasValueContent(val)
   }
 
   if (hasBoardData || hasUserAnswer) return 'answered'
@@ -634,19 +722,24 @@ const isObjective = (question: ExerciseItem): boolean => {
 }
 
 // 将当前题目的画板数据与导出图片保存到题目中
-const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnswerQuestion.value, asyncImage = false) => {
+const saveCurrentPage = async (
+  questionToSave: ExerciseItem | null = currentAnswerQuestion.value,
+  asyncImage = false,
+) => {
   try {
     if (!questionToSave) return
 
     const questionKey = getQuestionKey(questionToSave)
     if (!questionKey) return
 
-    console.log(`[HOMEWORK_IMAGE_PROCESS] 开始保存题目数据: ${questionKey}, 是否异步: ${asyncImage}`)
+    console.log(
+      `[HOMEWORK_IMAGE_PROCESS] 开始保存题目数据: ${questionKey}, 是否异步: ${asyncImage}`,
+    )
 
     if (!questionToSave.structuredContent) {
       questionToSave.structuredContent = {
         stem: questionToSave.title || '',
-        type: questionToSave.type || 'subjective'
+        type: questionToSave.type || 'subjective',
       }
     }
 
@@ -663,7 +756,9 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
       }
     }
 
-    const isObjectiveType = ['single_choice', 'multiple_choice', 'true_false'].includes(questionToSave.type || '')
+    const isObjectiveType = ['single_choice', 'multiple_choice', 'true_false'].includes(
+      questionToSave.type || '',
+    )
 
     const captureBoardImage = () => {
       if (board && questionToSave === currentAnswerQuestion.value) {
@@ -705,17 +800,22 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
     const isStructured = ['fill_in_blank'].includes(questionToSave.type || '')
     if (isStructured && questionRenderRef.value) {
       const renderEl = questionRenderRef.value
-      
+
       const captureStructuredImage = async () => {
         try {
           console.log(`[HOMEWORK_IMAGE_PROCESS] captureStructuredImage 开始: ${questionKey}`)
           await MathJaxUtils.renderMathAndWait(renderEl)
-          
+
           const imgs = Array.from(renderEl.querySelectorAll('img'))
-          await Promise.all(imgs.map(img => {
-            if (img.complete) return Promise.resolve()
-            return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
-          }))
+          await Promise.all(
+            imgs.map((img) => {
+              if (img.complete) return Promise.resolve()
+              return new Promise((resolve) => {
+                img.onload = resolve
+                img.onerror = resolve
+              })
+            }),
+          )
 
           const dataUrl = await htmlToImage.toPng(renderEl, {
             backgroundColor: '#ffffff',
@@ -723,8 +823,8 @@ const saveCurrentPage = async (questionToSave: ExerciseItem | null = currentAnsw
             cacheBust: true,
             style: {
               transform: 'scale(1)',
-              transformOrigin: 'top left'
-            }
+              transformOrigin: 'top left',
+            },
           })
 
           questionToSave.structuredContent!.imageData = dataUrl
@@ -776,7 +876,7 @@ const confirmClearCanvas = () => {
     if (!currentAnswerQuestion.value.structuredContent) {
       currentAnswerQuestion.value.structuredContent = {
         stem: currentAnswerQuestion.value.title || '',
-        type: currentAnswerQuestion.value.type || 'subjective'
+        type: currentAnswerQuestion.value.type || 'subjective',
       }
     }
     const structured = currentAnswerQuestion.value.structuredContent
@@ -793,7 +893,7 @@ const { renderMessageContent } = useMessageRenderer()
 /** 判断题目是否回答正确 */
 const checkQuestionCorrect = (question: ExerciseItem): boolean => {
   if (!isHomeworkSubmitted.value) return true
-  
+
   const structured = question.structuredContent
   if (!structured) return false
 
@@ -805,8 +905,8 @@ const checkQuestionCorrect = (question: ExerciseItem): boolean => {
     const userChoices = val
     if (!userChoices || !Array.isArray(userChoices) || userChoices.length === 0) return false
 
-    const standardChoices = Array.isArray(structured.answer) 
-      ? structured.answer 
+    const standardChoices = Array.isArray(structured.answer)
+      ? structured.answer
       : [String(structured.answer)]
 
     if (userChoices.length !== standardChoices.length) return false
@@ -817,7 +917,7 @@ const checkQuestionCorrect = (question: ExerciseItem): boolean => {
   if (type === 'true_false') {
     const userVal = val
     if (userVal === undefined || userVal === null || userVal === '') return false
-    
+
     return String(structured.answer) === String(userVal)
   }
 
@@ -834,12 +934,14 @@ const isCurrentQuestionCorrect = computed(() => {
 const autoRecordMistakes = async () => {
   console.log('[HomeworkAnswerView] 开始自动记录错题...')
   const homeworkId = route.params.homeworkId as string
-  
+
   let mistakeCount = 0
-  
+
   for (const question of externalQuestions.value) {
-    const isObjectiveType = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(question.type || '')
-    
+    const isObjectiveType = ['single_choice', 'multiple_choice', 'judgment', 'true_false'].includes(
+      question.type || '',
+    )
+
     if (isObjectiveType && !checkQuestionCorrect(question)) {
       const questionKey = getQuestionKey(question)
       const structured = question.structuredContent
@@ -865,14 +967,14 @@ const autoRecordMistakes = async () => {
           originalAnswer.imageData = structured.imageData
         }
       }
-      
+
       try {
         await addMistake({
           bmNo: questionKey,
           homeworkId: homeworkId,
           homeworkName: homeworkName.value,
           originalAnswer: originalAnswer,
-          questionData: question
+          questionData: question,
         })
         mistakeCount++
         console.log(`[HomeworkAnswerView] 自动记录错题成功: ${questionKey}`)
@@ -881,7 +983,7 @@ const autoRecordMistakes = async () => {
       }
     }
   }
-  
+
   if (mistakeCount > 0) {
     console.log(`[HomeworkAnswerView] 自动记录完成，共记录 ${mistakeCount} 道错题`)
   }
@@ -892,25 +994,36 @@ const handleStartAnswer = async (question: ExerciseItem) => {
   const questionKey = getQuestionKey(question)
   const oldQuestion = currentAnswerQuestion.value
   const oldQuestionKey = getQuestionKey(oldQuestion)
-  
+
   // 0. 重复调用守卫：如果是同一道题，且已经处于当前题目状态，则跳过
   if (oldQuestionKey === questionKey && questionKey !== '') {
     console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 题目未变化 (${questionKey})，跳过处理`)
     return
   }
 
-  console.log(`[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 从 ${oldQuestionKey || '无'} 切换到 ${questionKey}`)
+  console.log(
+    `[HOMEWORK_IMAGE_PROCESS] handleStartAnswer: 从 ${oldQuestionKey || '无'} 切换到 ${questionKey}`,
+  )
 
   // 1. 强制同步保存上一题数据 (确保图片生成)
   if (oldQuestion && oldQuestionKey !== questionKey) {
     try {
-      console.log(`[HOMEWORK_IMAGE_PROCESS] 切换题目，正在保存上一题 ${oldQuestionKey} (带1.5s超时保护)...`)
+      console.log(
+        `[HOMEWORK_IMAGE_PROCESS] 切换题目，正在保存上一题 ${oldQuestionKey} (带1.5s超时保护)...`,
+      )
       const savePromise = saveCurrentPage(oldQuestion, false)
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Save timeout')), 1500)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Save timeout')), 1500),
       )
       await Promise.race([savePromise, timeoutPromise])
       console.log(`[HOMEWORK_IMAGE_PROCESS] 上一题 ${oldQuestionKey} 保存完成或超时继续`)
+
+      // 切换题目时，自动持久化当前作答数据到本地数据库
+      const homeworkId = route.params.homeworkId as string
+      if (homeworkId) {
+        await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+        console.log('[HOMEWORK_IMAGE_PROCESS] 切换题目，自动持久化作业数据到本地 DB')
+      }
     } catch (saveError: unknown) {
       const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
       console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${errMsg}`)
@@ -920,7 +1033,7 @@ const handleStartAnswer = async (question: ExerciseItem) => {
   currentAnswerQuestion.value = question
   previousQuestionKey.value = questionKey
   questionBgImage.value = ''
-  
+
   const raw = question.structuredContent?.stem || ''
   questionHtml.value = renderMessageContent(raw)
 
@@ -948,7 +1061,7 @@ const mistakeAddedStatus = ref<'yes' | 'no'>('no')
 /** 处理错题本状态切换 */
 const handleMistakeChange = async (val: 'yes' | 'no') => {
   if (!currentAnswerQuestion.value) return
-  
+
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
   if (val === 'yes') {
     const structured = currentAnswerQuestion.value.structuredContent
@@ -975,13 +1088,13 @@ const handleMistakeChange = async (val: 'yes' | 'no') => {
       }
     }
     const homeworkId = route.params.homeworkId as string
-    
+
     await addMistake({
       bmNo: questionKey,
       homeworkId: homeworkId,
       homeworkName: homeworkName.value,
       originalAnswer: originalAnswer,
-      questionData: currentAnswerQuestion.value
+      questionData: currentAnswerQuestion.value,
     })
     showMessage('已成功加入错题本', 'success')
   } else {
@@ -1002,16 +1115,22 @@ const initMistakeStatus = async () => {
 }
 
 // 监听题目切换，更新错题状态
-watch(() => currentAnswerQuestion.value, () => {
-  initMistakeStatus()
-}, { immediate: true })
+watch(
+  () => currentAnswerQuestion.value,
+  () => {
+    initMistakeStatus()
+  },
+  { immediate: true },
+)
 
 // 题目 HTML 变化时：等待 DOM 更新后截图
 const updateQuestionBackgroundImage = async (seq: number) => {
   const isStale = () => seq !== questionBgCaptureSeq.value
 
   const questionKey = getQuestionKey(currentAnswerQuestion.value)
-  console.log(`[HOMEWORK_RENDER] updateQuestionBackgroundImage 开始: ${questionKey || '无'}, Seq: ${seq}`)
+  console.log(
+    `[HOMEWORK_RENDER] updateQuestionBackgroundImage 开始: ${questionKey || '无'}, Seq: ${seq}`,
+  )
 
   if (!currentAnswerQuestion.value) {
     console.warn('[HOMEWORK_RENDER] 没有当前题目，清空背景图')
@@ -1062,7 +1181,7 @@ const updateQuestionBackgroundImage = async (seq: number) => {
             img.onload = resolve
             img.onerror = resolve
           })
-        })
+        }),
       )
       console.log(`[HOMEWORK_RENDER] 所有图片加载完成`)
     }
@@ -1134,14 +1253,14 @@ const goBack = async () => {
 
   console.log('[HOMEWORK_BACK] 开始执行返回逻辑')
   const homeworkId = route.params.homeworkId as string
-  
+
   try {
     if (homeworkId) {
       console.log('[HOMEWORK_BACK] 检测到 homeworkId:', homeworkId)
-      
+
       const savePromise = saveCurrentPage()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Save timeout')), 2500)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Save timeout')), 2500),
       )
 
       console.log('[HOMEWORK_BACK] 1. 正在调用 saveCurrentPage (带2.5s超时保护)...')
@@ -1152,7 +1271,7 @@ const goBack = async () => {
         const errMsg = e instanceof Error ? e.message : String(e)
         console.warn('[HOMEWORK_BACK] saveCurrentPage 保存可能已挂起或超时:', errMsg)
       }
-      
+
       console.log('[HOMEWORK_BACK] 2. 正在持久化作答数据到本地数据库...')
       await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
       console.log('[HOMEWORK_BACK] 持久化保存指令已发出')
@@ -1165,7 +1284,9 @@ const goBack = async () => {
     console.log('[HOMEWORK_BACK] 准备执行路由跳转')
     router.push({ name: 'myHomework' })
     console.log('[HOMEWORK_BACK] 路由跳转指令已发出')
-    setTimeout(() => { isBacking.value = false }, 500)
+    setTimeout(() => {
+      isBacking.value = false
+    }, 500)
   }
 }
 
@@ -1178,7 +1299,9 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       return
     }
 
-    const subjectPrefix = normalizeSubject((question.subject || getSubject() || 'SUBJECT_MATH').toString())
+    const subjectPrefix = normalizeSubject(
+      (question.subject || getSubject() || 'SUBJECT_MATH').toString(),
+    )
 
     const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
 
@@ -1207,120 +1330,86 @@ const incompleteHomeworkDialogRef = ref<InstanceType<typeof Dialog>>()
 const incompleteDialogData = ref({
   totalQuestions: 0,
   submittedQuestions: 0,
-  incompleteQuestionNumbers: [] as number[]
+  incompleteQuestionNumbers: [] as number[],
 })
 let incompleteHomeworkResolve: (value: boolean) => void
 
 const handleBoardUpload = async () => {
-  console.log('[HomeworkAnswerView][handleBoardUpload] start collecting all homework images')
+  console.log('[HomeworkAnswerView][handleBoardUpload] start submitting homework')
 
   // 1. 先保存当前页内容到缓存
   await saveCurrentPage()
 
-  const photos: string[] = []
-  const pageIndexMap: number[] = []
-
-  // 2. 遍历所有题目，收集已保存的图片数据
-  externalQuestions.value.forEach((question, index) => {
-    const structured = question.structuredContent
-    if (structured && structured.imageData) {
-      photos.push(structured.imageData)
-      pageIndexMap.push(index) // 使用题目在列表中的索引
-      console.log(`[HomeworkAnswerView] 收集题目图片: ${getQuestionKey(question)}, 索引: ${index}`)
-    }
-  })
-
-  console.log('[HomeworkAnswerView][handleBoardUpload] collected images', {
-    totalQuestions: externalQuestions.value.length,
-    photosCount: photos.length,
-    pageIndexMap: pageIndexMap.slice(),
-  })
-
-  // 3. 检查是否有任何作答内容（不再仅根据图片有无来判断）
-  const hasAnyAnswer = externalQuestions.value.some(q => getQuestionStatus(q) === 'answered')
+  // 2. 检查是否有任何作答内容
+  const hasAnyAnswer = externalQuestions.value.some((q) => getQuestionStatus(q) === 'answered')
   if (!hasAnyAnswer) {
     showMessage('没有找到任何作答内容，请先在题目上进行作答', 'warning')
     return
   }
 
-  // 4. 如果没有手写图片（例如全是无笔迹的客观题），直接进入提交流程，无需弹窗确认图片
-  if (photos.length === 0) {
-    console.log('[HomeworkAnswerView][handleBoardUpload] no photos but has answers, submitting directly')
-    await handleUploadConfirm([], [])
+  // 3. 检查是否漏题 (如果有未完成的题目，禁止提交)
+  const totalQuestions = externalQuestions.value.length
+  const answeredQuestionIndices: number[] = []
+  externalQuestions.value.forEach((question, index) => {
+    if (getQuestionStatus(question) === 'answered') {
+      answeredQuestionIndices.push(index)
+    }
+  })
+
+  const submittedQuestions = answeredQuestionIndices.length
+
+  if (submittedQuestions < totalQuestions) {
+    // 有题目未完成，计算未完成的题目编号
+    const incompleteQuestionNumbers: number[] = []
+    for (let i = 0; i < totalQuestions; i++) {
+      if (!answeredQuestionIndices.includes(i)) {
+        incompleteQuestionNumbers.push(i + 1) // 题目编号从1开始
+      }
+    }
+
+    // 弹出未完成提示框并终止提交
+    await showIncompleteHomeworkDialog(
+      totalQuestions,
+      submittedQuestions,
+      incompleteQuestionNumbers,
+    )
     return
   }
 
-  // 5. 打开上传确认对话框，展示所有收集的图片
-  lastUploadPageIndices.value = pageIndexMap
-  initialUploadPhotos.value = photos
-  showCameraDialog.value = true
+  // 4. 全都完成了，直接开始提交流程
+  try {
+    const questionAnswerList = prepareSubmitData()
+    await submitHomeworkAnswers(questionAnswerList)
 
-  console.log('[HomeworkAnswerView][handleBoardUpload] dialog opened with all homework images')
+    showMessage('提交成功', 'success')
+    isHomeworkSubmitted.value = true // 设置为已提交状态
+
+    // 自动记录错题
+    await autoRecordMistakes()
+
+    // 持久化到 IndexedDB
+    if (route.params.homeworkId) {
+      await homeworkStore.saveCurrentHomeworkSubmission(route.params.homeworkId as string, true)
+    }
+  } catch (error) {
+    console.error('[HomeworkAnswerView] 提交答案异常:', error)
+    showMessage(error instanceof Error ? error.message : '提交失败，请重试', 'error')
+  }
 }
 
-// 上传确认回调
-// 计算保留的题目索引
-const calculateKeptQuestionIndices = (photos: string[]): number[] => {
-  if (!lastUploadPageIndices.value.length || !initialUploadPhotos.value.length) {
-    return []
-  }
-
-  const originalPhotos = initialUploadPhotos.value
-  const keepFlags = new Array(originalPhotos.length).fill(false)
-  const used = new Array(photos.length).fill(false)
-
-  // 计算 originalPhotos 中哪些位置被保留（按内容匹配，考虑重复时按顺序消费）
-  for (let i = 0; i < originalPhotos.length; i++) {
-    const p = originalPhotos[i]
-    let found = -1
-    for (let j = 0; j < photos.length; j++) {
-      if (!used[j] && photos[j] === p) {
-        found = j
-        used[j] = true
-        break
-      }
-    }
-    if (found !== -1) {
-      keepFlags[i] = true
-    }
-  }
-
-  // 计算保留 of 题目索引
-  const keptQuestionIndices: number[] = []
-  for (let i = 0; i < originalPhotos.length; i++) {
-    if (keepFlags[i]) {
-      const questionIndex = lastUploadPageIndices.value[i]
-      if (typeof questionIndex === 'number') {
-        keptQuestionIndices.push(questionIndex)
-      }
-    }
-  }
-  return keptQuestionIndices
-}
-
-// 根据保留的题目更新缓存数据
-const updateCacheWithKeptQuestions = (keptQuestionIndices: number[]) => {
-  externalQuestions.value.forEach((question, index) => {
-    const structured = question.structuredContent
-    if (structured) {
-      if (keptQuestionIndices.includes(index)) {
-        // 这个题目的图片被保留，数据已存在，无需操作
-        console.log(`[HomeworkAnswerView] 保留题目数据: ${getQuestionKey(question)}`)
-      } else {
-        // 这个题目的图片被删除，清空图片数据
-        structured.imageData = null
-        console.log(`[HomeworkAnswerView] 清空题目图片数据: ${getQuestionKey(question)}`)
-      }
-    }
-  })
-}
-
-// 辅助函数：递归构建题目的结构化提交答案
+/**
+ * 辅助函数：递归构建题目的结构化提交答案
+ * @param question 题目对象
+ * @param questionIndex 题目索引
+ * @param imageBuckets 暂存草稿图片的容器
+ * @param parentUserAnswer 复合题子题传入的作答数据，非复合题不需要传
+ * @returns 组装好的单个题目作答结果，若无作答则返回 null
+ */
 const buildAnswerForQuestion = (
-  question: ExerciseItem, 
-  questionIndex: number, 
+  question: ExerciseItem,
+  questionIndex: number,
   imageBuckets: Map<number, string[]>,
-  parentUserAnswer?: any
+  parentUserAnswer?: any,
 ): HomeworkQuestionAnswer | null => {
   if (!question) return null
   const structured = question.structuredContent
@@ -1333,67 +1422,46 @@ const buildAnswerForQuestion = (
   let answers: any = null
 
   if (type === 'single_choice' || type === 'multiple_choice') {
+    // 选择题：将选项数组的元素规范为 string
     answers = Array.isArray(userAnswer) ? userAnswer.map(String) : []
   } else if (type === 'true_false') {
-    answers = (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') ? String(userAnswer) : ''
+    // 判断题：转换为 "true" 或 "false" 字符串
+    answers =
+      userAnswer !== undefined && userAnswer !== null && userAnswer !== '' ? String(userAnswer) : ''
   } else if (type === 'fill_in_blank') {
+    // 填空题：直接返回各空的图片 URL/Base64 字符串数组
     if (Array.isArray(userAnswer)) {
       answers = userAnswer.map((item: any) => {
         if (typeof item === 'object' && item !== null) {
-          const itemType = item.type || 'text'
-          let content: any = ''
-          if (itemType === 'board') {
-            content = item.boardData || null
-          } else if (itemType === 'photo') {
-            content = item.photoUrl || ''
-          } else {
-            content = item.textContent || ''
+          if (item.type === 'photo') {
+            return item.photoUrl || ''
           }
-          return { type: itemType, content }
+          return item.boardImg || ''
         }
-        
-        const valStr = String(item || '')
-        if (valStr.startsWith('{') && valStr.includes('"objects"')) {
-          try {
-            return { type: 'board', content: JSON.parse(valStr) }
-          } catch(e) {}
-        } else if (valStr.startsWith('{') && valStr.includes('"type":"photo"')) {
-          try {
-            const parsed = JSON.parse(valStr)
-            return { type: 'photo', content: parsed.photoUrl || '' }
-          } catch(e) {}
-        }
-        return { type: 'text', content: valStr }
+        return ''
       })
     } else {
       answers = []
     }
   } else if (type === 'subjective') {
-    let item = userAnswer
-    if (typeof item === 'string' && item.startsWith('{')) {
-      try {
-        item = JSON.parse(item)
-      } catch(e) {}
-    }
+    // 主观题：直接返回图片 URL/Base64 字符串
+    const item = userAnswer
     if (typeof item === 'object' && item !== null) {
-      const itemType = item.type || 'text'
-      let content: any = ''
-      if (itemType === 'board') {
-        content = item.boardData || null
-      } else if (itemType === 'photo') {
-        content = item.photoUrl || ''
+      if (item.type === 'photo') {
+        answers = item.photoUrl || ''
       } else {
-        content = item.textContent || ''
+        answers = item.boardImg || ''
       }
-      answers = { type: itemType, content }
     } else {
-      answers = { type: 'text', content: String(item || '') }
+      answers = ''
     }
   } else if (type === 'composite') {
+    // 复合题：递归处理子题作答列表
     const nestedAnswers: HomeworkQuestionAnswer[] = []
     if (question.subQuestions && Array.isArray(question.subQuestions)) {
       question.subQuestions.forEach((subQuestion, subIndex) => {
-        const subUserAnswer = (userAnswer && typeof userAnswer === 'object') ? userAnswer[subQuestion.id] : undefined
+        const subUserAnswer =
+          userAnswer && typeof userAnswer === 'object' ? userAnswer[subQuestion.id] : undefined
         const subAns = buildAnswerForQuestion(subQuestion, subIndex, imageBuckets, subUserAnswer)
         if (subAns) {
           nestedAnswers.push(subAns)
@@ -1405,11 +1473,11 @@ const buildAnswerForQuestion = (
 
   const currentImages = imageBuckets.get(questionIndex) || []
   const hasImages = currentImages.length > 0
-  const hasContent = answers !== null && (
-    (Array.isArray(answers) && answers.length > 0) || 
-    (typeof answers === 'string' && answers !== '') ||
-    (typeof answers === 'object' && Object.keys(answers).length > 0)
-  )
+  const hasContent =
+    answers !== null &&
+    ((Array.isArray(answers) && answers.length > 0) ||
+      (typeof answers === 'string' && answers !== '') ||
+      (typeof answers === 'object' && Object.keys(answers).length > 0))
 
   if (!hasImages && !hasContent) return null
 
@@ -1417,38 +1485,20 @@ const buildAnswerForQuestion = (
     questionId: question.id || question.bmNo || '',
     type: question.type || 'subjective',
     answers,
-    images: currentImages.length ? currentImages : undefined
+    images: currentImages.length ? currentImages : undefined,
   }
 }
 
-// 准备提交数据
-const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], questionIndexMap?: number[]): HomeworkQuestionAnswer[] => {
+/**
+ * 提取所有题目的本地作答并准备提交数据格式
+ * @returns 规范化的作业提交数组
+ */
+const prepareSubmitData = (): HomeworkQuestionAnswer[] => {
   const questionAnswerList: HomeworkQuestionAnswer[] = []
+  const emptyBuckets = new Map<number, string[]>() // 空 map，草稿图片不传给后端
 
-  const mapUsable = Array.isArray(questionIndexMap) && questionIndexMap.length === photos.length
-  
-  // 建立题目索引到图片的映射
-  const imageBuckets = new Map<number, string[]>()
-  if (mapUsable) {
-    for (let i = 0; i < photos.length; i++) {
-      const qIndex = questionIndexMap![i]
-      if (typeof qIndex !== 'number') continue
-      if (!imageBuckets.has(qIndex)) imageBuckets.set(qIndex, [])
-      imageBuckets.get(qIndex)!.push(photos[i])
-    }
-  } else {
-    // 兼容旧逻辑：虽然本场景基本都是 mapUsable，但也保留顺序映射的兜底
-    keptQuestionIndices.forEach((questionIndex, photoIndex) => {
-      if (!imageBuckets.has(questionIndex)) imageBuckets.set(questionIndex, [])
-      if (photos[photoIndex]) {
-        imageBuckets.get(questionIndex)!.push(photos[photoIndex])
-      }
-    })
-  }
-
-  // 遍历全部题目，构造结构化提交数据 (包含子题嵌套)
   externalQuestions.value.forEach((question, questionIndex) => {
-    const ans = buildAnswerForQuestion(question, questionIndex, imageBuckets)
+    const ans = buildAnswerForQuestion(question, questionIndex, emptyBuckets)
     if (ans) {
       questionAnswerList.push(ans)
     }
@@ -1462,8 +1512,18 @@ const prepareSubmitData = (keptQuestionIndices: number[], photos: string[], ques
   return questionAnswerList
 }
 
-// 显示漏题确认对话框
-const showIncompleteHomeworkDialog = (totalQuestions: number, submittedQuestions: number, incompleteQuestionNumbers: number[]): Promise<boolean> => {
+/**
+ * 显示漏题确认提示弹窗
+ * @param totalQuestions 作业总题目数
+ * @param submittedQuestions 已作答的题目数
+ * @param incompleteQuestionNumbers 未完成的题目编号集合 (1-indexed)
+ * @returns 是否确认的 Promise
+ */
+const showIncompleteHomeworkDialog = (
+  totalQuestions: number,
+  submittedQuestions: number,
+  incompleteQuestionNumbers: number[],
+): Promise<boolean> => {
   return new Promise((resolve) => {
     incompleteHomeworkResolve = resolve
     incompleteDialogData.value = { totalQuestions, submittedQuestions, incompleteQuestionNumbers }
@@ -1471,15 +1531,32 @@ const showIncompleteHomeworkDialog = (totalQuestions: number, submittedQuestions
   })
 }
 
-// 漏题确认对话框 - 确认提交
+/**
+ * 漏题确认弹窗点击“去作答”回调，自动滚动选中首道未作答题目
+ */
 const handleIncompleteHomeworkConfirm = () => {
   incompleteHomeworkDialogRef.value?.closeDialog()
+
+  // 自动滚动并选中第一道未答的题目
+  const firstUnansweredNum = incompleteDialogData.value.incompleteQuestionNumbers[0]
+  if (typeof firstUnansweredNum === 'number') {
+    const targetIndex = firstUnansweredNum - 1
+    if (
+      questionListRef.value &&
+      typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
+    ) {
+      questionListRef.value.scrollToQuestionAndSelect(targetIndex)
+    }
+  }
+
   if (incompleteHomeworkResolve) {
-    incompleteHomeworkResolve(true)
+    incompleteHomeworkResolve(false) // 返回 false，终止提交
   }
 }
 
-// 漏题确认对话框 - 取消提交
+/**
+ * 漏题确认弹窗点击取消时的回调
+ */
 const handleIncompleteHomeworkCancel = () => {
   incompleteHomeworkDialogRef.value?.closeDialog()
   if (incompleteHomeworkResolve) {
@@ -1487,11 +1564,57 @@ const handleIncompleteHomeworkCancel = () => {
   }
 }
 
-// 执行作业答案提交
+/**
+ * 递归函数：将作答内容中的所有 base64 图片/手写板数据上传到云端后，就地替换为云端 CDN 链接地址
+ * @param questionAnswerList 等待上传的提交答案列表
+ */
+const uploadAnswersImages = async (questionAnswerList: any[]) => {
+  for (const qAns of questionAnswerList) {
+    if (qAns.type === 'subjective') {
+      // 检查主观题作答内容是否为 Base64，如果是则上传并覆盖
+      if (typeof qAns.answers === 'string' && qAns.answers.startsWith('data:image')) {
+        console.log('[HomeworkSubmit] 上传主观题照片/画板截图到云端...')
+        const path = await apiService.uploadImageToYanban(qAns.answers)
+        qAns.answers = path
+      }
+    } else if (qAns.type === 'fill_in_blank') {
+      // 检查填空题每个空格是否为 Base64，如果是则上传并就地替换
+      if (Array.isArray(qAns.answers)) {
+        for (let i = 0; i < qAns.answers.length; i++) {
+          const ansStr = qAns.answers[i]
+          if (typeof ansStr === 'string' && ansStr.startsWith('data:image')) {
+            console.log('[HomeworkSubmit] 上传填空题照片/画板截图到云端...')
+            const path = await apiService.uploadImageToYanban(ansStr)
+            qAns.answers[i] = path
+          }
+        }
+      }
+    } else if (qAns.type === 'composite') {
+      // 复合题：递归处理子题作答中的图片
+      if (Array.isArray(qAns.answers)) {
+        await uploadAnswersImages(qAns.answers)
+      }
+    }
+  }
+}
+
+/**
+ * 执行作业提交，先上传 Base64 图片，随后调用提交 API
+ * @param questionAnswerList 已整合好格式的作答列表
+ */
 const submitHomeworkAnswers = async (questionAnswerList: any[]) => {
   const homeworkId = route.params.homeworkId as string
   if (!homeworkId) {
     throw new Error('作业信息缺失')
+  }
+
+  // 提交前，先将所有画板或照片的 base64 转换上传到云端，获得路径并更新
+  try {
+    showMessage('正在上传作答图片/手写板数据，请稍候...', 'info')
+    await uploadAnswersImages(questionAnswerList)
+  } catch (uploadErr) {
+    console.error('[HomeworkSubmit] 图片上传云端失败:', uploadErr)
+    throw new Error('作答图片上传失败，请重试')
   }
 
   const submitReq = {
@@ -1502,77 +1625,6 @@ const submitHomeworkAnswers = async (questionAnswerList: any[]) => {
   const result = await apiService.homeworkSubmitSave(submitReq)
   if (!result?.success) {
     throw new Error(result?.message || '提交失败')
-  }
-}
-
-// 上传确认回调
-const handleUploadConfirm = async (photos: string[], questionIndexMap?: number[]) => {
-  // 获取当前题目 ID
-  const questionId = currentAnswerQuestion.value?.id || currentAnswerQuestion.value?.bmNo
-  if (!questionId) {
-    showMessage('请先选择题目', 'warning')
-    return
-  }
-
-  try {
-    // 1. 计算保留的题目索引
-    const mapUsable = Array.isArray(questionIndexMap) && questionIndexMap.length === photos.length
-    const keptQuestionIndices = mapUsable
-      ? Array.from(new Set(questionIndexMap as number[])).filter((n) => typeof n === 'number')
-      : calculateKeptQuestionIndices(photos)
-
-    // 2. 更新缓存数据
-    updateCacheWithKeptQuestions(keptQuestionIndices)
-
-    // 3. 准备提交数据
-    const questionAnswerList = prepareSubmitData(keptQuestionIndices, photos, mapUsable ? (questionIndexMap as number[]) : undefined)
-
-    // 4. 检查是否漏题（使用与 tag 相同的判断逻辑）
-    const totalQuestions = externalQuestions.value.length
-
-    // 计算已作答的题目数量
-    const answeredQuestionIndices: number[] = []
-    externalQuestions.value.forEach((question, index) => {
-      if (getQuestionStatus(question) === 'answered') {
-        answeredQuestionIndices.push(index)
-      }
-    })
-
-    const submittedQuestions = answeredQuestionIndices.length
-
-    if (submittedQuestions < totalQuestions) {
-      // 有题目未完成，计算未完成的题目编号
-      const incompleteQuestionNumbers: number[] = []
-      for (let i = 0; i < totalQuestions; i++) {
-        if (!answeredQuestionIndices.includes(i)) {
-          incompleteQuestionNumbers.push(i + 1) // 题目编号从1开始
-        }
-      }
-
-      // 弹出确认对话框
-      const confirmed = await showIncompleteHomeworkDialog(totalQuestions, submittedQuestions, incompleteQuestionNumbers)
-      if (!confirmed) {
-        return // 用户取消提交
-      }
-    }
-
-    // 5. 执行提交
-    await submitHomeworkAnswers(questionAnswerList)
-
-    showMessage('提交成功', 'success')
-    showCameraDialog.value = false
-    isHomeworkSubmitted.value = true // 设置为已提交状态
-
-    // 自动记录错题
-    await autoRecordMistakes()
-
-    // 持久化到 IndexedDB
-    if (route.params.homeworkId) {
-      await homeworkStore.saveCurrentHomeworkSubmission(route.params.homeworkId as string, true)
-    }
-  } catch (error) {
-    console.error('[HomeworkAnswerView] 提交答案异常:', error)
-    showMessage(error instanceof Error ? error.message : '提交失败，请重试', 'error')
   }
 }
 
@@ -1605,7 +1657,9 @@ onMounted(async () => {
   }
 
   // 初始化所有题目状态为未作答
-  console.log(`[HOMEWORK_STORAGE] 2. 正在初始化 ${externalQuestions.value.length} 道题目的本地结构...`)
+  console.log(
+    `[HOMEWORK_STORAGE] 2. 正在初始化 ${externalQuestions.value.length} 道题目的本地结构...`,
+  )
   externalQuestions.value.forEach((question) => {
     initExerciseAnswerFields(question)
   })
@@ -1636,7 +1690,7 @@ onMounted(async () => {
     index: targetIndex,
     id: targetQuestion?.id,
     answer: targetQuestion?.answer,
-    explanation: targetQuestion?.explanation
+    explanation: targetQuestion?.explanation,
   })
   await handleStartAnswer(targetQuestion)
 })
@@ -1647,7 +1701,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
- 
 .homework-answer-view {
   width: 100%;
   height: 100%;
@@ -1674,13 +1727,13 @@ onUnmounted(() => {
 /* 背景层 */
 .panel-bg1 {
   height: 100%;
-  background: linear-gradient(to right, #0f002e 4% , #ffffff 6%);
+  background: linear-gradient(to right, #0f002e 4%, #ffffff 6%);
   width: 100%;
 }
 
 .panel-bg2 {
   height: 100%;
-  background: linear-gradient(to left, #0f002e 4% , #ffffff 6%);
+  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%);
   width: 100%;
 }
 
@@ -1690,7 +1743,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(to right, #0f002e 50%, #ffffff 50%);
+  background: #ffffff;
   border-radius: 20px;
   z-index: -1;
   opacity: 1;
@@ -1743,7 +1796,7 @@ onUnmounted(() => {
   height: 60px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   padding: 0 24px;
   z-index: 50;
   background-color: #ffffff;
@@ -1919,7 +1972,7 @@ onUnmounted(() => {
     color: #1e293b;
     margin-bottom: 8px;
   }
-  
+
   .item-content {
     font-size: 15px;
     line-height: 1.6;
@@ -1959,17 +2012,25 @@ onUnmounted(() => {
 }
 
 .question-render-toolbar {
+  position: relative;
   display: flex;
   justify-content: flex-end;
-  padding: 8px 0;
+  align-items: center;
+  padding: 8px 12px;
   background: transparent;
+}
+
+.toolbar-center-wrapper {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
 }
 
 .action-footer-placeholder {
   height: 20px;
   flex-shrink: 0;
 }
-
 
 .question-status-container {
   display: flex;
@@ -1990,5 +2051,4 @@ onUnmounted(() => {
   margin-left: 4px;
   left: 40px;
 }
-
 </style>

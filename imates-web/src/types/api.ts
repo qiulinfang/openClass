@@ -247,15 +247,14 @@ export interface HomeworkQuestionAnswer {
 
 /** 填空题/主观题的具体作答载荷 */
 export interface AnswerDetail {
-  /** 数据类型：'text' (文本输入) | 'board' (手写画板/草稿笔迹) | 'photo' (照片上传) */
-  type: 'text' | 'board' | 'photo'
+  /** 数据类型：'text' (文本输入) | 'img' (图片，包含照片与手写板图片上传后的URL) */
+  type: 'text' | 'img'
   /** 
    * 具体答案数据：
    * - 'text': 文本字符串
-   * - 'board': 笔迹数据对象 (包含 objects 等)
-   * - 'photo': 图片的 base64 或 OSS 地址字符串
+   * - 'img': 图片的 OSS 地址或云端相对路径
    */
-  content: any
+  content: string
 }
 
 /** 未完成作业列表项 */

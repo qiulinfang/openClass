@@ -14,8 +14,31 @@
     </template>
 
     <!-- 子题列表作为 default 插槽内容 -->
-    <!-- 子题 Tab 切换栏 -->
-    <div class="sub-question-tabs-container q-mt-md" v-if="question.subQuestions && question.subQuestions.length > 1">
+    <!-- 布局切换栏 -->
+    <div class="composite-layout-header q-mt-md" v-if="question.subQuestions && question.subQuestions.length > 1">
+      <div class="layout-toggle-label">排版模式：</div>
+      <div class="layout-toggle-group">
+        <button
+          class="layout-toggle-btn"
+          :class="{ active: localLayoutMode === 'tab' }"
+          type="button"
+          @click="localLayoutMode = 'tab'"
+        >
+          分步作答 (Tab)
+        </button>
+        <button
+          class="layout-toggle-btn"
+          :class="{ active: localLayoutMode === 'list' }"
+          type="button"
+          @click="localLayoutMode = 'list'"
+        >
+          完整渲染 (List)
+        </button>
+      </div>
+    </div>
+
+    <!-- 子题 Tab 切换栏 (仅在 tab 模式显示) -->
+    <div class="sub-question-tabs-container q-mt-md" v-if="localLayoutMode === 'tab' && question.subQuestions && question.subQuestions.length > 1">
       <div class="tabs-label">子题：</div>
       <div class="tabs-wrapper">
         <button
@@ -35,15 +58,14 @@
       </div>
     </div>
 
-    <!-- 子题内容区域 -->
-    <div class="sub-questions-list q-mt-md" v-if="question.subQuestions && question.subQuestions.length > 0">
+    <!-- 子题内容区域 (Tab 模式) -->
+    <div class="sub-questions-list q-mt-md" v-if="localLayoutMode === 'tab' && question.subQuestions && question.subQuestions.length > 0">
       <Transition name="fade-slide" mode="out-in">
         <div 
           :key="activeSubIdx" 
           class="sub-question-item"
         >
           <template v-if="question.subQuestions[activeSubIdx]">
-            
             <!-- 如果子题还是 composite，递归渲染 -->
             <CompositeQuestion
               v-if="question.subQuestions[activeSubIdx].type === 'composite'"
@@ -54,6 +76,7 @@
               :show-id="false"
               :disabled="disabled"
               :show-analysis="showAnalysis"
+              :layout-mode="localLayoutMode"
             />
 
             <!-- 主观题渲染 -->
@@ -84,6 +107,57 @@
         </div>
       </Transition>
     </div>
+
+    <!-- 子题内容区域 (List 模式 - 从头到尾完整渲染) -->
+    <div class="sub-questions-list list-layout q-mt-md" v-if="localLayoutMode === 'list' && question.subQuestions && question.subQuestions.length > 0">
+      <div 
+        v-for="(sub, sIdx) in question.subQuestions"
+        :key="sub.id || sIdx" 
+        class="sub-question-item q-mb-md"
+      >
+        <div class="sub-question-index-header">
+          <span class="sub-index-tag">第 {{ sIdx + 1 }} 小题</span>
+        </div>
+        
+        <!-- 如果子题还是 composite，递归渲染 -->
+        <CompositeQuestion
+          v-if="sub.type === 'composite'"
+          :question="sub"
+          :model-value="(modelValue[sub.id] as any) || {}"
+          @update:model-value="handleUpdate(sub.id, $event)"
+          :show-title="false"
+          :show-id="false"
+          :disabled="disabled"
+          :show-analysis="showAnalysis"
+          :layout-mode="localLayoutMode"
+        />
+
+        <!-- 主观题渲染 -->
+        <SubjectiveQuestion 
+          v-else-if="sub.structuredContent?.type === 'subjective' || sub.type === 'subjective'"
+          :question="sub"
+          :model-value="modelValue[sub.id]"
+          @update:model-value="handleUpdate(sub.id, $event)"
+          :show-title="true"
+          :show-id="showId"
+          :disabled="disabled"
+          :show-analysis="showAnalysis"
+        />
+
+        <!-- 普通子题渲染 -->
+        <component 
+          v-else
+          :is="getComponent(sub.structuredContent?.type || sub.type)" 
+          :question="sub" 
+          :model-value="modelValue[sub.id]"
+          @update:model-value="handleUpdate(sub.id, $event)"
+          :show-title="true"
+          :show-id="showId"
+          :disabled="disabled"
+          :show-analysis="showAnalysis"
+        />
+      </div>
+    </div>
   </BaseQuestion>
 </template>
 
@@ -94,7 +168,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { ExerciseItem } from '../../types/exercise'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import ChoiceQuestion from './ChoiceQuestion.vue'
@@ -105,22 +179,29 @@ import BaseQuestion from './BaseQuestion.vue'
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
-  modelValue?: Record<string, unknown>
+  modelValue?: Record<string, any>
   showTitle?: boolean
   showId?: boolean
   showAnalysis?: boolean
   disabled?: boolean
+  layoutMode?: 'tab' | 'list'
 }>(), {
   modelValue: () => ({}),
   showTitle: true,
   showId: true,
   showAnalysis: false,
-  disabled: false
+  disabled: false,
+  layoutMode: 'tab'
 })
 
 const emit = defineEmits(['update:modelValue', 'change'])
 
 const activeSubIdx = ref(0)
+const localLayoutMode = ref<'tab' | 'list'>(props.layoutMode)
+
+watch(() => props.layoutMode, (newVal) => {
+  localLayoutMode.value = newVal
+})
 
 console.log('[COMPOSITE_RENDER_DEBUG] rendering CompositeQuestion: ', {
   id: props.question.id,
@@ -321,5 +402,68 @@ const getComponent = (type: string | undefined) => {
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateX(-10px);
+}
+
+/* 布局切换样式 */
+.composite-layout-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 8px;
+
+  .layout-toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .layout-toggle-group {
+    display: inline-flex;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .layout-toggle-btn {
+    border: none;
+    background: transparent;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+    user-select: none;
+
+    &:hover {
+      color: #615efe;
+    }
+
+    &.active {
+      background: #ffffff;
+      color: #615efe;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      font-weight: 600;
+    }
+  }
+}
+
+.sub-question-index-header {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #edf2f7;
+  padding-bottom: 8px;
+
+  .sub-index-tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #615efe;
+    background: rgba(97, 94, 254, 0.08);
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
 }
 </style>

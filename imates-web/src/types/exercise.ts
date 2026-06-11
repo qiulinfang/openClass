@@ -21,6 +21,14 @@ export interface BlankItem {
   answer?: string[]
 }
 
+/** 结构化作答单元（手写/照片） */
+export interface StructuredAnswerItem {
+  type: 'board' | 'photo'
+  boardData?: any
+  photoUrl?: string
+  boardImg?: string
+}
+
 /** 结构化题目内容 */
 export interface StructuredQuestionContent {
   id?: string

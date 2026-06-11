@@ -14,11 +14,11 @@
         <MixedInputArea
           :model-value="modelValue"
           question-type="subjective"
-          :label="showTitle ? '作答区：' : ''"
+          :label="''"
           :disabled="disabled"
           :rows="12"
           placeholder="请输入您的作答内容..."
-          @update:model-value="(val) => emit('update:modelValue', val as SubjectiveAnswer)"
+          @update:model-value="(val) => emit('update:modelValue', val as StructuredAnswerItem)"
         />
       </div>
     </BaseQuestion>
@@ -34,18 +34,11 @@ export default {
 <script setup lang="ts">
 import BaseQuestion from './BaseQuestion.vue'
 import MixedInputArea from './MixedInputArea.vue'
-import type { ExerciseItem } from '../../types/exercise'
-
-interface SubjectiveAnswer {
-  type: 'text' | 'board'
-  textContent?: string
-  boardData?: unknown
-  timestamp?: number
-}
+import type { ExerciseItem, StructuredAnswerItem } from '../../types/exercise'
 
 withDefaults(defineProps<{
   question: ExerciseItem
-  modelValue?: SubjectiveAnswer
+  modelValue?: StructuredAnswerItem
   showTitle?: boolean
   showId?: boolean
   disabled?: boolean
@@ -60,8 +53,8 @@ withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: SubjectiveAnswer): void
-  (e: 'change', value: SubjectiveAnswer): void
+  (e: 'update:modelValue', value: StructuredAnswerItem): void
+  (e: 'change', value: StructuredAnswerItem): void
 }>()
 </script>
 

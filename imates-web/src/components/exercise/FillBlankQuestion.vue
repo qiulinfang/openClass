@@ -30,9 +30,6 @@
           @update:model-value="val => handleBlankUpdate(i - 1, val)"
           @focus="activeBlank = i - 1"
         >
-          <template #header-left>
-            <div class="blank-number">{{ i }}</div>
-          </template>
         </MixedInputArea>
       </div>
     </div>
@@ -50,18 +47,11 @@ import { computed, ref, watch, onMounted } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
 import MixedInputArea from './MixedInputArea.vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import type { ExerciseItem } from '../../types/exercise'
-
-export interface StructuredAnswer {
-  type: 'text' | 'board'
-  textContent?: string
-  boardData?: any
-  timestamp?: number
-}
+import type { ExerciseItem, StructuredAnswerItem } from '../../types/exercise'
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
-  modelValue?: (string | StructuredAnswer)[]
+  modelValue?: StructuredAnswerItem[]
   showTitle?: boolean
   showId?: boolean
   showAnalysis?: boolean
@@ -74,7 +64,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: (string | StructuredAnswer)[]): void
+  (e: 'update:modelValue', value: StructuredAnswerItem[]): void
 }>()
 
 const { renderMessageContent } = useMessageRenderer()
@@ -83,7 +73,7 @@ const { renderMessageContent } = useMessageRenderer()
 const activeBlank = ref<number | null>(null)
 
 // 内部最终答案数组
-const finalAnswers = ref<(string | StructuredAnswer)[]>(props.modelValue || [])
+const finalAnswers = ref<StructuredAnswerItem[]>(props.modelValue || [])
 
 // 填空数量
 const blankCount = computed(() => {
@@ -184,18 +174,5 @@ const handleBlankUpdate = (index: number, val: any) => {
   &.is-active {
     // 激活状态由 MixedInputArea 内部处理，这里保留结构
   }
-}
-
-.blank-number {
-  width: 24px;
-  height: 24px;
-  background: #615efe;
-  color: white;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
 }
 </style>

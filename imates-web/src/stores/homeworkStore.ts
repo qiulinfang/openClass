@@ -189,7 +189,18 @@ export const useHomeworkStore = defineStore('homework', () => {
         } else if (type === 'true_false') {
           item.judgmentValue = structured.userAnswer || ''
         } else if (type === 'fill_in_blank') {
-          item.fillList = structured.userAnswer || []
+          const rawList = structured.userAnswer || []
+          item.fillList = rawList.map((ans: any) => {
+            if (!ans) return ''
+            if (typeof ans === 'string') return ans
+            if (ans.type === 'photo') {
+              return JSON.stringify({ type: 'photo', photoUrl: ans.photoUrl || '' })
+            }
+            return JSON.stringify({
+              ...ans.boardData,
+              boardImg: ans.boardImg || null
+            })
+          })
         } else if (type === 'composite') {
           item.compositeAnswers = structured.userAnswer || {}
         } else if (type === 'subjective') {
@@ -293,7 +304,24 @@ export const useHomeworkStore = defineStore('homework', () => {
                 } else if (type === 'true_false') {
                   structured.userAnswer = cacheItem.judgmentValue || ''
                 } else if (type === 'fill_in_blank') {
-                  structured.userAnswer = cacheItem.fillList || []
+                  const rawList = cacheItem.fillList || []
+                  structured.userAnswer = rawList.map((str: any) => {
+                    if (!str) return { type: 'board', boardData: { objects: [] } }
+                    if (typeof str === 'object') return str
+                    try {
+                      const parsed = JSON.parse(str)
+                      if (parsed.type === 'photo') {
+                        return { type: 'photo', photoUrl: parsed.photoUrl || '' }
+                      }
+                      return {
+                        type: 'board',
+                        boardData: parsed,
+                        boardImg: parsed.boardImg || null
+                      }
+                    } catch (e) {
+                      return { type: 'board', boardData: { objects: [] } }
+                    }
+                  })
                 } else if (type === 'composite') {
                   structured.userAnswer = cacheItem.compositeAnswers || {}
                 } else if (type === 'subjective') {
