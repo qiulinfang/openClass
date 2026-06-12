@@ -112,6 +112,8 @@ const convertSubQuestionToExercise = (
   return exercise
 }
 
+import { getQuestionStrategy } from './question-strategies'
+
 /**
  * 初始化作业题目的作答结构化数据字段
  */
@@ -127,19 +129,7 @@ export const initExerciseAnswerFields = (exercise: ExerciseItem): void => {
   const structured = exercise.structuredContent
   
   if (structured.userAnswer === undefined) {
-    if (exercise.type === 'single_choice' || exercise.type === 'multiple_choice') {
-      structured.userAnswer = []
-    } else if (exercise.type === 'true_false') {
-      structured.userAnswer = ''
-    } else if (exercise.type === 'fill_in_blank') {
-      structured.userAnswer = []
-    } else if (exercise.type === 'composite') {
-      structured.userAnswer = {}
-    } else if (exercise.type === 'subjective') {
-      structured.userAnswer = { type: 'text' }
-    } else {
-      structured.userAnswer = null
-    }
+    structured.userAnswer = getQuestionStrategy(exercise.type).getDefaultAnswer()
   }
   
   if (structured.boardData === undefined) {

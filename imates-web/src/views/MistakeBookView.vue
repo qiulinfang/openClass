@@ -28,8 +28,18 @@
       <div class="layout-column right">
         <div class="column-header">
           <div class="filter-tabs">
-            <Select v-model="mistakeStore.filters.subject" :options="subjectOptions" variant="outline" class="filter-tab" />
-            <Select v-model="mistakeStore.filters.source" :options="sourceOptions" variant="outline" class="filter-tab" />
+            <Select
+              v-model="mistakeStore.filters.subject"
+              :options="subjectOptions"
+              variant="outline"
+              class="filter-tab"
+            />
+            <Select
+              v-model="mistakeStore.filters.source"
+              :options="sourceOptions"
+              variant="outline"
+              class="filter-tab"
+            />
           </div>
         </div>
         <div class="column-main right-content-card">
@@ -37,10 +47,22 @@
           <div class="question-section">
             <div class="question-body scroll-container">
               <!-- A. 客观题 (单选、多选、判断) -->
-              <template v-if="['single_choice', 'multiple_choice', 'true_false'].includes(currentQuestionData?.type || '')">
-                <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
+              <template
+                v-if="
+                  ['single_choice', 'multiple_choice', 'true_false'].includes(
+                    currentQuestionData?.type || '',
+                  )
+                "
+              >
+                <div
+                  v-if="currentQuestionData?.structuredContent"
+                  class="structured-question-container"
+                >
                   <ChoiceQuestion
-                    v-if="currentQuestionData.type === 'single_choice' || currentQuestionData.type === 'multiple_choice'"
+                    v-if="
+                      currentQuestionData.type === 'single_choice' ||
+                      currentQuestionData.type === 'multiple_choice'
+                    "
                     :question="currentQuestionData"
                     :model-value="currentQuestionChooseList"
                     :disabled="true"
@@ -49,7 +71,9 @@
                   >
                     <template #extra>
                       <div class="mistake-source-info">
-                        <span class="source-tag" v-if="latestRecord?.homeworkId">来源于{{ latestRecord.homeworkName || '作业' }}</span>
+                        <span class="source-tag" v-if="latestRecord?.homeworkId"
+                          >来源于{{ latestRecord.homeworkName || '作业' }}</span
+                        >
                         <span class="source-tag" v-else>来源于独立练习</span>
                       </div>
                     </template>
@@ -64,7 +88,9 @@
                   >
                     <template #extra>
                       <div class="mistake-source-info">
-                        <span class="source-tag" v-if="latestRecord?.homeworkId">来源于{{ latestRecord.homeworkName || '作业' }}</span>
+                        <span class="source-tag" v-if="latestRecord?.homeworkId"
+                          >来源于{{ latestRecord.homeworkName || '作业' }}</span
+                        >
                         <span class="source-tag" v-else>来源于独立练习</span>
                       </div>
                     </template>
@@ -85,7 +111,10 @@
 
               <!-- B. 填空题 -->
               <template v-else-if="currentQuestionData?.type === 'fill_in_blank'">
-                <div v-if="currentQuestionData?.structuredContent" class="structured-question-container">
+                <div
+                  v-if="currentQuestionData?.structuredContent"
+                  class="structured-question-container"
+                >
                   <FillBlankQuestion
                     :question="currentQuestionData"
                     :model-value="currentQuestionFillList"
@@ -95,7 +124,9 @@
                   >
                     <template #extra>
                       <div class="mistake-source-info">
-                        <span class="source-tag" v-if="latestRecord?.homeworkId">来源于{{ latestRecord.homeworkName || '作业' }}</span>
+                        <span class="source-tag" v-if="latestRecord?.homeworkId"
+                          >来源于{{ latestRecord.homeworkName || '作业' }}</span
+                        >
                         <span class="source-tag" v-else>来源于独立练习</span>
                       </div>
                     </template>
@@ -129,7 +160,17 @@
                     :enable-buffer="false"
                   />
                 </div>
-                <div v-else class="question-text markdown-content" v-html="renderMessageContent(currentQuestionData?.questionContent || currentQuestionData?.title || currentQuestionData?.question)"></div>
+                <div
+                  v-else
+                  class="question-text markdown-content"
+                  v-html="
+                    renderMessageContent(
+                      currentQuestionData?.questionContent ||
+                        currentQuestionData?.title ||
+                        currentQuestionData?.question,
+                    )
+                  "
+                ></div>
               </template>
             </div>
           </div>
@@ -141,8 +182,8 @@
           <div class="answer-section" :class="{ 'is-expanded': showAnalysis }">
             <div class="answer-header-row">
               <div class="interaction-tabs">
-                <div 
-                  class="tab-item" 
+                <div
+                  class="tab-item"
                   :class="{ active: showAnalysis }"
                   @click="showAnalysis = !showAnalysis"
                 >
@@ -172,7 +213,16 @@
               <div class="explanation-content markdown-content">
                 <div v-if="currentMistake?.questionData?.answer" class="standard-answer-section">
                   <div class="section-title">标准答案</div>
-                  <div class="answer-text" v-html="renderMessageContent(String(currentMistake.questionData.answer || '').replace(/\$\s+/g, '$').replace(/\s+\$/g, '$'))"></div>
+                  <div
+                    class="answer-text"
+                    v-html="
+                      renderMessageContent(
+                        String(currentMistake.questionData.answer || '')
+                          .replace(/\$\s+/g, '$')
+                          .replace(/\s+\$/g, '$'),
+                      )
+                    "
+                  ></div>
                 </div>
               </div>
             </div>
@@ -193,11 +243,7 @@
     </Dialog>
 
     <!-- 调试面板 (仅在开发环境显示) -->
-    <DebugStylePanel 
-      v-model="debugStyle" 
-      :config="debugConfig" 
-      title="Tab 细节微调" 
-    />
+    <DebugStylePanel v-model="debugStyle" :config="debugConfig" title="Tab 细节微调" />
   </div>
 </template>
 
@@ -227,7 +273,7 @@ import tabBackfroundSvg from '/icons/tab_backfround.svg'
 import mistakeLogoIcon from '/icons/mistakeLogo.svg'
 
 defineOptions({
-  name: 'MistakeBookView'
+  name: 'MistakeBookView',
 })
 
 const router = useRouter()
@@ -246,7 +292,7 @@ const debugStyle = ref({
   bgSizeWidth: 90,
   bgSizeHeight: 100,
   showBgColor: false,
-  dividerSize: 184 // 新增：装订线密度（每个书钉占用的高度）
+  dividerSize: 184, // 新增：装订线密度（每个书钉占用的高度）
 })
 
 const debugConfig = {
@@ -257,7 +303,7 @@ const debugConfig = {
   bgSizeWidth: { label: '图宽', value: 90, min: 50, max: 200, unit: '%' },
   bgSizeHeight: { label: '图高', value: 100, min: 50, max: 200, unit: '%' },
   dividerSize: { label: '装订密度', value: 184, min: 50, max: 300, unit: 'px' }, // 新增配置
-  showBgColor: { label: '显色', value: false }
+  showBgColor: { label: '显色', value: false },
 }
 // ------------------
 
@@ -271,7 +317,7 @@ const currentMistake = computed(() => mistakeStore.currentMistake)
 const currentQuestionData = computed(() => {
   const data = currentMistake.value?.questionData
   if (!data) return null
-  
+
   // 如果没有结构化内容但有原始结构化数据，尝试解析
   if (!data.structuredContent && data.questionStructureData) {
     const structured = parseQuestionStructure(data.questionStructureData)
@@ -279,7 +325,7 @@ const currentQuestionData = computed(() => {
       return {
         ...data,
         structuredContent: structured,
-        type: data.type || mapBackendTypeToFrontend(structured.type || 'essay')
+        type: data.type || mapBackendTypeToFrontend(structured.type || 'essay'),
       }
     }
   }
@@ -296,25 +342,29 @@ const currentQuestionJudgment = computed(() => latestAnswer.value?.judgmentValue
 const currentQuestionFillList = computed(() => latestAnswer.value?.fillList || [])
 
 // 监听题目切换，重置解析显示状态
-watch(() => currentMistake.value, (newVal) => {
-  showAnalysis.value = false
-  if (newVal) {
-    console.log('[MistakeBook] 当前错题数据:', JSON.parse(JSON.stringify(newVal)))
-  }
-}, { immediate: true })
+watch(
+  () => currentMistake.value,
+  (newVal) => {
+    showAnalysis.value = false
+    if (newVal) {
+      console.log('[MistakeBook] 当前错题数据:', JSON.parse(JSON.stringify(newVal)))
+    }
+  },
+  { immediate: true },
+)
 
 const subjectOptions = [
   { label: '全部学科', value: '全部学科' },
-  ...KNOWLEDGE_GRAPH_SUBJECT_OPTIONS.map(opt => ({
+  ...KNOWLEDGE_GRAPH_SUBJECT_OPTIONS.map((opt) => ({
     label: opt.label,
-    value: opt.label
-  }))
+    value: opt.label,
+  })),
 ]
 
 const sourceOptions = [
   { label: '全部来源', value: '全部来源' },
   { label: '随堂练习', value: '随堂练习' },
-  { label: '课后作业', value: '课后作业' }
+  { label: '课后作业', value: '课后作业' },
 ]
 
 /** 处理题目选择事件（由 QuestionList 触发） */
@@ -348,7 +398,7 @@ const confirmDelete = (item: MistakeItem | null) => {
 /** 执行删除（通过 Store 闭环处理） */
 const doDelete = async () => {
   if (pendingDeleteItem.value) {
-    const index = mistakeStore.mistakes.findIndex(m => m.id === pendingDeleteItem.value?.id)
+    const index = mistakeStore.mistakes.findIndex((m) => m.id === pendingDeleteItem.value?.id)
     if (index !== -1) {
       await mistakeStore.deleteMistake(index)
     }
@@ -401,12 +451,14 @@ onUnmounted(() => {
     z-index: -1;
     pointer-events: none;
     opacity: 1; // 提高基础透明度
-    
+
     // 优化后的双向渐变透明效果：纵向从 30% 开始淡出，横向从 60% 开始淡出
-    -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent 100%), 
-                        linear-gradient(to right, black 60%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 30%, transparent 100%), 
-                linear-gradient(to right, black 60%, transparent 100%);
+    -webkit-mask-image:
+      linear-gradient(to bottom, black 30%, transparent 100%),
+      linear-gradient(to right, black 60%, transparent 100%);
+    mask-image:
+      linear-gradient(to bottom, black 30%, transparent 100%),
+      linear-gradient(to right, black 60%, transparent 100%);
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
   }
@@ -448,7 +500,7 @@ onUnmounted(() => {
   position: relative;
   z-index: 10;
   overflow: visible;
-  
+
   .mistake-logo {
     position: absolute;
     bottom: 20px;
@@ -479,7 +531,8 @@ onUnmounted(() => {
         bottom: v-bind('debugStyle.bottom + "px"');
         height: v-bind('debugStyle.height + "%"');
         background-image: url('/icons/tab_backfround.svg');
-        background-size: v-bind('debugStyle.bgSizeWidth + "%"') v-bind('debugStyle.bgSizeHeight + "%"');
+        background-size: v-bind('debugStyle.bgSizeWidth + "%"')
+          v-bind('debugStyle.bgSizeHeight + "%"');
         background-repeat: no-repeat;
         background-position: center bottom;
         background-color: v-bind('debugStyle.showBgColor ? "rgba(255,0,0,0.3)" : "transparent"');
@@ -502,7 +555,8 @@ onUnmounted(() => {
           opacity: 0.9;
         }
 
-        .select-icon, .date-icon {
+        .select-icon,
+        .date-icon {
           filter: none;
           opacity: 0.6;
           width: 14px;
@@ -524,7 +578,7 @@ onUnmounted(() => {
   min-height: 0;
 
   // 统一的叠层阴影
-  box-shadow: 
+  box-shadow:
     0 6px 0 0 #ffffff,
     0 6px 12px 0 rgba(97, 94, 254, 0.08),
     0 12px 0 0 #ffffff,
@@ -596,7 +650,7 @@ onUnmounted(() => {
       height: 36px;
       padding: 0 20px;
       background: white;
-      
+
       &:hover {
         background: #fff5f5;
       }
@@ -627,7 +681,6 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
   }
-
 }
 
 .latest-badge {
@@ -651,19 +704,19 @@ onUnmounted(() => {
   border: 1px solid #f0f2ff;
   border-radius: 12px;
   padding: 12px;
-  
+
   .history-item-header {
     display: flex;
     justify-content: space-between;
     margin-bottom: 8px;
     border-bottom: 1px dashed #f0f2f7;
     padding-bottom: 4px;
-    
+
     .history-time {
       font-size: 12px;
       color: #999;
     }
-    
+
     .history-source {
       font-size: 12px;
       color: #615efe;
@@ -672,13 +725,13 @@ onUnmounted(() => {
       border-radius: 4px;
     }
   }
-  
+
   .history-item-body {
     .history-answer-text {
       font-size: 14px;
       color: #333;
     }
-    
+
     .history-answer-image {
       img {
         max-width: 100%;
@@ -690,9 +743,10 @@ onUnmounted(() => {
   }
 }
 
-.standard-answer-section, .explanation-text-section {
+.standard-answer-section,
+.explanation-text-section {
   margin-bottom: 24px;
-  
+
   .section-title {
     font-weight: bold;
     color: #615efe;
@@ -700,7 +754,7 @@ onUnmounted(() => {
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    
+
     &::before {
       content: '';
       display: inline-block;
@@ -717,7 +771,7 @@ onUnmounted(() => {
   color: #374151;
   line-height: 1.7;
   font-size: 15px;
-  
+
   :deep(p) {
     margin-bottom: 8px;
     &:last-child {
@@ -835,7 +889,7 @@ onUnmounted(() => {
 
 .scroll-container {
   overflow-y: auto;
-  
+
   /* 自定义滚动条 */
   &::-webkit-scrollbar {
     width: 6px;
@@ -852,7 +906,8 @@ onUnmounted(() => {
   }
 }
 
-.loading-state, .empty-state {
+.loading-state,
+.empty-state {
   flex: 1;
   display: flex;
   flex-direction: column;

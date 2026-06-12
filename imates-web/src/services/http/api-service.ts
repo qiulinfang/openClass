@@ -8,7 +8,7 @@ import { AndroidBridge } from '../business/android-bridge'
 import { AiChatApi } from './ai-chat-api'
 import { TeacherChatApi } from './teacher-chat-api'
 import { QuestionStructurerApi, type StructureQuestionReq, type StructureQuestionBatchReq } from './question-structurer-api'
-import { getApiPaths, getImBaseUrl, getTeacherWsUrl } from '@/config/env-config'
+import { getApiPaths, getImBaseUrl, getTeacherWsUrl, resolveTeacherImageUrl } from '@/config/env-config'
 import { httpClient } from './http-client'
 import { QuestionSearchApi } from './question-search-api'
 import { TextbookDownloadApi } from './textbook-download-api'
@@ -383,8 +383,9 @@ export class ApiService {
     const response = await httpClient.post<any>(getApiPaths().yanban.teacher.uploadImg, formData)
     const result = response.data
     if (response.success && result && result.data && result.data.path) {
-      console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}`)
-      return result.data.path
+      const fullUrl = resolveTeacherImageUrl(result.data.path)
+      console.log(`[API] 研伴图片上传成功，相对路径: ${result.data.path}，完整URL: ${fullUrl}`)
+      return fullUrl
     } else {
       const errorMsg = result?.message || response.message || '未知错误'
       console.error(`[API] 研伴图片上传失败:`, errorMsg)

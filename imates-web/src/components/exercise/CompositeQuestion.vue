@@ -14,28 +14,6 @@
     </template>
 
     <!-- 子题列表作为 default 插槽内容 -->
-    <!-- 布局切换栏 -->
-    <div class="composite-layout-header q-mt-md" v-if="question.subQuestions && question.subQuestions.length > 1">
-      <div class="layout-toggle-label">排版模式：</div>
-      <div class="layout-toggle-group">
-        <button
-          class="layout-toggle-btn"
-          :class="{ active: localLayoutMode === 'tab' }"
-          type="button"
-          @click="localLayoutMode = 'tab'"
-        >
-          分步作答 (Tab)
-        </button>
-        <button
-          class="layout-toggle-btn"
-          :class="{ active: localLayoutMode === 'list' }"
-          type="button"
-          @click="localLayoutMode = 'list'"
-        >
-          完整渲染 (List)
-        </button>
-      </div>
-    </div>
 
     <!-- 子题 Tab 切换栏 (仅在 tab 模式显示) -->
     <div class="sub-question-tabs-container q-mt-md" v-if="localLayoutMode === 'tab' && question.subQuestions && question.subQuestions.length > 1">
@@ -191,7 +169,7 @@ const props = withDefaults(defineProps<{
   showId: true,
   showAnalysis: false,
   disabled: false,
-  layoutMode: 'tab'
+  layoutMode: 'list'
 })
 
 const emit = defineEmits(['update:modelValue', 'change'])

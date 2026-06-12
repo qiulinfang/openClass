@@ -32,6 +32,18 @@
           <q-icon name="search" />
         </template>
       </q-input>
+      <!-- 开发环境下的 Store/数据 Debug 按钮 -->
+      <q-btn
+        v-if="isDev"
+        flat
+        round
+        dense
+        class="debug-store-btn q-ml-sm"
+        icon="bug_report"
+        @click="logStoreAndQuestions"
+      >
+        <q-tooltip>Debug Store / 题目数据</q-tooltip>
+      </q-btn>
     </div>
 
     <!-- 题目列表 - 卡片布局，使用 RubberBandList 实现橡皮筋滚动、下拉刷新（分页模式） -->
@@ -93,7 +105,13 @@
                     <slot name="question-number-extra" :question="question" :index="index" />
                   </div>
                   <!-- 往日错题标记 -->
-                  <div v-if="props.showMistakeBadge !== false && mistakeStatus.get(getQuestionUniqueId(question))" class="mistake-badge">
+                  <div
+                    v-if="
+                      props.showMistakeBadge !== false &&
+                      mistakeStatus.get(getQuestionUniqueId(question))
+                    "
+                    class="mistake-badge"
+                  >
                     <q-icon name="history" size="14px" />
                     <span>往日错题</span>
                   </div>
@@ -105,6 +123,20 @@
                 <div class="question-actions">
                   <!-- 额外操作插槽（始终可见或由外部控制） -->
                   <slot name="actions-append" :question="question" :index="index" />
+
+                  <!-- 开发环境下的 Debug 按钮 -->
+                  <q-btn
+                    v-if="isDev"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    class="action-btn dev-debug-btn"
+                    icon="bug_report"
+                    @click.stop="logQuestion(question)"
+                  >
+                    <q-tooltip>Debug 题目信息</q-tooltip>
+                  </q-btn>
 
                   <!-- 仅当前题目选中时显示的按钮 -->
                   <template
@@ -138,7 +170,6 @@
                       <img :src="weikeIcon" alt="微课" class="action-icon" />
                     </q-btn>
 
-                    
                     <!-- 查看答案 -->
                     <q-btn
                       flat
@@ -149,8 +180,17 @@
                       :disable="!canViewAnswer"
                       @click.stop="handleViewAnswer"
                     >
-                      <q-tooltip>{{ canViewAnswer ? '查看答案' : `需与AI交互${aiExerciseStore.VIEW_ANSWER_CHAT_TIMES}次后可查看` }}</q-tooltip>
-                      <img :src="daanIcon" alt="答案" class="action-icon" :class="{ 'icon-disabled': !canViewAnswer }" />
+                      <q-tooltip>{{
+                        canViewAnswer
+                          ? '查看答案'
+                          : `需与AI交互${aiExerciseStore.VIEW_ANSWER_CHAT_TIMES}次后可查看`
+                      }}</q-tooltip>
+                      <img
+                        :src="daanIcon"
+                        alt="答案"
+                        class="action-icon"
+                        :class="{ 'icon-disabled': !canViewAnswer }"
+                      />
                     </q-btn>
 
                     <!-- 举一反三 -->
@@ -364,7 +404,7 @@ const props = withDefaults(
     showSendToAi: true,
     showQuestionActions: true,
     showMistakeBadge: true,
-  }
+  },
 )
 
 const emit = defineEmits<{
@@ -387,6 +427,45 @@ const getQuestionUniqueId = (question: ExerciseItem | null | undefined): string 
   if (!question) return ''
   const anyQ = question as any
   return (question.bmNo || question.id || anyQ.questionId || question.title || '').toString()
+}
+
+// 是否为开发环境
+const isDev = import.meta.env.DEV
+
+// 打印题目信息的 Debug 函数
+const logQuestion = (question: ExerciseItem) => {
+  console.log('[Dev Debug] Question Info:', question)
+}
+
+// 打印 Store 和题目列表数据的 Debug 函数
+const logStoreAndQuestions = () => {
+  console.log(
+    '%c[Dev Debug] --- QuestionList Debug Info ---',
+    'color: #9c27b0; font-weight: bold; font-size: 14px;',
+  )
+  console.log('[Dev Debug] Component Props:', {
+    type: props.type,
+    searchQuery: props.searchQuery,
+    selectedSubjectFilter: props.selectedSubjectFilter,
+    externalQuestionsCount: props.externalQuestions?.length,
+    showPhotoSearch: props.showPhotoSearch,
+    showSendToAi: props.showSendToAi,
+    showQuestionActions: props.showQuestionActions,
+    showMistakeBadge: props.showMistakeBadge,
+  })
+  console.log('[Dev Debug] List Type:', props.type || 'exercise')
+  console.log('[Dev Debug] Current Selected Index:', selectedQuestionIndex.value)
+  console.log('[Dev Debug] Current Selected Question:', currentQuestion.value)
+  console.log('[Dev Debug] Displayed Questions (Current Page):', displayedQuestions.value)
+  console.log('[Dev Debug] Local questions.value (All):', questions.value)
+  console.log('[Dev Debug] Strategy:', strategy.value)
+  if (props.type === 'homework') {
+    const homeworkStore = useHomeworkStore()
+    console.log('[Dev Debug] Store Questions (homeworkStore):', homeworkStore.questions)
+  } else {
+    console.log('[Dev Debug] Store Questions (questionStore):', questionStore.questions)
+  }
+  showMessage('Store 中的题目数据已成功打印至控制台！', 'success')
 }
 
 // 创建策略实例（根据 type prop 决定使用哪个策略）
@@ -543,7 +622,7 @@ const filteredQuestions = computed(() => {
   if (selectedSubjectFilter.value) {
     const filterSubject = normalizeSubject(selectedSubjectFilter.value)
     result = result.filter(
-      (question) => normalizeSubject((question as any).subject) === filterSubject
+      (question) => normalizeSubject((question as any).subject) === filterSubject,
     )
   }
 
@@ -553,7 +632,7 @@ const filteredQuestions = computed(() => {
     result = result.filter(
       (question) =>
         (question.title && question.title.toLowerCase().includes(query)) ||
-        (question.question && question.question.toLowerCase().includes(query))
+        (question.question && question.question.toLowerCase().includes(query)),
     )
   }
 
@@ -591,7 +670,7 @@ const scrollContainer = ref<InstanceType<typeof RubberBandList> | HTMLElement | 
 let setQuestionCardRefImpl: (
   el: HTMLElement | null,
   questionId: string,
-  index: number
+  index: number,
 ) => void = () => {}
 
 // 处理内容引用（用于模板中的 ref）
@@ -687,7 +766,7 @@ const setQuestionCardRef = setQuestionCardRefImpl
 const throttledHandleCardClick = ThrottleUtils.fast(
   async (question: ExerciseItem, index: number) => {
     await selectQuestion(question, index)
-  }
+  },
 )
 
 const throttledSendToAi = throttle((question: ExerciseItem) => {
@@ -716,8 +795,8 @@ const mistakeStatus = ref<Map<string, boolean>>(new Map())
 const updateMistakeStatus = async () => {
   try {
     const allMistakes = await getAllMistakes()
-    const mistakeIds = new Set(allMistakes.map(m => m.bmNo))
-    
+    const mistakeIds = new Set(allMistakes.map((m) => m.bmNo))
+
     const statusMap = new Map<string, boolean>()
     questions.value.forEach((q) => {
       const id = getQuestionUniqueId(q)
@@ -731,9 +810,13 @@ const updateMistakeStatus = async () => {
   }
 }
 
-watch(questions, () => {
-  updateMistakeStatus()
-}, { deep: true })
+watch(
+  questions,
+  () => {
+    updateMistakeStatus()
+  },
+  { deep: true },
+)
 
 // 检查题目是否已收藏
 const isExerciseFavorite = (itemId: string): boolean => {
@@ -843,14 +926,14 @@ const applyLocalRemove = (question: ExerciseItem) => {
   const currentStrategy = strategy.value
   const storeQuestions = currentStrategy.getQuestions()
   const storeIndex = storeQuestions.findIndex(
-    (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo
+    (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo,
   )
   if (storeIndex !== -1) {
     storeQuestions.splice(storeIndex, 1)
   }
 
   const localIndex = questions.value.findIndex(
-    (q) => q.id === question.id || q.bmNo === question.bmNo
+    (q) => q.id === question.id || q.bmNo === question.bmNo,
   )
   if (localIndex !== -1) {
     questions.value.splice(localIndex, 1)
@@ -908,8 +991,9 @@ const deleteQuestion = async () => {
 
     // 判断删除的是否是当前选中的题目
     const currentStrategy = strategy.value
-    const deletedWasCurrent = currentStrategy.getCurrentQuestion()?.id === question.id ||
-                              currentStrategy.getCurrentQuestion()?.bmNo === question.bmNo
+    const deletedWasCurrent =
+      currentStrategy.getCurrentQuestion()?.id === question.id ||
+      currentStrategy.getCurrentQuestion()?.bmNo === question.bmNo
 
     applyLocalRemove(question)
 
@@ -1007,7 +1091,7 @@ const loadMoreQuestions = async () => {
     renderingQuestions.value = true
     displayedCount.value = Math.min(
       displayedCount.value + LOAD_MORE_COUNT,
-      displayList.value.length
+      displayList.value.length,
     )
     console.log('[QuestionList] 加载更多题目: after', {
       displayedCount: displayedCount.value,
@@ -1132,7 +1216,7 @@ const handlePullDownRefresh = async () => {
     } else {
       // 单一学科：强制从服务器拉取
       const subjectToRefresh = normalizeSubject(
-        (selectedSubjectFilter.value || selectedSubject.value || 'math').toString()
+        (selectedSubjectFilter.value || selectedSubject.value || 'math').toString(),
       )
       await currentStrategy.fetchQuestions({ subject: subjectToRefresh, useLocalFirst: false })
     }
@@ -1164,7 +1248,7 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
     const storeQuestions = currentStrategy.getQuestions()
     const targetId = getQuestionUniqueId(question)
     const storeIndex = storeQuestions.findIndex(
-      (q: ExerciseItem) => getQuestionUniqueId(q) === targetId
+      (q: ExerciseItem) => getQuestionUniqueId(q) === targetId,
     )
 
     if (storeIndex >= 0) {
@@ -1290,7 +1374,7 @@ const sendToAi = async (question: ExerciseItem) => {
       const homeworkStore = useHomeworkStore()
 
       const storeIndex = homeworkStore.questions.findIndex(
-        (q: ExerciseItem) => q.bmNo === question.bmNo
+        (q: ExerciseItem) => q.bmNo === question.bmNo,
       )
       if (storeIndex < 0) {
         showMessage('题目数据不同步，请重新加载', 'warning')
@@ -1318,14 +1402,14 @@ const sendToAi = async (question: ExerciseItem) => {
         aiSubject,
         'mate',
         undefined,
-        true
+        true,
       )
     } else {
       // 习题场景：沿用 questionStore 逻辑
       const questionStore = useQuestionStore()
 
       const storeIndex = questionStore.questions.findIndex(
-        (q: ExerciseItem) => q.bmNo === question.bmNo
+        (q: ExerciseItem) => q.bmNo === question.bmNo,
       )
       if (storeIndex < 0) {
         showMessage('题目数据不同步，请重新加载', 'warning')
@@ -1362,7 +1446,7 @@ const sendToAi = async (question: ExerciseItem) => {
         aiSubject,
         'mate',
         undefined,
-        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
+        true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
     }
   } catch (error) {
@@ -1471,7 +1555,7 @@ watch(
     displayedCount.value = INITIAL_DISPLAY_COUNT
     currentPage.value = 1
   },
-  { immediate: false }
+  { immediate: false },
 )
 
 // 监听外部传入的题目列表变化（例如 HomeworkAnswerView 在 onMounted 后解析路由再赋值）
@@ -1486,7 +1570,7 @@ watch(
       }
     }
   },
-  { immediate: false }
+  { immediate: false },
 )
 
 // 监听学科过滤变化，重置分页并可能需要重新加载题目
@@ -1536,7 +1620,7 @@ watch(
       }
     }
   },
-  { immediate: false }
+  { immediate: false },
 )
 
 // 组件卸载时清理资源
@@ -1579,7 +1663,7 @@ watch(
   () => {
     initFavoriteStatus()
   },
-  { deep: true }
+  { deep: true },
 )
 
 onMounted(() => {
@@ -1666,7 +1750,9 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   } @else if $level == hover {
     box-shadow: $shadow-hover;
   } @else if $level == selected {
-    box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.2), $shadow-subtle;
+    box-shadow:
+      0 0 0 1px rgba(26, 115, 232, 0.2),
+      $shadow-subtle;
   }
 }
 
@@ -1750,6 +1836,17 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
           color: #5f6368;
           font-size: 20px;
         }
+      }
+    }
+
+    .debug-store-btn {
+      margin-left: 8px;
+      color: #9c27b0;
+      min-width: 40px;
+      min-height: 40px;
+
+      &:hover {
+        background-color: rgba(156, 39, 176, 0.05);
       }
     }
   }
@@ -2136,7 +2233,9 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     margin: 8px 0;
     display: block;
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
 
     &:hover {
       transform: scale(1.02);
