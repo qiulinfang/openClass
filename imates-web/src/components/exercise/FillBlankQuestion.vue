@@ -139,13 +139,15 @@ const isBlankAnswered = (index: number): boolean => {
 
 // 获取填空占位符文本
 const getBlankText = (index: number): string => {
+  if (props.disabled) {
+    return isBlankAnswered(index) ? '已作答' : '未作答'
+  }
   if (activeBlank.value === index) return '正在作答'
   return isBlankAnswered(index) ? '已作答' : '点击作答'
 }
 
 // 切换选中的填空项
 const selectBlank = (index: number) => {
-  if (props.disabled) return
   activeBlank.value = index
 }
 
@@ -205,15 +207,21 @@ const handleBlankUpdate = (index: number, val: any) => {
     vertical-align: middle;
 
     &.is-active {
-      background: #e8e9ff;
-      color: #6e55ff;
-      border: 1px solid #a5b4fc;
-    }
-
-    &.is-answered {
       background: #6e55ff;
       color: #ffffff;
       border: 1px solid #6e55ff;
+    }
+
+    &.is-answered {
+      background: #c9c0ff;
+      color: #ffffff;
+      border: 1px solid #c9c0ff;
+
+      &.is-active {
+        background: #6e55ff;
+        color: #ffffff;
+        border: 1px solid #6e55ff;
+      }
     }
 
     &.is-unanswered {
@@ -224,6 +232,12 @@ const handleBlankUpdate = (index: number, val: any) => {
       &:hover {
         background: #e2e8f0;
         color: #0f172a;
+      }
+
+      &.is-active {
+        background: #6e55ff;
+        color: #ffffff;
+        border: 1px solid #6e55ff;
       }
     }
   }

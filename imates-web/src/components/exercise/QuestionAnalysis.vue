@@ -45,6 +45,9 @@ const formattedAnswer = computed(() => {
 }
 
 .analysis-section {
+  background-color: #f6f6f6;
+  border-radius: 12px;
+  padding: 16px;
   margin-bottom: 20px;
 }
 
