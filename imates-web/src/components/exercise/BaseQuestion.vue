@@ -27,16 +27,6 @@
       <slot></slot>
     </div>
 
-    <div class="question-footer" v-if="showAnalysis && (question.answer || question.explanation)">
-      <div class="analysis-section" v-if="question.answer">
-        <div class="section-title">参考答案</div>
-        <div class="section-content answer" v-html="formattedAnswer"></div>
-      </div>
-      <div class="analysis-section" v-if="question.explanation">
-        <div class="section-title">题目解析</div>
-        <div class="section-content" v-html="formattedExplanation"></div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -100,13 +90,6 @@ const stemRaw = computed(() => {
 })
 
 const formattedStem = computed(() => renderMessageContent(stemRaw.value))
-const formattedAnswer = computed(() => {
-  const answer = props.question.structuredContent?.answer
-  if (Array.isArray(answer)) return renderMessageContent(answer.join(', '))
-  if (answer === undefined || answer === null) return ''
-  return renderMessageContent(String(answer))
-})
-const formattedExplanation = computed(() => renderMessageContent(props.question.structuredContent?.analysis || ''))
 
 let stemElement: HTMLElement | null = null
 
@@ -125,7 +108,7 @@ const renderMath = (el: HTMLElement) => {
   })
 }
 
-watch([formattedStem, formattedAnswer, formattedExplanation], () => {
+watch([formattedStem], () => {
   if (stemElement) renderMath(stemElement)
 })
 </script>
@@ -133,10 +116,10 @@ watch([formattedStem, formattedAnswer, formattedExplanation], () => {
 <style scoped>
 .base-question {
   position: relative;
-  padding: 16px;
+  padding: 0;
   background: white;
   border-radius: 8px;
-  color: #333;
+  color: #393548;
 }
 
 .dev-debug-btn {
@@ -189,33 +172,7 @@ watch([formattedStem, formattedAnswer, formattedExplanation], () => {
   margin-bottom: 16px;
 }
 
-.question-footer {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px dashed #eee;
-}
 
-.analysis-section {
-  margin-bottom: 16px;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #615efe;
-  margin-bottom: 8px;
-}
-
-.section-content {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.5;
-}
-
-.section-content.answer {
-  color: #22c55e;
-  font-weight: 600;
-}
 
 /* 强制所有富文本和题干中的图片不能超过容器宽度，并防变形 */
 :deep(img) {
@@ -224,5 +181,24 @@ watch([formattedStem, formattedAnswer, formattedExplanation], () => {
   display: block;
   margin: 8px 0;
   border-radius: 6px;
+}
+
+:deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+:deep(th), :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+:deep(th) {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
 }
 </style>

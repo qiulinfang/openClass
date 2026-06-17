@@ -91,12 +91,8 @@
       <div 
         v-for="(sub, sIdx) in question.subQuestions"
         :key="sub.id || sIdx" 
-        class="sub-question-item q-mb-md"
+        class="sub-question-item q-mb-sm"
       >
-        <div class="sub-question-index-header">
-          <span class="sub-index-tag">第 {{ sIdx + 1 }} 小题</span>
-        </div>
-        
         <!-- 如果子题还是 composite，递归渲染 -->
         <CompositeQuestion
           v-if="sub.type === 'composite'"
@@ -237,13 +233,32 @@ const getComponent = (type: string | undefined) => {
     line-height: 1.6;
     font-size: 16px;
     color: #333;
+
+    :deep(table) {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    :deep(th), :deep(td) {
+      border: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    :deep(th) {
+      background-color: #f8fafc;
+      font-weight: 600;
+      color: #475569;
+    }
   }
 }
 
 .sub-questions-list {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 
 .sub-question-tabs-container {
@@ -326,15 +341,14 @@ const getComponent = (type: string | undefined) => {
 }
 
 .sub-question-item {
-  padding: 12px 14px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #edf2f7;
+  padding: 0;
+  background: transparent;
+  border: none;
   transition: all 0.2s;
 
   &:hover {
-    border-color: #615efe;
-    box-shadow: 0 4px 12px rgba(97, 94, 254, 0.05);
+    border-color: transparent;
+    box-shadow: none;
   }
 
   .sub-question-header {

@@ -370,4 +370,30 @@ onBeforeUnmount(() => {
   font-size: var(--native-icon-size-md);
 }
 
+.answer-content :deep(table),
+.explanation-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.answer-content :deep(th),
+.answer-content :deep(td),
+.explanation-content :deep(th),
+.explanation-content :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.answer-content :deep(th),
+.explanation-content :deep(th) {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
+}
+
 </style>

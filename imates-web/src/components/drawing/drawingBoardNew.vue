@@ -297,6 +297,10 @@ const props = defineProps({
   showZoomControls: { type: Boolean, default: true },
   // 是否禁用画板交互
   disabled: { type: Boolean, default: false },
+  // 是否允许缩放
+  allowZoom: { type: Boolean, default: true },
+  // 是否允许平移/移动
+  allowPan: { type: Boolean, default: true },
 })
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
@@ -1646,6 +1650,7 @@ function handlePointerDown(e) {
 
   // 2. 导航动作（平移）- 无论是否 disabled 都要允许
   if (isSpacePressed.value || currentMode.value === 'hand' || props.disabled) {
+    if (!props.allowPan) return
     activeAction = { type: 'pan', lastPos: { x: e.clientX, y: e.clientY } }
     return
   }
@@ -1791,7 +1796,9 @@ function handlePointerMove(e: PointerEvent) {
     
     const center = getCenter(pts[0], pts[1])
     const scaleFactor = dist / activeAction.startDist
-    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, activeAction.startZoom * scaleFactor))
+    const newZoom = props.allowZoom
+      ? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, activeAction.startZoom * scaleFactor))
+      : camera.zoom
     const rect = liveCanvasRef.value.getBoundingClientRect()
     const startCenterRel = {
       x: activeAction.startCenter.x - rect.left,
@@ -1801,10 +1808,17 @@ function handlePointerMove(e: PointerEvent) {
     const wy = (startCenterRel.y - activeAction.startCamera.y) / activeAction.startZoom
     const newCenterRel = { x: center.x - rect.left, y: center.y - rect.top }
     camera.zoom = newZoom
-    camera.x = newCenterRel.x - wx * newZoom
-    camera.y = newCenterRel.y - wy * newZoom
+    if (props.allowPan) {
+      camera.x = newCenterRel.x - wx * newZoom
+      camera.y = newCenterRel.y - wy * newZoom
+    } else {
+      // Keep center fixed to start center relative if pan is not allowed
+      camera.x = startCenterRel.x - wx * newZoom
+      camera.y = startCenterRel.y - wy * newZoom
+    }
     requestRenderAll()
   } else if (activeAction.type === 'pan') {
+    if (!props.allowPan) return
     // 平移：必须重绘所有层
     const dx = e.clientX - activeAction.lastPos.x
     const dy = e.clientY - activeAction.lastPos.y
@@ -2140,6 +2154,7 @@ function autoResizeInput(e: Event) {
 // --- 通用事件 ---
 function handleWheel(e: WheelEvent) {
   e.preventDefault()
+  if (!props.allowZoom) return
   const zoomIntensity = 0.1
   const delta = -Math.sign(e.deltaY)
   const scale = Math.exp(delta * zoomIntensity)

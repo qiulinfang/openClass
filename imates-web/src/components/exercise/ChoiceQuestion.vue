@@ -1,9 +1,9 @@
 <template>
-  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId" :show-analysis="showAnalysis">
+  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId" :show-analysis="false">
     <template #extra>
       <slot name="extra"></slot>
     </template>
-    <div class="choice-options">
+    <div class="choice-options" v-if="processedOptions && processedOptions.length > 0">
       <div 
         v-for="opt in processedOptions" 
         :key="opt.value"
@@ -23,6 +23,9 @@
         </div>
       </div>
     </div>
+    <div v-else class="field-missing-warning" style="margin-bottom: 12px;">【警告：选择题未配置选项内容 (options)】</div>
+    
+    <QuestionAnalysis :question="question" :show="showAnalysis" />
   </BaseQuestion>
 </template>
 
@@ -37,6 +40,7 @@ import { computed } from 'vue'
 import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import BaseQuestion from './BaseQuestion.vue'
+import QuestionAnalysis from './QuestionAnalysis.vue'
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
@@ -176,5 +180,36 @@ const handleSelect = (value: string) => {
   background: #ef4444;
   border-color: #ef4444;
   color: white;
+}
+
+.field-missing-warning {
+  color: #ef4444;
+  background-color: #fef2f2;
+  border: 1px dashed #fca5a5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 4px;
+  display: block;
+  width: fit-content;
+}
+
+:deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+:deep(th), :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+:deep(th) {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
 }
 </style>

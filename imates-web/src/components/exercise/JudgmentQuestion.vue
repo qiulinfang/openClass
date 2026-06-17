@@ -1,5 +1,5 @@
 <template>
-  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId" :show-analysis="showAnalysis">
+  <BaseQuestion :question="question" :show-title="showTitle" :show-id="showId" :show-analysis="false">
     <template #extra>
       <slot name="extra"></slot>
     </template>
@@ -25,6 +25,8 @@
         </div>
       </div>
     </div>
+
+    <QuestionAnalysis :question="question" :show="showAnalysis" />
   </BaseQuestion>
 </template>
 
@@ -39,6 +41,7 @@ import { computed } from 'vue'
 import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import BaseQuestion from './BaseQuestion.vue'
+import QuestionAnalysis from './QuestionAnalysis.vue'
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
@@ -155,5 +158,24 @@ const handleSelect = (val: string) => {
     display: flex;
     align-items: center;
   }
+}
+
+:deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+:deep(th), :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+:deep(th) {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
 }
 </style>

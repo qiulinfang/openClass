@@ -230,19 +230,12 @@ export interface HomeworkSubmitSaveReq {
 export interface HomeworkQuestionAnswer {
   /** 问题ID */
   questionId: string
-  /** 题目类型，例如：single_choice, multiple_choice, true_false, fill_in_blank, composite, subjective */
-  type: string
-  /** 
-   * 根据题型包含不同格式的答案
-   * - 选择题 (single_choice, multiple_choice): string[]
-   * - 判断题 (true_false): string
-   * - 填空题 (fill_in_blank): AnswerDetail[]
-   * - 主观题 (subjective): AnswerDetail
-   * - 复合题 (composite): HomeworkQuestionAnswer[]
-   */
-  answers: any
-  /** 回答图片列表 (可选) */
-  images?: string[]
+  /** 回答数据 */
+  answerData?: string[]
+  /** 回答图片列表 */
+  answerList?: string[]
+  /** 选项列表 */
+  chooseList?: string[]
 }
 
 /** 填空题/主观题的具体作答载荷 */

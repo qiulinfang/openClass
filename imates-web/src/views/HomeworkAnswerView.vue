@@ -1,301 +1,232 @@
 <template>
   <div class="homework-answer-view">
-    <BusinessHeader :title="displayTitle" @back="goBack" />
-    <div class="answer-body">
-      <SplitPanel
-        ref="splitPanelRef"
-        :initial-mode="mode"
-        :left-config="[36, 30, 50]"
-        :center-config="[64, 50, 80]"
-        :right-config="[36, 36, 60]"
-        :transition-duration="0.5"
-        :transition-easing="'ease-in-out'"
-        :show-splitters="true"
-        @mode-change="handleModeChange"
-      >
-        <!-- 左侧：题目列表 -->
-        <template #left="{ isVisible }">
-          <div class="panel-bg1">
-            <div
-              class="panel-content"
-              :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
-              :style="{ width: '100%', minWidth: '300px' }"
-            >
-              <div class="panel-card">
-                <div class="panel-card-body">
-                  <QuestionList
-                    ref="questionListRef"
-                    type="homework"
-                    :search-query="questionSearchQuery"
-                    @update:searchQuery="(v) => (questionSearchQuery = v)"
-                    :external-questions="externalQuestions"
-                    :show-photo-search="false"
-                    :show-send-to-ai="true"
-                    :show-question-actions="false"
-                    :show-mistake-badge="false"
-                    @questionSelected="handleStartAnswer"
-                    @openMiniClass="handleOpenMiniClass"
-                  >
-                    <template #question-number-extra="{ question }">
-                      <img
-                        v-if="isHomeworkSubmitted && isObjective(question)"
-                        :src="checkQuestionCorrect(question) ? duileIcon : cuoleIcon"
-                        class="result-icon-mini"
-                      />
-                    </template>
-                    <template #question-status="{ question }">
-                      <Tag
-                        v-if="!(isHomeworkSubmitted && isObjective(question))"
-                        :text="getQuestionStatusText(question)"
-                        :type="getQuestionStatusType(question)"
-                        size="xs"
-                      />
-                    </template>
-                    <template #actions-append="{ question }">
-                      <!-- 作业提交后，仅在当前选中的题目功能区追加显示"问问学伴"图标 -->
-                      <q-btn
-                        v-if="
-                          isHomeworkSubmitted &&
-                          getQuestionKey(question) === getQuestionKey(currentAnswerQuestion)
-                        "
-                        flat
-                        round
-                        dense
-                        class="action-btn xueban-action-btn"
-                        @click.stop="handleToggle(question)"
-                      >
-                        <img :src="askXuebanIcon" alt="问问学伴" class="action-icon" />
-                      </q-btn>
-                    </template>
-                  </QuestionList>
+    <HomeworkHeader
+      :questions="externalQuestions"
+      :current-index="currentQuestionIndex"
+      @select-question="handleSelectQuestion"
+    >
+      <template #left-action>
+        <div class="back-btn" @click="goBack">
+          <img :src="goBackIcon" alt="返回" class="back-icon" />
+        </div>
+      </template>
+      <template #right-action>
+        <q-btn
+          class="draft-toggle-btn"
+          unelevated
+          :class="{ 'is-active': showDraftDialog }"
+          @click="handleToggleDraft"
+        >
+          草稿纸
+        </q-btn>
+        <Button
+          v-if="currentAnswerQuestion && !isHomeworkLocked"
+          :label="homeworkButtonText"
+          variant="primary"
+          size="mdCompact"
+          :loading="isSubmitting"
+          @click="handleBoardUpload"
+        />
+      </template>
+    </HomeworkHeader>
+    <div class="answer-body-container">
+      <div class="answer-body">
+        <SplitPanel
+          ref="splitPanelRef"
+          :initial-mode="mode"
+          :left-config="[36, 30, 50]"
+          :center-config="[64, 50, 80]"
+          :right-config="[36, 36, 60]"
+          :transition-duration="0.5"
+          :transition-easing="'ease-in-out'"
+          :show-splitters="true"
+          @mode-change="handleModeChange"
+        >
+          <!-- 左侧：Markdown 题干区域 -->
+          <template #left="{ isVisible }">
+            <div class="panel-bg1">
+              <div
+                class="panel-content"
+                :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
+                :style="{ width: '100%', minWidth: '300px' }"
+              >
+                <div class="panel-card">
+                  <div class="panel-card-body">
+                    <div class="markdown-question-container" v-if="currentAnswerQuestion">
+                      <div class="question-html-preview markdown-content">
+                        <div class="left-panel-question-title" v-if="currentAnswerQuestion.bmNo">
+                          题目{{ currentAnswerQuestion.bmNo }}
+                        </div>
+                        <div v-html="questionHtml"></div>
+                      </div>
+                    </div>
+                    <div v-else class="empty-render-area">
+                      <div class="empty-tip">请选择题目开始作答</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <!-- 中间：作答区域 -->
-        <template #center="{}">
-          <div class="panel-bg"></div>
-          <div class="panel-content" :style="{ width: '100%', minWidth: '500px' }">
-            <div
-              class="panel-card question-solve-card"
-              :class="{ 'is-submitted': isHomeworkSubmitted }"
-            >
-              <!-- 工具栏 (与 handleBoardUpload 按钮同行) -->
+          <!-- 中间：作答区域 -->
+          <template #center="{}">
+            <div class="panel-bg"></div>
+            <div class="panel-content" :style="{ width: '100%', minWidth: '500px' }">
               <div
-                class="question-render-toolbar"
-                v-if="currentAnswerQuestion && !isHomeworkLocked"
+                class="panel-card question-solve-card"
+                :class="{ 'is-submitted': isHomeworkSubmitted }"
               >
-                <div class="toolbar-center-wrapper" v-if="drawingBoardRefs[0]">
-                  <Toolbar
-                    :tools="drawingBoardRefs[0].toolbarTools"
-                    :selected-tool="drawingBoardRefs[0].toolbarSelectedTool"
-                    :tool-config="drawingBoardRefs[0].toolbarToolConfig"
-                    :tool-states="{
-                      undo: drawingBoardRefs[0].canUndo,
-                      redo: drawingBoardRefs[0].canRedo,
-                    }"
-                    :allow-popup="true"
-                    variant="floating"
-                    orientation="horizontal"
-                    @tool-change="handleToolbarToolChange"
-                    @config-change="(cfg) => drawingBoardRefs[0].handleToolbarConfigChange(cfg)"
-                    @undo="() => drawingBoardRefs[0].undo()"
-                    @redo="() => drawingBoardRefs[0].redo()"
-                    @clear="handleClearRequest"
-                  />
-                </div>
-                <div class="toolbar-right">
-                  <Button
-                    :label="homeworkButtonText"
-                    variant="primary"
-                    size="mdCompact"
-                    :loading="isSubmitting"
-                    @click="handleBoardUpload"
-                  />
-                </div>
-              </div>
 
-              <!-- 题目区域（可收缩） -->
-              <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
-                <div class="question-image-content">
-                  <!-- 情况 A: 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
-                  <div
-                    class="question-render-container"
-                    v-if="
-                      currentAnswerQuestion &&
-                      currentAnswerQuestion.structuredContent &&
-                      [
-                        'single_choice',
-                        'multiple_choice',
-                        'true_false',
-                        'composite',
-                        'fill_in_blank',
-                        'subjective',
-                      ].includes(currentAnswerQuestion.type || '')
-                    "
-                  >
-                    <div class="question-render-area" ref="currentQuestionRenderRef">
-                      <ChoiceQuestion
-                        v-if="
-                          currentAnswerQuestion.type === 'single_choice' ||
-                          currentAnswerQuestion.type === 'multiple_choice'
-                        "
-                        :question="currentAnswerQuestion"
-                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
-                        :disabled="isHomeworkSubmitted"
-                        show-title
-                      />
-                      <JudgmentQuestion
-                        v-else-if="currentAnswerQuestion.type === 'true_false'"
-                        :question="currentAnswerQuestion"
-                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
-                        :disabled="isHomeworkSubmitted"
-                        show-title
-                      />
-                      <CompositeQuestion
-                        v-else-if="currentAnswerQuestion.type === 'composite'"
-                        :question="currentAnswerQuestion"
-                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
-                        :disabled="isHomeworkSubmitted"
-                        show-title
-                      />
-                      <FillBlankQuestion
-                        v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
-                        :question="currentAnswerQuestion"
-                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
-                        :disabled="isHomeworkSubmitted"
-                        show-title
-                      />
-                      <SubjectiveQuestion
-                        v-else-if="currentAnswerQuestion.type === 'subjective'"
-                        ref="subjectiveQuestionRef"
-                        :question="currentAnswerQuestion"
-                        v-model="currentAnswerQuestion.structuredContent.userAnswer"
-                        :disabled="isHomeworkSubmitted"
-                        show-title
-                      />
-                    </div>
-                  </div>
 
-                  <!-- 情况 B: 渲染 HTML (白板手写 及 其他) -->
-                  <div class="question-render-container" v-else-if="currentAnswerQuestion">
-                    <div class="question-render-area">
-                      <div
-                        v-if="currentAnswerQuestion"
-                        class="question-html-preview markdown-content"
-                        v-html="questionHtml"
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div v-else class="empty-render-area">
-                    <div class="empty-tip">请选择题目开始作答</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 收缩切换按钮 -->
-              <div
-                class="collapse-toggle-btn"
-                v-if="currentAnswerQuestion"
-                @click="toggleQuestionImage"
-              >
-                <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
-              </div>
-
-              <!-- 下方区域：提交前显示草稿本，提交后显示答案解析 -->
-              <div class="panel-card-body solve-body" v-if="currentAnswerQuestion">
-                <!-- 1. 提交前：草稿本区域 (带工具栏) -->
-                <div class="draft-board-section" v-if="!isHomeworkLocked">
-                  <!-- 画板 -->
-                  <div class="drawing-board-wrapper">
-                    <DrawingBoardNew
-                      :ref="(el) => setDrawingBoardRef(el, 0)"
-                      :showGrid="false"
-                      :enableAskAi="true"
-                      :show-toolbar="false"
-                      :disabled="false"
-                      :show-zoom-controls="false"
-                      :background-image="''"
-                      :initial-zoom="100"
-                      @clear="handleClearRequest"
-                    />
-                  </div>
-                </div>
-
-                <!-- 2. 提交后：答案和解析区域 -->
-                <div v-else class="answer-analysis-wrapper">
-                  <div class="result-section">
-                    <div class="result-item answer-item">
-                      <div class="item-label">参考答案：</div>
-                      <div
-                        class="item-content"
-                        v-html="
-                          renderMessageContent(
-                            String(currentAnswerQuestion.answer || '')
-                              .replace(/\$\s+/g, '$')
-                              .replace(/\s+\$/g, '$'),
-                          )
-                        "
-                      ></div>
-                    </div>
-                    <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
-                      <span class="item-label">是否添加到错题本：</span>
-                      <div class="item-controls">
-                        <Radio
-                          v-model="mistakeAddedStatus"
-                          val="yes"
-                          label="是"
-                          @update:model-value="handleMistakeChange"
+                <!-- 题目区域（可收缩） -->
+                <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
+                  <div class="question-image-content">
+                    <!-- 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
+                    <div
+                      class="question-render-container"
+                      v-if="
+                        currentAnswerQuestion &&
+                        currentAnswerQuestion.structuredContent &&
+                        [
+                          'single_choice',
+                          'multiple_choice',
+                          'true_false',
+                          'composite',
+                          'fill_in_blank',
+                          'subjective',
+                        ].includes(currentAnswerQuestion.type || '')
+                      "
+                    >
+                      <div class="question-render-area" ref="currentQuestionRenderRef">
+                        <ChoiceQuestion
+                          v-if="
+                            currentAnswerQuestion.type === 'single_choice' ||
+                            currentAnswerQuestion.type === 'multiple_choice'
+                          "
+                          :question="currentAnswerQuestion"
+                          v-model="currentAnswerQuestion.structuredContent.userAnswer"
+                          :disabled="isHomeworkSubmitted"
+                          :show-analysis="isHomeworkSubmitted"
+                          show-title
                         />
-                        <Radio
-                          v-model="mistakeAddedStatus"
-                          val="no"
-                          label="否"
-                          @update:model-value="handleMistakeChange"
+                        <JudgmentQuestion
+                          v-else-if="currentAnswerQuestion.type === 'true_false'"
+                          :question="currentAnswerQuestion"
+                          v-model="currentAnswerQuestion.structuredContent.userAnswer"
+                          :disabled="isHomeworkSubmitted"
+                          :show-analysis="isHomeworkSubmitted"
+                          show-title
                         />
+                        <CompositeQuestion
+                          v-else-if="currentAnswerQuestion.type === 'composite'"
+                          :question="currentAnswerQuestion"
+                          v-model="currentAnswerQuestion.structuredContent.userAnswer"
+                          :disabled="isHomeworkSubmitted"
+                          :show-analysis="isHomeworkSubmitted"
+                          show-title
+                          :show-id="false"
+                        />
+                        <FillBlankQuestion
+                          v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
+                          :question="currentAnswerQuestion"
+                          v-model="currentAnswerQuestion.structuredContent.userAnswer"
+                          :disabled="isHomeworkSubmitted"
+                          :show-analysis="isHomeworkSubmitted"
+                          show-title
+                        />
+                        <SubjectiveQuestion
+                          v-else-if="currentAnswerQuestion.type === 'subjective'"
+                          ref="subjectiveQuestionRef"
+                          :question="currentAnswerQuestion"
+                          v-model="currentAnswerQuestion.structuredContent.userAnswer"
+                          :disabled="isHomeworkSubmitted"
+                          :show-analysis="isHomeworkSubmitted"
+                          show-title
+                        />
+                      </div>
+                    </div>
+
+                    <div v-else-if="currentAnswerQuestion" class="empty-render-area">
+                      <div class="empty-tip">请使用顶部“草稿纸”进行作答</div>
+                    </div>
+
+                    <div v-else class="empty-render-area">
+                      <div class="empty-tip">请选择题目开始作答</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 收缩切换按钮 -->
+                <div
+                  class="collapse-toggle-btn"
+                  v-if="currentAnswerQuestion && isHomeworkLocked"
+                  @click="toggleQuestionImage"
+                >
+                  <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
+                </div>
+
+                <!-- 下方区域：提交后显示答案解析 -->
+                <div class="panel-card-body solve-body" v-if="currentAnswerQuestion && isHomeworkLocked">
+                  <!-- 答案和解析区域 -->
+                  <div class="answer-analysis-wrapper">
+                    <div class="result-section">
+                      <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
+                        <span class="item-label">是否添加到错题本：</span>
+                        <div class="item-controls">
+                          <Radio
+                            v-model="mistakeAddedStatus"
+                            val="yes"
+                            label="是"
+                            @update:model-value="handleMistakeChange"
+                          />
+                          <Radio
+                            v-model="mistakeAddedStatus"
+                            val="no"
+                            label="否"
+                            @update:model-value="handleMistakeChange"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                <!-- 底部留白 -->
+                <div class="action-footer-placeholder" v-if="currentAnswerQuestion"></div>
               </div>
-
-              <!-- 底部留白 -->
-              <div class="action-footer-placeholder" v-if="currentAnswerQuestion"></div>
+              <!-- IP 悬浮功能 -->
+              <div
+                :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
+                @click="() => handleToggle()"
+              >
+                <img :src="textbookipIcon" alt="textbookip" class="textbookip-icon" />
+              </div>
             </div>
-            <!-- IP 悬浮功能 -->
-            <div
-              :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
-              @click="() => handleToggle()"
-            >
-              <img :src="textbookipIcon" alt="textbookip" class="textbookip-icon" />
-            </div>
-          </div>
-        </template>
+          </template>
 
-        <!-- 右侧：AI 面板 -->
-        <template #right="{ isVisible }">
-          <div class="panel-bg2">
-            <div
-              class="panel-content"
-              :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
-              :style="{ width: '100%', minWidth: '300px' }"
-            >
-              <div class="panel-card ai-chat-card">
-                <div class="panel-card-body">
-                  <HomeworkChatPanel
-                    ref="homeworkChatPanelRef"
-                    :question="currentAnswerQuestion"
-                    @close="handleToggle()"
-                  />
+          <!-- 右侧：AI 面板 -->
+          <template #right="{ isVisible }">
+            <div class="panel-bg2">
+              <div
+                class="panel-content"
+                :class="{ 'panel-hidden': !isVisible, 'panel-visible': isVisible }"
+                :style="{ width: '100%', minWidth: '300px' }"
+              >
+                <div class="panel-card ai-chat-card">
+                  <div class="panel-card-body">
+                    <HomeworkChatPanel
+                      ref="homeworkChatPanelRef"
+                      :question="currentAnswerQuestion"
+                      @close="handleToggle()"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </template>
-      </SplitPanel>
+          </template>
+        </SplitPanel>
+      </div>
     </div>
 
     <!-- 上传对话框（相机上传 / 白板上传共用）已在重构中停用 -->
@@ -337,6 +268,53 @@
     >
       当前作业老师只允许自己思考作答哦
     </Dialog>
+
+    <!-- 草稿纸弹窗 -->
+    <div v-show="showDraftDialog" class="draft-dialog-overlay" @click.self="handleToggleDraft">
+      <div class="draft-dialog-container">
+        <div class="draft-dialog-header">
+          <span class="draft-dialog-title">草稿纸</span>
+          <q-btn flat round dense icon="close" class="draft-dialog-close" @click="handleToggleDraft" />
+        </div>
+        <div class="draft-dialog-body">
+          <div class="draft-board-section">
+            <!-- 画板 -->
+            <div class="drawing-board-wrapper">
+              <DrawingBoardNew
+                :ref="(el) => setDrawingBoardRef(el, 0)"
+                :showGrid="false"
+                :enableAskAi="true"
+                :show-toolbar="false"
+                :disabled="false"
+                :show-zoom-controls="false"
+                :background-image="''"
+                :initial-zoom="100"
+                @clear="handleClearRequest"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="draft-dialog-footer" v-if="drawingBoardRefs[0]">
+          <Toolbar
+            :tools="drawingBoardRefs[0].toolbarTools"
+            :selected-tool="drawingBoardRefs[0].toolbarSelectedTool"
+            :tool-config="drawingBoardRefs[0].toolbarToolConfig"
+            :tool-states="{
+              undo: drawingBoardRefs[0].canUndo,
+              redo: drawingBoardRefs[0].canRedo,
+            }"
+            :allow-popup="true"
+            variant="floating"
+            orientation="horizontal"
+            @tool-change="handleToolbarToolChange"
+            @config-change="(cfg) => drawingBoardRefs[0].handleToolbarConfigChange(cfg)"
+            @undo="() => drawingBoardRefs[0].undo()"
+            @redo="() => drawingBoardRefs[0].redo()"
+            @clear="handleClearRequest"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -345,8 +323,7 @@ import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import SplitPanel from '@/components/base/SplitPanel.vue'
-import BusinessHeader from '@/components/header/BusinessHeader.vue'
-import QuestionList from '@/components/question/QuestionList.vue'
+import HomeworkHeader from '@/components/header/HomeworkHeader.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import Toolbar from '@/components/drawing/Toolbar.vue'
 import Button from '@/components/base/Button.vue'
@@ -372,6 +349,7 @@ import askXuebanIcon from '/icons/askXueban.svg'
 import duileIcon from '/icons/duile.svg'
 import cuoleIcon from '/icons/cuole.svg'
 import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
+import goBackIcon from '/icons/goback.svg'
 import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
@@ -401,6 +379,29 @@ const aiGeneralStore = useAiGeneralChatStore()
 const mode = ref<'left' | 'right'>('left')
 // 作业是否已提交（提交后显示答案和解析）
 const isHomeworkSubmitted = ref(false)
+const showDraftDialog = ref(false)
+
+const handleSelectQuestion = (question: ExerciseItem, index: number) => {
+  handleStartAnswer(question)
+}
+
+const handlePrevQuestion = () => {
+  if (currentQuestionIndex.value > 0) {
+    const newIndex = currentQuestionIndex.value - 1
+    handleStartAnswer(externalQuestions.value[newIndex])
+  }
+}
+
+const handleNextQuestion = () => {
+  if (currentQuestionIndex.value < externalQuestions.value.length - 1) {
+    const newIndex = currentQuestionIndex.value + 1
+    handleStartAnswer(externalQuestions.value[newIndex])
+  }
+}
+
+const handleToggleDraft = () => {
+  showDraftDialog.value = !showDraftDialog.value
+}
 const splitPanelRef = ref<InstanceType<typeof SplitPanel> | null>(null)
 const homeworkChatPanelRef = ref<InstanceType<typeof HomeworkChatPanel> | null>(null)
 
@@ -473,10 +474,7 @@ const handleToolbarToolChange = (tool: string) => {
   }
 }
 
-// QuestionList 组件引用
-const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
-// 用于绑定题目列表搜索关键字
-const questionSearchQuery = ref('')
+
 
 /**
  * 切换分屏布局模式并发送题目给 AI 进行答疑
@@ -821,7 +819,7 @@ const handleStartAnswer = async (question: ExerciseItem) => {
   // 1. 同步保存上一题数据
   if (oldQuestion && oldQuestionKey !== questionKey) {
     try {
-      const savePromise = saveCurrentPage(oldQuestion, false)
+      const savePromise = saveCurrentPage(oldQuestion)
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Save timeout')), 1500),
       )
@@ -841,7 +839,12 @@ const handleStartAnswer = async (question: ExerciseItem) => {
   currentAnswerQuestion.value = question
   previousQuestionKey.value = questionKey
 
-  const raw = question.structuredContent?.stem || ''
+  const idx = externalQuestions.value.findIndex(q => getQuestionKey(q) === questionKey)
+  if (idx !== -1) {
+    currentQuestionIndex.value = idx
+  }
+
+  const raw = question.question || question.title || ''
   questionHtml.value = renderMessageContent(raw)
 
   // 3. 恢复新题笔迹
@@ -988,12 +991,19 @@ let incompleteHomeworkResolve: (value: boolean) => void
  * @param parentUserAnswer 复合题子题传入的作答数据 (普通题不需要传)
  * @returns 组装好的 HomeworkQuestionAnswer 对象，若无有效作答内容则返回 null
  */
+interface IntermediateQuestionAnswer {
+  questionId: string
+  type: string
+  answers: string | string[] | IntermediateQuestionAnswer[]
+  images?: string[]
+}
+
 const buildAnswerForQuestion = (
   question: ExerciseItem,
   questionIndex: number,
   imageBuckets: Map<number, string[]>,
-  parentUserAnswer?: any,
-): HomeworkQuestionAnswer | null => {
+  parentUserAnswer?: unknown,
+): IntermediateQuestionAnswer | null => {
   if (!question) return null
   const structured = question.structuredContent
   if (!structured) return null
@@ -1002,15 +1012,15 @@ const buildAnswerForQuestion = (
   const userAnswer = parentUserAnswer !== undefined ? parentUserAnswer : structured.userAnswer
 
   const type = question.type || ''
-  let answers: any = null
+  let answers: string | string[] | IntermediateQuestionAnswer[] = ''
 
   if (type === 'composite') {
     // 复合题：递归处理子题作答列表
-    const nestedAnswers: HomeworkQuestionAnswer[] = []
+    const nestedAnswers: IntermediateQuestionAnswer[] = []
     if (question.subQuestions && Array.isArray(question.subQuestions)) {
       question.subQuestions.forEach((subQuestion, subIndex) => {
         const subUserAnswer =
-          userAnswer && typeof userAnswer === 'object' ? userAnswer[subQuestion.id] : undefined
+          userAnswer && typeof userAnswer === 'object' ? (userAnswer as Record<string, unknown>)[subQuestion.id] : undefined
         const subAns = buildAnswerForQuestion(subQuestion, subIndex, imageBuckets, subUserAnswer)
         if (subAns) {
           nestedAnswers.push(subAns)
@@ -1042,8 +1052,8 @@ const buildAnswerForQuestion = (
  * 提取所有题目的本地作答并准备提交数据格式
  * @returns 规范化的作业提交数组
  */
-const prepareSubmitData = (): HomeworkQuestionAnswer[] => {
-  const questionAnswerList: HomeworkQuestionAnswer[] = []
+const prepareSubmitData = (): IntermediateQuestionAnswer[] => {
+  const questionAnswerList: IntermediateQuestionAnswer[] = []
   const emptyBuckets = new Map<number, string[]>() // 空 map，草稿图片不传给后端
 
   externalQuestions.value.forEach((question, questionIndex) => {
@@ -1080,16 +1090,11 @@ const showIncompleteHomeworkDialog = (
 const handleIncompleteHomeworkConfirm = () => {
   incompleteHomeworkDialogRef.value?.closeDialog()
 
-  // 自动滚动并选中第一道未答的题目
+  // 选中第一道未答的题目
   const firstUnansweredNum = incompleteDialogData.value.incompleteQuestionNumbers[0]
   if (typeof firstUnansweredNum === 'number') {
     const targetIndex = firstUnansweredNum - 1
-    if (
-      questionListRef.value &&
-      typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
-    ) {
-      questionListRef.value.scrollToQuestionAndSelect(targetIndex)
-    }
+    handleStartAnswer(externalQuestions.value[targetIndex])
   }
 
   if (incompleteHomeworkResolve) {
@@ -1111,12 +1116,12 @@ const handleIncompleteHomeworkCancel = () => {
  * 递归函数：将作答内容中的所有 base64 图片/手写板数据上传到云端后，就地替换为云端 CDN 链接地址
  * @param questionAnswerList 等待上传的提交答案列表
  */
-const uploadAnswersImages = async (questionAnswerList: any[]) => {
+const uploadAnswersImages = async (questionAnswerList: IntermediateQuestionAnswer[]): Promise<void> => {
   for (const qAns of questionAnswerList) {
     if (qAns.type === 'subjective') {
       // 检查主观题作答内容是否为 Base64，如果是则上传并覆盖
       if (typeof qAns.answers === 'string' && qAns.answers.startsWith('data:image')) {
-        const path = await apiService.uploadImageToYanban(qAns.answers)
+        const path = await apiService.uploadImageAndGetUrl(qAns.answers)
         qAns.answers = path
       }
     } else if (qAns.type === 'fill_in_blank') {
@@ -1125,7 +1130,7 @@ const uploadAnswersImages = async (questionAnswerList: any[]) => {
         for (let i = 0; i < qAns.answers.length; i++) {
           const ansStr = qAns.answers[i]
           if (typeof ansStr === 'string' && ansStr.startsWith('data:image')) {
-            const path = await apiService.uploadImageToYanban(ansStr)
+            const path = await apiService.uploadImageAndGetUrl(ansStr)
             qAns.answers[i] = path
           }
         }
@@ -1133,10 +1138,53 @@ const uploadAnswersImages = async (questionAnswerList: any[]) => {
     } else if (qAns.type === 'composite') {
       // 复合题：递归处理子题作答中的图片
       if (Array.isArray(qAns.answers)) {
-        await uploadAnswersImages(qAns.answers)
+        await uploadAnswersImages(qAns.answers as IntermediateQuestionAnswer[])
       }
     }
   }
+}
+
+/**
+ * 将前端内部的作答结构转换并扁平化为后端要求的 QuestionAnswer 结构
+ */
+const transformToBackendFormat = (list: IntermediateQuestionAnswer[]): HomeworkQuestionAnswer[] => {
+  const result: HomeworkQuestionAnswer[] = []
+
+  const traverse = (item: IntermediateQuestionAnswer) => {
+    if (item.type === 'composite') {
+      // 复合题：递归扁平化子题
+      if (Array.isArray(item.answers)) {
+        item.answers.forEach((subItem) => {
+          traverse(subItem as IntermediateQuestionAnswer)
+        })
+      }
+    } else {
+      let answerData: string[] = []
+      const chooseList: string[] = []
+      const answerList: string[] = item.images || []
+
+      if (item.type === 'single_choice' || item.type === 'multiple_choice') {
+        answerData = Array.isArray(item.answers) ? (item.answers as string[]).map(String) : (item.answers !== undefined && item.answers !== null && item.answers !== '' ? [String(item.answers)] : [])
+      } else if (item.type === 'true_false' || item.type === 'judgment') {
+        answerData = item.answers !== undefined && item.answers !== null && item.answers !== '' ? [String(item.answers)] : []
+      } else if (item.type === 'fill_in_blank') {
+        answerData = Array.isArray(item.answers) ? (item.answers as string[]).map(String) : (item.answers !== undefined && item.answers !== null && item.answers !== '' ? [String(item.answers)] : [])
+      } else {
+        // 主观题及其他
+        answerData = item.answers !== undefined && item.answers !== null && item.answers !== '' ? [String(item.answers)] : []
+      }
+
+      result.push({
+        questionId: item.questionId,
+        answerData,
+        answerList,
+        chooseList,
+      })
+    }
+  }
+
+  list.forEach(traverse)
+  return result
 }
 
 /**
@@ -1144,31 +1192,50 @@ const uploadAnswersImages = async (questionAnswerList: any[]) => {
  * 步骤：先将本地所有 Base64 图片 (手写板/照片) 递归上传至云端替换为 URL，最后调用接口提交
  * @param questionAnswerList 格式化好的题目作答数据列表
  */
-const submitHomeworkAnswers = async (questionAnswerList: any[]) => {
+const submitHomeworkAnswers = async (questionAnswerList: IntermediateQuestionAnswer[]) => {
   const homeworkId = route.params.homeworkId as string
   if (!homeworkId) {
     throw new Error('作业信息缺失')
   }
 
-  // 1. 上传所有 Base64 图片/手写笔迹截图到云端，并将本地 Base64 替换为云端 URL 路径
-  try {
-    showMessage('正在上传作答图片/手写板数据，请稍候...', 'info')
-    await uploadAnswersImages(questionAnswerList)
-  } catch (uploadErr) {
-    console.error('[HomeworkSubmit] 图片上传云端失败:', uploadErr)
-    throw new Error('作答图片上传失败，请重试')
-  }
-
-  // 2. 构建提交数据并调用 API 提交作业
-  const submitReq = {
+  // MOCK: 后端接口未完成，模拟提交过程
+  showMessage('正在模拟提交作业数据，请稍候...', 'info')
+  console.log('[MockSubmit] 原始作答数据:', {
     homeworkId,
     questionAnswerList,
+  })
+
+  // 模拟网络和上传延迟
+  await new Promise((resolve) => setTimeout(resolve, 1500))
+
+  // 模拟图片上传处理，避免调用真实的文件服务器接口
+  const mockUploadImages = (list: IntermediateQuestionAnswer[]) => {
+    list.forEach((qAns) => {
+      if (qAns.type === 'subjective') {
+        if (typeof qAns.answers === 'string' && qAns.answers.startsWith('data:image')) {
+          qAns.answers = 'https://cdn.imates.com.cn/mock/subjective_image.png'
+        }
+      } else if (qAns.type === 'fill_in_blank') {
+        if (Array.isArray(qAns.answers)) {
+          for (let i = 0; i < qAns.answers.length; i++) {
+            const ansStr = qAns.answers[i]
+            if (typeof ansStr === 'string' && ansStr.startsWith('data:image')) {
+              qAns.answers[i] = `https://cdn.imates.com.cn/mock/fill_blank_${i}.png`
+            }
+          }
+        }
+      } else if (qAns.type === 'composite') {
+        if (Array.isArray(qAns.answers)) {
+          mockUploadImages(qAns.answers as IntermediateQuestionAnswer[])
+        }
+      }
+    })
   }
 
-  const result = await apiService.homeworkSubmitSave(submitReq)
-  if (!result?.success) {
-    throw new Error(result?.message || '提交失败')
-  }
+  mockUploadImages(questionAnswerList)
+
+  const finalQuestionAnswerList = transformToBackendFormat(questionAnswerList)
+  console.log('[MockSubmit] 转换后提交后端的最终扁平化数据:', finalQuestionAnswerList)
 }
 
 /**
@@ -1275,14 +1342,7 @@ onMounted(async () => {
     targetIndex = 0
   }
 
-  // 5. 等待 DOM 和 QuestionList 组件渲染完成后，定位并滚动到该题目
   await nextTick()
-  if (
-    questionListRef.value &&
-    typeof questionListRef.value.scrollToQuestionAndSelect === 'function'
-  ) {
-    questionListRef.value.scrollToQuestionAndSelect(targetIndex)
-  }
 
   // 6. 将当前选中题目同步并加载到右侧的白板和作答区域
   const targetQuestion = externalQuestions.value[targetIndex]
@@ -1303,10 +1363,23 @@ onUnmounted(() => {
   background: #0f002e;
 }
 
+.answer-body-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f7f6ff;
+  min-height: 0;
+}
+
 .answer-body {
   flex: 1;
   position: relative;
   overflow: hidden;
+  background: #ffffff;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0px 0px 29px 0px rgba(94, 128, 254, 0.18);
+  z-index: 1;
 }
 
 /* 面板内容样式 */
@@ -1354,6 +1427,7 @@ onUnmounted(() => {
 
 .panel-bg1 :deep(.panel-card) {
   border-top-right-radius: 0;
+  background: #fbfaff;
 }
 
 /* 卡片样式 */
@@ -1399,7 +1473,7 @@ onUnmounted(() => {
 .question-render-area {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 30px 30px;
+  padding: 16px;
   background-color: #ffffff;
 }
 
@@ -1434,13 +1508,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid rgba(110, 85, 255, 0.32);
   flex: 7 0 0; /* 默认展开占 70% */
   min-height: 0;
   transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-  margin: 8px 12px 0 12px;
+  margin: 0;
   position: relative;
   will-change: flex;
   contain: layout paint;
@@ -1452,7 +1524,7 @@ onUnmounted(() => {
 
 .question-image-content {
   flex: 1;
-  padding: 12px 16px;
+  padding: 0;
   overflow: auto;
   background: #ffffff;
 }
@@ -1496,7 +1568,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 0 12px 12px 12px;
+  padding: 0 16px 16px 16px;
   transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: flex;
 }
@@ -1527,10 +1599,6 @@ onUnmounted(() => {
   height: 100%;
 }
 
-.question-render-area {
-  padding: 0;
-}
-
 .question-solve-card.is-submitted {
   background: #ffffff;
 }
@@ -1541,8 +1609,8 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  padding: 12px 16px;
-  background: #ffffff;
+  padding: 16px;
+  background: #fbfaff;
   z-index: 0;
   overflow-y: auto;
   pointer-events: none;
@@ -1644,5 +1712,117 @@ onUnmounted(() => {
   object-fit: contain;
   margin-left: 4px;
   left: 40px;
+}
+
+/* 草稿纸弹窗样式 */
+.draft-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.draft-dialog-container {
+  width: 90vw;
+  height: 85vh;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.draft-dialog-header {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.draft-dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.draft-dialog-close {
+  color: #64748b;
+  transition: color 0.2s;
+  &:hover {
+    color: #0f172a;
+  }
+}
+
+.draft-dialog-body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.draft-dialog-footer {
+  padding: 12px 24px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #ffffff;
+}
+
+.question-solve-card:not(.is-submitted) .question-image-section {
+  flex: 1 0 0;
+  margin-bottom: 12px;
+}
+
+.markdown-question-container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.markdown-question-container :deep(.question-html-preview) {
+  pointer-events: auto;
+  color: #393548; /* 统一文字颜色 */
+  font-size: 15px;
+  line-height: 1.6;
+
+  .left-panel-question-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #393548;
+    margin-bottom: 16px;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+
+  th, td {
+    border: 1px solid #e2e8f0;
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #475569;
+  }
 }
 </style>
