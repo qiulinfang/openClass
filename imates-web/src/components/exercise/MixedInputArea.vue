@@ -1,93 +1,113 @@
 <template>
-  <div class="mixed-input-area" :class="[`type-${questionType}`, { 'is-disabled': disabled }]">
+  <div
+    ref="mixedInputAreaRef"
+    class="mixed-input-area"
+    :class="[`type-${questionType}`, { 'is-disabled': disabled }]"
+  >
     <div class="input-label" v-if="label">{{ label }}</div>
 
     <div class="mixed-input-container">
-      <!-- 悬浮工具栏 (手写模式下显示) -->
-      <div class="floating-toolbar" v-if="!disabled && currentType === 'drawing'">
+      <!-- 悬浮工具栏 -->
+      <div class="floating-toolbar" v-if="!disabled">
         <button class="toolbar-btn" @click="handleUndo" :disabled="!canUndo" title="撤销">
-          <div class="icon-mask" style="mask-image: url('/icons/undo.svg'); -webkit-mask-image: url('/icons/undo.svg');"></div>
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${undoIcon}); -webkit-mask-image: url(${undoIcon});`"
+          ></div>
         </button>
         <button class="toolbar-btn" @click="handleRedo" :disabled="!canRedo" title="重做">
-          <div class="icon-mask" style="mask-image: url('/icons/redo.svg'); -webkit-mask-image: url('/icons/redo.svg');"></div>
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${redoIcon}); -webkit-mask-image: url(${redoIcon});`"
+          ></div>
         </button>
-        <button class="toolbar-btn has-options" :class="{ active: currentTool === 'draw' }" @click="selectTool('draw')" title="画笔">
-          <div class="icon-mask" style="mask-image: url('/icons/signaturePen.svg'); -webkit-mask-image: url('/icons/signaturePen.svg');"></div>
+        <button
+          class="toolbar-btn has-options"
+          :class="{ active: currentTool === 'draw' }"
+          @click="selectTool('draw')"
+          title="画笔"
+        >
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${currentTool === 'draw' ? signaturePenSelectIcon : signaturePenIcon}); -webkit-mask-image: url(${currentTool === 'draw' ? signaturePenSelectIcon : signaturePenIcon});`"
+          ></div>
         </button>
-        <button class="toolbar-btn has-options" :class="{ active: currentTool === 'eraser-stroke' }" @click="selectTool('eraser-stroke')" title="橡皮">
-          <div class="icon-mask" style="mask-image: url('/icons/eraser.svg'); -webkit-mask-image: url('/icons/eraser.svg');"></div>
+        <button
+          class="toolbar-btn has-options"
+          :class="{ active: currentTool === 'eraser-stroke' }"
+          @click="selectTool('eraser-stroke')"
+          title="橡皮"
+        >
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${currentTool === 'eraser-stroke' ? eraserSelectIcon : eraserIcon}); -webkit-mask-image: url(${currentTool === 'eraser-stroke' ? eraserSelectIcon : eraserIcon});`"
+          ></div>
         </button>
         <button class="toolbar-btn" @click="toggleHeight" title="调整高度">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="4" width="16" height="16" rx="3" />
-            <path d="M12 8v8" />
-            <path d="m9 11 3-3 3 3" />
-            <path d="m9 13 3 3 3-3" />
-          </svg>
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${lagaoIcon}); -webkit-mask-image: url(${lagaoIcon});`"
+          ></div>
         </button>
         <button class="toolbar-btn text-red" @click="handleClear" title="清空">
-          <div class="icon-mask" style="mask-image: url('/icons/delete.svg'); -webkit-mask-image: url('/icons/delete.svg');"></div>
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${deleteIcon}); -webkit-mask-image: url(${deleteIcon});`"
+          ></div>
         </button>
-        <button class="toolbar-btn camera-btn" @click="switchType('photo')" title="拍照上传">
-          <div class="icon-mask" style="mask-image: url('/icons/camera.svg'); -webkit-mask-image: url('/icons/camera.svg');"></div>
-        </button>
-      </div>
-
-      <!-- 悬浮工具栏 (照片模式下显示，用来切换回手写) -->
-      <div class="floating-toolbar" v-if="!disabled && currentType === 'photo'">
-        <button class="toolbar-btn text-red" @click="handleClear" v-if="photoUrl" title="删除照片">
-          <div class="icon-mask" style="mask-image: url('/icons/delete.svg'); -webkit-mask-image: url('/icons/delete.svg');"></div>
-        </button>
-        <button class="toolbar-btn active" @click="switchType('drawing')" title="切换回手写">
-          <div class="icon-mask" style="mask-image: url('/icons/signaturePen.svg'); -webkit-mask-image: url('/icons/signaturePen.svg');"></div>
+        <button class="toolbar-btn" @click="handleUploadPhotoToCanvas" title="拍照上传">
+          <img :src="cameraIcon" alt="拍照上传" style="width: 24px; height: 24px; display: block" />
         </button>
       </div>
 
       <div class="mixed-input-body">
-        <Transition name="mode-fade" mode="out-in">
-          <!-- 画板输入 -->
-          <div v-if="currentType === 'drawing'" key="drawing" class="drawing-board-wrapper" :style="{ height: boardHeight }">
-            <DrawingBoardNew
-              ref="drawingBoardRef"
-              :showGrid="false"
-              :show-toolbar="false"
-              :disabled="disabled"
-              :show-zoom-controls="false"
-              :show-debug-panel="false"
-              :initial-zoom="100"
-              :min-zoom="1"
-              :max-zoom="1"
-              :allow-zoom="false"
-              :allow-pan="false"
-              @save="handleBoardSave"
-            />
-          </div>
-
-          <!-- 照片上传 -->
-          <div v-else key="photo" class="photo-input-wrapper" :class="{ 'is-disabled': disabled }" :style="{ minHeight: props.questionType === 'subjective' ? '400px' : '120px' }">
-            <div v-if="photoUrl" class="uploaded-photo-container">
-              <img :src="photoUrl" alt="作答照片" class="uploaded-photo-img" />
-            </div>
-            <div v-else class="upload-placeholder" @click="handleUploadPhoto" :class="{ disabled }">
-              <svg class="camera-icon" xmlns="http://www.w3.org/2000/svg" height="36" viewBox="0 -960 960 960" width="36" fill="#94a3b8"><path d="M480-280q67 0 113.5-46.5T640-440q0-67-46.5-113.5T480-600q-67 0-113.5 46.5T320-440q0 67 46.5 113.5T480-280Zm0-80q-33 0-56.5-23.5T400-440q0-33 23.5-56.5T480-520q33 0 56.5 23.5T560-440q0 33-23.5 56.5T480-360ZM160-160q-33 0-56.5-23.5T80-240v-400q0-33 23.5-56.5T160-720h114l66-80h280l66 80h114q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H656l-66-80H370l-66 80H160v400Zm320-200Z"/></svg>
-              <div class="upload-text">点击上传一张作答照片</div>
-            </div>
-          </div>
-        </Transition>
+        <!-- 画板输入 -->
+        <div class="drawing-board-wrapper" :style="{ height: boardHeight }">
+          <DrawingBoardNew
+            ref="drawingBoardRef"
+            :showGrid="false"
+            :show-toolbar="false"
+            :disabled="disabled"
+            :show-zoom-controls="false"
+            :show-debug-panel="false"
+            :initial-zoom="100"
+            :min-zoom="1"
+            :max-zoom="1"
+            :allow-zoom="false"
+            :allow-pan="false"
+            :backgroundImage="photoUrl"
+            :backgroundContain="true"
+            @save="handleBoardSave"
+          />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, type ComponentPublicInstance } from 'vue'
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  type ComponentPublicInstance,
+} from 'vue'
 import DrawingBoardNew from '../drawing/drawingBoardNew.vue'
-import Textarea from '@/components/base/Textarea.vue'
-import Button from '@/components/base/Button.vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
-import { ConfirmDialog } from '@/services/business/dialog-service'
 import type { StructuredAnswerItem } from '@/types/exercise'
+import undoIcon from '/icons/redo.svg'
+import redoIcon from '/icons/undo.svg'
+import signaturePenIcon from '/icons/signaturePen.svg'
+import signaturePenSelectIcon from '/icons/signaturePen_select.svg'
+import eraserIcon from '/icons/eraser.svg'
+import eraserSelectIcon from '/icons/eraser_select.svg'
+import deleteIcon from '/icons/delete.svg'
+import cameraIcon from '/icons/camera.svg'
+import lagaoIcon from '/icons/lagao.svg'
 
 interface Props {
   modelValue?: StructuredAnswerItem
@@ -101,7 +121,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   questionType: 'fill',
   disabled: false,
-  rows: 3
+  rows: 3,
 })
 
 const emit = defineEmits<{
@@ -109,22 +129,33 @@ const emit = defineEmits<{
   (e: 'change', value: StructuredAnswerItem): void
   (e: 'focus'): void
   (e: 'blur'): void
-  }>()
+}>()
 
-const drawingBoardRef = ref<ComponentPublicInstance & { loadData: (data: unknown) => void; saveData: () => any; clearAll: () => void; exportToJpg?: (quality?: number) => string; handleToolbarToolChange: (tool: string) => void; undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean } | null>(null)
-const currentType = ref<'drawing' | 'photo'>('drawing')
+const drawingBoardRef = ref<
+  | (ComponentPublicInstance & {
+      loadData: (data: unknown) => void
+      saveData: () => any
+      clearAll: () => void
+      exportToJpg?: (quality?: number) => string
+      handleToolbarToolChange: (tool: string) => void
+      undo: () => void
+      redo: () => void
+      canUndo: boolean
+      canRedo: boolean
+      resizeCanvas?: () => void
+    })
+  | null
+>(null)
 const photoUrl = ref('')
 
 const canUndo = ref(false)
 const canRedo = ref(false)
 const currentTool = ref('draw')
-const isExpanded = ref(false)
+const addedHeight = ref(0)
 
 const boardHeight = computed(() => {
-  if (isExpanded.value) {
-    return '420px'
-  }
-  return props.questionType === 'subjective' ? '400px' : '180px'
+  const base = props.questionType === 'subjective' ? 400 : 180
+  return `${base + addedHeight.value}px`
 })
 
 const updateUndoRedoStates = () => {
@@ -148,47 +179,85 @@ const handleRedo = () => {
   }
 }
 
+const mixedInputAreaRef = ref<HTMLDivElement | null>(null)
+const isFocused = ref(false)
+const lastActiveTool = ref('draw')
+
 const selectTool = (tool: string) => {
   currentTool.value = tool
+  if (tool) {
+    lastActiveTool.value = tool
+  }
   if (drawingBoardRef.value) {
     drawingBoardRef.value.handleToolbarToolChange(tool)
   }
 }
 
-const toggleHeight = () => {
-  isExpanded.value = !isExpanded.value
+const handleFocus = () => {
+  if (!isFocused.value) {
+    isFocused.value = true
+    emit('focus')
+    // 聚焦时恢复上一次选择的工具
+    selectTool(lastActiveTool.value)
+  }
 }
 
-watch(() => drawingBoardRef.value, () => {
-  if (drawingBoardRef.value) {
-    updateUndoRedoStates()
+const handleDocumentClick = (e: PointerEvent) => {
+  const el = mixedInputAreaRef.value
+  if (el) {
+    if (el.contains(e.target as Node)) {
+      handleFocus()
+    } else {
+      if (isFocused.value) {
+        isFocused.value = false
+        emit('blur')
+        currentTool.value = '' // 失去焦点，清除当前选中工具状态高亮
+      }
+    }
   }
+}
+
+onMounted(() => {
+  window.addEventListener('pointerdown', handleDocumentClick)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('pointerdown', handleDocumentClick)
+})
+
+const toggleHeight = () => {
+  addedHeight.value += 150
+}
+
+watch(boardHeight, () => {
+  nextTick(() => {
+    if (drawingBoardRef.value && typeof drawingBoardRef.value.resizeCanvas === 'function') {
+      drawingBoardRef.value.resizeCanvas()
+    }
+  })
+})
+
+watch(
+  () => drawingBoardRef.value,
+  () => {
+    if (drawingBoardRef.value) {
+      updateUndoRedoStates()
+    }
+  },
+)
 
 // 全局图片选择器
 const { pickImage } = useImagePicker()
 
-// 解析数据并初始化模式
+// 解析数据并初始化
 const initFromValue = (val: StructuredAnswerItem | undefined) => {
-  if (!val) {
-    currentType.value = 'drawing'
-    photoUrl.value = ''
-    return
-  }
-
-  if (val.type === 'photo') {
-    currentType.value = 'photo'
-    photoUrl.value = val.photoUrl || ''
-  } else {
-    currentType.value = 'drawing'
-    photoUrl.value = ''
-  }
+  photoUrl.value = val?.photoUrl || ''
 }
 
 onMounted(() => {
   initFromValue(props.modelValue)
   // 画板数据加载
-  if (currentType.value === 'drawing' && drawingBoardRef.value) {
+  if (drawingBoardRef.value) {
     const data = props.modelValue?.boardData
     if (data) {
       drawingBoardRef.value.loadData(data)
@@ -196,69 +265,27 @@ onMounted(() => {
   }
 })
 
-watch(() => props.modelValue, (newVal) => {
-  if (currentType.value === 'drawing' && drawingBoardRef.value) {
-    const data = newVal?.boardData
-
-    if (data) {
-      const currentData = drawingBoardRef.value.saveData()
-      if (JSON.stringify(currentData) !== JSON.stringify(data)) {
-        drawingBoardRef.value.loadData(data)
-      }
-    }
-  } else if (currentType.value === 'photo') {
+watch(
+  () => props.modelValue,
+  (newVal) => {
     const incomingUrl = newVal?.photoUrl || ''
     if (photoUrl.value !== incomingUrl) {
       photoUrl.value = incomingUrl
     }
-  }
-}, { deep: true })
 
-const hasContent = (): boolean => {
-  if (currentType.value === 'drawing') {
-    const currentData = drawingBoardRef.value?.saveData() as any
-    const objects = currentData?.objects
-    return Array.isArray(objects) && objects.length > 0
-  } else if (currentType.value === 'photo') {
-    return !!photoUrl.value
-  }
-  return false
-}
+    if (drawingBoardRef.value) {
+      const data = newVal?.boardData
 
-const performSwitch = (type: 'drawing' | 'photo') => {
-  const prevType = currentType.value
-  currentType.value = type
-
-  // 方案 2：彻底清除画板实例状态
-  if (prevType === 'drawing' && drawingBoardRef.value) {
-    drawingBoardRef.value.clearAll()
-  }
-  
-  // 互斥逻辑：切换时，清空其他作答方式的数据并立即保存
-  if (type === 'drawing') {
-    photoUrl.value = ''
-    const currentData = { objects: [], history: [[]], historyIndex: 0 }
-    handleBoardSave(currentData)
-  } else if (type === 'photo') {
-    handlePhotoSave(photoUrl.value)
-  }
-}
-
-const switchType = (type: 'drawing' | 'photo') => {
-  if (props.disabled || currentType.value === type) return
-
-  // 方案 1：防误触二次确认
-  if (hasContent()) {
-    ConfirmDialog({
-      title: '确认切换',
-      message: '切换作答方式将清空当前已写内容，确认切换吗？'
-    }).onOk(() => {
-      performSwitch(type)
-    })
-  } else {
-    performSwitch(type)
-  }
-}
+      if (data) {
+        const currentData = drawingBoardRef.value.saveData()
+        if (JSON.stringify(currentData) !== JSON.stringify(data)) {
+          drawingBoardRef.value.loadData(data)
+        }
+      }
+    }
+  },
+  { deep: true },
+)
 
 const handleBoardSave = (boardData: any) => {
   updateUndoRedoStates()
@@ -266,21 +293,25 @@ const handleBoardSave = (boardData: any) => {
   const newValue: StructuredAnswerItem = {
     type: 'board',
     boardData,
-    boardImg
+    boardImg,
+    photoUrl: photoUrl.value || undefined,
   }
   emit('update:modelValue', newValue)
   emit('change', newValue)
 }
 
-const handleUploadPhoto = async () => {
+const handleUploadPhotoToCanvas = async () => {
   if (props.disabled) return
   try {
     const imageInfo = await pickImage()
     if (!imageInfo) return
-    
+
     if (imageInfo.base64DataUrl) {
       photoUrl.value = imageInfo.base64DataUrl
-      handlePhotoSave(photoUrl.value)
+      if (drawingBoardRef.value) {
+        const currentData = drawingBoardRef.value.saveData()
+        handleBoardSave(currentData)
+      }
     } else {
       showMessage('选择图片失败，请重试', 'error')
     }
@@ -290,33 +321,17 @@ const handleUploadPhoto = async () => {
   }
 }
 
-const handlePhotoSave = (url: string) => {
-  const newValue: StructuredAnswerItem = {
-    type: 'photo',
-    photoUrl: url
-  }
-  emit('update:modelValue', newValue)
-  emit('change', newValue)
-}
-
-const handleRemovePhoto = () => {
-  if (props.disabled) return
-  photoUrl.value = ''
-  handlePhotoSave('')
-}
-
 const handleClear = () => {
-  if (currentType.value === 'drawing') {
-    drawingBoardRef.value?.clearAll()
+  photoUrl.value = ''
+  if (drawingBoardRef.value) {
+    drawingBoardRef.value.clearAll()
     handleBoardSave({ objects: [], history: [[]], historyIndex: 0 })
-  } else if (currentType.value === 'photo') {
-    handleRemovePhoto()
   }
 }
 
 defineExpose({
   clear: handleClear,
-  getDrawingBoard: () => drawingBoardRef.value
+  getDrawingBoard: () => drawingBoardRef.value,
 })
 </script>
 
@@ -339,11 +354,13 @@ defineExpose({
 
 .mixed-input-container {
   position: relative;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid #f7f6ff;
   border-radius: 16px;
   background: #ffffff;
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 
   &:hover {
     border-color: #6e55ff;
@@ -357,7 +374,7 @@ defineExpose({
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   background: transparent;
   padding: 0;
   border-radius: 0;
@@ -381,24 +398,9 @@ defineExpose({
   height: 36px;
   position: relative;
 
-  &:hover:not(:disabled) {
-    color: #0f172a;
-    background: rgba(0, 0, 0, 0.04);
-  }
-
   &.active {
     color: #6e55ff;
     background: rgba(110, 85, 255, 0.08);
-  }
-
-  &.camera-btn {
-    background: #6e55ff;
-    color: #ffffff;
-    border-radius: 8px;
-    &:hover:not(:disabled) {
-      background: #5b44e6;
-      color: #ffffff;
-    }
   }
 
   &.text-red {
@@ -466,7 +468,7 @@ defineExpose({
   position: relative;
   transition: all 0.2s ease;
   width: 100%;
-  
+
   .uploaded-photo-container {
     width: 100%;
     height: 100%;
@@ -475,13 +477,13 @@ defineExpose({
     justify-content: center;
     align-items: center;
     background: #ffffff;
-    
+
     .uploaded-photo-img {
       max-width: 100%;
       max-height: 380px;
       object-fit: contain;
     }
-    
+
     .photo-overlay {
       position: absolute;
       top: 8px;
@@ -491,7 +493,7 @@ defineExpose({
       border-radius: 50%;
     }
   }
-  
+
   .upload-placeholder {
     width: 100%;
     min-height: 120px;
@@ -502,21 +504,21 @@ defineExpose({
     cursor: pointer;
     padding: 16px;
     transition: transform 0.2s ease;
-    
+
     &:hover:not(.disabled) {
       transform: translateY(-2px);
-      
+
       .camera-icon {
         fill: #615efe;
         transform: scale(1.05);
       }
     }
-    
+
     &.disabled {
       cursor: not-allowed;
       opacity: 0.6;
     }
-    
+
     .camera-icon {
       transition: all 0.2s ease;
     }

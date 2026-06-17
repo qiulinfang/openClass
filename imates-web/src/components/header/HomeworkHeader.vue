@@ -253,7 +253,6 @@ const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' =>
     background: #6e55ff !important;
     border-color: #6e55ff !important;
     color: #ffffff !important;
-    box-shadow: 0 4px 12px rgba(110, 85, 255, 0.3);
   }
 }
 
@@ -276,7 +275,6 @@ const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' =>
     &.is-active {
       background: #6e55ff;
       color: #ffffff;
-      box-shadow: 0 4px 12px rgba(110, 85, 255, 0.2);
     }
   }
 }

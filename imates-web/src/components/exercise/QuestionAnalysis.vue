@@ -1,8 +1,8 @@
 <template>
   <div class="question-footer" v-if="show">
     <div class="analysis-section">
-      <div class="section-title">参考答案</div>
-      <div class="section-content answer" v-if="formattedAnswer" v-html="formattedAnswer"></div>
+      <div class="section-title">参考答案：</div>
+      <div class="section-content answer-val" v-if="formattedAnswer" v-html="formattedAnswer"></div>
       <div class="field-missing-warning" v-else>【警告：未配置参考答案】</div>
     </div>
   </div>
@@ -42,29 +42,26 @@ const formattedAnswer = computed(() => {
 .question-footer {
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px dashed #eee;
 }
 
 .analysis-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #615efe;
+  color: #334155;
   margin-bottom: 8px;
 }
 
 .section-content {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-.section-content.answer {
-  color: #22c55e;
-  font-weight: 600;
+.section-content.answer-val {
+  color: #334155;
 }
 
 .field-missing-warning {

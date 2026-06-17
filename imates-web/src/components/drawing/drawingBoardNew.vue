@@ -3004,6 +3004,7 @@ defineExpose({
   getDataUrl,
   insertImageFromDataUrl,
   forceRender,
+  resizeCanvas,
   // 工具栏相关
   toolbarTools,
   toolbarSelectedTool,
