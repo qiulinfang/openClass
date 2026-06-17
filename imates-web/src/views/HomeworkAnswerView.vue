@@ -54,8 +54,8 @@
                   <div class="panel-card-body">
                     <div class="markdown-question-container" v-if="currentAnswerQuestion">
                       <div class="question-html-preview markdown-content">
-                        <div class="left-panel-question-title" v-if="currentAnswerQuestion.bmNo">
-                          题目{{ currentAnswerQuestion.bmNo }}
+                        <div class="left-panel-question-title" v-if="currentAnswerQuestion">
+                          题目{{ currentQuestionIndex + 1 }}
                         </div>
                         <div v-html="questionHtml"></div>
                       </div>
@@ -79,8 +79,8 @@
               >
 
 
-                <!-- 题目区域（可收缩） -->
-                <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
+                <!-- 题目区域 -->
+                <div class="question-image-section">
                   <div class="question-image-content">
                     <!-- 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
                     <div
@@ -109,6 +109,7 @@
                           :disabled="isHomeworkSubmitted"
                           :show-analysis="isHomeworkSubmitted"
                           show-title
+                          :show-id="false"
                         />
                         <JudgmentQuestion
                           v-else-if="currentAnswerQuestion.type === 'true_false'"
@@ -117,6 +118,7 @@
                           :disabled="isHomeworkSubmitted"
                           :show-analysis="isHomeworkSubmitted"
                           show-title
+                          :show-id="false"
                         />
                         <CompositeQuestion
                           v-else-if="currentAnswerQuestion.type === 'composite'"
@@ -134,6 +136,7 @@
                           :disabled="isHomeworkSubmitted"
                           :show-analysis="isHomeworkSubmitted"
                           show-title
+                          :show-id="false"
                         />
                         <SubjectiveQuestion
                           v-else-if="currentAnswerQuestion.type === 'subjective'"
@@ -143,6 +146,7 @@
                           :disabled="isHomeworkSubmitted"
                           :show-analysis="isHomeworkSubmitted"
                           show-title
+                          :show-id="false"
                         />
                       </div>
                     </div>
@@ -157,14 +161,6 @@
                   </div>
                 </div>
 
-                <!-- 收缩切换按钮 -->
-                <div
-                  class="collapse-toggle-btn"
-                  v-if="currentAnswerQuestion && isHomeworkLocked"
-                  @click="toggleQuestionImage"
-                >
-                  <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
-                </div>
 
                 <!-- 下方区域：提交后显示答案解析 -->
                 <div class="panel-card-body solve-body" v-if="currentAnswerQuestion && isHomeworkLocked">
@@ -192,8 +188,6 @@
                   </div>
                 </div>
 
-                <!-- 底部留白 -->
-                <div class="action-footer-placeholder" v-if="currentAnswerQuestion"></div>
               </div>
               <!-- IP 悬浮功能 -->
               <div
@@ -548,13 +542,6 @@ const questionHtml = ref('')
 // 提交按钮的 loading 状态
 const isSubmitting = ref(false)
 
-// 题目区域是否收起
-const isQuestionImageCollapsed = ref(false)
-
-// 切换题目区域展开/收起
-const toggleQuestionImage = () => {
-  isQuestionImageCollapsed.value = !isQuestionImageCollapsed.value
-}
 
 // 展示用标题：优先显示作业名称，缺省时回退到原有 title
 const displayTitle = computed(() => {
@@ -1160,8 +1147,6 @@ const transformToBackendFormat = (list: IntermediateQuestionAnswer[]): HomeworkQ
       }
     } else {
       let answerData: string[] = []
-      const chooseList: string[] = []
-      const answerList: string[] = item.images || []
 
       if (item.type === 'single_choice' || item.type === 'multiple_choice') {
         answerData = Array.isArray(item.answers) ? (item.answers as string[]).map(String) : (item.answers !== undefined && item.answers !== null && item.answers !== '' ? [String(item.answers)] : [])
@@ -1177,8 +1162,6 @@ const transformToBackendFormat = (list: IntermediateQuestionAnswer[]): HomeworkQ
       result.push({
         questionId: item.questionId,
         answerData,
-        answerList,
-        chooseList,
       })
     }
   }
@@ -1198,44 +1181,24 @@ const submitHomeworkAnswers = async (questionAnswerList: IntermediateQuestionAns
     throw new Error('作业信息缺失')
   }
 
-  // MOCK: 后端接口未完成，模拟提交过程
-  showMessage('正在模拟提交作业数据，请稍候...', 'info')
-  console.log('[MockSubmit] 原始作答数据:', {
+  showMessage('正在上传图片并保存作答，请稍候...', 'info')
+
+  // 1. 递归上传所有 Base64 图片并就地替换为云端 CDN 链接地址
+  await uploadAnswersImages(questionAnswerList)
+
+  // 2. 转换扁平化为后端要求的格式
+  const finalQuestionAnswerList = transformToBackendFormat(questionAnswerList)
+  console.log('[Submit] 提交后端的最终扁平化数据:', finalQuestionAnswerList)
+
+  // 3. 调用后端接口保存提交
+  const result = await apiService.homeworkSubmitSave({
     homeworkId,
-    questionAnswerList,
+    questionAnswerList: finalQuestionAnswerList,
   })
 
-  // 模拟网络和上传延迟
-  await new Promise((resolve) => setTimeout(resolve, 1500))
-
-  // 模拟图片上传处理，避免调用真实的文件服务器接口
-  const mockUploadImages = (list: IntermediateQuestionAnswer[]) => {
-    list.forEach((qAns) => {
-      if (qAns.type === 'subjective') {
-        if (typeof qAns.answers === 'string' && qAns.answers.startsWith('data:image')) {
-          qAns.answers = 'https://cdn.imates.com.cn/mock/subjective_image.png'
-        }
-      } else if (qAns.type === 'fill_in_blank') {
-        if (Array.isArray(qAns.answers)) {
-          for (let i = 0; i < qAns.answers.length; i++) {
-            const ansStr = qAns.answers[i]
-            if (typeof ansStr === 'string' && ansStr.startsWith('data:image')) {
-              qAns.answers[i] = `https://cdn.imates.com.cn/mock/fill_blank_${i}.png`
-            }
-          }
-        }
-      } else if (qAns.type === 'composite') {
-        if (Array.isArray(qAns.answers)) {
-          mockUploadImages(qAns.answers as IntermediateQuestionAnswer[])
-        }
-      }
-    })
+  if (!result.success) {
+    throw new Error(result.message || '提交保存失败')
   }
-
-  mockUploadImages(questionAnswerList)
-
-  const finalQuestionAnswerList = transformToBackendFormat(questionAnswerList)
-  console.log('[MockSubmit] 转换后提交后端的最终扁平化数据:', finalQuestionAnswerList)
 }
 
 /**
@@ -1360,7 +1323,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0f002e;
+  background: #f7f6ff;
 }
 
 .answer-body-container {
@@ -1369,6 +1332,11 @@ onUnmounted(() => {
   flex-direction: column;
   background: #f7f6ff;
   min-height: 0;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0px 0px 29px 0px rgba(94, 128, 254, 0.18);
+  overflow: hidden;
+  z-index: 1;
 }
 
 .answer-body {
@@ -1376,10 +1344,6 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   background: #ffffff;
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-  box-shadow: 0px 0px 29px 0px rgba(94, 128, 254, 0.18);
-  z-index: 1;
 }
 
 /* 面板内容样式 */
@@ -1508,7 +1472,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  flex: 7 0 0; /* 默认展开占 70% */
+  flex: 1 0 0; /* 默认展开占满剩余空间 */
   min-height: 0;
   transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -1564,11 +1528,11 @@ onUnmounted(() => {
 }
 
 .solve-body {
-  flex: 3 0 0; /* 下方区域占约 30% */
+  flex: 0 0 auto; /* 改为自适应内容高度，不强占空间 */
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 0 16px 16px 16px;
+  padding: 0; /* 边距移动到内容区域以实现无内容时高度完全为 0 */
   transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: flex;
 }
@@ -1625,6 +1589,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 16px;
+}
+
+.result-section:empty {
+  display: none; /* 无内容时隐藏，彻底不占高度 */
 }
 
 .result-item {
@@ -1782,7 +1751,6 @@ onUnmounted(() => {
 
 .question-solve-card:not(.is-submitted) .question-image-section {
   flex: 1 0 0;
-  margin-bottom: 12px;
 }
 
 .markdown-question-container {
