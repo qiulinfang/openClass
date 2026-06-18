@@ -77,10 +77,11 @@
                 class="panel-card question-solve-card"
                 :class="{ 'is-submitted': isHomeworkSubmitted }"
               >
-
-
                 <!-- 题目区域（可收缩） -->
-                <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
+                <div
+                  class="question-image-section"
+                  :class="{ collapsed: isQuestionImageCollapsed }"
+                >
                   <div class="question-image-content">
                     <!-- 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
                     <div
@@ -171,7 +172,10 @@
                 </div>
 
                 <!-- 下方区域：提交后显示答案解析 -->
-                <div class="panel-card-body solve-body" v-if="currentAnswerQuestion && isHomeworkLocked">
+                <div
+                  class="panel-card-body solve-body"
+                  v-if="currentAnswerQuestion && isHomeworkLocked"
+                >
                   <!-- 答案和解析区域 -->
                   <div class="answer-analysis-wrapper">
                     <div class="result-section">
@@ -273,59 +277,13 @@
       当前作业老师只允许自己思考作答哦
     </Dialog>
 
-    <!-- 草稿纸弹窗 -->
-    <div v-show="showDraftDialog" class="draft-dialog-overlay" @click.self="handleToggleDraft">
-      <div class="draft-dialog-container">
-        <div class="draft-dialog-header">
-          <span class="draft-dialog-title">草稿纸</span>
-          <q-btn
-            flat
-            round
-            dense
-            icon="close"
-            class="draft-dialog-close"
-            @click="handleToggleDraft"
-          />
-        </div>
-        <div class="draft-dialog-body">
-          <div class="draft-board-section">
-            <!-- 画板 -->
-            <div class="drawing-board-wrapper">
-              <DrawingBoardNew
-                :ref="(el) => setDrawingBoardRef(el, 0)"
-                :showGrid="false"
-                :enableAskAi="true"
-                :show-toolbar="false"
-                :disabled="false"
-                :show-zoom-controls="false"
-                :background-image="''"
-                :initial-zoom="100"
-                @clear="handleClearRequest"
-              />
-            </div>
-          </div>
-        </div>
-        <div class="draft-dialog-footer" v-if="drawingBoardRefs[0]">
-          <Toolbar
-            :tools="drawingBoardRefs[0].toolbarTools"
-            :selected-tool="drawingBoardRefs[0].toolbarSelectedTool"
-            :tool-config="drawingBoardRefs[0].toolbarToolConfig"
-            :tool-states="{
-              undo: drawingBoardRefs[0].canUndo,
-              redo: drawingBoardRefs[0].canRedo,
-            }"
-            :allow-popup="true"
-            variant="floating"
-            orientation="horizontal"
-            @tool-change="handleToolbarToolChange"
-            @config-change="(cfg) => drawingBoardRefs[0].handleToolbarConfigChange(cfg)"
-            @undo="() => drawingBoardRefs[0].undo()"
-            @redo="() => drawingBoardRefs[0].redo()"
-            @clear="handleClearRequest"
-          />
-        </div>
-      </div>
-    </div>
+    <!-- 磨砂玻璃手写草稿本组件 -->
+    <Scratchpad 
+      ref="scratchpadRef"
+      v-model:visible="showDraftDialog" 
+      :question-key="getQuestionKey(currentAnswerQuestion)"
+      @save-draft="handleSaveDraft"
+    />
   </div>
 </template>
 
@@ -343,7 +301,7 @@ import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService } from '@/services/http/api-service'
 import { showMessage } from '@/utils'
-import { initExerciseAnswerFields } from '@/utils/business/exercise-utils'
+import { initExerciseAnswerFields, normalizeQuestionContent, formatExerciseToMarkdown } from '@/utils/business/exercise-utils'
 import { getQuestionStrategy } from '@/utils/business/question-strategies'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
@@ -365,6 +323,7 @@ import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import FillBlankQuestion from '@/components/exercise/FillBlankQuestion.vue'
 import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import SubjectiveQuestion from '@/components/exercise/SubjectiveQuestion.vue'
+import Scratchpad from '@/components/exercise/Scratchpad.vue'
 import Radio from '@/components/base/Radio.vue'
 
 interface StructuredAnswer {
@@ -464,6 +423,40 @@ const isHomeworkLocked = computed(() => {
 
 // 当前在白板上作答的题目
 const currentAnswerQuestion = ref<ExerciseItem | null>(null)
+
+// 引用草稿纸组件
+const scratchpadRef = ref<any>(null)
+
+// 存储每道题对应的独立草稿数据缓存 (Base64)
+const draftsCache = ref<Record<string, string | null>>({})
+
+// 处理草稿纸数据的读写和持久化
+const handleSaveDraft = (key: string, data: any) => {
+  if (!key) return
+  
+  if (data === 'request-restore') {
+    // 恢复数据：从缓存读取，若未初始化，读取当前题目 structuredContent 的 draftData 字段
+    let targetDraft = draftsCache.value[key]
+    if (targetDraft === undefined && currentAnswerQuestion.value) {
+      targetDraft = currentAnswerQuestion.value.structuredContent?.draftData || null
+      draftsCache.value[key] = targetDraft
+    }
+    scratchpadRef.value?.loadDraftData(targetDraft || null)
+  } else {
+    // 保存数据
+    draftsCache.value[key] = data
+    if (currentAnswerQuestion.value && getQuestionKey(currentAnswerQuestion.value) === key) {
+      if (!currentAnswerQuestion.value.structuredContent) {
+        currentAnswerQuestion.value.structuredContent = {
+          stem: currentAnswerQuestion.value.title || '',
+          type: currentAnswerQuestion.value.type || 'subjective',
+        }
+      }
+      // 保存至题目结构，这会自动包含在 homeworkStore 中，随时可以通过 store 保存并持久化
+      currentAnswerQuestion.value.structuredContent.draftData = data
+    }
+  }
+}
 
 // 上一道作答的题目（用于切题时保存数据）
 const previousQuestionKey = ref<string>('')
@@ -853,8 +846,8 @@ const handleStartAnswer = async (question: ExerciseItem) => {
     currentQuestionIndex.value = idx
   }
 
-  const raw = question.question || question.title || ''
-  questionHtml.value = renderMessageContent(raw)
+  const cleanedRaw = formatExerciseToMarkdown(question)
+  questionHtml.value = renderMessageContent(cleanedRaw)
 
   // 3. 恢复新题笔迹
   await nextTick()
