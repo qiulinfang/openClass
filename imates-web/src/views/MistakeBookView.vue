@@ -264,7 +264,7 @@ import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import DebugStylePanel from '@/components/debug/DebugStylePanel.vue'
-import { parseQuestionStructure, mapBackendTypeToFrontend } from '@/utils/business/exercise-utils'
+import { parseQuestionStructure, mapBackendTypeToFrontend } from '@/services/boundary/exercise'
 import type { ExerciseItem } from '@/types'
 import type { MistakeItem } from '@/services/storage/mistake-storage'
 

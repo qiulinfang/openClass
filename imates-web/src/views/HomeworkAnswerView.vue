@@ -132,6 +132,7 @@
                         />
                         <FillBlankQuestion
                           v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
+                          :key="getQuestionKey(currentAnswerQuestion)"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
@@ -141,6 +142,7 @@
                         />
                         <SubjectiveQuestion
                           v-else-if="currentAnswerQuestion.type === 'subjective'"
+                          :key="getQuestionKey(currentAnswerQuestion)"
                           ref="subjectiveQuestionRef"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
@@ -296,13 +298,19 @@ import HomeworkHeader from '@/components/header/HomeworkHeader.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import Toolbar from '@/components/drawing/Toolbar.vue'
 import Button from '@/components/base/Button.vue'
-import type { ExerciseItem, HomeworkQuestionAnswer } from '@/types'
+import type { ExerciseItem } from '@/types'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService } from '@/services/http/api-service'
 import { showMessage } from '@/utils'
-import { initExerciseAnswerFields, normalizeQuestionContent, formatExerciseToMarkdown } from '@/utils/business/exercise-utils'
+import { initExerciseAnswerFields, formatExerciseToMarkdown } from '@/services/boundary/exercise'
 import { getQuestionStrategy } from '@/utils/business/question-strategies'
+import {
+  prepareHomeworkSubmitAnswers,
+  flattenHomeworkSubmitAnswers,
+  isBase64ImageAnswer,
+} from '@/services/boundary/homework'
+import type { IntermediateQuestionAnswer } from '@/services/boundary/homework'
 import { useUIStore } from '@/stores/uiStore'
 import { getSubject } from '@/services'
 import { normalizeSubject } from '@/constants/subjects'
@@ -423,6 +431,7 @@ const isHomeworkLocked = computed(() => {
 
 // 当前在白板上作答的题目
 const currentAnswerQuestion = ref<ExerciseItem | null>(null)
+const subjectiveQuestionRef = ref<any>(null)
 
 // 引用草稿纸组件
 const scratchpadRef = ref<any>(null)
@@ -681,13 +690,32 @@ const saveCurrentPage = async (
       }
     }
 
-    const board = drawingBoardRefs.value[0]
-
     // 2. 仅当保存的目标题目是当前活跃题目，且白板实例已就绪时，提取并更新笔迹数据
-    if (board && questionToSave === currentAnswerQuestion.value) {
-      const boardData = board.saveData()
-      if (boardData) {
-        questionToSave.structuredContent.boardData = boardData
+    if (questionToSave === currentAnswerQuestion.value) {
+      let board = drawingBoardRefs.value[0]
+      
+      // 如果当前题目是主观题，则从 SubjectiveQuestion 组件的 ref 中获取对应的 MixedInputArea，然后再获取其白板实例
+      if (questionToSave.type === 'subjective' && subjectiveQuestionRef.value) {
+        const mixedInputArea = subjectiveQuestionRef.value.getMixedInputArea?.()
+        if (mixedInputArea) {
+          // 在保存之前执行 blur() 强制让输入框把笔迹同步
+          mixedInputArea.blur?.()
+          board = mixedInputArea.getDrawingBoard?.()
+        }
+      }
+
+      if (board) {
+        const boardData = board.saveData()
+        if (boardData) {
+          questionToSave.structuredContent.boardData = boardData
+        }
+        
+        // 导出图片 base64 数据写入 userAnswer 结构中，确保在提交前获取最新手写图
+        const boardImg = board.exportToJpg?.(0.9)
+        if (boardImg && questionToSave.structuredContent.userAnswer && typeof questionToSave.structuredContent.userAnswer === 'object') {
+          const userAnswer = questionToSave.structuredContent.userAnswer as Record<string, any>
+          userAnswer.boardImg = boardImg
+        }
       }
     }
   } catch (globalSaveError) {
@@ -986,87 +1014,33 @@ const incompleteDialogData = ref({
 let incompleteHomeworkResolve: (value: boolean) => void
 
 /**
- * 递归构建单个题目的结构化提交答案数据
- * @param question 题目项数据
- * @param questionIndex 题目在列表中的索引值
- * @param imageBuckets 暂存草稿图片的容器
- * @param parentUserAnswer 复合题子题传入的作答数据 (普通题不需要传)
- * @returns 组装好的 HomeworkQuestionAnswer 对象，若无有效作答内容则返回 null
+ * 递归上传作答内容中的 Base64 图片
  */
-interface IntermediateQuestionAnswer {
-  questionId: string
-  type: string
-  answers: string | string[] | IntermediateQuestionAnswer[]
-  images?: string[]
-}
-
-const buildAnswerForQuestion = (
-  question: ExerciseItem,
-  questionIndex: number,
-  imageBuckets: Map<number, string[]>,
-  parentUserAnswer?: unknown,
-): IntermediateQuestionAnswer | null => {
-  if (!question) return null
-  const structured = question.structuredContent
-  if (!structured) return null
-
-  // 优先采用传入的子题作答数据，否则使用自身 structured 中的 userAnswer
-  const userAnswer = parentUserAnswer !== undefined ? parentUserAnswer : structured.userAnswer
-
-  const type = question.type || ''
-  let answers: string | string[] | IntermediateQuestionAnswer[] = ''
-
-  if (type === 'composite') {
-    // 复合题：递归处理子题作答列表
-    const nestedAnswers: IntermediateQuestionAnswer[] = []
-    if (question.subQuestions && Array.isArray(question.subQuestions)) {
-      question.subQuestions.forEach((subQuestion, subIndex) => {
-        const subUserAnswer =
-          userAnswer && typeof userAnswer === 'object'
-            ? (userAnswer as Record<string, unknown>)[subQuestion.id]
-            : undefined
-        const subAns = buildAnswerForQuestion(subQuestion, subIndex, imageBuckets, subUserAnswer)
-        if (subAns) {
-          nestedAnswers.push(subAns)
+const uploadAnswersImages = async (
+  questionAnswerList: IntermediateQuestionAnswer[],
+): Promise<void> => {
+  for (const qAns of questionAnswerList) {
+    if (qAns.type === 'subjective') {
+      if (isBase64ImageAnswer(qAns.answers)) {
+        const path = await apiService.uploadImageAndGetUrl(qAns.answers)
+        qAns.answers = path
+      }
+    } else if (qAns.type === 'fill_in_blank') {
+      if (Array.isArray(qAns.answers)) {
+        for (let i = 0; i < qAns.answers.length; i++) {
+          const ansStr = qAns.answers[i]
+          if (isBase64ImageAnswer(ansStr)) {
+            const path = await apiService.uploadImageAndGetUrl(ansStr)
+            qAns.answers[i] = path
+          }
         }
-      })
+      }
+    } else if (qAns.type === 'composite') {
+      if (Array.isArray(qAns.answers)) {
+        await uploadAnswersImages(qAns.answers as IntermediateQuestionAnswer[])
+      }
     }
-    answers = nestedAnswers
-  } else {
-    // 非复合题：使用对应的策略格式化作答内容
-    answers = getQuestionStrategy(type).formatForSubmit(userAnswer, questionIndex)
   }
-
-  // 校验当前题目的图片与作答内容是否均为空
-  const currentImages = imageBuckets.get(questionIndex) || []
-  const hasImages = currentImages.length > 0
-  const hasContent = !getQuestionStrategy(type).isEmpty(userAnswer)
-
-  if (!hasImages && !hasContent) return null
-
-  return {
-    questionId: question.id || question.bmNo || '',
-    type: question.type || 'subjective',
-    answers,
-    images: currentImages.length ? currentImages : undefined,
-  }
-}
-
-/**
- * 提取所有题目的本地作答并准备提交数据格式
- * @returns 规范化的作业提交数组
- */
-const prepareSubmitData = (): IntermediateQuestionAnswer[] => {
-  const questionAnswerList: IntermediateQuestionAnswer[] = []
-  const emptyBuckets = new Map<number, string[]>() // 空 map，草稿图片不传给后端
-
-  externalQuestions.value.forEach((question, questionIndex) => {
-    const ans = buildAnswerForQuestion(question, questionIndex, emptyBuckets)
-    if (ans) {
-      questionAnswerList.push(ans)
-    }
-  })
-  return questionAnswerList
 }
 
 /**
@@ -1118,90 +1092,7 @@ const handleIncompleteHomeworkCancel = () => {
 
 /**
  * 递归函数：将作答内容中的所有 base64 图片/手写板数据上传到云端后，就地替换为云端 CDN 链接地址
- * @param questionAnswerList 等待上传的提交答案列表
  */
-const uploadAnswersImages = async (
-  questionAnswerList: IntermediateQuestionAnswer[],
-): Promise<void> => {
-  for (const qAns of questionAnswerList) {
-    if (qAns.type === 'subjective') {
-      // 检查主观题作答内容是否为 Base64，如果是则上传并覆盖
-      if (typeof qAns.answers === 'string' && qAns.answers.startsWith('data:image')) {
-        const path = await apiService.uploadImageAndGetUrl(qAns.answers)
-        qAns.answers = path
-      }
-    } else if (qAns.type === 'fill_in_blank') {
-      // 检查填空题每个空格是否为 Base64，如果是则上传并就地替换
-      if (Array.isArray(qAns.answers)) {
-        for (let i = 0; i < qAns.answers.length; i++) {
-          const ansStr = qAns.answers[i]
-          if (typeof ansStr === 'string' && ansStr.startsWith('data:image')) {
-            const path = await apiService.uploadImageAndGetUrl(ansStr)
-            qAns.answers[i] = path
-          }
-        }
-      }
-    } else if (qAns.type === 'composite') {
-      // 复合题：递归处理子题作答中的图片
-      if (Array.isArray(qAns.answers)) {
-        await uploadAnswersImages(qAns.answers as IntermediateQuestionAnswer[])
-      }
-    }
-  }
-}
-
-/**
- * 将前端内部的作答结构转换并扁平化为后端要求的 QuestionAnswer 结构
- */
-const transformToBackendFormat = (list: IntermediateQuestionAnswer[]): HomeworkQuestionAnswer[] => {
-  const result: HomeworkQuestionAnswer[] = []
-
-  const traverse = (item: IntermediateQuestionAnswer) => {
-    if (item.type === 'composite') {
-      // 复合题：递归扁平化子题
-      if (Array.isArray(item.answers)) {
-        item.answers.forEach((subItem) => {
-          traverse(subItem as IntermediateQuestionAnswer)
-        })
-      }
-    } else {
-      let answerData: string[] = []
-
-      if (item.type === 'single_choice' || item.type === 'multiple_choice') {
-        answerData = Array.isArray(item.answers)
-          ? (item.answers as string[]).map(String)
-          : item.answers !== undefined && item.answers !== null && item.answers !== ''
-            ? [String(item.answers)]
-            : []
-      } else if (item.type === 'true_false' || item.type === 'judgment') {
-        answerData =
-          item.answers !== undefined && item.answers !== null && item.answers !== ''
-            ? [String(item.answers)]
-            : []
-      } else if (item.type === 'fill_in_blank') {
-        answerData = Array.isArray(item.answers)
-          ? (item.answers as string[]).map(String)
-          : item.answers !== undefined && item.answers !== null && item.answers !== ''
-            ? [String(item.answers)]
-            : []
-      } else {
-        // 主观题及其他
-        answerData =
-          item.answers !== undefined && item.answers !== null && item.answers !== ''
-            ? [String(item.answers)]
-            : []
-      }
-
-      result.push({
-        questionId: item.questionId,
-        answerData,
-      })
-    }
-  }
-
-  list.forEach(traverse)
-  return result
-}
 
 /**
  * 提交作业答卷数据
@@ -1220,7 +1111,7 @@ const submitHomeworkAnswers = async (questionAnswerList: IntermediateQuestionAns
   await uploadAnswersImages(questionAnswerList)
 
   // 2. 转换扁平化为后端要求的格式
-  const finalQuestionAnswerList = transformToBackendFormat(questionAnswerList)
+  const finalQuestionAnswerList = flattenHomeworkSubmitAnswers(questionAnswerList)
   console.log('[Submit] 提交后端的最终扁平化数据:', finalQuestionAnswerList)
 
   // 3. 调用后端接口保存提交
@@ -1284,8 +1175,44 @@ const handleBoardUpload = async () => {
     }
 
     // 4. 提取本地作答数据，并提交流程至云端
-    const questionAnswerList = prepareSubmitData()
+    const questionAnswerList = prepareHomeworkSubmitAnswers(externalQuestions.value)
     await submitHomeworkAnswers(questionAnswerList)
+
+    // 4.1. 将已成功上传并替换为 CDN 链接的 url 写回到 externalQuestions 对应的结构化作答数据中
+    // 使得后续保存到本地 IndexedDB 的数据不再是 base64 而是网络链接，从而彻底保存
+    questionAnswerList.forEach((qAns) => {
+      const targetQuestion = externalQuestions.value.find(
+        (eq) => eq.id === qAns.questionId || eq.bmNo === qAns.questionId
+      )
+      if (targetQuestion && targetQuestion.structuredContent) {
+        if (qAns.type === 'subjective') {
+          // 如果原 userAnswer 结构是对象（包括照片或白板），则保存 CDN 链接至对应的字段，
+          // 这里可以就地更新 photoUrl 或直接保留网络路径
+          if (typeof targetQuestion.structuredContent.userAnswer === 'object' && targetQuestion.structuredContent.userAnswer !== null) {
+            const currentAns = targetQuestion.structuredContent.userAnswer
+            if (currentAns.type === 'photo') {
+              currentAns.photoUrl = qAns.answers as string
+            } else {
+              currentAns.boardImg = qAns.answers as string
+            }
+          } else {
+            targetQuestion.structuredContent.userAnswer = qAns.answers
+          }
+        } else if (qAns.type === 'fill_in_blank' && Array.isArray(qAns.answers)) {
+          if (Array.isArray(targetQuestion.structuredContent.userAnswer)) {
+            targetQuestion.structuredContent.userAnswer.forEach((item, index) => {
+              if (item && typeof item === 'object') {
+                if (item.type === 'photo') {
+                  item.photoUrl = qAns.answers[index] as string
+                } else {
+                  item.boardImg = qAns.answers[index] as string
+                }
+              }
+            });
+          }
+        }
+      }
+    })
 
     showMessage('提交成功', 'success')
     isHomeworkSubmitted.value = true // 修改界面状态为已提交

@@ -133,7 +133,12 @@ class FillBlankStrategy implements QuestionStrategy {
 // 4. 主观题策略
 class SubjectiveStrategy implements QuestionStrategy {
   getDefaultAnswer() {
-    return { type: 'board' }
+    return {
+      type: 'board',
+      boardData: { objects: [], history: [[]], historyIndex: 0 },
+      boardImg: '',
+      photoUrl: ''
+    }
   }
 
   isEmpty(val: any): boolean {
@@ -143,7 +148,10 @@ class SubjectiveStrategy implements QuestionStrategy {
         return !val.photoUrl
       }
       const boardData = val.boardData || val
-      return !(Array.isArray(boardData?.objects) && boardData.objects.length > 0)
+      // 如果没有绘制任何对象，并且也没有 photoUrl，则视为空
+      const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
+      const hasPhoto = !!val.photoUrl
+      return !hasObjects && !hasPhoto
     }
     return !val.trim()
   }
@@ -163,7 +171,14 @@ class SubjectiveStrategy implements QuestionStrategy {
   }
 
   buildOriginalAnswer(val: any) {
-    return { subjectiveData: val || { type: 'board' } }
+    return {
+      subjectiveData: val || {
+        type: 'board',
+        boardData: { objects: [], history: [[]], historyIndex: 0 },
+        boardImg: '',
+        photoUrl: ''
+      }
+    }
   }
 }
 

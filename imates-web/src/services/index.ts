@@ -10,6 +10,9 @@ export * from '../types'
 export { apiService, ApiService } from './http/api-service'
 export { androidBridge, AndroidBridge } from './business/android-bridge'
 
+// 边界层
+export * from './boundary'
+
 // 核心服务 - HTTP & 认证
 export { httpClient, HttpClient } from './http/http-client'
 

@@ -11,7 +11,11 @@ import { saveQuestionsToIndexedDB } from '../services/storage/question-storage'
 import { saveHomeworkSubmission, loadHomeworkSubmission } from '../services/storage/homework-storage'
 import { showMessage } from '@/utils'
 import { apiService } from '@/services/http/api-service'
-import { initExerciseAnswerFields } from '@/utils/business/exercise-utils'
+import {
+  hydrateQuestionsFromStorage,
+  toHomeworkSubmissionPayload,
+} from '@/services/boundary/homework'
+import type { LegacyAnswerCacheItem } from '@/services/boundary/homework'
 
 // 作业存储的 key 前缀（区别于习题）
 const HOMEWORK_STORAGE_PREFIX = 'homework_'
@@ -173,53 +177,6 @@ export const useHomeworkStore = defineStore('homework', () => {
   }
 
   /**
-   * 辅助函数：根据 unified 题目的 structuredContent 动态重构一份 legacy 格式的 answerDataCache
-   */
-  const buildLegacyCache = (questionsList: ExerciseItem[]): Record<string, any> => {
-    const legacyCache: Record<string, any> = {}
-    questionsList.forEach(question => {
-      const key = question.bmNo || question.id
-      if (!key) return
-      const structured = question.structuredContent
-      if (structured) {
-        const item: any = {}
-        const type = question.type || ''
-        if (type === 'single_choice' || type === 'multiple_choice') {
-          item.chooseList = structured.userAnswer || []
-        } else if (type === 'true_false') {
-          item.judgmentValue = structured.userAnswer || ''
-        } else if (type === 'fill_in_blank') {
-          const rawList = structured.userAnswer || []
-          item.fillList = rawList.map((ans: any) => {
-            if (!ans) return ''
-            if (typeof ans === 'string') return ans
-            if (ans.type === 'photo') {
-              return JSON.stringify({ type: 'photo', photoUrl: ans.photoUrl || '' })
-            }
-            return JSON.stringify({
-              ...ans.boardData,
-              boardImg: ans.boardImg || null
-            })
-          })
-        } else if (type === 'composite') {
-          item.compositeAnswers = structured.userAnswer || {}
-        } else if (type === 'subjective') {
-          item.subjectiveData = structured.userAnswer || { type: 'text' }
-        }
-        
-        if (structured.boardData) {
-          item.boardData = structured.boardData
-        }
-        if (structured.imageData !== undefined) {
-          item.imageData = structured.imageData
-        }
-        legacyCache[String(key)] = item
-      }
-    })
-    return legacyCache
-  }
-
-  /**
    * 保存当前作业的所有内容到 IndexedDB
    */
   const saveCurrentHomeworkSubmission = async (homeworkId: string, isSubmitted: boolean): Promise<void> => {
@@ -230,14 +187,13 @@ export const useHomeworkStore = defineStore('homework', () => {
     
     try {
       console.log(`[HOMEWORK_STORAGE] 开始持久化任务: ${homeworkId}, 提交状态: ${isSubmitted}`)
-      const legacyCache = buildLegacyCache(questions.value)
-      await saveHomeworkSubmission({
+      const payload = toHomeworkSubmissionPayload({
         homeworkId,
         homeworkName: homeworkName.value,
         isSubmitted,
-        answerDataCache: legacyCache,
-        questions: questions.value
+        questions: questions.value,
       })
+      await saveHomeworkSubmission(payload)
       console.log('[HOMEWORK_STORAGE] ✅ 数据已成功存入存储层 (IndexedDB)')
     } catch (error) {
       console.error('[HOMEWORK_STORAGE] ❌ 持久化任务失败:', error)
@@ -254,15 +210,14 @@ export const useHomeworkStore = defineStore('homework', () => {
     try {
       const existing = await loadHomeworkSubmission(homeworkId)
       if (existing) {
-        // 保留已有的 answerDataCache，只更新 questions
-        const legacyCache = existing.answerDataCache || buildLegacyCache(questions.value)
-        await saveHomeworkSubmission({
+        const payload = toHomeworkSubmissionPayload({
           homeworkId,
           homeworkName: homeworkName.value || existing.homeworkName,
           isSubmitted: existing.isSubmitted,
-          answerDataCache: legacyCache,
-          questions: questions.value
+          questions: questions.value,
+          existingLegacyCache: (existing.answerDataCache || {}) as Record<string, LegacyAnswerCacheItem>,
         })
+        await saveHomeworkSubmission(payload)
         console.log(`[HOMEWORK_STORAGE] ✅ 题目列表已更新到 IndexedDB: ${homeworkId}`)
       }
       // 如果 DB 中不存在，不创建新记录（等 HomeworkAnswerView 中作答时再创建）
@@ -283,61 +238,9 @@ export const useHomeworkStore = defineStore('homework', () => {
       if (data) {
         homeworkName.value = data.homeworkName
         if (data.questions && data.questions.length > 0) {
-          const loadedQuestions = data.questions as ExerciseItem[]
-          
-          // 确保所有题目初始化
-          loadedQuestions.forEach(q => initExerciseAnswerFields(q))
-          
-          // 如果有 legacy 缓存数据，合并到题目中
-          const legacyCache = (data.answerDataCache || {}) as Record<string, any>
-          loadedQuestions.forEach(question => {
-            const key = question.bmNo || question.id
-            if (!key) return
-            const cacheItem = legacyCache[String(key)]
-            if (cacheItem && question.structuredContent) {
-              const structured = question.structuredContent
-              const type = question.type || ''
-              
-              if (structured.userAnswer === undefined || (Array.isArray(structured.userAnswer) && structured.userAnswer.length === 0) || (typeof structured.userAnswer === 'object' && Object.keys(structured.userAnswer).length === 0)) {
-                if (type === 'single_choice' || type === 'multiple_choice') {
-                  structured.userAnswer = cacheItem.chooseList || []
-                } else if (type === 'true_false') {
-                  structured.userAnswer = cacheItem.judgmentValue || ''
-                } else if (type === 'fill_in_blank') {
-                  const rawList = cacheItem.fillList || []
-                  structured.userAnswer = rawList.map((str: any) => {
-                    if (!str) return { type: 'board', boardData: { objects: [] } }
-                    if (typeof str === 'object') return str
-                    try {
-                      const parsed = JSON.parse(str)
-                      if (parsed.type === 'photo') {
-                        return { type: 'photo', photoUrl: parsed.photoUrl || '' }
-                      }
-                      return {
-                        type: 'board',
-                        boardData: parsed,
-                        boardImg: parsed.boardImg || null
-                      }
-                    } catch (e) {
-                      return { type: 'board', boardData: { objects: [] } }
-                    }
-                  })
-                } else if (type === 'composite') {
-                  structured.userAnswer = cacheItem.compositeAnswers || {}
-                } else if (type === 'subjective') {
-                  structured.userAnswer = cacheItem.subjectiveData || { type: 'text' }
-                }
-              }
-              
-              if (cacheItem.boardData) {
-                structured.boardData = cacheItem.boardData
-              }
-              if (cacheItem.imageData !== undefined) {
-                structured.imageData = cacheItem.imageData
-              }
-            }
+          const loadedQuestions = hydrateQuestionsFromStorage(data.questions as ExerciseItem[], {
+            legacyCache: (data.answerDataCache || {}) as Record<string, LegacyAnswerCacheItem>,
           })
-          
           questions.value = loadedQuestions
         }
         console.log(`[HOMEWORK_STORAGE] ✅ 加载成功, 题目数: ${questions.value.length}`)

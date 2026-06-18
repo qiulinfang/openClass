@@ -94,7 +94,7 @@ import CompositeQuestion from '@/components/exercise/CompositeQuestion.vue'
 import BaseQuestion from '@/components/exercise/BaseQuestion.vue'
 import type { ExerciseItem } from '@/types/exercise'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
-import { initExerciseAnswerFields } from '@/utils/business/exercise-utils'
+import { initExerciseAnswerFields } from '@/services/boundary/exercise'
 
 const { renderMessageContent } = useMessageRenderer()
 

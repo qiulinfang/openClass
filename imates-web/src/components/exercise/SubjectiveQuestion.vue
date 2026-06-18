@@ -12,6 +12,7 @@
       
       <div class="answer-area q-mt-md">
         <MixedInputArea
+          ref="mixedInputAreaRef"
           :model-value="modelValue"
           question-type="subjective"
           :label="''"
@@ -59,6 +60,12 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: StructuredAnswerItem): void
   (e: 'change', value: StructuredAnswerItem): void
 }>()
+
+const mixedInputAreaRef = ref<InstanceType<typeof MixedInputArea> | null>(null)
+
+defineExpose({
+  getMixedInputArea: () => mixedInputAreaRef.value
+})
 </script>
 
 <style scoped lang="scss">

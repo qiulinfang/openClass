@@ -3,6 +3,7 @@
     ref="mixedInputAreaRef"
     class="mixed-input-area"
     :class="[`type-${questionType}`, { 'is-disabled': disabled }]"
+    @pointerdown="handleFocus"
   >
     <div class="input-label" v-if="label">{{ label }}</div>
 
@@ -116,12 +117,14 @@ interface Props {
   placeholder?: string
   disabled?: boolean
   rows?: number | string
+  activeBlankIndex?: number | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   questionType: 'fill',
   disabled: false,
   rows: 3,
+  activeBlankIndex: null,
 })
 
 const emit = defineEmits<{
@@ -194,6 +197,7 @@ const selectTool = (tool: string) => {
 }
 
 const handleFocus = () => {
+  if (props.disabled) return
   if (!isFocused.value) {
     isFocused.value = true
     emit('focus')
@@ -202,28 +206,17 @@ const handleFocus = () => {
   }
 }
 
-const handleDocumentClick = (e: PointerEvent) => {
-  const el = mixedInputAreaRef.value
-  if (el) {
-    if (el.contains(e.target as Node)) {
-      handleFocus()
-    } else {
-      if (isFocused.value) {
-        isFocused.value = false
-        emit('blur')
-        currentTool.value = '' // 失去焦点，清除当前选中工具状态高亮
-      }
+const handleBlur = () => {
+  if (isFocused.value) {
+    if (drawingBoardRef.value) {
+      const boardData = drawingBoardRef.value.saveData()
+      handleBoardSave(boardData)
     }
+    isFocused.value = false
+    emit('blur')
+    currentTool.value = '' // 失去焦点，清除当前选中工具状态高亮
   }
 }
-
-onMounted(() => {
-  window.addEventListener('pointerdown', handleDocumentClick)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('pointerdown', handleDocumentClick)
-})
 
 const toggleHeight = () => {
   addedHeight.value += 150
@@ -242,6 +235,9 @@ watch(
   () => {
     if (drawingBoardRef.value) {
       updateUndoRedoStates()
+      if (isFocused.value) {
+        selectTool(lastActiveTool.value)
+      }
     }
   },
 )
@@ -266,8 +262,8 @@ onMounted(() => {
 })
 
 watch(
-  () => props.modelValue,
-  (newVal) => {
+  [() => props.modelValue, () => props.activeBlankIndex],
+  ([newVal]) => {
     const incomingUrl = newVal?.photoUrl || ''
     if (photoUrl.value !== incomingUrl) {
       photoUrl.value = incomingUrl
@@ -275,11 +271,13 @@ watch(
 
     if (drawingBoardRef.value) {
       const data = newVal?.boardData
+      const currentData = drawingBoardRef.value.saveData()
+      const targetData = data || { objects: [], history: [[]], historyIndex: 0 }
 
-      if (data) {
-        const currentData = drawingBoardRef.value.saveData()
-        if (JSON.stringify(currentData) !== JSON.stringify(data)) {
-          drawingBoardRef.value.loadData(data)
+      if (JSON.stringify(currentData) !== JSON.stringify(targetData)) {
+        drawingBoardRef.value.loadData(targetData)
+        if (!data || !Array.isArray(data.objects) || data.objects.length === 0) {
+          drawingBoardRef.value.clearAll()
         }
       }
     }
@@ -332,6 +330,8 @@ const handleClear = () => {
 defineExpose({
   clear: handleClear,
   getDrawingBoard: () => drawingBoardRef.value,
+  focus: handleFocus,
+  blur: handleBlur,
 })
 </script>
 

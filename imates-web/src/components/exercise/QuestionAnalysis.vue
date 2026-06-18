@@ -27,7 +27,7 @@ const formattedAnswer = computed(() => {
   if (structured?.type === 'fill_in_blank' && Array.isArray(structured.blanks)) {
     const blankAnswers = structured.blanks.map((blank, index) => {
       const ans = Array.isArray(blank.answers) ? blank.answers.join(' 或 ') : (blank.answer || '');
-      return `空 (${index + 1}): ${ans}`;
+      return `(${index + 1}): ${ans}`;
     });
     return renderMessageContent(blankAnswers.join('; '));
   }

@@ -335,7 +335,7 @@ onUnmounted(() => {
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
-import { mapHomeworkQuestionToExercise } from '@/utils/business/exercise-utils'
+import { mapHomeworkQuestionFromApi } from '@/services/boundary/homework'
 
 // 这里 item 来自 displayHomeworkList 计算属性
 const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
@@ -346,7 +346,7 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
     if (questionDetails && questionDetails.length > 0) {
       // 将题目列表存入 homeworkStore
       const exerciseItems: ExerciseItem[] = questionDetails.map((question: HomeworkQuestionDetail, index: number) => {
-        return mapHomeworkQuestionToExercise(question, index, item.homework.subject)
+        return mapHomeworkQuestionFromApi(question, index, item.homework.subject)
       })
 
       homeworkStore.setQuestions(exerciseItems)

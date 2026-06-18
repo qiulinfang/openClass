@@ -25,15 +25,18 @@
       </div>
     </template>
 
-    <!-- 填空输入区域 (仅显示当前选中的空) -->
-    <div class="blank-inputs-container q-mt-md" v-if="blankCount > 0 && activeBlank !== null">
+    <!-- 填空输入区域 (始终显示，但在没有选中空时不可交互) -->
+    <div class="blank-inputs-container q-mt-md" v-if="blankCount > 0">
       <MixedInputArea
-        :key="'blank-input-' + activeBlank"
-        :model-value="finalAnswers[activeBlank]"
+        ref="mixedInputAreaRef"
+        key="blank-input-shared"
+        :model-value="activeBlank !== null ? finalAnswers[activeBlank] : (blankCount > 0 ? finalAnswers[lastActiveBlank] : undefined)"
         question-type="fill"
-        :disabled="disabled"
+        :disabled="disabled || activeBlank === null"
         :label="''"
-        :placeholder="'请输入第 ' + (activeBlank + 1) + ' 空的答案'"
+        :placeholder="activeBlank !== null ? '请输入第 ' + (activeBlank + 1) + ' 空的答案' : '请点击上方的填空项开始作答'"
+        :focused="activeBlank !== null"
+        :active-blank-index="activeBlank !== null ? activeBlank : lastActiveBlank"
         @update:model-value="val => handleBlankUpdate(activeBlank!, val)"
       />
     </div>
@@ -50,7 +53,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
 import MixedInputArea from './MixedInputArea.vue'
 import QuestionAnalysis from './QuestionAnalysis.vue'
@@ -79,6 +82,14 @@ const { renderMessageContent } = useMessageRenderer()
 
 // 状态管理
 const activeBlank = ref<number | null>(null)
+const lastActiveBlank = ref<number>(0)
+const mixedInputAreaRef = ref<any>(null)
+
+watch(activeBlank, (newVal) => {
+  if (newVal !== null) {
+    lastActiveBlank.value = newVal
+  }
+})
 
 // 内部最终答案数组
 const finalAnswers = ref<StructuredAnswerItem[]>(props.modelValue || [])
@@ -148,7 +159,34 @@ const getBlankText = (index: number): string => {
 
 // 切换选中的填空项
 const selectBlank = (index: number) => {
-  activeBlank.value = index
+  if (activeBlank.value !== null) {
+    mixedInputAreaRef.value?.blur()
+  }
+
+  if (activeBlank.value === index) {
+    activeBlank.value = null
+  } else {
+    activeBlank.value = index
+    nextTick(() => {
+      mixedInputAreaRef.value?.focus()
+    })
+  }
+}
+
+const handleDocumentClick = (e: PointerEvent) => {
+  if (activeBlank.value === null) return
+
+  const target = e.target as HTMLElement | null
+  if (!target) return
+
+  const clickedInsideBlankTag = target.classList.contains('blank-tag-inline') || target.closest('.blank-tag-inline')
+  const inputEl = mixedInputAreaRef.value?.$el
+  const clickedInsideInput = inputEl && inputEl.contains(target)
+
+  if (!clickedInsideBlankTag && !clickedInsideInput) {
+    mixedInputAreaRef.value?.blur()
+    activeBlank.value = null
+  }
 }
 
 // 初始化
@@ -156,10 +194,25 @@ onMounted(() => {
   if (props.modelValue) {
     finalAnswers.value = [...props.modelValue]
   }
-  if (blankCount.value > 0 && activeBlank.value === null) {
-    activeBlank.value = 0
-  }
+  activeBlank.value = null
+  window.addEventListener('pointerdown', handleDocumentClick)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('pointerdown', handleDocumentClick)
+})
+
+// 监听题目切换
+watch(
+  () => props.question.id || props.question.bmNo,
+  () => {
+    activeBlank.value = null
+    lastActiveBlank.value = 0
+    if (props.modelValue) {
+      finalAnswers.value = [...props.modelValue]
+    }
+  },
+)
 
 // 监听外部 modelValue 变化
 watch(() => props.modelValue, (newVal) => {

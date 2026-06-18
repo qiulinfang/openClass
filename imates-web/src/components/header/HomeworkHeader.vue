@@ -94,6 +94,16 @@ const isEmptyAnswer = (val: any): boolean => {
       )
     )
   if (typeof val === 'object') {
+    // 针对主观题/填空题的对象结构
+    if (val.type === 'photo') {
+      return !val.photoUrl
+    }
+    if (val.type === 'board' || ('boardData' in val)) {
+      const boardData = val.boardData || val
+      const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
+      const hasPhoto = !!val.photoUrl
+      return !hasObjects && !hasPhoto
+    }
     return (
       Object.keys(val).length === 0 ||
       Object.values(val).every(
