@@ -6,12 +6,61 @@ import type { HomeworkQuestionDetail, StructuredQuestionContent, ExerciseItem, S
  * @returns 清洗后的内容
  */
 export const normalizeQuestionContent = (content?: string): string => {
-  // main: / main：
-  // c1: c2: c3: 题干...
-  // gc1_of_c1: gc1_of_c2: 题干...
   if (!content) return ''
-  const withoutMain = content.replace(/^\s*main\s*[:：]\s*/i, '')
-  return withoutMain.replace(/^\s*(?:(?:[a-z]+[a-z0-9_]*?)\s*[:：]\s*)+/i, '')
+  // 1. 优先过滤顶层 main 前缀
+  let result = content.replace(/^\s*main\s*[:：]\s*/i, '')
+  // 2. 增加 g (全局) 和 m (多行) 匹配，使能清洗文本中间换行后出现的 c1:, c2: 等标识前缀
+  result = result.replace(/^\s*(?:[a-z]+[a-z0-9_]*?)\s*[:：]\s*/gim, '')
+  return result
+}
+
+/**
+ * 将结构化题目数据转换为格式化的 Markdown 纯文本
+ * @param exercise 练习题项
+ * @returns 格式化后的 Markdown 文本
+ */
+export const formatExerciseToMarkdown = (exercise: ExerciseItem): string => {
+  if (!exercise.structuredContent) {
+    return normalizeQuestionContent(exercise.question || exercise.title || '')
+  }
+
+  const structured = exercise.structuredContent
+  let md = ''
+
+  // 1. 复合题材料
+  if (exercise.material) {
+    md += `${normalizeQuestionContent(exercise.material)}\n\n`
+  }
+
+  // 2. 题干
+  if (structured.stem) {
+    md += `${normalizeQuestionContent(structured.stem)}\n\n`
+  }
+
+  // 3. 选项 (选择题/判断题)
+  if (structured.options && structured.options.length > 0) {
+    structured.options.forEach(opt => {
+      const label = opt.id || opt.label || ''
+      const content = opt.content || opt.text || ''
+      if (label && content) {
+        md += `${label}. ${normalizeQuestionContent(content)}\n\n`
+      } else if (content) {
+        md += `${normalizeQuestionContent(content)}\n\n`
+      }
+    })
+  }
+
+  // 4. 递归处理子题
+  if (exercise.subQuestions && exercise.subQuestions.length > 0) {
+    exercise.subQuestions.forEach(sub => {
+      const subMd = formatExerciseToMarkdown(sub)
+      if (subMd) {
+        md += `${subMd}\n\n`
+      }
+    })
+  }
+
+  return md.trim()
 }
 
 /**

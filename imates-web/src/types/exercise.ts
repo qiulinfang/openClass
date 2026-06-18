@@ -44,6 +44,7 @@ export interface StructuredQuestionContent {
   userAnswer?: any
   boardData?: any
   imageData?: string | null
+  draftData?: string | null
 }
 
 /** 练习题目接口 */

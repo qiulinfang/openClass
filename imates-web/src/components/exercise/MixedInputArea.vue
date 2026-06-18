@@ -6,9 +6,9 @@
   >
     <div class="input-label" v-if="label">{{ label }}</div>
 
-    <div class="mixed-input-container">
+    <div class="mixed-input-container" :class="{ 'is-focused': isFocused }">
       <!-- 悬浮工具栏 -->
-      <div class="floating-toolbar" v-if="!disabled">
+      <div class="floating-toolbar" v-if="!disabled && isFocused">
         <button class="toolbar-btn" @click="handleUndo" :disabled="!canUndo" title="撤销">
           <div
             class="icon-mask"
@@ -67,7 +67,7 @@
             ref="drawingBoardRef"
             :showGrid="false"
             :show-toolbar="false"
-            :disabled="disabled"
+            :disabled="disabled || !isFocused"
             :show-zoom-controls="false"
             :show-debug-panel="false"
             :initial-zoom="100"
@@ -354,7 +354,7 @@ defineExpose({
 
 .mixed-input-container {
   position: relative;
-  border: 1.5px solid #f7f6ff;
+  border: 1.5px solid #d1cfe8;
   border-radius: 16px;
   background: #ffffff;
   overflow: hidden;
@@ -362,7 +362,7 @@ defineExpose({
     border-color 0.2s,
     box-shadow 0.2s;
 
-  &:hover {
+  &.is-focused {
     border-color: #6e55ff;
   }
 }
