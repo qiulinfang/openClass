@@ -154,7 +154,7 @@ const currentTool = ref('draw')
 const addedHeight = ref(0)
 
 const boardHeight = computed(() => {
-  const base = props.questionType === 'subjective' ? 400 : 180
+  const base = props.questionType === 'subjective' ? 400 : 220
   return `${base + addedHeight.value}px`
 })
 
