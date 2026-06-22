@@ -344,6 +344,7 @@ import { useAiExerciseChatStore } from '../../stores/aiExerciseChatStore'
 import type { ExerciseItem } from '../../types'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
+import { apiService } from '@/services/http/api-service'
 
 import MiniClass from '../display/MiniClass.vue'
 import ImageViewer from '../display/ImageViewer.vue'

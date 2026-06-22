@@ -35,6 +35,7 @@ export default {
 </script>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import BaseQuestion from './BaseQuestion.vue'
 import MixedInputArea from './MixedInputArea.vue'
 import QuestionAnalysis from './QuestionAnalysis.vue'
