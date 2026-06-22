@@ -176,6 +176,11 @@ const router = createRouter({
       component: () => import('@/views/testView/HomeworkRenderTestView.vue')
     },
     {
+      path: '/homework-header-test',
+      name: 'homeworkHeaderTest',
+      component: () => import('@/views/testView/HomeworkHeaderTestView.vue')
+    },
+    {
       path: '/markdown-test',
       name: 'markdownTest',
       component: MarkdownRenderTestView
@@ -251,7 +256,9 @@ router.beforeEach(async (to, from, next) => {
     to.name === 'markdownTest' ||
     to.path === '/markdown-test' ||
     to.name === 'testNav' ||
-    to.path === '/test-nav'
+    to.path === '/test-nav' ||
+    to.name === 'homeworkHeaderTest' ||
+    to.path === '/homework-header-test'
   ) {
     console.log("from.path111", from.path)
     // 如果是从已登录页面跳转到登录页面（比如登录过期），断开 WebSocket 连接

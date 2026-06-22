@@ -220,6 +220,14 @@ const navItems = [
     category: 'render',
     color: '#673ab7',
     description: '测试 HomeworkAnswerView 的各种题型渲染情况，包含复杂 LaTeX、长文本、多图等边缘情况。'
+  },
+  {
+    title: 'HomeworkHeader 极限长度测试',
+    path: '/homework-header-test',
+    icon: 'menu',
+    category: 'component',
+    color: '#3f51b5',
+    description: '测试 HomeworkHeader 头部组件在不同标题长度、不同题目数量下的布局与交互表现。'
   }
 ]
 

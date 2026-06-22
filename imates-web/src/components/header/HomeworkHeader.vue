@@ -188,6 +188,7 @@ const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' =>
   overflow: hidden;
   margin: 0 16px;
   position: relative;
+  min-width: 0; /* 防止子元素溢出，使其能够收缩 */
 
   &::before {
     content: '';
@@ -223,13 +224,13 @@ const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' =>
   display: flex;
   align-items: center;
   width: 100%;
-  justify-content: center;
 }
 
 .question-circles {
   display: flex;
   gap: 8px;
   padding: 2px 4px;
+  margin: 0 auto; /* 关键：未溢出时居中，溢出时靠左并允许滚动 */
 }
 
 .question-circle {
