@@ -2,6 +2,7 @@ import { chatStorage } from '@/services/storage/chat-storage'
 import { DB_VERSIONS } from '@/services/storage/db-config'
 import { V2StorageMigration } from './v2-storage-migration'
 import { V12SessionStructureMigration } from './v12-session-structure-migration'
+import { V13MistakeStorageMigration } from './v13-mistake-storage-migration'
 
 interface MigrationStep {
   targetVersion: number
@@ -23,6 +24,12 @@ const MIGRATION_STEPS: MigrationStep[] = [
     name: 'V12-Atomic-Sessions',
     description: '将打包数组格式重构为原子记录格式',
     run: () => V12SessionStructureMigration.getInstance().run()
+  },
+  {
+    targetVersion: 13,
+    name: 'V13-Mistake-Storage-Migration',
+    description: '将旧版无多环境后缀的错题集迁移到带后缀的新库中',
+    run: () => V13MistakeStorageMigration.getInstance().run()
   }
 ]
 
