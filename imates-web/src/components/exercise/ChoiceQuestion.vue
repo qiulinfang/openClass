@@ -63,10 +63,10 @@ const { renderMessageContent } = useMessageRenderer()
 const processedOptions = computed(() => {
   const rawOptions = props.question.structuredContent?.options || []
   return rawOptions.map((opt) => ({
-    // 新结构：使用 id 作为标识和显示卷标，content 作为内容
-    value: opt.id || '',
-    label: opt.id || '',
-    text: opt.content || ''
+    // 兼容新旧结构：优先使用 id 和 content，若不存在则退回使用 label 和 text
+    value: opt.id || opt.label || '',
+    label: opt.id || opt.label || '',
+    text: opt.content || opt.text || ''
   }))
 })
 
