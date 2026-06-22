@@ -256,15 +256,13 @@
     <Dialog
       ref="incompleteHomeworkDialogRef"
       title="作业未完成"
-      :confirmButtonText="'去作答'"
-      :showCancelButton="false"
+      :confirmButtonText="'仍然提交'"
+      :cancelButtonText="'去作答'"
       @confirm="handleIncompleteHomeworkConfirm"
       @cancel="handleIncompleteHomeworkCancel"
     >
       <div class="incomplete-homework-content">
-        第{{
-          incompleteDialogData.incompleteQuestionNumbers.join('、')
-        }}题未完成，请全部完成后再提交！
+        第 {{ incompleteDialogData.incompleteQuestionNumbers.join('、') }} 题未完成，是否确定要提交作业？
       </div>
     </Dialog>
 
@@ -633,16 +631,87 @@ const hasValueContent = (item: any): boolean => {
   return false
 }
 
-// 在 HomeworkAnswerView.vue 中判断题目是否已作答
-const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
+// 检查题目是否已完全作答（每个空、每个小题均需完成）
+const isQuestionFullyAnswered = (question: ExerciseItem): boolean => {
+  const type = question.type || question.structuredContent?.type || ''
   const structured = question.structuredContent
-  if (!structured) return 'unanswered'
+  if (!structured) return false
 
-  const hasBoardData = hasBoardAnswerData(structured.boardData)
-  const hasUserAnswer = !getQuestionStrategy(question.type).isEmpty(structured.userAnswer)
+  const isValEmpty = (item: any): boolean => {
+    if (item === null || item === undefined) return true
+    if (typeof item === 'string') return item.trim() === ''
+    if (typeof item === 'object') {
+      if (item.type === 'photo') {
+        return !item.photoUrl
+      }
+      if (item.type === 'board' || ('boardData' in item)) {
+        const boardData = item.boardData || item
+        const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
+        const hasPhoto = !!item.photoUrl
+        return !hasObjects && !hasPhoto
+      }
+      return Object.keys(item).length === 0
+    }
+    return false
+  }
 
-  if (hasBoardData || hasUserAnswer) return 'answered'
-  return 'unanswered'
+  // 1. 选择题
+  if (['single_choice', 'multiple_choice'].includes(type)) {
+    const val = structured.userAnswer
+    return Array.isArray(val) && val.length > 0
+  }
+
+  // 2. 判断题
+  if (['true_false', 'judgment'].includes(type)) {
+    const val = structured.userAnswer
+    return val !== undefined && val !== null && val !== ''
+  }
+
+  // 3. 填空题：必须每一空都有作答内容
+  if (type === 'fill_in_blank') {
+    const expectedCount = Array.isArray(structured.blanks)
+      ? structured.blanks.length
+      : (typeof structured.blanks === 'number' ? structured.blanks : 0)
+    if (expectedCount === 0) return false
+    const val = structured.userAnswer
+    if (!Array.isArray(val) || val.length < expectedCount) return false
+    return val.slice(0, expectedCount).every(item => !isValEmpty(item))
+  }
+
+  // 4. 主观题
+  if (type === 'subjective') {
+    const val = structured.userAnswer
+    if (!val) {
+      const hasBoardData = Array.isArray(structured.boardData?.objects) && structured.boardData.objects.length > 0
+      return hasBoardData
+    }
+    return !isValEmpty(val)
+  }
+
+  // 5. 复合题：每个子题都必须完全作答
+  if (type === 'composite') {
+    const subQuestions = question.subQuestions
+    if (!Array.isArray(subQuestions) || subQuestions.length === 0) return false
+    const subAnswers = structured.userAnswer || {}
+    return subQuestions.every(sub => {
+      const subCopy: ExerciseItem = {
+        ...sub,
+        structuredContent: {
+          ...sub.structuredContent,
+          userAnswer: subAnswers[sub.id]
+        }
+      }
+      return isQuestionFullyAnswered(subCopy)
+    })
+  }
+
+  const val = structured.userAnswer
+  return val !== undefined && val !== null && val !== ''
+}
+
+// 在 HomeworkAnswerView.vue 中判断题目是否已作答（全空/全子题完全作答）
+const getQuestionStatus = (question: ExerciseItem): QuestionStatus => {
+  return isQuestionFullyAnswered(question) ? 'answered' : 'unanswered'
 }
 
 // 获取题目状态文字
@@ -1063,9 +1132,20 @@ const showIncompleteHomeworkDialog = (
 }
 
 /**
- * 漏题确认弹窗点击“去作答”回调，自动滚动选中首道未作答题目
+ * 漏题确认弹窗点击“仍然提交”回调
  */
 const handleIncompleteHomeworkConfirm = () => {
+  incompleteHomeworkDialogRef.value?.closeDialog()
+
+  if (incompleteHomeworkResolve) {
+    incompleteHomeworkResolve(true) // 返回 true，允许提交
+  }
+}
+
+/**
+ * 漏题确认弹窗点击“去作答”或取消时的回调
+ */
+const handleIncompleteHomeworkCancel = () => {
   incompleteHomeworkDialogRef.value?.closeDialog()
 
   // 选中第一道未答的题目
@@ -1076,17 +1156,7 @@ const handleIncompleteHomeworkConfirm = () => {
   }
 
   if (incompleteHomeworkResolve) {
-    incompleteHomeworkResolve(false) // 返回 false，终止提交
-  }
-}
-
-/**
- * 漏题确认弹窗点击取消时的回调
- */
-const handleIncompleteHomeworkCancel = () => {
-  incompleteHomeworkDialogRef.value?.closeDialog()
-  if (incompleteHomeworkResolve) {
-    incompleteHomeworkResolve(false)
+    incompleteHomeworkResolve(false) // 返回 false，阻止提交
   }
 }
 
@@ -1156,7 +1226,7 @@ const handleBoardUpload = async () => {
 
     const submittedQuestions = answeredQuestionIndices.length
 
-    // 若存在未作答题目，计算未答题号并弹出提示，终止提交
+    // 若存在未作答/未完全作答的题目，计算未答题号并弹出提示
     if (submittedQuestions < totalQuestions) {
       const incompleteQuestionNumbers: number[] = []
       for (let i = 0; i < totalQuestions; i++) {
@@ -1165,13 +1235,16 @@ const handleBoardUpload = async () => {
         }
       }
 
-      isSubmitting.value = false
-      await showIncompleteHomeworkDialog(
+      const shouldSubmit = await showIncompleteHomeworkDialog(
         totalQuestions,
         submittedQuestions,
         incompleteQuestionNumbers,
       )
-      return
+      
+      if (!shouldSubmit) {
+        isSubmitting.value = false
+        return
+      }
     }
 
     // 4. 提取本地作答数据，并提交流程至云端

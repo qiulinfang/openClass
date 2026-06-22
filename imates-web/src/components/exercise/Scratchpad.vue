@@ -1,6 +1,9 @@
 <template>
   <Transition name="fade">
-    <div v-show="visible" class="scratchpad-container" :style="containerStyle">
+    <div v-show="visible" class="scratchpad-overlay-wrapper">
+      <!-- 遮罩层，用于屏蔽背景的点击操作 -->
+      <div class="scratchpad-mask"></div>
+      <div class="scratchpad-container" :style="containerStyle">
       <!-- 四个角的 resize 把手 -->
       <div
         class="resize-handle top-left"
@@ -98,6 +101,7 @@
         ></canvas>
       </div>
     </div>
+  </div>
   </Transition>
 </template>
 
@@ -552,10 +556,28 @@ const drawTouch = (e: TouchEvent) => {
 </script>
 
 <style scoped lang="scss">
-.scratchpad-container {
+.scratchpad-overlay-wrapper {
   position: fixed;
   top: 0;
   left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  pointer-events: auto;
+}
+
+.scratchpad-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  z-index: 1999;
+}
+
+.scratchpad-container {
+  position: absolute;
   z-index: 2000;
   pointer-events: auto;
   border-radius: 14px;

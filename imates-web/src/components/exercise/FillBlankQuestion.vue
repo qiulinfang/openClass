@@ -25,20 +25,39 @@
       </div>
     </template>
 
-    <!-- 填空输入区域 (始终显示，但在没有选中空时不可交互) -->
+    <!-- 填空输入区域 -->
     <div class="blank-inputs-container q-mt-md" v-if="blankCount > 0">
-      <MixedInputArea
-        ref="mixedInputAreaRef"
-        key="blank-input-shared"
-        :model-value="activeBlank !== null ? finalAnswers[activeBlank] : (blankCount > 0 ? finalAnswers[lastActiveBlank] : undefined)"
-        question-type="fill"
-        :disabled="disabled || activeBlank === null"
-        :label="''"
-        :placeholder="activeBlank !== null ? '请输入第 ' + (activeBlank + 1) + ' 空的答案' : '请点击上方的填空项开始作答'"
-        :focused="activeBlank !== null"
-        :active-blank-index="activeBlank !== null ? activeBlank : lastActiveBlank"
-        @update:model-value="val => handleBlankUpdate(activeBlank!, val)"
-      />
+      <!-- 如果有行内占位符，使用单个共享的输入区域进行交互 -->
+      <template v-if="hasInlineBlanks">
+        <MixedInputArea
+          ref="mixedInputAreaRef"
+          key="blank-input-shared"
+          :model-value="activeBlank !== null ? finalAnswers[activeBlank] : (blankCount > 0 ? finalAnswers[lastActiveBlank] : undefined)"
+          question-type="fill"
+          :disabled="disabled || activeBlank === null"
+          :label="''"
+          :placeholder="activeBlank !== null ? '请输入第 ' + (activeBlank + 1) + ' 空的答案' : '请点击上方的填空项开始作答'"
+          :focused="activeBlank !== null"
+          :active-blank-index="activeBlank !== null ? activeBlank : lastActiveBlank"
+          @update:model-value="val => handleBlankUpdate(activeBlank!, val)"
+        />
+      </template>
+
+      <!-- 如果没有任何行内占位符，则展示所有空的平铺输入框，保证用户能够正常作答 -->
+      <template v-else>
+        <div v-for="index in blankCount" :key="'fallback-blank-' + index" class="fallback-blank-row">
+          <div class="fallback-blank-label text-subtitle2 text-grey-7 q-mb-xs" style="font-size: 14px; font-weight: 600;">第 {{ index }} 空：</div>
+          <MixedInputArea
+            :model-value="finalAnswers[index - 1]"
+            question-type="fill"
+            :disabled="disabled"
+            :label="''"
+            :placeholder="'请输入第 ' + index + ' 空的答案'"
+            :active-blank-index="index - 1"
+            @update:model-value="val => handleBlankUpdate(index - 1, val)"
+          />
+        </div>
+      </template>
     </div>
     <div v-else-if="blankCount === 0" class="field-missing-warning" style="margin-bottom: 12px;">【警告：填空题未配置任何填空项 (blanks)】</div>
 
@@ -100,6 +119,11 @@ const blankCount = computed(() => {
   if (Array.isArray(blanks)) return blanks.length
   if (typeof blanks === 'number') return blanks
   return 0
+})
+
+// 是否包含行内占位符
+const hasInlineBlanks = computed(() => {
+  return parsedParts.value.some(part => part.type === 'blank')
 })
 
 // 解析题干

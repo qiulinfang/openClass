@@ -81,50 +81,87 @@ const hasBoardAnswerData = (boardData: any): boolean => {
   return Array.isArray(objects) && objects.length > 0
 }
 
-// 检查作答内容是否为空
-const isEmptyAnswer = (val: any): boolean => {
-  if (val === null || val === undefined) return true
-  if (typeof val === 'string') return val.trim() === ''
-  if (Array.isArray(val))
-    return (
-      val.length === 0 ||
-      val.every(
-        (item) =>
-          item === null || item === undefined || (typeof item === 'string' && item.trim() === ''),
-      )
-    )
-  if (typeof val === 'object') {
-    // 针对主观题/填空题的对象结构
-    if (val.type === 'photo') {
-      return !val.photoUrl
+// 检查题目是否已完全作答（每个空、每个小题均需完成）
+const isQuestionFullyAnswered = (question: ExerciseItem): boolean => {
+  const type = question.type || question.structuredContent?.type || ''
+  const structured = question.structuredContent
+  if (!structured) return false
+
+  const isValEmpty = (item: any): boolean => {
+    if (item === null || item === undefined) return true
+    if (typeof item === 'string') return item.trim() === ''
+    if (typeof item === 'object') {
+      if (item.type === 'photo') {
+        return !item.photoUrl
+      }
+      if (item.type === 'board' || ('boardData' in item)) {
+        const boardData = item.boardData || item
+        const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
+        const hasPhoto = !!item.photoUrl
+        return !hasObjects && !hasPhoto
+      }
+      return Object.keys(item).length === 0
     }
-    if (val.type === 'board' || ('boardData' in val)) {
-      const boardData = val.boardData || val
-      const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
-      const hasPhoto = !!val.photoUrl
-      return !hasObjects && !hasPhoto
-    }
-    return (
-      Object.keys(val).length === 0 ||
-      Object.values(val).every(
-        (item) =>
-          item === null || item === undefined || (typeof item === 'string' && item.trim() === ''),
-      )
-    )
+    return false
   }
-  return false
+
+  // 1. 选择题
+  if (['single_choice', 'multiple_choice'].includes(type)) {
+    const val = structured.userAnswer
+    return Array.isArray(val) && val.length > 0
+  }
+
+  // 2. 判断题
+  if (['true_false', 'judgment'].includes(type)) {
+    const val = structured.userAnswer
+    return val !== undefined && val !== null && val !== ''
+  }
+
+  // 3. 填空题：必须每一空都有作答内容
+  if (type === 'fill_in_blank') {
+    const expectedCount = Array.isArray(structured.blanks)
+      ? structured.blanks.length
+      : (typeof structured.blanks === 'number' ? structured.blanks : 0)
+    if (expectedCount === 0) return false
+    const val = structured.userAnswer
+    if (!Array.isArray(val) || val.length < expectedCount) return false
+    return val.slice(0, expectedCount).every(item => !isValEmpty(item))
+  }
+
+  // 4. 主观题
+  if (type === 'subjective') {
+    const val = structured.userAnswer
+    if (!val) {
+      const hasBoardData = Array.isArray(structured.boardData?.objects) && structured.boardData.objects.length > 0
+      return hasBoardData
+    }
+    return !isValEmpty(val)
+  }
+
+  // 5. 复合题：每个子题都必须完全作答
+  if (type === 'composite') {
+    const subQuestions = question.subQuestions
+    if (!Array.isArray(subQuestions) || subQuestions.length === 0) return false
+    const subAnswers = structured.userAnswer || {}
+    return subQuestions.every(sub => {
+      const subCopy: ExerciseItem = {
+        ...sub,
+        structuredContent: {
+          ...sub.structuredContent,
+          userAnswer: subAnswers[sub.id]
+        }
+      }
+      return isQuestionFullyAnswered(subCopy)
+    })
+  }
+
+  const val = structured.userAnswer
+  return val !== undefined && val !== null && val !== ''
 }
 
-// 判断题目是否已作答
+// 判断题目是否已作答（全空/全子题完全作答）
 const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' => {
-  const structured = question.structuredContent
-  if (!structured) return 'unanswered'
-
-  const hasBoardData = hasBoardAnswerData(structured.boardData)
-  const hasUserAnswer = !isEmptyAnswer(structured.userAnswer)
-
-  if (hasBoardData || hasUserAnswer) return 'answered'
-  return 'unanswered'
+  return isQuestionFullyAnswered(question) ? 'answered' : 'unanswered'
 }
 </script>
 
