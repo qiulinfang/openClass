@@ -2859,9 +2859,23 @@ const exportToJpg = (quality = 0.9) => {
     cx.fillRect(0, 0, width, height)
     return c.toDataURL('image/jpeg', quality)
   }
+
+  // 关键优化：根据原始图片的真实分辨率，计算缩放倍数
+  let exportScale = 1
+  if (backgroundImg.value && backgroundLoaded.value) {
+    const w = props.backgroundContain
+      ? backgroundImg.value.naturalWidth * backgroundScale.value
+      : backgroundImg.value.naturalWidth || backgroundImg.value.width
+    exportScale = backgroundImg.value.naturalWidth / w
+  } else {
+    // 无背景图时，使用设备像素比以保持清晰度
+    exportScale = window.devicePixelRatio || 1
+  }
+
   const padding = 40
-  const width = maxX - minX + padding * 2
-  const height = maxY - minY + padding * 2
+  const width = (maxX - minX) * exportScale + padding * 2
+  const height = (maxY - minY) * exportScale + padding * 2
+
   const tempCanvas = document.createElement('canvas')
   tempCanvas.width = width
   tempCanvas.height = height
@@ -2870,7 +2884,14 @@ const exportToJpg = (quality = 0.9) => {
   tempCtx.fillStyle = '#ffffff'
   tempCtx.fillRect(0, 0, width, height)
   tempCtx.save()
-  tempCtx.translate(-minX + padding, -minY + padding)
+
+  // 1. 先应用固定 padding
+  tempCtx.translate(padding, padding)
+  // 2. 缩放到原始分辨率比例
+  tempCtx.scale(exportScale, exportScale)
+  // 3. 将原点移到包围盒的起始位置
+  tempCtx.translate(-minX, -minY)
+
   tempCtx.lineCap = 'round'
   tempCtx.lineJoin = 'round'
   if (backgroundImg.value && backgroundLoaded.value) {
@@ -2993,6 +3014,22 @@ const getDataUrl = () => {
   return exportToPng()
 }
 
+function ensureBackgroundLoaded(): Promise<void> {
+  if (backgroundLoaded.value || !props.backgroundImage) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    const check = () => {
+      if (backgroundLoaded.value) {
+        resolve()
+      } else {
+        setTimeout(check, 20)
+      }
+    }
+    check()
+  })
+}
+
 defineExpose({
   saveData,
   loadData,
@@ -3005,6 +3042,7 @@ defineExpose({
   insertImageFromDataUrl,
   forceRender,
   resizeCanvas,
+  ensureBackgroundLoaded,
   // 工具栏相关
   toolbarTools,
   toolbarSelectedTool,

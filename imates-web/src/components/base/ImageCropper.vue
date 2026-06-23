@@ -1,5 +1,5 @@
 <template>
-  <component :is="isInline ? 'div' : 'Teleport'" :to="isInline ? undefined : 'body'">
+  <teleport to="body" :disabled="isInline">
     <div v-if="modelValue" :class="['image-crop-overlay', { 'is-inline': isInline }]" @click.self="handleCancel">
       <div class="image-crop-container">
         <div class="crop-container">
@@ -62,7 +62,7 @@
         </q-btn>
       </div>
     </div>
-  </component>
+  </teleport>
 </template>
 
 <script setup lang="ts">

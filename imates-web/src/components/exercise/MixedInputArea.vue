@@ -83,6 +83,14 @@
         </div>
       </div>
     </div>
+    <!-- 统一裁剪组件 -->
+    <ImageCropOverlay
+      v-model="isCropVisible"
+      :image-src="cropImageSrc"
+      :is-inline="false"
+      @confirm="handleCropConfirm"
+      @cancel="handleCropCancel"
+    />
   </div>
 </template>
 
@@ -100,6 +108,7 @@ import DrawingBoardNew from '../drawing/drawingBoardNew.vue'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 import type { StructuredAnswerItem } from '@/types/exercise'
+import ImageCropOverlay from '@/components/base/ImageCropper.vue'
 import undoIcon from '/icons/redo.svg'
 import redoIcon from '/icons/undo.svg'
 import signaturePenIcon from '/icons/signaturePen.svg'
@@ -150,6 +159,8 @@ const drawingBoardRef = ref<
   | null
 >(null)
 const photoUrl = ref('')
+const isCropVisible = ref(false)
+const cropImageSrc = ref('')
 
 const canUndo = ref(false)
 const canRedo = ref(false)
@@ -298,6 +309,22 @@ const handleBoardSave = (boardData: any) => {
   emit('change', newValue)
 }
 
+const handleCropConfirm = async (croppedDataUrl: string) => {
+  photoUrl.value = croppedDataUrl
+  isCropVisible.value = false
+  await nextTick()
+  if (drawingBoardRef.value) {
+    await drawingBoardRef.value.ensureBackgroundLoaded?.()
+    const currentData = drawingBoardRef.value.saveData()
+    handleBoardSave(currentData)
+  }
+}
+
+const handleCropCancel = () => {
+  isCropVisible.value = false
+  cropImageSrc.value = ''
+}
+
 const handleUploadPhotoToCanvas = async () => {
   if (props.disabled) return
   try {
@@ -305,11 +332,8 @@ const handleUploadPhotoToCanvas = async () => {
     if (!imageInfo) return
 
     if (imageInfo.base64DataUrl) {
-      photoUrl.value = imageInfo.base64DataUrl
-      if (drawingBoardRef.value) {
-        const currentData = drawingBoardRef.value.saveData()
-        handleBoardSave(currentData)
-      }
+      cropImageSrc.value = imageInfo.base64DataUrl
+      isCropVisible.value = true
     } else {
       showMessage('选择图片失败，请重试', 'error')
     }

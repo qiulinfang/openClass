@@ -415,5 +415,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
     // recognize-handwritten-formula-image 服务
     '/api/recognize-handwritten-formula-image': ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE,
+    // 图片上传服务
+    '/api/images/upload': ADDRESS_CATALOG.CLIENT_HTTP,
   }
 }

@@ -208,7 +208,10 @@
               <!-- IP 悬浮功能 -->
               <div
                 :class="['textbookip-float', mode === 'left' ? 'float-right' : 'float-left']"
-                @click="() => handleToggle()"
+                :style="{ bottom: floatButtonBottom + 'px' }"
+                @mousedown="startDrag"
+                @touchstart="startDrag"
+                @click="handleFloatClick"
               >
                 <img :src="textbookipIcon" alt="textbookip" class="textbookip-icon" />
               </div>
@@ -531,6 +534,55 @@ const handleToggle = async (question?: ExerciseItem) => {
       panel.sendQuestion?.(question)
     })
   }
+}
+
+// 悬浮按钮的底部高度（初始值 189px）
+const floatButtonBottom = ref(189)
+
+// 标记是否正在拖拽，以防止触发点击
+let isDragging = false
+let dragStartY = 0
+let dragStartBottom = 0
+
+const startDrag = (event: MouseEvent | TouchEvent) => {
+  isDragging = false
+  dragStartY = 'touches' in event ? event.touches[0].clientY : event.clientY
+  dragStartBottom = floatButtonBottom.value
+
+  const onDrag = (moveEvent: MouseEvent | TouchEvent) => {
+    const currentY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY
+    const deltaY = dragStartY - currentY
+    
+    if (Math.abs(deltaY) > 5) {
+      isDragging = true
+    }
+
+    const newBottom = dragStartBottom + deltaY
+    const minBottom = 80
+    const maxBottom = window.innerHeight - 150
+    floatButtonBottom.value = Math.max(minBottom, Math.min(maxBottom, newBottom))
+  }
+
+  const stopDrag = () => {
+    window.removeEventListener('mousemove', onDrag)
+    window.removeEventListener('mouseup', stopDrag)
+    window.removeEventListener('touchmove', onDrag)
+    window.removeEventListener('touchend', stopDrag)
+  }
+
+  window.addEventListener('mousemove', onDrag)
+  window.addEventListener('mouseup', stopDrag)
+  window.addEventListener('touchmove', onDrag, { passive: true })
+  window.addEventListener('touchend', stopDrag)
+}
+
+const handleFloatClick = (e: Event) => {
+  if (isDragging) {
+    e.stopPropagation()
+    e.preventDefault()
+    return
+  }
+  handleToggle()
 }
 
 // SplitPanel 事件
@@ -1655,7 +1707,6 @@ onUnmounted(() => {
 
 .textbookip-float {
   position: absolute;
-  bottom: 189px;
   z-index: 1000;
   cursor: pointer;
 }

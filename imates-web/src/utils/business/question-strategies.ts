@@ -102,7 +102,9 @@ class FillBlankStrategy implements QuestionStrategy {
           return !!item.photoUrl
         }
         const boardData = item.boardData || item
-        return Array.isArray(boardData?.objects) && boardData.objects.length > 0
+        const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
+        const hasPhoto = !!item.photoUrl
+        return hasObjects || hasPhoto
       }
       return !!item.trim()
     })

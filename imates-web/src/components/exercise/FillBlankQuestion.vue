@@ -39,7 +39,7 @@
           :placeholder="activeBlank !== null ? '请输入第 ' + (activeBlank + 1) + ' 空的答案' : '请点击上方的填空项开始作答'"
           :focused="activeBlank !== null"
           :active-blank-index="activeBlank !== null ? activeBlank : lastActiveBlank"
-          @update:model-value="val => handleBlankUpdate(activeBlank!, val)"
+          @update:model-value="val => handleBlankUpdate(activeBlank !== null ? activeBlank : lastActiveBlank, val)"
         />
       </template>
 
@@ -167,7 +167,9 @@ const isBlankAnswered = (index: number): boolean => {
   if (!ans) return false
   if (ans.type === 'photo') return !!ans.photoUrl
   if (ans.type === 'board') {
-    return Array.isArray(ans.boardData?.objects) && ans.boardData.objects.length > 0
+    const hasObjects = Array.isArray(ans.boardData?.objects) && ans.boardData.objects.length > 0
+    const hasPhoto = !!ans.photoUrl
+    return hasObjects || hasPhoto
   }
   return false
 }
@@ -207,7 +209,15 @@ const handleDocumentClick = (e: PointerEvent) => {
   const inputEl = mixedInputAreaRef.value?.$el
   const clickedInsideInput = inputEl && inputEl.contains(target)
 
-  if (!clickedInsideBlankTag && !clickedInsideInput) {
+  // 判断是否点击在弹窗、选择器、裁剪、选择菜单或相机预览等浮层内，若是则不触发失焦（避免 activeBlank 被置空）
+  const clickedInsideDialog = target.closest('.dialog-overlay') || 
+                              target.closest('.image-crop-overlay') || 
+                              target.closest('.camera-modal-overlay') || 
+                              target.closest('.q-dialog') || 
+                              target.closest('.q-menu') ||
+                              target.closest('.image-picker')
+
+  if (!clickedInsideBlankTag && !clickedInsideInput && !clickedInsideDialog) {
     mixedInputAreaRef.value?.blur()
     activeBlank.value = null
   }
