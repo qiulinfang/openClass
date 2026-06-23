@@ -27,6 +27,7 @@ export interface StructuredAnswerItem {
   boardData?: any
   photoUrl?: string
   boardImg?: string
+  boardHeight?: number
 }
 
 /** 结构化题目内容 */

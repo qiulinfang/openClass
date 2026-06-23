@@ -169,7 +169,34 @@ const addedHeight = ref(0)
 
 const boardHeight = computed(() => {
   const base = props.questionType === 'subjective' ? 400 : 220
-  return `${base + addedHeight.value}px`
+  let contentHeight = base
+  const boardData = props.modelValue?.boardData
+  if (boardData && Array.isArray(boardData.objects)) {
+    let maxY = 0
+    for (const stroke of boardData.objects) {
+      if (stroke.bounds && typeof stroke.bounds.maxY === 'number') {
+        maxY = Math.max(maxY, stroke.bounds.maxY)
+      } else if (Array.isArray(stroke.points)) {
+        for (const pt of stroke.points) {
+          if (typeof pt.y === 'number') {
+            maxY = Math.max(maxY, pt.y)
+          }
+        }
+      }
+    }
+    if (maxY > 0) {
+      // 包含内容并留有 40px 的安全边距
+      contentHeight = Math.max(contentHeight, maxY + 40)
+    }
+  }
+  
+  // 如果是已提交/只读状态 (disabled)，自动收缩到包含内容的实际高度（不低于基础高度），消除多余空白
+  if (props.disabled) {
+    return `${contentHeight}px`
+  }
+  
+  // 编辑状态下，保留用户手动调整的高度和实际内容高度的最大值
+  return `${Math.max(base + addedHeight.value, contentHeight)}px`
 })
 
 const updateUndoRedoStates = () => {
@@ -231,6 +258,10 @@ const handleBlur = () => {
 
 const toggleHeight = () => {
   addedHeight.value += 150
+  if (drawingBoardRef.value) {
+    const boardData = drawingBoardRef.value.saveData()
+    handleBoardSave(boardData)
+  }
 }
 
 watch(boardHeight, () => {
@@ -259,6 +290,7 @@ const { pickImage } = useImagePicker()
 // 解析数据并初始化
 const initFromValue = (val: StructuredAnswerItem | undefined) => {
   photoUrl.value = val?.photoUrl || ''
+  addedHeight.value = val?.boardHeight || 0
 }
 
 onMounted(() => {
@@ -278,6 +310,11 @@ watch(
     const incomingUrl = newVal?.photoUrl || ''
     if (photoUrl.value !== incomingUrl) {
       photoUrl.value = incomingUrl
+    }
+
+    const incomingHeight = newVal?.boardHeight || 0
+    if (addedHeight.value !== incomingHeight) {
+      addedHeight.value = incomingHeight
     }
 
     if (drawingBoardRef.value) {
@@ -304,6 +341,7 @@ const handleBoardSave = (boardData: any) => {
     boardData,
     boardImg,
     photoUrl: photoUrl.value || undefined,
+    boardHeight: addedHeight.value,
   }
   emit('update:modelValue', newValue)
   emit('change', newValue)
