@@ -74,6 +74,7 @@
             <!-- 普通子题渲染 -->
             <component 
               v-else
+              ref="subjectiveQuestionRefsTab"
               :is="getComponent(question.subQuestions[activeSubIdx].structuredContent?.type || question.subQuestions[activeSubIdx].type)" 
               :question="question.subQuestions[activeSubIdx]" 
               :model-value="modelValue[question.subQuestions[activeSubIdx].id]"
@@ -125,6 +126,11 @@
         <!-- 普通子题渲染 -->
         <component 
           v-else
+          :ref="(el) => {
+            if (sub.type === 'fill_in_blank' || sub.structuredContent?.type === 'fill_in_blank') {
+              setSubjectiveRef(sub.id, el)
+            }
+          }"
           :is="getComponent(sub.structuredContent?.type || sub.type)" 
           :question="sub" 
           :model-value="modelValue[sub.id]"
@@ -234,7 +240,7 @@ const setNestedCompositeRef = (id: string, el: any) => {
   }
 }
 
-// 深度保存所有子主观题画板数据
+// 深度保存所有子主观题与填空题数据
 const forceSave = () => {
   if (localLayoutMode.value === 'tab') {
     const activeSub = props.question.subQuestions?.[activeSubIdx.value]
@@ -261,6 +267,9 @@ const forceSave = () => {
             handleUpdate(activeSub.id, subVal)
           }
         }
+      } else if (activeSub.type === 'fill_in_blank' || activeSub.structuredContent?.type === 'fill_in_blank') {
+        const subComponent = subjectiveQuestionRefsTab.value
+        subComponent?.forceSave?.()
       }
     }
   } else {
@@ -288,6 +297,9 @@ const forceSave = () => {
             handleUpdate(sub.id, subVal)
           }
         }
+      } else if (sub.type === 'fill_in_blank' || sub.structuredContent?.type === 'fill_in_blank') {
+        const subRefs = subjectiveQuestionRefsListMap[sub.id]
+        subRefs?.forceSave?.()
       }
     })
   }

@@ -53,7 +53,7 @@
                 <div class="panel-card">
                   <div class="panel-card-body">
                     <div class="markdown-question-container" v-if="currentAnswerQuestion">
-                      <div class="question-html-preview markdown-content">
+                      <div class="question-html-preview markdown-content" ref="questionHtmlPreviewRef">
                         <div class="left-panel-question-title" v-if="currentAnswerQuestion">
                           题目{{ currentQuestionIndex + 1 }}
                           <button 
@@ -190,7 +190,7 @@
                   v-if="currentAnswerQuestion && isHomeworkLocked"
                 >
                   <!-- 答案和解析区域 -->
-                  <div class="answer-analysis-wrapper">
+                  <div class="answer-analysis-wrapper" ref="answerAnalysisWrapperRef">
                     <div class="result-section">
                       <div v-if="!isCurrentQuestionCorrect" class="result-item mistake-item">
                         <span class="item-label">是否添加到错题本：</span>
@@ -459,6 +459,9 @@ const currentAnswerQuestion = ref<ExerciseItem | null>(null)
 const subjectiveQuestionRef = ref<any>(null)
 const fillBlankQuestionRef = ref<any>(null)
 const compositeQuestionRef = ref<any>(null)
+const currentQuestionRenderRef = ref<HTMLDivElement | null>(null)
+const questionHtmlPreviewRef = ref<HTMLDivElement | null>(null)
+const answerAnalysisWrapperRef = ref<HTMLDivElement | null>(null)
 
 // 引用草稿纸组件
 const scratchpadRef = ref<any>(null)
@@ -868,6 +871,8 @@ const saveCurrentPage = async (
           userAnswer.boardImg = boardImg
         }
       }
+      // 等待 Vue 异步更新队列，确保 forceSave 的 emit 更新都已同步到父级 store
+      await nextTick()
     }
   } catch (globalSaveError) {
     console.error('[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 全局错误:', globalSaveError)
@@ -1031,6 +1036,30 @@ const handleStartAnswer = async (question: ExerciseItem) => {
   // 3. 恢复新题笔迹
   await nextTick()
   restoreCurrentPage(question)
+
+  // 4. 重置滚动位置
+  if (currentQuestionRenderRef.value) {
+    currentQuestionRenderRef.value.scrollTop = 0
+  }
+  if (questionHtmlPreviewRef.value) {
+    questionHtmlPreviewRef.value.scrollTop = 0
+  }
+  if (answerAnalysisWrapperRef.value) {
+    answerAnalysisWrapperRef.value.scrollTop = 0
+  }
+
+  // 额外的兜底：重置所有可能具有滚动条的容器
+  const scrollContainers = [
+    '.question-image-content',
+    '.panel-card-body',
+    '.question-render-area',
+    '.question-html-preview'
+  ]
+  scrollContainers.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      el.scrollTop = 0
+    })
+  })
 }
 
 /** 错题本添加状态：'yes' 或 'no' */
