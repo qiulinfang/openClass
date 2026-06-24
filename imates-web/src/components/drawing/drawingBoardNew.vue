@@ -249,6 +249,7 @@ const emit = defineEmits<{
   (e: 'redo'): void
   (e: 'save', data: { objects: any[]; history: any[]; historyIndex: number }): void
   (e: 'tool-change', tool: string): void
+  (e: 'update-background', url: string): void
   (
     e: 'ask-ai-image-selected',
     imageInfo: {
@@ -1569,10 +1570,25 @@ function isPointInPolygon(x, y, polygon) {
 }
 
 // --- 历史记录 ---
-function saveState() {
+function triggerAutoSave() {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null
+    const data = saveData()
+    emit('save', data)
+  }, AUTO_SAVE_DELAY_MS)
+}
+
+function saveState(bgOverride?: string) {
   if (!Array.isArray(strokes)) strokes = []
   if (!Array.isArray(history)) history = []
-  const snapshot = JSON.stringify(strokes)
+  const bg = typeof bgOverride === 'string' ? bgOverride : (props.backgroundImage || '')
+  const snapshot = JSON.stringify({
+    strokes,
+    backgroundImage: bg
+  })
   if (historyStep.value < history.length - 1) {
     history = history.slice(0, historyStep.value + 1)
   }
@@ -1583,21 +1599,14 @@ function saveState() {
   history.push(snapshot)
   historyStep.value++
 
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-    autoSaveTimer = null
-  }
-  autoSaveTimer = setTimeout(() => {
-    autoSaveTimer = null
-    const data = saveData()
-    emit('save', data)
-  }, AUTO_SAVE_DELAY_MS)
+  triggerAutoSave()
 }
 
 function undo() {
   if (historyStep.value > 0) {
     historyStep.value--
     loadState(history[historyStep.value])
+    triggerAutoSave()
   }
 }
 
@@ -1605,13 +1614,19 @@ function redo() {
   if (historyStep.value < history.length - 1) {
     historyStep.value++
     loadState(history[historyStep.value])
+    triggerAutoSave()
   }
 }
 
 function loadState(jsonStr) {
   try {
     const parsed = JSON.parse(jsonStr)
-    strokes = Array.isArray(parsed) ? parsed : []
+    if (parsed && typeof parsed === 'object' && 'strokes' in parsed) {
+      strokes = Array.isArray(parsed.strokes) ? parsed.strokes : []
+      emit('update-background', parsed.backgroundImage || '')
+    } else {
+      strokes = Array.isArray(parsed) ? parsed : []
+    }
     selectedIndices.clear()
     groupBounds = null
     requestRenderAll()
@@ -2742,9 +2757,9 @@ const loadData = (data) => {
     autoSaveTimer = null
   }
 
-  strokes = Array.isArray(data?.objects) ? data.objects : []
+  strokes = Array.isArray(data?.objects) ? [...data.objects] : []
   history = Array.isArray(data?.history) && data.history.length > 0 
-    ? data.history 
+    ? [...data.history] 
     : [JSON.stringify(strokes)]
 
   let idx = typeof data?.historyIndex === 'number' ? data.historyIndex : history.length - 1
@@ -2772,6 +2787,17 @@ const clearAll = () => {
     clearTimeout(autoSaveTimer)
     autoSaveTimer = null
   }
+  requestRenderAll()
+}
+
+const clearAllUndoable = () => {
+  strokes = []
+  selectedIndices.clear()
+  groupBounds = null
+  activeAction = null
+  activeHandle = null
+  selectionRect = null
+  saveState('') // 清空背景并保存新快照到历史
   requestRenderAll()
 }
 
@@ -3035,6 +3061,8 @@ defineExpose({
   loadData,
   getThumbnail,
   clearAll,
+  clearAllUndoable,
+  saveState,
   exportToJpg,
   exportToPng,
   exportStrokesOnly,

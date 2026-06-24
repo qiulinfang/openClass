@@ -56,6 +56,15 @@
                       <div class="question-html-preview markdown-content">
                         <div class="left-panel-question-title" v-if="currentAnswerQuestion">
                           题目{{ currentQuestionIndex + 1 }}
+                          <button 
+                            v-if="isDev"
+                            class="dev-debug-btn left-debug-btn"
+                            title="打印左侧题干调试信息"
+                            type="button"
+                            @click="logLeftQuestionInfo"
+                          >
+                            Debug
+                          </button>
                         </div>
                         <div v-html="questionHtml"></div>
                       </div>
@@ -123,6 +132,7 @@
                         />
                         <CompositeQuestion
                           v-else-if="currentAnswerQuestion.type === 'composite'"
+                          ref="compositeQuestionRef"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
@@ -132,6 +142,7 @@
                         />
                         <FillBlankQuestion
                           v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
+                          ref="fillBlankQuestionRef"
                           :key="getQuestionKey(currentAnswerQuestion)"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
@@ -354,6 +365,19 @@ const homeworkStore = useHomeworkStore()
 const uiStore = useUIStore()
 const aiGeneralStore = useAiGeneralChatStore()
 
+const isDev = import.meta.env.DEV
+
+const logLeftQuestionInfo = () => {
+  console.log('=== [DEBUG] Left Panel Question Info ===')
+  console.log('ID:', currentAnswerQuestion.value?.id)
+  console.log('bmNo:', currentAnswerQuestion.value?.bmNo)
+  console.log('Type:', currentAnswerQuestion.value?.type)
+  console.log('Material:', currentAnswerQuestion.value?.material)
+  console.log('StructuredContent:', currentAnswerQuestion.value?.structuredContent)
+  console.log('Raw Question Object:', currentAnswerQuestion.value)
+  console.log('========================================')
+}
+
 // 模式: 'left' = 题目+作答, 'right' = 作答+AI
 const mode = ref<'left' | 'right'>('left')
 // 作业是否已提交（提交后显示答案和解析）
@@ -433,6 +457,8 @@ const isHomeworkLocked = computed(() => {
 // 当前在白板上作答的题目
 const currentAnswerQuestion = ref<ExerciseItem | null>(null)
 const subjectiveQuestionRef = ref<any>(null)
+const fillBlankQuestionRef = ref<any>(null)
+const compositeQuestionRef = ref<any>(null)
 
 // 引用草稿纸组件
 const scratchpadRef = ref<any>(null)
@@ -823,6 +849,10 @@ const saveCurrentPage = async (
           mixedInputArea.blur?.()
           board = mixedInputArea.getDrawingBoard?.()
         }
+      } else if (questionToSave.type === 'fill_in_blank' && fillBlankQuestionRef.value) {
+        fillBlankQuestionRef.value.forceSave?.()
+      } else if (questionToSave.type === 'composite' && compositeQuestionRef.value) {
+        compositeQuestionRef.value.forceSave?.()
       }
 
       if (board) {
@@ -1852,10 +1882,32 @@ onUnmounted(() => {
   line-height: 1.6;
 
   .left-panel-question-title {
+    position: relative;
     font-size: 16px;
     font-weight: 700;
     color: #393548;
     margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .left-debug-btn {
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #ef4444;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #fee2e2;
+        border-color: #f87171;
+        color: #dc2626;
+      }
+    }
   }
 
   table {
@@ -1878,6 +1930,13 @@ onUnmounted(() => {
     background-color: #f8fafc;
     font-weight: 600;
     color: #475569;
+  }
+
+  ol,
+  ul {
+    padding-left: 0;
+    margin-left: 0;
+    list-style-position: inside;
   }
 }
 </style>

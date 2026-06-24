@@ -48,6 +48,7 @@
         <div v-for="index in blankCount" :key="'fallback-blank-' + index" class="fallback-blank-row">
           <div class="fallback-blank-label text-subtitle2 text-grey-7 q-mb-xs" style="font-size: 14px; font-weight: 600;">第 {{ index }} 空：</div>
           <MixedInputArea
+            :ref="el => setFallbackInputRef(el, index - 1)"
             :model-value="finalAnswers[index - 1]"
             question-type="fill"
             :disabled="disabled"
@@ -199,41 +200,15 @@ const selectBlank = (index: number) => {
   }
 }
 
-const handleDocumentClick = (e: PointerEvent) => {
-  if (activeBlank.value === null) return
-
-  const target = e.target as HTMLElement | null
-  if (!target) return
-
-  const clickedInsideBlankTag = target.classList.contains('blank-tag-inline') || target.closest('.blank-tag-inline')
-  const inputEl = mixedInputAreaRef.value?.$el
-  const clickedInsideInput = inputEl && inputEl.contains(target)
-
-  // 判断是否点击在弹窗、选择器、裁剪、选择菜单或相机预览等浮层内，若是则不触发失焦（避免 activeBlank 被置空）
-  const clickedInsideDialog = target.closest('.dialog-overlay') || 
-                              target.closest('.image-crop-overlay') || 
-                              target.closest('.camera-modal-overlay') || 
-                              target.closest('.q-dialog') || 
-                              target.closest('.q-menu') ||
-                              target.closest('.image-picker')
-
-  if (!clickedInsideBlankTag && !clickedInsideInput && !clickedInsideDialog) {
-    mixedInputAreaRef.value?.blur()
-    activeBlank.value = null
-  }
-}
-
 // 初始化
 onMounted(() => {
   if (props.modelValue) {
     finalAnswers.value = [...props.modelValue]
   }
   activeBlank.value = null
-  window.addEventListener('pointerdown', handleDocumentClick)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('pointerdown', handleDocumentClick)
 })
 
 // 监听题目切换
@@ -259,6 +234,29 @@ const handleBlankUpdate = (index: number, val: any) => {
   finalAnswers.value[index] = val
   emit('update:modelValue', [...finalAnswers.value])
 }
+
+const fallbackInputRefs = ref<any[]>([])
+const setFallbackInputRef = (el: any, index: number) => {
+  if (el) {
+    fallbackInputRefs.value[index] = el
+  }
+}
+
+const forceSave = () => {
+  if (hasInlineBlanks.value) {
+    if (mixedInputAreaRef.value) {
+      mixedInputAreaRef.value.forceSave?.()
+    }
+  } else {
+    fallbackInputRefs.value.forEach(ref => {
+      ref?.forceSave?.()
+    })
+  }
+}
+
+defineExpose({
+  forceSave,
+})
 </script>
 
 <style scoped lang="scss">

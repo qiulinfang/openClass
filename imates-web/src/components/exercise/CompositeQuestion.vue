@@ -47,6 +47,7 @@
             <!-- 如果子题还是 composite，递归渲染 -->
             <CompositeQuestion
               v-if="question.subQuestions[activeSubIdx].type === 'composite'"
+              ref="subjectiveQuestionRefsTab"
               :question="question.subQuestions[activeSubIdx]"
               :model-value="(modelValue[question.subQuestions[activeSubIdx].id] as any) || {}"
               @update:model-value="handleUpdate(question.subQuestions[activeSubIdx].id, $event)"
@@ -60,6 +61,7 @@
             <!-- 主观题渲染 -->
             <SubjectiveQuestion 
               v-else-if="question.subQuestions[activeSubIdx].structuredContent?.type === 'subjective' || question.subQuestions[activeSubIdx].type === 'subjective'"
+              ref="subjectiveQuestionRefsTab"
               :question="question.subQuestions[activeSubIdx]"
               :model-value="modelValue[question.subQuestions[activeSubIdx].id]"
               @update:model-value="handleUpdate(question.subQuestions[activeSubIdx].id, $event)"
@@ -96,6 +98,7 @@
         <!-- 如果子题还是 composite，递归渲染 -->
         <CompositeQuestion
           v-if="sub.type === 'composite'"
+          :ref="(el) => setNestedCompositeRef(sub.id, el)"
           :question="sub"
           :model-value="(modelValue[sub.id] as any) || {}"
           @update:model-value="handleUpdate(sub.id, $event)"
@@ -109,6 +112,7 @@
         <!-- 主观题渲染 -->
         <SubjectiveQuestion 
           v-else-if="sub.structuredContent?.type === 'subjective' || sub.type === 'subjective'"
+          :ref="(el) => setSubjectiveRef(sub.id, el)"
           :question="sub"
           :model-value="modelValue[sub.id]"
           @update:model-value="handleUpdate(sub.id, $event)"
@@ -142,7 +146,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, reactive } from 'vue'
 import type { ExerciseItem } from '../../types/exercise'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import ChoiceQuestion from './ChoiceQuestion.vue'
@@ -209,6 +213,89 @@ const handleUpdate = (id: string, value: unknown) => {
   const newValue = { ...props.modelValue, [id]: value }
   emit('update:modelValue', newValue)
 }
+
+const subjectiveQuestionRefsTab = ref<any>(null)
+const subjectiveQuestionRefsListMap = reactive<Record<string, any>>({})
+const nestedCompositeRefsListMap = reactive<Record<string, any>>({})
+
+const setSubjectiveRef = (id: string, el: any) => {
+  if (el) {
+    subjectiveQuestionRefsListMap[id] = el
+  } else {
+    delete subjectiveQuestionRefsListMap[id]
+  }
+}
+
+const setNestedCompositeRef = (id: string, el: any) => {
+  if (el) {
+    nestedCompositeRefsListMap[id] = el
+  } else {
+    delete nestedCompositeRefsListMap[id]
+  }
+}
+
+// 深度保存所有子主观题画板数据
+const forceSave = () => {
+  if (localLayoutMode.value === 'tab') {
+    const activeSub = props.question.subQuestions?.[activeSubIdx.value]
+    if (activeSub) {
+      if (activeSub.type === 'composite') {
+        // 如果是嵌套的 composite 题，递归调用其 forceSave
+        const nestedComposite = subjectiveQuestionRefsTab.value
+        nestedComposite?.forceSave?.()
+      } else if (activeSub.structuredContent?.type === 'subjective' || activeSub.type === 'subjective') {
+        const subComponent = subjectiveQuestionRefsTab.value
+        const mixedInputArea = subComponent?.getMixedInputArea?.()
+        if (mixedInputArea) {
+          mixedInputArea.blur?.()
+          const board = mixedInputArea.getDrawingBoard?.()
+          const boardData = board?.saveData()
+          if (boardData) {
+            activeSub.structuredContent.boardData = boardData
+          }
+          const boardImg = board?.exportToJpg?.(0.9)
+          if (boardImg && props.modelValue) {
+            const subVal = props.modelValue[activeSub.id] || {}
+            subVal.boardImg = boardImg
+            subVal.boardData = boardData
+            handleUpdate(activeSub.id, subVal)
+          }
+        }
+      }
+    }
+  } else {
+    // List 模式：遍历所有子题目
+    props.question.subQuestions?.forEach((sub) => {
+      if (sub.type === 'composite') {
+        // 如果是子 composite，递归调用
+        const subRefs = nestedCompositeRefsListMap[sub.id]
+        subRefs?.forceSave?.()
+      } else if (sub.structuredContent?.type === 'subjective' || sub.type === 'subjective') {
+        const subRefs = subjectiveQuestionRefsListMap[sub.id]
+        const mixedInputArea = subRefs?.getMixedInputArea?.()
+        if (mixedInputArea) {
+          mixedInputArea.blur?.()
+          const board = mixedInputArea.getDrawingBoard?.()
+          const boardData = board?.saveData()
+          if (boardData) {
+            sub.structuredContent.boardData = boardData
+          }
+          const boardImg = board?.exportToJpg?.(0.9)
+          if (boardImg && props.modelValue) {
+            const subVal = props.modelValue[sub.id] || {}
+            subVal.boardImg = boardImg
+            subVal.boardData = boardData
+            handleUpdate(sub.id, subVal)
+          }
+        }
+      }
+    })
+  }
+}
+
+defineExpose({
+  forceSave
+})
 
 // 组件映射逻辑
 const getComponent = (type: string | undefined) => {

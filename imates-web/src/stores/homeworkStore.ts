@@ -8,7 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ExerciseItem, HomeworkUndoItem } from '../types'
 import { saveQuestionsToIndexedDB } from '../services/storage/question-storage'
-import { saveHomeworkSubmission, loadHomeworkSubmission } from '../services/storage/homework-storage'
+import { saveHomeworkSubmission, loadHomeworkSubmission, clearAllHomeworkSubmissions } from '../services/storage/homework-storage'
 import { showMessage } from '@/utils'
 import { apiService } from '@/services/http/api-service'
 import {
@@ -288,6 +288,18 @@ export const useHomeworkStore = defineStore('homework', () => {
     console.log('[HOMEWORK] 🧹 已重置作业作答状态')
   }
   
+  /**
+   * 从 IndexedDB 清空所有作业作答和提交状态数据
+   */
+  const clearAllHomeworkSubmissionsFromDB = async (): Promise<void> => {
+    try {
+      await clearAllHomeworkSubmissions()
+      console.log('[HOMEWORK_STORAGE] ✅ 已清空所有本地作业数据')
+    } catch (error) {
+      console.error('[HOMEWORK_STORAGE] ❌ 清空所有本地作业数据失败:', error)
+    }
+  }
+  
   // ==================== 返回接口 ====================
   
   return {
@@ -317,6 +329,7 @@ export const useHomeworkStore = defineStore('homework', () => {
     saveCurrentHomeworkSubmission,
     updateQuestionsInDB,
     loadHomeworkSubmissionFromDB,
-    resetAnswerState
+    resetAnswerState,
+    clearAllHomeworkSubmissionsFromDB
   }
 })

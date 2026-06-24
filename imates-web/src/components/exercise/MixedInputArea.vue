@@ -59,6 +59,12 @@
         <button class="toolbar-btn" @click="handleUploadPhotoToCanvas" title="拍照上传">
           <img :src="cameraIcon" alt="拍照上传" style="width: 24px; height: 24px; display: block" />
         </button>
+        <button v-if="photoUrl" class="toolbar-btn" @click="handleRecrop" title="重新裁剪">
+          <div
+            class="icon-mask"
+            :style="`mask-image: url(${cropIcon}); -webkit-mask-image: url(${cropIcon});`"
+          ></div>
+        </button>
       </div>
 
       <div class="mixed-input-body">
@@ -79,6 +85,7 @@
             :backgroundImage="photoUrl"
             :backgroundContain="true"
             @save="handleBoardSave"
+            @update-background="handleUpdateBackground"
           />
         </div>
       </div>
@@ -91,6 +98,16 @@
       @confirm="handleCropConfirm"
       @cancel="handleCropCancel"
     />
+    <!-- 清空确认对话框 -->
+    <Dialog
+      ref="clearDialogRef"
+      title="确认清空"
+      confirmButtonText="确认"
+      cancelButtonText="取消"
+      @confirm="confirmClear"
+    >
+      确定要清空当前输入区域的所有内容（包括手写内容和拍照图片）吗？
+    </Dialog>
   </div>
 </template>
 
@@ -109,6 +126,7 @@ import { useImagePicker } from '@/composables/useImagePicker'
 import { showMessage } from '@/utils'
 import type { StructuredAnswerItem } from '@/types/exercise'
 import ImageCropOverlay from '@/components/base/ImageCropper.vue'
+import Dialog from '../base/Dialog.vue'
 import undoIcon from '/icons/redo.svg'
 import redoIcon from '/icons/undo.svg'
 import signaturePenIcon from '/icons/signaturePen.svg'
@@ -118,6 +136,7 @@ import eraserSelectIcon from '/icons/eraser_select.svg'
 import deleteIcon from '/icons/delete.svg'
 import cameraIcon from '/icons/camera.svg'
 import lagaoIcon from '/icons/lagao.svg'
+import cropIcon from '/icons/caijian.svg'
 
 interface Props {
   modelValue?: StructuredAnswerItem
@@ -148,6 +167,8 @@ const drawingBoardRef = ref<
       loadData: (data: unknown) => void
       saveData: () => any
       clearAll: () => void
+      clearAllUndoable: () => void
+      saveState?: (bgOverride?: string) => void
       exportToJpg?: (quality?: number) => string
       handleToolbarToolChange: (tool: string) => void
       undo: () => void
@@ -158,7 +179,10 @@ const drawingBoardRef = ref<
     })
   | null
 >(null)
+
+const clearDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 const photoUrl = ref('')
+const originalPhotoUrl = ref('')
 const isCropVisible = ref(false)
 const cropImageSrc = ref('')
 
@@ -210,6 +234,12 @@ const handleUndo = () => {
   if (drawingBoardRef.value) {
     drawingBoardRef.value.undo()
     updateUndoRedoStates()
+    nextTick(() => {
+      if (drawingBoardRef.value) {
+        const boardData = drawingBoardRef.value.saveData()
+        handleBoardSave(boardData)
+      }
+    })
   }
 }
 
@@ -217,7 +247,17 @@ const handleRedo = () => {
   if (drawingBoardRef.value) {
     drawingBoardRef.value.redo()
     updateUndoRedoStates()
+    nextTick(() => {
+      if (drawingBoardRef.value) {
+        const boardData = drawingBoardRef.value.saveData()
+        handleBoardSave(boardData)
+      }
+    })
   }
+}
+
+const handleUpdateBackground = (url: string) => {
+  photoUrl.value = url
 }
 
 const mixedInputAreaRef = ref<HTMLDivElement | null>(null)
@@ -290,6 +330,7 @@ const { pickImage } = useImagePicker()
 // 解析数据并初始化
 const initFromValue = (val: StructuredAnswerItem | undefined) => {
   photoUrl.value = val?.photoUrl || ''
+  originalPhotoUrl.value = val?.originalPhotoUrl || ''
   addedHeight.value = val?.boardHeight || 0
 }
 
@@ -310,6 +351,11 @@ watch(
     const incomingUrl = newVal?.photoUrl || ''
     if (photoUrl.value !== incomingUrl) {
       photoUrl.value = incomingUrl
+    }
+
+    const incomingOriginalUrl = newVal?.originalPhotoUrl || ''
+    if (originalPhotoUrl.value !== incomingOriginalUrl) {
+      originalPhotoUrl.value = incomingOriginalUrl
     }
 
     const incomingHeight = newVal?.boardHeight || 0
@@ -341,6 +387,7 @@ const handleBoardSave = (boardData: any) => {
     boardData,
     boardImg,
     photoUrl: photoUrl.value || undefined,
+    originalPhotoUrl: originalPhotoUrl.value || undefined,
     boardHeight: addedHeight.value,
   }
   emit('update:modelValue', newValue)
@@ -353,6 +400,8 @@ const handleCropConfirm = async (croppedDataUrl: string) => {
   await nextTick()
   if (drawingBoardRef.value) {
     await drawingBoardRef.value.ensureBackgroundLoaded?.()
+    // 保存裁剪状态变化到撤销/重做历史中
+    drawingBoardRef.value.saveState?.()
     const currentData = drawingBoardRef.value.saveData()
     handleBoardSave(currentData)
   }
@@ -370,6 +419,7 @@ const handleUploadPhotoToCanvas = async () => {
     if (!imageInfo) return
 
     if (imageInfo.base64DataUrl) {
+      originalPhotoUrl.value = imageInfo.base64DataUrl
       cropImageSrc.value = imageInfo.base64DataUrl
       isCropVisible.value = true
     } else {
@@ -381,11 +431,42 @@ const handleUploadPhotoToCanvas = async () => {
   }
 }
 
+const handleRecrop = () => {
+  if (props.disabled) return
+  if (originalPhotoUrl.value) {
+    cropImageSrc.value = originalPhotoUrl.value
+    isCropVisible.value = true
+  } else if (photoUrl.value) {
+    cropImageSrc.value = photoUrl.value
+    isCropVisible.value = true
+  }
+}
+
 const handleClear = () => {
+  if (props.disabled) return
+  const hasStrokes = drawingBoardRef.value && drawingBoardRef.value.saveData().objects.length > 0
+  const hasPhoto = !!photoUrl.value
+
+  if (!hasStrokes && !hasPhoto) return
+
+  clearDialogRef.value?.openDialog()
+}
+
+const confirmClear = () => {
+  clearDialogRef.value?.closeDialog()
   photoUrl.value = ''
+  originalPhotoUrl.value = ''
   if (drawingBoardRef.value) {
-    drawingBoardRef.value.clearAll()
+    drawingBoardRef.value.clearAllUndoable()
+  } else {
     handleBoardSave({ objects: [], history: [[]], historyIndex: 0 })
+  }
+}
+
+const forceSave = () => {
+  if (drawingBoardRef.value) {
+    const boardData = drawingBoardRef.value.saveData()
+    handleBoardSave(boardData)
   }
 }
 
@@ -394,6 +475,7 @@ defineExpose({
   getDrawingBoard: () => drawingBoardRef.value,
   focus: handleFocus,
   blur: handleBlur,
+  forceSave,
 })
 </script>
 

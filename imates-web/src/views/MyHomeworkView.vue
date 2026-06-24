@@ -16,6 +16,15 @@
           />
         </div>
       </div>
+      <!-- 调试按钮，dev 下才显示 -->
+      <Button
+        v-if="isDev"
+        label="清空本地作业数据(Debug)"
+        variant="secondary"
+        size="mdCompact"
+        style="border: 1.5px dashed #ff5b5b; color: #ff5b5b;"
+        @click="handleClearAllHomework"
+      />
     </div>
 
     <div class="content">
@@ -335,6 +344,21 @@ onUnmounted(() => {
 const router = useRouter()
 const homeworkStore = useHomeworkStore()
 
+const isDev = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEBUG === 'true'
+
+const handleClearAllHomework = async () => {
+  try {
+    await homeworkStore.clearAllHomeworkSubmissionsFromDB()
+    homeworkStore.resetAnswerState()
+    homeworkStore.clearHomeworkListCache()
+    await handleRefresh()
+    showMessage('成功清空本地所有作业信息及作答记录！', 'success')
+  } catch (error) {
+    console.error('清空作业信息失败:', error)
+    showMessage('清空作业信息失败', 'error')
+  }
+}
+
 import { mapHomeworkQuestionFromApi } from '@/services/boundary/homework'
 
 // 这里 item 来自 displayHomeworkList 计算属性
@@ -350,7 +374,7 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
       })
 
       homeworkStore.setQuestions(exerciseItems)
-      // 记录当前这份作业的原始信息、名称和允许重复提交类型，供 HomeworkAnswerView 使用
+      // 记录当前这份作业的原始信息、名称 and 允许重复提交类型，供 HomeworkAnswerView 使用
       homeworkStore.setCurrentHomeworkInfo(item.homework)
       homeworkStore.setHomeworkName(item.homework.title)
       homeworkStore.setResubmitType(item.homework.resubmit || '0')

@@ -87,3 +87,16 @@ export async function deleteHomeworkSubmission(homeworkId: string): Promise<void
     throw error
   }
 }
+
+/**
+ * 清空所有作业的数据
+ */
+export async function clearAllHomeworkSubmissions(): Promise<void> {
+  try {
+    const homeworkStorage = getHomeworkStorage()
+    await homeworkStorage.clear(STORE_NAMES.SUBMISSIONS)
+  } catch (error) {
+    console.error('[HOMEWORK_STORAGE] ❌ 清空所有作业数据失败:', error)
+    throw error
+  }
+}

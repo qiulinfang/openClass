@@ -201,4 +201,11 @@ watch([formattedStem], () => {
   font-weight: 600;
   color: #475569;
 }
+
+:deep(ol),
+:deep(ul) {
+  padding-left: 0;
+  margin-left: 0;
+  list-style-position: inside;
+}
 </style>
