@@ -414,7 +414,7 @@ public class MainWebViewActivity extends AppCompatActivity
                                 });
                             }
                         } catch (org.json.JSONException e) {
-                            Log.e(TAG, "解析更新响应JSON失败", e);
+                            Log.e(TAG, "解析更新响应JSON失败. URL: " + updateUrl + ", Body: " + responseBody, e);
                         }
                     }
                 } catch (Exception e) {

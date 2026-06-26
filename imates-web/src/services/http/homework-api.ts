@@ -88,12 +88,17 @@ export class HomeworkApi {
     try {
       const response = await httpClient.post<{
         code?: number
-        data?: HomeworkUndoItem[]
+        data?: HomeworkUndoItem[] | { records?: HomeworkUndoItem[] }
         msg?: string
       }>(endpoint, queryReq || {})
 
       if (response.success && response.data?.code === 200) {
-        return response.data.data || []
+        const resData = response.data.data
+        if (Array.isArray(resData)) {
+          return resData
+        } else if (resData && Array.isArray(resData.records)) {
+          return resData.records
+        }
       }
       return []
     } catch (error) {

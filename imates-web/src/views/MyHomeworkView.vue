@@ -134,7 +134,7 @@ const selectedSubject = ref('')
 // 作业列表数据
 const homeworkList = ref<HomeworkUndoItem[]>([])
 const loading = ref(false)
-const pageNumber = ref(0)
+const pageNumber = ref(1)
 
 // 防抖定时器
 const debounceTimer = ref<number | null>(null)
@@ -161,7 +161,7 @@ const fetchHomeworkList = async () => {
     // 使用 homeworkStore 的缓存方法
     const result = await homeworkStore.fetchHomeworkList(queryReq)
     
-    if (pageNumber.value === 0) {
+    if (pageNumber.value === 1) {
       homeworkList.value = result
     } else {
       homeworkList.value = [...homeworkList.value, ...result]
@@ -170,7 +170,7 @@ const fetchHomeworkList = async () => {
     hasMore.value = result.length >= pageSize.value
   } catch (error) {
     console.error('[MyHomeworkView] 获取作业列表异常:', error)
-    homeworkList.value = pageNumber.value === 0 ? [] : homeworkList.value
+    homeworkList.value = pageNumber.value === 1 ? [] : homeworkList.value
     hasMore.value = false
   } finally {
     loading.value = false
@@ -180,7 +180,7 @@ const fetchHomeworkList = async () => {
 // 下拉刷新
 const handleRefresh = async () => {
   try {
-    pageNumber.value = 0
+    pageNumber.value = 1
     hasMore.value = true
     
     // 强制刷新，忽略缓存
@@ -284,7 +284,12 @@ const displayHomeworkList = computed(() => {
 
 // 日期格式化辅助函数
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toISOString().slice(0, 10).replace(/-/g, '/')
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) {
+    return dateString
+  }
+  return date.toISOString().slice(0, 10).replace(/-/g, '/')
 }
 
 const getTimeLeftText = (deadline?: string) => {
@@ -318,7 +323,7 @@ watch(
     
     // 设置防抖，300ms后执行
     debounceTimer.value = window.setTimeout(async () => {
-      pageNumber.value = 0
+      pageNumber.value = 1
       hasMore.value = true
       await fetchHomeworkList()
       debounceTimer.value = null
@@ -328,7 +333,7 @@ watch(
 )
 
 onMounted(async () => {
-  pageNumber.value = 0
+  pageNumber.value = 1
   hasMore.value = true
   await fetchHomeworkList()
 })
