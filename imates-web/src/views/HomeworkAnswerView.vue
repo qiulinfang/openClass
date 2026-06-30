@@ -114,6 +114,7 @@
                             currentAnswerQuestion.type === 'single_choice' ||
                             currentAnswerQuestion.type === 'multiple_choice'
                           "
+                          :key="getQuestionKey(currentAnswerQuestion)"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
@@ -123,6 +124,7 @@
                         />
                         <JudgmentQuestion
                           v-else-if="currentAnswerQuestion.type === 'true_false'"
+                          :key="getQuestionKey(currentAnswerQuestion)"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
@@ -132,6 +134,7 @@
                         />
                         <CompositeQuestion
                           v-else-if="currentAnswerQuestion.type === 'composite'"
+                          :key="getQuestionKey(currentAnswerQuestion)"
                           ref="compositeQuestionRef"
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
@@ -314,7 +317,7 @@ import type { ExerciseItem } from '@/types'
 import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService } from '@/services/http/api-service'
-import { showMessage } from '@/utils'
+import { showMessage, debounce } from '@/utils'
 import { initExerciseAnswerFields, formatExerciseToMarkdown } from '@/services/boundary/exercise'
 import { getQuestionStrategy } from '@/utils/business/question-strategies'
 import {
@@ -1007,14 +1010,15 @@ const handleStartAnswer = async (question: ExerciseItem) => {
     try {
       const savePromise = saveCurrentPage(oldQuestion)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Save timeout')), 1500),
+        setTimeout(() => reject(new Error('Save timeout')), 5000),
       )
       await Promise.race([savePromise, timeoutPromise])
 
       // 切换题目时，自动持久化当前作答数据到本地数据库
       const homeworkId = route.params.homeworkId as string
       if (homeworkId) {
-        await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+        activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+        await activeSavePromise
       }
     } catch (saveError: unknown) {
       const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
@@ -1141,7 +1145,8 @@ const goBack = async () => {
   try {
     if (homeworkId) {
       await saveCurrentPage()
-      await homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+      activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+      await activeSavePromise
     }
   } catch (err) {
     console.error('[HOMEWORK_BACK] 返回过程中捕获到异常:', err)
@@ -1416,6 +1421,37 @@ const handleBoardUpload = async () => {
   }
 }
 
+const isInitialized = ref(false)
+let activeSavePromise: Promise<any> = Promise.resolve()
+
+// 自动持久化保存机制：防抖 2 秒，避免频繁写入 IndexedDB
+const autoSaveSubmission = debounce(async () => {
+  const homeworkId = route.params.homeworkId as string
+  if (homeworkId && !isHomeworkSubmitted.value) {
+    try {
+      // 1. 同步当前题目的画板数据 (如果是主观题等)
+      await saveCurrentPage()
+      // 2. 持久化到 IndexedDB
+      activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+      await activeSavePromise
+      console.log('[HOMEWORK_STORAGE] ✅ 自动保存成功')
+    } catch (e) {
+      console.error('[HOMEWORK_STORAGE] 自动保存失败:', e)
+    }
+  }
+}, 2000)
+
+// 监听作答数据变化，自动触发持久化
+watch(
+  () => externalQuestions.value,
+  () => {
+    if (isInitialized.value) {
+      autoSaveSubmission()
+    }
+  },
+  { deep: true }
+)
+
 // 根据 currentQuestionIndex 恢复当前选中的作业题目并初始化状态
 onMounted(async () => {
   const homeworkId = route.params.homeworkId as string
@@ -1454,9 +1490,20 @@ onMounted(async () => {
   // 6. 将当前选中题目同步并加载到右侧的白板和作答区域
   const targetQuestion = externalQuestions.value[targetIndex]
   await handleStartAnswer(targetQuestion)
+
+  // 标记初始化完成，开启写后自动保存机制
+  nextTick(() => {
+    isInitialized.value = true
+  })
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
+  try {
+    // 确保任何正在进行中的 IndexedDB 写入操作都执行完毕后再清空内存数据，防止脏数据覆盖
+    await activeSavePromise
+  } catch (e) {
+    console.error('[HOMEWORK_STORAGE] 销毁页面等待保存出错:', e)
+  }
   homeworkStore.resetAnswerState()
 })
 </script>
