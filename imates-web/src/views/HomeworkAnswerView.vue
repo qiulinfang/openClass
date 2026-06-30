@@ -306,7 +306,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import HomeworkHeader from '@/components/header/HomeworkHeader.vue'
@@ -846,18 +846,19 @@ const saveCurrentPage = async (
     // 2. 仅当保存的目标题目是当前活跃题目，且白板实例已就绪时，提取并更新笔迹数据
     if (questionToSave === currentAnswerQuestion.value) {
       let board = drawingBoardRefs.value[0]
+      const qType = questionToSave.type || questionToSave.structuredContent?.type || ''
       
       // 如果当前题目是主观题，则从 SubjectiveQuestion 组件的 ref 中获取对应的 MixedInputArea，然后再获取其白板实例
-      if (questionToSave.type === 'subjective' && subjectiveQuestionRef.value) {
+      if (qType === 'subjective' && subjectiveQuestionRef.value) {
         const mixedInputArea = subjectiveQuestionRef.value.getMixedInputArea?.()
         if (mixedInputArea) {
           // 在保存之前执行 blur() 强制让输入框把笔迹同步
           mixedInputArea.blur?.()
           board = mixedInputArea.getDrawingBoard?.()
         }
-      } else if (questionToSave.type === 'fill_in_blank' && fillBlankQuestionRef.value) {
+      } else if (qType === 'fill_in_blank' && fillBlankQuestionRef.value) {
         fillBlankQuestionRef.value.forceSave?.()
-      } else if (questionToSave.type === 'composite' && compositeQuestionRef.value) {
+      } else if (qType === 'composite' && compositeQuestionRef.value) {
         compositeQuestionRef.value.forceSave?.()
       }
 
@@ -876,6 +877,7 @@ const saveCurrentPage = async (
       }
       // 等待 Vue 异步更新队列，确保 forceSave 的 emit 更新都已同步到父级 store
       await nextTick()
+      console.log(`[HOMEWORK_STORAGE] ✅ 数据已成功同步到 Pinia 内存层 (Question Key: ${questionKey})`)
     }
   } catch (globalSaveError) {
     console.error('[HOMEWORK_IMAGE_PROCESS] saveCurrentPage 全局错误:', globalSaveError)
@@ -995,8 +997,15 @@ const autoRecordMistakes = async () => {
   }
 }
 
+const isSwitching = ref(false)
+
 // QuestionList 左侧点击“开始作答”时触发，将题目发送到右侧白板
 const handleStartAnswer = async (question: ExerciseItem) => {
+  if (isSwitching.value) {
+    console.warn('[HOMEWORK_SWITCH] 正在保存和切换题目中，忽略重复点击')
+    return
+  }
+
   const questionKey = getQuestionKey(question)
   const oldQuestion = currentAnswerQuestion.value
   const oldQuestionKey = getQuestionKey(oldQuestion)
@@ -1005,34 +1014,37 @@ const handleStartAnswer = async (question: ExerciseItem) => {
     return
   }
 
-  // 1. 同步保存上一题数据
-  if (oldQuestion && oldQuestionKey !== questionKey) {
-    try {
-      const savePromise = saveCurrentPage(oldQuestion)
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Save timeout')), 5000),
-      )
-      await Promise.race([savePromise, timeoutPromise])
+  try {
+    isSwitching.value = true
 
-      // 切换题目时，自动持久化当前作答数据到本地数据库
-      const homeworkId = route.params.homeworkId as string
-      if (homeworkId) {
-        activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
-        await activeSavePromise
+    // 1. 同步保存上一题数据
+    if (oldQuestion && oldQuestionKey !== questionKey) {
+      try {
+        const savePromise = saveCurrentPage(oldQuestion)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Save timeout')), 5000),
+        )
+        await Promise.race([savePromise, timeoutPromise])
+
+        // 切换题目时，自动持久化当前作答数据到本地数据库
+        const homeworkId = route.params.homeworkId as string
+        if (homeworkId) {
+          activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+          await activeSavePromise
+        }
+      } catch (saveError: unknown) {
+        const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
+        console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${errMsg}`)
       }
-    } catch (saveError: unknown) {
-      const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
-      console.warn(`[HOMEWORK_IMAGE_PROCESS] 保存上一题数据超时或失败: ${errMsg}`)
     }
-  }
-  // 2. 立即更新 UI 状态
-  currentAnswerQuestion.value = question
-  previousQuestionKey.value = questionKey
+    // 2. 立即更新 UI 状态
+    currentAnswerQuestion.value = question
+    previousQuestionKey.value = questionKey
 
-  const idx = externalQuestions.value.findIndex((q) => getQuestionKey(q) === questionKey)
-  if (idx !== -1) {
-    currentQuestionIndex.value = idx
-  }
+    const idx = externalQuestions.value.findIndex((q) => getQuestionKey(q) === questionKey)
+    if (idx !== -1) {
+      currentQuestionIndex.value = idx
+    }
 
   const cleanedRaw = formatExerciseToMarkdown(question)
   questionHtml.value = renderMessageContent(cleanedRaw)
@@ -1064,6 +1076,11 @@ const handleStartAnswer = async (question: ExerciseItem) => {
       el.scrollTop = 0
     })
   })
+  } catch (err) {
+    console.error('[HOMEWORK_SWITCH] 切换题目出错:', err)
+  } finally {
+    isSwitching.value = false
+  }
 }
 
 /** 错题本添加状态：'yes' 或 'no' */
@@ -1424,14 +1441,12 @@ const handleBoardUpload = async () => {
 const isInitialized = ref(false)
 let activeSavePromise: Promise<any> = Promise.resolve()
 
-// 自动持久化保存机制：防抖 2 秒，避免频繁写入 IndexedDB
+// 自动持久化保存机制：防抖 2 秒，仅静默保存内存状态到 IndexedDB，不触发昂贵的图片导出
 const autoSaveSubmission = debounce(async () => {
   const homeworkId = route.params.homeworkId as string
   if (homeworkId && !isHomeworkSubmitted.value) {
     try {
-      // 1. 同步当前题目的画板数据 (如果是主观题等)
-      await saveCurrentPage()
-      // 2. 持久化到 IndexedDB
+      // 仅持久化 Pinia 内存中的现有作答数据（已包含画板实时同步的矢量轨迹）
       activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
       await activeSavePromise
       console.log('[HOMEWORK_STORAGE] ✅ 自动保存成功')
@@ -1495,6 +1510,22 @@ onMounted(async () => {
   nextTick(() => {
     isInitialized.value = true
   })
+})
+
+onBeforeRouteLeave(async (to, from, next) => {
+  const homeworkId = route.params.homeworkId as string
+  try {
+    if (homeworkId) {
+      // 离开页面前强制执行一次完整的同步保存，确保最终状态和图片落盘
+      await saveCurrentPage()
+      activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
+      await activeSavePromise
+      console.log('[HOMEWORK_ROUTE_LEAVE] ✅ 离开路由保存数据成功')
+    }
+  } catch (err) {
+    console.error('[HOMEWORK_ROUTE_LEAVE] 离开路由保存出错:', err)
+  }
+  next()
 })
 
 onUnmounted(async () => {

@@ -2745,11 +2745,65 @@ async function insertImageFromDataUrl(dataUrl: string, pos?: { x: number; y: num
 }
 
 // --- 暴露给父组件的方法 ---
-const saveData = () => ({
-  objects: Array.isArray(strokes) ? strokes : [],
-  history: Array.isArray(history) ? history : [],
-  historyIndex: historyStep.value,
-})
+const saveData = () => {
+  // 强制提交正在进行中的操作，防止快速切题时未抬笔的数据丢失
+  if (inputState.visible) {
+    finishInput()
+  }
+  if (activeAction) {
+    if (activeAction.type === 'draw' && activeAction.stroke) {
+      if (!Array.isArray(strokes)) strokes = []
+      strokes.push(activeAction.stroke)
+      activeAction = null
+      saveState()
+      renderHistory()
+      renderLive()
+    } else if (activeAction.type === 'shape') {
+      const wp = activeAction.currentPos || activeAction.startPos
+      let x, y, width, height
+      if (activeAction.shapeType === 'line') {
+        x = activeAction.startPos.x
+        y = activeAction.startPos.y
+        width = wp.x - x
+        height = wp.y - y
+      } else {
+        x = Math.min(activeAction.startPos.x, wp.x)
+        y = Math.min(activeAction.startPos.y, wp.y)
+        width = Math.abs(wp.x - activeAction.startPos.x)
+        height = Math.abs(wp.y - activeAction.startPos.y)
+      }
+      if (Math.abs(width) > 2 || Math.abs(height) > 2) {
+        const shape = {
+          type: activeAction.shapeType,
+          x,
+          y,
+          width,
+          height,
+          color: currentColor.value,
+          size: currentSize.value,
+          opacity: currentOpacity.value,
+          bounds: {
+            minX: Math.min(x, x + width),
+            maxX: Math.max(x, x + width),
+            minY: Math.min(y, y + height),
+            maxY: Math.max(y, y + height),
+          },
+        }
+        if (!Array.isArray(strokes)) strokes = []
+        strokes.push(shape)
+        activeAction = null
+        saveState()
+        renderHistory()
+        renderLive()
+      }
+    }
+  }
+  return {
+    objects: Array.isArray(strokes) ? strokes : [],
+    history: Array.isArray(history) ? history : [],
+    historyIndex: historyStep.value,
+  }
+}
 const loadData = (data) => {
   // 关键：清除可能正在运行的自动保存定时器，防止加载数据前被空数据覆盖
   if (autoSaveTimer) {

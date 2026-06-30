@@ -28,7 +28,7 @@
             answered: isSubAnswered(sub)
           }"
           type="button"
-          @click="activeSubIdx = sIdx"
+          @click="handleTabClick(sIdx)"
         >
           <span>{{ sIdx + 1 }}</span>
           <span class="status-dot" v-if="isSubAnswered(sub)"></span>
@@ -183,6 +183,12 @@ const emit = defineEmits(['update:modelValue', 'change'])
 const activeSubIdx = ref(0)
 const localLayoutMode = ref<'tab' | 'list'>(props.layoutMode)
 
+const handleTabClick = (sIdx: number) => {
+  if (activeSubIdx.value === sIdx) return
+  forceSave()
+  activeSubIdx.value = sIdx
+}
+
 watch(() => props.layoutMode, (newVal) => {
   localLayoutMode.value = newVal
 })
@@ -215,9 +221,19 @@ const isSubAnswered = (sub: any): boolean => {
 
 const { renderMessageContent } = useMessageRenderer()
 
+const localModelValue = ref<Record<string, any>>({})
+
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    localModelValue.value = newVal ? { ...newVal } : {}
+  },
+  { immediate: true, deep: true }
+)
+
 const handleUpdate = (id: string, value: unknown) => {
-  const newValue = { ...props.modelValue, [id]: value }
-  emit('update:modelValue', newValue)
+  localModelValue.value[id] = value
+  emit('update:modelValue', { ...localModelValue.value })
 }
 
 const subjectiveQuestionRefsTab = ref<any>(null)
@@ -260,12 +276,10 @@ const forceSave = () => {
             activeSub.structuredContent.boardData = boardData
           }
           const boardImg = board?.exportToJpg?.(0.9)
-          if (boardImg && props.modelValue) {
-            const subVal = props.modelValue[activeSub.id] || {}
-            subVal.boardImg = boardImg
-            subVal.boardData = boardData
-            handleUpdate(activeSub.id, subVal)
-          }
+          const subVal = (props.modelValue && props.modelValue[activeSub.id]) || {}
+          subVal.boardImg = boardImg
+          subVal.boardData = boardData
+          handleUpdate(activeSub.id, subVal)
         }
       } else if (activeSub.type === 'fill_in_blank' || activeSub.structuredContent?.type === 'fill_in_blank') {
         const subComponent = subjectiveQuestionRefsTab.value
@@ -290,12 +304,10 @@ const forceSave = () => {
             sub.structuredContent.boardData = boardData
           }
           const boardImg = board?.exportToJpg?.(0.9)
-          if (boardImg && props.modelValue) {
-            const subVal = props.modelValue[sub.id] || {}
-            subVal.boardImg = boardImg
-            subVal.boardData = boardData
-            handleUpdate(sub.id, subVal)
-          }
+          const subVal = (props.modelValue && props.modelValue[sub.id]) || {}
+          subVal.boardImg = boardImg
+          subVal.boardData = boardData
+          handleUpdate(sub.id, subVal)
         }
       } else if (sub.type === 'fill_in_blank' || sub.structuredContent?.type === 'fill_in_blank') {
         const subRefs = subjectiveQuestionRefsListMap[sub.id]

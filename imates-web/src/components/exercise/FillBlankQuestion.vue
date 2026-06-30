@@ -248,7 +248,7 @@ const forceSave = () => {
       mixedInputAreaRef.value.forceSave?.()
     }
   } else {
-    fallbackInputRefs.value.forEach(ref => {
+    fallbackInputRefs.value.forEach((ref, idx) => {
       ref?.forceSave?.()
     })
   }
