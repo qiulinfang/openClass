@@ -130,6 +130,15 @@
                           size="sm"
                           dot
                         />
+
+                        <!-- 调试模式下展示教材元信息 -->
+                        <div v-if="isDev" class="textbook-dev-metadata">
+                          <div>ID: {{ textbook.textbookId || textbook.id }}</div>
+                          <div>学科: {{ textbook.textbookSubjectLabel || '无' }}</div>
+                          <div>年级: {{ textbook.textbookGradeLabel || '无' }}</div>
+                          <div>学期: {{ textbook.textbookSemesterLabel || '无' }}</div>
+                          <div>ISBN: {{ textbook.textbookIsbn || '无' }}</div>
+                        </div>
                       </div>
                       <!-- 右侧：操作按钮或进度条 -->
                       <div class="textbook-actions">
@@ -1755,6 +1764,22 @@ onUnmounted(() => {
             &.status-indicator-red {
               background: rgba(239, 68, 68, 0.16);
             }
+          }
+
+          .textbook-dev-metadata {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px dashed #d1d5db;
           }
         }
 
