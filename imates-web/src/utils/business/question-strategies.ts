@@ -24,8 +24,9 @@ export interface QuestionStrategy {
    * @param val 用户作答值
    * @param questionIndex 题目在列表中的索引值
    * @param buildSubAnswer 辅助递归函数，供复合题使用
+   * @param question 原始题目对象，用于获取题目结构元信息（如填空题空数）
    */
-  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: (subQ: any, subIndex: number, parentVal?: any) => any): any
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: (subQ: any, subIndex: number, parentVal?: any) => any, question?: any): any
 
   /**
    * 构建错题本所需要的特定作答结构对象
@@ -53,7 +54,7 @@ class ChoiceStrategy implements QuestionStrategy {
     return val.every((c) => standardChoices.includes(c))
   }
 
-  formatForSubmit(val: any) {
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: any, question?: any) {
     return Array.isArray(val) ? val.map(String) : []
   }
 
@@ -65,24 +66,25 @@ class ChoiceStrategy implements QuestionStrategy {
 // 2. 判断题策略
 class JudgmentStrategy implements QuestionStrategy {
   getDefaultAnswer() {
-    return ''
+    return []
   }
 
   isEmpty(val: any): boolean {
-    return val === undefined || val === null || val === ''
+    return !Array.isArray(val) || val.length === 0
   }
 
   checkCorrect(val: any, standardAnswer: any): boolean {
-    if (val === undefined || val === null || val === '') return false
-    return String(standardAnswer) === String(val)
+    if (!val || !Array.isArray(val) || val.length === 0) return false
+    return String(standardAnswer) === String(val[0])
   }
 
-  formatForSubmit(val: any) {
-    return val !== undefined && val !== null && val !== '' ? String(val) : ''
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: any, question?: any) {
+    return Array.isArray(val) ? val.map(String) : []
   }
 
   buildOriginalAnswer(val: any) {
-    return { judgmentValue: val || '' }
+    const rawVal = Array.isArray(val) && val.length > 0 ? val[0] : ''
+    return { judgmentValue: rawVal }
   }
 }
 
@@ -114,17 +116,37 @@ class FillBlankStrategy implements QuestionStrategy {
     return false // 填空题非客观自动判定
   }
 
-  formatForSubmit(val: any) {
-    if (!Array.isArray(val)) return []
-    return val.map((item: any) => {
-      if (typeof item === 'object' && item !== null) {
-        if (item.type === 'photo') {
-          return item.photoUrl || ''
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: any, question?: any) {
+    if (this.isEmpty(val)) {
+      return []
+    }
+    const blanks = question?.structuredContent?.blanks
+    const blankCount = Array.isArray(blanks) ? blanks.length : (typeof blanks === 'number' ? blanks : 0)
+    const resultList = Array.from({ length: blankCount }, () => '')
+
+    if (Array.isArray(val)) {
+      val.forEach((item: any, idx: number) => {
+        if (idx >= blankCount) return
+        if (typeof item === 'object' && item !== null) {
+          const isPhoto = item.type === 'photo'
+          const boardData = item.boardData || item
+          const hasObjects = Array.isArray(boardData?.objects) && boardData.objects.length > 0
+          const hasPhoto = !!item.photoUrl
+          
+          if (isPhoto && hasPhoto) {
+            resultList[idx] = item.photoUrl || ''
+          } else if (!isPhoto && (hasObjects || hasPhoto)) {
+            resultList[idx] = item.boardImg || ''
+          } else {
+            // 没有笔迹或图片，属于未作答，填充空字符串
+            resultList[idx] = ''
+          }
+        } else if (typeof item === 'string') {
+          resultList[idx] = item.trim()
         }
-        return item.boardImg || ''
-      }
-      return ''
-    })
+      })
+    }
+    return resultList
   }
 
   buildOriginalAnswer(val: any) {
@@ -162,7 +184,10 @@ class SubjectiveStrategy implements QuestionStrategy {
     return false // 主观题非自动判定
   }
 
-  formatForSubmit(val: any) {
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: any, question?: any) {
+    if (this.isEmpty(val)) {
+      return ''
+    }
     if (typeof val === 'object' && val !== null) {
       if (val.type === 'photo') {
         return val.photoUrl || ''
@@ -198,7 +223,7 @@ class CompositeStrategy implements QuestionStrategy {
     return false // 复合题非整题客观自动判定
   }
 
-  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: (subQ: any, subIndex: number, parentVal?: any) => any) {
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: (subQ: any, subIndex: number, parentVal?: any) => any, question?: any) {
     const nestedAnswers: any[] = []
     if (buildSubAnswer) {
       // 实际逻辑在 buildAnswerForQuestion 中通过回调实现
@@ -233,7 +258,7 @@ class DefaultStrategy implements QuestionStrategy {
   checkCorrect() {
     return false
   }
-  formatForSubmit() {
+  formatForSubmit(val: any, questionIndex: number, buildSubAnswer?: any, question?: any) {
     return null
   }
   buildOriginalAnswer() {

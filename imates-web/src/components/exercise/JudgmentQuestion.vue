@@ -12,14 +12,14 @@
         :class="{ 
           'correct-type': index === 0,
           'wrong-type': index === 1,
-          active: modelValue === opt.id, 
-          'is-correct': modelValue === opt.id && disabled && isCorrect(opt.id),
-          'is-wrong': modelValue === opt.id && disabled && !isCorrect(opt.id)
+          active: Array.isArray(modelValue) ? modelValue.includes(opt.id) : modelValue === opt.id, 
+          'is-correct': (Array.isArray(modelValue) ? modelValue.includes(opt.id) : modelValue === opt.id) && disabled && isCorrect(opt.id),
+          'is-wrong': (Array.isArray(modelValue) ? modelValue.includes(opt.id) : modelValue === opt.id) && disabled && !isCorrect(opt.id)
         }"
         @click="handleSelect(opt.id)"
       >
         <span class="label" v-html="renderMessageContent(opt.content)"></span>
-        <div class="status-icon" v-if="disabled && modelValue === opt.id">
+        <div class="status-icon" v-if="disabled && (Array.isArray(modelValue) ? modelValue.includes(opt.id) : modelValue === opt.id)">
           <q-icon v-if="isCorrect(opt.id)" name="check_circle" color="green" size="20px" />
           <q-icon v-else name="cancel" color="red" size="20px" />
         </div>
@@ -45,7 +45,7 @@ import QuestionAnalysis from './QuestionAnalysis.vue'
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
-  modelValue?: string | boolean
+  modelValue?: string | boolean | any[]
   showTitle?: boolean
   showId?: boolean
   showAnalysis?: boolean
@@ -87,8 +87,9 @@ const isCorrect = (val: string | boolean) => {
 
 const handleSelect = (val: string) => {
   if (props.disabled) return
-  emit('update:modelValue', val)
-  emit('change', val)
+  const newValue = [val]
+  emit('update:modelValue', newValue)
+  emit('change', newValue)
 }
 </script>
 

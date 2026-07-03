@@ -34,14 +34,10 @@ function buildAnswerForQuestion(
     }
     answers = nestedAnswers
   } else {
-    answers = getQuestionStrategy(type).formatForSubmit(userAnswer, questionIndex)
+    answers = getQuestionStrategy(type).formatForSubmit(userAnswer, questionIndex, undefined, question)
   }
 
   const currentImages = imageBuckets.get(questionIndex) || []
-  const hasImages = currentImages.length > 0
-  const hasContent = !getQuestionStrategy(type).isEmpty(userAnswer)
-
-  if (!hasImages && !hasContent) return null
 
   return {
     questionId: question.id || question.bmNo || '',
