@@ -46,7 +46,7 @@
 
       <!-- 加载状态提示 -->
       <div v-if="loading || isRendering" class="loading-overlay">
-        <Loading text="正在加载..." :size="48" theme="light" />
+        <Loading :text="loadingProgressText" :size="48" theme="light" />
       </div>
 
       <div v-if="readingDirection === 'horizontal'" class="horizontal-nav">
@@ -280,6 +280,7 @@ const containerStyle = computed(() => {
     transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
   }
 })
+const loadingProgressText = computed(() => '正在加载...')
 const isHorizontalFirstPage = computed(() => readingDirection.value === 'horizontal' && horizontalPageIndex.value <= 0)
 const isHorizontalLastPage = computed(
   () => readingDirection.value === 'horizontal' && horizontalPageIndex.value >= Math.max(0, pageCount.value - 1)
@@ -1154,34 +1155,67 @@ const loadFile = async (file: File) => {
   fileName.value = file.name
 
   try {
-    // 1. 先加载持久化数据（笔迹和视图状态）
-    await loadDataFromDb(file)
+    // 1. 加载数据库中的笔迹，带 3 秒超时保护
+    const dbTimeout = new Promise<void>((_, reject) => 
+      setTimeout(() => reject(new Error('IndexedDB query timeout')), 3000)
+    )
+    try {
+      await Promise.race([loadDataFromDb(file), dbTimeout])
+    } catch (dbErr) {
+      console.error('[PdfPage] IndexedDB 笔迹加载超时或出错，跳过笔迹并继续:', dbErr)
+    }
 
-    const arrayBuffer = await file.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
+    // 2. 读取文件 arrayBuffer
+    const fileReadTimeout = new Promise<Uint8Array>((_, reject) =>
+      setTimeout(() => reject(new Error('File read timeout')), 5000)
+    )
+    let uint8Array: Uint8Array
+    try {
+      const arrayBufferPromise = (async () => {
+        const buf = await file.arrayBuffer()
+        return new Uint8Array(buf)
+      })()
+      uint8Array = await Promise.race([arrayBufferPromise, fileReadTimeout])
+    } catch (readErr) {
+      console.error('[PdfPage] 读取二进制流失败:', readErr)
+      throw readErr
+    }
 
-    // 使用 MuPDF 打开 PDF 文档（比 pdfjs 更适合 Android WebView / file:// 环境）
-    const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
-    pdfDoc.value = doc
-    pageCount.value = doc.countPages()
+    // 3. 使用 MuPDF 打开 PDF 文档
+    let doc: mupdf.Document
+    try {
+      doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
+      pdfDoc.value = doc
+      pageCount.value = doc.countPages()
+    } catch (mupdfErr) {
+      console.error('[PdfPage] WASM MuPDF 初始化失败:', mupdfErr)
+      throw mupdfErr
+    }
 
-    // 删除 PDF 内嵌 Ink 注释并刻蚀保存回资源存储（不落地到 strokes/IndexedDB）
-    await clearAndBurnMupdfInkAnnotations(doc)
+    // 4. 清理内嵌注释
+    const burnTimeout = new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error('clearAndBurnMupdfInkAnnotations timeout')), 5000)
+    )
+    try {
+      await Promise.race([clearAndBurnMupdfInkAnnotations(doc), burnTimeout])
+    } catch (burnErr) {
+      console.error('[PdfPage] 刻蚀/清除内嵌 Ink 注释超时或出错:', burnErr)
+    }
 
-    // 2. 预取尺寸
+    // 5. 预取尺寸
     await prefetchDimensionsAndLayout(doc)
 
-    // 3. 尝试渲染
+    // 6. 准备开始生成 Canvas 渲染
     tryRenderContent()
 
-    // 4. 如果没有保存的视图状态，才居中；否则保持恢复的位置并进行边界修正
+    // 7. 居中
     if (offset.value.x === 0 && offset.value.y === 0 && scale.value === 1.0) {
       centerContent()
     } else {
-      clampOffset() // 确保恢复的位置合法
+      clampOffset()
     }
   } catch (err) {
-    console.error('[PdfPage] PDF Load Error:', err)
+    console.error('[PdfPage] PDF 核心加载流程发生严重错误:', err)
   } finally {
     loading.value = false
   }
@@ -1204,7 +1238,7 @@ const loadDataFromDb = async (file: File) => {
         rebuildSpatialIndex()
       }
       // 不再恢复视图状态（滚动、缩放），每次加载使用默认
-      console.log('已恢复持久化笔迹:', data.strokes.length, '条笔迹')
+      // 已恢复持久化笔迹
     }
   } catch (e) {
     console.error('加载持久化数据失败:', e)
@@ -1220,9 +1254,7 @@ const saveDataToDb = async () => {
       strokes: toRaw(allStrokes.value),
       updatedAt: Date.now(),
     }
-    console.log('保存数据到数据库:', { key, strokesCount: data.strokes.length })
     await dbService.put('annotations', data)
-    console.log('数据保存成功:', key)
   } catch (e) {
     console.error('保存数据失败:', e)
   }
@@ -1329,70 +1361,108 @@ const tryRenderContent = async () => {
 
 const renderPdfPages = async () => {
   const rawDoc = toRaw(pdfDoc.value)
-  if (!rawDoc) return
+  if (!rawDoc) {
+    return
+  }
 
   const generation = ++renderGeneration
-
   isRendering.value = true
+
+  const totalStartTime = performance.now()
+  const totalPages = pageList.value.length
 
   try {
     const baseDpr = window.devicePixelRatio || 1
+    const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
 
     // 根据文件大小/页数决定是否降级渲染（避免 WebView 崩溃）
     const shouldUseLowRenderMode = (() => {
-      const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
       return fileSizeMB > 3
     })()
 
-    const renderDpr = shouldUseLowRenderMode ? 1 : Math.min(baseDpr * 2, 3)
-
-    renderDprRef.value = renderDpr
-    console.log('[PdfPage] renderDpr:', renderDpr, 'sizeMB:', (props.file?.size || 0) / 1024 / 1024, 'pages:', pageList.value.length, 'lowMode:', shouldUseLowRenderMode)
+    // 基础 DPR 策略优化：
+    // 在高性能/高 DPR 屏幕上，为了避免 Canvas 显存溢出，我们限制大图或 PPT (横版) 的最大 DPR 不超过 1.5。
+    // A4 竖屏 PDF 限制最大为 2.0，低性能模式/大文件强制使用 1.0。
+    const getRenderDprForPage = (cssW: number, cssH: number) => {
+      if (shouldUseLowRenderMode) return 1
+      const isLandscape = cssW / cssH > 1.2 // 检测是否是横版 PPT 比例
+      if (isLandscape) {
+        return Math.min(baseDpr, 1.5) // 横版大图限制最高 1.5x DPR，极大减少显存开销
+      }
+      return Math.min(baseDpr, 2.0) // 竖屏大图限制最高 2.0x DPR
+    }
 
     const renderOnePage = async (pageIndex: number) => {
       const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
-      if (!pageLayout) return
+      if (!pageLayout) {
+        return
+      }
+
+      const cssW = pageLayout.viewWidth
+      const cssH = pageLayout.viewHeight
+      const renderDpr = getRenderDprForPage(cssW, cssH)
+      
+      // 更新 DPR Ref 以便 Ink 批注层绘制能够对齐当前页的实际精度
+      renderDprRef.value = renderDpr
+
       try {
-        if (generation !== renderGeneration || props.layoutSuspended) return
+        if (generation !== renderGeneration) {
+          return
+        }
+        if (props.layoutSuspended) {
+          return
+        }
 
         const canvas = pdfRefs.value[pageIndex]
         const inkCanvas = inkRefs.value[pageIndex]
-        if (!canvas || !inkCanvas) return
+        if (!canvas || !inkCanvas) {
+          return
+        }
 
-        const cssW = pageLayout.viewWidth
-        const cssH = pageLayout.viewHeight
+        const pixelW = Math.round(cssW * renderDpr)
+        const pixelH = Math.round(cssH * renderDpr)
 
-        canvas.width = cssW * renderDpr
-        canvas.height = cssH * renderDpr
+        canvas.width = pixelW
+        canvas.height = pixelH
         canvas.style.width = `${cssW}px`
         canvas.style.height = `${cssH}px`
 
-        inkCanvas.width = canvas.width
-        inkCanvas.height = canvas.height
+        inkCanvas.width = pixelW
+        inkCanvas.height = pixelH
         inkCanvas.style.width = canvas.style.width
         inkCanvas.style.height = canvas.style.height
 
         const ctx = canvas.getContext('2d')
-        if (!ctx) return
+        if (!ctx) {
+          console.error(`[PdfPage] [Page ${pageIndex}] 获取 Canvas 2D 上下文失败`)
+          return
+        }
 
         const page = rawDoc.loadPage(pageIndex)
+
         try {
           const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
+          
           // 第三个参数 alpha 设为 true，直接输出 RGBA 字节流
           const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, true, true)
-          try {
-            if (generation !== renderGeneration || props.layoutSuspended) return
 
-            const width = pixmap.getWidth()
-            const height = pixmap.getHeight()
-            
-            // 尝试使用 getPixels 获取字节流（部分版本中为 getPixels 而非 getSamples）
+          try {
+            if (generation !== renderGeneration || props.layoutSuspended) {
+              return
+            }
+
+            const pixmapW = pixmap.getWidth()
+            const pixmapH = pixmap.getHeight()
+
             const samples = pixmap.getPixels()
+
             const rgbaData = new Uint8ClampedArray(samples)
 
-            if (generation !== renderGeneration || props.layoutSuspended) return
+            if (generation !== renderGeneration || props.layoutSuspended) {
+              return
+            }
 
-            ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
+            ctx.putImageData(new ImageData(rgbaData, pixmapW, pixmapH), 0, 0)
           } finally {
             pixmap.destroy()
           }
@@ -1404,13 +1474,21 @@ const renderPdfPages = async () => {
         if (generation === renderGeneration && !props.layoutSuspended) {
           renderInkLayer(pageIndex)
         }
-      } catch (e) {
-        console.error('[PdfPage] render page failed:', { pageIndex, error: e })
+      } catch (e: any) {
+        console.error(`[PdfPage] [Page ${pageIndex}] 渲染发生异常!!!`, e)
       }
     }
 
-    const renderPromises = pageList.value.map((p) => renderOnePage(p.pageIndex))
-    await Promise.all(renderPromises)
+    // 性能优化核心：将并发的 Promise.all 渲染，改造为串行队列渲染
+    // 这样能确保 WebAssembly 在任何时间点仅处理一个大页面的 Pixmap 解写，极大减轻 WebView 的内存峰值
+    for (let i = 0; i < totalPages; i++) {
+      if (generation !== renderGeneration) {
+        break
+      }
+      await renderOnePage(pageList.value[i].pageIndex)
+    }
+  } catch (err: any) {
+    console.error('[PdfPage] ===== 渲染流程总控制发生错误 =====', err)
   } finally {
     if (generation === renderGeneration) {
       isRendering.value = false

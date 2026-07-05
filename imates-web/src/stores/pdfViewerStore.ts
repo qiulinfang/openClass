@@ -66,12 +66,11 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   }
   
   // 设置当前文件信息
-  // 保存文件ID和资源ID
+  // 保存文件ID and 资源ID
   const setCurrentFileInfo = (fileId: string, resourceId: string) => {
     currentFileId.value = fileId
     currentResourceId.value = resourceId
-  }
-  
+  }  
   // 设置选中的工具
   const setSelectedTool = (tool: string | null) => {
     selectedTool.value = tool ?? ''
