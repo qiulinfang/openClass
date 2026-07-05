@@ -18,6 +18,7 @@
               'is-active': index === currentIndex,
               'is-answered': getQuestionStatus(question) === 'answered',
               'is-unanswered': getQuestionStatus(question) === 'unanswered',
+              'has-notes': hasNotes(question)
             }"
             @click="emit('select-question', question, index)"
           >
@@ -67,6 +68,26 @@ const emit = defineEmits<{
   'next-question': []
   'toggle-draft': []
 }>()
+
+// 检查是否有草稿/笔记数据
+const hasNotes = (question: ExerciseItem): boolean => {
+  const draftStr = question.structuredContent?.draftData
+  if (!draftStr) return false
+  
+  try {
+    const parsed = JSON.parse(draftStr)
+    if (parsed && Array.isArray(parsed.pages)) {
+      // 只要有一页里有墨水线条，即为有笔记
+      return parsed.pages.some((page: any) => Array.isArray(page) && page.length > 0)
+    }
+    if (parsed && Array.isArray(parsed.strokePaths)) {
+      return parsed.strokePaths.length > 0
+    }
+  } catch (e) {
+    return !!draftStr
+  }
+  return false
+}
 
 // 获取题目唯一标识
 const getQuestionKey = (question: ExerciseItem): string => {
@@ -292,9 +313,33 @@ const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' =>
   }
 
   &.is-answered {
-    background: #f7f6ff;
-    border-color: #B3A7FF;
-    color: rgba(110, 85, 255, 0.5);
+    background: #b3a7ff;
+    border-color: #b3a7ff;
+    color: #ffffff;
+
+    &:hover {
+      background: #8c78ff;
+      border-color: #8c78ff;
+      color: #ffffff;
+    }
+  }
+
+  &.has-notes {
+    background: #fff9e6;
+    border-color: #ffc069;
+    color: #fa8c16;
+
+    &:hover {
+      border-color: #fa8c16;
+      color: #fa8c16;
+    }
+
+    &.is-answered {
+      background: #b3a7ff;
+      border-color: #fa8c16;
+      border-width: 2px;
+      color: #ffffff;
+    }
   }
 
   &.is-active {
@@ -303,6 +348,7 @@ const getQuestionStatus = (question: ExerciseItem): 'answered' | 'unanswered' =>
     color: #ffffff !important;
   }
 }
+
 
 .header-right {
   display: flex;

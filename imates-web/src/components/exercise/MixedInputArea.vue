@@ -190,6 +190,8 @@ const canUndo = ref(false)
 const canRedo = ref(false)
 const currentTool = ref('draw')
 const addedHeight = ref(0)
+const cachedBoardImg = ref<string | undefined>(undefined)
+let exportDebounceTimer: number | null = null
 
 const boardHeight = computed(() => {
   const base = props.questionType === 'subjective' ? 400 : 220
@@ -286,10 +288,7 @@ const handleFocus = () => {
 
 const handleBlur = () => {
   if (isFocused.value) {
-    if (drawingBoardRef.value) {
-      const boardData = drawingBoardRef.value.saveData()
-      handleBoardSave(boardData)
-    }
+    forceSave()
     isFocused.value = false
     emit('blur')
     currentTool.value = '' // 失去焦点，清除当前选中工具状态高亮
@@ -332,6 +331,7 @@ const initFromValue = (val: StructuredAnswerItem | undefined) => {
   photoUrl.value = val?.photoUrl || ''
   originalPhotoUrl.value = val?.originalPhotoUrl || ''
   addedHeight.value = val?.boardHeight || 0
+  cachedBoardImg.value = val?.boardImg || undefined
 }
 
 onMounted(() => {
@@ -363,6 +363,11 @@ watch(
       addedHeight.value = incomingHeight
     }
 
+    const incomingBoardImg = newVal?.boardImg || undefined
+    if (cachedBoardImg.value !== incomingBoardImg) {
+      cachedBoardImg.value = incomingBoardImg
+    }
+
     if (drawingBoardRef.value) {
       const data = newVal?.boardData
       const currentData = drawingBoardRef.value.saveData()
@@ -379,19 +384,47 @@ watch(
   { deep: true },
 )
 
+// 防抖生成并更新导出的 JPG 图片
+const debounceExportImage = (boardData: any) => {
+  if (exportDebounceTimer) {
+    clearTimeout(exportDebounceTimer)
+  }
+  exportDebounceTimer = window.setTimeout(() => {
+    if (drawingBoardRef.value) {
+      const boardImg = drawingBoardRef.value.exportToJpg?.(0.9) || undefined
+      cachedBoardImg.value = boardImg
+      
+      const newValue: StructuredAnswerItem = {
+        type: 'board',
+        boardData,
+        boardImg,
+        photoUrl: photoUrl.value || undefined,
+        originalPhotoUrl: originalPhotoUrl.value || undefined,
+        boardHeight: addedHeight.value,
+      }
+      emit('update:modelValue', newValue)
+      emit('change', newValue)
+    }
+  }, 1000)
+}
+
 const handleBoardSave = (boardData: any) => {
   updateUndoRedoStates()
-  const boardImg = drawingBoardRef.value?.exportToJpg?.(0.9) || undefined
+  
+  // 1. 立即发射当前的矢量轨迹和已有底图缓存，保障笔迹流流畅、写字绝不卡顿
   const newValue: StructuredAnswerItem = {
     type: 'board',
     boardData,
-    boardImg,
+    boardImg: cachedBoardImg.value,
     photoUrl: photoUrl.value || undefined,
     originalPhotoUrl: originalPhotoUrl.value || undefined,
     boardHeight: addedHeight.value,
   }
   emit('update:modelValue', newValue)
   emit('change', newValue)
+
+  // 2. 防抖更新重度底图数据
+  debounceExportImage(boardData)
 }
 
 const handleCropConfirm = async (croppedDataUrl: string) => {
@@ -464,9 +497,23 @@ const confirmClear = () => {
 }
 
 const forceSave = () => {
+  if (exportDebounceTimer) {
+    clearTimeout(exportDebounceTimer)
+    exportDebounceTimer = null
+  }
   if (drawingBoardRef.value) {
     const boardData = drawingBoardRef.value.saveData()
-    handleBoardSave(boardData)
+    cachedBoardImg.value = drawingBoardRef.value.exportToJpg?.(0.9) || undefined
+    const newValue: StructuredAnswerItem = {
+      type: 'board',
+      boardData,
+      boardImg: cachedBoardImg.value,
+      photoUrl: photoUrl.value || undefined,
+      originalPhotoUrl: originalPhotoUrl.value || undefined,
+      boardHeight: addedHeight.value,
+    }
+    emit('update:modelValue', newValue)
+    emit('change', newValue)
   }
 }
 

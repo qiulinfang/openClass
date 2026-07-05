@@ -1,49 +1,51 @@
 <template>
-  <dialog ref="myDialog" id="myDialog" @click="handleBackdropClick">
-    <div class="dialog-inner-content">
-      <div class="dialog-header">
-        <span class="dialog-title">
-          {{ title }}
-        </span>
-        <button @click="closeDialog" class="dialog-close-top" aria-label="关闭">
-          <svg
-            class="icon-close"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+  <teleport to="body">
+    <dialog ref="myDialog" class="base-dialog-modal" @click="handleBackdropClick">
+      <div class="dialog-inner-content">
+        <div class="dialog-header">
+          <span class="dialog-title">
+            {{ title }}
+          </span>
+          <button @click="closeDialog" class="dialog-close-top" aria-label="关闭">
+            <svg
+              class="icon-close"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
 
-      <p class="dialog-content-text">
-        <slot> </slot>
-      </p>
+        <p class="dialog-content-text">
+          <slot> </slot>
+        </p>
 
-      <div class="dialog-actions">
-        <Button
-          v-if="showCancelButton"
-          :label="cancelButtonText"
-          size="mdCompact"
-          variant="ghost"
-          @click="emit('cancel')"
-        />
-        <Button
-          :label="confirmButtonText"
-          size="mdCompact"
-          variant="primary"
-          @click="emit('confirm')"
-        />
+        <div class="dialog-actions">
+          <Button
+            v-if="showCancelButton"
+            :label="cancelButtonText"
+            size="mdCompact"
+            variant="ghost"
+            @click="emit('cancel')"
+          />
+          <Button
+            :label="confirmButtonText"
+            size="mdCompact"
+            variant="primary"
+            @click="emit('confirm')"
+          />
+        </div>
       </div>
-    </div>
-  </dialog>
+    </dialog>
+  </teleport>
 </template>
 
 <script setup>
@@ -132,7 +134,7 @@ defineExpose({
 /* 1. 对话框基础和动画样式 */
 /* ---------------------------------- */
 /* <dialog> 自身的样式 */
-#myDialog {
+.base-dialog-modal {
   border: none;
   border-radius: 1rem;
   padding: 0;
@@ -144,7 +146,7 @@ defineExpose({
 }
 
 /* 样式化 backdrop */
-#myDialog::backdrop {
+.base-dialog-modal::backdrop {
   /* 黑色半透明遮罩层，不进行模糊处理 */
   background-color: rgba(0, 0, 0, 0.6);
   animation: backdropFadeIn 0.3s ease-out;
@@ -171,7 +173,7 @@ defineExpose({
 }
 
 /* 隐藏未打开的对话框 */
-#myDialog:not([open]) {
+.base-dialog-modal:not([open]) {
   display: none;
 }
 

@@ -87,10 +87,7 @@
                 :class="{ 'is-submitted': isHomeworkSubmitted }"
               >
                 <!-- 题目区域（可收缩） -->
-                <div
-                  class="question-image-section"
-                  :class="{ collapsed: isQuestionImageCollapsed }"
-                >
+                <div class="question-image-section">
                   <div class="question-image-content">
                     <!-- 交互式组件 (仅限 选择、判断、填空 和 主观题) -->
                     <div
@@ -178,14 +175,7 @@
                   </div>
                 </div>
 
-                <!-- 收缩切换按钮 -->
-                <div
-                  class="collapse-toggle-btn"
-                  v-if="currentAnswerQuestion && isHomeworkLocked"
-                  @click="toggleQuestionImage"
-                >
-                  <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
-                </div>
+
 
                 <!-- 下方区域：提交后显示答案解析 -->
                 <div
@@ -253,6 +243,30 @@
             </div>
           </template>
         </SplitPanel>
+
+        <!-- 左悬浮切题按钮 -->
+        <button
+          class="body-nav-btn prev-btn"
+          :disabled="currentQuestionIndex <= 0"
+          title="上一题"
+          @click="handlePrevQuestion"
+        >
+          <svg class="arrow-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 19L8 12L15 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- 右悬浮切题按钮 -->
+        <button
+          class="body-nav-btn next-btn"
+          :disabled="currentQuestionIndex >= externalQuestions.length - 1"
+          title="下一题"
+          @click="handleNextQuestion"
+        >
+          <svg class="arrow-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 5L16 12L9 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -641,13 +655,6 @@ const questionHtml = ref('')
 // 提交按钮的 loading 状态
 const isSubmitting = ref(false)
 
-// 题目区域是否收起
-const isQuestionImageCollapsed = ref(false)
-
-// 切换题目区域展开/收起
-const toggleQuestionImage = () => {
-  isQuestionImageCollapsed.value = !isQuestionImageCollapsed.value
-}
 
 // 展示用标题：优先显示作业名称，缺省时回退到原有 title
 const displayTitle = computed(() => {
@@ -1577,17 +1584,43 @@ onUnmounted(async () => {
   transition: opacity 0.5s ease-in-out;
 }
 
-/* 背景层 */
+/* 背景层 - 采用伪元素圆角背景方案，既保留原有的渐变视觉效果，又避免 WebView 顶层 clipping 产生黑角 */
 .panel-bg1 {
   height: 100%;
-  background: linear-gradient(to right, #0f002e 4%, #ffffff 6%);
+  background: #ffffff;
   width: 100%;
+  position: relative;
+}
+.panel-bg1::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, #0f002e 4%, #ffffff 6%);
+  border-top-left-radius: 20px;
+  border-bottom-left-radius: 20px;
+  pointer-events: none;
 }
 
 .panel-bg2 {
   height: 100%;
-  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%);
+  background: #ffffff;
   width: 100%;
+  position: relative;
+}
+.panel-bg2::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%);
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+  pointer-events: none;
 }
 
 .panel-bg {
@@ -1715,23 +1748,7 @@ onUnmounted(async () => {
   background: #ffffff;
 }
 
-.collapse-toggle-btn {
-  position: relative;
-  top: -1px;
-  height: auto;
-  width: auto;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-}
 
-.collapse-toggle-svg {
-  width: 54px;
-  height: auto;
-}
 
 .question-render-hidden {
   position: fixed;
@@ -1766,13 +1783,7 @@ onUnmounted(async () => {
   min-height: 0;
 }
 
-.question-image-section.collapsed + .collapse-toggle-btn + .solve-body {
-  flex: 10 0 0;
-}
 
-.question-image-section.collapsed .collapse-toggle-svg {
-  transform: rotate(180deg);
-}
 
 .drawing-board-wrapper {
   flex: 1;
@@ -2045,5 +2056,54 @@ onUnmounted(async () => {
     margin-left: 0;
     list-style-position: inside;
   }
+}
+
+.body-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(110, 85, 255, 0.15);
+  background: rgba(255, 255, 255, 0.9);
+  color: #6e55ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(110, 85, 255, 0.12);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(4px);
+
+  &:hover:not(:disabled) {
+    background: #6e55ff;
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(110, 85, 255, 0.25);
+    transform: translateY(-50%) scale(1.08);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(-50%) scale(0.95);
+  }
+
+  &.prev-btn {
+    left: 16px;
+  }
+
+  &.next-btn {
+    right: 16px;
+  }
+
+  &:disabled {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%) scale(0.8);
+  }
+}
+
+.arrow-svg {
+  display: block;
 }
 </style>

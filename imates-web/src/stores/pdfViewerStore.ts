@@ -43,6 +43,18 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   
   // 当前资源ID
   const currentResourceId = ref<string | null>(null)
+
+  // 大纲目录数据
+  const pdfOutline = ref<any[]>([])
+
+  // 当前页码 (0-indexed)
+  const currentPage = ref(0)
+
+  // 总页数
+  const totalPages = ref(0)
+  
+  // 阅读方向 ('vertical' | 'horizontal')
+  const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
   
   // 设置缩放比例
   const setScale = (newScale: number) => {
@@ -70,7 +82,23 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   const setCurrentFileInfo = (fileId: string, resourceId: string) => {
     currentFileId.value = fileId
     currentResourceId.value = resourceId
-  }  
+  }
+
+  // 设置大纲目录
+  const setPdfOutline = (outline: any[]) => {
+    pdfOutline.value = outline
+  }
+
+  // 设置当前页码
+  const setCurrentPage = (page: number) => {
+    currentPage.value = page
+  }
+
+  // 设置总页数
+  const setTotalPages = (total: number) => {
+    totalPages.value = total
+  }
+  
   // 设置选中的工具
   const setSelectedTool = (tool: string | null) => {
     selectedTool.value = tool ?? ''
@@ -100,11 +128,18 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
     drawingConfig,
     currentFileId,
     currentResourceId,
+    pdfOutline,
+    currentPage,
+    totalPages,
+    readingDirection,
     setScale,
     setPageGap,
     toggleHideNotes,
     setHideNotes,
     setCurrentFileInfo,
+    setPdfOutline,
+    setCurrentPage,
+    setTotalPages,
     setSelectedTool,
     updateDrawingConfig,
     openChatPanel,

@@ -31,6 +31,7 @@
           :data-page-index="page.pageIndex"
           :style="{ width: page.viewWidth + 'px', height: page.viewHeight + 'px', left: page.x + 'px', top: page.y + 'px' }"
         >
+          <!-- 永久挂载 Canvas，杜绝 DOM 频繁增删与渲染微任务滞后导致的白屏频闪 -->
           <!-- PDF 内容层 -->
           <canvas :ref="(el) => setPdfCanvasRef(el, page.pageIndex)"></canvas>
           <!-- 涂鸦/形状层 -->
@@ -175,9 +176,77 @@ const renderDprRef = ref(1)
 // === 持久化服务 ===
 const dbService = IndexedDBService.getInstance({
   dbName: 'pdf-ink-db',
-  version: 1,
-  stores: [{ name: 'annotations', keyPath: 'docKey' }],
+  version: 2,
+  stores: [
+    { name: 'annotations', keyPath: 'docKey' },
+    { name: 'page_annotations', keyPath: 'pageKey' },
+  ],
 })
+
+// === LRU 缓存类实现 ===
+class SimpleLRUCache<K, V> {
+  private cache = new Map<K, V>()
+  private max: number
+
+  constructor(max = 12) {
+    this.max = max
+  }
+
+  get(key: K): V | undefined {
+    const item = this.cache.get(key)
+    if (item !== undefined) {
+      this.cache.delete(key)
+      this.cache.set(key, item)
+    }
+    return item
+  }
+
+  set(key: K, val: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key)
+    } else if (this.cache.size >= this.max) {
+      const oldestKey = this.cache.keys().next().value
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey)
+      }
+    }
+    this.cache.set(key, val)
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key)
+  }
+
+  clear() {
+    this.cache.clear()
+  }
+}
+
+interface PageCacheData {
+  rgbaData: Uint8ClampedArray
+  width: number
+  height: number
+}
+
+interface PageAnnotationsData {
+  pageKey: string
+  docKey: string
+  pageIndex: number
+  strokes: Stroke[]
+  updatedAt: number
+}
+
+// 缓存最近 18 页的高清像素数据，防范反复重画
+const pagePixelCache = new SimpleLRUCache<number, PageCacheData>(18)
+
+// 判断某页是否需要进入渲染窗口 (可视区及其缓冲范围)
+const shouldRenderPage = (pageIndex: number): boolean => {
+  if (readingDirection.value === 'horizontal') {
+    return Math.abs(pageIndex - horizontalPageIndex.value) <= 2
+  } else {
+    return Math.abs(pageIndex - pdfViewerStore.currentPage) <= 4
+  }
+}
 
 // === 状态管理 ===
 const pdfDoc = shallowRef<mupdf.Document | null>(null)
@@ -194,7 +263,10 @@ const contentSize = ref({ width: 0, height: 0 })
 let lastObservedViewportWidth = 0
 let lastObservedViewportHeight = 0
 
-const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
+const readingDirection = computed({
+  get: () => pdfViewerStore.readingDirection,
+  set: (val) => { pdfViewerStore.readingDirection = val }
+})
 const isDirectionChanging = ref(false)
 
 // 工具状态
@@ -244,6 +316,20 @@ const viewportRef = ref<HTMLDivElement | null>(null)
 const pdfRefs = ref<HTMLCanvasElement[]>([])
 const inkRefs = ref<HTMLCanvasElement[]>([])
 let resizeObserver: ResizeObserver | null = null
+const containerRef = ref<HTMLDivElement | null>(null)
+
+// 用户交互状态（拖动/缩放/滚轮滚动）
+const isInteracting = ref(false)
+let interactionTimer: any = null
+
+const clearInteractionTimeout = () => {
+  if (interactionTimer) clearTimeout(interactionTimer)
+  interactionTimer = setTimeout(() => {
+    interactionTimer = null
+    isInteracting.value = false
+  }, 150)
+}
+
 let pendingViewportResizeWhileSuspended = false
 let renderGeneration = 0
 
@@ -312,6 +398,81 @@ watch(
   }
 )
 
+// 页面滚动/翻页联动监听，同步更新当前可见页码给 Store
+watch(
+  [() => offset.value.y, () => scale.value, () => readingDirection.value, () => horizontalPageIndex.value],
+  () => {
+    if (pageList.value.length === 0) return
+    if (readingDirection.value === 'vertical') {
+      const idx = getCurrentVerticalPageIndex()
+      pdfViewerStore.setCurrentPage(idx)
+    } else {
+      pdfViewerStore.setCurrentPage(horizontalPageIndex.value)
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+// 监听当前激活页码变化，动态分配/回收视口内外 Canvas 的物理像素尺寸与渲染内容
+watch(
+  [() => pdfViewerStore.currentPage, () => horizontalPageIndex.value],
+  () => {
+    if (pageList.value.length === 0) return
+    
+    for (let i = 0; i < pageCount.value; i++) {
+      const inViewport = shouldRenderPage(i)
+      const pdfCanvas = pdfRefs.value[i]
+      const inkCanvas = inkRefs.value[i]
+      
+      if (inViewport) {
+        // 如果进入视口缓冲区且当前尚未分配像素（尺寸为 0）
+        if (pdfCanvas && pdfCanvas.width === 0) {
+          // 如果用户正在交互（滑动/缩放中），且该页面没有内存快照，则延迟渲染，防止卡顿
+          const hasCache = pagePixelCache.has(i)
+          if (isInteracting.value && !hasCache) {
+            continue
+          }
+          
+          renderPageCanvas(i)
+          ensurePageStrokesLoaded(i).then(() => {
+            renderInkLayer(i)
+          })
+        }
+      } else {
+        // 如果移出视口缓冲区，立刻将尺寸设为 0，彻底释放 GPU 显存，保持 DOM 节点留空
+        if (pdfCanvas && pdfCanvas.width > 0) {
+          pdfCanvas.width = 0
+          pdfCanvas.height = 0
+        }
+        if (inkCanvas && inkCanvas.width > 0) {
+          inkCanvas.width = 0
+          inkCanvas.height = 0
+        }
+      }
+    }
+  }
+)
+
+// 当用户停止滑动/缩放（交互结束）时，自动补画可视区内跳过的高清图像
+watch(isInteracting, (interacting) => {
+  if (!interacting) {
+    requestAnimationFrame(() => {
+      if (pageList.value.length === 0) return
+      for (let i = 0; i < pageCount.value; i++) {
+        if (shouldRenderPage(i)) {
+          const pdfCanvas = pdfRefs.value[i]
+          if (pdfCanvas && pdfCanvas.width === 0) {
+            renderPageCanvas(i)
+            ensurePageStrokesLoaded(i).then(() => {
+              renderInkLayer(i)
+            })
+          }
+        }
+      }
+    })
+  }
+})
+
 onMounted(() => {
   if (props.file) {
     loadFile(props.file)
@@ -324,12 +485,72 @@ onUnmounted(() => {
   if (resizeObserver) resizeObserver.disconnect()
 })
 
+const loadedPages = ref<Record<number, boolean>>({})
+
+const ensurePageStrokesLoaded = async (pageIndex: number) => {
+  if (loadedPages.value[pageIndex]) return
+  if (!props.file) return
+  
+  const key = getDocKey(props.file)
+  const pageKey = `${key}|${pageIndex}`
+  
+  try {
+    const data = await dbService.get<PageAnnotationsData>('page_annotations', pageKey)
+    if (data && data.strokes) {
+      const currentIds = new Set(allStrokes.value.map(s => s.id))
+      const newStrokes = data.strokes.filter(s => !currentIds.has(s.id))
+      
+      newStrokes.forEach((s) => {
+        if (s.minX == null) {
+          Object.assign(s, calculateBBox(s.points, s.width))
+        }
+        addToSpatialIndex(s)
+      })
+      allStrokes.value = [...allStrokes.value, ...newStrokes]
+    }
+  } catch (err) {
+    console.error(`[PdfPage] 加载第 ${pageIndex} 页笔迹失败:`, err)
+  } finally {
+    loadedPages.value[pageIndex] = true
+  }
+}
+
 const setPdfCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
-  pdfRefs.value[index] = el as HTMLCanvasElement
+  if (el) {
+    pdfRefs.value[index] = el as HTMLCanvasElement
+    if (shouldRenderPage(index)) {
+      // 1. 同步瞬间触发 PDF 页面像素渲染（如果缓存命中则为 0ms 瞬间呈画，杜绝异步微任务导致的空白帧与频闪）
+      renderPageCanvas(index)
+      // 2. 异步载入笔迹数据库，并在之后单独重绘涂鸦层
+      ensurePageStrokesLoaded(index).then(() => {
+        renderInkLayer(index)
+      })
+    } else {
+      // 视口外初始化为 0 尺寸，节约 GPU 显存
+      const canvas = el as HTMLCanvasElement
+      canvas.width = 0
+      canvas.height = 0
+    }
+  } else {
+    delete pdfRefs.value[index]
+    delete pageRenderedGeneration.value[index]
+  }
 }
 
 const setInkCanvasRef = (el: Element | ComponentPublicInstance | null, index: number) => {
-  inkRefs.value[index] = el as HTMLCanvasElement
+  if (el) {
+    inkRefs.value[index] = el as HTMLCanvasElement
+    if (shouldRenderPage(index)) {
+      renderInkLayer(index)
+    } else {
+      // 视口外初始化为 0 尺寸，节约 GPU 显存
+      const canvas = el as HTMLCanvasElement
+      canvas.width = 0
+      canvas.height = 0
+    }
+  } else {
+    delete inkRefs.value[index]
+  }
 }
 
 // 页面导航处理
@@ -360,6 +581,28 @@ const goToHorizontalPage = async (pageIndex: number) => {
 const goPrevPage = () => goToHorizontalPage(horizontalPageIndex.value - 1)
 // 处理下一页按钮点击
 const goNextPage = () => goToHorizontalPage(horizontalPageIndex.value + 1)
+
+// 跳转到指定页面 (大纲/滑块专用)
+const jumpToPage = async (pageIndex: number) => {
+  if (pageIndex < 0 || pageIndex >= pageCount.value) return
+
+  if (readingDirection.value === 'horizontal') {
+    goToHorizontalPage(pageIndex)
+  } else {
+    if (!viewportRef.value || pageList.value.length === 0) return
+    const rect = viewportRef.value.getBoundingClientRect()
+    const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
+    const targetPage = pageList.value.find((p) => p.pageIndex === pageIndex)
+    if (targetPage) {
+      // 保持当前缩放，并定位 Y 到目标页的顶部 (留20px内边距)
+      offset.value = {
+        x: (rect.width - maxW * scale.value) / 2,
+        y: 20 - targetPage.y * scale.value,
+      }
+      clampOffset()
+    }
+  }
+}
 
 
 
@@ -769,6 +1012,9 @@ const hitTestFreeform = (pageIndex: number, path: Point[]) => {
 */
 // 处理鼠标滚轮事件
 const handleWheel = (e: WheelEvent) => {
+  isInteracting.value = true
+  clearInteractionTimeout()
+
   if (e.ctrlKey || e.metaKey) {
     if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
       e.preventDefault()
@@ -850,6 +1096,8 @@ const handleViewportScroll = () => {
 // ==================== 指针按下事件 ====================
 // 处理指针按下事件（开始绘制/拖动）
 const onPointerDown = (e: PointerEvent) => {
+  isInteracting.value = true
+
   const shouldLockScrollForDrawInHorizontal =
     readingDirection.value === 'horizontal' &&
     (currentMode.value === 'pen' || currentMode.value === 'highlighter' || currentMode.value === 'eraser')
@@ -1039,6 +1287,7 @@ const onPointerUp = (e: PointerEvent) => {
   activePointers.delete(e.pointerId)
 
   if (activePointers.size === 0) {
+    isInteracting.value = false
     // 最后一个指针松开：需要在这里提交绘制/选区结果，否则只会停留在预览层，数据不会进入 allStrokes
     if (currentMode.value === 'select') {
       const pageIdx = dragStartPage.value
@@ -1110,8 +1359,10 @@ const undo = () => {
         ]
       : action.strokes.map((s) => s.pageIndex)
   )
-  pages.forEach((p) => renderInkLayer(p))
-  scheduleSaveToDb(400)
+  pages.forEach((p) => {
+    renderInkLayer(p)
+    scheduleSaveToDb(p, 400)
+  })
 }
 
 const redo = () => {
@@ -1144,25 +1395,101 @@ const redo = () => {
         ]
       : action.strokes.map((s) => s.pageIndex)
   )
-  pages.forEach((p) => renderInkLayer(p))
-  scheduleSaveToDb(400)
+  pages.forEach((p) => {
+    renderInkLayer(p)
+    scheduleSaveToDb(p, 400)
+  })
+}
+
+// 从 MuPDF 读取并结构化解析大纲目录
+const loadOutlineData = (doc: mupdf.Document) => {
+  try {
+    const rawOutline = doc.loadOutline()
+    if (!rawOutline) {
+      pdfViewerStore.setPdfOutline([])
+      return
+    }
+
+    const processItems = (items: any[]): any[] => {
+      return items.map((item) => {
+        let pageNum = item.page
+        if ((pageNum === undefined || pageNum === null) && item.uri) {
+          try {
+            pageNum = doc.resolveLink(item.uri)
+          } catch (e) {
+            // 解析 uri 跳转页码失败
+          }
+        }
+        return {
+          title: item.title || '未命名章节',
+          page: typeof pageNum === 'number' && pageNum >= 0 ? pageNum : null,
+          uri: item.uri,
+          open: !!item.open,
+          children: item.down ? processItems(item.down) : []
+        }
+      })
+    }
+
+    const processed = processItems(rawOutline)
+    pdfViewerStore.setPdfOutline(processed)
+  } catch (err) {
+    console.error('[PdfPage] 解析 PDF 大纲发生异常:', err)
+    pdfViewerStore.setPdfOutline([])
+  }
 }
 
 // 文件加载与持久化处理
+const migrateOldAnnotations = async (file: File) => {
+  try {
+    const docKey = getDocKey(file)
+    const oldData = await dbService.get<SavedData>('annotations', docKey)
+    if (oldData && oldData.strokes && oldData.strokes.length > 0) {
+      console.log(`[PdfPage] 发现老版本笔迹数据，开始迁移...`)
+      
+      const pageGroups: Record<number, Stroke[]> = {}
+      oldData.strokes.forEach((stroke) => {
+        const pageIdx = stroke.pageIndex
+        if (!pageGroups[pageIdx]) {
+          pageGroups[pageIdx] = []
+        }
+        pageGroups[pageIdx].push(stroke)
+      })
+      
+      for (const [pageIdxStr, strokes] of Object.entries(pageGroups)) {
+        const pageIdx = parseInt(pageIdxStr, 10)
+        const pageKey = `${docKey}|${pageIdx}`
+        const pageData: PageAnnotationsData = {
+          pageKey,
+          docKey,
+          pageIndex: pageIdx,
+          strokes,
+          updatedAt: Date.now()
+        }
+        await dbService.put('page_annotations', pageData)
+      }
+      
+      await dbService.delete('annotations', docKey)
+      console.log(`[PdfPage] 笔迹数据迁移完成！共迁移了 ${oldData.strokes.length} 条笔迹。`)
+    }
+  } catch (err) {
+    console.error('[PdfPage] 迁移老版本笔迹数据失败:', err)
+  }
+}
+
 const loadFile = async (file: File) => {
   loading.value = true
   resetState()
   fileName.value = file.name
 
   try {
-    // 1. 加载数据库中的笔迹，带 3 秒超时保护
+    // 1. 迁移老版本笔迹数据（带 3 秒超时保护）
     const dbTimeout = new Promise<void>((_, reject) => 
-      setTimeout(() => reject(new Error('IndexedDB query timeout')), 3000)
+      setTimeout(() => reject(new Error('IndexedDB migration timeout')), 3000)
     )
     try {
-      await Promise.race([loadDataFromDb(file), dbTimeout])
+      await Promise.race([migrateOldAnnotations(file), dbTimeout])
     } catch (dbErr) {
-      console.error('[PdfPage] IndexedDB 笔迹加载超时或出错，跳过笔迹并继续:', dbErr)
+      console.error('[PdfPage] 笔迹数据迁移出错或超时:', dbErr)
     }
 
     // 2. 读取文件 arrayBuffer
@@ -1187,6 +1514,26 @@ const loadFile = async (file: File) => {
       doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
       pdfDoc.value = doc
       pageCount.value = doc.countPages()
+      pdfViewerStore.setTotalPages(pageCount.value)
+      
+      // 检测首页宽高比以决定默认方向 (横屏 PPT 默认横向模式，普通竖屏书籍默认纵向模式)
+      if (pageCount.value > 0) {
+        const firstPage = doc.loadPage(0)
+        try {
+          const bounds = firstPage.getBounds()
+          const width = bounds[2] - bounds[0]
+          const height = bounds[3] - bounds[1]
+          if (width / height > 1.2) {
+            readingDirection.value = 'horizontal'
+          } else {
+            readingDirection.value = 'vertical'
+          }
+        } finally {
+          firstPage.destroy?.()
+        }
+      }
+      
+      loadOutlineData(doc)
     } catch (mupdfErr) {
       console.error('[PdfPage] WASM MuPDF 初始化失败:', mupdfErr)
       throw mupdfErr
@@ -1221,52 +1568,197 @@ const loadFile = async (file: File) => {
   }
 }
 
-
-// 从数据库加载持久化数据（笔迹等）
-const loadDataFromDb = async (file: File) => {
-  try {
-    const key = getDocKey(file)
-    const data = await dbService.get<SavedData>('annotations', key)
-    if (data) {
-      if (data.strokes) {
-        data.strokes.forEach((s) => {
-          if (s.minX == null) {
-            Object.assign(s, calculateBBox(s.points, s.width))
-          }
-        })
-        allStrokes.value = data.strokes
-        rebuildSpatialIndex()
-      }
-      // 不再恢复视图状态（滚动、缩放），每次加载使用默认
-      // 已恢复持久化笔迹
-    }
-  } catch (e) {
-    console.error('加载持久化数据失败:', e)
-  }
-}
-
-const saveDataToDb = async () => {
+const savePageDataToDb = async (pageIndex: number) => {
   if (!props.file) return
   try {
-    const key = getDocKey(props.file)
-    const data: SavedData = {
-      docKey: key,
-      strokes: toRaw(allStrokes.value),
-      updatedAt: Date.now(),
+    const docKey = getDocKey(props.file)
+    const pageKey = `${docKey}|${pageIndex}`
+    const pageStrokes = allStrokes.value.filter((s) => s.pageIndex === pageIndex)
+    
+    if (pageStrokes.length === 0) {
+      await dbService.delete('page_annotations', pageKey)
+    } else {
+      const data: PageAnnotationsData = {
+        pageKey,
+        docKey,
+        pageIndex,
+        strokes: toRaw(pageStrokes),
+        updatedAt: Date.now(),
+      }
+      await dbService.put('page_annotations', data)
     }
-    await dbService.put('annotations', data)
   } catch (e) {
-    console.error('保存数据失败:', e)
+    console.error(`[PdfPage] 保存第 ${pageIndex} 页数据失败:`, e)
   }
 }
 
+const pendingSavePages = new Set<number>()
 let dbSaveTimer: any = null
-const scheduleSaveToDb = (delay = 300) => {
+
+const scheduleSaveToDb = (pageIndexOrDelay: number, optionalDelay?: number) => {
+  let pageIdx = dragStartPage.value !== -1 ? dragStartPage.value : 0
+  let delay = 300
+  
+  if (optionalDelay !== undefined) {
+    pageIdx = pageIndexOrDelay
+    delay = optionalDelay
+  } else {
+    delay = pageIndexOrDelay
+  }
+  
+  if (pageIdx !== -1) {
+    pendingSavePages.add(pageIdx)
+  }
+  
   if (dbSaveTimer) clearTimeout(dbSaveTimer)
-  dbSaveTimer = setTimeout(() => {
+  dbSaveTimer = setTimeout(async () => {
     dbSaveTimer = null
-    saveDataToDb()
+    const pagesToSave = Array.from(pendingSavePages)
+    pendingSavePages.clear()
+    for (const idx of pagesToSave) {
+      await savePageDataToDb(idx)
+    }
   }, delay)
+}
+// 追踪页面单次渲染状态与重绘标识，杜绝重复渲染
+const isRenderingPage = ref<Record<number, boolean>>({})
+const pageRenderedGeneration = ref<Record<number, number>>({})
+
+// 调度渲染触发器
+const triggerPageRender = async (pageIndex: number) => {
+  if (isRenderingPage.value[pageIndex]) return
+  if (pageRenderedGeneration.value[pageIndex] === renderGeneration) return
+
+  isRenderingPage.value[pageIndex] = true
+  try {
+    await renderPageCanvas(pageIndex)
+  } finally {
+    isRenderingPage.value[pageIndex] = false
+  }
+}
+
+// 单页 Canvas 高清图块渲染渲染例程
+const renderPageCanvas = (pageIndex: number) => {
+  const canvas = pdfRefs.value[pageIndex]
+  const inkCanvas = inkRefs.value[pageIndex]
+  if (!canvas || !inkCanvas) return
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  // 1. 检查 LRU 缓存，命中则瞬间复制像素，不跑 WASM
+  const cached = pagePixelCache.get(pageIndex)
+  if (cached) {
+    canvas.width = cached.width
+    canvas.height = cached.height
+    inkCanvas.width = cached.width
+    inkCanvas.height = cached.height
+    ctx.putImageData(new ImageData(cached.rgbaData, cached.width, cached.height), 0, 0)
+    
+    // 渲染 Ink 层批注
+    renderInkLayer(pageIndex)
+    
+    pageRenderedGeneration.value[pageIndex] = renderGeneration
+    return
+  }
+
+  // 2. 缓存未命中时，调度 WebAssembly 异步载入并栅格化
+  const rawDoc = toRaw(pdfDoc.value)
+  if (!rawDoc) return
+
+  const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
+  if (!pageLayout) return
+
+  const cssW = pageLayout.viewWidth
+  const cssH = pageLayout.viewHeight
+  const baseDpr = window.devicePixelRatio || 1
+  const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
+  const avgPageSizeMB = pageCount.value > 0 ? (fileSizeMB / pageCount.value) : fileSizeMB
+
+  const getRenderDprForPage = (w: number, h: number) => {
+    const isLandscape = w / h > 1.2
+    
+    // 如果单页平均大小超过 0.5MB，说明单页渲染复杂度高，进行适度降级以保障性能，但至少保持 1.8x DPR 保证清晰度
+    if (avgPageSizeMB > 0.5) {
+      return isLandscape ? 1.4 : 1.8
+    }
+    
+    // 正常大小教材在横屏/PPT比例下：最小 1.5x 超采样，最高限制在 2.0x
+    if (isLandscape) {
+      return Math.max(1.5, Math.min(baseDpr, 2.0))
+    }
+    // 竖版 A4 标准尺寸：最小 1.8x 超采样，允许达到设备物理高清分辨率（最高限制到 2.8x，保证极致高清）
+    return Math.max(1.8, Math.min(baseDpr, 2.8))
+  }
+
+  const renderDpr = getRenderDprForPage(cssW, cssH)
+  renderDprRef.value = renderDpr // 同步 DPR
+
+  const pixelW = Math.round(cssW * renderDpr)
+  const pixelH = Math.round(cssH * renderDpr)
+
+  canvas.width = pixelW
+  canvas.height = pixelH
+  inkCanvas.width = pixelW
+  inkCanvas.height = pixelH
+
+  const page = rawDoc.loadPage(pageIndex)
+  try {
+    const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
+    const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, true, true)
+    try {
+      const pixmapW = pixmap.getWidth()
+      const pixmapH = pixmap.getHeight()
+      const samples = pixmap.getPixels()
+      const rgbaData = new Uint8ClampedArray(samples)
+
+      ctx.putImageData(new ImageData(rgbaData, pixmapW, pixmapH), 0, 0)
+
+      // 存储入 LRU 缓存池
+      pagePixelCache.set(pageIndex, {
+        rgbaData,
+        width: pixmapW,
+        height: pixmapH
+      })
+    } finally {
+      pixmap.destroy()
+    }
+  } catch (err) {
+    console.error(`[PdfPage] WASM 解析渲染页码 ${pageIndex} 异常:`, err)
+  } finally {
+    page.destroy?.()
+  }
+
+  // 渲染 Ink 批注层
+  renderInkLayer(pageIndex)
+
+  pageRenderedGeneration.value[pageIndex] = renderGeneration
+}
+
+// 渲染总流程控制逻辑
+const renderPdfPages = async () => {
+  const rawDoc = toRaw(pdfDoc.value)
+  if (!rawDoc) return
+
+  const generation = ++renderGeneration
+  isRendering.value = true
+
+  // 缩放或视口尺寸变更，清除旧缓存
+  pagePixelCache.clear()
+  pageRenderedGeneration.value = {}
+
+  // 过滤出当前正挂载可视区之内的页码
+  const visiblePages = pageList.value.filter((p) => shouldRenderPage(p.pageIndex))
+
+  try {
+    // 异步排队解析可视页面，确保平滑
+    for (const p of visiblePages) {
+      if (generation !== renderGeneration) break
+      await triggerPageRender(p.pageIndex)
+    }
+  } finally {
+    isRendering.value = false
+  }
 }
 
 
@@ -1287,6 +1779,10 @@ const resetState = () => {
   scale.value = 1.0
   contentSize.value = { width: 0, height: 0 }
   hasRendered.value = false
+  pdfViewerStore.setTotalPages(0)
+  pdfViewerStore.setPdfOutline([])
+  pdfViewerStore.setCurrentPage(0)
+  loadedPages.value = {}
 }
 
 // PDF渲染处理
@@ -1359,142 +1855,7 @@ const tryRenderContent = async () => {
 }
 
 
-const renderPdfPages = async () => {
-  const rawDoc = toRaw(pdfDoc.value)
-  if (!rawDoc) {
-    return
-  }
 
-  const generation = ++renderGeneration
-  isRendering.value = true
-
-  const totalStartTime = performance.now()
-  const totalPages = pageList.value.length
-
-  try {
-    const baseDpr = window.devicePixelRatio || 1
-    const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
-
-    // 根据文件大小/页数决定是否降级渲染（避免 WebView 崩溃）
-    const shouldUseLowRenderMode = (() => {
-      return fileSizeMB > 3
-    })()
-
-    // 基础 DPR 策略优化：
-    // 在高性能/高 DPR 屏幕上，为了避免 Canvas 显存溢出，我们限制大图或 PPT (横版) 的最大 DPR 不超过 1.5。
-    // A4 竖屏 PDF 限制最大为 2.0，低性能模式/大文件强制使用 1.0。
-    const getRenderDprForPage = (cssW: number, cssH: number) => {
-      if (shouldUseLowRenderMode) return 1
-      const isLandscape = cssW / cssH > 1.2 // 检测是否是横版 PPT 比例
-      if (isLandscape) {
-        return Math.min(baseDpr, 1.5) // 横版大图限制最高 1.5x DPR，极大减少显存开销
-      }
-      return Math.min(baseDpr, 2.0) // 竖屏大图限制最高 2.0x DPR
-    }
-
-    const renderOnePage = async (pageIndex: number) => {
-      const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
-      if (!pageLayout) {
-        return
-      }
-
-      const cssW = pageLayout.viewWidth
-      const cssH = pageLayout.viewHeight
-      const renderDpr = getRenderDprForPage(cssW, cssH)
-      
-      // 更新 DPR Ref 以便 Ink 批注层绘制能够对齐当前页的实际精度
-      renderDprRef.value = renderDpr
-
-      try {
-        if (generation !== renderGeneration) {
-          return
-        }
-        if (props.layoutSuspended) {
-          return
-        }
-
-        const canvas = pdfRefs.value[pageIndex]
-        const inkCanvas = inkRefs.value[pageIndex]
-        if (!canvas || !inkCanvas) {
-          return
-        }
-
-        const pixelW = Math.round(cssW * renderDpr)
-        const pixelH = Math.round(cssH * renderDpr)
-
-        canvas.width = pixelW
-        canvas.height = pixelH
-        canvas.style.width = `${cssW}px`
-        canvas.style.height = `${cssH}px`
-
-        inkCanvas.width = pixelW
-        inkCanvas.height = pixelH
-        inkCanvas.style.width = canvas.style.width
-        inkCanvas.style.height = canvas.style.height
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          console.error(`[PdfPage] [Page ${pageIndex}] 获取 Canvas 2D 上下文失败`)
-          return
-        }
-
-        const page = rawDoc.loadPage(pageIndex)
-
-        try {
-          const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
-          
-          // 第三个参数 alpha 设为 true，直接输出 RGBA 字节流
-          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, true, true)
-
-          try {
-            if (generation !== renderGeneration || props.layoutSuspended) {
-              return
-            }
-
-            const pixmapW = pixmap.getWidth()
-            const pixmapH = pixmap.getHeight()
-
-            const samples = pixmap.getPixels()
-
-            const rgbaData = new Uint8ClampedArray(samples)
-
-            if (generation !== renderGeneration || props.layoutSuspended) {
-              return
-            }
-
-            ctx.putImageData(new ImageData(rgbaData, pixmapW, pixmapH), 0, 0)
-          } finally {
-            pixmap.destroy()
-          }
-        } finally {
-          page.destroy?.()
-        }
-
-        // 渲染 Ink 层（包含刚加载的笔迹）
-        if (generation === renderGeneration && !props.layoutSuspended) {
-          renderInkLayer(pageIndex)
-        }
-      } catch (e: any) {
-        console.error(`[PdfPage] [Page ${pageIndex}] 渲染发生异常!!!`, e)
-      }
-    }
-
-    // 性能优化核心：将并发的 Promise.all 渲染，改造为串行队列渲染
-    // 这样能确保 WebAssembly 在任何时间点仅处理一个大页面的 Pixmap 解写，极大减轻 WebView 的内存峰值
-    for (let i = 0; i < totalPages; i++) {
-      if (generation !== renderGeneration) {
-        break
-      }
-      await renderOnePage(pageList.value[i].pageIndex)
-    }
-  } catch (err: any) {
-    console.error('[PdfPage] ===== 渲染流程总控制发生错误 =====', err)
-  } finally {
-    if (generation === renderGeneration) {
-      isRendering.value = false
-    }
-  }
-}
 
 
 const renderInkLayer = (pageIndex: number) => {
@@ -1640,8 +2001,19 @@ const setupResizeObserver = () => {
       if (isNowVisible && sizeChanged) {
         if (props.layoutSuspended) {
           pendingViewportResizeWhileSuspended = true
+          const oldW = lastObservedViewportWidth
+          const oldH = lastObservedViewportHeight
           lastObservedViewportWidth = width
           lastObservedViewportHeight = height
+
+          // 挂起期间只执行轻量的位移对齐计算（通过 CSS 变换），不触发昂贵的 WASM 页面像素重绘
+          const center = getNormalizedCenter(oldW, oldH)
+          if (center) {
+            restoreNormalizedCenter(center)
+            clampOffset()
+          } else {
+            centerContent()
+          }
           continue
         }
 
@@ -1837,7 +2209,7 @@ const performEraserCheck = (pageIndex: number, x: number, y: number) => {
     removed.forEach((s) => removeFromSpatialIndex(s))
     allStrokes.value = allStrokes.value.filter((s) => !idsToRemove.has(s.id))
     pushHistory('remove', removed)
-    scheduleSaveToDb(600)
+    scheduleSaveToDb(pageIndex, 600)
     return true
   }
 
@@ -1921,7 +2293,7 @@ const commitSelectionMove = (pageIdx: number): void => {
   selectAction.beforeStrokes.forEach((s) => removeFromSpatialIndex(s))
   after.forEach((s) => addToSpatialIndex(s))
   pushUpdateHistory(selectAction.beforeStrokes, after)
-  scheduleSaveToDb(600)
+  scheduleSaveToDb(pageIdx, 600)
 }
 
 // 选区完成：清理选区状态
@@ -2241,7 +2613,7 @@ const finishDrawing = (save: boolean) => {
 
   // 保存到 DB
   if (save && currentMode.value !== 'screenshot') {
-    scheduleSaveToDb(600)
+    scheduleSaveToDb(pageIdx, 600)
   }
 }
 
@@ -2566,6 +2938,7 @@ defineExpose({
   toggleReadingDirection,
   goPrevPage,
   goNextPage,
+  jumpToPage,
   setSelectionMode,
   undoLastStroke,
   redoLastStroke,

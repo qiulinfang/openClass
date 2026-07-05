@@ -1,15 +1,19 @@
 <template>
   <!-- 内容区域和对话面板 -->
   <div class="content-layout">
-    <q-splitter 
-      v-model="splitterModel"
-      :limits="[30, 70]"
-      :disable="!pdfViewerStore.chatPanelVisible || pdfViewerStore.selectedTool === 'screenshot'"
-      :class="['full-height', { 'full-width-before': !pdfViewerStore.chatPanelVisible, 'chat-panel-visible': pdfViewerStore.chatPanelVisible, 'splitter-resizing': isSplitterResizing }]"
-      @pointerdown.capture="handleSplitterPointerDown"
+    <div 
+      class="native-splitter full-height"
+      :class="{ 
+        'chat-panel-visible': pdfViewerStore.chatPanelVisible, 
+        'splitter-resizing': isSplitterResizing,
+        'full-width-before': !pdfViewerStore.chatPanelVisible 
+      }"
     >
       <!-- PDF内容区域 -->
-      <template v-slot:before>
+      <div 
+        class="splitter-pane-before"
+        :style="{ width: pdfViewerStore.chatPanelVisible ? splitterModel + '%' : '100%' }"
+      >
         <div class="pdf-viewer-container">
           <!-- 工具栏 -->
           <DrawingHeader
@@ -26,6 +30,19 @@
             @undo="handleUndo"
             @redo="handleRedo"
           >
+            <!-- 左侧曹：自定义返回按钮 -->
+            <template #left>
+              <q-btn
+                flat
+                round
+                dense
+                @click="handleGoBack"
+                class="goback-btn q-mr-sm"
+              >
+                <img :src="goBackIcon" alt="返回" class="goback-icon" />
+              </q-btn>
+            </template>
+
             <template #right>
               <div class="direction-toggle-wrapper q-mr-sm">
                 <q-btn
@@ -76,6 +93,53 @@
             @screenshot-captured="handleScreenshotCaptured"
           />
 
+
+
+          <!-- 底部悬浮页码滑动控制条 -->
+          <div v-if="pdfViewerStore.totalPages > 0" class="pdf-bottom-navbar">
+            <div class="bottom-navbar-content">
+              <!-- 上一页 -->
+              <button
+                class="native-nav-btn"
+                :disabled="pdfViewerStore.currentPage <= 0"
+                @click="jumpToPrevPage"
+              >
+                <q-icon name="chevron_left" size="20px" />
+              </button>
+              
+              <!-- 拖动滑动条 -->
+              <div class="page-slider-container">
+                <input
+                  type="range"
+                  v-model.number="sliderValue"
+                  :min="1"
+                  :max="pdfViewerStore.totalPages"
+                  step="1"
+                  class="native-page-slider"
+                  @change="handleSliderChange(sliderValue)"
+                />
+                <!-- 悬浮页码提示标签 -->
+                <div class="slider-tooltip" :style="tooltipStyle">
+                  第 {{ sliderValue }} 页 / 共 {{ pdfViewerStore.totalPages }} 页
+                </div>
+              </div>
+
+              <!-- 下一页 -->
+              <button
+                class="native-nav-btn"
+                :disabled="pdfViewerStore.currentPage >= pdfViewerStore.totalPages - 1"
+                @click="jumpToNextPage"
+              >
+                <q-icon name="chevron_right" size="20px" />
+              </button>
+
+              <!-- 精准页码数字指示 -->
+              <div class="page-indicator-text">
+                {{ pdfViewerStore.currentPage + 1 }} / {{ pdfViewerStore.totalPages }}
+              </div>
+            </div>
+          </div>
+
           <MiniClass v-model="showMiniClassDialog" :class-url="miniClassUrl" :question-title="miniClassQuestionTitle" />
 
           <q-btn
@@ -91,18 +155,31 @@
             <q-tooltip>微课</q-tooltip>
           </q-btn>
         </div>
-      </template>
+      </div> <!-- End of .splitter-pane-before -->
+
+      <!-- 分割线句柄 -->
+      <div 
+        v-if="pdfViewerStore.chatPanelVisible && pdfViewerStore.selectedTool !== 'screenshot'"
+        class="splitter-separator"
+        @pointerdown="onSplitterDragStart"
+      >
+        <div class="splitter-drag-bar"></div>
+      </div>
 
       <!-- 对话面板 -->
-      <template v-slot:after v-if="pdfViewerStore.chatPanelVisible">
+      <div 
+        class="splitter-pane-after"
+        v-show="pdfViewerStore.chatPanelVisible"
+        :style="{ width: (100 - splitterModel) + '%' }"
+      >
         <PdfChatPanel 
           ref="chatPanelRef" 
           :attached-screenshots="aiTextbookStore.inputAttachedScreenshots"
           @close="handleCloseChatPanel"
           @screenshot-click="handleScreenshotClick"
         />
-      </template>
-    </q-splitter>
+      </div>
+    </div> <!-- End of .native-splitter -->
   </div>
 </template>
 
@@ -329,27 +406,73 @@ const stopSplitterResize = () => {
   })
 }
 
-const handleSplitterPointerDown = (e: PointerEvent) => {
-  if (!pdfViewerStore.chatPanelVisible) return
-  const target = e.target as HTMLElement | null
-  if (!target?.closest('.q-splitter__separator')) return
-
+const onSplitterDragStart = (e: PointerEvent) => {
+  e.preventDefault()
   isSplitterResizing.value = true
   document.body.classList.add('pdf-splitter-resizing')
+
+  const startX = e.clientX
+  const startModel = splitterModel.value
+  const container = document.querySelector('.native-splitter') as HTMLElement | null
+  if (!container) return
+  const containerWidth = container.getBoundingClientRect().width
+
+  const onPointerMove = (moveEvent: PointerEvent) => {
+    if (!isSplitterResizing.value) return
+    const deltaX = moveEvent.clientX - startX
+    const deltaPercent = (deltaX / containerWidth) * 100
+    let nextModel = startModel + deltaPercent
+    if (nextModel < 30) nextModel = 30
+    if (nextModel > 70) nextModel = 70
+    splitterModel.value = nextModel
+  }
+
+  const onPointerUp = () => {
+    isSplitterResizing.value = false
+    document.body.classList.remove('pdf-splitter-resizing')
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onPointerUp)
+    requestAnimationFrame(() => {
+      pdfPageRef.value?.refreshLayout?.()
+    })
+  }
+
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
 }
 
 const handleGlobalPointerUp = () => {
-  stopSplitterResize()
+  // 保持空方法以兼容生命周期的事件监听卸载
 }
 
 watch(
   () => pdfViewerStore.chatPanelVisible,
   (visible) => {
+    // 无论是打开还是关闭对话面板，由于伴随宽度过渡动画，我们都要挂起 PDF 重绘，防止动画期间严重卡顿
+    isSplitterResizing.value = true
+
     if (!visible) {
-      stopSplitterResize()
+      document.body.classList.remove('pdf-splitter-resizing')
+    } else {
+      document.body.classList.add('pdf-splitter-resizing')
     }
-  }
+
+    // 动画大约持续 300ms - 400ms，在 400ms 后恢复排版并进行一次性的高质量重绘
+    setTimeout(() => {
+      isSplitterResizing.value = false
+      if (!visible) {
+        document.body.classList.remove('pdf-splitter-resizing')
+      }
+      requestAnimationFrame(() => {
+        pdfPageRef.value?.refreshLayout?.()
+      })
+    }, 400)
+  },
+  { flush: 'sync' }
 )
+
 
 // 处理工具配置变化（颜色、粗细等），写入 pdfViewerStore.drawingConfig
 const handleConfigChange = (config: {
@@ -400,11 +523,51 @@ const handleConfigChange = (config: {
 // PdfPage 实例引用
 const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
 
-const isHorizontalReading = ref(false)
+
+
+// 底部跳转滑动条双向绑定与跳转控制
+const sliderValue = ref(1)
+
+const tooltipStyle = computed(() => {
+  const min = 1
+  const max = pdfViewerStore.totalPages || 1
+  const percent = ((sliderValue.value - min) / (max - min)) * 100
+  return {
+    left: `calc(${percent}% - ${percent * 0.16}px)`,
+    transform: 'translateX(-50%)',
+  }
+})
+
+watch(
+  () => pdfViewerStore.currentPage,
+  (newPage) => {
+    sliderValue.value = newPage + 1
+  },
+  { immediate: true }
+)
+
+const handleSliderChange = (val: number) => {
+  const targetPage = val - 1
+  ;(pdfPageRef.value as any)?.jumpToPage?.(targetPage)
+}
+
+const jumpToPrevPage = () => {
+  if (pdfViewerStore.currentPage > 0) {
+    ;(pdfPageRef.value as any)?.jumpToPage?.(pdfViewerStore.currentPage - 1)
+  }
+}
+
+const jumpToNextPage = () => {
+  if (pdfViewerStore.currentPage < pdfViewerStore.totalPages - 1) {
+    ;(pdfPageRef.value as any)?.jumpToPage?.(pdfViewerStore.currentPage + 1)
+  }
+}
+
+
+const isHorizontalReading = computed(() => pdfViewerStore.readingDirection === 'horizontal')
 
 const handleToggleReadingDirection = async () => {
   try {
-    isHorizontalReading.value = !isHorizontalReading.value
     await (pdfPageRef.value as any)?.toggleReadingDirection?.()
   } catch (e) {
     console.error('[PdfViewerView] toggleReadingDirection failed:', e)
@@ -414,7 +577,6 @@ const handleToggleReadingDirection = async () => {
 const setVerticalReading = async () => {
   if (!isHorizontalReading.value) return
   try {
-    isHorizontalReading.value = false
     await (pdfPageRef.value as any)?.toggleReadingDirection?.()
   } catch (e) {
     console.error('[PdfViewerView] setVerticalReading failed:', e)
@@ -424,7 +586,6 @@ const setVerticalReading = async () => {
 const setHorizontalReading = async () => {
   if (isHorizontalReading.value) return
   try {
-    isHorizontalReading.value = true
     await (pdfPageRef.value as any)?.toggleReadingDirection?.()
   } catch (e) {
     console.error('[PdfViewerView] setHorizontalReading failed:', e)
@@ -825,28 +986,63 @@ onBeforeUnmount(() => {
 }
 
 
-:deep(.q-splitter),
-:deep(.q-splitter__container),
-:deep(.q-splitter__panel) {
+.native-splitter {
+  display: flex;
+  width: 100%;
   height: 100%;
-  min-height: 0;
+  overflow: hidden;
 }
 
-:deep(.q-splitter__before),
-:deep(.q-splitter__after) {
+.splitter-pane-before {
   height: 100%;
-  min-height: 0;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* 右侧对话面板容器（after 面板）：左侧圆角 + 柔和紫色阴影 */
-:deep(.q-splitter__after) {
+.native-splitter.splitter-resizing .splitter-pane-before,
+.native-splitter.splitter-resizing .splitter-pane-after {
+  transition: none !important;
+}
+
+.splitter-separator {
+  width: 24px;
+  margin-left: -12px;
+  margin-right: -12px;
+  cursor: col-resize;
+  position: relative;
+  z-index: 5;
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  user-select: none;
+}
+
+.splitter-drag-bar {
+  width: 10px;
+  height: 100%;
+  pointer-events: none;
+  background-image: url('/icons/seekbar.svg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+}
+
+.splitter-pane-after {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   border-top-left-radius: 16px;
   border-bottom-left-radius: 16px;
-  /* 模拟截图中的竖向紫色阴影：略向左扩散，柔和过渡 */
   box-shadow: 0px 4px 10px 0px rgba(30, 0, 120, 0.32);
   z-index: 2;
+  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background-color: #e8e9ff;
+  overflow: visible;
 }
 
 .chat-panel-container {
@@ -1042,48 +1238,126 @@ onBeforeUnmount(() => {
 }
 
 
-/* 当聊天面板隐藏时，让before插槽占据整个宽度 */
-.full-width-before :deep(.q-splitter__before) {
+.full-width-before .splitter-pane-before {
   width: 100% !important;
 }
+.full-width-before .splitter-pane-after {
+  display: none !important;
+}
+.full-width-before .splitter-separator {
+  display: none !important;
+}
 
-:deep(.q-splitter__separator) {
-  background-color: transparent;
-  cursor: col-resize;
+/* 自定义原生滑动条样式 */
+.page-slider-container {
+  flex: 1;
   position: relative;
-  width: 24px;
-  margin-left: -12px;
-  margin-right: -12px;
-  z-index: 5;
-  will-change: left, right;
-}
-:deep(.q-splitter__after) {
-  overflow: visible !important;
+  display: flex;
+  align-items: center;
+  margin: 0 12px;
+  height: 32px;
 }
 
-.splitter-resizing :deep(.q-splitter__before),
-.splitter-resizing :deep(.q-splitter__after) {
-  transition: none !important;
+.native-page-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(110, 85, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+  transition: background 0.3s;
 }
 
-.splitter-resizing :deep(.q-splitter__separator) {
-  transition: none !important;
+.native-page-slider:hover {
+  background: rgba(110, 85, 255, 0.35);
 }
 
-/* 在右侧面板上绘制 seekbar 效果 */
-:deep(.q-splitter__after)::before {
-  content: '';
+/* Webkit (Chrome, Safari, Edge, Opera) */
+.native-page-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #6E55FF;
+  box-shadow: 0 1px 4px rgba(110, 85, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+.native-page-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #5b40ff;
+}
+
+/* Firefox */
+.native-page-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: #6E55FF;
+  box-shadow: 0 1px 4px rgba(110, 85, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+.native-page-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: #5b40ff;
+}
+
+/* Tooltip style */
+.slider-tooltip {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 10px;
-  height: 100%;
+  top: -30px;
+  background: #1e1e2d;
+  color: #fff;
+  padding: 3px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 5px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
-  transform: translateX(-5px);
-  background-image: url('/icons/seekbar.svg');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: contain;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 8px) scale(0.9);
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 950;
+}
+
+/* Show tooltip on hover or active dragging */
+.page-slider-container:hover .slider-tooltip,
+.native-page-slider:active + .slider-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+/* 自定义导航按钮样式 */
+.native-nav-btn {
+  background: transparent;
+  border: none;
+  color: #6E55FF;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, opacity 0.2s;
+  outline: none;
+}
+
+.native-nav-btn:hover:not(:disabled) {
+  background: rgba(110, 85, 255, 0.1);
+}
+
+.native-nav-btn:disabled {
+  color: #a19cb6;
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 /* 响应式设计 */
@@ -1160,4 +1434,47 @@ onBeforeUnmount(() => {
     transform: scale(1);
   }
 }
+
+
+
+/* 底部悬浮页码滑动控制条 */
+.pdf-bottom-navbar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  width: 80%;
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 30px;
+  padding: 6px 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
+}
+
+.bottom-navbar-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.page-slider {
+  flex: 1;
+  padding-top: 10px; /* 留出指示气泡所需的空间 */
+}
+
+.page-indicator-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  min-width: 50px;
+  text-align: right;
+  font-feature-settings: "tnum"; /* 启用等宽数字，避免滚动跳页时字符宽度抖动 */
+}
+
 </style>

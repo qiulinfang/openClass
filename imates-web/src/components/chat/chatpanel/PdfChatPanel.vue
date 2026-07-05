@@ -384,6 +384,19 @@ watch(activeTab, (newTab) => {
   }
 })
 
+// 监听路由参数变化，若在保持挂载状态下切换文件，则自动更新资源ID与会话列表
+watch(
+  () => route.query.resourceId,
+  (newResourceId) => {
+    if (newResourceId) {
+      setupResourceId()
+      loadSessions()
+      setTimeout(updateOverlayButtonPosition, 200)
+    }
+  }
+)
+
+
 onMounted(async () => {
   // 设置资源ID，确保基于资源的会话ID生成
   setupResourceId()
@@ -403,6 +416,7 @@ defineExpose({
 
 <style scoped>
 .chat-panel-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;

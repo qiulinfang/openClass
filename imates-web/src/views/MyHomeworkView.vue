@@ -132,7 +132,7 @@ const subjects = HOMEWORK_SUBJECT_OPTIONS
 const selectedSubject = ref('')
 
 // 作业列表数据
-const homeworkList = ref<HomeworkUndoItem[]>([])
+const homeworkList = ref<(HomeworkUndoItem & { isSubmitted?: boolean })[]>([])
 const loading = ref(false)
 const pageNumber = ref(1)
 
@@ -161,10 +161,21 @@ const fetchHomeworkList = async () => {
     // 使用 homeworkStore 的缓存方法
     const result = await homeworkStore.fetchHomeworkList(queryReq)
     
+    // 异步查询每个作业在本地的实际提交状态
+    const mappedResult = await Promise.all(
+      result.map(async (item) => {
+        const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
+        return {
+          ...item,
+          isSubmitted: dbData ? dbData.isSubmitted : false
+        }
+      })
+    )
+    
     if (pageNumber.value === 1) {
-      homeworkList.value = result
+      homeworkList.value = mappedResult
     } else {
-      homeworkList.value = [...homeworkList.value, ...result]
+      homeworkList.value = [...homeworkList.value, ...mappedResult]
     }
     // 判断是否还有更多数据
     hasMore.value = result.length >= pageSize.value
@@ -192,7 +203,19 @@ const handleRefresh = async () => {
     }
     
     const result = await homeworkStore.fetchHomeworkList(queryReq, true)
-    homeworkList.value = result
+    
+    // 异步查询每个作业在本地的实际提交状态
+    const mappedResult = await Promise.all(
+      result.map(async (item) => {
+        const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
+        return {
+          ...item,
+          isSubmitted: dbData ? dbData.isSubmitted : false
+        }
+      })
+    )
+    
+    homeworkList.value = mappedResult
     hasMore.value = result.length >= pageSize.value
   } catch (error) {
     console.error('[MyHomeworkView] ❌ 下拉刷新失败:', error)
@@ -213,10 +236,10 @@ const handleLoadMore = async () => {
 
 // 优化后的计算属性，使用缓存减少重复计算
 const displayHomeworkList = computed(() => {
-  return homeworkList.value.map((homework: HomeworkUndoItem) => {
-    const statusText = getHomeworkStatusText(homework.status, homework.deadline)
+  return homeworkList.value.map((homework: HomeworkUndoItem & { isSubmitted?: boolean }) => {
+    const statusText = homework.isSubmitted ? '已提交' : getHomeworkStatusText(homework.status, homework.deadline)
     const statusType = getHomeworkStatusType(homework.status)
-    const statusTagType = getHomeworkStatusTagType(statusType, homework.deadline)
+    const statusTagType = homework.isSubmitted ? 'green' : getHomeworkStatusTagType(statusType, homework.deadline)
 
     // 生成标签数组
     const tags = []
@@ -244,8 +267,8 @@ const displayHomeworkList = computed(() => {
 
     const canLateSubmit = homework.lateSubmit === '1'
     const buttonDisabled = false
-    const buttonText = '去查看'
-    const buttonVariant = getHomeworkButtonVariant(buttonDisabled)
+    const buttonText = homework.isSubmitted ? '去查看' : '去作答'
+    const buttonVariant: 'outline' | 'primary' = homework.isSubmitted ? 'outline' : 'primary'
 
     // 生成内容描述 - 优化日期格式化
     const contentParts = []
