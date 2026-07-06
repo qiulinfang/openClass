@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div
     class="main-view"
     @mousemove="handleDrag"
@@ -6,8 +6,8 @@
     @touchmove="handleDrag"
     @touchend="stopDrag"
   >
-    <!-- 左上角退出登录按钮（仅开发环境显示） -->
-    <button v-if="isDev" class="dev-logout-btn" @click="handleLogout">
+    <!-- 左上角退出登录按钮（一直显示） -->
+    <button class="dev-logout-btn" @click="handleLogout">
       <img src="/icons/logout.svg" alt="退出" />
       <span>退出</span>
     </button>
@@ -197,6 +197,17 @@
       @confirm="handleMainChatScreenshotConfirm"
       @cancel="handleMainChatScreenshotCancel"
     />
+
+    <!-- 退出登录确认对话框 -->
+    <Dialog
+      ref="logoutDialogRef"
+      title="退出确认"
+      confirmButtonText="退出"
+      cancelButtonText="取消"
+      @confirm="confirmLogout"
+    >
+      确定要退出登录吗？
+    </Dialog>
   </div>
 </template>
 
@@ -286,8 +297,15 @@ const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
 // 是否为开发环境
 const isDev = computed(() => import.meta.env.DEV)
 
-// 退出登录
+const logoutDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+
+// 退出登录按钮触发：打开确认模态框
 const handleLogout = () => {
+  logoutDialogRef.value?.openDialog()
+}
+
+// 确认退出登录
+const confirmLogout = () => {
   localStorage.removeItem('xueban_token')
   router.push({ name: 'login' })
 }

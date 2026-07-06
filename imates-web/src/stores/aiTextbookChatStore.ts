@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI教材聊天场景专用Store
  * 
  * 职责：管理AI教材场景的所有聊天相关状态和逻辑
@@ -807,7 +807,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           }
         }
 
-        console.log('[ZGC API] 发送消息 (流式):', puzzleBody)
 
         const response = await fetch(puzzleApiUrl, {
           method: 'POST',
@@ -869,6 +868,11 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
             }
 
             if (!data) continue
+
+            // 捕获并更新最新的历史上下文消息记录 (ZGC 场景)
+            if (Array.isArray(data.history_messages) && data.history_messages.length > 0) {
+              historyMessages.value = data.history_messages
+            }
 
             const msgContent = data.content || data.coach_text || ''
             

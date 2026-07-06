@@ -101,6 +101,30 @@
           <path d="M12 5v14M5 12l7 7 7-7" />
         </svg>
       </button>
+
+      <!-- 历史上下文按钮 (左下角) -->
+      <button
+        v-if="hasHistoryMessages"
+        class="view-history-context-btn"
+        @click="showHistoryDialog = true"
+        title="查看历史上下文"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span>上下文</span>
+      </button>
+
       <!-- 会话列表覆盖层：使用 CardStack 展示多会话管理界面（仅覆盖消息区域） -->
       <Transition name="fade">
         <div
@@ -348,6 +372,33 @@
       @confirm="handleImageCropConfirm"
       @cancel="handleImageCropCancel"
     />
+
+    <!-- 历史上下文对话框 -->
+    <Transition name="fade">
+      <div v-if="showHistoryDialog" class="custom-history-dialog-overlay" @click.self="showHistoryDialog = false">
+        <div class="custom-history-dialog-content">
+          <div class="dialog-header">
+            <span class="dialog-title">历史上下文 (LangChain 消息链)</span>
+            <button @click="showHistoryDialog = false" class="dialog-close-top" aria-label="关闭">
+              <svg class="icon-close" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <div v-for="(msg, idx) in historyMessages" :key="idx" class="history-message-row" :class="msg.type">
+              <div class="history-message-bubble" :class="msg.type">
+                <!-- 渲染所有的 JSON 信息 -->
+                <pre class="history-message-text">{{ JSON.stringify(msg, null, 2) }}</pre>
+              </div>
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <Button label="关闭" size="md" @click="showHistoryDialog = false" />
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -950,6 +1001,27 @@ const getCSSAnimationParams = () => {
     delay: '50ms',
   }
 }
+
+const showHistoryDialog = ref(false) // 历史上下文对话框显示状态
+
+// 计算最新历史上下文消息
+const hasHistoryMessages = computed(() => {
+  return historyMessages.value.length > 0
+})
+
+const historyMessages = computed(() => {
+  console.log('[ChatView computed] 获取 historyMessages, type:', props.type)
+  let msgs: any[] = []
+  if (props.type === 'ai-textbook') {
+    msgs = aiTextbookStore.historyMessages || []
+  } else if (props.type === 'ai-exercise') {
+    msgs = aiExerciseStore.historyMessages || []
+  } else if (chatStrategy.value && typeof chatStrategy.value.getHistoryMessages === 'function') {
+    msgs = chatStrategy.value.getHistoryMessages() || []
+  }
+  console.log('[ChatView computed] 历史消息内容:', JSON.parse(JSON.stringify(msgs)))
+  return msgs
+})
 
 // ==================== 计算属性 ====================
 // 使用策略接口获取联网搜索状态
@@ -3356,5 +3428,199 @@ defineExpose({
   padding: 12px;
   color: #999;
   font-size: 12px;
+}
+
+/* 历史上下文按钮样式 - 悬浮在右下角 */
+.view-history-context-btn {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 20px;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-history-context-btn:hover {
+  background: #ffffff;
+  color: #1a202c;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.view-history-context-btn:active {
+  transform: translateY(0);
+}
+
+/* 历史上下文对话框全屏遮罩 */
+.custom-history-dialog-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* 对话框主体面板 */
+.custom-history-dialog-content {
+  width: 90%;
+  max-width: 680px;
+  height: 80%;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #edf2f7;
+  animation: dialog-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dialog-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.custom-history-dialog-content .dialog-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #edf2f7;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.custom-history-dialog-content .dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.custom-history-dialog-content .dialog-close-top {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #a0aec0;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-history-dialog-content .dialog-close-top:hover {
+  background-color: #f7fafc;
+  color: #4a5568;
+}
+
+.custom-history-dialog-content .dialog-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #ffffff;
+}
+
+.history-message-row {
+  display: flex;
+  width: 100%;
+}
+
+.history-message-row.human {
+  justify-content: flex-end;
+}
+
+.history-message-row.ai {
+  justify-content: flex-start;
+}
+
+.history-message-row.system {
+  justify-content: center;
+}
+
+.history-message-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  position: relative;
+}
+
+.history-message-bubble.human {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  border-bottom-right-radius: 4px;
+}
+
+.history-message-bubble.ai {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  border-bottom-left-radius: 4px;
+}
+
+.history-message-bubble.system {
+  background-color: #f8fafc;
+  color: #64748b;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+  max-width: 90%;
+  text-align: center;
+}
+
+.history-message-header {
+  margin-bottom: 4px;
+}
+
+.model-name-text {
+  font-size: 10px;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.history-message-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 13px;
+  line-height: 1.5;
+  color: inherit;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+  text-align: left;
+}
+
+.custom-history-dialog-content .dialog-actions {
+  padding: 16px 20px;
+  border-top: 1px solid #edf2f7;
+  display: flex;
+  justify-content: flex-end;
+  background: #ffffff;
 }
 </style>

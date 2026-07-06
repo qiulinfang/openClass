@@ -1,27 +1,47 @@
 <template>
   <div class="main-view-jk">
-    <!-- 左上角退出登录按钮（仅开发环境显示） -->
-    <button v-if="isDev" class="logout-btn-top" @click="handleLogout">
+    <!-- 左上角退出登录按钮（一直显示） -->
+    <button class="logout-btn-top" @click="handleLogout">
       <img src="/icons/logout.svg" alt="退出" />
       <span>退出登录</span>
     </button>
 
     <!-- 使用 MainView 组件内容 -->
     <MainView />
+
+    <!-- 退出登录确认对话框 -->
+    <Dialog
+      ref="logoutDialogRef"
+      title="退出确认"
+      confirmButtonText="退出"
+      cancelButtonText="取消"
+      @confirm="confirmLogout"
+    >
+      确定要退出登录吗？
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MainView from '../MainView.vue'
+import Dialog from '@/components/base/Dialog.vue'
 
 const router = useRouter()
 
 // 是否为开发环境
 const isDev = computed(() => import.meta.env.DEV)
 
+const logoutDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+
+// 退出登录按钮触发：打开确认模态框
 const handleLogout = () => {
+  logoutDialogRef.value?.openDialog()
+}
+
+// 确认退出登录
+const confirmLogout = () => {
   localStorage.removeItem('XUEBAN_TOKEN')
   router.push({ name: 'login' })
 }
