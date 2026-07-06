@@ -1561,8 +1561,6 @@ onUnmounted(async () => {
   flex-direction: column;
   background: #f7f6ff;
   min-height: 0;
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
   box-shadow: 0px 0px 29px 0px rgba(94, 128, 254, 0.18);
   overflow: hidden;
   z-index: 1;
@@ -1580,47 +1578,20 @@ onUnmounted(async () => {
   height: 100%;
   position: relative;
   background: #ffffff;
-  border-radius: 20px;
   transition: opacity 0.5s ease-in-out;
 }
 
-/* 背景层 - 采用伪元素圆角背景方案，既保留原有的渐变视觉效果，又避免 WebView 顶层 clipping 产生黑角 */
+/* 背景层 */
 .panel-bg1 {
   height: 100%;
   background: #ffffff;
   width: 100%;
-  position: relative;
-}
-.panel-bg1::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(to right, #0f002e 4%, #ffffff 6%);
-  border-top-left-radius: 20px;
-  border-bottom-left-radius: 20px;
-  pointer-events: none;
 }
 
 .panel-bg2 {
   height: 100%;
   background: #ffffff;
   width: 100%;
-  position: relative;
-}
-.panel-bg2::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%);
-  border-top-right-radius: 20px;
-  border-bottom-right-radius: 20px;
-  pointer-events: none;
 }
 
 .panel-bg {
@@ -1630,7 +1601,6 @@ onUnmounted(async () => {
   right: 0;
   bottom: 0;
   background: #ffffff;
-  border-radius: 20px;
   z-index: -1;
   opacity: 1;
 }
@@ -1645,7 +1615,6 @@ onUnmounted(async () => {
 }
 
 .panel-bg1 :deep(.panel-card) {
-  border-top-right-radius: 0;
   background: #fbfaff;
 }
 
@@ -1656,7 +1625,6 @@ onUnmounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-top-right-radius: 20px;
   transition: border-radius 0.5s ease-in-out;
 }
 
@@ -1668,7 +1636,6 @@ onUnmounted(async () => {
 
 /* 题目渲染卡片 */
 .question-solve-card {
-  border-radius: 20px;
 }
 
 .question-render-container {
@@ -2075,7 +2042,6 @@ onUnmounted(async () => {
   z-index: 10;
   box-shadow: 0 4px 12px rgba(110, 85, 255, 0.12);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(4px);
 
   &:hover:not(:disabled) {
     background: #6e55ff;
