@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="login-page">
     <!-- 登录表单容器 -->
     <div class="login-form-container">
@@ -15,7 +15,32 @@
                   placeholder="请输入账号"
                   class="login-input"
                   @blur="validateAccount"
+                  @focus="showAccountsDropdown = true"
                 />
+                <!-- 下拉触发箭头 -->
+                <q-icon
+                  v-if="savedAccounts.length > 0"
+                  name="arrow_drop_down"
+                  class="account-dropdown-arrow"
+                  @click.stop="toggleAccountsDropdown"
+                />
+                
+                <!-- 下拉菜单列表 -->
+                <div v-if="showAccountsDropdown && savedAccounts.length > 0" class="accounts-dropdown-list">
+                  <div
+                    v-for="item in savedAccounts"
+                    :key="item.account"
+                    class="accounts-dropdown-item"
+                    @mousedown="selectAccount(item)"
+                  >
+                    <span class="account-name">{{ item.account }}</span>
+                    <q-icon
+                      name="close"
+                      class="delete-account-btn"
+                      @mousedown.stop="deleteSavedAccount(item.account)"
+                    />
+                  </div>
+                </div>
               </div>
               <div v-if="errors.account" class="input-error">{{ errors.account }}</div>
             </div>
@@ -194,8 +219,73 @@ const checkAppUpdate = async () => {
   }
 }
 
+// 多账号数据结构
+interface SavedAccount {
+  account: string
+  password: string
+  lastUsed: number
+}
+
+const savedAccounts = ref<SavedAccount[]>([])
+const showAccountsDropdown = ref(false)
+
+// 加载历史登录过的账号列表
+const loadSavedAccounts = () => {
+  try {
+    const listJson = localStorage.getItem('saved_accounts')
+    if (listJson) {
+      savedAccounts.value = JSON.parse(listJson).sort((a: SavedAccount, b: SavedAccount) => b.lastUsed - a.lastUsed)
+    }
+  } catch (e) {
+    console.error('[LoginView] 加载历史账号失败:', e)
+  }
+}
+
+// 保存多账号列表到本地
+const saveAccountsList = (list: SavedAccount[]) => {
+  try {
+    localStorage.setItem('saved_accounts', JSON.stringify(list))
+  } catch (e) {
+    console.error('[LoginView] 保存历史账号失败:', e)
+  }
+}
+
+// 切换下拉框显示隐藏
+const toggleAccountsDropdown = () => {
+  showAccountsDropdown.value = !showAccountsDropdown.value
+}
+
+// 选中某个账号并自动填充
+const selectAccount = (item: SavedAccount) => {
+  loginForm.account = item.account
+  loginForm.password = item.password
+  showAccountsDropdown.value = false
+  validateAccount()
+  validatePassword()
+}
+
+// 删除某个保存的账号
+const deleteSavedAccount = (account: string) => {
+  savedAccounts.value = savedAccounts.value.filter(a => a.account !== account)
+  saveAccountsList(savedAccounts.value)
+}
+
+// 点击空白处关闭下拉框的辅助函数
+const handleGlobalClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (target && !target.closest('.user-id-input-wrapper')) {
+    showAccountsDropdown.value = false
+  }
+}
+
 // 页面加载时从统一存储读取已保存的账号密码
 onMounted(async () => {
+  // 加载多账号列表
+  loadSavedAccounts()
+  
+  // 全局点击监听，用于收起下拉菜单
+  document.addEventListener('click', handleGlobalClick)
+
   // 获取保存的账号（从统一存储）
   const savedUserId = getUserId()
   // 获取保存的密码（从统一存储）
@@ -243,6 +333,10 @@ onMounted(async () => {
         break
     }
   }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleGlobalClick)
 })
 
 const validateAccount = () => {
@@ -373,11 +467,21 @@ const handleLogin = async () => {
     // loginXueban内部已自动保存token和用户凭据到localStorage
     const token = await authService.loginXueban(loginForm.account, loginForm.password)
 
-    // 获取用户信息
-    // getUserInfo内部已自动完成：
-    // - 持久化到localStorage
-    // - 同步到Android原生ViewModel
     await authService.getUserInfo(token)
+
+    // === 多账号持久化更新 ===
+    const existingIndex = savedAccounts.value.findIndex(a => a.account === loginForm.account)
+    if (existingIndex !== -1) {
+      savedAccounts.value[existingIndex].password = loginForm.password
+      savedAccounts.value[existingIndex].lastUsed = Date.now()
+    } else {
+      savedAccounts.value.push({
+        account: loginForm.account,
+        password: loginForm.password,
+        lastUsed: Date.now()
+      })
+    }
+    saveAccountsList(savedAccounts.value)
     
     // 跳转到首页（使用 replace 避免登录页留在历史记录中）
     router.replace('/app')
@@ -492,6 +596,62 @@ const handleLogin = async () => {
 
 .login-input::placeholder {
   color: #AAAAAA;
+}
+
+/* 多账号下拉组件样式 */
+.account-dropdown-arrow {
+  font-size: 24px;
+  color: #888888;
+  cursor: pointer;
+  transition: color 0.2s;
+  user-select: none;
+}
+
+.account-dropdown-arrow:hover {
+  color: #6e55ff;
+}
+
+.accounts-dropdown-list {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 999;
+}
+
+.accounts-dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.accounts-dropdown-item:hover {
+  background-color: #f3f4f6;
+}
+
+.accounts-dropdown-item .account-name {
+  font-size: 0.9rem;
+  color: #333333;
+}
+
+.delete-account-btn {
+  font-size: 16px;
+  color: #aaaaaa;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.delete-account-btn:hover {
+  color: #ef4444;
 }
 
 /* 输入框图标样式 */

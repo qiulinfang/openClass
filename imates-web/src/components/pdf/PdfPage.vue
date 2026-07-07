@@ -1,5 +1,45 @@
 <template>
   <div class="pdf-reader-container">
+    <!-- 开发环境渲染模式标签 -->
+    <!-- 调试面板 -->
+    <div v-if="isDev" class="dev-render-mode-tag" :class="currentRenderMode">
+      <div style="font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.25); padding-bottom: 4px; margin-bottom: 6px; text-align: center;">PDF 调试面板</div>
+      <div>PDF 模式: {{ currentRenderMode === 'full' ? '全量渲染' : '虚拟滚动' }}</div>
+      <div>文件属性: {{ pageCount }}页 / {{ ((props.file?.size || 0) / (1024 * 1024)).toFixed(2) }}MB</div>
+      
+      <div style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 6px;">
+        <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+          <input type="checkbox" v-model="isAutoDpr" @change="handleDprConfigChange" />
+          <span>自动调节像素密度</span>
+        </label>
+      </div>
+
+      <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span>实际 DPR:</span>
+          <span style="font-family: monospace; color: #ffeb3b;">
+            {{ (currentRenderMode === 'full' ? Math.max(1.0, getActiveDpr() * fullModeDprScale) : getActiveDpr()).toFixed(2) }}
+          </span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px; opacity: 0.85;">
+          <span>基准 DPR:</span>
+          <span>{{ getActiveDpr().toFixed(2) }}</span>
+        </div>
+        <input 
+          type="range" 
+          v-model.number="manualDpr" 
+          min="1.0" 
+          max="3.0" 
+          step="0.1" 
+          :disabled="isAutoDpr" 
+          @change="handleDprConfigChange"
+          style="width: 100%; cursor: pointer; margin-top: 4px;"
+        />
+      </div>
+      <div v-if="currentRenderMode === 'full' && fullModeDprScale !== 1.0" style="margin-top: 4px; font-size: 10px; color: #ff9800;">
+        显存降级缩放: {{ fullModeDprScale }}x
+      </div>
+    </div>
     <!-- 视口区域 -->
     <div
       class="viewport"
@@ -239,8 +279,119 @@ interface PageAnnotationsData {
 // 缓存最近 18 页的高清像素数据，防范反复重画
 const pagePixelCache = new SimpleLRUCache<number, PageCacheData>(18)
 
+// 智能切换渲染模式：'virtual' (虚拟滚动) | 'full' (全量渲染)
+const currentRenderMode = ref<'virtual' | 'full'>('virtual')
+const fullModeDprScale = ref<number>(1.0)
+const fileTargetDpr = ref<number>(2.0)
+const isDev = import.meta.env.DEV
+
+// 调试面板控制状态
+const isAutoDpr = ref(true)
+const manualDpr = ref(2.0)
+
+const getActiveDpr = () => {
+  return isAutoDpr.value ? fileTargetDpr.value : manualDpr.value
+}
+
+const handleDprConfigChange = () => {
+  const activeBaseDpr = getActiveDpr()
+  
+  if (props.file && pageList.value.length > 0) {
+    // 获取当前布局的页面宽度（使用第一页估算面积）
+    const firstPage = pageList.value[0]
+    const width = firstPage ? firstPage.viewWidth : 600
+    const height = firstPage ? firstPage.viewHeight : 800
+
+    const classification = classifyRenderMode({
+      pageCount: pageCount.value,
+      fileSize: props.file.size,
+      firstPageWidth: width,
+      firstPageHeight: height,
+      baseDpr: activeBaseDpr
+    })
+    currentRenderMode.value = classification.mode
+    fullModeDprScale.value = classification.dprScale
+  }
+
+  // 触发重新渲染
+  renderPdfPages()
+}
+
+// 根据文件特性动态计算最合适的目标 DPR，范围钳制在 [1.0, 3.0] 之间
+const calculateTargetDpr = (meta: { pageCount: number; fileSize: number; isLandscape: boolean }): number => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  const baseDpr = window.devicePixelRatio || 1
+  const fileSizeMB = meta.fileSize / (1024 * 1024)
+  const avgPageSizeMB = meta.pageCount > 0 ? (fileSizeMB / meta.pageCount) : 0
+
+  // 1. 基础评分：根据单页平均大小来决定初始分辨率
+  let target = 2.2
+  if (avgPageSizeMB > 2.0) {
+    target = 1.5  // 重度图片/复杂矢量，降级分辨率防卡顿和内存超限
+  } else if (avgPageSizeMB > 0.5) {
+    target = 2.2  // 中等复杂度
+  } else {
+    target = 2.8  // 轻量纯文本/简单排版，优先保证高清展示
+  }
+
+  // 2. 根据总页数惩罚调整：页数多则适当降低 DPR 释放空间
+  const pageLimit = isMobile ? 5 : 15
+  if (meta.pageCount > pageLimit) {
+    target -= 0.3
+  }
+  
+  // 3. 根据屏幕与布局性质微调
+  if (meta.isLandscape) {
+    target -= 0.2 // 横板大图/PPT 像素面积大，微降以平衡性能
+  }
+  if (isMobile) {
+    target -= 0.2 // 移动端处理器性能和屏幕稍小，微降分辨率
+  }
+
+  // 4. 钳制在 1.0 ~ 3.0 范围，且不超出设备的物理像素比
+  const finalMaxDpr = Math.min(3.0, baseDpr)
+  return Math.max(1.0, Math.min(target, finalMaxDpr))
+}
+
+const classifyRenderMode = (meta: { pageCount: number; fileSize: number; firstPageWidth: number; firstPageHeight: number; baseDpr: number }): { mode: 'full' | 'virtual'; dprScale: number } => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  const fileSizeMB = meta.fileSize / (1024 * 1024)
+  const avgPageSizeMB = meta.pageCount > 0 ? (fileSizeMB / meta.pageCount) : 0
+  
+  // 1. 强约束边界判定 - 总页数限制（大幅放宽，极端情况下才采用虚拟滚动）
+  if (meta.pageCount > (isMobile ? 30 : 100)) {
+    return { mode: 'virtual', dprScale: 1.0 }
+  }
+  
+  // 2. 强约束边界判定 - 单页平均大小限制（大幅放宽）
+  const maxAvgPageSize = isMobile ? 4.0 : 15.0 // 移动端每页均值限 4.0MB，桌面端放宽至 15.0MB
+  if (avgPageSizeMB > maxAvgPageSize) {
+    return { mode: 'virtual', dprScale: 1.0 }
+  }
+  
+  const singlePagePixels = meta.firstPageWidth * meta.firstPageHeight
+  const MAX_FULL_RENDER_MEM = isMobile ? 300 * 1024 * 1024 : 1200 * 1024 * 1024 // 移动端 300MB，桌面端 1.2GB
+
+  // 3. 尝试不同的 DPR 缩放系数进行显存预估
+  // 备选缩放系数：1.0 (原高分辨率), 0.75 (中等分辨率), 0.5 (低分辨率/基本DPR)
+  const scales = [1.0, 0.75, 0.5]
+  for (const scale of scales) {
+    const targetDpr = meta.baseDpr * scale
+    const totalEstimatedMemory = singlePagePixels * targetDpr * targetDpr * 4 * meta.pageCount
+    if (totalEstimatedMemory <= MAX_FULL_RENDER_MEM) {
+      return { mode: 'full', dprScale: scale }
+    }
+  }
+  
+  // 如果即使采用最低的 0.5x DPR 依然超出显存限制，则强制降级为虚拟滚动
+  return { mode: 'virtual', dprScale: 1.0 }
+}
+
 // 判断某页是否需要进入渲染窗口 (可视区及其缓冲范围)
 const shouldRenderPage = (pageIndex: number): boolean => {
+  if (currentRenderMode.value === 'full') {
+    return true
+  }
   if (readingDirection.value === 'horizontal') {
     return Math.abs(pageIndex - horizontalPageIndex.value) <= 2
   } else {
@@ -1516,18 +1667,37 @@ const loadFile = async (file: File) => {
       pageCount.value = doc.countPages()
       pdfViewerStore.setTotalPages(pageCount.value)
       
-      // 检测首页宽高比以决定默认方向 (横屏 PPT 默认横向模式，普通竖屏书籍默认纵向模式)
       if (pageCount.value > 0) {
         const firstPage = doc.loadPage(0)
         try {
           const bounds = firstPage.getBounds()
           const width = bounds[2] - bounds[0]
           const height = bounds[3] - bounds[1]
-          if (width / height > 1.2) {
-            readingDirection.value = 'horizontal'
-          } else {
-            readingDirection.value = 'vertical'
-          }
+          
+          // 统一默认使用单页渲染（横屏模式）
+          readingDirection.value = 'horizontal'
+
+          // 动态计算该文件的最佳目标 DPR
+          fileTargetDpr.value = calculateTargetDpr({
+            pageCount: pageCount.value,
+            fileSize: file.size,
+            isLandscape: width / height > 1.2
+          })
+
+          // 智能决策渲染模式
+          const classification = classifyRenderMode({
+            pageCount: pageCount.value,
+            fileSize: file.size,
+            firstPageWidth: width,
+            firstPageHeight: height,
+            baseDpr: fileTargetDpr.value
+          })
+          currentRenderMode.value = classification.mode
+          fullModeDprScale.value = classification.dprScale
+
+          const fileSizeMB = file.size / (1024 * 1024)
+          const avgPageSizeMB = pageCount.value > 0 ? (fileSizeMB / pageCount.value) : 0
+          console.log(`[PdfPage] 智能决策渲染模式: ${currentRenderMode.value} (targetDpr: ${fileTargetDpr.value.toFixed(2)}, dprScale: ${fullModeDprScale.value}, 页数: ${pageCount.value}, 总大小: ${fileSizeMB.toFixed(2)}MB)`)
         } finally {
           firstPage.destroy?.()
         }
@@ -1671,27 +1841,13 @@ const renderPageCanvas = (pageIndex: number) => {
 
   const cssW = pageLayout.viewWidth
   const cssH = pageLayout.viewHeight
-  const baseDpr = window.devicePixelRatio || 1
-  const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
-  const avgPageSizeMB = pageCount.value > 0 ? (fileSizeMB / pageCount.value) : fileSizeMB
 
-  const getRenderDprForPage = (w: number, h: number) => {
-    const isLandscape = w / h > 1.2
-    
-    // 如果单页平均大小超过 0.5MB，说明单页渲染复杂度高，进行适度降级以保障性能，但至少保持 1.8x DPR 保证清晰度
-    if (avgPageSizeMB > 0.5) {
-      return isLandscape ? 1.4 : 1.8
-    }
-    
-    // 正常大小教材在横屏/PPT比例下：最小 1.5x 超采样，最高限制在 2.0x
-    if (isLandscape) {
-      return Math.max(1.5, Math.min(baseDpr, 2.0))
-    }
-    // 竖版 A4 标准尺寸：最小 1.8x 超采样，允许达到设备物理高清分辨率（最高限制到 2.8x，保证极致高清）
-    return Math.max(1.8, Math.min(baseDpr, 2.8))
-  }
+  // 根据当前渲染模式决定最终使用的 DPR
+  const activeBaseDpr = getActiveDpr()
+  const renderDpr = currentRenderMode.value === 'full'
+    ? Math.max(1.0, activeBaseDpr * fullModeDprScale.value)
+    : activeBaseDpr
 
-  const renderDpr = getRenderDprForPage(cssW, cssH)
   renderDprRef.value = renderDpr // 同步 DPR
 
   const pixelW = Math.round(cssW * renderDpr)
@@ -1723,8 +1879,33 @@ const renderPageCanvas = (pageIndex: number) => {
     } finally {
       pixmap.destroy()
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[PdfPage] WASM 解析渲染页码 ${pageIndex} 异常:`, err)
+    
+    // 如果是全量渲染模式，且发生了内存溢出或类似错误，自动降级为虚拟滚动并重新渲染
+    if (currentRenderMode.value === 'full') {
+      console.warn('[PdfPage] 全量渲染期间发生异常，尝试自动降级为虚拟滚动模式并重新绘制...')
+      currentRenderMode.value = 'virtual'
+      
+      // 清空非视口区域的所有 Canvas 以释放资源
+      nextTick(() => {
+        for (let i = 0; i < pageCount.value; i++) {
+          if (!shouldRenderPage(i)) {
+            const pdfCanvas = pdfRefs.value[i]
+            const inkCanvas = inkRefs.value[i]
+            if (pdfCanvas) {
+              pdfCanvas.width = 0
+              pdfCanvas.height = 0
+            }
+            if (inkCanvas) {
+              inkCanvas.width = 0
+              inkCanvas.height = 0
+            }
+          }
+        }
+        renderPdfPages()
+      })
+    }
   } finally {
     page.destroy?.()
   }
@@ -2947,6 +3128,28 @@ defineExpose({
 </script>
 
 <style scoped>
+.dev-render-mode-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 9999;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 11px;
+  border-radius: 6px;
+  color: #ffffff;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  width: 180px;
+}
+.dev-render-mode-tag.full {
+  background-color: rgba(76, 175, 80, 0.85); /* 绿色表示全量渲染 */
+}
+.dev-render-mode-tag.virtual {
+  background-color: rgba(33, 150, 243, 0.85); /* 蓝色表示虚拟滚动 */
+}
+
 .pdf-reader-container {
   display: flex;
   flex-direction: column;
