@@ -49,6 +49,15 @@
         <Loading text="正在加载..." :size="48" theme="light" />
       </div>
 
+      <!-- 渲染模式切换按钮 -->
+      <button 
+        class="render-mode-toggle-btn"
+        :class="currentRenderMode"
+        @click.stop="toggleRenderMode"
+      >
+        {{ currentRenderMode === 'full' ? '全量模式' : '虚拟滚动' }}
+      </button>
+
       <div v-if="readingDirection === 'horizontal'" class="horizontal-nav">
         <q-btn
           class="nav-btn nav-left"
@@ -97,6 +106,7 @@ import {
   onUnmounted,
   defineAsyncComponent,
   type ComponentPublicInstance,
+  toRef,
 } from 'vue'
 import * as mupdf from 'mupdf'
 import { IndexedDBService } from '@/services/storage/indexeddb-service'
@@ -194,12 +204,11 @@ const contentSize = ref({ width: 0, height: 0 })
 let lastObservedViewportWidth = 0
 let lastObservedViewportHeight = 0
 
-const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
-const isDirectionChanging = ref(false)
-
 // 工具状态
 const currentMode = ref<ToolMode>('pan')
 const pdfViewerStore = usePdfViewerStore()
+const readingDirection = toRef(pdfViewerStore, 'readingDirection')
+const isDirectionChanging = ref(false)
 const currentRenderMode = ref<'full' | 'virtual'>('full')
 
 // 数据存储
@@ -1231,16 +1240,9 @@ const loadFile = async (file: File) => {
     const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
     pdfDoc.value = doc
     pageCount.value = doc.countPages()
+    pdfViewerStore.setTotalPages(pageCount.value)
 
-    // 智能决策渲染模式，默认是 full，大文件自动设为 virtual 模式
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    const fileSizeMB = file.size / (1024 * 1024)
-    if (pageCount.value > (isMobile ? 30 : 100) || fileSizeMB > (isMobile ? 5 : 20)) {
-      currentRenderMode.value = 'virtual'
-    } else {
-      currentRenderMode.value = 'full'
-    }
-    console.log(`[PdfPage] Determined render mode: ${currentRenderMode.value} (pages: ${pageCount.value}, size: ${fileSizeMB.toFixed(2)}MB)`)
+
 
     // 删除 PDF 内嵌 Ink 注释并刻蚀保存回资源存储（不落地到 strokes/IndexedDB）
     await clearAndBurnMupdfInkAnnotations(doc)
@@ -2678,6 +2680,13 @@ const refreshLayout = () => {
   pendingViewportResizeWhileSuspended = false
   refreshLayoutAfterViewportResize()
 }
+const toggleRenderMode = () => {
+  currentRenderMode.value = currentRenderMode.value === 'full' ? 'virtual' : 'full'
+  console.log('[PdfPage] Manually toggled render mode to:', currentRenderMode.value)
+  if (pdfDoc.value) {
+    renderPdfPages()
+  }
+}
 defineExpose({
   toggleGestureMode,
   toggleHighlightMode,
@@ -2694,6 +2703,7 @@ defineExpose({
   undoLastStroke,
   redoLastStroke,
   refreshLayout,
+  toggleRenderMode,
 })
 </script>
 
@@ -2705,6 +2715,34 @@ defineExpose({
   height: 100%;
   flex: 1;
   overflow: hidden;
+  position: relative;
+}
+
+.render-mode-toggle-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+.render-mode-toggle-btn.full {
+  background-color: rgba(76, 175, 80, 0.85); /* 绿色表示全量渲染 */
+}
+.render-mode-toggle-btn.virtual {
+  background-color: rgba(33, 150, 243, 0.85); /* 蓝色表示虚拟滚动 */
+}
+.render-mode-toggle-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
 }
 
 .viewport {

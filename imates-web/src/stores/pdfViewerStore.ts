@@ -54,7 +54,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   const totalPages = ref(0)
   
   // 阅读方向 ('vertical' | 'horizontal')
-  const readingDirection = ref<'vertical' | 'horizontal'>('vertical')
+  const readingDirection = ref<'vertical' | 'horizontal'>('horizontal')
   
   // 设置缩放比例
   const setScale = (newScale: number) => {
