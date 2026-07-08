@@ -54,7 +54,7 @@
       </div>
 
       <!-- 加载状态提示 -->
-      <div v-if="loading || isRendering || layoutSuspended || isLayoutChanging" class="loading-overlay">
+      <div v-if="loading || isRendering || isLayoutChanging" class="loading-overlay">
         <Loading text="正在加载..." :size="48" theme="light" />
       </div>
 
@@ -382,7 +382,6 @@ watch(
   () => props.layoutSuspended,
   (suspended, previous) => {
     if (suspended) {
-      isLayoutChanging.value = true
       // 挂起的瞬间，视口大小还未发生变化，记录下此时的中心点作为参考
       suspendedNormalizedCenter = getNormalizedCenter()
       renderGeneration += 1
@@ -1654,10 +1653,7 @@ const renderInkLayer = (pageIndex: number) => {
 }
 
 const refreshLayoutAfterViewportResize = (savedCenter?: { x: number; y: number } | null) => {
-  if (!isVisible.value) {
-    isLayoutChanging.value = false
-    return
-  }
+  if (!isVisible.value) return
 
   const center = savedCenter || getNormalizedCenter()
   renderGeneration += 1
@@ -1667,23 +1663,7 @@ const refreshLayoutAfterViewportResize = (savedCenter?: { x: number; y: number }
   } else {
     centerContent()
   }
-
-  hasRendered.value = false
-  requestAnimationFrame(async () => {
-    try {
-      await tryRenderContent()
-    } finally {
-      isLayoutChanging.value = false
-    }
-    if (hasRendered.value) {
-      if (center) {
-        restoreNormalizedCenter(center)
-      } else {
-        centerContent()
-      }
-      clampOffset()
-    }
-  })
+  clampOffset()
 }
 
 const setupResizeObserver = () => {
@@ -1738,21 +1718,6 @@ const setupResizeObserver = () => {
         } else {
           centerContent()
         }
-
-        // 异步执行高质量重绘
-        hasRendered.value = false
-        requestAnimationFrame(() => {
-          tryRenderContent()
-          if (hasRendered.value) {
-            // 重绘完成后再次微调，确保位置绝对精准
-            if (center) {
-              restoreNormalizedCenter(center)
-            } else {
-              centerContent()
-            }
-            clampOffset()
-          }
-        })
       }
     }
   })
@@ -2653,7 +2618,6 @@ const toggleSelectMode = () => {
   currentMode.value = 'select'
 }
 const refreshLayout = () => {
-  isLayoutChanging.value = true
   pendingViewportResizeWhileSuspended = false
   refreshLayoutAfterViewportResize(suspendedNormalizedCenter)
   suspendedNormalizedCenter = null
