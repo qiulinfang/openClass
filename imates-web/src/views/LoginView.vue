@@ -37,7 +37,9 @@
                     <q-icon
                       name="close"
                       class="delete-account-btn"
-                      @mousedown.stop="deleteSavedAccount(item.account)"
+                      @mousedown.stop.prevent="deleteSavedAccount(item.account)"
+                      @touchstart.stop.prevent="deleteSavedAccount(item.account)"
+                      @click.stop.prevent="deleteSavedAccount(item.account)"
                     />
                   </div>
                 </div>

@@ -55,7 +55,7 @@
       </div>
 
       <!-- 加载状态提示 -->
-      <div v-if="loading || isRendering" class="loading-overlay">
+      <div v-if="loading || isRendering || layoutSuspended || isLayoutChanging" class="loading-overlay">
         <Loading text="正在加载..." :size="48" theme="light" />
       </div>
 
@@ -272,6 +272,7 @@ const screenshotDragRect = ref<{ x: number; y: number; w: number; h: number } | 
 const screenshotStartPoint = ref<Point | null>(null)
 const isDrawingStarted = ref(false)
 let suspendedNormalizedCenter: { x: number; y: number } | null = null
+const isLayoutChanging = ref(false)
 
 const selectionMode = ref<'rectangle' | 'freeform'>('rectangle')
 const selectedStrokeIds = shallowRef(new Set<string>())
@@ -382,6 +383,7 @@ watch(
   () => props.layoutSuspended,
   (suspended, previous) => {
     if (suspended) {
+      isLayoutChanging.value = true
       // 挂起的瞬间，视口大小还未发生变化，记录下此时的中心点作为参考
       suspendedNormalizedCenter = getNormalizedCenter()
       renderGeneration += 1
@@ -1653,7 +1655,10 @@ const renderInkLayer = (pageIndex: number) => {
 }
 
 const refreshLayoutAfterViewportResize = (savedCenter?: { x: number; y: number } | null) => {
-  if (!isVisible.value) return
+  if (!isVisible.value) {
+    isLayoutChanging.value = false
+    return
+  }
 
   const center = savedCenter || getNormalizedCenter()
   renderGeneration += 1
@@ -1665,8 +1670,12 @@ const refreshLayoutAfterViewportResize = (savedCenter?: { x: number; y: number }
   }
 
   hasRendered.value = false
-  requestAnimationFrame(() => {
-    tryRenderContent()
+  requestAnimationFrame(async () => {
+    try {
+      await tryRenderContent()
+    } finally {
+      isLayoutChanging.value = false
+    }
     if (hasRendered.value) {
       if (center) {
         restoreNormalizedCenter(center)
@@ -1706,8 +1715,15 @@ const setupResizeObserver = () => {
       if (isNowVisible && sizeChanged) {
         if (props.layoutSuspended) {
           pendingViewportResizeWhileSuspended = true
+          const center = getNormalizedCenter(oldWidth, oldHeight)
           lastObservedViewportWidth = width
           lastObservedViewportHeight = height
+          if (center) {
+            restoreNormalizedCenter(center)
+            clampOffset()
+          } else {
+            centerContent()
+          }
           continue
         }
 
@@ -2630,6 +2646,7 @@ const toggleSelectMode = () => {
   currentMode.value = 'select'
 }
 const refreshLayout = () => {
+  isLayoutChanging.value = true
   pendingViewportResizeWhileSuspended = false
   refreshLayoutAfterViewportResize(suspendedNormalizedCenter)
   suspendedNormalizedCenter = null
