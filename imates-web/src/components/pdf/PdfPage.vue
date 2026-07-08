@@ -5,8 +5,10 @@
       class="viewport"
       :class="{
         'is-horizontal': readingDirection === 'horizontal',
-        'is-drawing': readingDirection === 'horizontal' && (currentMode === 'pen' || currentMode === 'highlighter' || currentMode === 'eraser'),
-        'direction-changing': isDirectionChanging
+        'is-drawing':
+          readingDirection === 'horizontal' &&
+          (currentMode === 'pen' || currentMode === 'highlighter' || currentMode === 'eraser'),
+        'direction-changing': isDirectionChanging,
       }"
       ref="viewportRef"
       @wheel="handleWheel"
@@ -19,7 +21,10 @@
     >
       <div
         class="canvas-container"
-        :class="{ 'is-horizontal': readingDirection === 'horizontal', 'is-suspended': layoutSuspended }"
+        :class="{
+          'is-horizontal': readingDirection === 'horizontal',
+          'is-suspended': layoutSuspended,
+        }"
         :style="containerStyle"
         ref="containerRef"
       >
@@ -29,7 +34,12 @@
           class="page-wrapper"
           :class="{ 'is-horizontal': readingDirection === 'horizontal' }"
           :data-page-index="page.pageIndex"
-          :style="{ width: page.viewWidth + 'px', height: page.viewHeight + 'px', left: page.x + 'px', top: page.y + 'px' }"
+          :style="{
+            width: page.viewWidth + 'px',
+            height: page.viewHeight + 'px',
+            left: page.x + 'px',
+            top: page.y + 'px',
+          }"
         >
           <!-- PDF 内容层 -->
           <canvas :ref="(el) => setPdfCanvasRef(el, page.pageIndex)"></canvas>
@@ -55,19 +65,45 @@
           <span>PDF 渲染调试面板</span>
         </div>
         <div class="debug-panel-content">
-          <div class="debug-item"><span class="label">文件名:</span> <span class="val">{{ fileName }}</span></div>
-          <div class="debug-item"><span class="label">文件大小:</span> <span class="val">{{ (file?.size ? (file.size / 1024).toFixed(1) + ' KB' : '未知') }}</span></div>
-          <div class="debug-item"><span class="label">总页数:</span> <span class="val">{{ pageCount }} 页</span></div>
-          <div class="debug-item"><span class="label">当前页:</span> <span class="val">{{ pdfViewerStore.currentPage + 1 }} 页</span></div>
-          <div class="debug-item"><span class="label">滚动方向:</span> <span class="val">{{ readingDirection === 'horizontal' ? '横向' : '纵向' }}</span></div>
-          <div class="debug-item"><span class="label">缩放比例:</span> <span class="val">{{ (scale * 100).toFixed(0) }}%</span></div>
-          <div class="debug-item"><span class="label">设备 DPR:</span> <span class="val">{{ devicePixelRatio }}</span></div>
-          <div class="debug-item"><span class="label">渲染 DPR:</span> <span class="val">{{ renderDprRef }}</span></div>
-          <div class="debug-item"><span class="label">视口尺寸:</span> <span class="val">{{ viewportRef ? viewportRef.clientWidth : 0 }} x {{ viewportRef ? viewportRef.clientHeight : 0 }} px</span></div>
+          <div class="debug-item">
+            <span class="label">文件名:</span> <span class="val">{{ fileName }}</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">文件大小:</span>
+            <span class="val">{{
+              file?.size ? (file.size / 1024).toFixed(1) + ' KB' : '未知'
+            }}</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">总页数:</span> <span class="val">{{ pageCount }} 页</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">当前页:</span>
+            <span class="val">{{ pdfViewerStore.currentPage + 1 }} 页</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">滚动方向:</span>
+            <span class="val">{{ readingDirection === 'horizontal' ? '横向' : '纵向' }}</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">缩放比例:</span>
+            <span class="val">{{ (scale * 100).toFixed(0) }}%</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">设备 DPR:</span> <span class="val">{{ devicePixelRatio }}</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">渲染 DPR:</span> <span class="val">{{ renderDprRef }}</span>
+          </div>
+          <div class="debug-item">
+            <span class="label">视口尺寸:</span>
+            <span class="val"
+              >{{ viewportRef ? viewportRef.clientWidth : 0 }} x
+              {{ viewportRef ? viewportRef.clientHeight : 0 }} px</span
+            >
+          </div>
         </div>
       </div>
-
-
 
       <div v-if="readingDirection === 'horizontal'" class="horizontal-nav">
         <q-btn
@@ -121,6 +157,7 @@ import {
 } from 'vue'
 import * as mupdf from 'mupdf'
 import { IndexedDBService } from '@/services/storage/indexeddb-service'
+import { IDB_CONFIGS } from '@/services/storage/db-config'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import Loading from '@/components/base/Loading.vue'
@@ -194,17 +231,15 @@ const PAGE_GAP = 20
 const renderDprRef = ref(1)
 
 // === 持久化服务 ===
-const dbService = IndexedDBService.getInstance({
-  dbName: 'pdf-ink-db',
-  version: 1,
-  stores: [{ name: 'annotations', keyPath: 'docKey' }],
-})
+const dbService = IndexedDBService.getInstance(IDB_CONFIGS.PDF_INK_STORAGE())
 
 // === 状态管理 ===
 const pdfDoc = shallowRef<mupdf.Document | null>(null)
 const fileName = ref('')
 const pageCount = ref(0)
-const pageList = ref<Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }>>([])
+const pageList = ref<
+  Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }>
+>([])
 const scale = ref(1.0)
 const offset = ref({ x: 0, y: 0 })
 const loading = ref(false)
@@ -224,7 +259,6 @@ const isDirectionChanging = ref(false)
 const isDev = import.meta.env.DEV
 const devicePixelRatio = window.devicePixelRatio || 1
 
-
 // 数据存储
 const allStrokes = shallowRef<Stroke[]>([])
 const undoStack = ref<HistoryAction[]>([])
@@ -237,6 +271,7 @@ const currentDragRect = ref<{ x: number; y: number; w: number; h: number } | nul
 const screenshotDragRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
 const screenshotStartPoint = ref<Point | null>(null)
 const isDrawingStarted = ref(false)
+let suspendedNormalizedCenter: { x: number; y: number } | null = null
 
 const selectionMode = ref<'rectangle' | 'freeform'>('rectangle')
 const selectedStrokeIds = shallowRef(new Set<string>())
@@ -304,9 +339,13 @@ const containerStyle = computed(() => {
     transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
   }
 })
-const isHorizontalFirstPage = computed(() => readingDirection.value === 'horizontal' && horizontalPageIndex.value <= 0)
+const isHorizontalFirstPage = computed(
+  () => readingDirection.value === 'horizontal' && horizontalPageIndex.value <= 0,
+)
 const isHorizontalLastPage = computed(
-  () => readingDirection.value === 'horizontal' && horizontalPageIndex.value >= Math.max(0, pageCount.value - 1)
+  () =>
+    readingDirection.value === 'horizontal' &&
+    horizontalPageIndex.value >= Math.max(0, pageCount.value - 1),
 )
 
 watch(
@@ -316,12 +355,17 @@ watch(
     if (currentMode.value === 'eraser' && eraserCursor.value.visible) {
       eraserCursor.value = { ...eraserCursor.value, size: getEraserCursorSize() }
     }
-  }
+  },
 )
 
 // 监听位置/缩放/方向变化，更新全局当前页码
 watch(
-  [() => offset.value.y, () => scale.value, () => readingDirection.value, () => horizontalPageIndex.value],
+  [
+    () => offset.value.y,
+    () => scale.value,
+    () => readingDirection.value,
+    () => horizontalPageIndex.value,
+  ],
   () => {
     if (pageList.value.length === 0) return
     if (readingDirection.value === 'vertical') {
@@ -331,25 +375,26 @@ watch(
       pdfViewerStore.setCurrentPage(horizontalPageIndex.value)
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true, deep: true },
 )
-
-
 
 watch(
   () => props.layoutSuspended,
   (suspended, previous) => {
     if (suspended) {
+      // 挂起的瞬间，视口大小还未发生变化，记录下此时的中心点作为参考
+      suspendedNormalizedCenter = getNormalizedCenter()
       renderGeneration += 1
       return
     }
     if (previous && pendingViewportResizeWhileSuspended) {
       pendingViewportResizeWhileSuspended = false
       requestAnimationFrame(() => {
-        refreshLayoutAfterViewportResize()
+        refreshLayoutAfterViewportResize(suspendedNormalizedCenter)
+        suspendedNormalizedCenter = null
       })
     }
-  }
+  },
 )
 
 onMounted(() => {
@@ -433,11 +478,7 @@ const jumpToPage = async (pageIndex: number) => {
   }
 }
 
-
-
 // === 绘图与渲染逻辑 ===
-
-
 
 let highlighterRafId: number | null = null
 let highlighterPending: { pageIndex: number; points: Point[] } | null = null
@@ -447,11 +488,6 @@ let penPending: { pageIndex: number; points: Point[] } | null = null
 
 let eraserRafId: number | null = null
 let eraserPending: { pageIndex: number; x: number; y: number } | null = null
-
-
-
-
-
 
 const drawStartDot = (pageIndex: number, p: Point, mode: ToolMode) => {
   if (mode !== 'pen' && mode !== 'highlighter') return
@@ -590,7 +626,7 @@ const getInkContext = (pageIndex: number) => {
 // 将客户端坐标转换为PDF页面坐标
 const getPdfPoint = (
   clientX: number,
-  clientY: number
+  clientY: number,
 ): { pageIndex: number; x: number; y: number } | null => {
   if (!viewportRef.value || pageList.value.length === 0) return null
   const rect = viewportRef.value.getBoundingClientRect()
@@ -713,7 +749,7 @@ const createStrokeObject = (pageIndex: number, points: Point[], mode: string): S
     points: [...points],
     color: isRect ? '#FF0000' : cfg.color,
     width,
-    opacity: isRect ? 1.0 : cfg.opacity ?? 1.0,
+    opacity: isRect ? 1.0 : (cfg.opacity ?? 1.0),
   }
   Object.assign(stroke, calculateBBox(stroke.points, stroke.width))
   return stroke
@@ -723,7 +759,7 @@ const createStrokeObject = (pageIndex: number, points: Point[], mode: string): S
 const createSelectMoveAction = (
   pageIndex: number,
   pos: Point,
-  strokes?: Stroke[]
+  strokes?: Stroke[],
 ): SelectActionData => {
   const selected = strokes ?? getSelectedStrokesOnPage(pageIndex)
   const before = selected.map((s) => JSON.parse(JSON.stringify(s)) as Stroke)
@@ -834,15 +870,17 @@ const hitTestFreeform = (pageIndex: number, path: Point[]) => {
   return next
 }
 
-
-
 /*
   事件处理方法
 */
 // 处理鼠标滚轮事件
 const handleWheel = (e: WheelEvent) => {
   if (e.ctrlKey || e.metaKey) {
-    if (readingDirection.value === 'horizontal' && isHorizontalScrolling.value && scale.value !== 1) {
+    if (
+      readingDirection.value === 'horizontal' &&
+      isHorizontalScrolling.value &&
+      scale.value !== 1
+    ) {
       e.preventDefault()
       return
     }
@@ -924,9 +962,14 @@ const handleViewportScroll = () => {
 const onPointerDown = (e: PointerEvent) => {
   const shouldLockScrollForDrawInHorizontal =
     readingDirection.value === 'horizontal' &&
-    (currentMode.value === 'pen' || currentMode.value === 'highlighter' || currentMode.value === 'eraser')
+    (currentMode.value === 'pen' ||
+      currentMode.value === 'highlighter' ||
+      currentMode.value === 'eraser')
 
-  if (viewportRef.value && (readingDirection.value !== 'horizontal' || shouldLockScrollForDrawInHorizontal)) {
+  if (
+    viewportRef.value &&
+    (readingDirection.value !== 'horizontal' || shouldLockScrollForDrawInHorizontal)
+  ) {
     viewportRef.value.setPointerCapture(e.pointerId)
   }
   if (shouldLockScrollForDrawInHorizontal) {
@@ -950,7 +993,8 @@ const onPointerDown = (e: PointerEvent) => {
         isDrawingStarted.value = true
         // 复用现有的 finishDrawing 流程：确保 dragStartPage 非 -1
         if (dragStartPage.value === -1) {
-          dragStartPage.value = readingDirection.value === 'horizontal' ? horizontalPageIndex.value : 0
+          dragStartPage.value =
+            readingDirection.value === 'horizontal' ? horizontalPageIndex.value : 0
         }
       }
       return
@@ -1019,7 +1063,9 @@ const onPointerMove = (e: PointerEvent) => {
   if (
     readingDirection.value === 'horizontal' &&
     activePointers.size === 1 &&
-    (currentMode.value === 'pen' || currentMode.value === 'highlighter' || currentMode.value === 'eraser')
+    (currentMode.value === 'pen' ||
+      currentMode.value === 'highlighter' ||
+      currentMode.value === 'eraser')
   ) {
     e.preventDefault()
   }
@@ -1180,7 +1226,7 @@ const undo = () => {
           ...(action.before ?? []).map((s) => s.pageIndex),
           ...(action.after ?? []).map((s) => s.pageIndex),
         ]
-      : action.strokes.map((s) => s.pageIndex)
+      : action.strokes.map((s) => s.pageIndex),
   )
   pages.forEach((p) => renderInkLayer(p))
   scheduleSaveToDb(400)
@@ -1214,7 +1260,7 @@ const redo = () => {
           ...(action.before ?? []).map((s) => s.pageIndex),
           ...(action.after ?? []).map((s) => s.pageIndex),
         ]
-      : action.strokes.map((s) => s.pageIndex)
+      : action.strokes.map((s) => s.pageIndex),
   )
   pages.forEach((p) => renderInkLayer(p))
   scheduleSaveToDb(400)
@@ -1242,8 +1288,6 @@ const loadFile = async (file: File) => {
     // 初始化时根据页数设置方向：大于10页用横向，否则用纵向
     readingDirection.value = pageCount.value > 10 ? 'horizontal' : 'vertical'
 
-
-
     // 删除 PDF 内嵌 Ink 注释并刻蚀保存回资源存储（不落地到 strokes/IndexedDB）
     await clearAndBurnMupdfInkAnnotations(doc)
 
@@ -1265,7 +1309,6 @@ const loadFile = async (file: File) => {
     loading.value = false
   }
 }
-
 
 // 从数据库加载持久化数据（笔迹等）
 const loadDataFromDb = async (file: File) => {
@@ -1315,7 +1358,6 @@ const scheduleSaveToDb = (delay = 300) => {
     saveDataToDb()
   }, delay)
 }
-
 
 // 重置组件所有状态到初始值
 const resetState = () => {
@@ -1369,7 +1411,13 @@ const prefetchDimensionsAndLayout = async (doc: mupdf.Document) => {
 
   let currentY = PAGE_GAP
   let maxW = 0
-  const list: Array<{ pageIndex: number; viewWidth: number; viewHeight: number; x: number; y: number }> = []
+  const list: Array<{
+    pageIndex: number
+    viewWidth: number
+    viewHeight: number
+    x: number
+    y: number
+  }> = []
 
   // MuPDF 获取页面尺寸是同步的，这里仍用 async 包一层保持接口一致
   for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
@@ -1407,7 +1455,6 @@ const tryRenderContent = async () => {
   }
 }
 
-
 const renderPdfPages = async () => {
   const rawDoc = toRaw(pdfDoc.value)
   if (!rawDoc) return
@@ -1423,20 +1470,29 @@ const renderPdfPages = async () => {
 
     // 综合负载分值：文件大小 + 页数/6。比如 10MB 的 12 页文档，负载为 10 + 2 = 12
     const loadScore = fileSizeMB + pages / 6
-    const minLoad = 1.5   // 低于该负载使用最高 DPR
-    const maxLoad = 12.0  // 高于该负载降级为最低 DPR 1.0
+    const minLoad = 1.5 // 低于该负载使用最高 DPR
+    const maxLoad = 12.0 // 高于该负载降级为最低 DPR 1.0
 
     // 计算缩放因子 (0 到 1 之间)
     const factor = Math.max(0, Math.min(1, (maxLoad - loadScore) / (maxLoad - minLoad)))
-    
+
     // 最高目标 DPR 在 1 到 3 之间（受屏幕原生 DPR 约束，最高取 3）
     const maxTargetDpr = Math.max(1, Math.min(baseDpr * 2, 3))
-    
+
     // 最终 DPR 连续渐变，且限制在 1.0 到 3.0 之间
     const renderDpr = Math.max(1, Math.min(3, 1.0 + (maxTargetDpr - 1.0) * factor))
 
     renderDprRef.value = renderDpr
-    console.log('[PdfPage] renderDpr:', renderDpr.toFixed(2), 'loadScore:', loadScore.toFixed(2), 'sizeMB:', fileSizeMB.toFixed(2), 'pages:', pages)
+    console.log(
+      '[PdfPage] renderDpr:',
+      renderDpr.toFixed(2),
+      'loadScore:',
+      loadScore.toFixed(2),
+      'sizeMB:',
+      fileSizeMB.toFixed(2),
+      'pages:',
+      pages,
+    )
 
     const renderOnePage = async (pageIndex: number) => {
       const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
@@ -1474,7 +1530,7 @@ const renderPdfPages = async () => {
 
             const width = pixmap.getWidth()
             const height = pixmap.getHeight()
-            
+
             // 尝试使用 getPixels 获取字节流（部分版本中为 getPixels 而非 getSamples）
             const samples = pixmap.getPixels()
             const rgbaData = new Uint8ClampedArray(samples)
@@ -1507,7 +1563,6 @@ const renderPdfPages = async () => {
   }
 }
 
-
 const renderInkLayer = (pageIndex: number) => {
   const canvas = inkRefs.value[pageIndex]
   if (!canvas) return
@@ -1536,7 +1591,7 @@ const renderInkLayer = (pageIndex: number) => {
           { x, y },
           { x: x + w, y: y + h },
         ],
-        'rectangle'
+        'rectangle',
       )
       drawStroke(ctx, rectStroke)
     } else {
@@ -1597,13 +1652,12 @@ const renderInkLayer = (pageIndex: number) => {
   }
 }
 
-
-const refreshLayoutAfterViewportResize = () => {
+const refreshLayoutAfterViewportResize = (savedCenter?: { x: number; y: number } | null) => {
   if (!isVisible.value) return
-  
-  const center = getNormalizedCenter()
+
+  const center = savedCenter || getNormalizedCenter()
   renderGeneration += 1
-  
+
   if (center) {
     restoreNormalizedCenter(center)
   } else {
@@ -1632,8 +1686,9 @@ const setupResizeObserver = () => {
       const isNowVisible = width > 0 && height > 0
 
       const sizeChanged =
-        Math.abs(width - lastObservedViewportWidth) > 1 || Math.abs(height - lastObservedViewportHeight) > 1
-      
+        Math.abs(width - lastObservedViewportWidth) > 1 ||
+        Math.abs(height - lastObservedViewportHeight) > 1
+
       const oldWidth = lastObservedViewportWidth
       const oldHeight = lastObservedViewportHeight
 
@@ -1657,7 +1712,7 @@ const setupResizeObserver = () => {
         }
 
         const center = getNormalizedCenter(oldWidth, oldHeight)
-        
+
         lastObservedViewportWidth = width
         lastObservedViewportHeight = height
 
@@ -1739,7 +1794,6 @@ const scheduleHighlighterPreviewDraw = (pageIndex: number, points: Point[]) => {
   })
 }
 
-
 const inkBackupCanvases = new Map<number, HTMLCanvasElement>()
 const backupInkCanvas = (pageIndex: number) => {
   const src = inkRefs.value[pageIndex]
@@ -1756,7 +1810,6 @@ const backupInkCanvas = (pageIndex: number) => {
   bctx.clearRect(0, 0, backup.width, backup.height)
   bctx.drawImage(src, 0, 0)
 }
-
 
 const restoreInkCanvasBackup = (pageIndex: number) => {
   const backup = inkBackupCanvases.get(pageIndex)
@@ -1877,7 +1930,10 @@ const moveSelectedStrokes = (pageIndex: number, lastPos: Point, newPos: Point): 
   const movedDx = newPos.x - lastPos.x
   const movedDy = newPos.y - lastPos.y
 
-  if (Math.abs(newPos.x - selectAction!.startPos.x) > 0.1 || Math.abs(newPos.y - selectAction!.startPos.y) > 0.1) {
+  if (
+    Math.abs(newPos.x - selectAction!.startPos.x) > 0.1 ||
+    Math.abs(newPos.y - selectAction!.startPos.y) > 0.1
+  ) {
     selectAction!.moved = true
   }
 
@@ -1900,7 +1956,10 @@ const finalizeBoxSelection = (pageIdx: number): void => {
     return
   }
 
-  const minX = r.x, minY = r.y, maxX = r.x + r.w, maxY = r.y + r.h
+  const minX = r.x,
+    minY = r.y,
+    maxX = r.x + r.w,
+    maxY = r.y + r.h
   const next = new Set<string>()
 
   allStrokes.value.forEach((s) => {
@@ -1943,7 +2002,6 @@ const cleanupSelectionState = (pageIdx: number): void => {
   finishDrawing(false)
   if (pageIdx !== -1) renderInkLayer(pageIdx)
 }
-
 
 // 清理并刻蚀MuPDF内置注释
 const clearAndBurnMupdfInkAnnotations = async (doc: mupdf.Document) => {
@@ -2000,7 +2058,6 @@ const clearAndBurnMupdfInkAnnotations = async (doc: mupdf.Document) => {
     console.error('[PdfPage] 刻蚀保存 PDF 失败', e)
   }
 }
-
 
 // 处理橡皮擦光标移动
 const handlePointerMoveForEraserCursor = (e: PointerEvent) => {
@@ -2067,8 +2124,6 @@ const handleScreenshotDrag = (clientX: number, clientY: number): void => {
   }
 }
 
-
-
 const takeScreenshotAcrossPages = (rect: { x: number; y: number; w: number; h: number }) => {
   if (rect.w < 5 || rect.h < 5) return
   const q = renderDprRef.value || 1
@@ -2117,11 +2172,9 @@ const takeScreenshotAcrossPages = (rect: { x: number; y: number; w: number; h: n
       if (blob) emit('screenshot-captured', blob)
     },
     'image/jpeg',
-    0.95
+    0.95,
   )
 }
-
-
 
 // 绘制完成：保存新笔迹
 const saveNewStroke = (pageIdx: number): boolean => {
@@ -2268,7 +2321,6 @@ const pushUpdateHistory = (before: Stroke[], after: Stroke[]) => {
   redoStack.value = []
 }
 
-
 let saveTimer: any = null
 
 // 根据当前两指触控计算并应用缩放与平移的处理逻辑
@@ -2403,44 +2455,57 @@ const centerContent = () => {
  * @param oldHeight 可选的旧视口高度
  */
 const getNormalizedCenter = (oldWidth?: number, oldHeight?: number) => {
-  if (!viewportRef.value || pageList.value.length === 0 || contentSize.value.width === 0 || contentSize.value.height === 0) return null
-  
+  if (
+    !viewportRef.value ||
+    pageList.value.length === 0 ||
+    contentSize.value.width === 0 ||
+    contentSize.value.height === 0
+  )
+    return null
+
   // 如果提供了旧尺寸，则使用旧尺寸计算中心；否则使用当前实时尺寸
   const width = oldWidth ?? viewportRef.value.clientWidth
   const height = oldHeight ?? viewportRef.value.clientHeight
-  
+
   if (width === 0 || height === 0) return null
 
   const centerX = width / 2
   const centerY = height / 2
-  
+
   // 视口中心对应的 PDF 内容坐标
   const contentX = (centerX - offset.value.x) / scale.value
   const contentY = (centerY - offset.value.y) / scale.value
-  
+
   return {
     x: contentX / contentSize.value.width,
-    y: contentY / contentSize.value.height
+    y: contentY / contentSize.value.height,
   }
 }
 
 /**
  * 根据归一化坐标恢复视口中心焦点
  */
-const restoreNormalizedCenter = (normalized: { x: number, y: number } | null) => {
-  if (!normalized || !viewportRef.value || pageList.value.length === 0 || contentSize.value.width === 0 || contentSize.value.height === 0) return
+const restoreNormalizedCenter = (normalized: { x: number; y: number } | null) => {
+  if (
+    !normalized ||
+    !viewportRef.value ||
+    pageList.value.length === 0 ||
+    contentSize.value.width === 0 ||
+    contentSize.value.height === 0
+  )
+    return
   const rect = viewportRef.value.getBoundingClientRect()
   const centerX = rect.width / 2
   const centerY = rect.height / 2
-  
+
   // 目标 PDF 内容坐标
   const targetContentX = normalized.x * contentSize.value.width
   const targetContentY = normalized.y * contentSize.value.height
-  
+
   // 计算新的 offset 使目标点处于视口中心
   offset.value = {
     x: centerX - targetContentX * scale.value,
-    y: centerY - targetContentY * scale.value
+    y: centerY - targetContentY * scale.value,
   }
 }
 
@@ -2450,7 +2515,8 @@ const clampOffset = () => {
   const vpRect = viewportRef.value.getBoundingClientRect()
   const lastPage = pageList.value[pageList.value.length - 1]
   const contentH =
-    (lastPage.y + lastPage.viewHeight + (readingDirection.value === 'horizontal' ? 0 : PAGE_GAP)) * scale.value
+    (lastPage.y + lastPage.viewHeight + (readingDirection.value === 'horizontal' ? 0 : PAGE_GAP)) *
+    scale.value
   const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
   const contentW = maxW * scale.value
   const padding = 100
@@ -2480,11 +2546,12 @@ const clampOffset = () => {
 // 切换横向/纵向阅读模式并重置视图状态（带淡入淡出过渡）
 const toggleReadingDirection = async () => {
   const fromDirection = readingDirection.value
-  const targetPageIndex = fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
+  const targetPageIndex =
+    fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
 
   // 第一步：淡出（300ms）
   isDirectionChanging.value = true
-  await new Promise(resolve => setTimeout(resolve, 300))
+  await new Promise((resolve) => setTimeout(resolve, 300))
 
   readingDirection.value = fromDirection === 'horizontal' ? 'vertical' : 'horizontal'
   if (scale.value !== 1) scale.value = 1
@@ -2564,7 +2631,8 @@ const toggleSelectMode = () => {
 }
 const refreshLayout = () => {
   pendingViewportResizeWhileSuspended = false
-  refreshLayoutAfterViewportResize()
+  refreshLayoutAfterViewportResize(suspendedNormalizedCenter)
+  suspendedNormalizedCenter = null
 }
 defineExpose({
   toggleGestureMode,
@@ -2595,8 +2663,6 @@ defineExpose({
   overflow: hidden;
   position: relative;
 }
-
-
 
 .viewport {
   flex: 1;
@@ -2637,7 +2703,9 @@ defineExpose({
 
 /* 在分隔条调整或布局挂起时，使用平滑过渡以优化视觉体验 */
 .canvas-container.is-suspended {
-  transition: transform 0.1s linear, opacity 0.3s ease;
+  transition:
+    transform 0.1s linear,
+    opacity 0.3s ease;
 }
 
 .canvas-container.is-horizontal {
@@ -2731,7 +2799,9 @@ canvas {
   background: rgba(0, 0, 0, 0.55);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(8px);
 }
 

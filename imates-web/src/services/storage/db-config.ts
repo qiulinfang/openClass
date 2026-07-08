@@ -31,6 +31,9 @@ export const DB_NAMES = {
 
   // 草稿数据库
   DRAFTS_STORAGE: () => `ExerciseDraftsDB_${getUserId()}${getEnvSuffix()}`,
+
+  // PDF 墨水笔迹数据库 (保持固定名称防止历史数据丢失)
+  PDF_INK_STORAGE: () => 'pdf-ink-db',
 }
 
 /**
@@ -43,6 +46,7 @@ export const DB_VERSIONS = {
   HOMEWORK_SUBMISSION: 6,
   MISTAKE_STORAGE: 11, 
   DRAFTS_STORAGE: 6,
+  PDF_INK_STORAGE: 2,
 }
 
 /**
@@ -76,6 +80,9 @@ export const STORE_NAMES = {
 
   // TEXTBOOK_STORAGE 下新增
   LEARNING_PACKAGES: 'learning_packages',
+
+  // PDF 笔迹表
+  PDF_ANNOTATIONS: 'annotations',
 }
 
 /**
@@ -203,6 +210,13 @@ export const IDB_CONFIGS: Record<string, () => IndexedDBConfig> = {
           { name: 'updatedAt', keyPath: 'updatedAt' }
         ]
       }
+    ]
+  }),
+  PDF_INK_STORAGE: () => ({
+    dbName: DB_NAMES.PDF_INK_STORAGE(),
+    version: DB_VERSIONS.PDF_INK_STORAGE,
+    stores: [
+      { name: STORE_NAMES.PDF_ANNOTATIONS, keyPath: 'docKey' }
     ]
   })
 }
