@@ -8,7 +8,6 @@
         'is-drawing':
           readingDirection === 'horizontal' &&
           (currentMode === 'pen' || currentMode === 'highlighter' || currentMode === 'eraser'),
-        'direction-changing': isDirectionChanging,
       }"
       ref="viewportRef"
       @wheel="handleWheel"
@@ -254,7 +253,7 @@ let lastObservedViewportHeight = 0
 const currentMode = ref<ToolMode>('pan')
 const pdfViewerStore = usePdfViewerStore()
 const readingDirection = toRef(pdfViewerStore, 'readingDirection')
-const isDirectionChanging = ref(false)
+
 
 const isDev = import.meta.env.DEV
 const devicePixelRatio = window.devicePixelRatio || 1
@@ -2559,64 +2558,72 @@ const clampOffset = () => {
   offset.value = { x, y }
 }
 
-// 切换横向/纵向阅读模式并重置视图状态（带淡入淡出过渡）
+// 切换横向/纵向阅读模式并重置视图状态
 const toggleReadingDirection = async () => {
-  const fromDirection = readingDirection.value
-  const targetPageIndex =
-    fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
+  isLayoutChanging.value = true
+  // 必须等待一个小延迟，让浏览器有机会将 Loading 遮罩绘制（Paint）到屏幕上。
+  // 否则随后的 WASM 渲染会同步阻塞主线程，导致 Loading 无法呈现。
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  
+  try {
+    const fromDirection = readingDirection.value
+    const targetPageIndex =
+      fromDirection === 'horizontal' ? horizontalPageIndex.value : getCurrentVerticalPageIndex()
 
-  // 第一步：淡出（300ms）
-  isDirectionChanging.value = true
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  readingDirection.value = fromDirection === 'horizontal' ? 'vertical' : 'horizontal'
-  if (scale.value !== 1) scale.value = 1
-  offset.value = { x: 0, y: 0 }
-  if (readingDirection.value === 'horizontal') {
-    horizontalPageIndex.value = targetPageIndex
-    lastViewportScrollLeft = 0
-    lastViewportScrollTop = 0
-    if (horizontalScrollTimer) {
-      clearTimeout(horizontalScrollTimer)
-      horizontalScrollTimer = null
-    }
-    if (horizontalScrollEndTimer) {
-      clearTimeout(horizontalScrollEndTimer)
-      horizontalScrollEndTimer = null
-    }
-    if (horizontalScaleResetRaf != null) {
-      cancelAnimationFrame(horizontalScaleResetRaf)
-      horizontalScaleResetRaf = null
-    }
-    isHorizontalScrolling.value = false
-  }
-  const rawDoc = toRaw(pdfDoc.value)
-  if (!rawDoc) return
-  await prefetchDimensionsAndLayout(rawDoc)
-  hasRendered.value = false
-  await nextTick()
-  tryRenderContent()
-
-  // 第二步：淡入
-  requestAnimationFrame(() => {
-    isDirectionChanging.value = false
-  })
-  requestAnimationFrame(() => {
-    if (readingDirection.value === 'vertical') {
-      if (!viewportRef.value || pageList.value.length === 0) return
-      const rect = viewportRef.value.getBoundingClientRect()
-      const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
-      const targetPage = pageList.value.find((p) => p.pageIndex === targetPageIndex)
-      offset.value = {
-        x: (rect.width - maxW * scale.value) / 2,
-        y: targetPage ? 20 - targetPage.y * scale.value : 20,
+    readingDirection.value = fromDirection === 'horizontal' ? 'vertical' : 'horizontal'
+    if (scale.value !== 1) scale.value = 1
+    offset.value = { x: 0, y: 0 }
+    if (readingDirection.value === 'horizontal') {
+      horizontalPageIndex.value = targetPageIndex
+      lastViewportScrollLeft = 0
+      lastViewportScrollTop = 0
+      if (horizontalScrollTimer) {
+        clearTimeout(horizontalScrollTimer)
+        horizontalScrollTimer = null
       }
-      clampOffset()
-    } else {
-      centerContent()
-      clampOffset()
+      if (horizontalScrollEndTimer) {
+        clearTimeout(horizontalScrollEndTimer)
+        horizontalScrollEndTimer = null
+      }
+      if (horizontalScaleResetRaf != null) {
+        cancelAnimationFrame(horizontalScaleResetRaf)
+        horizontalScaleResetRaf = null
+      }
+      isHorizontalScrolling.value = false
     }
-  })
+    const rawDoc = toRaw(pdfDoc.value)
+    if (!rawDoc) return
+    await prefetchDimensionsAndLayout(rawDoc)
+    hasRendered.value = false
+    await nextTick()
+    await tryRenderContent()
+
+    // 重新对齐位置（并等待其完成）
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        if (readingDirection.value === 'vertical') {
+          if (!viewportRef.value || pageList.value.length === 0) {
+            resolve()
+            return
+          }
+          const rect = viewportRef.value.getBoundingClientRect()
+          const maxW = Math.max(...pageList.value.map((p) => p.viewWidth))
+          const targetPage = pageList.value.find((p) => p.pageIndex === targetPageIndex)
+          offset.value = {
+            x: (rect.width - maxW * scale.value) / 2,
+            y: targetPage ? 20 - targetPage.y * scale.value : 20,
+          }
+          clampOffset()
+        } else {
+          centerContent()
+          clampOffset()
+        }
+        resolve()
+      })
+    })
+  } finally {
+    isLayoutChanging.value = false
+  }
 }
 
 const setSelectionMode = (mode: 'rectangle' | 'freeform') => {
