@@ -49,14 +49,25 @@
         <Loading text="正在加载..." :size="48" theme="light" />
       </div>
 
-      <!-- 渲染模式切换按钮 -->
-      <button 
-        class="render-mode-toggle-btn"
-        :class="currentRenderMode"
-        @click.stop="toggleRenderMode"
-      >
-        {{ currentRenderMode === 'full' ? '全量模式' : '虚拟滚动' }}
-      </button>
+      <!-- 调试面板 -->
+      <div v-if="isDev" class="pdf-debug-panel">
+        <div class="debug-panel-header">
+          <span>PDF 渲染调试面板</span>
+        </div>
+        <div class="debug-panel-content">
+          <div class="debug-item"><span class="label">文件名:</span> <span class="val">{{ fileName }}</span></div>
+          <div class="debug-item"><span class="label">文件大小:</span> <span class="val">{{ (file?.size ? (file.size / 1024).toFixed(1) + ' KB' : '未知') }}</span></div>
+          <div class="debug-item"><span class="label">总页数:</span> <span class="val">{{ pageCount }} 页</span></div>
+          <div class="debug-item"><span class="label">当前页:</span> <span class="val">{{ pdfViewerStore.currentPage + 1 }} 页</span></div>
+          <div class="debug-item"><span class="label">滚动方向:</span> <span class="val">{{ readingDirection === 'horizontal' ? '横向' : '纵向' }}</span></div>
+          <div class="debug-item"><span class="label">缩放比例:</span> <span class="val">{{ (scale * 100).toFixed(0) }}%</span></div>
+          <div class="debug-item"><span class="label">设备 DPR:</span> <span class="val">{{ devicePixelRatio }}</span></div>
+          <div class="debug-item"><span class="label">渲染 DPR:</span> <span class="val">{{ renderDprRef }}</span></div>
+          <div class="debug-item"><span class="label">视口尺寸:</span> <span class="val">{{ viewportRef ? viewportRef.clientWidth : 0 }} x {{ viewportRef ? viewportRef.clientHeight : 0 }} px</span></div>
+        </div>
+      </div>
+
+
 
       <div v-if="readingDirection === 'horizontal'" class="horizontal-nav">
         <q-btn
@@ -209,7 +220,10 @@ const currentMode = ref<ToolMode>('pan')
 const pdfViewerStore = usePdfViewerStore()
 const readingDirection = toRef(pdfViewerStore, 'readingDirection')
 const isDirectionChanging = ref(false)
-const currentRenderMode = ref<'full' | 'virtual'>('full')
+
+const isDev = import.meta.env.DEV
+const devicePixelRatio = window.devicePixelRatio || 1
+
 
 // 数据存储
 const allStrokes = shallowRef<Stroke[]>([])
@@ -320,16 +334,7 @@ watch(
   { immediate: true, deep: true }
 )
 
-// 监听当前页变化，在虚拟滚动模式下触发重绘和释放外部 Canvas 内存
-watch(
-  [() => pdfViewerStore.currentPage, () => horizontalPageIndex.value],
-  () => {
-    if (pageList.value.length === 0) return
-    if (currentRenderMode.value === 'virtual') {
-      renderPdfPagesVirtual()
-    }
-  }
-)
+
 
 watch(
   () => props.layoutSuspended,
@@ -363,10 +368,6 @@ const setPdfCanvasRef = (el: Element | ComponentPublicInstance | null, index: nu
   if (el) {
     const canvas = el as HTMLCanvasElement
     pdfRefs.value[index] = canvas
-    if (currentRenderMode.value === 'virtual' && !shouldRenderPage(index)) {
-      canvas.width = 0
-      canvas.height = 0
-    }
   } else {
     delete pdfRefs.value[index]
   }
@@ -376,10 +377,6 @@ const setInkCanvasRef = (el: Element | ComponentPublicInstance | null, index: nu
   if (el) {
     const canvas = el as HTMLCanvasElement
     inkRefs.value[index] = canvas
-    if (currentRenderMode.value === 'virtual' && !shouldRenderPage(index)) {
-      canvas.width = 0
-      canvas.height = 0
-    }
   } else {
     delete inkRefs.value[index]
   }
@@ -1242,6 +1239,9 @@ const loadFile = async (file: File) => {
     pageCount.value = doc.countPages()
     pdfViewerStore.setTotalPages(pageCount.value)
 
+    // 初始化时根据页数设置方向：大于10页用横向，否则用纵向
+    readingDirection.value = pageCount.value > 10 ? 'horizontal' : 'vertical'
+
 
 
     // 删除 PDF 内嵌 Ink 注释并刻蚀保存回资源存储（不落地到 strokes/IndexedDB）
@@ -1334,7 +1334,6 @@ const resetState = () => {
   scale.value = 1.0
   contentSize.value = { width: 0, height: 0 }
   hasRendered.value = false
-  currentRenderMode.value = 'full'
   pdfViewerStore.setTotalPages(0)
   pdfViewerStore.setCurrentPage(0)
 }
@@ -1409,18 +1408,7 @@ const tryRenderContent = async () => {
 }
 
 
-const shouldRenderPage = (pageIndex: number): boolean => {
-  if (currentRenderMode.value === 'full') {
-    return true
-  }
-  if (readingDirection.value === 'horizontal') {
-    return Math.abs(pageIndex - horizontalPageIndex.value) <= 2
-  } else {
-    return Math.abs(pageIndex - pdfViewerStore.currentPage) <= 4
-  }
-}
-
-const renderPdfPagesFull = async () => {
+const renderPdfPages = async () => {
   const rawDoc = toRaw(pdfDoc.value)
   if (!rawDoc) return
 
@@ -1430,17 +1418,25 @@ const renderPdfPagesFull = async () => {
 
   try {
     const baseDpr = window.devicePixelRatio || 1
+    const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
+    const pages = pageList.value.length || 1
 
-    // 根据文件大小/页数决定是否降级渲染（避免 WebView 崩溃）
-    const shouldUseLowRenderMode = (() => {
-      const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
-      return fileSizeMB > 3
-    })()
+    // 综合负载分值：文件大小 + 页数/6。比如 10MB 的 12 页文档，负载为 10 + 2 = 12
+    const loadScore = fileSizeMB + pages / 6
+    const minLoad = 1.5   // 低于该负载使用最高 DPR
+    const maxLoad = 12.0  // 高于该负载降级为最低 DPR 1.0
 
-    const renderDpr = shouldUseLowRenderMode ? 1 : Math.min(baseDpr * 2, 3)
+    // 计算缩放因子 (0 到 1 之间)
+    const factor = Math.max(0, Math.min(1, (maxLoad - loadScore) / (maxLoad - minLoad)))
+    
+    // 最高目标 DPR 在 1 到 3 之间（受屏幕原生 DPR 约束，最高取 3）
+    const maxTargetDpr = Math.max(1, Math.min(baseDpr * 2, 3))
+    
+    // 最终 DPR 连续渐变，且限制在 1.0 到 3.0 之间
+    const renderDpr = Math.max(1, Math.min(3, 1.0 + (maxTargetDpr - 1.0) * factor))
 
     renderDprRef.value = renderDpr
-    console.log('[PdfPage] renderDpr:', renderDpr, 'sizeMB:', (props.file?.size || 0) / 1024 / 1024, 'pages:', pageList.value.length, 'lowMode:', shouldUseLowRenderMode)
+    console.log('[PdfPage] renderDpr:', renderDpr.toFixed(2), 'loadScore:', loadScore.toFixed(2), 'sizeMB:', fileSizeMB.toFixed(2), 'pages:', pages)
 
     const renderOnePage = async (pageIndex: number) => {
       const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
@@ -1508,116 +1504,6 @@ const renderPdfPagesFull = async () => {
     if (generation === renderGeneration) {
       isRendering.value = false
     }
-  }
-}
-
-const renderPdfPagesVirtual = async () => {
-  const rawDoc = toRaw(pdfDoc.value)
-  if (!rawDoc) return
-
-  const generation = ++renderGeneration
-  isRendering.value = true
-
-  try {
-    const baseDpr = window.devicePixelRatio || 1
-    const shouldUseLowRenderMode = (() => {
-      const fileSizeMB = (props.file?.size || 0) / (1024 * 1024)
-      return fileSizeMB > 3
-    })()
-    const renderDpr = shouldUseLowRenderMode ? 1 : Math.min(baseDpr * 2, 3)
-    renderDprRef.value = renderDpr
-
-    // 过滤出可视范围内的页码
-    const visiblePages = pageList.value.filter((p) => shouldRenderPage(p.pageIndex))
-
-    // 释放非可视页面 Canvas 内存
-    for (let i = 0; i < pageCount.value; i++) {
-      if (!shouldRenderPage(i)) {
-        const pdfCanvas = pdfRefs.value[i]
-        const inkCanvas = inkRefs.value[i]
-        if (pdfCanvas) {
-          pdfCanvas.width = 0
-          pdfCanvas.height = 0
-        }
-        if (inkCanvas) {
-          inkCanvas.width = 0
-          inkCanvas.height = 0
-        }
-      }
-    }
-
-    const renderOnePage = async (pageIndex: number) => {
-      const pageLayout = pageList.value.find((p) => p.pageIndex === pageIndex)
-      if (!pageLayout) return
-      try {
-        if (generation !== renderGeneration || props.layoutSuspended) return
-
-        const canvas = pdfRefs.value[pageIndex]
-        const inkCanvas = inkRefs.value[pageIndex]
-        if (!canvas || !inkCanvas) return
-
-        // 如果已经渲染过了且尺寸不为 0，就不重复渲染了，避免频闪
-        if (canvas.width > 0 && canvas.height > 0) {
-          return
-        }
-
-        const cssW = pageLayout.viewWidth
-        const cssH = pageLayout.viewHeight
-
-        canvas.width = cssW * renderDpr
-        canvas.height = cssH * renderDpr
-        canvas.style.width = `${cssW}px`
-        canvas.style.height = `${cssH}px`
-
-        inkCanvas.width = canvas.width
-        inkCanvas.height = canvas.height
-        inkCanvas.style.width = canvas.style.width
-        inkCanvas.style.height = canvas.style.height
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-
-        const page = rawDoc.loadPage(pageIndex)
-        try {
-          const matrix: mupdf.Matrix = [renderDpr, 0, 0, renderDpr, 0, 0]
-          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, true, true)
-          try {
-            if (generation !== renderGeneration || props.layoutSuspended) return
-            const width = pixmap.getWidth()
-            const height = pixmap.getHeight()
-            const samples = pixmap.getPixels()
-            const rgbaData = new Uint8ClampedArray(samples)
-            if (generation !== renderGeneration || props.layoutSuspended) return
-            ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
-          } finally {
-            pixmap.destroy()
-          }
-        } finally {
-          page.destroy?.()
-        }
-
-        if (generation === renderGeneration && !props.layoutSuspended) {
-          renderInkLayer(pageIndex)
-        }
-      } catch (e) {
-        console.error('[PdfPage] render page failed (virtual):', { pageIndex, error: e })
-      }
-    }
-
-    const renderPromises = visiblePages.map((p) => renderOnePage(p.pageIndex))
-    await Promise.all(renderPromises)
-  } finally {
-    if (generation === renderGeneration) {
-      isRendering.value = false
-    }
-  }
-}
-
-const renderPdfPages = async () => {
-  if (currentRenderMode.value === 'virtual') {
-    await renderPdfPagesVirtual()
-  } else {
-    await renderPdfPagesFull()
   }
 }
 
@@ -2680,13 +2566,6 @@ const refreshLayout = () => {
   pendingViewportResizeWhileSuspended = false
   refreshLayoutAfterViewportResize()
 }
-const toggleRenderMode = () => {
-  currentRenderMode.value = currentRenderMode.value === 'full' ? 'virtual' : 'full'
-  console.log('[PdfPage] Manually toggled render mode to:', currentRenderMode.value)
-  if (pdfDoc.value) {
-    renderPdfPages()
-  }
-}
 defineExpose({
   toggleGestureMode,
   toggleHighlightMode,
@@ -2703,7 +2582,6 @@ defineExpose({
   undoLastStroke,
   redoLastStroke,
   refreshLayout,
-  toggleRenderMode,
 })
 </script>
 
@@ -2718,32 +2596,7 @@ defineExpose({
   position: relative;
 }
 
-.render-mode-toggle-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 1000;
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  font-size: 13px;
-  font-weight: 500;
-  color: white;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
-  backdrop-filter: blur(8px);
-}
-.render-mode-toggle-btn.full {
-  background-color: rgba(76, 175, 80, 0.85); /* 绿色表示全量渲染 */
-}
-.render-mode-toggle-btn.virtual {
-  background-color: rgba(33, 150, 243, 0.85); /* 蓝色表示虚拟滚动 */
-}
-.render-mode-toggle-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-}
+
 
 .viewport {
   flex: 1;
@@ -2899,5 +2752,47 @@ canvas {
   box-sizing: border-box;
   z-index: var(--z-pdf-eraser-cursor);
   transform: translate(-50%, -50%);
+}
+
+.pdf-debug-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  width: 260px;
+  background-color: rgba(27, 27, 27, 0.92);
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.debug-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 6px;
+  font-weight: bold;
+}
+
+.debug-panel-content .debug-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.debug-panel-content .label {
+  color: #aaa;
+}
+
+.debug-panel-content .val {
+  color: #00e676;
+  font-weight: bold;
 }
 </style>

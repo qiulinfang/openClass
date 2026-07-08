@@ -71,17 +71,7 @@
                 </q-btn>
                 <q-tooltip>{{ isHorizontalReading ? '切换为纵向滚动' : '切换为横向滚动' }}</q-tooltip>
               </div>
-              <!-- 调试面板按钮 -->
-              <q-btn
-                v-if="isDev"
-                flat
-                round
-                dense
-                icon="bug_report"
-                color="white"
-                @click="handleToggleDebug"
-                class="q-mr-sm"
-              />
+
             </template>
           </DrawingHeader>
           <!-- PDF 不分页渲染 -->
@@ -214,7 +204,6 @@ import { useUIStore } from '@/stores/uiStore'
 import { getUserId } from '@/services/http/auth-service'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
-  toggleDebugPanel: () => void
   toggleNoteMode: () => void
   toggleHighlightMode: () => void
   togglePenMode: () => void
@@ -726,10 +715,7 @@ const handleHelp = () => {
   // 可以显示帮助对话框或跳转到帮助页面
 }
 
-// 顶部工具栏：切换调试面板
-const handleToggleDebug = () => {
-  pdfPageRef.value?.toggleDebugPanel()
-}
+
 
 // 顶部工具栏：切换笔记模式
 const handleToggleNoteMode = () => {
