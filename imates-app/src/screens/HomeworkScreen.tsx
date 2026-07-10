@@ -22,7 +22,7 @@ import {
 
 interface HomeworkScreenProps {
   onLogout: () => void;
-  onGoAnswer: (id: string, title: string) => void;
+  onGoAnswer: (id: string, title: string, subject: string) => void;
 }
 
 const LightColors = {
@@ -184,7 +184,7 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
           </View>
           <TouchableOpacity
             disabled={isCompleted}
-            onPress={() => onGoAnswer(item.id, item.title)}
+            onPress={() => onGoAnswer(item.id, item.title, item.subject)}
             style={[
               styles.actionBtn,
               isCompleted

@@ -7,6 +7,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   isStreaming?: boolean;
+  imageUri?: string; // 支持图片气泡渲染
 }
 
 interface SSEPayload {

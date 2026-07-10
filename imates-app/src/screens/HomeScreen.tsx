@@ -12,6 +12,7 @@ import { MicroClassScreen } from './MicroClassScreen';
 import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
 import { HomeworkAnswerScreen } from './HomeworkAnswerScreen';
+import { MistakeBookScreen } from './MistakeBookScreen';
 import { storage } from '@/services/storage';
 
 interface HomeScreenProps {
@@ -19,7 +20,7 @@ interface HomeScreenProps {
   onNavigateToChat: () => void;
 }
 
-type TabType = 'microclass' | 'homework' | 'ai';
+type TabType = 'microclass' | 'homework' | 'ai' | 'mistake';
 
 const LightColors = {
   background: '#F8FAFC',
@@ -31,10 +32,12 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<TabType>('ai');
   const [answeringHomeworkId, setAnsweringHomeworkId] = useState<string | null>(null);
   const [answeringHomeworkTitle, setAnsweringHomeworkTitle] = useState<string>('');
+  const [answeringHomeworkSubject, setAnsweringHomeworkSubject] = useState<string>('6');
 
-  const handleGoAnswer = (id: string, title: string) => {
+  const handleGoAnswer = (id: string, title: string, subject: string) => {
     setAnsweringHomeworkId(id);
     setAnsweringHomeworkTitle(title);
+    setAnsweringHomeworkSubject(subject);
   };
 
   const handleAskAI = async (questionContent: string) => {
@@ -55,6 +58,7 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           <HomeworkAnswerScreen
             homeworkId={answeringHomeworkId}
             homeworkTitle={answeringHomeworkTitle}
+            homeworkSubject={answeringHomeworkSubject}
             onBack={() => setAnsweringHomeworkId(null)}
             onAskAI={handleAskAI}
           />
@@ -71,6 +75,10 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
             {activeTab === 'ai' && (
               <ChatScreen />
             )}
+
+            {activeTab === 'mistake' && (
+              <MistakeBookScreen onLogout={onLogout} onAskAI={handleAskAI} />
+            )}
           </>
         )}
       </View>
@@ -82,8 +90,8 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
             style={[styles.tabItem, activeTab === 'microclass' && styles.activeTabItem]}
             onPress={() => setActiveTab('microclass')}
           >
-            <Text style={[styles.tabIcon, activeTab === 'microclass' && styles.activeTabIcon]}>📺</Text>
-            <Text style={[styles.tabLabel, activeTab === 'microclass' && styles.activeTabLabel]}>微课</Text>
+            <Text style={[styles.tabIcon, activeTab === 'microclass' && styles.activeTabIcon]}>🗺️</Text>
+            <Text style={[styles.tabLabel, activeTab === 'microclass' && styles.activeTabLabel]}>知识图谱</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -92,6 +100,14 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           >
             <Text style={[styles.tabIcon, activeTab === 'homework' && styles.activeTabIcon]}>📝</Text>
             <Text style={[styles.tabLabel, activeTab === 'homework' && styles.activeTabLabel]}>作业</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'mistake' && styles.activeTabItem]}
+            onPress={() => setActiveTab('mistake')}
+          >
+            <Text style={[styles.tabIcon, activeTab === 'mistake' && styles.activeTabIcon]}>📚</Text>
+            <Text style={[styles.tabLabel, activeTab === 'mistake' && styles.activeTabLabel]}>错题本</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

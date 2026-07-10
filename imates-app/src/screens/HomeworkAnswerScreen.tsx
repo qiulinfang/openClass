@@ -14,10 +14,12 @@ import {
 import { MathRenderer } from '@/components/MathRenderer';
 import { Card } from '@/components/Card';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
+import { MistakeService } from '@/services/mistake-service';
 
 interface HomeworkAnswerScreenProps {
   homeworkId: string;
   homeworkTitle: string;
+  homeworkSubject?: string;
   onBack: () => void;
   onAskAI: (questionContent: string) => void;
 }
@@ -34,6 +36,7 @@ const LightColors = {
 export function HomeworkAnswerScreen({
   homeworkId,
   homeworkTitle,
+  homeworkSubject = '6',
   onBack,
   onAskAI,
 }: HomeworkAnswerScreenProps) {
@@ -159,6 +162,27 @@ export function HomeworkAnswerScreen({
       });
 
       if (success) {
+        // 自动将答错的题目记录到错题本
+        for (const q of questions) {
+          const userAns = (answers[q.questionId] || '').trim();
+          const correctAns = (q.questionAnswer || '').trim();
+          if (userAns !== '' && userAns.toUpperCase() !== correctAns.toUpperCase()) {
+            try {
+              await MistakeService.addMistake({
+                id: q.questionId,
+                title: q.questionContent,
+                subject: homeworkSubject,
+                userAnswer: userAns,
+                correctAnswer: correctAns,
+                analysis: q.questionAnalysis || q.questionAnalysis || '暂无解析',
+                homeworkTitle: homeworkTitle,
+              });
+            } catch (mistakeErr) {
+              console.warn('[HomeworkAnswerScreen] 自动同步错题本失败:', mistakeErr);
+            }
+          }
+        }
+
         Alert.alert('成功', '作业提交保存成功！', [
           { text: '确定', onPress: onBack }
         ]);
