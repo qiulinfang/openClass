@@ -139,7 +139,6 @@ export function MicroClassScreen({ onLogout }: MicroClassScreenProps) {
 
   // 处理点击教材，拉取该教材的目录树和所有微课视频/课件资源
   const handleTextbookPress = async (item: UserTextbookInfo) => {
-    console.log(`[MicroClassScreen Click] 🖱️ 用户点击教材卡片: "${item.textbookName}" (ID: ${item.textbookId})`);
     setActiveTextbook(item);
     setCatalogTree([]);
     setLearningPackages([]);
@@ -148,14 +147,12 @@ export function MicroClassScreen({ onLogout }: MicroClassScreenProps) {
     setIsLoadingDetail(true);
 
     try {
-      console.log(`[MicroClassScreen API] 🚀 开始并行请求教材 [${item.textbookName}] 的目录结构树与学习资源包...`);
       // 并行请求章节目录与资源包数据
       const [tree, packages] = await Promise.all([
         TextbookService.fetchSectionTree(item.textbookId),
         TextbookService.fetchLearningPackages(item.textbookId),
       ]);
       
-      console.log(`[MicroClassScreen API] 📥 请求成功! 原始大章目录树: ${tree.length} 个, 原始学习资源包: ${packages.length} 个`);
       setCatalogTree(tree);
       setLearningPackages(packages);
 
@@ -164,7 +161,6 @@ export function MicroClassScreen({ onLogout }: MicroClassScreenProps) {
         const firstChapter = tree[0];
         setSelectedNodeId(firstChapter.id);
         setExpandedNodes({ [firstChapter.id]: true });
-        console.log(`[MicroClassScreen Navigation] 🧭 默认选中并展开首章目录 (ID: ${firstChapter.id}, 名称: ${firstChapter.name || firstChapter.label})`);
       }
     } catch (e) {
       console.warn('[MicroClassScreen API] ❌ 获取教材图谱资源失败:', e);
@@ -461,7 +457,6 @@ export function MicroClassScreen({ onLogout }: MicroClassScreenProps) {
                       selectedNodeId={selectedNodeId}
                       onNodePress={(node) => {
                         setSelectedNodeId(node.id);
-                        console.log(`[MicroClassScreen] 🎯 选中目录树节点: "${node.name || node.label}" (ID: ${node.id})`);
                       }}
                       onToggleExpand={toggleNodeExpand}
                     />

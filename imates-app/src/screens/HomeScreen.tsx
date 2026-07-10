@@ -13,6 +13,7 @@ import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
 import { HomeworkAnswerScreen } from './HomeworkAnswerScreen';
 import { MistakeBookScreen } from './MistakeBookScreen';
+import { ExerciseSolveScreen } from './ExerciseSolveScreen';
 import { storage } from '@/services/storage';
 
 interface HomeScreenProps {
@@ -20,7 +21,7 @@ interface HomeScreenProps {
   onNavigateToChat: () => void;
 }
 
-type TabType = 'microclass' | 'homework' | 'ai' | 'mistake';
+type TabType = 'microclass' | 'homework' | 'exercise_solve' | 'mistake' | 'ai';
 
 const LightColors = {
   background: '#F8FAFC',
@@ -72,6 +73,10 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
               <HomeworkScreen onLogout={onLogout} onGoAnswer={handleGoAnswer} />
             )}
 
+            {activeTab === 'exercise_solve' && (
+              <ExerciseSolveScreen onLogout={onLogout} />
+            )}
+
             {activeTab === 'ai' && (
               <ChatScreen />
             )}
@@ -100,6 +105,14 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           >
             <Text style={[styles.tabIcon, activeTab === 'homework' && styles.activeTabIcon]}>📝</Text>
             <Text style={[styles.tabLabel, activeTab === 'homework' && styles.activeTabLabel]}>作业</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'exercise_solve' && styles.activeTabItem]}
+            onPress={() => setActiveTab('exercise_solve')}
+          >
+            <Text style={[styles.tabIcon, activeTab === 'exercise_solve' && styles.activeTabIcon]}>✍️</Text>
+            <Text style={[styles.tabLabel, activeTab === 'exercise_solve' && styles.activeTabLabel]}>自主刷题</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

@@ -15,6 +15,7 @@ import { MathRenderer } from '@/components/MathRenderer';
 import { Card } from '@/components/Card';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { MistakeService } from '@/services/mistake-service';
+import { ExerciseService } from '@/services/exercise-service';
 
 interface HomeworkAnswerScreenProps {
   homeworkId: string;
@@ -47,6 +48,35 @@ export function HomeworkAnswerScreen({
   // 记录每个 questionId 的答案
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 习题本收藏状态
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  // 监听当前题目变化，检查是否已被加入习题本
+  const activeQuestion = questions[currentIndex];
+  useEffect(() => {
+    if (activeQuestion) {
+      ExerciseService.isExerciseSaved(activeQuestion.questionId).then(setIsFavorite);
+    }
+  }, [currentIndex, activeQuestion]);
+
+  const handleToggleFavorite = async () => {
+    if (!activeQuestion) return;
+    try {
+      const saved = await ExerciseService.toggleExercise({
+        id: activeQuestion.questionId,
+        title: activeQuestion.questionContent.substring(0, 15).replace(/<[^>]+>/g, '').trim() + '...',
+        subject: homeworkSubject,
+        content: activeQuestion.questionContent,
+        answer: activeQuestion.questionAnswer || '',
+        analysis: activeQuestion.questionAnalysis || '暂无解析',
+      });
+      setIsFavorite(saved);
+      Alert.alert(saved ? '★ 已加入习题本' : '☆ 已从习题本移除');
+    } catch (e) {
+      console.warn('[HomeworkAnswerScreen] 切换习题收藏失败:', e);
+    }
+  };
 
   // 加载作业题目详情
   useEffect(() => {
@@ -235,7 +265,18 @@ export function HomeworkAnswerScreen({
       {/* 题目内容与选项/输入框区域 */}
       <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentScrollInner}>
         <Card style={styles.questionCard}>
-          <Text style={styles.questionIndexTag}>题干说明：</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.questionIndexTag}>题干说明：</Text>
+            <TouchableOpacity
+              style={[styles.favoriteBtn, isFavorite && styles.favoriteBtnActive]}
+              onPress={handleToggleFavorite}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.favoriteBtnText, isFavorite && styles.favoriteBtnTextActive]}>
+                {isFavorite ? '★ 已加入习题' : '☆ 收藏此题'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.mathContainer}>
             <MathRenderer content={currentQuestion.questionContent} textColor="#0F172A" />
           </View>
@@ -560,5 +601,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  favoriteBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  favoriteBtnActive: {
+    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+  },
+  favoriteBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: LightColors.textSecondary,
+  },
+  favoriteBtnTextActive: {
+    color: '#F59E0B',
+    fontWeight: '700',
   },
 });

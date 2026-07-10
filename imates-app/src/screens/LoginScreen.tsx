@@ -244,7 +244,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   <TextInput
                     style={styles.input}
                     placeholder="请输入账号"
-                    placeholderTextColor={Colors.text.muted}
+                    placeholderTextColor="#94A3B8"
                     value={account}
                     onChangeText={(text) => {
                       setAccount(text);
@@ -301,7 +301,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   <TextInput
                     style={styles.input}
                     placeholder="请输入密码"
-                    placeholderTextColor={Colors.text.muted}
+                    placeholderTextColor="#94A3B8"
                     secureTextEntry
                     value={password}
                     onChangeText={(text) => {
@@ -368,7 +368,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 <TextInput
                   style={styles.modalInput}
                   placeholder="请输入环境切换密码"
-                  placeholderTextColor={Colors.text.muted}
+                  placeholderTextColor="#94A3B8"
                   secureTextEntry
                   value={envPassword}
                   onChangeText={setEnvPassword}
@@ -400,7 +400,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#EFF6FF', // 浅蓝亮色背景
   },
   keyboardView: {
     flex: 1,
@@ -412,22 +412,38 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loginCard: {
-    paddingVertical: 40,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
     width: '100%',
     maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
-    color: Colors.text.primary,
+    color: '#0F172A',
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
-    color: Colors.text.secondary,
+    fontSize: 14,
+    color: '#64748B',
     textAlign: 'center',
-    marginBottom: 36,
+    marginBottom: 32,
   },
   inputWrapper: {
     width: '100%',
@@ -437,10 +453,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     height: 52,
     paddingHorizontal: 16,
   },
@@ -448,13 +464,13 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
   },
   inputIcon: {
-    fontSize: 16,
-    marginRight: 12,
-    color: Colors.text.secondary,
+    fontSize: 15,
+    marginRight: 10,
+    color: '#64748B',
   },
   input: {
     flex: 1,
-    color: Colors.text.primary,
+    color: '#0F172A',
     fontSize: 15,
     height: '100%',
   },
@@ -465,30 +481,30 @@ const styles = StyleSheet.create({
   },
   arrowIcon: {
     fontSize: 10,
-    color: Colors.text.muted,
+    color: '#94A3B8',
   },
   dropdownList: {
     position: 'absolute',
-    top: 54,
+    top: 56,
     left: 0,
     right: 0,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: '#E2E8F0',
     maxHeight: 150,
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 4,
     zIndex: 100,
   },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#F1F5F9',
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
@@ -496,14 +512,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownItemText: {
-    color: Colors.text.primary,
+    color: '#334155',
     fontSize: 14,
   },
   deleteAccountBtn: {
     padding: 4,
   },
   deleteAccountText: {
-    color: Colors.text.muted,
+    color: '#94A3B8',
     fontSize: 12,
   },
   errorText: {
@@ -513,29 +529,29 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 20,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(239, 68, 68, 0.15)',
   },
   errorBannerText: {
-    color: '#FCA5A5',
+    color: '#EF4444',
     fontSize: 13,
     textAlign: 'center',
   },
   loginButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#3B82F6',
     borderRadius: 12,
-    height: 52,
+    height: 50,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.primary,
+    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 3,
     marginTop: 12,
@@ -546,8 +562,8 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   loginButtonText: {
-    color: Colors.text.light,
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 1,
   },
@@ -556,53 +572,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   versionContainer: {
-    marginTop: 40,
+    marginTop: 32,
     padding: 10,
   },
   versionText: {
-    color: Colors.text.muted,
+    color: '#64748B',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 320,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
   },
   modalTitle: {
-    color: Colors.text.primary,
-    fontSize: 18,
+    color: '#0F172A',
+    fontSize: 17,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   modalMessage: {
-    color: Colors.text.secondary,
+    color: '#64748B',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
   },
   modalInput: {
     width: '100%',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: '#F8FAFC',
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     height: 48,
     paddingHorizontal: 16,
-    color: Colors.text.primary,
+    color: '#0F172A',
     marginBottom: 20,
   },
   modalButtons: {
@@ -618,19 +639,19 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     marginRight: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#F1F5F9',
   },
   modalCancelText: {
-    color: Colors.text.secondary,
+    color: '#475569',
     fontSize: 14,
     fontWeight: '600',
   },
   modalConfirmBtn: {
     marginLeft: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#3B82F6',
   },
   modalConfirmText: {
-    color: Colors.text.light,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },

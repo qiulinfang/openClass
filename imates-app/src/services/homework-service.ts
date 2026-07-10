@@ -303,7 +303,6 @@ export class HomeworkService {
       const password = await storage.getItem('userPassword');
       if (account && password) {
         try {
-          console.log('[HomeworkService] YANBAN_TOKEN 缺失，正在静默登录研伴...');
           token = await this.loginYanban(account, password);
         } catch (loginError) {
           console.error('[HomeworkService] 自动静默登录研伴异常:', loginError);

@@ -63,17 +63,11 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
   const flatListRef = useRef<FlatList>(null);
   const cancelActiveRequest = useRef<(() => void) | null>(null);
 
-  // 初始化会话 ID 和检查来自其他页面的 Prefill 文本
+  // 初始化会话 ID
   useEffect(() => {
     const initSession = async () => {
       const userId = await storage.getItem('xuebanuserid') || 'user';
       setSessionId(`${userId}-general-session-${Date.now()}`);
-
-      const prefill = await storage.getItem('CHAT_PREFILL');
-      if (prefill) {
-        setInputText(prefill);
-        await storage.removeItem('CHAT_PREFILL');
-      }
     };
     initSession();
 
@@ -83,6 +77,22 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
       }
     };
   }, []);
+
+  // 监听 sessionId 就绪，如果存在挂载的预填提问则自动触发发送
+  useEffect(() => {
+    if (!sessionId) return;
+    const triggerAutoSend = async () => {
+      const prefill = await storage.getItem('CHAT_PREFILL');
+      if (prefill) {
+        await storage.removeItem('CHAT_PREFILL');
+        // 延时一会触发，确保 UI 和 List 加载完成
+        setTimeout(() => {
+          handleSend(prefill);
+        }, 300);
+      }
+    };
+    triggerAutoSend();
+  }, [sessionId]);
 
   useEffect(() => {
     scrollToBottom();
