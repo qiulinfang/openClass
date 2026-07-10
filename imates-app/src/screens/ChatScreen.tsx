@@ -9,16 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  Keyboard,
   ActivityIndicator,
 } from 'react-native';
-import { Colors } from '@/constants/Colors';
 import { ChatMessage, AiChatService } from '@/services/ai-chat-service';
 import { storage } from '@/services/storage';
 import { MathRenderer } from '@/components/MathRenderer';
 
 interface ChatScreenProps {
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 const SUGGESTIONS = [
@@ -27,6 +25,20 @@ const SUGGESTIONS = [
   '英语作文润色翻译 📝',
   '解释一下什么是万有引力 🍎',
 ];
+
+// 白天明亮风格颜色系统
+const LightColors = {
+  background: '#F8FAFC',       // 浅灰蓝背景 (slate-50)
+  headerBackground: '#FFFFFF',   // 纯白标题栏背景
+  border: '#E2E8F0',           // 灰描边 (slate-200)
+  textPrimary: '#0F172A',      // 深炭黑主文本 (slate-900)
+  textSecondary: '#475569',    // 次要灰文本 (slate-700)
+  textMuted: '#94A3B8',        // 占位/微弱提示 (slate-400)
+  primary: '#3B82F6',          // 品牌蓝
+  inputBg: '#F1F5F9',          // 输入框浅背景 (slate-100)
+  aiBubbleBg: '#FFFFFF',       // AI气泡背景（纯白）
+  userBubbleBg: '#3B82F6',     // 用户气泡背景
+};
 
 export function ChatScreen({ onBack }: ChatScreenProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -44,15 +56,21 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
   const flatListRef = useRef<FlatList>(null);
   const cancelActiveRequest = useRef<(() => void) | null>(null);
 
-  // 初始化会话 ID
+  // 初始化会话 ID 和检查来自其他页面的 Prefill 文本
   useEffect(() => {
     const initSession = async () => {
       const userId = await storage.getItem('xuebanuserid') || 'user';
       setSessionId(`${userId}-general-session-${Date.now()}`);
+
+      const prefill = await storage.getItem('CHAT_PREFILL');
+      if (prefill) {
+        setInputText(prefill);
+        await storage.removeItem('CHAT_PREFILL');
+      }
     };
     initSession();
 
-    // 组件卸载时清理未完成 the 请求
+    // 组件卸载时清理未完成的请求
     return () => {
       if (cancelActiveRequest.current) {
         cancelActiveRequest.current();
@@ -144,7 +162,9 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
     if (cancelActiveRequest.current) {
       cancelActiveRequest.current();
     }
-    onBack();
+    if (onBack) {
+      onBack();
+    }
   };
 
   // 渲染单条消息
@@ -169,7 +189,7 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
             />
           )}
           {item.isStreaming && item.content === '' && (
-            <ActivityIndicator size="small" color={Colors.text.secondary} style={styles.typingLoader} />
+            <ActivityIndicator size="small" color={LightColors.textSecondary} style={styles.typingLoader} />
           )}
         </View>
       </View>
@@ -180,9 +200,13 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
     <SafeAreaView style={styles.container}>
       {/* 顶部标题栏 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
+        {onBack ? (
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backButtonPlaceholder} />
+        )}
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>iMates 智能伴侣</Text>
           <View style={styles.statusRow}>
@@ -221,7 +245,7 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.suggestionChip}
-                  onPress={() => handleSend(item.replace(/[\u2300-\u27BF]/g, ''))} // 移除非文字的 emoji 以便触发关键字匹配
+                  onPress={() => handleSend(item.replace(/[\u2300-\u27BF]/g, ''))} // 移除非文字的 emoji
                 >
                   <Text style={styles.suggestionText}>{item}</Text>
                 </TouchableOpacity>
@@ -235,7 +259,7 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
           <TextInput
             style={styles.input}
             placeholder={isAiTyping ? 'AI 正在回复中...' : '向 iMates 提问...'}
-            placeholderTextColor={Colors.text.muted}
+            placeholderTextColor={LightColors.textMuted}
             value={inputText}
             onChangeText={setInputText}
             editable={!isAiTyping}
@@ -258,7 +282,7 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: LightColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -267,13 +291,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 56,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: LightColors.border,
+    backgroundColor: LightColors.headerBackground,
   },
   backButton: {
     padding: 8,
   },
   backButtonText: {
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
     fontSize: 24,
     fontWeight: 'bold',
   },
@@ -281,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -305,6 +330,9 @@ const styles = StyleSheet.create({
   headerRightPlaceholder: {
     width: 40,
   },
+  backButtonPlaceholder: {
+    width: 40,
+  },
   listContent: {
     padding: 16,
     paddingBottom: 24,
@@ -324,12 +352,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: LightColors.border,
   },
   avatarText: {
     fontSize: 18,
@@ -340,24 +368,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   userBubble: {
-    backgroundColor: Colors.primary,
+    backgroundColor: LightColors.userBubbleBg,
     borderTopRightRadius: 4,
   },
   aiBubble: {
-    backgroundColor: Colors.card.background,
+    backgroundColor: LightColors.aiBubbleBg,
     borderTopLeftRadius: 4,
     borderWidth: 1,
-    borderColor: Colors.card.border,
+    borderColor: LightColors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   bubbleText: {
     fontSize: 15,
     lineHeight: 22,
   },
   userBubbleText: {
-    color: Colors.text.light,
+    color: '#FFFFFF',
   },
   aiBubbleText: {
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
   },
   typingLoader: {
     marginTop: 4,
@@ -371,16 +410,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   suggestionChip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: LightColors.headerBackground,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: LightColors.border,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 8,
   },
   suggestionText: {
-    color: Colors.text.secondary,
+    color: LightColors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -389,42 +428,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: Colors.background,
+    borderTopColor: LightColors.border,
+    backgroundColor: LightColors.headerBackground,
     alignItems: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: LightColors.inputBg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: LightColors.border,
     height: 40,
     paddingHorizontal: 16,
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
     fontSize: 15,
     marginRight: 10,
   },
   sendButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: LightColors.primary,
     height: 40,
     borderRadius: 20,
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   },
   sendButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: '#E2E8F0',
   },
   sendButtonText: {
-    color: Colors.text.light,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -432,13 +464,13 @@ const styles = StyleSheet.create({
 
 const markdownStyles = StyleSheet.create({
   body: {
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
   },
   strong: {
     fontWeight: 'bold',
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
   },
   bullet_list: {
     marginVertical: 4,
@@ -448,12 +480,12 @@ const markdownStyles = StyleSheet.create({
     lineHeight: 22,
   },
   link: {
-    color: Colors.primary,
+    color: LightColors.primary,
     textDecorationLine: 'underline',
   },
   paragraph: {
     marginVertical: 4,
     lineHeight: 22,
-    color: Colors.text.primary,
+    color: LightColors.textPrimary,
   },
 });

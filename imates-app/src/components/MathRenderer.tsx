@@ -96,12 +96,137 @@ export function MathView({ math, isInline = false }: MathViewProps) {
   );
 }
 
+interface HTMLMathRendererProps {
+  content: string;
+  textColor?: string;
+}
+
+export function HTMLMathRenderer({ content, textColor = '#cbd5e1' }: HTMLMathRendererProps) {
+  const [webViewHeight, setWebViewHeight] = useState(60);
+  const webViewRef = useRef<WebView>(null);
+
+  // 预载 KaTeX 及自动渲染脚本的 HTML 模板，支持 HTML 标签（如 p, span, img, table 等）
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+        <style>
+          body {
+            margin: 0;
+            padding: 4px;
+            background-color: transparent;
+            color: ${textColor};
+            font-size: 15px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 10px 0;
+            border-radius: 6px;
+          }
+          p {
+            margin: 0 0 12px 0;
+          }
+          .fill-blank-underscore {
+            display: inline-block;
+            border-bottom: 2px solid ${textColor};
+            width: 60px;
+            height: 18px;
+            vertical-align: middle;
+            margin: 0 4px;
+          }
+          .ocr-image-wrapper {
+            margin: 10px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="content-container">${content}</div>
+        <script>
+          try {
+            const container = document.getElementById('content-container');
+            
+            // 自动扫描渲染 LaTeX 块
+            renderMathInElement(container, {
+              delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "\\\\[", right: "\\\\]", display: true},
+                {left: "$", right: "$", display: false},
+                {left: "\\\\(", right: "\\\\)", display: false}
+              ],
+              throwOnError: false
+            });
+
+            // 反馈高宽变化测量
+            const reportHeight = () => {
+              const height = document.documentElement.offsetHeight || document.body.scrollHeight;
+              window.ReactNativeWebView.postMessage(JSON.stringify({ height }));
+            };
+
+            setTimeout(reportHeight, 100);
+
+            // 监听图片加载完毕更新高度，解决图片没加载好测量高度太小被截断的 Bug
+            const imgs = document.getElementsByTagName('img');
+            for (let i = 0; i < imgs.length; i++) {
+              imgs[i].onload = reportHeight;
+            }
+          } catch (e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ error: e.message }));
+          }
+        </script>
+      </body>
+    </html>
+  `;
+
+  const onMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.height) {
+        setWebViewHeight(data.height + 15);
+      }
+    } catch (e) {
+      console.warn('[HTMLMathRenderer] WebView 高度消息解析失败:', e);
+    }
+  };
+
+  return (
+    <View style={{ height: webViewHeight, width: '100%' }}>
+      <WebView
+        ref={webViewRef}
+        originWhitelist={['*']}
+        source={{ html: htmlContent }}
+        onMessage={onMessage}
+        scrollEnabled={false}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        style={styles.webView}
+        containerStyle={styles.webViewContainer}
+      />
+    </View>
+  );
+}
+
 interface MathRendererProps {
   content: string;
   markdownStyle?: any;
+  textColor?: string;
 }
 
-export function MathRenderer({ content, markdownStyle }: MathRendererProps) {
+export function MathRenderer({ content, markdownStyle, textColor }: MathRendererProps) {
+  // 检测内容中是否含有 HTML 标签特性，有的话走富文本渲染通道
+  const isHtml = /<[a-z][\s\S]*>/i.test(content);
+  if (isHtml) {
+    return <HTMLMathRenderer content={content} textColor={textColor} />;
+  }
+
   // 定义自定义 Markdown 渲染规则
   // 通过拦截 text 节点渲染公式，保证 Markdown 本身的语法树（如表格、列表）完整不被打乱
   const rules: RenderRules = {
