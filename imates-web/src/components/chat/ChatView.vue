@@ -1,6 +1,15 @@
 <template>
   <!-- 聊天视图主容器 - 支持键盘动画状态 -->
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
+    <!-- 调试上下文按钮 (仅测试环境显示) -->
+    <button
+      class="debug-context-btn"
+      @click="openDebugDialog"
+      title="查看历史上下文"
+    >
+      <span class="debug-btn-icon">📜</span>
+      <span class="debug-btn-text">调试上下文</span>
+    </button>
     <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
       <RubberBandList
@@ -330,6 +339,44 @@
       @cancel="handleScreenshotEditorCancel"
       @remove-screenshot="handleScreenshotEditorRemove"
     />
+
+    <!-- 调试历史上下文对话框 -->
+    <Dialog
+      ref="debugContextDialogRef"
+      title="历史上下文调试"
+      :confirmButtonText="'复制 JSON'"
+      :cancelButtonText="'关闭'"
+      @confirm="copyDebugContext"
+      @cancel="closeDebugContext"
+    >
+      <div class="debug-dialog-content" style="max-height: 480px; overflow-y: auto; text-align: left; padding: 4px;">
+        <div v-if="!latestHistoryList || latestHistoryList.length === 0" style="color: #64748b; text-align: center; padding: 20px; font-size: 13px;">
+          暂无历史消息
+        </div>
+        <div v-else class="debug-history-list" style="display: flex; flex-direction: column; gap: 14px;">
+          <div 
+            v-for="(msg, idx) in latestHistoryList" 
+            :key="msg.id || idx" 
+            class="debug-history-item"
+            style="border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;"
+          >
+            <!-- 头部信息 -->
+            <div style="font-size: 11px; color: #8e8e93; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                {{ msg.type === 'human' || msg.type === 'user' ? 'Human' : 'AI' }}
+              </span>
+              <span v-if="msg.response_metadata?.model_name" style="color: #aeaea2; font-size: 10px;">
+                ({{ msg.response_metadata.model_provider }}: {{ msg.response_metadata.model_name }})
+              </span>
+            </div>
+            <!-- 内容 -->
+            <div style="color: #3a3a3c; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;">
+              {{ msg.content }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Dialog>
   </div>
 </template>
 
@@ -344,10 +391,13 @@ import { useAiExerciseChatStore } from '@/stores/aiExerciseChatStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
+import { useAiHomeworkChatStore } from '@/stores/aiHomeworkChatStore'
+import { useHtmlPreviewChatStore } from '@/stores/htmlPreviewChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
+import { apiService } from '@/services'
 
 // 子组件导入
 import ChatMessage from '@/components/chat/message/ChatMessage.vue'
@@ -558,6 +608,83 @@ const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 完整输入组件
 const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单输入组件引用
 const cardStackRef = ref<InstanceType<typeof CardStack> | null>(null) // 会话卡片堆叠组件引用
 const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) // 橡皮筋列表引用
+
+// 调试上下文逻辑
+const debugContextDialogRef = ref<any>(null)
+const debugContextJson = ref('')
+const latestHistoryList = ref<any[]>([])
+const isTestEnv = computed(() => localStorage.getItem('app_env_type') === 'INTERNAL_TEST')
+
+// 动态获取当前活跃的会话 ID
+const currentSessionId = computed(() => {
+  if (props.type === 'ai-general') {
+    return useAiGeneralChatStore().currentSession?.sessionId
+  }
+  if (props.type === 'ai-exercise') {
+    return useAiExerciseChatStore().currentSessionId
+  }
+  if (props.type === 'ai-homework') {
+    return useAiHomeworkChatStore().currentSession?.sessionId
+  }
+  if (props.type === 'ai-textbook') {
+    return useAiTextbookChatStore().currentSessionId
+  }
+  if (props.type === 'user-client') {
+    return useUserClientStore().currentSession?.sessionId
+  }
+  if (props.type === 'html-preview') {
+    return useHtmlPreviewChatStore().sessionId
+  }
+  return null
+})
+
+const openDebugDialog = async () => {
+  const sid = currentSessionId.value
+  let history = null
+
+  if (sid) {
+    try {
+      const agentName = (props.type === 'ai-exercise' || props.type === 'ai-homework') ? 'solvingbot' : 'chatbot'
+      const response = await apiService.getShortTermMemory(sid, agentName)
+      if (response && response.success && response.data && Array.isArray(response.data.data)) {
+        history = response.data.data
+      }
+    } catch (e) {
+      console.warn('[ChatView] 获取后端短期记忆失败:', e)
+    }
+  }
+
+  latestHistoryList.value = history || []
+  debugContextJson.value = history && history.length > 0
+    ? JSON.stringify(history, null, 2)
+    : '暂无历史上下文消息，且未能从后端拉取到记忆。'
+  debugContextDialogRef.value?.openDialog()
+}
+
+const closeDebugContext = () => {
+  debugContextDialogRef.value?.closeDialog()
+}
+
+const copyDebugContext = () => {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(debugContextJson.value)
+      .then(() => showMessage('已复制到剪贴板', 'success'))
+      .catch(() => showMessage('复制失败', 'warning'))
+  } else {
+    const textarea = document.createElement('textarea')
+    textarea.value = debugContextJson.value
+    textarea.style.position = 'fixed'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      showMessage('已复制到剪贴板', 'success')
+    } catch (e) {
+      showMessage('复制失败', 'warning')
+    }
+    document.body.removeChild(textarea)
+  }
+}
 
 const handleSendWithScreenshot = (shots: AttachedScreenshot[]) => {
   if (
@@ -3107,5 +3234,36 @@ defineExpose({
   padding: 12px;
   color: #999;
   font-size: 12px;
+}
+
+/* 调试上下文按钮 */
+.debug-context-btn {
+  position: absolute;
+  bottom: 180px; /* 避开输入区域，悬浮在右下角 */
+  right: 16px;
+  z-index: 99;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  color: #1e293b;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+.debug-context-btn:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #007aff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+.debug-btn-icon {
+  font-size: 13px;
 }
 </style>

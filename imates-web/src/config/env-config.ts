@@ -90,7 +90,7 @@ export const ADDRESS_CATALOG = {
   TEACHER_WS_RELEASE: 'wss://www.imates.com.cn',
   TEACHER_WS_TEST: 'wss://www.imates.com.cn',
   TEACHER_API_RELEASE: 'http://www.imates.com.cn:8201',
-  HISTORY_MANAGE: 'https://u389082-a353-35fba22b.westb.seetacloud.com:8443',
+  HISTORY_MANAGE: 'https://kelvin-cosin.cloud/api',
   ZAMMAD_API: 'http://app.imates.com.cn:8080',
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
@@ -411,6 +411,7 @@ export function getRouteBaseMap(): Record<string, string> {
     '/bj101': ADDRESS_CATALOG.IMATES_HTTP,
     // 学伴服务（根据环境动态切换）
     '/history_manage': ADDRESS_CATALOG.HISTORY_MANAGE,
+    '/get_shor_term_memory': ADDRESS_CATALOG.HISTORY_MANAGE,
     // gaokao-agent-llm 服务
     '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
     // recognize-handwritten-formula-image 服务

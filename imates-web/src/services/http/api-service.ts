@@ -77,6 +77,13 @@ export class ApiService {
     return this.aiChatApi.manageConversationMemory(payload)
   }
 
+  public async getShortTermMemory(
+    threadId: string,
+    agentName: string = 'chatbot',
+  ): Promise<any> {
+    return this.aiChatApi.getShortTermMemory(threadId, agentName)
+  }
+
   public static getInstance(): ApiService {
     if (!ApiService.instance) {
       ApiService.instance = new ApiService()
