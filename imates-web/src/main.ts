@@ -17,6 +17,8 @@ import mathjaxPreview from './directives/mathjaxPreview'
 import pasteToDraft from './directives/pasteToDraft'
 import router from './router'
 
+import * as Sentry from '@sentry/vue'
+
 // 初始化 WebView 兼容性 polyfills
 initPolyfills()
 
@@ -38,6 +40,19 @@ initQuestionStorage().catch((error) => {
 })
 
 const app = createApp(App)
+
+// 初始化 Sentry 错误日志收集
+Sentry.init({
+  app,
+  dsn: "https://0f4063e1c0771fb7cf96ca95d3b44536@o4511727297953792.ingest.us.sentry.io/4511727304048640",
+  integrations: [
+    Sentry.browserTracingIntegration({ router }),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+})
 
 app.use(createPinia())
 app.use(router)

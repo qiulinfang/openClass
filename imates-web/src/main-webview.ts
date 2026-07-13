@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebView 专用入口文件
  * 支持单独页面构建
  */
@@ -11,6 +11,8 @@ import { initPolyfills } from './utils/common/polyfills'
 import { initQuestionStorage } from './services/storage/question-storage'
 import { AndroidBridge } from './services/business/android-bridge'
 import { initMockTeacherBridge } from './services/business/mock-teacher-bridge'
+
+import * as Sentry from '@sentry/vue'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'
@@ -58,6 +60,19 @@ async function createWebViewApp() {
   const PageComponent = await loadPageComponent()
   
   const app = createApp(PageComponent)
+
+  // 初始化 Sentry 错误日志收集
+  Sentry.init({
+    app,
+    dsn: "https://0f4063e1c0771fb7cf96ca95d3b44536@o4511727297953792.ingest.us.sentry.io/4511727304048640",
+    integrations: [
+      Sentry.browserTracingIntegration({ router }),
+      Sentry.replayIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  })
   
   // 配置 Pinia
   const pinia = createPinia()

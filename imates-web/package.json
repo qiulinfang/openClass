@@ -49,6 +49,7 @@
     "@capacitor/preferences": "^7.0.2",
     "@capacitor/status-bar": "^7.0.3",
     "@quasar/extras": "^1.17.0",
+    "@sentry/vue": "^10.65.0",
     "@tato30/vue-pdf": "^1.11.5",
     "@tiptap/core": "^3.4.2",
     "@tiptap/extension-color": "^3.4.2",
