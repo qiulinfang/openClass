@@ -199,13 +199,19 @@ export function HomeworkAnswerScreen({
           if (userAns !== '' && userAns.toUpperCase() !== correctAns.toUpperCase()) {
             try {
               await MistakeService.addMistake({
-                id: q.questionId,
-                title: q.questionContent,
-                subject: homeworkSubject,
-                userAnswer: userAns,
-                correctAnswer: correctAns,
-                analysis: q.questionAnalysis || q.questionAnalysis || '暂无解析',
-                homeworkTitle: homeworkTitle,
+                bmNo: q.questionId,
+                questionData: {
+                  id: q.questionId,
+                  title: q.questionContent.substring(0, 30).replace(/<[^>]+>/g, '').trim(),
+                  subject: homeworkSubject,
+                  content: q.questionContent,
+                  answer: correctAns,
+                  analysis: q.questionAnalysis || '暂无解析',
+                  timestamp: Date.now()
+                },
+                originalAnswer: userAns,
+                homeworkId: homeworkId,
+                homeworkName: homeworkTitle,
               });
             } catch (mistakeErr) {
               console.warn('[HomeworkAnswerScreen] 自动同步错题本失败:', mistakeErr);

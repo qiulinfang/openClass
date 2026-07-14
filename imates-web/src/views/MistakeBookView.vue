@@ -254,6 +254,7 @@ import { useMistakeStore } from '@/stores/mistakeStore'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService } from '@/services/http/api-service'
 import { showMessage } from '@/utils'
+import { SyncService } from '@/services/storage/sync-service'
 import Dialog from '@/components/base/Dialog.vue'
 import Button from '@/components/base/Button.vue'
 import Select from '@/components/base/Select.vue'
@@ -395,12 +396,14 @@ const confirmDelete = (item: MistakeItem | null) => {
   deleteDialogRef.value?.openDialog()
 }
 
-/** 执行删除（通过 Store 闭环处理） */
+/** 执行删除（通过 Store 闭环处理并同步） */
 const doDelete = async () => {
   if (pendingDeleteItem.value) {
     const index = mistakeStore.mistakes.findIndex((m) => m.id === pendingDeleteItem.value?.id)
     if (index !== -1) {
       await mistakeStore.deleteMistake(index)
+      // 异步推送删除通知至云端
+      SyncService.syncMistakes()
     }
   }
   deleteDialogRef.value?.closeDialog()
@@ -408,6 +411,10 @@ const doDelete = async () => {
 
 onMounted(async () => {
   await mistakeStore.fetchMistakes()
+  // 异步拉取云端增量并更新列表
+  SyncService.syncMistakes().then(() => {
+    mistakeStore.fetchMistakes()
+  })
 })
 
 onUnmounted(() => {

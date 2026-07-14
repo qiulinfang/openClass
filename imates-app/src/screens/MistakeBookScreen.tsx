@@ -15,6 +15,7 @@ import { MathRenderer } from '@/components/MathRenderer';
 import { MistakeService, MistakeItem } from '@/services/mistake-service';
 import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
 import { SUBJECT_ID_TO_NAME } from '@/services/homework-service';
+import { SyncService } from '@/services/sync-service';
 
 interface MistakeBookScreenProps {
   onLogout: () => void;
@@ -87,6 +88,7 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    await SyncService.syncMistakes();
     await Promise.all([loadMistakes(), loadExercises()]);
     setIsRefreshing(false);
   };
@@ -94,13 +96,19 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
   useEffect(() => {
     loadMistakes();
     loadExercises();
+    // 异步执行云端增量错题同步
+    SyncService.syncMistakes().then(() => {
+      loadMistakes();
+    });
   }, [loadMistakes, loadExercises]);
 
   // 从错题本移除错题
   const handleRemoveMistake = async (id: string) => {
     try {
       await MistakeService.removeMistake(id);
-      setMistakes(prev => prev.filter(m => m.id !== id));
+      setMistakes(prev => prev.filter(m => m.id !== id && m.bmNo !== id));
+      // 异步推送删除指令至云端
+      SyncService.syncMistakes();
     } catch (e) {
       console.warn('[MistakeBookScreen] 移除错题失败:', e);
     }
@@ -125,18 +133,19 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
   // 将错题收藏为习题 / 取消收藏
   const handleToggleExercise = async (mistake: MistakeItem) => {
     try {
+      const titleText = mistake.questionData.title || mistake.questionData.content || '错题习题';
       const saved = await ExerciseService.toggleExercise({
-        id: mistake.id,
-        title: mistake.title.substring(0, 15).replace(/<[^>]+>/g, '').trim() + '...',
+        id: mistake.bmNo,
+        title: titleText.substring(0, 20).replace(/<[^>]+>/g, '').trim() + '...',
         subject: mistake.subject,
-        content: mistake.title,
-        answer: mistake.correctAnswer || '',
-        analysis: mistake.analysis || '暂无解析',
+        content: mistake.questionData.content || mistake.questionData.title || '',
+        answer: mistake.questionData.answer || '',
+        analysis: mistake.questionData.analysis || '暂无解析',
       });
       
       setSavedExerciseIds(prev => ({
         ...prev,
-        [mistake.id]: saved
+        [mistake.bmNo]: saved
       }));
 
       // 重新加载习题列表以同步
@@ -171,12 +180,19 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
     const isSavedAsExercise = !!savedExerciseIds[item.id];
     const subjectName = SUBJECT_ID_TO_NAME[item.subject] || '学科';
 
+    // 适配嵌套结构的取值
+    const homeworkName = item.practiceHistory?.[0]?.homeworkName || '课后作业';
+    const questionText = item.questionData?.content || item.questionData?.title || '未命名错题';
+    const userAnswerText = String(item.practiceHistory?.[0]?.originalAnswer || '未作答');
+    const correctAnswerText = String(item.questionData?.answer || '暂无答案');
+    const analysisText = item.questionData?.analysis || '暂无解析';
+
     return (
       <Card style={styles.contentCard}>
         {/* 来源与学科标签 */}
         <View style={styles.cardHeaderRow}>
           <Text style={styles.sourceText} numberOfLines={1}>
-            📌 来源于: {item.homeworkTitle || '课后作业'}
+            📌 来源于: {homeworkName}
           </Text>
           <View style={styles.subjectBadge}>
             <Text style={styles.subjectBadgeText}>{subjectName}</Text>
@@ -185,18 +201,18 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
 
         {/* 题干 LaTeX 渲染 */}
         <View style={styles.mathContainer}>
-          <MathRenderer content={item.title} textColor="#0F172A" />
+          <MathRenderer content={questionText} textColor="#0F172A" />
         </View>
 
         {/* 作答与标准答案对比 */}
         <View style={styles.answerCompareContainer}>
           <View style={styles.answerRow}>
             <Text style={styles.answerLabel}>❌ 您的解答：</Text>
-            <Text style={styles.wrongAnswerText}>{item.userAnswer || '未作答'}</Text>
+            <Text style={styles.wrongAnswerText}>{userAnswerText}</Text>
           </View>
           <View style={styles.answerRow}>
             <Text style={styles.answerLabel}>✅ 正确答案：</Text>
-            <Text style={styles.correctAnswerText}>{item.correctAnswer || '暂无答案'}</Text>
+            <Text style={styles.correctAnswerText}>{correctAnswerText}</Text>
           </View>
         </View>
 
@@ -204,7 +220,7 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
         {isExpanded && (
           <View style={styles.analysisContainer}>
             <Text style={styles.analysisTitle}>💡 答案解析：</Text>
-            <MathRenderer content={item.analysis} textColor="#475569" />
+            <MathRenderer content={analysisText} textColor="#475569" />
           </View>
         )}
 
@@ -232,7 +248,7 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
 
             <TouchableOpacity
               style={styles.aiBtn}
-              onPress={() => onAskAI(`老师，我想针对这道作业错题发起讨论：\n\n${item.title}`)}
+              onPress={() => onAskAI(`老师，我想针对这道作业错题发起讨论：\n\n${questionText}`)}
             >
               <Text style={styles.aiBtnText}>🤖 问学伴</Text>
             </TouchableOpacity>

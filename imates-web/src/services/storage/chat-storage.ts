@@ -192,6 +192,8 @@ export class ChatStorageService {
       const record = { id: key, ...serializedData }
       await this.dbInstance.put(STORE_NAMES.CHAT_HISTORY, record)
       
+      // 异步推送聊天同步变更至云端，使用动态导入避免循环引用
+      import('./sync-service').then(m => m.SyncService.syncChatHistory()).catch(() => {})
     } catch (error) {
       console.warn('⚠️ IndexedDB保存聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage

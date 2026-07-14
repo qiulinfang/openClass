@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { ChatMessage, AiChatService } from '@/services/ai-chat-service';
 import { storage } from '@/services/storage';
 import { MathRenderer } from '@/components/MathRenderer';
+import { SyncService } from '@/services/sync-service';
 
 interface ChatScreenProps {
   onBack?: () => void;
@@ -63,11 +64,18 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
   const flatListRef = useRef<FlatList>(null);
   const cancelActiveRequest = useRef<(() => void) | null>(null);
 
-  // 初始化会话 ID
+  // 初始化或从本地恢复会话 ID
   useEffect(() => {
     const initSession = async () => {
       const userId = await storage.getItem('xuebanuserid') || 'user';
-      setSessionId(`${userId}-general-session-${Date.now()}`);
+      const lastSessionId = await storage.getItem(`IMATES_LAST_SESSION_ID_${userId}`);
+      if (lastSessionId) {
+        setSessionId(lastSessionId);
+      } else {
+        const newSessionId = `${userId}-general-session-${Date.now()}`;
+        await storage.setItem(`IMATES_LAST_SESSION_ID_${userId}`, newSessionId);
+        setSessionId(newSessionId);
+      }
     };
     initSession();
 
@@ -77,6 +85,53 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
       }
     };
   }, []);
+
+  // 当 sessionId 准备就绪时，从本地存储加载历史聊天气泡
+  useEffect(() => {
+    if (!sessionId) return;
+    const loadSavedMessages = async () => {
+      const saved = await storage.getItem(`IMATES_CHAT_SESSION_${sessionId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        } catch (e) {
+          console.warn('[ChatScreen] 从 AsyncStorage 加载历史消息失败:', e);
+        }
+      }
+      
+      // 触发增量拉取同步并合并
+      SyncService.syncChatHistory().then(async () => {
+        const updated = await storage.getItem(`IMATES_CHAT_SESSION_${sessionId}`);
+        if (updated) {
+          try {
+            setMessages(JSON.parse(updated));
+          } catch {}
+        }
+      });
+    };
+    loadSavedMessages();
+  }, [sessionId]);
+
+  // 当 messages 产生变更（且不在流式输入中）时，自动保存气泡至本地，并触发上报同步
+  useEffect(() => {
+    if (!sessionId || messages.length <= 1) return;
+    const hasStreaming = messages.some(msg => msg.isStreaming);
+    if (hasStreaming) return; // 避免在 AI 打字流式吐出时高频写入
+
+    const saveMessages = async () => {
+      try {
+        await storage.setItem(`IMATES_CHAT_SESSION_${sessionId}`, JSON.stringify(messages));
+        // 保存完成后，异步上报此会话数据
+        SyncService.syncChatHistory();
+      } catch (e) {
+        console.warn('[ChatScreen] 缓存聊天记录失败:', e);
+      }
+    };
+    saveMessages();
+  }, [messages, sessionId]);
 
   // 监听 sessionId 就绪，如果存在挂载的预填提问则自动触发发送
   useEffect(() => {

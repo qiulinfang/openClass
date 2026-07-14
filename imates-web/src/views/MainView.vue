@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div
     class="main-view"
     @mousemove="handleDrag"
@@ -950,6 +950,12 @@ const checkResourceUpdates = async () => {
 
 // 初始化按钮位置
 onMounted(async () => {
+  // 登录并初始化主界面后，异步触发错题本和对话历史的云端增量同步
+  import('@/services/storage/sync-service').then(m => {
+    m.SyncService.syncMistakes()
+    m.SyncService.syncChatHistory()
+  }).catch(() => {})
+
   // 处理从草稿本返回的情况
   if (route.query.openAiChat === 'true') {
     const attachedImageStr = route.query.attachedImage as string

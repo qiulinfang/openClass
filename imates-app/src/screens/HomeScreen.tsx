@@ -15,6 +15,7 @@ import { HomeworkAnswerScreen } from './HomeworkAnswerScreen';
 import { MistakeBookScreen } from './MistakeBookScreen';
 import { ExerciseSolveScreen } from './ExerciseSolveScreen';
 import { storage } from '@/services/storage';
+import { SyncService } from '@/services/sync-service';
 
 interface HomeScreenProps {
   onLogout: () => void;
@@ -34,6 +35,12 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
   const [answeringHomeworkId, setAnsweringHomeworkId] = useState<string | null>(null);
   const [answeringHomeworkTitle, setAnsweringHomeworkTitle] = useState<string>('');
   const [answeringHomeworkSubject, setAnsweringHomeworkSubject] = useState<string>('6');
+
+  // 当 App 进入主界面挂载时，异步触发错题本与聊天历史的云端增量同步
+  React.useEffect(() => {
+    SyncService.syncMistakes();
+    SyncService.syncChatHistory();
+  }, []);
 
   const handleGoAnswer = (id: string, title: string, subject: string) => {
     setAnsweringHomeworkId(id);

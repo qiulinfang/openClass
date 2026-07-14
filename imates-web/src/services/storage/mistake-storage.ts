@@ -136,6 +136,16 @@ export async function deleteMistake(id: string): Promise<void> {
   try {
     const mistakeStorage = getMistakeStorage()
     await mistakeStorage.delete(STORE_NAMES.MISTAKES, id)
+
+    // 记录被删除的错题 ID，用于云同步删除对齐
+    try {
+      const deletedStr = localStorage.getItem('IMATES_MISTAKES_DELETED') || '[]'
+      const deletedList: string[] = JSON.parse(deletedStr)
+      if (!deletedList.includes(id)) {
+        deletedList.push(id)
+        localStorage.setItem('IMATES_MISTAKES_DELETED', JSON.stringify(deletedList))
+      }
+    } catch (e) {}
   } catch (error) {
     console.error(`[MISTAKE_STORAGE] ❌ 删除错题失败 (ID: ${id}):`, error)
     throw error
