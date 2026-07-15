@@ -25,6 +25,7 @@
           :disable-history-save="true"
           @screenshot-click="emit('screenshot-click')"
           @request-screenshot="emit('request-screenshot', $event)"
+          @open-html-preview="emit('open-html-preview', $event)"
         />
       </div>
       <!-- 会话记录 Tab -->
@@ -62,7 +63,7 @@ const emit = defineEmits<{
   close: []
   'screenshot-click': []
   'request-screenshot': [payload: { kind: 'screen_snapshot' | 'pdf_page' }]
-  'open-html-preview': []
+  'open-html-preview': [payload: { url: string; html?: string }]
 }>()
 
 const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)

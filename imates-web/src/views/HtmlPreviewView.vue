@@ -57,6 +57,7 @@
               @close="handleCloseChatPanel"
               @screenshot-click="handleScreenshotClick"
               @request-screenshot="handleRequestScreenshot"
+              @open-html-preview="handleOpenHtmlPreviewFromPanel"
             />
           </div>
         </div>
