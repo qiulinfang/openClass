@@ -1,7 +1,6 @@
 package com.cosinetech.imates.ui.webview.common;
 
 import android.content.Context;
-import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -23,22 +22,10 @@ public class WebViewConfig {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        
-        // Cookie 设置
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.setAcceptCookie(true);
-        cookieManager.setAcceptThirdPartyCookies(webView, true);
+        // setAppCacheEnabled 和 setAppCachePath 已过时，移除
         
         // 缓存设置
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        
-        // 性能优化
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
-        
-        // 允许加载跨域资源（如果需要）
-        settings.setAllowUniversalAccessFromFileURLs(true);
         
         // 媒体设置
         settings.setMediaPlaybackRequiresUserGesture(false);
