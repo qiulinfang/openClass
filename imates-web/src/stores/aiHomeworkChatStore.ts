@@ -412,6 +412,17 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     try {
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
       await apiService.sendChatMessage(aiRequest, onComplete, onStream, onHistoryUpdate)
+      
+      // 统一入口：新消息完成后由 store 补齐/增强 rawHtmlMap
+      const aiIndex = messages.value.findIndex((m) => m.id === tempReplyId)
+      if (aiIndex >= 0) {
+        const msg = messages.value[aiIndex]
+        const changed = await ensureHtmlRawMapForMessage(msg, { logTag: 'AI_HOMEWORK' })
+        if (changed) {
+          messages.value[aiIndex] = { ...msg }
+        }
+      }
+      
       await saveChatHistory()
     } catch (error) {
       console.error('[AI_HOMEWORK] 发送失败:', error)
@@ -458,7 +469,17 @@ export const useAiHomeworkChatStore = defineStore('aiHomeworkChat', () => {
     isChatLoading.value = true
     try {
       const historyData = await chatPersistence.load(`ai-homework-${sessionId}`)
-      messages.value = historyData?.messages || []
+      const rawMessages = historyData?.messages || []
+      
+      // 🎯 统一入口：增强历史消息中的 rawHtmlMap
+      const enhancedMessages = await Promise.all(
+        rawMessages.map(async (message) => {
+          await ensureHtmlRawMapForMessage(message, { logTag: 'AI_HOMEWORK' })
+          return message
+        })
+      )
+      
+      messages.value = enhancedMessages
     } finally {
       isChatLoading.value = false
     }

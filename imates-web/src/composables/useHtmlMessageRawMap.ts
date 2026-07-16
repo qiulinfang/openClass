@@ -55,7 +55,7 @@ type EnsureOptions = {
  */
 export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) => {
   // 默认匹配 kelvin-cosin.cloud 的 HTML 文件 URL
-  const defaultUrlRegex = /(https:\/\/[a-z0-9.-]*kelvin-cosin\.cloud\/.*?\.html)/gi
+  const defaultUrlRegex = /(https?:\/\/[a-z0-9.-]*kelvin-cosin\.cloud\/.*?\.html)/gi
 
   const inflight = new Map<string, Promise<string | undefined>>()
 
@@ -485,8 +485,12 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
    * @returns 是否有变更（true: 新增或更新了 HTML，false: 无变化）
    */
   const ensureHtmlRawMapForMessage = async (message: ChatBubble, options: EnsureOptions = {}): Promise<boolean> => {
+    console.log('[ensureHtmlRawMapForMessage] 收到消息对象:', JSON.parse(JSON.stringify(message)))
     // 非 HTML 消息直接返回
-    if (message.messageType !== 'html') return false
+    if (message.messageType !== 'html') {
+      console.log('[ensureHtmlRawMapForMessage] 拦截：消息类型不是 html')
+      return false
+    }
 
     // 使用自定义正则或默认正则
     const regex = options.urlRegex || defaultUrlRegex
@@ -499,6 +503,7 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
       ? urlsAll.filter((u) => options.onlyUrls!.includes(u))
       : urlsAll
     
+    console.log('[ensureHtmlRawMapForMessage] 正则匹配到的 URLs:', urlsAll, '过滤后的 URLs:', urls)
     if (urls.length === 0) return false
 
     if (!message.rawHtmlMap) message.rawHtmlMap = {}
@@ -520,6 +525,7 @@ export const useHtmlMessageRawMap = (api: Pick<ApiService, 'fetchHtmlSource'>) =
 
         // 缓存未命中，发起 HTTP 请求
         if (!html) {
+          console.log('[ensureHtmlRawMapForMessage] 缓存未命中，开始请求 fetchHtmlSource:', url)
           const htmlData = await api.fetchHtmlSource(url)
           if (htmlData) {
             // 直接使用后端已经增强过的 html

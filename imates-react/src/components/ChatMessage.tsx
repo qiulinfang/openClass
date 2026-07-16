@@ -6,6 +6,7 @@ import { ImageMessage } from '@/components/messages/ImageMessage'
 import { MultiImageMessage } from '@/components/messages/MultiImageMessage'
 import { ChatRecordCard } from '@/components/messages/ChatRecordCard'
 import { StreamingMessage } from '@/components/chat/message/StreamingMessage'
+import { useHtmlMessageRawMap } from '@/hooks/useHtmlMessageRawMap'
 import '@/components/ChatMessage.css'
 
 interface ChatMessageComponentProps {
@@ -379,6 +380,23 @@ function renderMessageContent(
     )
   }
 
+  const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap()
+  const [rawHtmlMap, setRawHtmlMap] = useState(message.rawHtmlMap || {})
+
+  useEffect(() => {
+    let active = true
+    const loadHtml = async () => {
+      const changed = await ensureHtmlRawMapForMessage(message, { logTag: 'CHAT_MESSAGE_REACT' })
+      if (changed && active) {
+        setRawHtmlMap({ ...message.rawHtmlMap })
+      }
+    }
+    loadHtml()
+    return () => {
+      active = false
+    }
+  }, [message, message.content, ensureHtmlRawMapForMessage])
+
   // AI/教师 消息使用 StreamingMessage
   if (message.sender === 'ai' || message.sender === 'teacher') {
     return (
@@ -386,7 +404,7 @@ function renderMessageContent(
         content={message.content}
         isStreaming={message.isStreaming}
         messageType={message.messageType === 'html' ? 'html' : 'text'}
-        rawHtmlMap={message.rawHtmlMap}
+        rawHtmlMap={rawHtmlMap}
         onOpenHtmlPreview={onOpenHtmlPreview}
       />
     )

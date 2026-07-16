@@ -99,7 +99,11 @@ const CustomInput = forwardRef<CustomInputHandle, { label: string }>((props, ref
   );
 });
 CustomInput.displayName = "CustomInput";
-
+const btnStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  margin: "0 4px",
+  cursor: "pointer",
+};
 export const ReactSyntaxShowcase: React.FC<ReactSyntaxShowcaseProps> = ({
   title = "React 语法全解析",
   initialCount = 0,
@@ -124,26 +128,21 @@ export const ReactSyntaxShowcase: React.FC<ReactSyntaxShowcaseProps> = ({
   });
 
   const filteredUsers = useMemo(() => {
-    console.log('--- useMemo 触发计算 ---');
-    return users.filter(user =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    console.log("--- useMemo 触发计算 ---");
+    return users.filter((user) => user.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [users, searchTerm]);
 
-  const handleUserAdd = useCallback((newUser: User) => {
-    setUsers(prev => [...prev, newUser]);
-    onActionComplete?.(`新增用户: ${newUser.name}`);
-  }, [onActionComplete]);
+  const handleUserAdd = useCallback(
+    (newUser: User) => {
+      setUsers((prev) => [...prev, newUser]);
+      onActionComplete?.(`新增用户: ${newUser.name}`);
+    },
+    [onActionComplete],
+  );
 
   const triggerAddAdmin = () => {
     const newId = users.length + 1;
-    handleUserAdd({ id: newId, name: `新管理员-${newId}`, role: 'admin' });
-  };
-
-  const btnStyle: React.CSSProperties = {
-    padding: '6px 12px',
-    margin: '0 4px',
-    cursor: 'pointer',
+    handleUserAdd({ id: newId, name: `新管理员-${newId}`, role: "admin" });
   };
 
   return (
@@ -176,59 +175,117 @@ export const ReactSyntaxShowcase: React.FC<ReactSyntaxShowcaseProps> = ({
         </button>
       </section>
       <hr />
-      <section style={{ margin: '15px 0' }}>
+      <section style={{ margin: "15px 0" }}>
         <h3>2. 表单与 Ref 引用 (useRef & forwardRef)</h3>
-        <div style={{ margin: '10px 0' }}>
+        <div style={{ margin: "10px 0" }}>
           <label>受控输入框: </label>
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            style={{ padding: '6px' }}
+            style={{ padding: "6px" }}
           />
-          <span style={{ marginLeft: '10px' }}>实时值: {inputValue}</span>
+          <span style={{ marginLeft: "10px" }}>实时值: {inputValue}</span>
         </div>
-        <div style={{margin:'10px 0'}}>
-            <label>非受控输入框 (useRef): </label>
-            <input type="text" ref={inputElRef} placeholder="我会用Ref聚焦" style={{ padding: '6px' }} />
-            <button onClick={() => inputElRef.current?.focus()} style={btnStyle}>点击聚焦此输入框</button>
+        <div style={{ margin: "10px 0" }}>
+          <label>非受控输入框 (useRef): </label>
+          <input
+            type="text"
+            ref={inputElRef}
+            placeholder="我会用Ref聚焦"
+            style={{ padding: "6px" }}
+          />
+          <button onClick={() => inputElRef.current?.focus()} style={btnStyle}>
+            点击聚焦此输入框
+          </button>
         </div>
         <CustomInput ref={childInputRef} label="转发 Ref 输入框" />
-        <button onClick={() => childInputRef.current?.focusInput()} style={btnStyle}>聚焦转发输入框</button>
-        <button onClick={() => childInputRef.current?.clearInput()} style={btnStyle}>清空转发输入框</button>
+        <button onClick={() => childInputRef.current?.focusInput()} style={btnStyle}>
+          聚焦转发输入框
+        </button>
+        <button onClick={() => childInputRef.current?.clearInput()} style={btnStyle}>
+          清空转发输入框
+        </button>
       </section>
       <hr />
 
       {/* 列表渲染与条件过滤 (List & Conditional Rendering) */}
-      <section style={{ margin: '15px 0' }}>
+      <section style={{ margin: "15px 0" }}>
         <h3>3. 列表循环与过滤 (v-for 对标 / useMemo)</h3>
-        <input type="text" 
-        placeholder="搜索用户名..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        style={{ padding: '6px', marginBottom: '10px', width: '90%' }}
+        <input
+          type="text"
+          placeholder="搜索用户名..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ padding: "6px", marginBottom: "10px", width: "90%" }}
         />
-        <ul style={{ paddingLeft: '20px' }}>
+        <ul style={{ paddingLeft: "20px" }}>
           {filteredUsers.map((user) => (
-            <li key={user.id} style={{ margin: '6px 0' }}>
-              {user.name} - 
-              {user.role === 'admin' ? (
-                <span style={{ color: 'red', fontWeight: 'bold', marginLeft: '5px' }}>[管理员]</span>
+            <li key={user.id} style={{ margin: "6px 0" }}>
+              {user.name} -
+              {user.role === "admin" ? (
+                <span style={{ color: "red", fontWeight: "bold", marginLeft: "5px" }}>
+                  [管理员]
+                </span>
               ) : (
-                <span style={{ color: 'green', marginLeft: '5px' }}>[普通用户]</span>
+                <span style={{ color: "green", marginLeft: "5px" }}>[普通用户]</span>
               )}
             </li>
           ))}
         </ul>
         {/* 条件渲染: inline && 表达式 */}
-        {filteredUsers.length === 0 && (
-          <p style={{ color: 'orange' }}>未搜寻到匹配的用户！</p>
-        )}
+        {filteredUsers.length === 0 && <p style={{ color: "orange" }}>未搜寻到匹配的用户！</p>}
 
-        <button onClick={triggerAddAdmin} style={btnStyle}>新增管理员 (useCallback)</button>
-
+        <button onClick={triggerAddAdmin} style={btnStyle}>
+          新增管理员 (useCallback)
+        </button>
       </section>
-      
+      <hr />
+      <section style={{ margin: "15px 0" }}>
+        <h3>4. 插槽内容 (Children / Slots)</h3>
+        <div style={{ background: "#f9f9f9", padding: "10px", borderRadius: "4px" }}>
+          {children || <p style={{ color: "gray" }}>暂无外部插槽内容，此为默认内容</p>}
+        </div>
+      </section>
     </div>
   );
 };
+
+export default function ReactSyntaxShowcaseWithProvider() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <div
+        style={{
+          backgroundColor: theme === "light" ? "#fff" : "#222",
+          color: theme === "light" ? "#000" : "#fff",
+          transition: "all 0.3s ease",
+          padding: "30px 10px",
+          minHeight: "100vh",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <span>
+            当前主题模式: <strong>{theme.toUpperCase()}</strong>
+          </span>
+          <button onClick={toggleTheme} style={{ ...btnStyle, marginLeft: "12px" }}>
+            切换主题 (Context)
+          </button>
+        </div>
+        <ReactSyntaxShowcase
+          title="React 全套语法速查指南组件"
+          initialCount={10}
+          onActionComplete={(msg) => console.log("Action Callback:", msg)}
+        >
+          <div>
+            <h4 style={{ margin: "0 0 8px 0" }}>这是作为 Children 传入的插槽内容：</h4>
+            <p style={{ margin: 0, fontSize: "13px" }}>
+              插槽内部可以任意放置其他组件或 HTML 元素。
+            </p>
+          </div>
+        </ReactSyntaxShowcase>
+      </div>
+    </ThemeContext.Provider>
+  );
+}

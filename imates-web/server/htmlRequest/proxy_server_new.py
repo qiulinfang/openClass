@@ -219,6 +219,10 @@ def fetch_proxy():
         # 获取原始 HTML
         response = http_session.get(url, timeout=10)
         response.raise_for_status()
+        
+        # 优先使用 apparent_encoding 检测实际编码，防止中文乱码
+        if response.encoding == 'ISO-8859-1' or not response.encoding:
+            response.encoding = response.apparent_encoding or 'utf-8'
         raw_html = response.text
         
         # 增强 HTML

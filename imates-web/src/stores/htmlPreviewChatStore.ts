@@ -8,6 +8,7 @@ import { useChatEngine } from '@/composables/useChatEngine'
 import { useChatRetry } from '@/composables/useChatRetry'
 import { generateUniqueId, type ChatQuotedMessage, type ChatImageData } from './utils/chatStoreUtils'
 import { getUserId } from '../services'
+import { useHtmlMessageRawMap } from '@/composables/useHtmlMessageRawMap'
 
 export const useHtmlPreviewChatStore = defineStore('htmlPreviewChat', () => {
   // ==================== 状态定义 ====================
@@ -38,6 +39,7 @@ export const useHtmlPreviewChatStore = defineStore('htmlPreviewChat', () => {
   })
 
   const retryHelper = useChatRetry({ maxRetries: 3 })
+  const { ensureHtmlRawMapForMessage } = useHtmlMessageRawMap(apiService)
 
   // ==================== 私有工具方法 ====================
 
@@ -213,6 +215,14 @@ export const useHtmlPreviewChatStore = defineStore('htmlPreviewChat', () => {
       isChatLoading.value = true
       const { onComplete, onStream, onHistoryUpdate } = chatEngine.createSendChatCallbacks(tempReplyId, tempReply)
       await apiService.sendChatMessage(request, onComplete, onStream, onHistoryUpdate)
+
+      // 统一入口：新消息完成后由 store 补齐/增强 rawHtmlMap
+      const aiIndex = messages.value.findIndex((m) => m.id === tempReplyId)
+      if (aiIndex >= 0) {
+        const msg = messages.value[aiIndex]
+        await ensureHtmlRawMapForMessage(msg, { logTag: 'HTML_PREVIEW' })
+        messages.value[aiIndex] = { ...msg }
+      }
     } catch (error) {
       console.error('[HtmlPreviewStore] 发送失败:', error)
       const index = messages.value.findIndex(m => m.id === tempReplyId)
