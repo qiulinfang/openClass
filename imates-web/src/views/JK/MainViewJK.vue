@@ -2,7 +2,7 @@
   <div class="main-view-jk">
     <!-- 左上角退出登录按钮（一直显示） -->
     <button class="logout-btn-top" @click="handleLogout">
-      <img src="/icons/logout.svg" alt="退出" />
+      <img :src="logoutIcon" alt="退出" />
       <span>退出登录</span>
     </button>
 
@@ -27,6 +27,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MainView from '../MainView.vue'
 import Dialog from '@/components/base/Dialog.vue'
+import logoutIcon from '/icons/logout.svg'
 
 const router = useRouter()
 

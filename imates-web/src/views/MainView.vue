@@ -8,7 +8,7 @@
   >
     <!-- 左上角退出登录按钮（一直显示） -->
     <button class="dev-logout-btn" @click="handleLogout">
-      <img src="/icons/logout.svg" alt="退出" />
+      <img :src="logoutIcon" alt="退出" />
       <span>退出</span>
     </button>
 
@@ -238,6 +238,7 @@ import type { ChatEntry } from '../types/chat'
 import type { AttachedScreenshot } from '@/types'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
 import type { UserTextbookInfo } from '@/types'
+import logoutIcon from '/icons/logout.svg'
 
 type AskAiImageInfo = {
   filePath: string
