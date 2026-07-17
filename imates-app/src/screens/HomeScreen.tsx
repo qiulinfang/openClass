@@ -3,11 +3,11 @@ import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
-  SafeAreaView,
   TouchableOpacity,
   Text,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MicroClassScreen } from './MicroClassScreen';
 import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
