@@ -48,6 +48,10 @@ export function getEnvDisplayName(): string {
  */
 export async function forceSetEnvType(envType: AppEnvType): Promise<void> {
   try {
+    if (currentEnvCache !== envType) {
+      // 测试、正式环境的研伴 Token 不通用，切换后必须重新获取。
+      await storage.removeItem('YANBAN_TOKEN');
+    }
     currentEnvCache = envType;
     await storage.setItem(STORAGE_KEY, envType);
     console.log('[EnvConfig] 环境已切换为:', envType);

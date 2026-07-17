@@ -3,6 +3,7 @@ import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { storage } from '@/services/storage';
+import { authService } from '@/services/auth-service';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -23,7 +24,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await storage.removeItem('XUEBAN_TOKEN');
+    await authService.logout();
     setIsLoggedIn(false);
   };
 

@@ -1,5 +1,6 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { HomeworkService } from './homework-service';
 
 export interface UserTextbookInfo {
   id: string;
@@ -15,6 +16,8 @@ export interface UserTextbookInfo {
 }
 
 export class TextbookService {
+  private static yanbanLoginPromise: Promise<string> | null = null;
+
   private static getApiUrl(): string {
     const env = getCurrentEnvType();
     if (env === AppEnvType.INTERNAL_TEST) {
@@ -24,31 +27,85 @@ export class TextbookService {
   }
 
   /**
+   * 获取研伴 Token。知识图谱和学伴主登录使用的是两套 Token，不能混用。
+   */
+  private static async getYanbanToken(forceRefresh = false): Promise<string> {
+    if (!forceRefresh) {
+      const storedToken = (await storage.getItem('YANBAN_TOKEN'))?.trim();
+      if (storedToken && storedToken !== 'undefined') {
+        return storedToken;
+      }
+    }
+
+    // 章节树和资源包会并发请求；复用同一个登录任务，避免同时签发两个 Token。
+    if (!this.yanbanLoginPromise) {
+      this.yanbanLoginPromise = (async () => {
+        const account = (await storage.getItem('xuebanuserid'))?.trim();
+        const password = await storage.getItem('userPassword');
+        if (!account || !password) {
+          throw new Error('缺少研伴登录凭据，请退出后重新登录');
+        }
+
+        return (await HomeworkService.loginYanban(account, password)).trim();
+      })().finally(() => {
+        this.yanbanLoginPromise = null;
+      });
+    }
+
+    return this.yanbanLoginPromise;
+  }
+
+  private static async isUnauthorized(response: Response): Promise<boolean> {
+    if (response.status === 401) return true;
+
+    // 部分网关用 HTTP 200 包装业务状态码 401。
+    try {
+      const body = await response.clone().json();
+      return Number(body?.code) === 401;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 发送知识图谱请求。401 时强制刷新研伴 Token，并且只重试一次。
+   */
+  private static async postWithYanbanAuth(url: string, body: object): Promise<Response> {
+    const send = (token: string) => fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Token': token,
+        'sa-token': token,
+        'authorization': token,
+      },
+      body: JSON.stringify(body),
+    });
+
+    let token = await this.getYanbanToken();
+    let response = await send(token);
+
+    if (await this.isUnauthorized(response)) {
+      await storage.removeItem('YANBAN_TOKEN');
+      token = await this.getYanbanToken(true);
+      response = await send(token);
+    }
+
+    if (!response.ok || await this.isUnauthorized(response)) {
+      const responseBody = await response.text().catch(() => '');
+      const status = response.status === 401 || response.ok ? 401 : response.status;
+      throw new Error(`知识图谱接口异常 (HTTP ${status})${responseBody ? `: ${responseBody}` : ''}`);
+    }
+
+    return response;
+  }
+
+  /**
    * 拉取用户所有的线上教材资源
    */
   public static async fetchTextbooks(): Promise<UserTextbookInfo[]> {
-    const token = await storage.getItem('YANBAN_TOKEN') || '';
-    if (!token) {
-      console.warn('[TextbookService] 研伴 Token 为空，请先在作业页执行登录');
-      return [];
-    }
-
     try {
-      const url = this.getApiUrl();
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': token.trim(),
-          'sa-token': token.trim(),
-          'authorization': token.trim(),
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP status: ${response.status}`);
-      }
+      const response = await this.postWithYanbanAuth(this.getApiUrl(), {});
 
       const text = await response.text();
       const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
@@ -78,7 +135,7 @@ export class TextbookService {
       return [];
     } catch (e) {
       console.warn('[TextbookService] 获取教材列表出错:', e);
-      return [];
+      throw e;
     }
   }
 
@@ -86,32 +143,13 @@ export class TextbookService {
    * 拉取指定教材的章节目录树
    */
   public static async fetchSectionTree(textbookId: string): Promise<ChapterNode[]> {
-    const token = await storage.getItem('YANBAN_TOKEN') || '';
-    if (!token) {
-      console.warn('[TextbookService] 研伴 Token 为空，无法获取章节树');
-      return [];
-    }
-
     try {
       const env = getCurrentEnvType();
       const url = env === AppEnvType.INTERNAL_TEST
         ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree'
         : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-section-tree';
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': token.trim(),
-          'sa-token': token.trim(),
-          'authorization': token.trim(),
-        },
-        body: JSON.stringify({ id: textbookId }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP status: ${response.status}`);
-      }
+      const response = await this.postWithYanbanAuth(url, { id: textbookId });
 
       const text = await response.text();
       const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
@@ -125,7 +163,7 @@ export class TextbookService {
       return structure;
     } catch (e) {
       console.warn(`[TextbookService] 获取教材章节树失败 (textbookId: ${textbookId}):`, e);
-      return [];
+      throw e;
     }
   }
 
@@ -133,32 +171,13 @@ export class TextbookService {
    * 拉取指定教材的学习资源包列表
    */
   public static async fetchLearningPackages(textbookId: string): Promise<LearningPackage[]> {
-    const token = await storage.getItem('YANBAN_TOKEN') || '';
-    if (!token) {
-      console.warn('[TextbookService] 研伴 Token 为空，无法获取资源包');
-      return [];
-    }
-
     try {
       const env = getCurrentEnvType();
       const url = env === AppEnvType.INTERNAL_TEST
         ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package'
         : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-learning-package';
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': token.trim(),
-          'sa-token': token.trim(),
-          'authorization': token.trim(),
-        },
-        body: JSON.stringify({ id: textbookId }), // 注意：后端参数是 id
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP status: ${response.status}`);
-      }
+      const response = await this.postWithYanbanAuth(url, { id: textbookId });
 
       const text = await response.text();
       const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
@@ -183,7 +202,7 @@ export class TextbookService {
       return [];
     } catch (e) {
       console.warn(`[TextbookService] 获取资源包失败 (textbookId: ${textbookId}):`, e);
-      return [];
+      throw e;
     }
   }
 
