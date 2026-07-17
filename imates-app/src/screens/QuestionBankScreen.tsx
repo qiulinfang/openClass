@@ -2,39 +2,53 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { ExerciseSolveScreen } from './ExerciseSolveScreen';
 import { MistakeBookScreen } from './MistakeBookScreen';
+import { HomeworkQuestionDetail } from '@/services/homework-service';
 
 interface QuestionBankScreenProps {
   onLogout: () => void;
   onAskAI: (questionContent: string) => void;
+  onGoAnswer: (questions: HomeworkQuestionDetail[], title: string, subject: string) => void;
 }
 
-export function QuestionBankScreen({ onLogout, onAskAI }: QuestionBankScreenProps) {
-  const [subTab, setSubTab] = useState<'solve' | 'mistake'>('solve');
+type SubTabType = 'library' | 'mistakes' | 'favorites';
+
+export function QuestionBankScreen({ onLogout, onAskAI, onGoAnswer }: QuestionBankScreenProps) {
+  const [subTab, setSubTab] = useState<SubTabType>('library');
 
   return (
     <View style={styles.container}>
-      {/* 顶部选项切换卡 */}
+      {/* 顶部三栏切换卡 */}
       <View style={styles.subTabBar}>
         <TouchableOpacity
-          style={[styles.subTabItem, subTab === 'solve' && styles.activeSubTabItem]}
-          onPress={() => setSubTab('solve')}
+          style={[styles.subTabItem, subTab === 'library' && styles.activeSubTabItem]}
+          onPress={() => setSubTab('library')}
         >
-          <Text style={[styles.subTabText, subTab === 'solve' && styles.activeSubTabText]}>自主刷题 ✍️</Text>
+          <Text style={[styles.subTabText, subTab === 'library' && styles.activeSubTabText]}>选题库</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.subTabItem, subTab === 'mistake' && styles.activeSubTabItem]}
-          onPress={() => setSubTab('mistake')}
+          style={[styles.subTabItem, subTab === 'mistakes' && styles.activeSubTabItem]}
+          onPress={() => setSubTab('mistakes')}
         >
-          <Text style={[styles.subTabText, subTab === 'mistake' && styles.activeSubTabText]}>错题 & 习题本 📚</Text>
+          <Text style={[styles.subTabText, subTab === 'mistakes' && styles.activeSubTabText]}>错题集</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.subTabItem, subTab === 'favorites' && styles.activeSubTabItem]}
+          onPress={() => setSubTab('favorites')}
+        >
+          <Text style={[styles.subTabText, subTab === 'favorites' && styles.activeSubTabText]}>题目收藏</Text>
         </TouchableOpacity>
       </View>
       
       {/* 视图内容承载区 */}
       <View style={styles.contentView}>
-        {subTab === 'solve' ? (
-          <ExerciseSolveScreen onLogout={onLogout} />
-        ) : (
-          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} />
+        {subTab === 'library' && (
+          <ExerciseSolveScreen onLogout={onLogout} onGoAnswer={onGoAnswer} />
+        )}
+        {subTab === 'mistakes' && (
+          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="mistake" onGoAnswer={onGoAnswer} />
+        )}
+        {subTab === 'favorites' && (
+          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="exercise" onGoAnswer={onGoAnswer} />
         )}
       </View>
     </View>

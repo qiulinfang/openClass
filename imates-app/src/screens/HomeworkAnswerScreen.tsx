@@ -20,9 +20,11 @@ import { MistakeService } from '@/services/mistake-service';
 import { ExerciseService } from '@/services/exercise-service';
 
 interface HomeworkAnswerScreenProps {
-  homeworkId: string;
+  homeworkId?: string;
   homeworkTitle: string;
   homeworkSubject?: string;
+  questionsList?: HomeworkQuestionDetail[];
+  isReviewMode?: boolean;
   onBack: () => void;
   onAskAI: (questionContent: string) => void;
 }
@@ -53,6 +55,8 @@ export function HomeworkAnswerScreen({
   homeworkId,
   homeworkTitle,
   homeworkSubject = '6',
+  questionsList,
+  isReviewMode = false,
   onBack,
   onAskAI,
 }: HomeworkAnswerScreenProps) {
@@ -106,7 +110,23 @@ export function HomeworkAnswerScreen({
 
   // 加载作业题目详情
   useEffect(() => {
+    if (questionsList && questionsList.length > 0) {
+      setQuestions(questionsList);
+      
+      const initialAnswers: Record<string, string> = {};
+      const initialImages: Record<string, string> = {};
+      questionsList.forEach(q => {
+        initialAnswers[q.questionId] = '';
+        initialImages[q.questionId] = '';
+      });
+      setAnswers(initialAnswers);
+      setAnswersImage(initialImages);
+      setIsLoading(false);
+      return;
+    }
+
     async function loadDetails() {
+      if (!homeworkId) return;
       setIsLoading(true);
       try {
         const list = await HomeworkService.getHomeworkDetailList(homeworkId);
@@ -129,7 +149,7 @@ export function HomeworkAnswerScreen({
       }
     }
     loadDetails();
-  }, [homeworkId]);
+  }, [homeworkId, questionsList]);
 
   if (isLoading) {
     return (
@@ -399,14 +419,33 @@ export function HomeworkAnswerScreen({
       {/* 作答区域 (Bottom Container) */}
       <View style={styles.bottomContainer}>
         <View style={styles.answerHeaderRow}>
-          <Text style={styles.answerSectionTitle}>作答区域</Text>
-          <TouchableOpacity onPress={handleClearAllCurrent}>
-            <Text style={styles.clearAllBtnText}>清空全部</Text>
-          </TouchableOpacity>
+          <Text style={styles.answerSectionTitle}>
+            {isReviewMode ? '解答与解析' : '作答区域'}
+          </Text>
+          {!isReviewMode && (
+            <TouchableOpacity onPress={handleClearAllCurrent}>
+              <Text style={styles.clearAllBtnText}>清空全部</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerScrollInner} showsVerticalScrollIndicator={false}>
-          {options ? (
+          {isReviewMode ? (
+            <View style={styles.reviewContentArea}>
+              <View style={styles.reviewSection}>
+                <Text style={styles.reviewLabel}>✅ 参考答案：</Text>
+                <Card style={styles.reviewCard}>
+                  <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
+                </Card>
+              </View>
+              <View style={[styles.reviewSection, { marginTop: 14 }]}>
+                <Text style={styles.reviewLabel}>💡 题目解析：</Text>
+                <Card style={styles.reviewCard}>
+                  <MathRenderer content={currentQuestion.questionAnalysis || '暂无解析'} textColor="#475569" />
+                </Card>
+              </View>
+            </View>
+          ) : options ? (
             // 选择题渲染
             <View style={styles.optionsList}>
               {options.map((opt, idx) => {
@@ -502,29 +541,43 @@ export function HomeworkAnswerScreen({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.checkBtn} onPress={handleCheck}>
-          <Text style={styles.checkBtnText}>检查</Text>
-        </TouchableOpacity>
+        {isReviewMode ? (
+          <>
+            <TouchableOpacity style={styles.reviewAskAiBtn} onPress={() => onAskAI(currentQuestion.questionContent)}>
+              <Text style={styles.reviewAskAiText}>🦦 问海獭</Text>
+            </TouchableOpacity>
 
-        {currentIndex === questions.length - 1 ? (
-          <TouchableOpacity
-            style={styles.submitBtnStyle}
-            disabled={isSubmitting}
-            onPress={handleSubmit}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitBtnTextStyle}>确认提交</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.reviewBackBtn} onPress={onBack}>
+              <Text style={styles.reviewBackText}>关闭退出</Text>
+            </TouchableOpacity>
+          </>
         ) : (
-          <TouchableOpacity
-            style={styles.submitBtnStyle}
-            onPress={() => setCurrentIndex(prev => prev + 1)}
-          >
-            <Text style={styles.submitBtnTextStyle}>下一题</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.checkBtn} onPress={handleCheck}>
+              <Text style={styles.checkBtnText}>检查</Text>
+            </TouchableOpacity>
+
+            {currentIndex === questions.length - 1 ? (
+              <TouchableOpacity
+                style={styles.submitBtnStyle}
+                disabled={isSubmitting}
+                onPress={handleSubmit}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitBtnTextStyle}>确认提交</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.submitBtnStyle}
+                onPress={() => setCurrentIndex(prev => prev + 1)}
+              >
+                <Text style={styles.submitBtnTextStyle}>下一题</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
 
@@ -1128,5 +1181,55 @@ const styles = StyleSheet.create({
   },
   gridItemTextCurrent: {
     color: '#4F46E5',
+  },
+  // 题库复习查看解析模式样式
+  reviewContentArea: {
+    marginTop: 6,
+    width: '100%',
+  },
+  reviewSection: {
+    width: '100%',
+  },
+  reviewLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  reviewCard: {
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+  },
+  reviewAskAiBtn: {
+    flex: 1.2,
+    height: 44,
+    backgroundColor: '#4F46E5',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  reviewAskAiText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  reviewBackBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewBackText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

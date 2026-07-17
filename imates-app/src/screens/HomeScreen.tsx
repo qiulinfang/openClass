@@ -16,6 +16,7 @@ import { ProfileScreen } from './ProfileScreen';
 import { QuestionBankScreen } from './QuestionBankScreen';
 import { storage } from '@/services/storage';
 import { SyncService } from '@/services/sync-service';
+import { HomeworkQuestionDetail } from '@/services/homework-service';
 
 interface HomeScreenProps {
   onLogout: () => void;
@@ -35,6 +36,7 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
   const [answeringHomeworkId, setAnsweringHomeworkId] = useState<string | null>(null);
   const [answeringHomeworkTitle, setAnsweringHomeworkTitle] = useState<string>('');
   const [answeringHomeworkSubject, setAnsweringHomeworkSubject] = useState<string>('6');
+  const [answeringQuestionsList, setAnsweringQuestionsList] = useState<HomeworkQuestionDetail[] | null>(null);
 
   // 当 App 进入主界面挂载时，异步触发错题本与聊天历史的云端增量同步
   React.useEffect(() => {
@@ -48,6 +50,12 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
     setAnsweringHomeworkSubject(subject);
   };
 
+  const handleGoAnswerQuestions = (list: HomeworkQuestionDetail[], title: string, subject: string) => {
+    setAnsweringQuestionsList(list);
+    setAnsweringHomeworkTitle(title);
+    setAnsweringHomeworkSubject(subject);
+  };
+
   const handleAskAI = async (questionContent: string) => {
     // 写入预填输入并跳到 AI 对话 Tab
     await storage.setItem(
@@ -55,6 +63,7 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
       `老师，请问这道题该怎么做？\n\n【题目内容】：\n${questionContent}`
     );
     setAnsweringHomeworkId(null);
+    setAnsweringQuestionsList(null);
     setActiveTab('ai_otter');
   };
 
@@ -62,12 +71,17 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
     <SafeAreaView style={styles.safeArea}>
       {/* 主选项卡视口 */}
       <View style={styles.tabContentContainer}>
-        {answeringHomeworkId ? (
+        {answeringHomeworkId || answeringQuestionsList ? (
           <HomeworkAnswerScreen
-            homeworkId={answeringHomeworkId}
+            homeworkId={answeringHomeworkId || undefined}
             homeworkTitle={answeringHomeworkTitle}
             homeworkSubject={answeringHomeworkSubject}
-            onBack={() => setAnsweringHomeworkId(null)}
+            questionsList={answeringQuestionsList || undefined}
+            isReviewMode={!!answeringQuestionsList}
+            onBack={() => {
+              setAnsweringHomeworkId(null);
+              setAnsweringQuestionsList(null);
+            }}
             onAskAI={handleAskAI}
           />
         ) : (
@@ -85,7 +99,11 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
             )}
 
             {activeTab === 'question_bank' && (
-              <QuestionBankScreen onLogout={onLogout} onAskAI={handleAskAI} />
+              <QuestionBankScreen
+                onLogout={onLogout}
+                onAskAI={handleAskAI}
+                onGoAnswer={handleGoAnswerQuestions}
+              />
             )}
 
             {activeTab === 'profile' && (
@@ -96,7 +114,7 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
       </View>
 
       {/* 底部 Tab 导航栏 - 仅在非答题状态下渲染 */}
-      {!answeringHomeworkId && (
+      {!answeringHomeworkId && !answeringQuestionsList && (
         <View style={styles.tabBar}>
           {/* Tab 1: 资源 */}
           <TouchableOpacity

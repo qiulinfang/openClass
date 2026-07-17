@@ -101,7 +101,6 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
     );
   }
 
-  const defaultAvatar = 'https://img.icons8.com/color/96/user-male-circle--v1.png';
   const roleName = userInfo?.role === 'student' ? '学生端' : '体验账户';
 
   return (
@@ -114,10 +113,10 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
         {/* 用户信息卡片 */}
         <View style={styles.userCard}>
-          <Image
-            source={{ uri: userInfo?.avatar || defaultAvatar }}
-            style={styles.avatar}
-          />
+          <View style={styles.avatarSvgContainer}>
+            <View style={styles.avatarHead} />
+            <View style={styles.avatarBody} />
+          </View>
           <View style={styles.userInfoCol}>
             <Text style={styles.userName}>{userInfo?.name || '学伴学生'}</Text>
             <View style={styles.roleBadge}>
@@ -364,5 +363,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#EF4444',
+  },
+  avatarSvgContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+    marginRight: 16,
+  },
+  avatarHead: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4F46E5',
+    marginTop: 8,
+  },
+  avatarBody: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4F46E5',
+    position: 'absolute',
+    bottom: -22,
   },
 });
