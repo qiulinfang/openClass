@@ -272,4 +272,116 @@ export class AiChatService {
 
     return cancel;
   }
+
+  /**
+   * 练习场景专用 AI 请求：沿用 Web 端 solvingbot 参数，传递真实题干、答案与题号。
+   */
+  public static sendExerciseStreamMessage(
+    userMessage: string,
+    sessionId: string,
+    question: {
+      id: string;
+      content: string;
+      answer?: string;
+      analysis?: string;
+      subject: string;
+    },
+    onChunk: (chunk: string) => void,
+    onComplete: (fullText: string) => void,
+    onError: (err: Error) => void
+  ) {
+    let isCancelled = false;
+    let accumulatedContent = '';
+    let pollTimer: NodeJS.Timeout | null = null;
+
+    const subjectMap: Record<string, string> = {
+      '1': 'chinese',
+      '2': 'math',
+      '3': 'english',
+      '4': 'physics',
+      '5': 'chemistry',
+      '6': 'biology',
+      '7': 'geography',
+      '8': 'history',
+      '9': 'politics',
+      数学: 'math',
+      生物: 'biology',
+      化学: 'chemistry',
+      物理: 'physics',
+      语文: 'chinese',
+      英语: 'english',
+    };
+    const normalizedSubject =
+      subjectMap[String(question.subject)] ||
+      String(question.subject || 'math').toLowerCase();
+
+    const cancel = () => {
+      isCancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+
+    const poll = async (isFirst: boolean) => {
+      if (isCancelled) return;
+      try {
+        const token = (await storage.getItem('XUEBAN_TOKEN')) || '';
+        const userId = (await storage.getItem('xuebanuserid')) || 'User';
+        const prefix =
+          getCurrentEnvType() === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
+        const dstUrl =
+          normalizedSubject === 'math'
+            ? `${prefix}/ai/2.0/chatMath`
+            : `${prefix}/ai/2.0/chat`;
+        const response = await fetch(this.getApiUrl(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Token: token,
+            'sa-token': token,
+            authorization: token,
+          },
+          body: JSON.stringify({
+            sessionId,
+            newValue: isFirst ? '1' : '0',
+            coversation: isFirst ? userMessage : '',
+            question: question.content,
+            answer: question.answer || '',
+            name: userId,
+            reason: isFirst ? 'start' : 'continue',
+            bmNo: question.id,
+            isWebSearch: '0',
+            role: 'mate',
+            subject: normalizedSubject.toUpperCase(),
+            dstUrl,
+            explanation: question.analysis || '',
+          }),
+        });
+        if (!response.ok) throw new Error(`HTTP 异常: ${response.status}`);
+        const payload = await response.json();
+        if (!payload.success) throw new Error(payload.message || '服务器返回错误');
+        const raw = String(payload?.data?.message ?? payload?.message ?? '').trim();
+        const parsed = this.parseSseText(raw);
+        const nextChunk = parsed.hasData
+          ? parsed.textChunk
+          : this.stripTrailingEnd(raw);
+        if (nextChunk) {
+          const merged = this.mergeContent(accumulatedContent, nextChunk);
+          const delta = merged.slice(accumulatedContent.length);
+          accumulatedContent = merged;
+          if (delta) onChunk(delta);
+        }
+        if (parsed.ended || raw.endsWith('end') || raw === 'end') {
+          onComplete(accumulatedContent);
+        } else {
+          pollTimer = setTimeout(() => void poll(false), 500);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          onError(error instanceof Error ? error : new Error('AI 导学请求失败'));
+        }
+      }
+    };
+
+    void poll(true);
+    return cancel;
+  }
 }

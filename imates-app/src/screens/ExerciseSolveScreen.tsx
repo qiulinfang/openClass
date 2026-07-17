@@ -21,6 +21,7 @@ import { SUBJECT_ID_TO_NAME } from '@/services/homework-service';
 
 interface ExerciseSolveScreenProps {
   onLogout: () => void;
+  entryQuestions?: ExerciseItem[];
 }
 
 const LightColors = {
@@ -177,16 +178,34 @@ const PRESET_QUESTIONS: ExerciseItem[] = [
   }
 ];
 
-export function ExerciseSolveScreen({ onLogout }: ExerciseSolveScreenProps) {
-  const [activeTab, setActiveTab] = useState<'library' | 'draft' | 'ai'>('library');
+export function ExerciseSolveScreen({
+  onLogout,
+  entryQuestions = [],
+}: ExerciseSolveScreenProps) {
+  const [activeTab, setActiveTab] = useState<'library' | 'draft' | 'ai'>(
+    entryQuestions.length > 0 ? 'draft' : 'library'
+  );
   
   // 习题数据
   const [localExercises, setLocalExercises] = useState<ExerciseItem[]>([]);
-  const [activeQuestion, setActiveQuestion] = useState<ExerciseItem | null>(null);
+  const [activeQuestion, setActiveQuestion] = useState<ExerciseItem | null>(
+    entryQuestions[0] || null
+  );
   const [searchQuery, setSearchQuery] = useState('');
   
   // AI 导学对话状态
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
+    entryQuestions[0]
+      ? [
+          {
+            id: 'guidance-welcome',
+            sender: 'ai',
+            content: `你好！我们从 **【${entryQuestions[0].title}】** 开始练习。你可以先在草稿区作答，遇到问题随时向我提问。`,
+            timestamp: Date.now(),
+          },
+        ]
+      : []
+  );
   const [chatInputText, setChatInputText] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [chatSessionId, setChatSessionId] = useState('');
@@ -208,11 +227,18 @@ export function ExerciseSolveScreen({ onLogout }: ExerciseSolveScreenProps) {
   useEffect(() => {
     loadLocalExercises();
     // 初始化一个 AI 导学 Session ID
-    setChatSessionId(`solve-session-${Date.now()}`);
-  }, [loadLocalExercises]);
+    setChatSessionId(
+      entryQuestions[0]
+        ? `exercise-${entryQuestions[0].id}-${Date.now()}`
+        : `solve-session-${Date.now()}`
+    );
+  }, [entryQuestions, loadLocalExercises]);
 
   // 融合“本地收藏”与“系统预置”题目的完整列表
-  const allQuestions = [...PRESET_QUESTIONS, ...localExercises];
+  const allQuestions =
+    entryQuestions.length > 0
+      ? entryQuestions
+      : [...PRESET_QUESTIONS, ...localExercises];
 
   // 搜索过滤
   const filteredQuestions = allQuestions.filter(q => {
@@ -262,9 +288,6 @@ export function ExerciseSolveScreen({ onLogout }: ExerciseSolveScreenProps) {
     setTimeout(() => chatFlatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      // 携带当前题目上下文发送给 AI
-      const promptContext = `当前习题题干：\n${activeQuestion.content}\n\n学生的问题：\n${userMsgText}`;
-      
       let aiResponseText = '';
       const responsePlaceholderId = `msg-${Date.now()}-ai-placeholder`;
 
@@ -279,16 +302,29 @@ export function ExerciseSolveScreen({ onLogout }: ExerciseSolveScreenProps) {
         }
       ]);
 
-      await AiChatService.streamChat(
-        chatSessionId,
-        promptContext,
-        (token) => {
-          aiResponseText += token;
-          setChatMessages(prev => prev.map(msg => 
-            msg.id === responsePlaceholderId ? { ...msg, content: aiResponseText } : msg
-          ));
-        }
-      );
+      await new Promise<void>((resolve, reject) => {
+        AiChatService.sendExerciseStreamMessage(
+          userMsgText,
+          chatSessionId,
+          {
+            id: activeQuestion.id,
+            content: activeQuestion.content,
+            answer: activeQuestion.answer,
+            analysis: activeQuestion.analysis,
+            subject: activeQuestion.subject,
+          },
+          (token) => {
+            aiResponseText += token;
+            setChatMessages(prev => prev.map(msg =>
+              msg.id === responsePlaceholderId
+                ? { ...msg, content: aiResponseText }
+                : msg
+            ));
+          },
+          () => resolve(),
+          reject
+        );
+      });
     } catch (e) {
       console.warn('[ExerciseSolveScreen] AI导学请求失败:', e);
       setChatMessages(prev => [
@@ -318,7 +354,7 @@ export function ExerciseSolveScreen({ onLogout }: ExerciseSolveScreenProps) {
         },
         {
           text: '搜索并导入',
-          onPress: (text) => {
+          onPress: (text?: string) => {
             if (!text || !text.trim()) return;
             console.log(`[ExerciseSolveScreen PhotoSearch] 📸 拍照搜题模拟成功！提取识别文本: "${text.trim()}"`);
             const newQ: ExerciseItem = {

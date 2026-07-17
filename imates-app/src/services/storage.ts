@@ -1,11 +1,15 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 const STORAGE_DIR = `${FileSystem.documentDirectory}storage/`;
+const WEB_STORAGE_PREFIX = 'IMATES_STORAGE_';
 
 /**
    * 确保存储文件夹目录存在
    */
 async function ensureDirExists() {
+  if (Platform.OS === 'web') return;
+
   try {
     const dirInfo = await FileSystem.getInfoAsync(STORAGE_DIR);
     if (!dirInfo.exists) {
@@ -29,6 +33,23 @@ class FileSystemStorage {
    */
   private async loadAll() {
     if (this.isLoaded) return;
+
+    if (Platform.OS === 'web') {
+      try {
+        for (let index = 0; index < globalThis.localStorage.length; index += 1) {
+          const storageKey = globalThis.localStorage.key(index);
+          if (!storageKey?.startsWith(WEB_STORAGE_PREFIX)) continue;
+          const key = decodeURIComponent(storageKey.slice(WEB_STORAGE_PREFIX.length));
+          const value = globalThis.localStorage.getItem(storageKey);
+          if (value !== null) this.cache[key] = value;
+        }
+      } catch (error) {
+        console.warn('[WebStorage] 浏览器存储预载失败:', error);
+      }
+      this.isLoaded = true;
+      return;
+    }
+
     try {
       await ensureDirExists();
       const files = await FileSystem.readDirectoryAsync(STORAGE_DIR);
@@ -53,6 +74,19 @@ class FileSystemStorage {
   async setItem(key: string, value: string): Promise<void> {
     await this.loadAll();
     this.cache[key] = value;
+
+    if (Platform.OS === 'web') {
+      try {
+        globalThis.localStorage.setItem(
+          `${WEB_STORAGE_PREFIX}${encodeURIComponent(key)}`,
+          value
+        );
+      } catch (error) {
+        console.warn(`[WebStorage] 浏览器存储写入失败 (Key: ${key}):`, error);
+      }
+      return;
+    }
+
     try {
       await ensureDirExists();
       const fileUri = `${STORAGE_DIR}${encodeURIComponent(key)}`;
@@ -65,6 +99,18 @@ class FileSystemStorage {
   async removeItem(key: string): Promise<void> {
     await this.loadAll();
     delete this.cache[key];
+
+    if (Platform.OS === 'web') {
+      try {
+        globalThis.localStorage.removeItem(
+          `${WEB_STORAGE_PREFIX}${encodeURIComponent(key)}`
+        );
+      } catch (error) {
+        console.warn(`[WebStorage] 浏览器存储删除失败 (Key: ${key}):`, error);
+      }
+      return;
+    }
+
     try {
       const fileUri = `${STORAGE_DIR}${encodeURIComponent(key)}`;
       const fileInfo = await FileSystem.getInfoAsync(fileUri);
@@ -78,6 +124,21 @@ class FileSystemStorage {
 
   async clear(): Promise<void> {
     this.cache = {};
+
+    if (Platform.OS === 'web') {
+      try {
+        const keysToRemove: string[] = [];
+        for (let index = 0; index < globalThis.localStorage.length; index += 1) {
+          const key = globalThis.localStorage.key(index);
+          if (key?.startsWith(WEB_STORAGE_PREFIX)) keysToRemove.push(key);
+        }
+        keysToRemove.forEach((key) => globalThis.localStorage.removeItem(key));
+      } catch (error) {
+        console.warn('[WebStorage] 浏览器存储清理失败:', error);
+      }
+      return;
+    }
+
     try {
       const dirInfo = await FileSystem.getInfoAsync(STORAGE_DIR);
       if (dirInfo.exists) {

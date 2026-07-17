@@ -8,12 +8,17 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MicroClassScreen } from './MicroClassScreen';
 import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
 import { HomeworkAnswerScreen } from './HomeworkAnswerScreen';
 import { MistakeBookScreen } from './MistakeBookScreen';
 import { ExerciseSolveScreen } from './ExerciseSolveScreen';
+import {
+  TextbookCenterScreen,
+  TextbookDetailScreen,
+  type PracticeQuestion,
+  type UserTextbookInfo,
+} from '@/features/textbook';
 import { storage } from '@/services/storage';
 import { SyncService } from '@/services/sync-service';
 
@@ -22,7 +27,7 @@ interface HomeScreenProps {
   onNavigateToChat: () => void;
 }
 
-type TabType = 'microclass' | 'homework' | 'exercise_solve' | 'mistake' | 'ai';
+type TabType = 'textbook' | 'homework' | 'exercise_solve' | 'mistake' | 'ai';
 
 const LightColors = {
   background: '#F8FAFC',
@@ -35,6 +40,9 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
   const [answeringHomeworkId, setAnsweringHomeworkId] = useState<string | null>(null);
   const [answeringHomeworkTitle, setAnsweringHomeworkTitle] = useState<string>('');
   const [answeringHomeworkSubject, setAnsweringHomeworkSubject] = useState<string>('6');
+  const [learningTextbook, setLearningTextbook] =
+    useState<UserTextbookInfo | null>(null);
+  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
 
   // 当 App 进入主界面挂载时，异步触发错题本与聊天历史的云端增量同步
   React.useEffect(() => {
@@ -58,6 +66,16 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
     setActiveTab('ai');
   };
 
+  const handleLearnTextbook = (textbook: UserTextbookInfo) => {
+    setLearningTextbook(textbook);
+    setActiveTab('textbook');
+  };
+
+  const handleStartTextbookPractice = (questions: PracticeQuestion[]) => {
+    setPracticeQuestions(questions);
+    setActiveTab('exercise_solve');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* 主选项卡视口 */}
@@ -72,8 +90,16 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           />
         ) : (
           <>
-            {activeTab === 'microclass' && (
-              <MicroClassScreen onLogout={onLogout} />
+            {activeTab === 'textbook' && (
+              learningTextbook ? (
+                <TextbookDetailScreen
+                  textbook={learningTextbook}
+                  onBackToTextbookCenter={() => setLearningTextbook(null)}
+                  onStartPractice={handleStartTextbookPractice}
+                />
+              ) : (
+                <TextbookCenterScreen onLearn={handleLearnTextbook} />
+              )
             )}
 
             {activeTab === 'homework' && (
@@ -81,7 +107,10 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
             )}
 
             {activeTab === 'exercise_solve' && (
-              <ExerciseSolveScreen onLogout={onLogout} />
+              <ExerciseSolveScreen
+                onLogout={onLogout}
+                entryQuestions={practiceQuestions}
+              />
             )}
 
             {activeTab === 'ai' && (
@@ -99,11 +128,14 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
       {!answeringHomeworkId && (
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'microclass' && styles.activeTabItem]}
-            onPress={() => setActiveTab('microclass')}
+            style={[styles.tabItem, activeTab === 'textbook' && styles.activeTabItem]}
+            onPress={() => {
+              setLearningTextbook(null);
+              setActiveTab('textbook');
+            }}
           >
-            <Text style={[styles.tabIcon, activeTab === 'microclass' && styles.activeTabIcon]}>🗺️</Text>
-            <Text style={[styles.tabLabel, activeTab === 'microclass' && styles.activeTabLabel]}>知识图谱</Text>
+            <Text style={[styles.tabIcon, activeTab === 'textbook' && styles.activeTabIcon]}>📖</Text>
+            <Text style={[styles.tabLabel, activeTab === 'textbook' && styles.activeTabLabel]}>教材</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -116,7 +148,10 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
 
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'exercise_solve' && styles.activeTabItem]}
-            onPress={() => setActiveTab('exercise_solve')}
+            onPress={() => {
+              setPracticeQuestions([]);
+              setActiveTab('exercise_solve');
+            }}
           >
             <Text style={[styles.tabIcon, activeTab === 'exercise_solve' && styles.activeTabIcon]}>✍️</Text>
             <Text style={[styles.tabLabel, activeTab === 'exercise_solve' && styles.activeTabLabel]}>自主刷题</Text>

@@ -3,6 +3,7 @@ import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { storage } from '@/services/storage';
+import { authService } from '@/services/auth-service';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function App() {

@@ -1,6 +1,6 @@
-import { storage } from './storage';
-import { AppEnvType, getCurrentEnvType } from './env-config';
-import { HomeworkService } from './homework-service';
+import { storage } from '@/services/storage';
+import { AppEnvType, getCurrentEnvType } from '@/services/env-config';
+import { HomeworkService } from '@/services/homework-service';
 
 export interface UserTextbookInfo {
   id: string;
@@ -13,10 +13,59 @@ export interface UserTextbookInfo {
   textbookEditionYear: string;
   textbookIsbn: string;
   textbookCover: string;
+  textbookUpdateTime?: string;
+  learningPackages?: LearningPackage[];
 }
 
 export class TextbookService {
   private static yanbanLoginPromise: Promise<string> | null = null;
+
+  /**
+   * 兼容研伴接口在不同网关下的 data / data.data / records / list 包装。
+   */
+  private static extractArrayPayload(payload: any): any[] {
+    let current = payload;
+    const wrapperKeys = ['data', 'records', 'list', 'rows', 'content'];
+
+    for (let depth = 0; depth < 6; depth += 1) {
+      if (Array.isArray(current)) return current;
+      if (!current || typeof current !== 'object') return [];
+
+      const key = wrapperKeys.find((candidate) => current[candidate] !== undefined);
+      if (!key) return [];
+      current = current[key];
+    }
+
+    return Array.isArray(current) ? current : [];
+  }
+
+  private static mapLearningPackages(rawPackages: any[]): LearningPackage[] {
+    return rawPackages.map((pkg: any) => {
+      const rawResources = this.extractArrayPayload(
+        pkg.resourceList ?? pkg.resources ?? pkg.files ?? []
+      );
+
+      return {
+        ...pkg,
+        id: String(pkg.id ?? pkg.packageId ?? ''),
+        sectionId: String(pkg.sectionId ?? ''),
+        packageName: pkg.packageName || pkg.name || '未命名资源包',
+        description: pkg.description || '',
+        updateTime: pkg.updateTime || '',
+        resourceList: rawResources.map((resItem: any) => ({
+          ...resItem,
+          id: String(resItem.id ?? resItem.fileId ?? ''),
+          packageId: String(resItem.packageId ?? pkg.id ?? pkg.packageId ?? ''),
+          fileName: resItem.fileName || resItem.name || '未知文件',
+          fileUrl: this.normalizeFileUrl(resItem.fileUrl || resItem.url || ''),
+          size: Number(resItem.size ?? resItem.fileSize ?? 0),
+          mimeType: resItem.mimeType || resItem.contentType || '',
+          checksum: resItem.checksum || '',
+          uploadTime: resItem.uploadTime || resItem.updateTime || '',
+        })),
+      };
+    });
+  }
 
   private static getApiUrl(): string {
     const env = getCurrentEnvType();
@@ -53,6 +102,18 @@ export class TextbookService {
     }
 
     return this.yanbanLoginPromise;
+  }
+
+  /**
+   * 资源文件下载沿用研伴认证头，与教材、章节和资源包接口保持同一套 Token。
+   */
+  public static async getYanbanAuthHeaders(): Promise<Record<string, string>> {
+    const token = await this.getYanbanToken();
+    return {
+      Token: token,
+      'sa-token': token,
+      authorization: token,
+    };
   }
 
   private static async isUnauthorized(response: Response): Promise<boolean> {
@@ -110,7 +171,7 @@ export class TextbookService {
       const text = await response.text();
       const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
       const res = JSON.parse(sanitizedText);
-      const rawList = res?.data || res;
+      const rawList = this.extractArrayPayload(res);
       if (Array.isArray(rawList)) {
         const BASE_URL = 'https://www.imates.com.cn:9099';
         return rawList.map((item: any) => {
@@ -119,8 +180,9 @@ export class TextbookService {
             cover = BASE_URL + cover;
           }
           return {
-            id: String(item.id || item.textbookId),
-            textbookId: String(item.textbookId),
+            ...item,
+            id: String(item.id ?? item.textbookId ?? ''),
+            textbookId: String(item.textbookId ?? ''),
             textbookName: item.textbookName || '未命名教材',
             textbookSubjectLabel: item.textbookSubjectLabel || '其他',
             textbookGradeLabel: item.textbookGradeLabel || '全部',
@@ -129,6 +191,10 @@ export class TextbookService {
             textbookEditionYear: item.textbookEditionYear || '',
             textbookIsbn: item.textbookIsbn || '',
             textbookCover: cover,
+            textbookUpdateTime: item.textbookUpdateTime || '',
+            learningPackages: this.mapLearningPackages(
+              this.extractArrayPayload(item.learningPackages || [])
+            ),
           };
         });
       }
@@ -155,9 +221,14 @@ export class TextbookService {
       const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
       const res = JSON.parse(sanitizedText);
       console.log(`[TextbookService] fetchSectionTree raw response for textbookId: ${textbookId}:`, JSON.stringify(res));
-      const structure = res?.data || [];
+      const structure = this.extractArrayPayload(res);
       // 对齐 imates-web：如果最外层是整本书的根节点容器，则剥离根节点，直接返回其子节点（即实际章节列表）
-      if (Array.isArray(structure) && structure.length > 0 && structure[0]?.children?.length > 0) {
+      if (
+        Array.isArray(structure) &&
+        structure.length === 1 &&
+        structure[0]?.children?.length > 0 &&
+        (structure[0]?.isRoot || structure[0]?.parentId == null)
+      ) {
         return structure[0].children;
       }
       return structure;
@@ -170,40 +241,45 @@ export class TextbookService {
   /**
    * 拉取指定教材的学习资源包列表
    */
-  public static async fetchLearningPackages(textbookId: string): Promise<LearningPackage[]> {
-    try {
-      const env = getCurrentEnvType();
-      const url = env === AppEnvType.INTERNAL_TEST
-        ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package'
-        : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-learning-package';
+  public static async fetchLearningPackages(
+    textbookVersionId: string,
+    textbookId?: string
+  ): Promise<LearningPackage[]> {
+    const env = getCurrentEnvType();
+    const url = env === AppEnvType.INTERNAL_TEST
+      ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package'
+      : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-learning-package';
+    const candidateIds = Array.from(
+      new Set([textbookVersionId, textbookId].filter((id): id is string => !!id))
+    );
+    let packagesWithoutFiles: LearningPackage[] = [];
+    let lastError: unknown;
 
-      const response = await this.postWithYanbanAuth(url, { id: textbookId });
+    for (const candidateId of candidateIds) {
+      try {
+        const response = await this.postWithYanbanAuth(url, { id: candidateId });
+        const text = await response.text();
+        const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
+        const res = JSON.parse(sanitizedText);
+        const packages = this.mapLearningPackages(this.extractArrayPayload(res));
 
-      const text = await response.text();
-      const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
-      const res = JSON.parse(sanitizedText);
-      console.log(`[TextbookService] fetchLearningPackages raw response for textbookId: ${textbookId}:`, JSON.stringify(res));
-      const rawList = res?.data || res;
-      if (Array.isArray(rawList)) {
-        return rawList.map((pkg: any) => ({
-          id: String(pkg.id),
-          sectionId: String(pkg.sectionId || ''),
-          packageName: pkg.packageName || '未命名资源包',
-          description: pkg.description || '',
-          resourceList: Array.isArray(pkg.resourceList) ? pkg.resourceList.map((resItem: any) => ({
-            id: String(resItem.id),
-            fileName: resItem.fileName || '未知文件',
-            fileUrl: this.normalizeFileUrl(resItem.fileUrl || ''),
-            size: Number(resItem.size || 0),
-            mimeType: resItem.mimeType || '',
-          })) : [],
-        }));
+        console.log(
+          `[TextbookService] 教材资源查询完成 (id: ${candidateId})：${packages.length} 个资源包`
+        );
+
+        if (packages.some((pkg) => pkg.resourceList.length > 0)) {
+          return packages;
+        }
+        if (packages.length > 0) packagesWithoutFiles = packages;
+      } catch (error) {
+        lastError = error;
+        console.warn(`[TextbookService] 获取资源包失败 (id: ${candidateId}):`, error);
       }
-      return [];
-    } catch (e) {
-      console.warn(`[TextbookService] 获取资源包失败 (textbookId: ${textbookId}):`, e);
-      throw e;
     }
+
+    if (packagesWithoutFiles.length > 0) return packagesWithoutFiles;
+    if (lastError && candidateIds.length === 1) throw lastError;
+    return [];
   }
 
   /**
@@ -247,10 +323,14 @@ export interface ChapterNode {
 
 export interface ResourceFile {
   id: string;
+  packageId?: string;
   fileName: string;
   fileUrl: string;
+  remoteUrl?: string;
   size: number;
   mimeType?: string;
+  checksum?: string;
+  uploadTime?: string;
 }
 
 export interface LearningPackage {
@@ -258,5 +338,6 @@ export interface LearningPackage {
   sectionId: string;
   packageName: string;
   description: string;
+  updateTime?: string;
   resourceList: ResourceFile[];
 }
