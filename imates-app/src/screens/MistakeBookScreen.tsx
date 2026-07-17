@@ -3,13 +3,13 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
   ScrollView,
   Platform,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/Card';
 import { MathRenderer } from '@/components/MathRenderer';
 import { MistakeService, MistakeItem } from '@/services/mistake-service';

@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   FlatList,
   Modal,
   KeyboardAvoidingView,
@@ -15,6 +14,7 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Card } from '@/components/Card';
 import { authService, getUserId, getPassword } from '@/services/auth-service';
@@ -222,177 +222,190 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   const isFormValid = account.trim() !== '' && password.trim() !== '' && !errors.account && !errors.password;
 
-  return (
-    <TouchableWithoutFeedback onPress={() => {
-      Keyboard.dismiss();
-      setShowAccountsDropdown(false);
-    }}>
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <View style={styles.innerContainer}>
-            <Card style={styles.loginCard}>
-              <Text style={styles.title}>iMates</Text>
-              <Text style={styles.subtitle}>用户登录</Text>
+  const dismissKeyboardAndDropdown = () => {
+    Keyboard.dismiss();
+    setShowAccountsDropdown(false);
+  };
 
-              {/* 账号输入框 */}
-              <View style={styles.inputWrapper}>
-                <View style={[styles.inputContainer, errors.account ? styles.inputErrorBorder : null]}>
-                  <Text style={styles.inputIcon}>👤</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="请输入账号"
-                    placeholderTextColor="#94A3B8"
-                    value={account}
-                    onChangeText={(text) => {
-                      setAccount(text);
-                      if (errors.account) setErrors((prev) => ({ ...prev, account: '' }));
-                    }}
-                    onBlur={validateAccount}
-                    onFocus={() => {
-                      if (savedAccounts.length > 0) setShowAccountsDropdown(true);
-                    }}
-                  />
-                  {savedAccounts.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setShowAccountsDropdown(!showAccountsDropdown)}
-                      style={styles.dropdownToggle}
-                    >
-                      <Text style={styles.arrowIcon}>▼</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {errors.account ? <Text style={styles.errorText}>{errors.account}</Text> : null}
+  const screenContent = (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <View style={styles.innerContainer}>
+          <Card style={styles.loginCard}>
+            <Text style={styles.title}>iMates</Text>
+            <Text style={styles.subtitle}>用户登录</Text>
 
-                {/* 账号下拉菜单 */}
-                {showAccountsDropdown && savedAccounts.length > 0 && (
-                  <View style={styles.dropdownList}>
-                    <FlatList
-                      data={savedAccounts}
-                      keyExtractor={(item) => item.account}
-                      keyboardShouldPersistTaps="handled"
-                      renderItem={({ item }) => (
-                        <View style={styles.dropdownItem}>
-                          <TouchableOpacity
-                            style={styles.dropdownItemTextContainer}
-                            onPress={() => selectAccount(item)}
-                          >
-                            <Text style={styles.dropdownItemText}>{item.account}</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => deleteSavedAccount(item.account)}
-                            style={styles.deleteAccountBtn}
-                          >
-                            <Text style={styles.deleteAccountText}>✕</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    />
-                  </View>
-                )}
-              </View>
-
-              {/* 密码输入框 */}
-              <View style={styles.inputWrapper}>
-                <View style={[styles.inputContainer, errors.password ? styles.inputErrorBorder : null]}>
-                  <Text style={styles.inputIcon}>🔒</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="请输入密码"
-                    placeholderTextColor="#94A3B8"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={(text) => {
-                      setPassword(text);
-                      if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
-                    }}
-                    onBlur={validatePassword}
-                  />
-                </View>
-                {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-              </View>
-
-              {/* 错误 Banner */}
-              {errorMessage ? (
-                <View style={styles.errorBanner}>
-                  <Text style={styles.errorBannerText}>{errorMessage}</Text>
-                </View>
-              ) : null}
-
-              {/* 登录按钮 */}
-              <TouchableOpacity
-                style={[styles.loginButton, !isFormValid || isLoading ? styles.loginButtonDisabled : null]}
-                onPress={handleLogin}
-                disabled={!isFormValid || isLoading}
-              >
-                {isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.loginButtonText}> 登录中...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.loginButtonText}>登 录</Text>
-                )}
-              </TouchableOpacity>
-            </Card>
-
-            {/* 版本号（支持连续点击触发环境切换） */}
-            <TouchableOpacity activeOpacity={0.8} onPress={handleVersionClick} style={styles.versionContainer}>
-              <Text style={styles.versionText}>
-                v{appVersion}
-                {currentEnv === AppEnvType.INTERNAL_TEST ? '\nJoined Testflight' : ''}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-
-        {/* 环境切换弹窗 */}
-        <Modal
-          visible={envModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setEnvModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                切换到{targetEnv === AppEnvType.RELEASE ? '正式环境' : '测试环境'}
-              </Text>
-              <Text style={styles.modalMessage}>
-                确认切换当前运行环境？
-              </Text>
-
-              {targetEnv === AppEnvType.INTERNAL_TEST && (
+            {/* 账号输入框 */}
+            <View style={[styles.inputWrapper, styles.accountInputWrapper]}>
+              <View style={[styles.inputContainer, errors.account ? styles.inputErrorBorder : null]}>
+                <Text style={styles.inputIcon}>👤</Text>
                 <TextInput
-                  style={styles.modalInput}
-                  placeholder="请输入环境切换密码"
+                  style={styles.input}
+                  placeholder="请输入账号"
+                  placeholderTextColor="#94A3B8"
+                  value={account}
+                  onChangeText={(text) => {
+                    setAccount(text);
+                    if (errors.account) setErrors((prev) => ({ ...prev, account: '' }));
+                  }}
+                  onBlur={validateAccount}
+                  onFocus={() => {
+                    if (savedAccounts.length > 0) setShowAccountsDropdown(true);
+                  }}
+                />
+                {savedAccounts.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setShowAccountsDropdown(!showAccountsDropdown)}
+                    style={styles.dropdownToggle}
+                  >
+                    <Text style={styles.arrowIcon}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {errors.account ? <Text style={styles.errorText}>{errors.account}</Text> : null}
+
+              {/* 账号下拉菜单 */}
+              {showAccountsDropdown && savedAccounts.length > 0 && (
+                <View style={styles.dropdownList}>
+                  <FlatList
+                    data={savedAccounts}
+                    keyExtractor={(item) => item.account}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <View style={styles.dropdownItem}>
+                        <TouchableOpacity
+                          style={styles.dropdownItemTextContainer}
+                          onPress={() => selectAccount(item)}
+                        >
+                          <Text style={styles.dropdownItemText}>{item.account}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => deleteSavedAccount(item.account)}
+                          style={styles.deleteAccountBtn}
+                        >
+                          <Text style={styles.deleteAccountText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* 密码输入框 */}
+            <View style={[styles.inputWrapper, styles.passwordInputWrapper]}>
+              <View style={[styles.inputContainer, errors.password ? styles.inputErrorBorder : null]}>
+                <Text style={styles.inputIcon}>🔒</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入密码"
                   placeholderTextColor="#94A3B8"
                   secureTextEntry
-                  value={envPassword}
-                  onChangeText={setEnvPassword}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  onBlur={validatePassword}
+                  onFocus={() => setShowAccountsDropdown(false)}
                 />
-              )}
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalCancelBtn]}
-                  onPress={() => setEnvModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>取消</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalConfirmBtn]}
-                  onPress={handleEnvSwitchConfirm}
-                >
-                  <Text style={styles.modalConfirmText}>确认切换</Text>
-                </TouchableOpacity>
               </View>
+              {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+            </View>
+
+            {/* 错误 Banner */}
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
+            {/* 登录按钮 */}
+            <TouchableOpacity
+              style={[styles.loginButton, !isFormValid || isLoading ? styles.loginButtonDisabled : null]}
+              onPress={handleLogin}
+              disabled={!isFormValid || isLoading}
+            >
+              {isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.loginButtonText}> 登录中...</Text>
+                </View>
+              ) : (
+                <Text style={styles.loginButtonText}>登 录</Text>
+              )}
+            </TouchableOpacity>
+          </Card>
+
+          {/* 版本号（支持连续点击触发环境切换） */}
+          <TouchableOpacity activeOpacity={0.8} onPress={handleVersionClick} style={styles.versionContainer}>
+            <Text style={styles.versionText}>
+              v{appVersion}
+              {currentEnv === AppEnvType.INTERNAL_TEST ? '\nJoined Testflight' : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* 环境切换弹窗 */}
+      <Modal
+        visible={envModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEnvModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              切换到{targetEnv === AppEnvType.RELEASE ? '正式环境' : '测试环境'}
+            </Text>
+            <Text style={styles.modalMessage}>
+              确认切换当前运行环境？
+            </Text>
+
+            {targetEnv === AppEnvType.INTERNAL_TEST && (
+              <TextInput
+                style={styles.modalInput}
+                placeholder="请输入环境切换密码"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry
+                value={envPassword}
+                onChangeText={setEnvPassword}
+              />
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelBtn]}
+                onPress={() => setEnvModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirmBtn]}
+                onPress={handleEnvSwitchConfirm}
+              >
+                <Text style={styles.modalConfirmText}>确认切换</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </SafeAreaView>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+
+  // Web 上父级 TouchableWithoutFeedback 的点击会在输入框聚焦后立即触发
+  // Keyboard.dismiss，使输入框无法保持焦点。Web 直接渲染页面内容即可。
+  if (Platform.OS === 'web') {
+    return screenContent;
+  }
+
+  return (
+    <TouchableWithoutFeedback onPress={dismissKeyboardAndDropdown}>
+      {screenContent}
     </TouchableWithoutFeedback>
   );
 }
@@ -448,6 +461,11 @@ const styles = StyleSheet.create({
   inputWrapper: {
     width: '100%',
     marginBottom: 16,
+  },
+  accountInputWrapper: {
+    zIndex: 20,
+  },
+  passwordInputWrapper: {
     zIndex: 10,
   },
   inputContainer: {

@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
@@ -11,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MathRenderer } from '@/components/MathRenderer';
 import { Card } from '@/components/Card';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';

@@ -3,9 +3,17 @@ import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { storage } from '@/services/storage';
-import { authService } from '@/services/auth-service';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [activeScreen, setActiveScreen] = useState<'home' | 'chat'>('home');
 
