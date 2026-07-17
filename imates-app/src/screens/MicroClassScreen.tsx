@@ -305,22 +305,7 @@ export function MicroClassScreen({ onLogout }: MicroClassScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部 Header */}
-      <View style={styles.header}>
-        <View style={styles.userProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>谱</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>您好，</Text>
-            <Text style={styles.userName}>知识图谱与资源 📚</Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity style={styles.logoutIconButton} onPress={onLogout}>
-          <Text style={styles.logoutIconText}>🚪</Text>
-        </TouchableOpacity>
-      </View>
+
 
       {!activeTextbook ? (
         // ==================== 主教材选择视图 ====================

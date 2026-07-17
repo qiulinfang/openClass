@@ -339,21 +339,7 @@ export function ExerciseSolveScreen({ onLogout }: ExerciseSolveScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部 Header */}
-      <View style={styles.header}>
-        <View style={styles.userProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>练</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>您好，</Text>
-            <Text style={styles.userName}>自主刷题 & AI导学 ✍️</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.logoutIconButton} onPress={onLogout}>
-          <Text style={styles.logoutIconText}>🚪</Text>
-        </TouchableOpacity>
-      </View>
+
 
       {/* 顶部三段式选项卡 */}
       <View style={styles.tabHeader}>

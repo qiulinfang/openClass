@@ -12,8 +12,8 @@ import { MicroClassScreen } from './MicroClassScreen';
 import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
 import { HomeworkAnswerScreen } from './HomeworkAnswerScreen';
-import { MistakeBookScreen } from './MistakeBookScreen';
-import { ExerciseSolveScreen } from './ExerciseSolveScreen';
+import { ProfileScreen } from './ProfileScreen';
+import { QuestionBankScreen } from './QuestionBankScreen';
 import { storage } from '@/services/storage';
 import { SyncService } from '@/services/sync-service';
 
@@ -22,16 +22,16 @@ interface HomeScreenProps {
   onNavigateToChat: () => void;
 }
 
-type TabType = 'microclass' | 'homework' | 'exercise_solve' | 'mistake' | 'ai';
+type TabType = 'resources' | 'homework' | 'ai_otter' | 'question_bank' | 'profile';
 
 const LightColors = {
   background: '#F8FAFC',
-  primary: '#3B82F6',
+  primary: '#4F46E5', // 现代靛蓝色
   textSecondary: '#475569',
 };
 
 export function HomeScreen({ onLogout }: HomeScreenProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('ai');
+  const [activeTab, setActiveTab] = useState<TabType>('ai_otter');
   const [answeringHomeworkId, setAnsweringHomeworkId] = useState<string | null>(null);
   const [answeringHomeworkTitle, setAnsweringHomeworkTitle] = useState<string>('');
   const [answeringHomeworkSubject, setAnsweringHomeworkSubject] = useState<string>('6');
@@ -55,7 +55,7 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
       `老师，请问这道题该怎么做？\n\n【题目内容】：\n${questionContent}`
     );
     setAnsweringHomeworkId(null);
-    setActiveTab('ai');
+    setActiveTab('ai_otter');
   };
 
   return (
@@ -72,7 +72,7 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           />
         ) : (
           <>
-            {activeTab === 'microclass' && (
+            {activeTab === 'resources' && (
               <MicroClassScreen onLogout={onLogout} />
             )}
 
@@ -80,16 +80,16 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
               <HomeworkScreen onLogout={onLogout} onGoAnswer={handleGoAnswer} />
             )}
 
-            {activeTab === 'exercise_solve' && (
-              <ExerciseSolveScreen onLogout={onLogout} />
-            )}
-
-            {activeTab === 'ai' && (
+            {activeTab === 'ai_otter' && (
               <ChatScreen />
             )}
 
-            {activeTab === 'mistake' && (
-              <MistakeBookScreen onLogout={onLogout} onAskAI={handleAskAI} />
+            {activeTab === 'question_bank' && (
+              <QuestionBankScreen onLogout={onLogout} onAskAI={handleAskAI} />
+            )}
+
+            {activeTab === 'profile' && (
+              <ProfileScreen onLogout={onLogout} />
             )}
           </>
         )}
@@ -98,14 +98,16 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
       {/* 底部 Tab 导航栏 - 仅在非答题状态下渲染 */}
       {!answeringHomeworkId && (
         <View style={styles.tabBar}>
+          {/* Tab 1: 资源 */}
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'microclass' && styles.activeTabItem]}
-            onPress={() => setActiveTab('microclass')}
+            style={[styles.tabItem, activeTab === 'resources' && styles.activeTabItem]}
+            onPress={() => setActiveTab('resources')}
           >
-            <Text style={[styles.tabIcon, activeTab === 'microclass' && styles.activeTabIcon]}>🗺️</Text>
-            <Text style={[styles.tabLabel, activeTab === 'microclass' && styles.activeTabLabel]}>知识图谱</Text>
+            <Text style={[styles.tabIcon, activeTab === 'resources' && styles.activeTabIcon]}>📂</Text>
+            <Text style={[styles.tabLabel, activeTab === 'resources' && styles.activeTabLabel]}>资源</Text>
           </TouchableOpacity>
 
+          {/* Tab 2: 作业 */}
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'homework' && styles.activeTabItem]}
             onPress={() => setActiveTab('homework')}
@@ -114,28 +116,40 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
             <Text style={[styles.tabLabel, activeTab === 'homework' && styles.activeTabLabel]}>作业</Text>
           </TouchableOpacity>
 
+          {/* Tab 3 (中央突出): 海獭 */}
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'exercise_solve' && styles.activeTabItem]}
-            onPress={() => setActiveTab('exercise_solve')}
+            style={[
+              styles.centerTabItem,
+              activeTab === 'ai_otter' && styles.activeCenterTabItem
+            ]}
+            activeOpacity={0.85}
+            onPress={() => setActiveTab('ai_otter')}
           >
-            <Text style={[styles.tabIcon, activeTab === 'exercise_solve' && styles.activeTabIcon]}>✍️</Text>
-            <Text style={[styles.tabLabel, activeTab === 'exercise_solve' && styles.activeTabLabel]}>自主刷题</Text>
+            <View style={styles.centerTabInner}>
+              <Text style={styles.centerTabIcon}>🦦</Text>
+              <Text style={[
+                styles.centerTabLabel,
+                activeTab === 'ai_otter' && { color: '#FFFFFF' }
+              ]}>海獭</Text>
+            </View>
           </TouchableOpacity>
 
+          {/* Tab 4: 题库 */}
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'mistake' && styles.activeTabItem]}
-            onPress={() => setActiveTab('mistake')}
+            style={[styles.tabItem, activeTab === 'question_bank' && styles.activeTabItem]}
+            onPress={() => setActiveTab('question_bank')}
           >
-            <Text style={[styles.tabIcon, activeTab === 'mistake' && styles.activeTabIcon]}>📚</Text>
-            <Text style={[styles.tabLabel, activeTab === 'mistake' && styles.activeTabLabel]}>错题本</Text>
+            <Text style={[styles.tabIcon, activeTab === 'question_bank' && styles.activeTabIcon]}>📚</Text>
+            <Text style={[styles.tabLabel, activeTab === 'question_bank' && styles.activeTabLabel]}>题库</Text>
           </TouchableOpacity>
 
+          {/* Tab 5: 我的 */}
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'ai' && styles.activeTabItem]}
-            onPress={() => setActiveTab('ai')}
+            style={[styles.tabItem, activeTab === 'profile' && styles.activeTabItem]}
+            onPress={() => setActiveTab('profile')}
           >
-            <Text style={[styles.tabIcon, activeTab === 'ai' && styles.activeTabIcon]}>🤖</Text>
-            <Text style={[styles.tabLabel, activeTab === 'ai' && styles.activeTabLabel]}>AI 对话</Text>
+            <Text style={[styles.tabIcon, activeTab === 'profile' && styles.activeTabIcon]}>👤</Text>
+            <Text style={[styles.tabLabel, activeTab === 'profile' && styles.activeTabLabel]}>我的</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -160,6 +174,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#E2E8F0',
     paddingBottom: Platform.OS === 'ios' ? 8 : 0,
+    overflow: 'visible', // 允许中央的圆形突出来
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -196,5 +211,47 @@ const styles = StyleSheet.create({
   activeTabLabel: {
     color: LightColors.primary,
     fontWeight: '700',
+  },
+
+  // 中央突出 Tab 样式
+  centerTabItem: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -20, // 向上拉出 TabBar
+    marginHorizontal: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4F46E5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  activeCenterTabItem: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  centerTabInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerTabIcon: {
+    fontSize: 22,
+  },
+  centerTabLabel: {
+    fontSize: 9,
+    color: '#64748B',
+    fontWeight: '700',
+    marginTop: 1,
   },
 });

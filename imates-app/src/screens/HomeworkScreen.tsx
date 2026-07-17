@@ -203,22 +203,6 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部标题与用户信息栏 */}
-      <View style={styles.header}>
-        <View style={styles.userProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>学</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>您好，</Text>
-            <Text style={styles.userName}>智能伴侣学员 🎓</Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity style={styles.logoutIconButton} onPress={onLogout}>
-          <Text style={styles.logoutIconText}>🚪</Text>
-        </TouchableOpacity>
-      </View>
 
       <View style={styles.container}>
         <View style={styles.viewHeader}>

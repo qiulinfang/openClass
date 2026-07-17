@@ -318,24 +318,7 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部 Header */}
-      <View style={styles.header}>
-        <View style={styles.userProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>习</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>您好，</Text>
-            <Text style={styles.userName}>
-              {activeMode === 'mistake' ? '我的错题本 📚' : '我的习题本 ⭐'}
-            </Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity style={styles.logoutIconButton} onPress={onLogout}>
-          <Text style={styles.logoutIconText}>🚪</Text>
-        </TouchableOpacity>
-      </View>
+
 
       {/* 模块切换 Tab Segmented Control */}
       <View style={styles.segmentContainer}>
