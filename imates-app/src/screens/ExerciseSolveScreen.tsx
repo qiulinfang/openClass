@@ -96,7 +96,7 @@ export function ExerciseSolveScreen({ onLogout, onGoAnswer, onAskAI }: ExerciseS
 
   // 搜索过滤
   const filteredQuestions = allQuestions.filter(q => {
-    return q.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    return q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
            q.content.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
@@ -237,7 +237,7 @@ export function ExerciseSolveScreen({ onLogout, onGoAnswer, onAskAI }: ExerciseS
                       {showAnswer ? '🔑 收起参考答案' : '🔑 查看参考答案'}
                     </Text>
                   </TouchableOpacity>
-                  
+
                   {showAnswer && (
                     <View style={styles.answerBox}>
                       <MathRenderer content={activeQuestion.answer || '暂无参考答案'} textColor="#10B981" />
@@ -250,7 +250,7 @@ export function ExerciseSolveScreen({ onLogout, onGoAnswer, onAskAI }: ExerciseS
               <View style={styles.modalFooter}>
                 {onAskAI && (
                   <TouchableOpacity style={styles.askAiBtn} onPress={handleAskAIFromModal}>
-                    <Text style={styles.askAiBtnText}>🦦 问海獭 (智能答疑)</Text>
+                    <Text style={styles.askAiBtnText}>🤖 问 AI（智能答疑）</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={styles.cancelBtn} onPress={() => setActiveQuestion(null)}>

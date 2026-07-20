@@ -1,5 +1,7 @@
+import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { HomeworkService } from './homework-service';
 
 export interface UserInfo {
   id: string;
@@ -54,6 +56,9 @@ export class AuthService {
    */
   private getApiBaseUrl(): string {
     const env = getCurrentEnvType();
+    if (Platform.OS === 'web') {
+      return env === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
+    }
     if (env === AppEnvType.INTERNAL_TEST) {
       return 'http://www.imates.com.cn:58443/blw-edu-service-alc';
     }
@@ -99,6 +104,15 @@ export class AuthService {
     await storage.setItem('xuebanuserid', account);
     await storage.setItem('userPassword', password);
     await storage.setItem('lastLoginTime', Date.now().toString());
+
+    // 知识图谱属于研伴服务，主登录成功后同步刷新对应 Token。
+    // 研伴暂时不可用时不阻断学伴主登录，知识图谱请求时仍会再次刷新。
+    try {
+      await HomeworkService.loginYanban(account, password);
+    } catch (error) {
+      await storage.removeItem('YANBAN_TOKEN');
+      console.warn('[AuthService] 研伴同步登录失败，将在访问知识图谱时重试:', error);
+    }
 
     return token;
   }
@@ -146,6 +160,7 @@ export class AuthService {
    */
   public async logout(): Promise<void> {
     await storage.removeItem('XUEBAN_TOKEN');
+    await storage.removeItem('YANBAN_TOKEN');
     await storage.removeItem('userInfo');
   }
 }

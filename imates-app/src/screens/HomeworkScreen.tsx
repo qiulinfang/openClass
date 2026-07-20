@@ -156,8 +156,8 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
                   marginRight: 6,
                   backgroundColor: isMath ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
                   borderColor: isMath ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)',
-                  color: isMath ? '#2563EB' : '#059669',
                 }}
+                textStyle={{ color: isMath ? '#2563EB' : '#059669' }}
               />
             ))}
           </View>

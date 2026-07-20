@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
+import { storage } from '@/services/storage';
+import { authService } from '@/services/auth-service';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DeviceEventEmitter, Alert } from 'react-native';
 import { storage } from '@/services/storage';
@@ -50,6 +52,7 @@ function AppContent() {
   const handleLogout = async () => {
     await storage.removeItem('XUEBAN_TOKEN');
     await storage.removeItem('YANBAN_TOKEN');
+    await authService.logout();
     setIsLoggedIn(false);
   };
 

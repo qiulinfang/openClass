@@ -38,7 +38,7 @@ export function QuestionBankScreen({ onLogout, onAskAI, onGoAnswer }: QuestionBa
           <Text style={[styles.subTabText, subTab === 'favorites' && styles.activeSubTabText]}>题目收藏</Text>
         </TouchableOpacity>
       </View>
-      
+
       {/* 视图内容承载区 */}
       <View style={styles.contentView}>
         {subTab === 'library' && (

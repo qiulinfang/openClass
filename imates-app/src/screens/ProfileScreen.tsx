@@ -26,6 +26,7 @@ const LightColors = {
   textPrimary: '#0F172A',
   textSecondary: '#475569',
   primary: '#4F46E5', // 靛蓝色
+  primaryLight: '#E0E7FF',
   danger: '#EF4444',
   success: '#10B981',
 };

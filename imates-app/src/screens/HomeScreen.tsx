@@ -8,14 +8,20 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MicroClassScreen } from './MicroClassScreen';
 import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
 import { HomeworkAnswerScreen } from './HomeworkAnswerScreen';
 import { ProfileScreen } from './ProfileScreen';
 import { QuestionBankScreen } from './QuestionBankScreen';
+import {
+  TextbookCenterScreen,
+  TextbookDetailScreen,
+  type PracticeQuestion,
+  type UserTextbookInfo,
+} from '@/features/textbook';
 import { storage } from '@/services/storage';
 import { SyncService } from '@/services/sync-service';
+import { GlobalAiAssistant } from '@/features/ai-chat';
 import { HomeworkQuestionDetail } from '@/services/homework-service';
 
 interface HomeScreenProps {
@@ -23,7 +29,7 @@ interface HomeScreenProps {
   onNavigateToChat: () => void;
 }
 
-type TabType = 'resources' | 'homework' | 'ai_otter' | 'question_bank' | 'profile';
+type TabType = 'resources' | 'homework' | 'ai' | 'question_bank' | 'profile';
 
 const LightColors = {
   background: '#F8FAFC',
@@ -32,10 +38,12 @@ const LightColors = {
 };
 
 export function HomeScreen({ onLogout }: HomeScreenProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('ai_otter');
+  const [activeTab, setActiveTab] = useState<TabType>('ai');
   const [answeringHomeworkId, setAnsweringHomeworkId] = useState<string | null>(null);
   const [answeringHomeworkTitle, setAnsweringHomeworkTitle] = useState<string>('');
   const [answeringHomeworkSubject, setAnsweringHomeworkSubject] = useState<string>('6');
+  const [learningTextbook, setLearningTextbook] =
+    useState<UserTextbookInfo | null>(null);
   const [answeringQuestionsList, setAnsweringQuestionsList] = useState<HomeworkQuestionDetail[] | null>(null);
 
   // 当 App 进入主界面挂载时，异步触发错题本与聊天历史的云端增量同步
@@ -64,7 +72,29 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
     );
     setAnsweringHomeworkId(null);
     setAnsweringQuestionsList(null);
-    setActiveTab('ai_otter');
+    setActiveTab('ai');
+  };
+
+  const handleLearnTextbook = (textbook: UserTextbookInfo) => {
+    setLearningTextbook(textbook);
+    setActiveTab('resources');
+  };
+
+  const handleStartTextbookPractice = (questions: PracticeQuestion[]) => {
+    if (questions.length === 0) return;
+
+    handleGoAnswerQuestions(
+      questions.map((question) => ({
+        id: question.id,
+        questionId: question.id,
+        questionContent: question.content,
+        questionAnswer: question.answer,
+        questionAnalysis:
+          question.analysis || question.explanation || question.analysisData,
+      })),
+      '教材练习',
+      questions[0].subject
+    );
   };
 
   return (
@@ -87,14 +117,22 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
         ) : (
           <>
             {activeTab === 'resources' && (
-              <MicroClassScreen onLogout={onLogout} />
+              learningTextbook ? (
+                <TextbookDetailScreen
+                  textbook={learningTextbook}
+                  onBackToTextbookCenter={() => setLearningTextbook(null)}
+                  onStartPractice={handleStartTextbookPractice}
+                />
+              ) : (
+                <TextbookCenterScreen onLearn={handleLearnTextbook} />
+              )
             )}
 
             {activeTab === 'homework' && (
               <HomeworkScreen onLogout={onLogout} onGoAnswer={handleGoAnswer} />
             )}
 
-            {activeTab === 'ai_otter' && (
+            {activeTab === 'ai' && (
               <ChatScreen />
             )}
 
@@ -119,9 +157,12 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           {/* Tab 1: 资源 */}
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'resources' && styles.activeTabItem]}
-            onPress={() => setActiveTab('resources')}
+            onPress={() => {
+              setLearningTextbook(null);
+              setActiveTab('resources');
+            }}
           >
-            <Text style={[styles.tabIcon, activeTab === 'resources' && styles.activeTabIcon]}>📂</Text>
+            <Text style={[styles.tabIcon, activeTab === 'resources' && styles.activeTabIcon]}>📖</Text>
             <Text style={[styles.tabLabel, activeTab === 'resources' && styles.activeTabLabel]}>资源</Text>
           </TouchableOpacity>
 
@@ -134,21 +175,21 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
             <Text style={[styles.tabLabel, activeTab === 'homework' && styles.activeTabLabel]}>作业</Text>
           </TouchableOpacity>
 
-          {/* Tab 3 (中央突出): 海獭 */}
+          {/* Tab 3 (中央突出): AI 对话 */}
           <TouchableOpacity
             style={[
               styles.centerTabItem,
-              activeTab === 'ai_otter' && styles.activeCenterTabItem
+              activeTab === 'ai' && styles.activeCenterTabItem
             ]}
             activeOpacity={0.85}
-            onPress={() => setActiveTab('ai_otter')}
+            onPress={() => setActiveTab('ai')}
           >
             <View style={styles.centerTabInner}>
-              <Text style={styles.centerTabIcon}>🦦</Text>
+              <Text style={styles.centerTabIcon}>🤖</Text>
               <Text style={[
                 styles.centerTabLabel,
-                activeTab === 'ai_otter' && { color: '#FFFFFF' }
-              ]}>海獭</Text>
+                activeTab === 'ai' && { color: '#FFFFFF' }
+              ]}>AI 对话</Text>
             </View>
           </TouchableOpacity>
 
@@ -171,6 +212,14 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           </TouchableOpacity>
         </View>
       )}
+
+      <GlobalAiAssistant
+        hidden={
+          activeTab === 'ai' ||
+          !!answeringHomeworkId ||
+          !!answeringQuestionsList
+        }
+      />
 
       <StatusBar style="dark" />
     </SafeAreaView>

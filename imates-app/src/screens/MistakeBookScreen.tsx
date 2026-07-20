@@ -409,8 +409,16 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode, onGoAnswer }: Mista
 
         {/* 错题列表 vs 习题列表 */}
         <FlatList
-          data={activeMode === 'mistake' ? filteredMistakes : filteredExercises}
-          renderItem={activeMode === 'mistake' ? renderMistakeItem : renderExerciseItem}
+          data={
+            (activeMode === 'mistake'
+              ? filteredMistakes
+              : filteredExercises) as Array<MistakeItem | ExerciseItem>
+          }
+          renderItem={({ item }) =>
+            activeMode === 'mistake'
+              ? renderMistakeItem({ item: item as MistakeItem })
+              : renderExerciseItem({ item: item as ExerciseItem })
+          }
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

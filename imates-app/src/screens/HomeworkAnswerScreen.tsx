@@ -112,7 +112,7 @@ export function HomeworkAnswerScreen({
   useEffect(() => {
     if (questionsList && questionsList.length > 0) {
       setQuestions(questionsList);
-      
+
       const initialAnswers: Record<string, string> = {};
       const initialImages: Record<string, string> = {};
       questionsList.forEach(q => {
@@ -287,12 +287,12 @@ export function HomeworkAnswerScreen({
       '确定要清空本题的所有解答内容吗？',
       [
         { text: '取消', style: 'cancel' },
-        { 
-          text: '确定', 
+        {
+          text: '确定',
           onPress: () => {
             setAnswers(prev => ({ ...prev, [currentQuestion.questionId]: '' }));
             setAnswersImage(prev => ({ ...prev, [currentQuestion.questionId]: '' }));
-          } 
+          }
         }
       ]
     );
@@ -305,6 +305,8 @@ export function HomeworkAnswerScreen({
 
   // 提交整份作业
   const handleSubmit = async () => {
+    if (!homeworkId) return;
+
     setIsSubmitting(true);
     try {
       const questionAnswerList = questions.map(q => {
@@ -544,7 +546,7 @@ export function HomeworkAnswerScreen({
         {isReviewMode ? (
           <>
             <TouchableOpacity style={styles.reviewAskAiBtn} onPress={() => onAskAI(currentQuestion.questionContent)}>
-              <Text style={styles.reviewAskAiText}>🦦 问海獭</Text>
+              <Text style={styles.reviewAskAiText}>🤖 问 AI</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.reviewBackBtn} onPress={onBack}>

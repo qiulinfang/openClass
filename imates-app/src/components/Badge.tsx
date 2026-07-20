@@ -1,15 +1,23 @@
 import React from 'react';
-import { StyleSheet, Text, View, ViewProps } from 'react-native';
+import {
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextStyle,
+  View,
+  ViewProps,
+} from 'react-native';
 import { Colors } from '@/constants/Colors';
 
 interface BadgeProps extends ViewProps {
   text: string;
+  textStyle?: StyleProp<TextStyle>;
 }
 
-export function Badge({ text, style, ...props }: BadgeProps) {
+export function Badge({ text, style, textStyle, ...props }: BadgeProps) {
   return (
     <View style={[styles.badge, style]} {...props}>
-      <Text style={styles.badgeText}>{text}</Text>
+      <Text style={[styles.badgeText, textStyle]}>{text}</Text>
     </View>
   );
 }
