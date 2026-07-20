@@ -21,6 +21,7 @@ import {
 } from '@/features/textbook';
 import { storage } from '@/services/storage';
 import { SyncService } from '@/services/sync-service';
+import { GlobalAiAssistant } from '@/features/ai-chat';
 
 interface HomeScreenProps {
   onLogout: () => void;
@@ -174,6 +175,14 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
           </TouchableOpacity>
         </View>
       )}
+
+      <GlobalAiAssistant
+        hidden={
+          activeTab === 'ai' ||
+          activeTab === 'exercise_solve' ||
+          !!answeringHomeworkId
+        }
+      />
 
       <StatusBar style="dark" />
     </SafeAreaView>
