@@ -1156,9 +1156,17 @@ const loadQuestions = async () => {
     if (questions.value.length > 0) {
       displayedCount.value = INITIAL_DISPLAY_COUNT
       currentPage.value = 1
+      
+      // 同步恢复当前选中的题目索引，避免重新挂载时选中状态丢失
+      const currentIndex = currentStrategy.getCurrentQuestionIndex()
+      if (currentIndex >= 0 && currentIndex < questions.value.length) {
+        selectedQuestionIndex.value = currentIndex
+      }
+
       console.log('[QuestionList] 加载题目完成', {
         total: questions.value.length,
         initialDisplay: displayedCount.value,
+        selectedQuestionIndex: selectedQuestionIndex.value,
       })
     }
   } catch (error) {

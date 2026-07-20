@@ -65,6 +65,9 @@ function scanAndEnhance(container: HTMLElement, binding: DirectiveBinding<PasteT
     const mathContainer = img.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
     if (mathContainer) return
 
+    // 跳过 HTML 预览卡片图片，避免 position: absolute 产生 0x0 塌陷
+    if (img.classList.contains('html-card-img') || img.closest('.html-card-content')) return
+
     const existingWrapper = img.closest('.image-message-wrapper')
     if (existingWrapper) return
 
