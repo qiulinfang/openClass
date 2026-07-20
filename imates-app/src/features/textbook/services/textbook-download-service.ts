@@ -33,6 +33,11 @@ export interface StoredTextbookDownload {
   recordId: string;
   textbookId: string;
   textbook: UserTextbookInfo;
+  /**
+   * 最近一次完整下载成功时的教材版本时间。
+   * 不能直接使用 textbook.textbookUpdateTime：教材列表刷新时 textbook 会被服务端最新数据覆盖。
+   */
+  installedTextbookUpdateTime?: string;
   downloadStatus: TextbookDownloadStatus;
   downloadedFiles: number;
   totalFiles: number;
@@ -94,6 +99,19 @@ const resourceSignature = (resource: ResourceFile): string =>
     resource.uploadTime || '',
     resource.fileUrl || '',
   ].join('|');
+
+const isNewer = (serverTime?: string, installedTime?: string): boolean => {
+  if (!serverTime) return false;
+  if (!installedTime) return true;
+
+  const serverTimestamp = Date.parse(serverTime);
+  const installedTimestamp = Date.parse(installedTime);
+  if (Number.isNaN(serverTimestamp) || Number.isNaN(installedTimestamp)) {
+    // 与 Web 端保持一致：无法解析版本时间时采用安全更新策略。
+    return serverTime !== installedTime;
+  }
+  return serverTimestamp > installedTimestamp;
+};
 
 export class DownloadPausedError extends Error {
   constructor() {
@@ -502,19 +520,27 @@ export class TextbookDownloadService {
             const localPackage = localPackagesById.get(pkg.id);
             return (
               !localPackage ||
-              (pkg.updateTime || '') !== (localPackage.updateTime || '')
+              isNewer(pkg.updateTime, localPackage.updateTime)
             );
           });
 
-        const textbookChanged =
-          !!textbook.textbookUpdateTime &&
-          textbook.textbookUpdateTime !== record.textbook.textbookUpdateTime;
+        const installedTextbookUpdateTime =
+          record.installedTextbookUpdateTime ??
+          record.textbook.textbookUpdateTime;
+        const textbookChanged = isNewer(
+          textbook.textbookUpdateTime,
+          installedTextbookUpdateTime
+        );
 
         const hasUpdates = fileSetChanged || packageSetChanged || textbookChanged;
         await this.updateRecord(textbook.id, (current) => {
           if (current.isDownloaded) {
+            // 旧版记录首次迁移时固化已安装基线，避免随后同步服务端元数据后丢失版本差异。
+            if (current.installedTextbookUpdateTime === undefined) {
+              current.installedTextbookUpdateTime =
+                installedTextbookUpdateTime || '';
+            }
             current.hasUpdatesAvailable = hasUpdates;
-            current.textbook = textbook;
           }
         });
         if (hasUpdates) updated.add(textbook.id);
@@ -708,6 +734,8 @@ export class TextbookDownloadService {
       record.downloadedFiles = record.totalFiles;
       record.lastDownloadTime = new Date().toISOString();
       record.hasUpdatesAvailable = false;
+      record.installedTextbookUpdateTime = textbook.textbookUpdateTime || '';
+      record.textbook = textbook;
       delete record.pausedFile;
       await this.saveRecord(record);
       return record;
@@ -797,7 +825,7 @@ export class TextbookDownloadService {
 
   public static async clearTextbook(recordId: string): Promise<void> {
     await this.cancelDownload(recordId);
-    await this.deleteTextbookFiles(recordId).catch(() => undefined);
+    await this.deleteTextbookFiles(recordId);
 
     await this.withIndexLock(async () => {
       const index = await this.readIndex();
