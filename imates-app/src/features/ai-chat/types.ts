@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@/services/ai-chat-service';
 
-export type AiChatScene = 'general' | 'textbook';
+export type AiChatScene = 'general' | 'textbook' | 'exercise';
 export type AiChatWorkspaceTab = 'chat' | 'sessions';
 export type AiChatRole = 'mate' | 'mentor' | 'researcher';
 
@@ -21,6 +21,13 @@ export interface AiChatContext {
   subject?: string;
   sectionName?: string;
   initialAttachment?: AiChatAttachment | null;
+  exerciseQuestion?: {
+    id: string;
+    content: string;
+    answer?: string;
+    analysis?: string;
+    subject: string;
+  };
 }
 
 export interface AiChatSession {

@@ -308,82 +308,95 @@ export function AiChatWorkspace({
       accumulated: '',
     };
 
-    cancelRequestRef.current =
-      AiChatService.sendConversationMessage(
-        {
-          prompt,
-          sessionId: targetSession.id,
-          imageDataUrl: requestAttachment?.dataUrl,
-          subject: context.subject,
-          sectionName: context.sectionName || context.resourceName,
-          isNewSession: firstMessage,
-          scene: context.scene,
-          role,
-          enableWebSearch,
-          forcePreviewPictureApi: context.scene === 'textbook',
-        },
-        (chunk) => {
-          const activeRequest = activeRequestRef.current;
-          if (activeRequest?.aiMessageId !== aiMessageId) return;
-          activeRequest.accumulated += chunk;
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === aiMessageId
-                ? {
-                    ...message,
-                    content: activeRequest.accumulated,
-                  }
-                : message
-            )
-          );
-        },
-        (fullText) => {
-          const activeRequest = activeRequestRef.current;
-          if (activeRequest?.aiMessageId !== aiMessageId) return;
-          const finalMessages = requestMessages.map((message) =>
-            message.id === aiMessageId
-              ? {
-                  ...message,
-                  content:
-                    fullText ||
-                    activeRequest.accumulated ||
-                    '暂时没有返回有效内容',
-                  isStreaming: false,
-                }
-              : message
-          );
-          setMessages(finalMessages);
-          cancelRequestRef.current = null;
-          activeRequestRef.current = null;
-          void persistConversation(targetSession, finalMessages)
-            .catch((error) => {
-              console.warn('[AiChatWorkspace] 保存会话失败:', error);
-            })
-            .finally(() => setIsSending(false));
-        },
-        (error) => {
-          if (activeRequestRef.current?.aiMessageId !== aiMessageId) {
-            return;
-          }
-          const finalMessages = requestMessages.map((message) =>
-            message.id === aiMessageId
-              ? {
-                  ...message,
-                  content: `发送失败：${error.message}`,
-                  isStreaming: false,
-                }
-              : message
-          );
-          setMessages(finalMessages);
-          cancelRequestRef.current = null;
-          activeRequestRef.current = null;
-          void persistConversation(targetSession, finalMessages)
-            .catch((saveError) => {
-              console.warn('[AiChatWorkspace] 保存失败消息失败:', saveError);
-            })
-            .finally(() => setIsSending(false));
-        }
+    const onChunk = (chunk: string) => {
+      const activeRequest = activeRequestRef.current;
+      if (activeRequest?.aiMessageId !== aiMessageId) return;
+      activeRequest.accumulated += chunk;
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === aiMessageId
+            ? { ...message, content: activeRequest.accumulated }
+            : message
+        )
       );
+    };
+    const onComplete = (fullText: string) => {
+      const activeRequest = activeRequestRef.current;
+      if (activeRequest?.aiMessageId !== aiMessageId) return;
+      const finalMessages = requestMessages.map((message) =>
+        message.id === aiMessageId
+          ? {
+              ...message,
+              content:
+                fullText ||
+                activeRequest.accumulated ||
+                '暂时没有返回有效内容',
+              isStreaming: false,
+            }
+          : message
+      );
+      setMessages(finalMessages);
+      cancelRequestRef.current = null;
+      activeRequestRef.current = null;
+      void persistConversation(targetSession, finalMessages)
+        .catch((error) => {
+          console.warn('[AiChatWorkspace] 保存会话失败:', error);
+        })
+        .finally(() => setIsSending(false));
+    };
+    const onError = (error: Error) => {
+      if (activeRequestRef.current?.aiMessageId !== aiMessageId) return;
+      const finalMessages = requestMessages.map((message) =>
+        message.id === aiMessageId
+          ? {
+              ...message,
+              content: `发送失败：${error.message}`,
+              isStreaming: false,
+            }
+          : message
+      );
+      setMessages(finalMessages);
+      cancelRequestRef.current = null;
+      activeRequestRef.current = null;
+      void persistConversation(targetSession, finalMessages)
+        .catch((saveError) => {
+          console.warn('[AiChatWorkspace] 保存失败消息失败:', saveError);
+        })
+        .finally(() => setIsSending(false));
+    };
+
+    cancelRequestRef.current =
+      context.scene === 'exercise' && context.exerciseQuestion
+        ? AiChatService.sendExerciseStreamMessage(
+            prompt,
+            targetSession.id,
+            context.exerciseQuestion,
+            {
+              isNewSession: firstMessage,
+              role,
+              enableWebSearch,
+            },
+            onChunk,
+            onComplete,
+            onError
+          )
+        : AiChatService.sendConversationMessage(
+            {
+              prompt,
+              sessionId: targetSession.id,
+              imageDataUrl: requestAttachment?.dataUrl,
+              subject: context.subject,
+              sectionName: context.sectionName || context.resourceName,
+              isNewSession: firstMessage,
+              scene: context.scene,
+              role,
+              enableWebSearch,
+              forcePreviewPictureApi: context.scene === 'textbook',
+            },
+            onChunk,
+            onComplete,
+            onError
+          );
   };
 
   const handleStop = () => {
@@ -737,6 +750,7 @@ export function AiChatWorkspace({
             messages={messages}
             inputText={inputText}
             attachment={pendingAttachment}
+            isInitializing={!isInitialized}
             isSending={isSending}
             role={role}
             enableWebSearch={enableWebSearch}

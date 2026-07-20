@@ -151,7 +151,9 @@ export class AiChatSessionService {
     const suffix =
       context.scene === 'general'
         ? 'general-session'
-        : `textbook-${context.resourceId || 'resource'}`;
+        : context.scene === 'exercise'
+          ? `exercise-${context.exerciseQuestion?.id || 'question'}`
+          : `textbook-${context.resourceId || 'resource'}`;
     return {
       id: `${userId || 'user'}-${suffix}-${now}`,
       scopeKey: context.scopeKey,

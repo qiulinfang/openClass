@@ -29,7 +29,7 @@ export interface TextbookExploreRequest {
 }
 
 export interface AiConversationRequest extends TextbookExploreRequest {
-  scene: 'general' | 'textbook';
+  scene: 'general' | 'textbook' | 'exercise';
   role?: 'mate' | 'mentor' | 'researcher';
   enableWebSearch?: boolean;
   forcePreviewPictureApi?: boolean;
@@ -55,9 +55,7 @@ export class AiChatService {
     if (Platform.OS === 'web') return path;
     const port =
       getCurrentEnvType() === AppEnvType.INTERNAL_TEST ? '58443' : '8222';
-    const endpoint = path.endsWith('/previewPictureQA')
-      ? 'previewPictureQA'
-      : 'chats';
+    const endpoint = path.split('/ai/2.0/')[1] || 'chats';
     return `http://www.imates.com.cn:${port}/blw-edu-service-alc/ai/2.0/${endpoint}`;
   }
 
@@ -598,6 +596,11 @@ export class AiChatService {
       analysis?: string;
       subject: string;
     },
+    options: {
+      isNewSession: boolean;
+      role?: 'mate' | 'mentor' | 'researcher';
+      enableWebSearch?: boolean;
+    },
     onChunk: (chunk: string) => void,
     onComplete: (fullText: string) => void,
     onError: (err: Error) => void
@@ -605,6 +608,7 @@ export class AiChatService {
     let isCancelled = false;
     let accumulatedContent = '';
     let pollTimer: NodeJS.Timeout | null = null;
+    const abortController = new AbortController();
 
     const subjectMap: Record<string, string> = {
       '1': 'chinese',
@@ -630,58 +634,103 @@ export class AiChatService {
     const cancel = () => {
       isCancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
+      abortController.abort();
     };
 
     const poll = async (isFirst: boolean) => {
       if (isCancelled) return;
       try {
-        const token = (await storage.getItem('XUEBAN_TOKEN')) || '';
-        const userId = (await storage.getItem('xuebanuserid')) || 'User';
+        let [token, userId] = await Promise.all([
+          storage.getItem('XUEBAN_TOKEN'),
+          storage.getItem('xuebanuserid'),
+        ]);
+        if (!token?.trim()) {
+          const password = await storage.getItem('userPassword');
+          if (!userId?.trim() || !password?.trim()) {
+            throw new Error('学伴登录已失效，请退出后重新登录');
+          }
+          token = await authService.loginXueban(userId.trim(), password);
+        }
         const prefix =
           getCurrentEnvType() === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
         const dstUrl =
           normalizedSubject === 'math'
             ? `${prefix}/ai/2.0/chatMath`
             : `${prefix}/ai/2.0/chat`;
-        const response = await fetch(this.getApiUrl(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Token: token,
-            'sa-token': token,
-            authorization: token,
-          },
-          body: JSON.stringify({
+        const requestBody = JSON.stringify({
             sessionId,
-            newValue: isFirst ? '1' : '0',
+            newValue:
+              isFirst && options.isNewSession ? '1' : '0',
             coversation: isFirst ? userMessage : '',
             question: question.content,
             answer: question.answer || '',
-            name: userId,
+            name: userId || 'User',
             reason: isFirst ? 'start' : 'continue',
             bmNo: question.id,
-            isWebSearch: '0',
-            role: 'mate',
+            isWebSearch: options.enableWebSearch ? '1' : '0',
+            role: options.role || 'mate',
             subject: normalizedSubject.toUpperCase(),
             dstUrl,
             explanation: question.analysis || '',
-          }),
-        });
-        if (!response.ok) throw new Error(`HTTP 异常: ${response.status}`);
-        const payload = await response.json();
-        if (!payload.success) throw new Error(payload.message || '服务器返回错误');
+          });
+        const send = (authToken: string) =>
+          fetch(this.getConversationApiUrl(dstUrl), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Token: authToken,
+              'sa-token': authToken,
+              authorization: authToken,
+            },
+            body: requestBody,
+            signal: abortController.signal,
+          });
+        let response = await send(token.trim());
+        let payload = await response.json().catch(() => null);
+        const unauthorized = () =>
+          response.status === 401 ||
+          [401, 28004].includes(
+            Number(payload?.code ?? payload?.data?.code)
+          );
+        if (unauthorized()) {
+          const password = await storage.getItem('userPassword');
+          if (!userId?.trim() || !password?.trim()) {
+            throw new Error('学伴登录已失效，请退出后重新登录');
+          }
+          token = await authService.loginXueban(userId.trim(), password);
+          response = await send(token.trim());
+          payload = await response.json().catch(() => null);
+        }
+        if (unauthorized()) {
+          throw new Error('学伴登录已失效，请退出后重新登录');
+        }
+        if (!response.ok || payload?.success === false) {
+          throw new Error(
+            payload?.message || `AI 导学请求失败（HTTP ${response.status}）`
+          );
+        }
         const raw = String(payload?.data?.message ?? payload?.message ?? '').trim();
-        const parsed = this.parseSseText(raw);
+        if (raw === '成功' && !raw.includes('data:')) {
+          pollTimer = setTimeout(() => void poll(false), 500);
+          return;
+        }
+        const normalizedRaw =
+          this.extractMessageFromConcatenatedJson(raw) ?? raw;
+        const parsed = this.parseSseText(normalizedRaw);
         const nextChunk = parsed.hasData
           ? parsed.textChunk
-          : this.stripTrailingEnd(raw);
+          : this.stripTrailingEnd(normalizedRaw);
         if (nextChunk) {
           const merged = this.mergeContent(accumulatedContent, nextChunk);
           const delta = merged.slice(accumulatedContent.length);
           accumulatedContent = merged;
           if (delta) onChunk(delta);
         }
-        if (parsed.ended || raw.endsWith('end') || raw === 'end') {
+        if (
+          parsed.ended ||
+          normalizedRaw.endsWith('end') ||
+          normalizedRaw === 'end'
+        ) {
           onComplete(accumulatedContent);
         } else {
           pollTimer = setTimeout(() => void poll(false), 500);

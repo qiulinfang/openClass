@@ -112,7 +112,6 @@ export function HomeScreen({ onLogout }: HomeScreenProps) {
               setAnsweringHomeworkId(null);
               setAnsweringQuestionsList(null);
             }}
-            onAskAI={handleAskAI}
           />
         ) : (
           <>

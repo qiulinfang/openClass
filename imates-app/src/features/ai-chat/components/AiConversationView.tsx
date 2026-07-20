@@ -20,12 +20,14 @@ import type {
   AiChatRole,
 } from '../types';
 import { AiRoleSelector } from './AiRoleSelector';
+import { ExerciseSuggestedQuestions } from './ExerciseSuggestedQuestions';
 
 interface AiConversationViewProps {
   context: AiChatContext;
   messages: ChatMessage[];
   inputText: string;
   attachment: AiChatAttachment | null;
+  isInitializing: boolean;
   isSending: boolean;
   role: AiChatRole;
   enableWebSearch: boolean;
@@ -60,6 +62,7 @@ export function AiConversationView({
   messages,
   inputText,
   attachment,
+  isInitializing,
   isSending,
   role,
   enableWebSearch,
@@ -155,6 +158,17 @@ export function AiConversationView({
           messages.length === 0 && styles.emptyMessageContent,
         ]}
         ListEmptyComponent={
+          isInitializing ? (
+            <View style={styles.initializingState}>
+              <ActivityIndicator color="#6256D9" />
+              <Text style={styles.initializingText}>正在加载会话…</Text>
+            </View>
+          ) : context.scene === 'exercise' ? (
+            <ExerciseSuggestedQuestions
+              disabled={isSending}
+              onSelect={onSend}
+            />
+          ) : (
           <View style={styles.welcome}>
             <View style={styles.welcomeMark}>
               <View style={styles.welcomeMarkDot} />
@@ -186,6 +200,7 @@ export function AiConversationView({
               ))}
             </View>
           </View>
+          )
         }
       />
 
@@ -348,6 +363,16 @@ const styles = StyleSheet.create({
   },
   emptyMessageContent: {
     flexGrow: 1,
+  },
+  initializingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initializingText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#858A9D',
   },
   messageRow: {
     marginBottom: 12,

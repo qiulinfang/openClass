@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,6 +18,8 @@ import { Card } from '@/components/Card';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { MistakeService } from '@/services/mistake-service';
 import { ExerciseService } from '@/services/exercise-service';
+import { GlobalAiAssistant } from '@/features/ai-chat';
+import type { AiChatContext } from '@/features/ai-chat';
 
 interface HomeworkAnswerScreenProps {
   homeworkId?: string;
@@ -26,7 +28,6 @@ interface HomeworkAnswerScreenProps {
   questionsList?: HomeworkQuestionDetail[];
   isReviewMode?: boolean;
   onBack: () => void;
-  onAskAI: (questionContent: string) => void;
 }
 
 const LightColors = {
@@ -40,6 +41,7 @@ const LightColors = {
   danger: '#EF4444',
   success: '#10B981',
 };
+const EXERCISE_ASSISTANT = require('../../assets/exercise-assistant.png');
 
 // 纯 View 绘制的极简相机图标
 const CameraIcon = () => (
@@ -58,7 +60,6 @@ export function HomeworkAnswerScreen({
   questionsList,
   isReviewMode = false,
   onBack,
-  onAskAI,
 }: HomeworkAnswerScreenProps) {
   const [questions, setQuestions] = useState<HomeworkQuestionDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +85,25 @@ export function HomeworkAnswerScreen({
 
   // 监听当前题目变化，检查是否已被加入习题本
   const activeQuestion = questions[currentIndex];
+  const questionAiContext = useMemo<AiChatContext | null>(() => {
+    if (!activeQuestion) return null;
+    return {
+      scene: 'exercise',
+      scopeKey: `exercise-${activeQuestion.questionId}`,
+      title: '题目学伴',
+      subtitle: '围绕当前题目启发式答疑',
+      resourceId: activeQuestion.questionId,
+      resourceName: homeworkTitle,
+      subject: homeworkSubject,
+      exerciseQuestion: {
+        id: activeQuestion.questionId,
+        content: activeQuestion.questionContent,
+        answer: activeQuestion.questionAnswer || '',
+        analysis: activeQuestion.questionAnalysis || '',
+        subject: homeworkSubject,
+      },
+    };
+  }, [activeQuestion, homeworkSubject, homeworkTitle]);
   useEffect(() => {
     if (activeQuestion) {
       ExerciseService.isExerciseSaved(activeQuestion.questionId).then(setIsFavorite);
@@ -376,12 +396,7 @@ export function HomeworkAnswerScreen({
         <Text style={styles.headerTitle} numberOfLines={1}>
           {homeworkTitle}
         </Text>
-        <TouchableOpacity
-          style={styles.aiAssistBtn}
-          onPress={() => onAskAI(currentQuestion.questionContent)}
-        >
-          <Text style={styles.aiAssistBtnText}>🤖 问学伴</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightPlaceholder} />
       </View>
 
       {/* 题干部分 (Top Container) */}
@@ -545,10 +560,6 @@ export function HomeworkAnswerScreen({
 
         {isReviewMode ? (
           <>
-            <TouchableOpacity style={styles.reviewAskAiBtn} onPress={() => onAskAI(currentQuestion.questionContent)}>
-              <Text style={styles.reviewAskAiText}>🤖 问 AI</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.reviewBackBtn} onPress={onBack}>
               <Text style={styles.reviewBackText}>关闭退出</Text>
             </TouchableOpacity>
@@ -635,6 +646,15 @@ export function HomeworkAnswerScreen({
           </View>
         </View>
       )}
+      {questionAiContext ? (
+        <GlobalAiAssistant
+          hidden={showCheckPanel}
+          context={questionAiContext}
+          mascotSource={EXERCISE_ASSISTANT}
+          accessibilityLabel="打开当前题目的 AI 问答"
+          prefillStorageKey={`EXERCISE_CHAT_PREFILL_${activeQuestion.questionId}`}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -694,18 +714,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 10,
   },
-  aiAssistBtn: {
-    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(79, 70, 229, 0.25)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  aiAssistBtnText: {
-    fontSize: 12,
-    color: LightColors.primary,
-    fontWeight: '700',
+  headerRightPlaceholder: {
+    width: 60,
   },
 
   // 拆分容器布局
@@ -1204,20 +1214,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 8,
-  },
-  reviewAskAiBtn: {
-    flex: 1.2,
-    height: 44,
-    backgroundColor: '#4F46E5',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  reviewAskAiText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
   },
   reviewBackBtn: {
     flex: 1,
