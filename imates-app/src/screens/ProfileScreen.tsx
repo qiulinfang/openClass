@@ -84,6 +84,13 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
   };
 
   const handleConfirmLogout = () => {
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm('确定要退出当前账号并返回登录界面吗？')) {
+        onLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       '退出登录',
       '确定要退出当前账号并返回登录界面吗？',
