@@ -13,24 +13,6 @@ interface MathRendererProps {
 export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: MathRendererProps) {
   // Parse the content into text and math blocks
   const blocks = parseLaTeX(content || '');
-  const hasMath = blocks.some(b => b.type === 'math');
-
-  // Performance optimization: If there is no LaTeX, render using native Markdown (highly efficient for lists)
-  if (!hasMath) {
-    const combinedStyle = {
-      body: {
-        color: textColor,
-        fontSize: 15,
-        lineHeight: 22,
-      },
-      ...markdownStyle,
-    };
-    return (
-      <Markdown style={combinedStyle}>
-        {content || ''}
-      </Markdown>
-    );
-  }
 
   const [webViewHeight, setWebViewHeight] = useState(40);
   const webViewRef = useRef<WebView>(null);
@@ -113,6 +95,7 @@ export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: 
           function startRender() {
             try {
               const blocks = ${JSON.stringify(blocks)};
+              window.ReactNativeWebView.postMessage(JSON.stringify({ log: 'startRender called', contentSnippet: blocks[0]?.content?.substring(0, 20) }));
               const container = document.getElementById('content-container');
               
               let html = '';
@@ -168,7 +151,7 @@ export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: 
               // Report actual height back to React Native
               const reportHeight = () => {
                 const height = document.documentElement.offsetHeight || document.body.scrollHeight;
-                window.ReactNativeWebView.postMessage(JSON.stringify({ height }));
+                window.ReactNativeWebView.postMessage(JSON.stringify({ height, done: true }));
               };
 
               reportHeight();
@@ -188,6 +171,7 @@ export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: 
 
           // Polling check for script loads (essential when multiple WebViews load concurrently in lists)
           function checkAndRender() {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ log: 'Checking scripts...', marked: typeof marked !== 'undefined', katex: typeof katex !== 'undefined' }));
             if (typeof marked !== 'undefined' && typeof katex !== 'undefined') {
               startRender();
             } else {
@@ -208,6 +192,7 @@ export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: 
   const onMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
+      console.log(`[MathRenderer-Log][Content: "${(content || '').substring(0, 15)}..."]`, data);
       if (data.height) {
         setWebViewHeight(data.height + 8);
       }

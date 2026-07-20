@@ -16,12 +16,12 @@ import { MistakeService, MistakeItem } from '@/services/mistake-service';
 import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
 import { SUBJECT_ID_TO_NAME, HomeworkQuestionDetail } from '@/services/homework-service';
 import { SyncService } from '@/services/sync-service';
+import { useNavigation } from '@react-navigation/native';
 
 interface MistakeBookScreenProps {
   onLogout: () => void;
   onAskAI: (questionContent: string) => void;
   mode?: 'mistake' | 'exercise';
-  onGoAnswer?: (questions: HomeworkQuestionDetail[], title: string, subject: string) => void;
 }
 
 const LightColors = {
@@ -51,7 +51,8 @@ const SUBJECT_OPTIONS = [
   { label: '地理', value: '9' },
 ];
 
-export function MistakeBookScreen({ onLogout, onAskAI, mode, onGoAnswer }: MistakeBookScreenProps) {
+export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreenProps) {
+  const navigation = useNavigation<any>();
   const [activeMode, setActiveMode] = useState<'mistake' | 'exercise'>('mistake');
 
   useEffect(() => {
@@ -264,7 +265,12 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode, onGoAnswer }: Mista
                   questionAnswer: correctAnswerText,
                   questionAnalysis: analysisText,
                 };
-                onGoAnswer?.([detail], item.questionData?.title || '错题重练', item.subject);
+                navigation.navigate('HomeworkAnswer', {
+                  questionsList: [detail],
+                  homeworkTitle: item.questionData?.title || '错题重练',
+                  homeworkSubject: item.subject,
+                  isReviewMode: true,
+                });
               }}
             >
               <Text style={styles.practiceBtnText}>✍️ 再次练习</Text>
@@ -339,7 +345,12 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode, onGoAnswer }: Mista
                 questionAnswer: item.answer || '',
                 questionAnalysis: item.analysis || '',
               };
-              onGoAnswer?.([detail], item.title || '收藏练习', item.subject);
+              navigation.navigate('HomeworkAnswer', {
+                questionsList: [detail],
+                homeworkTitle: item.title || '收藏练习',
+                homeworkSubject: item.subject,
+                isReviewMode: true,
+              });
             }}
           >
             <Text style={styles.practiceBtnText}>✍️ 开始作答</Text>

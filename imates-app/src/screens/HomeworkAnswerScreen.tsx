@@ -18,16 +18,10 @@ import { Card } from '@/components/Card';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { MistakeService } from '@/services/mistake-service';
 import { ExerciseService } from '@/services/exercise-service';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import { storage } from '@/services/storage';
 
-interface HomeworkAnswerScreenProps {
-  homeworkId?: string;
-  homeworkTitle: string;
-  homeworkSubject?: string;
-  questionsList?: HomeworkQuestionDetail[];
-  isReviewMode?: boolean;
-  onBack: () => void;
-  onAskAI: (questionContent: string) => void;
-}
+interface HomeworkAnswerScreenProps {}
 
 const LightColors = {
   background: '#F8FAFC',
@@ -51,15 +45,36 @@ const CameraIcon = () => (
   </View>
 );
 
-export function HomeworkAnswerScreen({
-  homeworkId,
-  homeworkTitle,
-  homeworkSubject = '6',
-  questionsList,
-  isReviewMode = false,
-  onBack,
-  onAskAI,
-}: HomeworkAnswerScreenProps) {
+export function HomeworkAnswerScreen() {
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+
+  const {
+    homeworkId,
+    homeworkTitle,
+    homeworkSubject = '6',
+    questionsList,
+    isReviewMode = false,
+  }: {
+    homeworkId?: string;
+    homeworkTitle: string;
+    homeworkSubject?: string;
+    questionsList?: HomeworkQuestionDetail[];
+    isReviewMode?: boolean;
+  } = route.params || {};
+
+  const handleBack = () => {
+    navigation.goBack();
+  };
+
+  const handleAskAI = async (questionContent: string) => {
+    // 写入预填输入并跳到 AI 对话 Tab
+    await storage.setItem(
+      'CHAT_PREFILL',
+      `老师，请问这道题该怎么做？\n\n【题目内容】：\n${questionContent}`
+    );
+    navigation.navigate('Home', { activeTab: 'ai' });
+  };
   const [questions, setQuestions] = useState<HomeworkQuestionDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -166,7 +181,7 @@ export function HomeworkAnswerScreen({
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+          <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
             <Text style={styles.backBtnText}>◀ 返回</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -353,7 +368,7 @@ export function HomeworkAnswerScreen({
         }
 
         Alert.alert('成功', '作业提交保存成功！', [
-          { text: '确定', onPress: onBack }
+          { text: '确定', onPress: handleBack }
         ]);
       } else {
         Alert.alert('失败', '作业提交保存失败，请稍后重试');
@@ -366,11 +381,109 @@ export function HomeworkAnswerScreen({
     }
   };
 
+  const renderAnswerArea = () => {
+    if (isReviewMode) {
+      return (
+        <View style={styles.reviewContentArea}>
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>✅ 参考答案：</Text>
+            <Card style={styles.reviewCard}>
+              <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
+            </Card>
+          </View>
+          <View style={[styles.reviewSection, { marginTop: 14 }]}>
+            <Text style={styles.reviewLabel}>💡 题目解析：</Text>
+            <Card style={styles.reviewCard}>
+              <MathRenderer content={currentQuestion.questionAnalysis || '暂无解析'} textColor="#475569" />
+            </Card>
+          </View>
+        </View>
+      );
+    }
+
+    if (options) {
+      return (
+        <View style={styles.optionsList}>
+          {options.map((opt, idx) => {
+            const char = opt.trim().charAt(0).toUpperCase();
+            const isSelected = answers[currentQuestion.questionId] === char;
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={[styles.optionItem, isSelected && styles.activeOptionItem]}
+                onPress={() => handleSelectOption(opt)}
+              >
+                <View style={[styles.optionIndicator, isSelected && styles.activeOptionIndicator]}>
+                  <Text style={[styles.optionIndicatorText, isSelected && styles.activeOptionIndicatorText]}>
+                    {char}
+                  </Text>
+                </View>
+                <Text style={[styles.optionText, isSelected && styles.activeOptionText]}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.subjectiveAnswerArea}>
+        {/* (1) 填写答案 */}
+        <View style={styles.answerPart}>
+          <Text style={styles.partLabel}>(1) 填写答案:</Text>
+          <View style={styles.inputTextRow}>
+            <TextInput
+              style={styles.textInputShort}
+              placeholder="请输入计算结果..."
+              value={answers[currentQuestion.questionId]}
+              onChangeText={handleTextAnswerChange}
+              placeholderTextColor="#94A3B8"
+            />
+            <TouchableOpacity style={styles.cameraIconBtn} onPress={handleScanTextAnswer}>
+              <CameraIcon />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* (2) 拍照上传过程 */}
+        <View style={[styles.answerPart, { marginTop: 16 }]}>
+          <Text style={styles.partLabel}>(2) 拍照上传过程:</Text>
+          <TouchableOpacity style={styles.photoUploadBox} onPress={handleSelectImageForProcess}>
+            {answersImage[currentQuestion.questionId] ? (
+              <View style={styles.uploadedPhotoWrapper}>
+                <Image
+                  source={{ uri: answersImage[currentQuestion.questionId] }}
+                  style={styles.uploadedPhoto}
+                  resizeMode="contain"
+                />
+                <TouchableOpacity style={styles.deletePhotoBtn} onPress={handleClearImageForProcess}>
+                  <Text style={styles.deletePhotoText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.uploadPlaceholder}>
+                <View style={[styles.cameraIconContainer, { transform: [{ scale: 1.2 }], marginBottom: 6 }]}>
+                  <View style={styles.cameraTop} />
+                  <View style={styles.cameraBody}>
+                    <View style={styles.cameraLens} />
+                  </View>
+                </View>
+                <Text style={styles.uploadPlaceholderText}>拍摄照片</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* 顶部 Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
           <Text style={styles.backBtnText}>◀ 返回</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -378,7 +491,7 @@ export function HomeworkAnswerScreen({
         </Text>
         <TouchableOpacity
           style={styles.aiAssistBtn}
-          onPress={() => onAskAI(currentQuestion.questionContent)}
+          onPress={() => handleAskAI(currentQuestion.questionContent)}
         >
           <Text style={styles.aiAssistBtnText}>🤖 问学伴</Text>
         </TouchableOpacity>
@@ -432,95 +545,7 @@ export function HomeworkAnswerScreen({
         </View>
 
         <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerScrollInner} showsVerticalScrollIndicator={false}>
-          {isReviewMode ? (
-            <View style={styles.reviewContentArea}>
-              <View style={styles.reviewSection}>
-                <Text style={styles.reviewLabel}>✅ 参考答案：</Text>
-                <Card style={styles.reviewCard}>
-                  <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
-                </Card>
-              </View>
-              <View style={[styles.reviewSection, { marginTop: 14 }]}>
-                <Text style={styles.reviewLabel}>💡 题目解析：</Text>
-                <Card style={styles.reviewCard}>
-                  <MathRenderer content={currentQuestion.questionAnalysis || '暂无解析'} textColor="#475569" />
-                </Card>
-              </View>
-            </View>
-          ) : options ? (
-            // 选择题渲染
-            <View style={styles.optionsList}>
-              {options.map((opt, idx) => {
-                const char = opt.trim().charAt(0).toUpperCase();
-                const isSelected = answers[currentQuestion.questionId] === char;
-                return (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.optionItem, isSelected && styles.activeOptionItem]}
-                    onPress={() => handleSelectOption(opt)}
-                  >
-                    <View style={[styles.optionIndicator, isSelected && styles.activeOptionIndicator]}>
-                      <Text style={[styles.optionIndicatorText, isSelected && styles.activeOptionIndicatorText]}>
-                        {char}
-                      </Text>
-                    </View>
-                    <Text style={[styles.optionText, isSelected && styles.activeOptionText]}>
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            // 解答主观题分步作答渲染
-            <View style={styles.subjectiveAnswerArea}>
-              {/* (1) 填写答案 */}
-              <View style={styles.answerPart}>
-                <Text style={styles.partLabel}>(1) 填写答案:</Text>
-                <View style={styles.inputTextRow}>
-                  <TextInput
-                    style={styles.textInputShort}
-                    placeholder="请输入计算结果..."
-                    value={answers[currentQuestion.questionId]}
-                    onChangeText={handleTextAnswerChange}
-                    placeholderTextColor="#94A3B8"
-                  />
-                  <TouchableOpacity style={styles.cameraIconBtn} onPress={handleScanTextAnswer}>
-                    <CameraIcon />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* (2) 拍照上传过程 */}
-              <View style={[styles.answerPart, { marginTop: 16 }]}>
-                <Text style={styles.partLabel}>(2) 拍照上传过程:</Text>
-                <TouchableOpacity style={styles.photoUploadBox} onPress={handleSelectImageForProcess}>
-                  {answersImage[currentQuestion.questionId] ? (
-                    <View style={styles.uploadedPhotoWrapper}>
-                      <Image
-                        source={{ uri: answersImage[currentQuestion.questionId] }}
-                        style={styles.uploadedPhoto}
-                        resizeMode="contain"
-                      />
-                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={handleClearImageForProcess}>
-                        <Text style={styles.deletePhotoText}>×</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={styles.uploadPlaceholder}>
-                      <View style={[styles.cameraIconContainer, { transform: [{ scale: 1.2 }], marginBottom: 6 }]}>
-                        <View style={styles.cameraTop} />
-                        <View style={styles.cameraBody}>
-                          <View style={styles.cameraLens} />
-                        </View>
-                      </View>
-                      <Text style={styles.uploadPlaceholderText}>拍摄照片</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
+          {renderAnswerArea()}
         </ScrollView>
       </View>
 
@@ -545,11 +570,11 @@ export function HomeworkAnswerScreen({
 
         {isReviewMode ? (
           <>
-            <TouchableOpacity style={styles.reviewAskAiBtn} onPress={() => onAskAI(currentQuestion.questionContent)}>
+            <TouchableOpacity style={styles.reviewAskAiBtn} onPress={() => handleAskAI(currentQuestion.questionContent)}>
               <Text style={styles.reviewAskAiText}>🤖 问 AI</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.reviewBackBtn} onPress={onBack}>
+            <TouchableOpacity style={styles.reviewBackBtn} onPress={handleBack}>
               <Text style={styles.reviewBackText}>关闭退出</Text>
             </TouchableOpacity>
           </>

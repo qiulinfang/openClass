@@ -7,12 +7,11 @@ import { HomeworkQuestionDetail } from '@/services/homework-service';
 interface QuestionBankScreenProps {
   onLogout: () => void;
   onAskAI: (questionContent: string) => void;
-  onGoAnswer: (questions: HomeworkQuestionDetail[], title: string, subject: string) => void;
 }
 
 type SubTabType = 'library' | 'mistakes' | 'favorites';
 
-export function QuestionBankScreen({ onLogout, onAskAI, onGoAnswer }: QuestionBankScreenProps) {
+export function QuestionBankScreen({ onLogout, onAskAI }: QuestionBankScreenProps) {
   const [subTab, setSubTab] = useState<SubTabType>('library');
 
   return (
@@ -42,13 +41,13 @@ export function QuestionBankScreen({ onLogout, onAskAI, onGoAnswer }: QuestionBa
       {/* 视图内容承载区 */}
       <View style={styles.contentView}>
         {subTab === 'library' && (
-          <ExerciseSolveScreen onLogout={onLogout} onGoAnswer={onGoAnswer} />
+          <ExerciseSolveScreen onLogout={onLogout} />
         )}
         {subTab === 'mistakes' && (
-          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="mistake" onGoAnswer={onGoAnswer} />
+          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="mistake" />
         )}
         {subTab === 'favorites' && (
-          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="exercise" onGoAnswer={onGoAnswer} />
+          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="exercise" />
         )}
       </View>
     </View>

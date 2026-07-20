@@ -55,10 +55,17 @@ export class ExerciseService {
    * 接口对接：从云端拉取当前用户所有科目的习题列表
    */
   public static async getExercises(): Promise<ExerciseItem[]> {
+    // 先获取本地备份，如果个人收藏的习题为空，直接返回空，不要从云端获取
+    const local = await this.getLocalExercises();
+    if (local.length === 0) {
+      console.log('[ExerciseService] 📭 本地收藏习题为空，跳过云端拉取。');
+      return [];
+    }
+
     const token = await storage.getItem('XUEBAN_TOKEN') || '';
     if (!token.trim()) {
       // 未登录时，回退读取本地存储
-      return this.getLocalExercises();
+      return local;
     }
 
     const baseUrl = this.getApiBaseUrl();
