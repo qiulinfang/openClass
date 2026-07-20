@@ -17,9 +17,12 @@ config.server.enhanceMiddleware = (metroMiddleware, metroServer) => {
   return (request, response, next) => {
     const pathname = new URL(request.url || '/', 'http://localhost').pathname;
     const isKnowledgeRequest = pathname === '/knowledge';
-    const isYanbanRequest =
-      pathname.startsWith('/yb-release/') || pathname.startsWith('/yb-test/');
-    if (!isKnowledgeRequest && !isYanbanRequest) {
+    const isGatewayRequest =
+      pathname.startsWith('/yb-release/') ||
+      pathname.startsWith('/yb-test/') ||
+      pathname.startsWith('/xb-release/') ||
+      pathname.startsWith('/xb-test/');
+    if (!isKnowledgeRequest && !isGatewayRequest) {
       return enhancedMetroMiddleware(request, response, next);
     }
 

@@ -1,4 +1,5 @@
 import React, {
+  memo,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -9,6 +10,8 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   FlatList,
   Image,
   Platform,
@@ -16,7 +19,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +33,11 @@ import {
   TextbookFilterSelect,
   type TextbookFilterOption,
 } from '../components/TextbookFilterSelect';
+import {
+  MotionPressable,
+  textbookMotionConfig,
+  useReducedMotion,
+} from '../components/TextbookMotion';
 
 interface TextbookCenterScreenProps {
   onLearn: (textbook: UserTextbookInfo) => void;
@@ -44,6 +51,8 @@ interface TextbookListItem extends UserTextbookInfo {
   hasUpdatesAvailable: boolean;
   downloadProgress?: number;
 }
+
+type ResourceTab = 'all' | 'downloaded' | 'notDownloaded';
 
 const Palette = {
   page: '#EEF1FF',
@@ -118,7 +127,315 @@ const getStatusPresentation = (textbook: TextbookListItem) => {
   return { text: '未下载', color: Palette.danger, background: Palette.dangerSoft };
 };
 
+interface TextbookCardProps {
+  item: TextbookListItem;
+  reduceMotion: boolean;
+  onClear: (textbook: TextbookListItem) => void;
+  onDownload: (textbook: TextbookListItem, forceRefresh?: boolean) => void;
+  onLearn: (textbook: UserTextbookInfo) => void;
+  onPause: (textbook: TextbookListItem) => void;
+}
+
+const TextbookCard = memo(function TextbookCard({
+  item,
+  reduceMotion,
+  onClear,
+  onDownload,
+  onLearn,
+  onPause,
+}: TextbookCardProps) {
+  const status = getStatusPresentation(item);
+  const progress =
+    item.downloadStatus === 1 && item.downloadProgress !== undefined
+      ? item.downloadProgress
+      : item.totalFiles > 0
+        ? Math.min(100, Math.round((item.downloadedFiles / item.totalFiles) * 100))
+        : 0;
+  const canClear =
+    item.isDownloaded || item.downloadStatus !== 0 || item.downloadedFiles > 0;
+
+  return (
+    <View
+      style={[
+        styles.textbookCard,
+        item.downloadStatus === 1 && styles.textbookCardDownloading,
+      ]}
+    >
+      {item.isDownloaded ? (
+        <MotionPressable
+          style={styles.downloadedMark}
+          onPress={() => onClear(item)}
+          reduceMotion={reduceMotion}
+          pressedScale={0.88}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.textbookName}已下载，点击可清除本地资料`}
+        >
+          <Text style={styles.downloadedMarkText}>✓</Text>
+        </MotionPressable>
+      ) : canClear ? (
+        <MotionPressable
+          style={styles.clearButton}
+          onPress={() => onClear(item)}
+          reduceMotion={reduceMotion}
+          pressedScale={0.88}
+          accessibilityRole="button"
+          accessibilityLabel={`清除${item.textbookName}本地资料`}
+        >
+          <Text style={styles.clearButtonText}>×</Text>
+        </MotionPressable>
+      ) : null}
+
+      <View style={styles.coverFrame}>
+        <Image
+          source={{ uri: item.textbookCover || DEFAULT_BOOK_ICON }}
+          style={styles.cover}
+          resizeMode="cover"
+          fadeDuration={reduceMotion ? 0 : 180}
+          progressiveRenderingEnabled
+          accessible
+          accessibilityLabel={`${item.textbookName}封面`}
+        />
+        <View style={styles.coverSpine} />
+      </View>
+
+      <View style={styles.textbookBody}>
+        <View>
+          <Text style={styles.textbookTitle} numberOfLines={2}>
+            {item.textbookName}
+          </Text>
+          <View style={styles.tagRow}>
+            <View style={styles.metaTag}>
+              <Text style={styles.metaTagText}>{item.textbookSubjectLabel}</Text>
+            </View>
+            <View style={styles.metaTag}>
+              <Text style={styles.metaTagText}>{item.textbookGradeLabel}</Text>
+            </View>
+            <View style={styles.metaTag}>
+              <Text style={styles.metaTagText}>
+                {item.textbookPublisher || '人教版'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {item.downloadStatus === 1 ? (
+          <View style={styles.cardProgressArea}>
+            <View style={styles.cardProgressLabelRow}>
+              <Text style={styles.cardProgressLabel}>正在下载</Text>
+              <Text style={styles.cardProgressValue}>{progress}%</Text>
+            </View>
+            <MotionPressable
+              style={styles.cardProgressTrack}
+              onPress={() => onPause(item)}
+              reduceMotion={reduceMotion}
+              pressedScale={0.99}
+              accessibilityRole="button"
+              accessibilityLabel={`下载进度${progress}%，点击暂停`}
+            >
+              <View style={[styles.cardProgressFill, { width: `${progress}%` }]} />
+            </MotionPressable>
+          </View>
+        ) : null}
+
+        <View style={styles.cardFooter}>
+          <View style={[styles.statusPill, { backgroundColor: status.background }]}>
+            <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+            <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+          </View>
+
+          {item.downloadStatus === 1 ? (
+            <MotionPressable
+              style={[styles.actionButton, styles.secondaryAction]}
+              onPress={() => onPause(item)}
+              reduceMotion={reduceMotion}
+              accessibilityRole="button"
+              accessibilityLabel={`暂停下载${item.textbookName}`}
+            >
+              <Text style={styles.secondaryActionText}>暂停</Text>
+            </MotionPressable>
+          ) : item.downloadStatus === 3 ? (
+            <MotionPressable
+              style={[styles.actionButton, styles.secondaryAction]}
+              onPress={() => onDownload(item)}
+              reduceMotion={reduceMotion}
+              accessibilityRole="button"
+              accessibilityLabel={`继续下载${item.textbookName}`}
+            >
+              <Text style={styles.secondaryActionText}>继续</Text>
+            </MotionPressable>
+          ) : item.isDownloaded && !item.hasUpdatesAvailable ? (
+            <MotionPressable
+              style={[styles.actionButton, styles.learnAction]}
+              onPress={() => onLearn(item)}
+              reduceMotion={reduceMotion}
+              accessibilityRole="button"
+              accessibilityLabel={`打开${item.textbookName}`}
+            >
+              <Text style={styles.learnActionText}>打开</Text>
+            </MotionPressable>
+          ) : item.isDownloaded && item.hasUpdatesAvailable ? (
+            <MotionPressable
+              style={[styles.actionButton, styles.updateAction]}
+              onPress={() => onDownload(item, true)}
+              reduceMotion={reduceMotion}
+              accessibilityRole="button"
+              accessibilityLabel={`更新${item.textbookName}`}
+            >
+              <Text style={styles.updateActionText}>更新</Text>
+            </MotionPressable>
+          ) : (
+            <MotionPressable
+              style={[styles.actionButton, styles.downloadAction]}
+              onPress={() => onDownload(item)}
+              reduceMotion={reduceMotion}
+              accessibilityRole="button"
+              accessibilityLabel={`下载${item.textbookName}`}
+            >
+              <Text style={styles.downloadActionText}>⇩ 下载</Text>
+            </MotionPressable>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+});
+
+interface ResourceTabButtonProps {
+  active: boolean;
+  label: string;
+  reduceMotion: boolean;
+  onPress: () => void;
+}
+
+const ResourceTabButton = memo(function ResourceTabButton({
+  active,
+  label,
+  reduceMotion,
+  onPress,
+}: ResourceTabButtonProps) {
+  const activeProgress = useRef(new Animated.Value(active ? 1 : 0)).current;
+
+  useEffect(() => {
+    activeProgress.stopAnimation();
+    if (reduceMotion) {
+      activeProgress.setValue(active ? 1 : 0);
+      return undefined;
+    }
+
+    const animation = Animated.timing(activeProgress, {
+      toValue: active ? 1 : 0,
+      duration: active ? 220 : 140,
+      easing: active ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      useNativeDriver: textbookMotionConfig.useNativeDriver,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [active, activeProgress, reduceMotion]);
+
+  return (
+    <MotionPressable
+      style={styles.resourceTab}
+      onPress={onPress}
+      reduceMotion={reduceMotion}
+      pressedScale={0.96}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+    >
+      <Text
+        style={[
+          styles.resourceTabText,
+          active && styles.resourceTabTextActive,
+        ]}
+      >
+        {label}
+      </Text>
+      <Animated.View
+        style={[
+          styles.resourceTabIndicator,
+          {
+            opacity: activeProgress,
+            transform: [{ scaleX: activeProgress }],
+          },
+        ]}
+      />
+    </MotionPressable>
+  );
+});
+
+const AnimatedMessageBanner = memo(function AnimatedMessageBanner({
+  message,
+  reduceMotion,
+}: {
+  message: string;
+  reduceMotion: boolean;
+}) {
+  const [displayedMessage, setDisplayedMessage] = useState(message);
+  const visibility = useRef(new Animated.Value(message ? 1 : 0)).current;
+
+  useEffect(() => {
+    visibility.stopAnimation();
+
+    if (message) {
+      setDisplayedMessage(message);
+      if (reduceMotion) {
+        visibility.setValue(1);
+        return undefined;
+      }
+      const animation = Animated.timing(visibility, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: textbookMotionConfig.useNativeDriver,
+      });
+      animation.start();
+      return () => animation.stop();
+    }
+
+    if (reduceMotion) {
+      visibility.setValue(0);
+      setDisplayedMessage('');
+      return undefined;
+    }
+
+    const animation = Animated.timing(visibility, {
+      toValue: 0,
+      duration: 140,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: textbookMotionConfig.useNativeDriver,
+    });
+    animation.start(({ finished }) => {
+      if (finished) setDisplayedMessage('');
+    });
+    return () => animation.stop();
+  }, [message, reduceMotion, visibility]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.messageBanner,
+        {
+          opacity: visibility,
+          transform: [
+            {
+              translateY: visibility.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-8, 0],
+              }),
+            },
+          ],
+        },
+      ]}
+      accessibilityLiveRegion="polite"
+    >
+      <Text style={styles.messageText}>{displayedMessage}</Text>
+    </Animated.View>
+  );
+});
+
 export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
+  const reduceMotion = useReducedMotion();
   const [textbooks, setTextbooks] = useState<TextbookListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -127,9 +444,7 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [resourceTab, setResourceTab] = useState<
-    'all' | 'downloaded' | 'notDownloaded'
-  >('all');
+  const [resourceTab, setResourceTab] = useState<ResourceTab>('all');
   const [message, setMessage] = useState('');
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -219,13 +534,13 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
   );
 
   const filteredTextbooks = useMemo(() => {
+    const keyword = deferredSearchQuery.trim().toLocaleLowerCase();
     const matchedTextbooks = textbooks.filter((textbook) => {
         if (selectedGrade && textbook.textbookGradeLabel !== selectedGrade) return false;
         if (selectedVersion && textbook.textbookPublisher !== selectedVersion) return false;
         if (selectedSubject && textbook.textbookSubjectLabel !== selectedSubject) return false;
         if (resourceTab === 'downloaded' && !textbook.isDownloaded) return false;
         if (resourceTab === 'notDownloaded' && textbook.isDownloaded) return false;
-        const keyword = deferredSearchQuery.trim().toLocaleLowerCase();
         if (
           keyword &&
           ![
@@ -286,9 +601,19 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
       });
 
       try {
+        let lastProgress = -1;
+        let lastDownloadedFiles = -1;
         const record = await TextbookDownloadService.downloadTextbook(
           textbook,
           ({ progress, downloadedFiles, totalFiles }) => {
+            if (
+              progress === lastProgress &&
+              downloadedFiles === lastDownloadedFiles
+            ) {
+              return;
+            }
+            lastProgress = progress;
+            lastDownloadedFiles = downloadedFiles;
             updateItemState(textbook.id, {
               downloadStatus: 1,
               downloadedFiles,
@@ -388,141 +713,34 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
 
   const renderTextbook = useCallback(
     ({ item }: { item: TextbookListItem }) => {
-      const status = getStatusPresentation(item);
-      const progress =
-        item.downloadStatus === 1 && item.downloadProgress !== undefined
-          ? item.downloadProgress
-          : item.totalFiles > 0
-          ? Math.min(100, Math.round((item.downloadedFiles / item.totalFiles) * 100))
-          : 0;
-      const canClear =
-        item.isDownloaded || item.downloadStatus !== 0 || item.downloadedFiles > 0;
-
       return (
-        <View
-          style={[
-            styles.textbookCard,
-            item.downloadStatus === 1 && styles.textbookCardDownloading,
-          ]}
-        >
-          {item.isDownloaded ? (
-            <TouchableOpacity
-              style={styles.downloadedMark}
-              onPress={() => handleClear(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.textbookName}已下载，点击可清除本地资料`}
-            >
-              <Text style={styles.downloadedMarkText}>✓</Text>
-            </TouchableOpacity>
-          ) : canClear ? (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => handleClear(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`清除${item.textbookName}本地资料`}
-            >
-              <Text style={styles.clearButtonText}>×</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          <View style={styles.coverFrame}>
-            <Image
-              source={{ uri: item.textbookCover || DEFAULT_BOOK_ICON }}
-              style={styles.cover}
-              resizeMode="cover"
-            />
-            <View style={styles.coverSpine} />
-          </View>
-
-          <View style={styles.textbookBody}>
-            <View>
-              <Text style={styles.textbookTitle} numberOfLines={2}>
-                {item.textbookName}
-              </Text>
-              <View style={styles.tagRow}>
-                <View style={styles.metaTag}>
-                  <Text style={styles.metaTagText}>{item.textbookSubjectLabel}</Text>
-                </View>
-                <View style={styles.metaTag}>
-                  <Text style={styles.metaTagText}>{item.textbookGradeLabel}</Text>
-                </View>
-                <View style={styles.metaTag}>
-                  <Text style={styles.metaTagText}>
-                    {item.textbookPublisher || '人教版'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {item.downloadStatus === 1 ? (
-              <View style={styles.cardProgressArea}>
-                <View style={styles.cardProgressLabelRow}>
-                  <Text style={styles.cardProgressLabel}>正在下载</Text>
-                  <Text style={styles.cardProgressValue}>{progress}%</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.cardProgressTrack}
-                  onPress={() => handlePause(item)}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityLabel={`下载进度${progress}%，点击暂停`}
-                >
-                  <View style={[styles.cardProgressFill, { width: `${progress}%` }]} />
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            <View style={styles.cardFooter}>
-              <View style={[styles.statusPill, { backgroundColor: status.background }]}>
-                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-                <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
-              </View>
-
-              {item.downloadStatus === 1 ? (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.secondaryAction]}
-                  onPress={() => handlePause(item)}
-                >
-                  <Text style={styles.secondaryActionText}>暂停</Text>
-                </TouchableOpacity>
-              ) : item.downloadStatus === 3 ? (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.secondaryAction]}
-                  onPress={() => handleDownload(item)}
-                >
-                  <Text style={styles.secondaryActionText}>继续</Text>
-                </TouchableOpacity>
-              ) : item.isDownloaded && !item.hasUpdatesAvailable ? (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.learnAction]}
-                  onPress={() => onLearn(item)}
-                >
-                  <Text style={styles.learnActionText}>打开</Text>
-                </TouchableOpacity>
-              ) : item.isDownloaded && item.hasUpdatesAvailable ? (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.updateAction]}
-                  onPress={() => handleDownload(item, true)}
-                >
-                  <Text style={styles.updateActionText}>更新</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.downloadAction]}
-                  onPress={() => handleDownload(item)}
-                >
-                  <Text style={styles.downloadActionText}>⇩ 下载</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
+        <TextbookCard
+          item={item}
+          reduceMotion={reduceMotion}
+          onClear={handleClear}
+          onDownload={handleDownload}
+          onLearn={onLearn}
+          onPause={handlePause}
+        />
       );
     },
-    [handleClear, handleDownload, handlePause, onLearn]
+    [handleClear, handleDownload, handlePause, onLearn, reduceMotion]
   );
   const refreshResources = useCallback(() => {
     void loadResources(true);
+  }, [loadResources]);
+  const clearSearch = useCallback(() => setSearchQuery(''), []);
+  const showAllResources = useCallback(() => setResourceTab('all'), []);
+  const showDownloadedResources = useCallback(
+    () => setResourceTab('downloaded'),
+    []
+  );
+  const showNotDownloadedResources = useCallback(
+    () => setResourceTab('notDownloaded'),
+    []
+  );
+  const retryLoadResources = useCallback(() => {
+    void loadResources(false);
   }, [loadResources]);
 
   return (
@@ -536,6 +754,7 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
             value={selectedVersion}
             options={versionOptions}
             onChange={setSelectedVersion}
+            reduceMotion={reduceMotion}
           />
           <TextbookFilterSelect
             compact
@@ -543,6 +762,7 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
             value={selectedSubject}
             options={subjectOptions}
             onChange={setSelectedSubject}
+            reduceMotion={reduceMotion}
           />
           <TextbookFilterSelect
             compact
@@ -550,6 +770,7 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
             value={selectedGrade}
             options={gradeOptions}
             onChange={setSelectedGrade}
+            reduceMotion={reduceMotion}
           />
         </View>
       </View>
@@ -567,71 +788,45 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
             placeholderTextColor={Palette.muted}
             style={styles.searchInput}
             returnKeyType="search"
-            clearButtonMode="while-editing"
+            clearButtonMode="never"
             accessibilityLabel="搜索教材"
           />
+          {searchQuery ? (
+            <MotionPressable
+              style={styles.searchClearButton}
+              onPress={clearSearch}
+              reduceMotion={reduceMotion}
+              pressedScale={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="清除教材搜索内容"
+            >
+              <Text style={styles.searchClearText}>×</Text>
+            </MotionPressable>
+          ) : null}
         </View>
       </View>
 
-      {message ? (
-        <View style={styles.messageBanner}>
-          <Text style={styles.messageText}>{message}</Text>
-        </View>
-      ) : null}
+      <AnimatedMessageBanner message={message} reduceMotion={reduceMotion} />
 
       <View style={styles.resourceTabs}>
-        <TouchableOpacity
-          style={styles.resourceTab}
-          onPress={() => setResourceTab('all')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: resourceTab === 'all' }}
-        >
-          <Text
-            style={[
-              styles.resourceTabText,
-              resourceTab === 'all' && styles.resourceTabTextActive,
-            ]}
-          >
-            全部资源
-          </Text>
-          {resourceTab === 'all' ? <View style={styles.resourceTabIndicator} /> : null}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.resourceTab}
-          onPress={() => setResourceTab('downloaded')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: resourceTab === 'downloaded' }}
-        >
-          <Text
-            style={[
-              styles.resourceTabText,
-              resourceTab === 'downloaded' && styles.resourceTabTextActive,
-            ]}
-          >
-            已下载
-          </Text>
-          {resourceTab === 'downloaded' ? (
-            <View style={styles.resourceTabIndicator} />
-          ) : null}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.resourceTab}
-          onPress={() => setResourceTab('notDownloaded')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: resourceTab === 'notDownloaded' }}
-        >
-          <Text
-            style={[
-              styles.resourceTabText,
-              resourceTab === 'notDownloaded' && styles.resourceTabTextActive,
-            ]}
-          >
-            未下载
-          </Text>
-          {resourceTab === 'notDownloaded' ? (
-            <View style={styles.resourceTabIndicator} />
-          ) : null}
-        </TouchableOpacity>
+        <ResourceTabButton
+          active={resourceTab === 'all'}
+          label="全部资源"
+          reduceMotion={reduceMotion}
+          onPress={showAllResources}
+        />
+        <ResourceTabButton
+          active={resourceTab === 'downloaded'}
+          label="已下载"
+          reduceMotion={reduceMotion}
+          onPress={showDownloadedResources}
+        />
+        <ResourceTabButton
+          active={resourceTab === 'notDownloaded'}
+          label="未下载"
+          reduceMotion={reduceMotion}
+          onPress={showNotDownloadedResources}
+        />
         <View style={styles.resourceTabSpacer} />
         <Text style={styles.listCount}>{filteredTextbooks.length} 本</Text>
       </View>
@@ -649,12 +844,16 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
           keyExtractor={textbookKeyExtractor}
           initialNumToRender={6}
           maxToRenderPerBatch={6}
-          windowSize={7}
+          updateCellsBatchingPeriod={40}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={[
             styles.listContent,
             filteredTextbooks.length === 0 && styles.emptyListContent,
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -677,12 +876,15 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
                   : '试试调整上方筛选条件'}
               </Text>
               {textbooks.length === 0 ? (
-                <TouchableOpacity
+                <MotionPressable
                   style={styles.retryButton}
-                  onPress={() => loadResources(false)}
+                  onPress={retryLoadResources}
+                  reduceMotion={reduceMotion}
+                  accessibilityRole="button"
+                  accessibilityLabel="重新加载教材"
                 >
                   <Text style={styles.retryButtonText}>重新加载</Text>
-                </TouchableOpacity>
+                </MotionPressable>
               ) : null}
             </View>
           }
@@ -767,13 +969,46 @@ const styles = StyleSheet.create({
     color: Palette.ink,
     fontSize: 16,
   },
+  searchClearButton: {
+    width: 44,
+    height: 44,
+    marginRight: -10,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchClearText: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#D9DEE9',
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   messageBanner: {
-    marginHorizontal: 16,
-    marginTop: 10,
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    top: 128,
+    zIndex: 20,
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: '#27223F',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#172033',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.16,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   messageText: {
     color: '#FFFFFF',

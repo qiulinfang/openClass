@@ -1,14 +1,26 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
+  Animated,
+  Easing,
+  FlatList,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  MotionPressable,
+  textbookMotionConfig,
+} from './TextbookMotion';
 
 export interface TextbookFilterOption {
   label: string;
@@ -21,6 +33,7 @@ interface TextbookFilterSelectProps {
   options: TextbookFilterOption[];
   onChange: (value: string) => void;
   compact?: boolean;
+  reduceMotion?: boolean;
 }
 
 export const TextbookFilterSelect = memo(function TextbookFilterSelect({
@@ -29,22 +42,104 @@ export const TextbookFilterSelect = memo(function TextbookFilterSelect({
   options,
   onChange,
   compact = false,
+  reduceMotion = false,
 }: TextbookFilterSelectProps) {
   const [visible, setVisible] = useState(false);
+  const sheetProgress = useRef(new Animated.Value(0)).current;
   const selectedLabel = useMemo(
     () => options.find((option) => option.value === value)?.label || '全部',
     [options, value]
   );
   const displayLabel = compact && !value ? label : selectedLabel;
 
+  useEffect(() => {
+    if (!visible) return undefined;
+
+    sheetProgress.stopAnimation();
+    if (reduceMotion) {
+      sheetProgress.setValue(1);
+      return undefined;
+    }
+
+    sheetProgress.setValue(0);
+    const animation = Animated.timing(sheetProgress, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: textbookMotionConfig.useNativeDriver,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [reduceMotion, sheetProgress, visible]);
+
+  const openSheet = useCallback(() => {
+    setVisible(true);
+  }, []);
+
+  const closeSheet = useCallback(() => {
+    sheetProgress.stopAnimation();
+    if (reduceMotion) {
+      setVisible(false);
+      return;
+    }
+
+    Animated.timing(sheetProgress, {
+      toValue: 0,
+      duration: 160,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: textbookMotionConfig.useNativeDriver,
+    }).start(({ finished }) => {
+      if (finished) setVisible(false);
+    });
+  }, [reduceMotion, sheetProgress]);
+
+  const selectOption = useCallback(
+    (optionValue: string) => {
+      if (optionValue !== value) onChange(optionValue);
+      closeSheet();
+    },
+    [closeSheet, onChange, value]
+  );
+
+  const renderOption = useCallback(
+    ({ item: option }: { item: TextbookFilterOption }) => {
+      const active = option.value === value;
+      return (
+        <MotionPressable
+          style={[styles.optionRow, active && styles.optionRowActive]}
+          onPress={() => selectOption(option.value)}
+          reduceMotion={reduceMotion}
+          pressedScale={0.985}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: active }}
+          accessibilityLabel={option.label}
+        >
+          <Text
+            style={[
+              styles.optionText,
+              active && styles.optionTextActive,
+            ]}
+          >
+            {option.label}
+          </Text>
+          {active ? <Text style={styles.optionCheck}>✓</Text> : null}
+        </MotionPressable>
+      );
+    },
+    [reduceMotion, selectOption, value]
+  );
+
   return (
     <>
-      <TouchableOpacity
+      <MotionPressable
         style={[styles.select, compact && styles.compactSelect]}
-        activeOpacity={0.75}
-        onPress={() => setVisible(true)}
+        onPress={openSheet}
+        reduceMotion={reduceMotion}
+        pressedScale={0.96}
         accessibilityRole="button"
         accessibilityLabel={`${label}，当前${displayLabel}`}
+        accessibilityHint="打开筛选选项"
+        accessibilityState={{ expanded: visible }}
       >
         {!compact ? <Text style={styles.caption}>{label}</Text> : null}
         <View style={styles.valueRow}>
@@ -58,48 +153,62 @@ export const TextbookFilterSelect = memo(function TextbookFilterSelect({
             ⌄
           </Text>
         </View>
-      </TouchableOpacity>
+      </MotionPressable>
 
       <Modal
         transparent
         visible={visible}
-        animationType="fade"
-        onRequestClose={() => setVisible(false)}
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeSheet}
       >
-        <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
+        <View style={styles.modalRoot}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.backdropVisual, { opacity: sheetProgress }]}
+          />
           <Pressable
-            style={styles.optionSheet}
-            onPress={(event) => event.stopPropagation()}
+            style={StyleSheet.absoluteFill}
+            onPress={closeSheet}
+            accessibilityRole="button"
+            accessibilityLabel={`关闭${label}筛选`}
+          />
+          <Animated.View
+            style={[
+              styles.optionSheet,
+              {
+                transform: [
+                  {
+                    translateY: sheetProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [40, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+            accessibilityViewIsModal
           >
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>选择{label}</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {options.map((option) => {
-                const active = option.value === value;
-                return (
-                  <TouchableOpacity
-                    key={`${label}-${option.value || 'all'}`}
-                    style={[styles.optionRow, active && styles.optionRowActive]}
-                    onPress={() => {
-                      onChange(option.value);
-                      setVisible(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.optionText,
-                        active && styles.optionTextActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    {active ? <Text style={styles.optionCheck}>✓</Text> : null}
-                  </TouchableOpacity>
-                );
+            <FlatList
+              data={options}
+              renderItem={renderOption}
+              keyExtractor={(option) => `${label}-${option.value || 'all'}`}
+              initialNumToRender={10}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS === 'android'}
+              getItemLayout={(_, index) => ({
+                length: 53,
+                offset: 53 * index,
+                index,
               })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            />
+          </Animated.View>
+        </View>
       </Modal>
     </>
   );
@@ -161,13 +270,17 @@ const styles = StyleSheet.create({
     color: '#65708A',
     fontSize: 13,
   },
-  backdrop: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: 'rgba(23, 32, 51, 0.38)',
     justifyContent: 'flex-end',
+  },
+  backdropVisual: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(23, 32, 51, 0.44)',
   },
   optionSheet: {
     maxHeight: '66%',
+    minHeight: 180,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -190,6 +303,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   optionRow: {
+    height: 48,
     minHeight: 48,
     borderRadius: 12,
     paddingHorizontal: 14,

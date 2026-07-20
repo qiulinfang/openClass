@@ -1,5 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   StyleSheet,
   Text,
   View,
@@ -25,7 +34,11 @@ import {
   ResourceFile,
 } from '../services/textbook-service';
 import { TextbookDownloadService } from '../services/textbook-download-service';
-import { PdfAnnotationViewer } from '../components/PdfAnnotationViewer';
+import {
+  PdfAnnotationViewer,
+  type PdfExploreCapture,
+} from '../components/PdfAnnotationViewer';
+import { PdfExplorePanel } from '../components/PdfExplorePanel';
 import type { TextbookPracticeContext } from '../types';
 import { TextbookPracticePanel } from '../components/TextbookPracticePanel';
 import {
@@ -93,12 +106,51 @@ export function TextbookDetailScreen({
   >('loading');
   const [previewError, setPreviewError] = useState('');
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const [previewChromeVisible, setPreviewChromeVisible] = useState(true);
+  const [exploreSelecting, setExploreSelecting] = useState(false);
+  const [explorePanelVisible, setExplorePanelVisible] = useState(false);
+  const [exploreCapture, setExploreCapture] =
+    useState<PdfExploreCapture | null>(null);
   const [activeContentTab, setActiveContentTab] = useState<
     'resources' | 'practice'
   >('resources');
   const [practicePreparing, setPracticePreparing] = useState(false);
   const [preparedPractice, setPreparedPractice] =
     useState<PreparedPracticeData | null>(null);
+  const [practiceFeedback, setPracticeFeedback] = useState('');
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const previewChromeProgress = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+  }, []);
+
+  const handlePdfReady = useCallback(() => {
+    setPreviewStatus('ready');
+  }, []);
+
+  const handlePdfError = useCallback((message: string) => {
+    setPreviewError(message);
+    setPreviewStatus('error');
+  }, []);
+
+  const handleExploreCapture = useCallback((capture: PdfExploreCapture) => {
+    setExploreCapture(capture);
+    setExploreSelecting(false);
+    setPreviewChromeVisible(true);
+    setExplorePanelVisible(true);
+  }, []);
+
+  const handleExploreCaptureError = useCallback((message: string) => {
+    Alert.alert('探索区域', message);
+  }, []);
+
+  const handlePreviewChromeVisibilityChange = useCallback(
+    (visible: boolean) => {
+      setPreviewChromeVisible(visible);
+    },
+    []
+  );
 
   const selectedChapter = useMemo(
     () =>
@@ -161,12 +213,14 @@ export function TextbookDetailScreen({
     setSelectedLessonId(firstLesson?.id || null);
     setActiveContentTab('resources');
     setPreparedPractice(null);
+    setPracticeFeedback('');
   }, []);
 
   const selectLesson = useCallback((lesson: ChapterNode) => {
     setSelectedLessonId(lesson.id);
     setActiveContentTab('resources');
     setPreparedPractice(null);
+    setPracticeFeedback('');
   }, []);
 
   const openPracticeMode = async () => {
@@ -178,6 +232,7 @@ export function TextbookDetailScreen({
     setActiveContentTab('practice');
     setPracticePreparing(true);
     setPreparedPractice(null);
+    setPracticeFeedback('');
     try {
       const prepared = await TextbookPracticeService.preparePractice(
         practiceContext.textbookId,
@@ -185,14 +240,21 @@ export function TextbookDetailScreen({
         practiceContext.subject,
         practiceContext.textbookRecordId
       );
-      setPreparedPractice(prepared);
+      if (prepared.page.questions.length > 0) {
+        setPreparedPractice(prepared);
+      } else {
+        setPracticeFeedback('练习列表为空');
+      }
       setActiveContentTab('practice');
     } catch (error) {
-      setActiveContentTab('resources');
-      Alert.alert(
-        '练习模式',
-        error instanceof Error ? error.message : '练习题查询失败，请稍后重试'
+      const message =
+        error instanceof Error ? error.message : '练习题查询失败，请稍后重试';
+      setPracticeFeedback(
+        /暂无|没有|无.*练习|无.*题/.test(message)
+          ? '练习列表为空'
+          : message
       );
+      setActiveContentTab('practice');
     } finally {
       setPracticePreparing(false);
     }
@@ -222,6 +284,21 @@ export function TextbookDetailScreen({
   const isPdfResource = (resource: ResourceFile | null): boolean =>
     !!resource?.fileName.toLowerCase().endsWith('.pdf');
 
+  const isPdfPreview = isPdfResource(previewResource);
+  const previewHeaderVisible =
+    !isPdfPreview || previewChromeVisible || exploreSelecting;
+
+  useEffect(() => {
+    Animated.timing(previewChromeProgress, {
+      toValue: previewHeaderVisible ? 1 : 0,
+      duration: reduceMotion ? 0 : previewHeaderVisible ? 220 : 170,
+      easing: previewHeaderVisible
+        ? Easing.out(Easing.cubic)
+        : Easing.in(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [previewChromeProgress, previewHeaderVisible, reduceMotion]);
+
   const getPreviewUri = (resource: ResourceFile): string => {
     return resource.fileUrl;
   };
@@ -233,12 +310,20 @@ export function TextbookDetailScreen({
       : undefined;
 
   const closePreview = () => {
+    setPreviewChromeVisible(true);
+    setExploreSelecting(false);
+    setExplorePanelVisible(false);
+    setExploreCapture(null);
     setPreviewResource(null);
     setPreviewError('');
     setPreviewStatus('loading');
   };
 
   const retryPreview = () => {
+    setPreviewChromeVisible(true);
+    setExploreSelecting(false);
+    setExplorePanelVisible(false);
+    setExploreCapture(null);
     setPreviewStatus('loading');
     setPreviewError('');
     setPreviewReloadKey((current) => current + 1);
@@ -252,6 +337,7 @@ export function TextbookDetailScreen({
     setSelectedLessonId(null);
     setActiveContentTab('resources');
     setPreparedPractice(null);
+    setPracticeFeedback('');
     setIsLoadingDetail(true);
 
     try {
@@ -336,6 +422,10 @@ export function TextbookDetailScreen({
         key={res.id}
         style={styles.resourceRow}
         onPress={() => {
+          setPreviewChromeVisible(true);
+          setExploreSelecting(false);
+          setExplorePanelVisible(false);
+          setExploreCapture(null);
           setPreviewStatus('loading');
           setPreviewError('');
           setPreviewResource(res);
@@ -688,16 +778,20 @@ export function TextbookDetailScreen({
                       onStart={(questions) => onStartPractice?.(questions)}
                     />
                   ) : (
-                    <View style={styles.promptPanelCard}>
+                    <View style={styles.resourcesPanelCard}>
                       {practicePreparing ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={LightColors.primary}
-                        />
+                        <View style={styles.noResourceBox}>
+                          <ActivityIndicator
+                            size="small"
+                            color={LightColors.primary}
+                          />
+                        </View>
                       ) : (
-                        <Text style={styles.promptPanelText}>
-                          请先选择一个有练习题的课节
-                        </Text>
+                        <View style={styles.noResourceBox}>
+                          <Text style={styles.noResourceTitle}>
+                            {practiceFeedback || '练习列表为空'}
+                          </Text>
+                        </View>
                       )}
                     </View>
                   )}
@@ -736,27 +830,100 @@ export function TextbookDetailScreen({
         onRequestClose={closePreview}
       >
         <View style={styles.previewSafeArea}>
-          <View
-            style={[styles.previewHeader, { paddingTop: previewTopInset + 8 }]}
+          <Animated.View
+            pointerEvents={
+              isPdfPreview && !previewHeaderVisible ? 'none' : 'auto'
+            }
+            style={[
+              styles.previewHeader,
+              isPdfPreview && styles.previewHeaderFloating,
+              { paddingTop: previewTopInset + 8 },
+              isPdfPreview && {
+                opacity: previewChromeProgress,
+                transform: [
+                  {
+                    translateY: previewChromeProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-160, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
           >
-            <TouchableOpacity
-              style={styles.previewBackBtn}
-              onPress={closePreview}
-              accessibilityRole="button"
-              accessibilityLabel="返回教材详情"
-            >
-              <Text style={styles.previewBackIcon}>‹</Text>
-            </TouchableOpacity>
-            <View style={styles.previewHeading}>
-              <Text style={styles.previewEyebrow}>
-                {isPdfResource(previewResource) ? 'PDF 课件' : '学习资源'}
-              </Text>
-              <Text style={styles.previewTitle} numberOfLines={1}>
-                {previewResource?.fileName || '文件预览'}
-              </Text>
-            </View>
-            <View style={styles.previewHeaderSpacer} />
-          </View>
+              <TouchableOpacity
+                style={styles.previewBackBtn}
+                onPress={closePreview}
+                accessibilityRole="button"
+                accessibilityLabel="返回教材详情"
+              >
+                <Text style={styles.previewBackIcon}>‹</Text>
+              </TouchableOpacity>
+              <View style={styles.previewHeading}>
+                <Text style={styles.previewEyebrow}>
+                  {isPdfResource(previewResource) ? 'PDF 课件' : '学习资源'}
+                </Text>
+                <Text style={styles.previewTitle} numberOfLines={1}>
+                  {previewResource?.fileName || '文件预览'}
+                </Text>
+              </View>
+              {isPdfResource(previewResource) ? (
+                <TouchableOpacity
+                  style={[
+                    styles.exploreHeaderButton,
+                    exploreSelecting && styles.exploreHeaderButtonActive,
+                    previewStatus !== 'ready' &&
+                      styles.exploreHeaderButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    setPreviewChromeVisible(true);
+                    if (exploreSelecting) {
+                      setExploreSelecting(false);
+                      return;
+                    }
+                    if (exploreCapture) {
+                      setExplorePanelVisible(true);
+                      return;
+                    }
+                    setExploreSelecting(true);
+                  }}
+                  disabled={previewStatus !== 'ready'}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    exploreSelecting ? '取消框选教材内容' : '打开探索区域'
+                  }
+                  accessibilityState={{
+                    selected: exploreSelecting || explorePanelVisible,
+                    disabled: previewStatus !== 'ready',
+                  }}
+                >
+                  <View style={styles.exploreHeaderIcon}>
+                    <View
+                      style={[
+                        styles.exploreHeaderCornerTopLeft,
+                        exploreSelecting && styles.exploreHeaderCornerActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.exploreHeaderCornerBottomRight,
+                        exploreSelecting && styles.exploreHeaderCornerActive,
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.exploreHeaderText,
+                      exploreSelecting && styles.exploreHeaderTextActive,
+                    ]}
+                  >
+                    {exploreSelecting ? '取消' : '探索区域'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.previewHeaderSpacer} />
+              )}
+          </Animated.View>
 
           <View style={styles.previewBody}>
             {previewResource?.fileUrl && previewUri ? (
@@ -765,11 +932,16 @@ export function TextbookDetailScreen({
                   <PdfAnnotationViewer
                     resource={previewResource}
                     reloadKey={previewReloadKey}
-                    onReady={() => setPreviewStatus('ready')}
-                    onError={(message) => {
-                      setPreviewError(message);
-                      setPreviewStatus('error');
-                    }}
+                    exploreMode={exploreSelecting}
+                    chromeVisible={previewChromeVisible}
+                    contentTopInset={previewTopInset + 78}
+                    onReady={handlePdfReady}
+                    onError={handlePdfError}
+                    onChromeVisibilityChange={
+                      handlePreviewChromeVisibilityChange
+                    }
+                    onExploreCapture={handleExploreCapture}
+                    onExploreCaptureError={handleExploreCaptureError}
                   />
                 ) : (
                   <WebView
@@ -849,6 +1021,25 @@ export function TextbookDetailScreen({
               </View>
             )}
           </View>
+          <PdfExplorePanel
+            visible={explorePanelVisible}
+            capture={exploreCapture}
+            resourceId={previewResource?.id || ''}
+            resourceName={previewResource?.fileName || '教材 PDF'}
+            subject={textbook.textbookSubjectLabel}
+            sectionName={
+              selectedLesson?.name ||
+              selectedLesson?.label ||
+              selectedChapter?.name ||
+              selectedChapter?.label ||
+              textbook.textbookName
+            }
+            onClose={() => setExplorePanelVisible(false)}
+            onReselect={() => {
+              setExplorePanelVisible(false);
+              setExploreSelecting(true);
+            }}
+          />
         </View>
       </Modal>
     </View>
@@ -1662,6 +1853,12 @@ const styles = StyleSheet.create({
     zIndex: 20,
     elevation: 10,
   },
+  previewHeaderFloating: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
   previewBackBtn: {
     width: 44,
     height: 44,
@@ -1699,6 +1896,61 @@ const styles = StyleSheet.create({
   previewHeaderSpacer: {
     width: 44,
     height: 44,
+  },
+  exploreHeaderButton: {
+    minWidth: 88,
+    height: 44,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D8D3F5',
+    backgroundColor: '#F0EEFF',
+  },
+  exploreHeaderButtonActive: {
+    borderColor: LightColors.primary,
+    backgroundColor: LightColors.primary,
+  },
+  exploreHeaderButtonDisabled: {
+    opacity: 0.42,
+  },
+  exploreHeaderIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 5,
+  },
+  exploreHeaderCornerTopLeft: {
+    position: 'absolute',
+    left: 2,
+    top: 2,
+    width: 8,
+    height: 8,
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    borderColor: LightColors.primary,
+  },
+  exploreHeaderCornerBottomRight: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 8,
+    height: 8,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: LightColors.primary,
+  },
+  exploreHeaderCornerActive: {
+    borderColor: '#FFFFFF',
+  },
+  exploreHeaderText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: LightColors.primary,
+  },
+  exploreHeaderTextActive: {
+    color: '#FFFFFF',
   },
   previewBody: {
     flex: 1,

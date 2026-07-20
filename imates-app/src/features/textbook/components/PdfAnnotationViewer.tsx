@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AccessibilityInfo,
   Alert,
+  Animated,
+  Easing,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,11 +24,24 @@ import { storage } from '@/services/storage';
 
 type DrawingTool = 'hand' | 'pen' | 'highlighter' | 'eraser';
 
+export interface PdfExploreCapture {
+  dataUrl: string;
+  pageNumber: number;
+  width: number;
+  height: number;
+}
+
 interface PdfAnnotationViewerProps {
   resource: ResourceFile;
   reloadKey: number;
+  exploreMode?: boolean;
+  chromeVisible?: boolean;
+  contentTopInset?: number;
   onReady: () => void;
   onError: (message: string) => void;
+  onChromeVisibilityChange?: (visible: boolean) => void;
+  onExploreCapture?: (capture: PdfExploreCapture) => void;
+  onExploreCaptureError?: (message: string) => void;
 }
 
 interface DrawingConfig {
@@ -43,6 +59,7 @@ const TOOL_ITEMS: Array<{ tool: DrawingTool; icon: string; label: string }> = [
 const COLORS = ['#212529', '#E5484D', '#2F6FED', '#24A148', '#8B5CF6', '#F5C400'];
 const TRANSFER_CHUNK_SIZE = 64 * 1024;
 const CHUNK_ACK_TIMEOUT = 8000;
+const PDF_WEBVIEW_SOURCE = { html: pdfAnnotatorHtml };
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
@@ -107,13 +124,22 @@ const readNativePdf = async (resource: ResourceFile): Promise<string> => {
   });
 };
 
-export function PdfAnnotationViewer({
+function PdfAnnotationViewerComponent({
   resource,
   reloadKey,
+  exploreMode = false,
+  chromeVisible = true,
+  contentTopInset = 128,
   onReady,
   onError,
+  onChromeVisibilityChange,
+  onExploreCapture,
+  onExploreCaptureError,
 }: PdfAnnotationViewerProps) {
   const insets = useSafeAreaInsets();
+  const bottomChromeProgress = useRef(
+    new Animated.Value(chromeVisible || exploreMode ? 1 : 0)
+  ).current;
   const webViewRef = useRef<WebView>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transferIdRef = useRef(0);
@@ -125,6 +151,7 @@ export function PdfAnnotationViewer({
     timeout: ReturnType<typeof setTimeout>;
   } | null>(null);
   const [viewerReady, setViewerReady] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [tool, setTool] = useState<DrawingTool>('hand');
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -134,6 +161,10 @@ export function PdfAnnotationViewer({
     highlighter: { color: '#FFFF00', width: 8, opacity: 0.4 },
     eraser: { width: 18 },
   });
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+  }, []);
 
   const annotationKey = `PDF_ANNOTATIONS_V1_${resource.id}_${resource.checksum || resource.size || 0}`;
 
@@ -232,6 +263,46 @@ export function PdfAnnotationViewer({
     return () => clearTimeout(timeout);
   }, [onError, reloadKey, resource.id, viewerReady]);
 
+  useEffect(() => {
+    if (!viewerReady) return;
+    send({ type: 'tool', tool: exploreMode ? 'explore' : tool });
+  }, [exploreMode, send, tool, viewerReady]);
+
+  useEffect(() => {
+    if (!viewerReady) return;
+    send({ type: 'readerChrome', visible: chromeVisible });
+  }, [chromeVisible, send, viewerReady]);
+
+  const bottomChromeVisible = chromeVisible || exploreMode;
+  useEffect(() => {
+    Animated.timing(bottomChromeProgress, {
+      toValue: bottomChromeVisible ? 1 : 0,
+      duration: reduceMotion ? 0 : bottomChromeVisible ? 220 : 170,
+      easing: bottomChromeVisible
+        ? Easing.out(Easing.cubic)
+        : Easing.in(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [bottomChromeProgress, bottomChromeVisible, reduceMotion]);
+
+  useEffect(() => {
+    if (!viewerReady) return;
+    const toolConfigHeight =
+      !exploreMode && tool !== 'hand' ? 54 : 0;
+    send({
+      type: 'readerInsets',
+      top: contentTopInset,
+      bottom: 74 + insets.bottom + toolConfigHeight + 18,
+    });
+  }, [
+    contentTopInset,
+    exploreMode,
+    insets.bottom,
+    send,
+    tool,
+    viewerReady,
+  ]);
+
   const processMessage = useCallback(
     (rawMessage: unknown) => {
       try {
@@ -258,6 +329,25 @@ export function PdfAnnotationViewer({
           onReady();
         } else if (message.type === 'documentError') {
           onError(message.message || 'PDF 文件无法解析');
+        } else if (
+          message.type === 'exploreCapture' &&
+          typeof message.dataUrl === 'string'
+        ) {
+          onExploreCapture?.({
+            dataUrl: message.dataUrl,
+            pageNumber: Number(message.pageNumber) || 1,
+            width: Number(message.width) || 0,
+            height: Number(message.height) || 0,
+          });
+        } else if (message.type === 'exploreCaptureError') {
+          onExploreCaptureError?.(
+            message.message || '框选失败，请重新选择区域'
+          );
+        } else if (
+          message.type === 'readerChrome' &&
+          typeof message.visible === 'boolean'
+        ) {
+          onChromeVisibilityChange?.(message.visible);
         } else if (message.type === 'annotationsChanged' && Array.isArray(message.strokes)) {
           void storage.setItem(annotationKey, JSON.stringify(message.strokes));
         } else if (message.type === 'history') {
@@ -272,6 +362,9 @@ export function PdfAnnotationViewer({
       annotationKey,
       config,
       onError,
+      onChromeVisibilityChange,
+      onExploreCapture,
+      onExploreCaptureError,
       onReady,
       reloadKey,
       resource.id,
@@ -358,7 +451,7 @@ export function PdfAnnotationViewer({
         <WebView
           ref={webViewRef}
           key={`${resource.id}-${reloadKey}`}
-          source={{ html: pdfAnnotatorHtml }}
+          source={PDF_WEBVIEW_SOURCE}
           style={styles.webView}
           originWhitelist={['*']}
           javaScriptEnabled
@@ -385,104 +478,162 @@ export function PdfAnnotationViewer({
         />
       )}
 
-      {viewerReady && tool !== 'hand' ? (
-        <View style={styles.configPanel}>
-          {tool !== 'eraser' ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.colorList}
-            >
-              {COLORS.map((color) => (
-                <TouchableOpacity
-                  key={color}
-                  style={[
-                    styles.colorButton,
-                    activeColor === color && styles.colorButtonActive,
-                  ]}
-                  onPress={() => updateColor(color)}
-                  accessibilityLabel={`选择颜色 ${color}`}
-                >
-                  <View style={[styles.colorSwatch, { backgroundColor: color }]} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={styles.configLabel}>橡皮大小</Text>
-          )}
-          <View style={styles.widthList}>
-            {widthOptions.map((width) => (
-              <TouchableOpacity
-                key={width}
-                style={[
-                  styles.widthButton,
-                  activeWidth === width && styles.widthButtonActive,
-                ]}
-                onPress={() => updateWidth(width)}
-              >
-                <View
-                  style={[
-                    styles.widthDot,
-                    {
-                      width: Math.min(18, Math.max(4, width)),
-                      height: Math.min(18, Math.max(4, width)),
-                      borderRadius: 9,
-                      backgroundColor: tool === 'eraser' ? '#8B90A5' : activeColor,
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TouchableOpacity style={styles.clearButton} onPress={clearAnnotations}>
-            <Text style={styles.clearButtonText}>清空</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      <View
+      <Animated.View
+        pointerEvents={bottomChromeVisible ? 'auto' : 'none'}
         style={[
-          styles.toolbar,
+          styles.bottomChrome,
           {
-            minHeight: 74 + insets.bottom,
-            paddingBottom: 12 + insets.bottom,
+            opacity: bottomChromeProgress,
+            transform: [
+              {
+                translateY: bottomChromeProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [190, 0],
+                }),
+              },
+            ],
           },
         ]}
       >
-        {TOOL_ITEMS.map((item) => (
-          <TouchableOpacity
-            key={item.tool}
-            style={[styles.toolButton, tool === item.tool && styles.toolButtonActive]}
-            onPress={() => selectTool(item.tool)}
-            accessibilityRole="button"
-            accessibilityLabel={item.label}
+        {viewerReady && !exploreMode && tool !== 'hand' ? (
+          <View style={styles.configPanel}>
+            {tool !== 'eraser' ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.colorList}
+              >
+                {COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorButton,
+                      activeColor === color && styles.colorButtonActive,
+                    ]}
+                    onPress={() => updateColor(color)}
+                    accessibilityLabel={`选择颜色 ${color}`}
+                  >
+                    <View
+                      style={[styles.colorSwatch, { backgroundColor: color }]}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.configLabel}>橡皮大小</Text>
+            )}
+            <View style={styles.widthList}>
+              {widthOptions.map((width) => (
+                <TouchableOpacity
+                  key={width}
+                  style={[
+                    styles.widthButton,
+                    activeWidth === width && styles.widthButtonActive,
+                  ]}
+                  onPress={() => updateWidth(width)}
+                >
+                  <View
+                    style={[
+                      styles.widthDot,
+                      {
+                        width: Math.min(18, Math.max(4, width)),
+                        height: Math.min(18, Math.max(4, width)),
+                        borderRadius: 9,
+                        backgroundColor:
+                          tool === 'eraser' ? '#8B90A5' : activeColor,
+                      },
+                    ]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={clearAnnotations}
+            >
+              <Text style={styles.clearButtonText}>清空</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {!exploreMode ? (
+          <View
+            style={[
+              styles.toolbar,
+              {
+                minHeight: 74 + insets.bottom,
+                paddingBottom: 12 + insets.bottom,
+              },
+            ]}
           >
-            <Text style={[styles.toolIcon, tool === item.tool && styles.toolTextActive]}>
-              {item.icon}
-            </Text>
-            <Text style={[styles.toolLabel, tool === item.tool && styles.toolTextActive]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        <View style={styles.toolbarDivider} />
-        <TouchableOpacity
-          style={[styles.historyButton, !canUndo && styles.buttonDisabled]}
-          onPress={() => send({ type: 'undo' })}
-          disabled={!canUndo}
-          accessibilityLabel="撤销"
-        >
-          <Text style={styles.historyIcon}>↶</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.historyButton, !canRedo && styles.buttonDisabled]}
-          onPress={() => send({ type: 'redo' })}
-          disabled={!canRedo}
-          accessibilityLabel="重做"
-        >
-          <Text style={styles.historyIcon}>↷</Text>
-        </TouchableOpacity>
-      </View>
+            {TOOL_ITEMS.map((item) => (
+              <TouchableOpacity
+                key={item.tool}
+                style={[
+                  styles.toolButton,
+                  tool === item.tool && styles.toolButtonActive,
+                ]}
+                onPress={() => selectTool(item.tool)}
+                accessibilityRole="button"
+                accessibilityLabel={item.label}
+              >
+                <Text
+                  style={[
+                    styles.toolIcon,
+                    tool === item.tool && styles.toolTextActive,
+                  ]}
+                >
+                  {item.icon}
+                </Text>
+                <Text
+                  style={[
+                    styles.toolLabel,
+                    tool === item.tool && styles.toolTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.toolbarDivider} />
+            <TouchableOpacity
+              style={[styles.historyButton, !canUndo && styles.buttonDisabled]}
+              onPress={() => send({ type: 'undo' })}
+              disabled={!canUndo}
+              accessibilityLabel="撤销"
+            >
+              <Text style={styles.historyIcon}>↶</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.historyButton, !canRedo && styles.buttonDisabled]}
+              onPress={() => send({ type: 'redo' })}
+              disabled={!canRedo}
+              accessibilityLabel="重做"
+            >
+              <Text style={styles.historyIcon}>↷</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.exploreModeBar,
+              { paddingBottom: Math.max(12, insets.bottom + 8) },
+            ]}
+            accessibilityLiveRegion="polite"
+          >
+            <View style={styles.exploreModeIcon}>
+              <View style={styles.exploreCornerTopLeft} />
+              <View style={styles.exploreCornerBottomRight} />
+            </View>
+            <View style={styles.exploreModeCopy}>
+              <Text style={styles.exploreModeTitle}>框选教材内容</Text>
+              <Text style={styles.exploreModeHint}>
+                在 PDF 页面上拖动手指，选择需要向 AI 提问的区域
+              </Text>
+            </View>
+          </View>
+        )}
+      </Animated.View>
 
       {viewerReady && transferProgress > 0 && transferProgress < 1 ? (
         <View style={styles.transferBadge}>
@@ -496,6 +647,8 @@ export function PdfAnnotationViewer({
   );
 }
 
+export const PdfAnnotationViewer = React.memo(PdfAnnotationViewerComponent);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -504,6 +657,14 @@ const styles = StyleSheet.create({
   webView: {
     flex: 1,
     backgroundColor: '#ECEEF5',
+  },
+  bottomChrome: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    elevation: 12,
   },
   toolbar: {
     minHeight: 74,
@@ -651,5 +812,56 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#42475E',
+  },
+  exploreModeBar: {
+    minHeight: 72,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: '#D8D3F5',
+    backgroundColor: '#F1EEFF',
+  },
+  exploreModeIcon: {
+    width: 40,
+    height: 40,
+    marginRight: 12,
+    borderRadius: 12,
+    backgroundColor: '#6256D9',
+  },
+  exploreCornerTopLeft: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    width: 9,
+    height: 9,
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  exploreCornerBottomRight: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    width: 9,
+    height: 9,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  exploreModeCopy: {
+    flex: 1,
+  },
+  exploreModeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#292545',
+  },
+  exploreModeHint: {
+    marginTop: 3,
+    fontSize: 10,
+    lineHeight: 15,
+    color: '#6D6883',
   },
 });

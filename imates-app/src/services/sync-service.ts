@@ -1,6 +1,10 @@
+import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
 import { MistakeService, MistakeItem } from './mistake-service';
+import { AiChatSessionService } from '@/features/ai-chat/services/ai-chat-session-service';
+import type { AiChatSession } from '@/features/ai-chat/types';
+import type { ChatMessage } from './ai-chat-service';
 
 export interface SyncPullResponse<T> {
   success: boolean;
@@ -28,6 +32,9 @@ export class SyncService {
 
   private static getApiBaseUrl(): string {
     const env = getCurrentEnvType();
+    if (Platform.OS === 'web') {
+      return env === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
+    }
     if (env === AppEnvType.INTERNAL_TEST) {
       return 'http://www.imates.com.cn:58443/blw-edu-service-alc';
     }
@@ -187,15 +194,9 @@ export class SyncService {
     try {
       const lastSyncTime = Number(await storage.getItem(this.LAST_SYNC_CHAT)) || 0;
       const userId = await storage.getItem('xuebanuserid') || 'user';
-      const lastSessionId = await storage.getItem(`IMATES_LAST_SESSION_ID_${userId}`);
-      if (!lastSessionId) {
-        console.log('[SyncService] ℹ️ 未检测到本地活跃的聊天会话，跳过同步');
-        return;
-      }
+      console.log(`[SyncService] 🔄 开始同步 AI 会话列表... 上次同步时间: ${lastSyncTime}`);
 
-      console.log(`[SyncService] 🔄 开始同步 AI 聊天会话... 会话ID: ${lastSessionId}, 上次同步时间: ${lastSyncTime}`);
-
-      // 1. 从云端拉取增量会话数据
+      // 1. 从云端拉取所有增量会话，不能只处理最后一个活跃会话。
       const pullRes = await this.pullFromServer<any>('chat', lastSyncTime);
       if (!pullRes.success) {
         throw new Error(JSON.stringify(pullRes));
@@ -203,70 +204,212 @@ export class SyncService {
       const cloudSessions = pullRes.data.records || [];
       const serverTime = pullRes.data.serverTime || Date.now();
 
-      // 2. 读取本地当前会话的消息缓存
-      const localMsgStr = await storage.getItem(`IMATES_CHAT_SESSION_${lastSessionId}`);
-      const localMessages = localMsgStr ? JSON.parse(localMsgStr) : [];
+      const localBeforePull = await AiChatSessionService.loadSessions(
+        userId,
+        'general'
+      );
+      const localSessionMap = new Map(
+        localBeforePull.map((session) => [session.id, session])
+      );
 
-      // 3. 构建本地会话的大 JSON 包，用于上报或比对
-      // 如果本地有消息，包装成一个 session 记录
-      const localSessionWrapper = {
-        sessionId: lastSessionId,
-        subject: 'general',
-        scenario: 'GENERAL',
-        title: '移动端会话',
-        createdAt: localMessages[0]?.timestamp || Date.now(),
-        updatedAt: localMessages[localMessages.length - 1]?.timestamp || Date.now(),
-        isDeleted: 0,
-        messages: localMessages
-      };
-
-      // 4. 合并云端拉取的会话数据与本地数据
-      let finalMessages = [...localMessages];
-      let updatedAt = localSessionWrapper.updatedAt;
-
-      // 寻找属于该 sessionId 的云端会话
-      const matchingCloudSession = cloudSessions.find(s => s.sessionId === lastSessionId);
-      if (matchingCloudSession) {
-        // 如果云端的更新时间新于本地，进行数据与消息合并
-        if (matchingCloudSession.updatedAt > localSessionWrapper.updatedAt) {
-          const cloudMessages = matchingCloudSession.messages || [];
-          
-          // 对消息进行 ID 去重
-          const msgMap = new Map<string, any>();
-          localMessages.forEach((msg: any) => msgMap.set(msg.id, msg));
-          cloudMessages.forEach((msg: any) => {
-            const local = msgMap.get(msg.id);
-            if (!local || msg.timestamp > local.timestamp) {
-              msgMap.set(msg.id, msg);
-            }
-          });
-
-          // 按时间戳排序
-          finalMessages = Array.from(msgMap.values()).sort((a, b) => a.timestamp - b.timestamp);
-          updatedAt = matchingCloudSession.updatedAt;
+      // 2. 合并云端会话及消息。Web 使用 ISO 时间字符串，App 统一转为时间戳。
+      for (const cloudSession of cloudSessions) {
+        if (
+          cloudSession?.scenario &&
+          cloudSession.scenario !== 'GENERAL'
+        ) {
+          continue;
         }
-      }
+        const sessionId = String(
+          cloudSession?.sessionId || cloudSession?.id || ''
+        ).trim();
+        if (!sessionId) continue;
+        const localSession = localSessionMap.get(sessionId);
+        const cloudUpdatedAt = this.toTimestamp(
+          cloudSession.updatedAt || cloudSession.updateTime
+        );
+        if (cloudSession.isDeleted === 1) {
+          if (
+            localSession &&
+            cloudUpdatedAt >= localSession.updatedAt
+          ) {
+            await AiChatSessionService.deleteSession(
+              userId,
+              localSession
+            );
+            localSessionMap.delete(sessionId);
+          }
+          continue;
+        }
 
-      // 5. 将本地脏数据（在上次同步时间之后产生的新对话气泡）上报给云端
-      const localNewMessages = localMessages.filter((msg: any) => msg.timestamp > lastSyncTime);
-      if (localNewMessages.length > 0) {
-        const pushSession = {
-          ...localSessionWrapper,
-          messages: localMessages // 传输当前会话全量消息以保持最新状态
+        const [localMessages, normalizedCloudMessages] =
+          await Promise.all([
+            localSession
+              ? AiChatSessionService.loadMessages(sessionId)
+              : Promise.resolve([]),
+            Promise.resolve(
+              this.normalizeCloudMessages(
+                cloudSession.messages || [],
+                sessionId
+              )
+            ),
+          ]);
+        const mergedMessages = this.mergeChatMessages(
+          localMessages,
+          normalizedCloudMessages
+        );
+        const createdAt =
+          this.toTimestamp(
+            cloudSession.createdAt || cloudSession.createTime
+          ) ||
+          localSession?.createdAt ||
+          mergedMessages[0]?.timestamp ||
+          Date.now();
+        const updatedAt = Math.max(
+          cloudUpdatedAt,
+          localSession?.updatedAt || 0,
+          mergedMessages[mergedMessages.length - 1]?.timestamp || 0,
+          createdAt
+        );
+        const title = String(
+          cloudSession.title ||
+            cloudSession.sessionName ||
+            localSession?.title ||
+            mergedMessages.find((message) => message.sender === 'user')
+              ?.content ||
+            '历史会话'
+        )
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 25);
+        const lastContent =
+          [...mergedMessages]
+            .reverse()
+            .find((message) => message.content.trim())?.content || title;
+        const mergedSession: AiChatSession = {
+          id: sessionId,
+          scopeKey: 'general',
+          scene: 'general',
+          title: title || '历史会话',
+          summary: lastContent.replace(/\s+/g, ' ').trim().slice(0, 46),
+          createdAt,
+          updatedAt,
+          messageCount: mergedMessages.length,
+          pinned: localSession?.pinned,
         };
-        const pushRes = await this.pushToServer('chat', [pushSession]);
+        await AiChatSessionService.importConversation(
+          userId,
+          mergedSession,
+          mergedMessages
+        );
+        localSessionMap.set(sessionId, mergedSession);
+      }
+
+      // 3. 推送所有本地增量会话，与 Web 的全会话同步行为保持一致。
+      const localAfterPull = await AiChatSessionService.loadSessions(
+        userId,
+        'general'
+      );
+      const dirtySessions = localAfterPull.filter(
+        (session) => session.updatedAt > lastSyncTime
+      );
+      if (dirtySessions.length > 0) {
+        const pushRecords = await Promise.all(
+          dirtySessions.map(async (session) => ({
+            sessionId: session.id,
+            subject: 'general',
+            scenario: 'GENERAL',
+            title: session.title,
+            createdAt: session.createdAt,
+            updatedAt: session.updatedAt,
+            isDeleted: 0,
+            messages: await AiChatSessionService.loadMessages(session.id),
+          }))
+        );
+        const pushRes = await this.pushToServer('chat', pushRecords);
         if (pushRes.success) {
-          console.log(`[SyncService] 📤 成功推送本地会话 ${lastSessionId} 的 ${localNewMessages.length} 条新消息至云端`);
+          console.log(
+            `[SyncService] 📤 成功推送 ${pushRecords.length} 个 AI 会话`
+          );
         }
       }
 
-      // 6. 保存最终合并的聊天数据，并更新时间戳
-      await storage.setItem(`IMATES_CHAT_SESSION_${lastSessionId}`, JSON.stringify(finalMessages));
+      // 4. 更新时间游标。
       await storage.setItem(this.LAST_SYNC_CHAT, String(serverTime));
 
-      console.log(`[SyncService] ✅ AI 对话消息同步完成`);
+      console.log(
+        `[SyncService] ✅ AI 会话同步完成，当前 ${localAfterPull.length} 个会话`
+      );
     } catch (e) {
       console.warn('[SyncService] ❌ AI 对话同步过程中出错:', e);
     }
+  }
+
+  private static toTimestamp(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric;
+      const parsed = Date.parse(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  }
+
+  private static normalizeCloudMessages(
+    messages: any[],
+    sessionId: string
+  ): ChatMessage[] {
+    if (!Array.isArray(messages)) return [];
+    return messages
+      .map((message, index): ChatMessage | null => {
+        const sender =
+          message?.sender === 'user' || message?.type === 'user'
+            ? 'user'
+            : 'ai';
+        const timestamp =
+          this.toTimestamp(message?.timestamp) ||
+          Date.now() + index;
+        const imageUri =
+          message?.imageUri ||
+          message?.imageData?.base64DataUrl ||
+          message?.imageList?.[0]?.base64DataUrl;
+        const content = String(
+          message?.content ?? message?.message ?? ''
+        );
+        if (!content && !imageUri) return null;
+        return {
+          id: String(
+            message?.id || `${sessionId}-cloud-${timestamp}-${index}`
+          ),
+          sender,
+          content,
+          timestamp,
+          imageUri: imageUri ? String(imageUri) : undefined,
+          isStreaming: false,
+        };
+      })
+      .filter(
+        (message): message is ChatMessage => message !== null
+      );
+  }
+
+  private static mergeChatMessages(
+    localMessages: ChatMessage[],
+    cloudMessages: ChatMessage[]
+  ): ChatMessage[] {
+    const messageMap = new Map<string, ChatMessage>();
+    [...localMessages, ...cloudMessages].forEach((message) => {
+      const existing = messageMap.get(message.id);
+      if (!existing || message.timestamp >= existing.timestamp) {
+        messageMap.set(message.id, {
+          ...message,
+          isStreaming: false,
+        });
+      }
+    });
+    return Array.from(messageMap.values()).sort(
+      (left, right) => left.timestamp - right.timestamp
+    );
   }
 }

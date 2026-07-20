@@ -16,6 +16,7 @@ const pageElements = new Map();
 let pdfDocument = null;
 let strokes = [];
 let currentStroke = null;
+let exploreSelection = null;
 let tool = 'hand';
 let config = {
   pen: { color: '#212529', width: 2.5, opacity: 1 },
@@ -29,6 +30,13 @@ let expectedChunks = 0;
 let renderGeneration = 0;
 let documentAnnounced = false;
 let pageObserver = null;
+let renderedViewportWidth = 0;
+let readerChromeVisible = true;
+let readerTapGesture = null;
+const activeReaderPointers = new Set();
+
+const getTargetWidth = () =>
+  Math.max(280, Math.min(1024, pagesElement.clientWidth - 20));
 
 const post = (type, payload = {}) => {
   const message = JSON.stringify({ type, ...payload });
@@ -38,6 +46,81 @@ const post = (type, payload = {}) => {
     window.parent.postMessage(message, '*');
   }
 };
+
+const updateReaderChrome = (visible) => {
+  if (readerChromeVisible === visible) return;
+  readerChromeVisible = visible;
+  post('readerChrome', { visible });
+};
+
+document.addEventListener(
+  'pointerdown',
+  (event) => {
+    if (tool !== 'hand') return;
+    activeReaderPointers.add(event.pointerId);
+    if (activeReaderPointers.size !== 1) {
+      readerTapGesture = null;
+      return;
+    }
+    readerTapGesture = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      startedAt: Date.now(),
+      moved: false,
+    };
+  },
+  { passive: true, capture: true }
+);
+
+document.addEventListener(
+  'pointermove',
+  (event) => {
+    if (!readerTapGesture || readerTapGesture.pointerId !== event.pointerId) return;
+    if (
+      Math.hypot(
+        event.clientX - readerTapGesture.x,
+        event.clientY - readerTapGesture.y
+      ) > 10
+    ) {
+      readerTapGesture.moved = true;
+    }
+  },
+  { passive: true, capture: true }
+);
+
+const finishReaderPointer = (event) => {
+  activeReaderPointers.delete(event.pointerId);
+  const gesture = readerTapGesture;
+  readerTapGesture = null;
+  if (
+    event.type === 'pointerup' &&
+    gesture?.pointerId === event.pointerId &&
+    !gesture.moved &&
+    activeReaderPointers.size === 0 &&
+    Date.now() - gesture.startedAt < 450 &&
+    tool === 'hand'
+  ) {
+    updateReaderChrome(true);
+  }
+};
+
+document.addEventListener('pointerup', finishReaderPointer, {
+  passive: true,
+  capture: true,
+});
+document.addEventListener('pointercancel', finishReaderPointer, {
+  passive: true,
+  capture: true,
+});
+
+window.addEventListener(
+  'scroll',
+  () => {
+    if (tool === 'hand') updateReaderChrome(false);
+  },
+  { passive: true }
+);
 
 window.addEventListener('error', (event) => {
   post('documentError', {
@@ -77,7 +160,8 @@ const setCanvasMode = () => {
   pageElements.forEach(({ inkCanvas }) => {
     const drawing = tool !== 'hand';
     inkCanvas.style.pointerEvents = drawing ? 'auto' : 'none';
-    inkCanvas.style.touchAction = drawing ? 'pinch-zoom' : 'auto';
+    inkCanvas.style.touchAction =
+      tool === 'explore' ? 'none' : drawing ? 'pinch-zoom' : 'auto';
     inkCanvas.style.cursor =
       tool === 'hand' ? 'grab' : tool === 'eraser' ? 'cell' : 'crosshair';
   });
@@ -143,6 +227,31 @@ const renderInkPage = (pageIndex) => {
       stroke.type === 'highlighter'
     );
   });
+
+  if (exploreSelection?.pageIndex === pageIndex) {
+    const left = Math.min(exploreSelection.start.x, exploreSelection.end.x);
+    const top = Math.min(exploreSelection.start.y, exploreSelection.end.y);
+    const width = Math.abs(exploreSelection.end.x - exploreSelection.start.x);
+    const height = Math.abs(exploreSelection.end.y - exploreSelection.start.y);
+    context.save();
+    context.fillStyle = 'rgba(98, 86, 217, 0.13)';
+    context.strokeStyle = '#6256D9';
+    context.lineWidth = 2;
+    context.setLineDash([7, 5]);
+    context.fillRect(
+      left * cssWidth,
+      top * cssHeight,
+      width * cssWidth,
+      height * cssHeight
+    );
+    context.strokeRect(
+      left * cssWidth,
+      top * cssHeight,
+      width * cssWidth,
+      height * cssHeight
+    );
+    context.restore();
+  }
 };
 
 const renderAllInk = () => {
@@ -192,6 +301,59 @@ const pointForEvent = (event, inkCanvas) => {
   };
 };
 
+const captureExploreSelection = (pageIndex, selection) => {
+  const page = pageElements.get(pageIndex);
+  if (!page?.rendered) return;
+  const { pdfCanvas, inkCanvas, cssWidth, cssHeight, pixelRatio } = page;
+  const left = Math.min(selection.start.x, selection.end.x);
+  const top = Math.min(selection.start.y, selection.end.y);
+  const width = Math.abs(selection.end.x - selection.start.x);
+  const height = Math.abs(selection.end.y - selection.start.y);
+  if (width * cssWidth < 28 || height * cssHeight < 28) {
+    post('exploreCaptureError', { message: '框选区域过小，请重新框选' });
+    return;
+  }
+
+  const sourceX = Math.round(left * pdfCanvas.width);
+  const sourceY = Math.round(top * pdfCanvas.height);
+  const sourceWidth = Math.max(1, Math.round(width * pdfCanvas.width));
+  const sourceHeight = Math.max(1, Math.round(height * pdfCanvas.height));
+  const output = document.createElement('canvas');
+  output.width = sourceWidth;
+  output.height = sourceHeight;
+  const context = output.getContext('2d');
+  context.fillStyle = '#FFFFFF';
+  context.fillRect(0, 0, sourceWidth, sourceHeight);
+  context.drawImage(
+    pdfCanvas,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    sourceWidth,
+    sourceHeight
+  );
+  context.drawImage(
+    inkCanvas,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    sourceWidth,
+    sourceHeight
+  );
+  post('exploreCapture', {
+    dataUrl: output.toDataURL('image/jpeg', 0.88),
+    pageNumber: pageIndex + 1,
+    width: Math.round(sourceWidth / pixelRatio),
+    height: Math.round(sourceHeight / pixelRatio),
+  });
+};
+
 const bindInkEvents = (pageIndex, inkCanvas) => {
   let eraserChanged = false;
   inkCanvas.addEventListener('pointerdown', (event) => {
@@ -199,6 +361,17 @@ const bindInkEvents = (pageIndex, inkCanvas) => {
     event.preventDefault();
     inkCanvas.setPointerCapture(event.pointerId);
     const point = pointForEvent(event, inkCanvas);
+
+    if (tool === 'explore') {
+      exploreSelection = {
+        pageIndex,
+        start: point,
+        end: point,
+      };
+      renderInkPage(pageIndex);
+      return;
+    }
+
     saveSnapshot();
 
     if (tool === 'eraser') {
@@ -224,7 +397,9 @@ const bindInkEvents = (pageIndex, inkCanvas) => {
     if (!inkCanvas.hasPointerCapture(event.pointerId)) return;
     event.preventDefault();
     const point = pointForEvent(event, inkCanvas);
-    if (tool === 'eraser') {
+    if (tool === 'explore' && exploreSelection?.pageIndex === pageIndex) {
+      exploreSelection.end = point;
+    } else if (tool === 'eraser') {
       eraserChanged =
         eraseAt(pageIndex, point, inkCanvas.clientWidth) || eraserChanged;
     } else if (currentStroke) {
@@ -240,6 +415,11 @@ const bindInkEvents = (pageIndex, inkCanvas) => {
     if (!inkCanvas.hasPointerCapture(event.pointerId)) return;
     inkCanvas.releasePointerCapture(event.pointerId);
     if (event.type === 'pointercancel') {
+      if (tool === 'explore') {
+        exploreSelection = null;
+        renderInkPage(pageIndex);
+        return;
+      }
       const previousStrokes = undoStack.pop();
       if (previousStrokes) strokes = previousStrokes;
       currentStroke = null;
@@ -248,7 +428,14 @@ const bindInkEvents = (pageIndex, inkCanvas) => {
       postHistory();
       return;
     }
-    if (tool === 'eraser') {
+    if (tool === 'explore') {
+      const completedSelection = exploreSelection;
+      exploreSelection = null;
+      renderInkPage(pageIndex);
+      if (completedSelection) {
+        captureExploreSelection(pageIndex, completedSelection);
+      }
+    } else if (tool === 'eraser') {
       if (eraserChanged) emitAnnotations();
       else undoStack.pop();
       eraserChanged = false;
@@ -310,12 +497,16 @@ const renderPdfPage = async (pageIndex, generation) => {
 
 const renderDocument = async () => {
   if (!pdfDocument) return;
+  const targetWidth = getTargetWidth();
+  const previousWidth = renderedViewportWidth;
+  const previousScrollTop =
+    window.scrollY || document.documentElement.scrollTop || 0;
   const generation = ++renderGeneration;
   pageObserver?.disconnect();
   pageObserver = null;
   pagesElement.replaceChildren();
   pageElements.clear();
-  const targetWidth = Math.max(280, Math.min(1024, pagesElement.clientWidth - 20));
+  renderedViewportWidth = targetWidth;
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
   for (let pageIndex = 0; pageIndex < pdfDocument.numPages; pageIndex += 1) {
@@ -370,6 +561,12 @@ const renderDocument = async () => {
     }
   }
   setCanvasMode();
+
+  // 宽度真正变化（例如旋转屏幕）时保留当前阅读位置；仅高度变化不会走到这里。
+  if (previousWidth > 0 && previousScrollTop > 0) {
+    const restoredScrollTop = previousScrollTop * (targetWidth / previousWidth);
+    requestAnimationFrame(() => window.scrollTo(0, restoredScrollTop));
+  }
 };
 
 const loadPdfBytes = async (base64) => {
@@ -432,8 +629,19 @@ const handleMessage = (rawMessage) => {
   } else if (message.type === 'tool') {
     tool = message.tool;
     currentStroke = null;
+    exploreSelection = null;
     setCanvasMode();
     renderAllInk();
+  } else if (message.type === 'readerChrome') {
+    readerChromeVisible = message.visible !== false;
+  } else if (message.type === 'readerInsets') {
+    const top = Math.max(0, Number(message.top) || 0);
+    const bottom = Math.max(0, Number(message.bottom) || 0);
+    document.documentElement.style.setProperty('--reader-top-inset', `${top}px`);
+    document.documentElement.style.setProperty(
+      '--reader-bottom-inset',
+      `${bottom}px`
+    );
   } else if (message.type === 'config') {
     config = { ...config, ...message.config };
   } else if (message.type === 'undo' && undoStack.length) {
@@ -460,7 +668,13 @@ document.addEventListener('message', (event) => handleMessage(event.data));
 let resizeTimer = 0;
 window.addEventListener('resize', () => {
   window.clearTimeout(resizeTimer);
-  resizeTimer = window.setTimeout(() => void renderDocument(), 180);
+  resizeTimer = window.setTimeout(() => {
+    if (!pdfDocument) return;
+    const nextWidth = getTargetWidth();
+    // 探索区域弹层和底部工具栏只会改变可视高度，不应重建 PDF 页面。
+    if (Math.abs(nextWidth - renderedViewportWidth) <= 1) return;
+    void renderDocument();
+  }, 180);
 });
 
 post('ready');

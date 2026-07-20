@@ -1,5 +1,7 @@
+import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { authService } from './auth-service';
 
 export interface ChatMessage {
   id: string;
@@ -16,6 +18,22 @@ interface SSEPayload {
   history_messages?: any[];
 }
 
+export interface TextbookExploreRequest {
+  prompt: string;
+  sessionId: string;
+  imageDataUrl?: string;
+  subject?: string;
+  sectionName?: string;
+  isNewSession: boolean;
+}
+
+export interface AiConversationRequest extends TextbookExploreRequest {
+  scene: 'general' | 'textbook';
+  role?: 'mate' | 'mentor' | 'researcher';
+  enableWebSearch?: boolean;
+  forcePreviewPictureApi?: boolean;
+}
+
 export class AiChatService {
   /**
    * 获取当前环境下的 AI 聊天 API 终点 URL
@@ -26,6 +44,20 @@ export class AiChatService {
       return 'http://www.imates.com.cn:58443/blw-edu-service-alc/ai/2.0/chats';
     }
     return 'http://www.imates.com.cn:8222/blw-edu-service-alc/ai/2.0/chats';
+  }
+
+  /**
+   * 教材截图问答与 Web 端保持相同路由。
+   * Web 必须走 Metro/Nginx 同源代理，原生端继续使用原有学伴服务地址。
+   */
+  private static getConversationApiUrl(path: string): string {
+    if (Platform.OS === 'web') return path;
+    const port =
+      getCurrentEnvType() === AppEnvType.INTERNAL_TEST ? '58443' : '8222';
+    const endpoint = path.endsWith('/previewPictureQA')
+      ? 'previewPictureQA'
+      : 'chats';
+    return `http://www.imates.com.cn:${port}/blw-edu-service-alc/ai/2.0/${endpoint}`;
   }
 
   /**
@@ -52,6 +84,62 @@ export class AiChatService {
     }
 
     return accumulated + newChunk;
+  }
+
+  /**
+   * 兼容部分 AI 接口把多个 JSON 对象直接拼接返回的情况。
+   */
+  private static extractMessageFromConcatenatedJson(
+    text: string
+  ): string | null {
+    const input = String(text || '').trim();
+    if (!input.startsWith('{') || !input.includes('"message"')) {
+      return null;
+    }
+
+    const objects: any[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    let escaping = false;
+
+    for (let index = 0; index < input.length; index += 1) {
+      const char = input[index];
+      if (inString) {
+        if (escaping) {
+          escaping = false;
+        } else if (char === '\\') {
+          escaping = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+      } else if (char === '{') {
+        if (depth === 0) start = index;
+        depth += 1;
+      } else if (char === '}') {
+        if (depth > 0) depth -= 1;
+        if (depth === 0 && start >= 0) {
+          try {
+            objects.push(JSON.parse(input.slice(start, index + 1)));
+          } catch {
+            return null;
+          }
+          start = -1;
+        }
+      }
+    }
+
+    if (objects.length <= 1) return null;
+    const messages = objects
+      .map((item) =>
+        item && typeof item.message === 'string' ? item.message : ''
+      )
+      .filter(Boolean);
+    return messages.length > 0 ? messages.join('\n') : null;
   }
 
   /**
@@ -271,6 +359,220 @@ export class AiChatService {
     poll(true);
 
     return cancel;
+  }
+
+  /**
+   * 通用 AI 对话请求。主 AI 问答和教材探索共用同一套轮询、
+   * 鉴权刷新与响应解析逻辑。
+   */
+  public static sendConversationMessage(
+    request: AiConversationRequest,
+    onChunk: (chunk: string) => void,
+    onComplete: (fullText: string) => void,
+    onError: (err: Error) => void
+  ) {
+    let isCancelled = false;
+    let accumulatedContent = '';
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cancel = () => {
+      isCancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+
+    const poll = async (isFirstRequest: boolean) => {
+      if (isCancelled) return;
+
+      try {
+        let [token, userId] = await Promise.all([
+          storage.getItem('XUEBAN_TOKEN'),
+          storage.getItem('xuebanuserid'),
+        ]);
+        if (!token?.trim()) {
+          const password = await storage.getItem('userPassword');
+          if (!userId?.trim() || !password?.trim()) {
+            throw new Error('学伴登录已失效，请退出后重新登录');
+          }
+          token = await authService.loginXueban(
+            userId.trim(),
+            password
+          );
+        }
+
+        const normalizedImage = request.imageDataUrl?.startsWith(
+          'data:image/jpeg;'
+        )
+          ? request.imageDataUrl.replace(
+              'data:image/jpeg;',
+              'data:image/jpg;'
+            )
+          : request.imageDataUrl;
+        const usePreviewPictureApi =
+          !!request.forcePreviewPictureApi || !!normalizedImage;
+        const destinationPath =
+          getCurrentEnvType() === AppEnvType.INTERNAL_TEST
+            ? `/xb-test/ai/2.0/${
+                usePreviewPictureApi ? 'previewPictureQA' : 'chats'
+              }`
+            : `/xb-release/ai/2.0/${
+                usePreviewPictureApi ? 'previewPictureQA' : 'chats'
+              }`;
+        const requestBody = JSON.stringify({
+          sessionId: request.sessionId,
+          newValue:
+            isFirstRequest && request.isNewSession ? '1' : '0',
+          coversation: isFirstRequest ? request.prompt : '',
+          question: '',
+          answer:
+            request.scene === 'textbook' ? request.sectionName || '' : '',
+          name: userId?.trim() || 'User',
+          reason: isFirstRequest ? 'start' : 'continue',
+          bmNo: request.sessionId,
+          isWebSearch: request.enableWebSearch ? '1' : '0',
+          role: request.role || 'mate',
+          subject: request.subject || '',
+          sectionName:
+            request.scene === 'textbook'
+              ? request.sectionName || undefined
+              : undefined,
+          dstUrl: destinationPath,
+          explanation: '',
+          imageList:
+            isFirstRequest && normalizedImage
+              ? [{ base64DataUrl: normalizedImage }]
+              : undefined,
+        });
+        const sendRequest = (authToken: string) =>
+          fetch(this.getConversationApiUrl(destinationPath), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Token: authToken,
+              'sa-token': authToken,
+              authorization: authToken,
+            },
+            body: requestBody,
+          });
+
+        let response = await sendRequest(token.trim());
+        let payload: any;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+
+        const isUnauthorized = () => {
+          const code = Number(
+            payload?.code ??
+              payload?.status ??
+              payload?.data?.code ??
+              payload?.data?.status
+          );
+          return (
+            response.status === 401 ||
+            code === 401 ||
+            code === 28004
+          );
+        };
+
+        if (isUnauthorized()) {
+          const [account, password] = await Promise.all([
+            storage.getItem('xuebanuserid'),
+            storage.getItem('userPassword'),
+          ]);
+          if (!account?.trim() || !password?.trim()) {
+            throw new Error('学伴登录已失效，请退出后重新登录');
+          }
+          const refreshedToken = await authService.loginXueban(
+            account.trim(),
+            password
+          );
+          response = await sendRequest(refreshedToken.trim());
+          try {
+            payload = await response.json();
+          } catch {
+            payload = null;
+          }
+        }
+
+        if (isUnauthorized()) {
+          throw new Error('学伴登录已失效，请退出后重新登录');
+        }
+        if (!response.ok || payload?.success === false) {
+          const serverMessage =
+            payload?.message ||
+            payload?.msg ||
+            (typeof payload?.data === 'string' ? payload.data : '');
+          throw new Error(
+            serverMessage || `探索问答请求失败（HTTP ${response.status}）`
+          );
+        }
+        const rawMessage = String(
+          payload?.data?.message ?? payload?.message ?? ''
+        ).trim();
+        if (rawMessage === '成功' && !rawMessage.includes('data:')) {
+          pollTimer = setTimeout(() => void poll(false), 500);
+          return;
+        }
+        const normalizedMessage =
+          this.extractMessageFromConcatenatedJson(rawMessage) ?? rawMessage;
+        const parsed = this.parseSseText(normalizedMessage);
+        const chunkText = parsed.hasData
+          ? parsed.textChunk
+          : this.stripTrailingEnd(normalizedMessage);
+
+        if (chunkText) {
+          const nextContent = this.mergeContent(
+            accumulatedContent,
+            chunkText
+          );
+          const delta = nextContent.slice(accumulatedContent.length);
+          accumulatedContent = nextContent;
+          if (delta) onChunk(delta);
+        }
+
+        if (
+          parsed.ended ||
+          normalizedMessage === 'end' ||
+          normalizedMessage.endsWith('end')
+        ) {
+          onComplete(accumulatedContent);
+          return;
+        }
+        pollTimer = setTimeout(() => void poll(false), 500);
+      } catch (error) {
+        if (!isCancelled) {
+          onError(
+            error instanceof Error ? error : new Error('探索问答请求失败')
+          );
+        }
+      }
+    };
+
+    void poll(true);
+    return cancel;
+  }
+
+  /**
+   * 保留教材调用入口，内部转到统一对话请求。
+   */
+  public static sendTextbookExploreMessage(
+    request: TextbookExploreRequest,
+    onChunk: (chunk: string) => void,
+    onComplete: (fullText: string) => void,
+    onError: (err: Error) => void
+  ) {
+    return this.sendConversationMessage(
+      {
+        ...request,
+        scene: 'textbook',
+        forcePreviewPictureApi: true,
+      },
+      onChunk,
+      onComplete,
+      onError
+    );
   }
 
   /**

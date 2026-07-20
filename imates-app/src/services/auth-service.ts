@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
 import { HomeworkService } from './homework-service';
@@ -55,6 +56,9 @@ export class AuthService {
    */
   private getApiBaseUrl(): string {
     const env = getCurrentEnvType();
+    if (Platform.OS === 'web') {
+      return env === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
+    }
     if (env === AppEnvType.INTERNAL_TEST) {
       return 'http://www.imates.com.cn:58443/blw-edu-service-alc';
     }
