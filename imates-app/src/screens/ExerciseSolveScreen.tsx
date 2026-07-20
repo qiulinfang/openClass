@@ -158,6 +158,11 @@ export function ExerciseSolveScreen({ onLogout, onGoAnswer, onAskAI }: ExerciseS
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={100}
           renderItem={({ item }) => {
             const isPreset = item.id.startsWith('preset');
             const subjectName = SUBJECT_ID_TO_NAME[item.subject] || '学科';
@@ -175,7 +180,7 @@ export function ExerciseSolveScreen({ onLogout, onGoAnswer, onAskAI }: ExerciseS
                     {item.title}
                   </Text>
                   <View style={styles.questionPreview}>
-                    <MathRenderer content={item.content.substring(0, 80) + '...'} textColor="#475569" />
+                    <MathRenderer content={item.content} textColor="#475569" />
                   </View>
                 </Card>
               </TouchableOpacity>

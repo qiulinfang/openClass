@@ -1,5 +1,7 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { HomeworkService } from './homework-service';
+import { DeviceEventEmitter } from 'react-native';
 
 export interface UserTextbookInfo {
   id: string;
@@ -27,7 +29,7 @@ export class TextbookService {
    * 拉取用户所有的线上教材资源
    */
   public static async fetchTextbooks(): Promise<UserTextbookInfo[]> {
-    const token = await storage.getItem('YANBAN_TOKEN') || '';
+    let token = await HomeworkService.getValidYanbanToken();
     if (!token) {
       console.warn('[TextbookService] 研伴 Token 为空，请先在作业页执行登录');
       return [];
@@ -35,16 +37,25 @@ export class TextbookService {
 
     try {
       const url = this.getApiUrl();
-      const response = await fetch(url, {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Token': token.trim(),
+        'sa-token': token.trim(),
+        'authorization': token.trim(),
+      };
+      let response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': token.trim(),
-          'sa-token': token.trim(),
-          'authorization': token.trim(),
-        },
+        headers,
         body: JSON.stringify({}),
       });
+
+      if (response.status === 401) {
+        console.warn('[TextbookService] 研伴 Token 401 过期，触发强制登出...');
+        await storage.removeItem('XUEBAN_TOKEN');
+        await storage.removeItem('YANBAN_TOKEN');
+        DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+        throw new Error('设备已经在其他地方登陆');
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP status: ${response.status}`);
@@ -86,7 +97,7 @@ export class TextbookService {
    * 拉取指定教材的章节目录树
    */
   public static async fetchSectionTree(textbookId: string): Promise<ChapterNode[]> {
-    const token = await storage.getItem('YANBAN_TOKEN') || '';
+    let token = await HomeworkService.getValidYanbanToken();
     if (!token) {
       console.warn('[TextbookService] 研伴 Token 为空，无法获取章节树');
       return [];
@@ -98,16 +109,26 @@ export class TextbookService {
         ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree'
         : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-section-tree';
 
-      const response = await fetch(url, {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Token': token.trim(),
+        'sa-token': token.trim(),
+        'authorization': token.trim(),
+      };
+
+      let response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': token.trim(),
-          'sa-token': token.trim(),
-          'authorization': token.trim(),
-        },
+        headers,
         body: JSON.stringify({ id: textbookId }),
       });
+
+      if (response.status === 401) {
+        console.warn('[TextbookService] 研伴 Token 401 过期，触发强制登出...');
+        await storage.removeItem('XUEBAN_TOKEN');
+        await storage.removeItem('YANBAN_TOKEN');
+        DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+        throw new Error('设备已经在其他地方登陆');
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP status: ${response.status}`);
@@ -133,7 +154,7 @@ export class TextbookService {
    * 拉取指定教材的学习资源包列表
    */
   public static async fetchLearningPackages(textbookId: string): Promise<LearningPackage[]> {
-    const token = await storage.getItem('YANBAN_TOKEN') || '';
+    let token = await HomeworkService.getValidYanbanToken();
     if (!token) {
       console.warn('[TextbookService] 研伴 Token 为空，无法获取资源包');
       return [];
@@ -145,16 +166,26 @@ export class TextbookService {
         ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package'
         : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-learning-package';
 
-      const response = await fetch(url, {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Token': token.trim(),
+        'sa-token': token.trim(),
+        'authorization': token.trim(),
+      };
+
+      let response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': token.trim(),
-          'sa-token': token.trim(),
-          'authorization': token.trim(),
-        },
+        headers,
         body: JSON.stringify({ id: textbookId }), // 注意：后端参数是 id
       });
+
+      if (response.status === 401) {
+        console.warn('[TextbookService] 研伴 Token 401 过期，触发强制登出...');
+        await storage.removeItem('XUEBAN_TOKEN');
+        await storage.removeItem('YANBAN_TOKEN');
+        DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+        throw new Error('设备已经在其他地方登陆');
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP status: ${response.status}`);

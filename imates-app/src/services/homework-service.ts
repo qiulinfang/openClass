@@ -1,5 +1,6 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { DeviceEventEmitter } from 'react-native';
 
 // 接口定义符合 MyHomeworkView.vue
 export interface HomeworkUndoItem {
@@ -288,6 +289,14 @@ export class HomeworkService {
   }
 
   /**
+   * 获取有效的研伴 Token
+   */
+  public static async getValidYanbanToken(): Promise<string> {
+    const token = await storage.getItem('YANBAN_TOKEN');
+    return token || '';
+  }
+
+  /**
    * 拉取作业列表数据
    */
   public static async fetchHomeworkList(params: {
@@ -296,20 +305,7 @@ export class HomeworkService {
     subject?: string;
     date?: string;
   }): Promise<HomeworkUndoItem[]> {
-    let token = await storage.getItem('YANBAN_TOKEN');
-    if (!token || token === 'undefined' || token.trim() === '') {
-      // 动态自动重试登录研伴系统
-      const account = await storage.getItem('xuebanuserid');
-      const password = await storage.getItem('userPassword');
-      if (account && password) {
-        try {
-          token = await this.loginYanban(account, password);
-        } catch (loginError) {
-          console.error('[HomeworkService] 自动静默登录研伴异常:', loginError);
-        }
-      }
-    }
-
+    const token = await this.getValidYanbanToken();
     const url = this.getApiUrl();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -328,6 +324,14 @@ export class HomeworkService {
         date: params.date || undefined,
       }),
     });
+
+    if (response.status === 401) {
+      console.warn('[HomeworkService] 研伴 Token 401 过期，触发强制登出...');
+      await storage.removeItem('XUEBAN_TOKEN');
+      await storage.removeItem('YANBAN_TOKEN');
+      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+      throw new Error('设备已经在其他地方登陆');
+    }
 
     if (!response.ok) {
       throw new Error(`获取作业列表接口异常 (HTTP ${response.status})`);
@@ -349,19 +353,7 @@ export class HomeworkService {
    * 获取作业详情（题目列表）
    */
   public static async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
-    let token = await storage.getItem('YANBAN_TOKEN');
-    if (!token || token === 'undefined' || token.trim() === '') {
-      const account = await storage.getItem('xuebanuserid');
-      const password = await storage.getItem('userPassword');
-      if (account && password) {
-        try {
-          token = await this.loginYanban(account, password);
-        } catch (e) {
-          console.error('[HomeworkService] getHomeworkDetailList 自动登录失败:', e);
-        }
-      }
-    }
-
+    const token = await this.getValidYanbanToken();
     const env = getCurrentEnvType();
     const url = env === AppEnvType.INTERNAL_TEST
       ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/homework-detail-list'
@@ -380,6 +372,14 @@ export class HomeworkService {
       body: JSON.stringify({ id: homeworkId }),
     });
 
+    if (response.status === 401) {
+      console.warn('[HomeworkService] 研伴 Token 401 过期，触发强制登出...');
+      await storage.removeItem('XUEBAN_TOKEN');
+      await storage.removeItem('YANBAN_TOKEN');
+      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+      throw new Error('设备已经在其他地方登陆');
+    }
+
     if (!response.ok) {
       throw new Error(`获取作业详情失败 (HTTP ${response.status})`);
     }
@@ -395,19 +395,7 @@ export class HomeworkService {
    * 提交保存作业
    */
   public static async submitHomework(req: HomeworkSubmitSaveReq): Promise<boolean> {
-    let token = await storage.getItem('YANBAN_TOKEN');
-    if (!token || token === 'undefined' || token.trim() === '') {
-      const account = await storage.getItem('xuebanuserid');
-      const password = await storage.getItem('userPassword');
-      if (account && password) {
-        try {
-          token = await this.loginYanban(account, password);
-        } catch (e) {
-          console.error('[HomeworkService] submitHomework 自动登录失败:', e);
-        }
-      }
-    }
-
+    const token = await this.getValidYanbanToken();
     const env = getCurrentEnvType();
     const url = env === AppEnvType.INTERNAL_TEST
       ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/homework-submit-save'
@@ -425,6 +413,14 @@ export class HomeworkService {
       headers,
       body: JSON.stringify(req),
     });
+
+    if (response.status === 401) {
+      console.warn('[HomeworkService] 研伴 Token 401 过期，触发强制登出...');
+      await storage.removeItem('XUEBAN_TOKEN');
+      await storage.removeItem('YANBAN_TOKEN');
+      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+      throw new Error('设备已经在其他地方登陆');
+    }
 
     if (!response.ok) {
       throw new Error(`提交作业失败 (HTTP ${response.status})`);

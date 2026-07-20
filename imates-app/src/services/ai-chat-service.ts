@@ -1,5 +1,6 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { DeviceEventEmitter } from 'react-native';
 
 export interface ChatMessage {
   id: string;
@@ -217,6 +218,14 @@ export class AiChatService {
           headers,
           body: JSON.stringify(body),
         });
+
+        if (response.status === 401) {
+          console.warn('[AiChatService] Token 401 过期，触发强制登出...');
+          await storage.removeItem('XUEBAN_TOKEN');
+          await storage.removeItem('YANBAN_TOKEN');
+          DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+          throw new Error('设备已经在其他地方登陆');
+        }
 
         if (!response.ok) {
           throw new Error(`HTTP 异常: ${response.status}`);

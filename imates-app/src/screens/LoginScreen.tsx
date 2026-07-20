@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Card } from '@/components/Card';
 import { authService, getUserId, getPassword } from '@/services/auth-service';
+import { HomeworkService } from '@/services/homework-service';
 import {
   AppEnvType,
   getCurrentEnvType,
@@ -195,6 +196,13 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       const token = await authService.loginXueban(account, password);
       await authService.getUserInfo(token);
+
+      // 同步登录研伴系统以提前获取 YANBAN_TOKEN
+      try {
+        await HomeworkService.loginYanban(account, password);
+      } catch (ybError) {
+        console.error('[LoginScreen] 研伴系统登录失败:', ybError);
+      }
 
       // 多账号列表持久化
       const existingIndex = savedAccounts.findIndex((a) => a.account === account);

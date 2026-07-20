@@ -1,6 +1,7 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
 import { MistakeService, MistakeItem } from './mistake-service';
+import { DeviceEventEmitter } from 'react-native';
 
 export interface SyncPullResponse<T> {
   success: boolean;
@@ -57,6 +58,14 @@ export class SyncService {
       }
     });
 
+    if (response.status === 401) {
+      console.warn('[SyncService] Token 401 过期，触发强制登出...');
+      await storage.removeItem('XUEBAN_TOKEN');
+      await storage.removeItem('YANBAN_TOKEN');
+      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+      throw new Error('设备已经在其他地方登陆');
+    }
+
     if (!response.ok) {
       throw new Error(`[SyncService] Pull Request Failed (HTTP ${response.status})`);
     }
@@ -90,6 +99,14 @@ export class SyncService {
         records
       })
     });
+
+    if (response.status === 401) {
+      console.warn('[SyncService] Token 401 过期，触发强制登出...');
+      await storage.removeItem('XUEBAN_TOKEN');
+      await storage.removeItem('YANBAN_TOKEN');
+      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
+      throw new Error('设备已经在其他地方登陆');
+    }
 
     if (!response.ok) {
       throw new Error(`[SyncService] Push Request Failed (HTTP ${response.status})`);
