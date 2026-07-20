@@ -60,6 +60,8 @@ const COLORS = ['#212529', '#E5484D', '#2F6FED', '#24A148', '#8B5CF6', '#F5C400'
 const TRANSFER_CHUNK_SIZE = 64 * 1024;
 const CHUNK_ACK_TIMEOUT = 8000;
 const PDF_WEBVIEW_SOURCE = { html: pdfAnnotatorHtml };
+// PDF 普通预览的底部操作栏暂时下线，保留实现以便后续恢复。
+const SHOW_PDF_BOTTOM_ACTIONS = false;
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
@@ -273,7 +275,8 @@ function PdfAnnotationViewerComponent({
     send({ type: 'readerChrome', visible: chromeVisible });
   }, [chromeVisible, send, viewerReady]);
 
-  const bottomChromeVisible = chromeVisible || exploreMode;
+  const bottomChromeVisible =
+    exploreMode || (SHOW_PDF_BOTTOM_ACTIONS && chromeVisible);
   useEffect(() => {
     Animated.timing(bottomChromeProgress, {
       toValue: bottomChromeVisible ? 1 : 0,
@@ -287,12 +290,15 @@ function PdfAnnotationViewerComponent({
 
   useEffect(() => {
     if (!viewerReady) return;
-    const toolConfigHeight =
-      !exploreMode && tool !== 'hand' ? 54 : 0;
+    const bottomChromeHeight = exploreMode
+      ? 74 + insets.bottom
+      : SHOW_PDF_BOTTOM_ACTIONS
+        ? 74 + insets.bottom + (tool !== 'hand' ? 54 : 0)
+        : 0;
     send({
       type: 'readerInsets',
       top: contentTopInset,
-      bottom: 74 + insets.bottom + toolConfigHeight + 18,
+      bottom: bottomChromeHeight + 18,
     });
   }, [
     contentTopInset,
@@ -482,6 +488,7 @@ function PdfAnnotationViewerComponent({
         pointerEvents={bottomChromeVisible ? 'auto' : 'none'}
         style={[
           styles.bottomChrome,
+          !SHOW_PDF_BOTTOM_ACTIONS && !exploreMode && { display: 'none' },
           {
             opacity: bottomChromeProgress,
             transform: [
