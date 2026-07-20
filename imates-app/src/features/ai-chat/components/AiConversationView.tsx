@@ -32,7 +32,9 @@ interface AiConversationViewProps {
   bottomInset: number;
   onInputChange: (value: string) => void;
   onSend: (prompt?: string) => void;
+  onStop: () => void;
   onPickImage?: () => void;
+  onCreateConversation: () => void;
   onRemoveAttachment: () => void;
   onReselect?: () => void;
   onRoleChange: (role: AiChatRole) => void;
@@ -64,7 +66,9 @@ export function AiConversationView({
   bottomInset,
   onInputChange,
   onSend,
+  onStop,
   onPickImage,
+  onCreateConversation,
   onRemoveAttachment,
   onReselect,
   onRoleChange,
@@ -116,7 +120,12 @@ export function AiConversationView({
               <Text style={styles.typingText}>正在思考…</Text>
             </View>
           ) : (
-            <MathRenderer content={item.content} textColor="#20243D" />
+            <>
+              <MathRenderer content={item.content} textColor="#20243D" />
+              {item.isStopped ? (
+                <Text style={styles.stoppedText}>已停止生成</Text>
+              ) : null}
+            </>
           )}
         </View>
       </View>
@@ -220,53 +229,65 @@ export function AiConversationView({
           </View>
         ) : null}
 
-        <ScrollView
-          horizontal
-          keyboardShouldPersistTaps="handled"
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tools}
-        >
-          <AiRoleSelector
-            value={role}
-            disabled={isSending}
-            onChange={onRoleChange}
-          />
-          <TouchableOpacity
-            style={[
-              styles.toolChip,
-              enableWebSearch && styles.toolChipActive,
-            ]}
-            onPress={onToggleWebSearch}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: enableWebSearch }}
+        <View style={styles.toolRow}>
+          <ScrollView
+            horizontal
+            style={styles.toolScroll}
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tools}
           >
-            <Text
+            <AiRoleSelector
+              value={role}
+              disabled={isSending}
+              onChange={onRoleChange}
+            />
+            <TouchableOpacity
               style={[
-                styles.toolChipText,
-                enableWebSearch && styles.toolChipTextActive,
+                styles.toolChip,
+                enableWebSearch && styles.toolChipActive,
               ]}
+              onPress={onToggleWebSearch}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: enableWebSearch }}
             >
-              联网搜索
-            </Text>
+              <Text
+                style={[
+                  styles.toolChipText,
+                  enableWebSearch && styles.toolChipTextActive,
+                ]}
+              >
+                联网搜索
+              </Text>
+            </TouchableOpacity>
+            {context.scene === 'general' && onPickImage ? (
+              <TouchableOpacity
+                style={styles.toolChip}
+                onPress={onPickImage}
+                disabled={isSending}
+              >
+                <Text style={styles.toolChipText}>添加图片</Text>
+              </TouchableOpacity>
+            ) : context.scene === 'textbook' && onReselect ? (
+              <TouchableOpacity
+                style={styles.toolChip}
+                onPress={onReselect}
+                disabled={isSending}
+              >
+                <Text style={styles.toolChipText}>框选内容</Text>
+              </TouchableOpacity>
+            ) : null}
+          </ScrollView>
+          <TouchableOpacity
+            style={styles.newConversationButton}
+            onPress={onCreateConversation}
+            disabled={isSending}
+            accessibilityRole="button"
+            accessibilityLabel="新建会话"
+          >
+            <Text style={styles.newConversationIcon}>＋</Text>
           </TouchableOpacity>
-          {context.scene === 'general' && onPickImage ? (
-            <TouchableOpacity
-              style={styles.toolChip}
-              onPress={onPickImage}
-              disabled={isSending}
-            >
-              <Text style={styles.toolChipText}>添加图片</Text>
-            </TouchableOpacity>
-          ) : context.scene === 'textbook' && onReselect ? (
-            <TouchableOpacity
-              style={styles.toolChip}
-              onPress={onReselect}
-              disabled={isSending}
-            >
-              <Text style={styles.toolChipText}>框选内容</Text>
-            </TouchableOpacity>
-          ) : null}
-        </ScrollView>
+        </View>
 
         <View style={styles.inputRow}>
           <TextInput
@@ -288,18 +309,21 @@ export function AiConversationView({
           <TouchableOpacity
             style={[
               styles.sendButton,
-              ((!inputText.trim() && !attachment) || isSending) &&
+              !isSending &&
+                !inputText.trim() &&
+                !attachment &&
                 styles.sendButtonDisabled,
+              isSending && styles.stopButton,
             ]}
-            onPress={() => onSend()}
+            onPress={isSending ? onStop : () => onSend()}
             disabled={
-              (!inputText.trim() && !attachment) || isSending
+              !isSending && !inputText.trim() && !attachment
             }
             accessibilityRole="button"
-            accessibilityLabel="发送消息"
+            accessibilityLabel={isSending ? '停止生成' : '发送消息'}
           >
             {isSending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <View style={styles.stopIcon} />
             ) : (
               <Text style={styles.sendText}>↑</Text>
             )}
@@ -395,6 +419,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 12,
     color: '#74798F',
+  },
+  stoppedText: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#8A8FA2',
   },
   welcome: {
     flex: 1,
@@ -529,8 +558,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#74798F',
   },
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  toolScroll: {
+    flex: 1,
+  },
   tools: {
-    paddingHorizontal: 12,
+    paddingLeft: 12,
+    paddingRight: 4,
     paddingBottom: 7,
   },
   toolChip: {
@@ -555,6 +592,22 @@ const styles = StyleSheet.create({
   },
   toolChipTextActive: {
     color: '#5B50CE',
+  },
+  newConversationButton: {
+    width: 44,
+    height: 44,
+    marginRight: 12,
+    marginBottom: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#EEEAFE',
+  },
+  newConversationIcon: {
+    marginTop: -2,
+    fontSize: 25,
+    fontWeight: '500',
+    color: '#6256D9',
   },
   inputRow: {
     minHeight: 58,
@@ -588,6 +641,15 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
+  },
+  stopButton: {
+    backgroundColor: '#4E5267',
+  },
+  stopIcon: {
+    width: 13,
+    height: 13,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
   },
   sendText: {
     marginTop: -2,

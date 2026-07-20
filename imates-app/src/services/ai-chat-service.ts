@@ -9,6 +9,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   isStreaming?: boolean;
+  isStopped?: boolean;
   imageUri?: string; // 支持图片气泡渲染
 }
 
@@ -374,10 +375,14 @@ export class AiChatService {
     let isCancelled = false;
     let accumulatedContent = '';
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    const abortController = new AbortController();
 
     const cancel = () => {
+      if (isCancelled) return;
       isCancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
+      pollTimer = null;
+      abortController.abort();
     };
 
     const poll = async (isFirstRequest: boolean) => {
@@ -452,9 +457,11 @@ export class AiChatService {
               authorization: authToken,
             },
             body: requestBody,
+            signal: abortController.signal,
           });
 
         let response = await sendRequest(token.trim());
+        if (isCancelled) return;
         let payload: any;
         try {
           payload = await response.json();
@@ -489,6 +496,7 @@ export class AiChatService {
             password
           );
           response = await sendRequest(refreshedToken.trim());
+          if (isCancelled) return;
           try {
             payload = await response.json();
           } catch {
@@ -496,6 +504,7 @@ export class AiChatService {
           }
         }
 
+        if (isCancelled) return;
         if (isUnauthorized()) {
           throw new Error('学伴登录已失效，请退出后重新登录');
         }
@@ -537,6 +546,7 @@ export class AiChatService {
           normalizedMessage === 'end' ||
           normalizedMessage.endsWith('end')
         ) {
+          if (isCancelled) return;
           onComplete(accumulatedContent);
           return;
         }
