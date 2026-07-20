@@ -156,8 +156,8 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
                   marginRight: 6,
                   backgroundColor: isMath ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
                   borderColor: isMath ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)',
-                  color: isMath ? '#2563EB' : '#059669',
                 }}
+                textStyle={{ color: isMath ? '#2563EB' : '#059669' }}
               />
             ))}
           </View>
@@ -203,22 +203,6 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部标题与用户信息栏 */}
-      <View style={styles.header}>
-        <View style={styles.userProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>学</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>您好，</Text>
-            <Text style={styles.userName}>智能伴侣学员 🎓</Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity style={styles.logoutIconButton} onPress={onLogout}>
-          <Text style={styles.logoutIconText}>🚪</Text>
-        </TouchableOpacity>
-      </View>
 
       <View style={styles.container}>
         <View style={styles.viewHeader}>

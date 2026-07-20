@@ -16,6 +16,7 @@ export interface MistakeItem {
   lastPracticeTime: number;
   practiceHistory: PracticeRecord[];
   subject: string; // 冗余一份顶层学科代码以利于快速过滤
+  isDeleted?: number;
 }
 
 export class MistakeService {

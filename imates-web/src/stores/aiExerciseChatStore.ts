@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI 题目聊天 Store
  * 职责：管理AI题目场景下的聊天消息和业务逻辑
  * 
@@ -371,6 +371,16 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         canViewAnswer.value = true
       }
 
+      // 统一入口：新消息完成后由 store 补齐/增强 rawHtmlMap
+      const aiIndex = messages.value.findIndex((m) => m.id === tempReplyId)
+      if (aiIndex >= 0) {
+        const msg = messages.value[aiIndex]
+        const changed = await ensureHtmlRawMapForMessage(msg, { logTag: 'AI_EXERCISE' })
+        if (changed) {
+          messages.value[aiIndex] = { ...msg }
+        }
+      }
+
       // 保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
@@ -527,6 +537,13 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         },
       )
 
+      // 统一入口：新消息完成后由 store 补齐/增强 rawHtmlMap
+      const msg = messages.value[index]
+      const changed = await ensureHtmlRawMapForMessage(msg, { logTag: 'AI_EXERCISE' })
+      if (changed) {
+        messages.value[index] = { ...msg }
+      }
+
       // 保存聊天历史（统一使用 bmNo 作为存储键）
       const questionBmNo = currentQuestion.bmNo
       if (questionBmNo) {
@@ -604,7 +621,14 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
             const userId = getUserId() || ''
             const newSessionId = `${userId ? userId + '-' : ''}exercise-${questionBmNo}-${Date.now()}`
             currentSessionId.value = newSessionId
-            messages.value = legacyData.messages || []
+            const rawMessages = legacyData.messages || []
+            const enhancedMessages = await Promise.all(
+              rawMessages.map(async (message) => {
+                await ensureHtmlRawMapForMessage(message, { logTag: 'AI_EXERCISE' })
+                return message
+              })
+            )
+            messages.value = enhancedMessages
             chatResponseTimes.value = legacyData.chatResponseTimes || 0
             canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
 
@@ -913,7 +937,14 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     try {
       const historyData = await chatStorage.loadChatHistory(storageKey)
       if (historyData) {
-        messages.value = historyData.messages || []
+        const rawMessages = historyData.messages || []
+        const enhancedMessages = await Promise.all(
+          rawMessages.map(async (message) => {
+            await ensureHtmlRawMapForMessage(message, { logTag: 'AI_EXERCISE' })
+            return message
+          })
+        )
+        messages.value = enhancedMessages
         chatResponseTimes.value = historyData.chatResponseTimes || 0
       } else {
         messages.value = []

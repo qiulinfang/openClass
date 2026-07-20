@@ -71,6 +71,11 @@ class FileSystemStorage {
     return val;
   }
 
+  async getAllKeys(): Promise<string[]> {
+    await this.loadAll();
+    return Object.keys(this.cache);
+  }
+
   async setItem(key: string, value: string): Promise<void> {
     await this.loadAll();
     this.cache[key] = value;

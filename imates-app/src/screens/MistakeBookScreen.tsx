@@ -14,12 +14,14 @@ import { Card } from '@/components/Card';
 import { MathRenderer } from '@/components/MathRenderer';
 import { MistakeService, MistakeItem } from '@/services/mistake-service';
 import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
-import { SUBJECT_ID_TO_NAME } from '@/services/homework-service';
+import { SUBJECT_ID_TO_NAME, HomeworkQuestionDetail } from '@/services/homework-service';
 import { SyncService } from '@/services/sync-service';
 
 interface MistakeBookScreenProps {
   onLogout: () => void;
   onAskAI: (questionContent: string) => void;
+  mode?: 'mistake' | 'exercise';
+  onGoAnswer?: (questions: HomeworkQuestionDetail[], title: string, subject: string) => void;
 }
 
 const LightColors = {
@@ -49,8 +51,14 @@ const SUBJECT_OPTIONS = [
   { label: '地理', value: '9' },
 ];
 
-export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps) {
+export function MistakeBookScreen({ onLogout, onAskAI, mode, onGoAnswer }: MistakeBookScreenProps) {
   const [activeMode, setActiveMode] = useState<'mistake' | 'exercise'>('mistake');
+
+  useEffect(() => {
+    if (mode) {
+      setActiveMode(mode);
+    }
+  }, [mode]);
   
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
@@ -247,6 +255,22 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.practiceBtn}
+              onPress={() => {
+                const detail: HomeworkQuestionDetail = {
+                  id: item.bmNo,
+                  questionId: item.bmNo,
+                  questionContent: questionText,
+                  questionAnswer: correctAnswerText,
+                  questionAnalysis: analysisText,
+                };
+                onGoAnswer?.([detail], item.questionData?.title || '错题重练', item.subject);
+              }}
+            >
+              <Text style={styles.practiceBtnText}>✍️ 再次练习</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.aiBtn}
               onPress={() => onAskAI(`老师，我想针对这道作业错题发起讨论：\n\n${questionText}`)}
             >
@@ -306,10 +330,26 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.practiceBtn}
+            onPress={() => {
+              const detail: HomeworkQuestionDetail = {
+                id: item.id,
+                questionId: item.id,
+                questionContent: item.content,
+                questionAnswer: item.answer || '',
+                questionAnalysis: item.analysis || '',
+              };
+              onGoAnswer?.([detail], item.title || '收藏练习', item.subject);
+            }}
+          >
+            <Text style={styles.practiceBtnText}>✍️ 开始作答</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.discussBtn}
             onPress={() => onAskAI(`老师，我想针对这道收藏的习题发起讨论，请为我讲解一下它的解题思路和知识点：\n\n${item.content}`)}
           >
-            <Text style={styles.discussBtnText}>🤖 点击进入讨论（去提问） ➔</Text>
+            <Text style={styles.discussBtnText}>🤖 点击进入讨论 ➔</Text>
           </TouchableOpacity>
         </View>
       </Card>
@@ -318,44 +358,29 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部 Header */}
-      <View style={styles.header}>
-        <View style={styles.userProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>习</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>您好，</Text>
-            <Text style={styles.userName}>
-              {activeMode === 'mistake' ? '我的错题本 📚' : '我的习题本 ⭐'}
-            </Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity style={styles.logoutIconButton} onPress={onLogout}>
-          <Text style={styles.logoutIconText}>🚪</Text>
-        </TouchableOpacity>
-      </View>
+
 
       {/* 模块切换 Tab Segmented Control */}
-      <View style={styles.segmentContainer}>
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeMode === 'mistake' && styles.segmentBtnActive]}
-          onPress={() => setActiveMode('mistake')}
-        >
-          <Text style={[styles.segmentText, activeMode === 'mistake' && styles.segmentTextActive]}>
-            我的错题本 (📚)
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeMode === 'exercise' && styles.segmentBtnActive]}
-          onPress={() => setActiveMode('exercise')}
-        >
-          <Text style={[styles.segmentText, activeMode === 'exercise' && styles.segmentTextActive]}>
-            我的习题本 (⭐)
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {!mode && (
+        <View style={styles.segmentContainer}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, activeMode === 'mistake' && styles.segmentBtnActive]}
+            onPress={() => setActiveMode('mistake')}
+          >
+            <Text style={[styles.segmentText, activeMode === 'mistake' && styles.segmentTextActive]}>
+              我的错题本 (📚)
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentBtn, activeMode === 'exercise' && styles.segmentBtnActive]}
+            onPress={() => setActiveMode('exercise')}
+          >
+            <Text style={[styles.segmentText, activeMode === 'exercise' && styles.segmentTextActive]}>
+              我的习题本 (⭐)
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.container}>
         {/* 学科筛选 */}
@@ -384,8 +409,16 @@ export function MistakeBookScreen({ onLogout, onAskAI }: MistakeBookScreenProps)
 
         {/* 错题列表 vs 习题列表 */}
         <FlatList
-          data={activeMode === 'mistake' ? filteredMistakes : filteredExercises}
-          renderItem={activeMode === 'mistake' ? renderMistakeItem : renderExerciseItem}
+          data={
+            (activeMode === 'mistake'
+              ? filteredMistakes
+              : filteredExercises) as Array<MistakeItem | ExerciseItem>
+          }
+          renderItem={({ item }) =>
+            activeMode === 'mistake'
+              ? renderMistakeItem({ item: item as MistakeItem })
+              : renderExerciseItem({ item: item as ExerciseItem })
+          }
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -688,6 +721,17 @@ const styles = StyleSheet.create({
     backgroundColor: LightColors.primary,
   },
   discussBtnText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  practiceBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#3B82F6',
+  },
+  practiceBtnText: {
     fontSize: 11,
     color: '#FFFFFF',
     fontWeight: '700',
