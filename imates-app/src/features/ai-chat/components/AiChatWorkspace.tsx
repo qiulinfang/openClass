@@ -65,6 +65,7 @@ export function AiChatWorkspace({
   const loadedAttachmentKeyRef = useRef('');
   const teacherServiceRef = useRef(new TeacherChatService());
   const currentTeacherSessionIdRef = useRef<string | null>(null);
+  const pendingTeacherForwardRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] =
     useState<AiChatWorkspaceTab>('chat');
   const [chatCategory, setChatCategory] =
@@ -84,6 +85,7 @@ export function AiChatWorkspace({
   const [isSending, setIsSending] = useState(false);
   const [role, setRole] = useState<AiChatRole>('mate');
   const [enableWebSearch, setEnableWebSearch] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [teacherSessions, setTeacherSessions] = useState<
     TeacherChatSession[]
   >([]);
@@ -98,6 +100,8 @@ export function AiChatWorkspace({
   const [teacherUnreadIds, setTeacherUnreadIds] = useState<Set<string>>(
     new Set()
   );
+  const [pendingTeacherForwardCount, setPendingTeacherForwardCount] =
+    useState(0);
 
   const initialAttachmentKey = useMemo(
     () => attachmentKey(context.initialAttachment),
@@ -121,6 +125,7 @@ export function AiChatWorkspace({
     cancelRequestRef.current = null;
     activeRequestRef.current = null;
     setIsSending(false);
+    setEditingMessageId(null);
     setIsLoadingSessions(true);
     setIsInitialized(false);
 
@@ -224,6 +229,7 @@ export function AiChatWorkspace({
     setCurrentSession(null);
     setMessages([]);
     setInputText('');
+    setEditingMessageId(null);
     setIsSending(false);
     setPendingAttachment(context.initialAttachment || null);
     setActiveTab('chat');
@@ -250,11 +256,14 @@ export function AiChatWorkspace({
     }
   };
 
-  const handleSend = async (promptOverride?: string) => {
-    const prompt =
-      promptOverride?.trim() ||
-      inputText.trim() ||
-      (pendingAttachment ? '请分析这张图片中的内容' : '');
+  const startAiRequest = async (options: {
+    prompt: string;
+    baseMessages: ChatMessage[];
+    requestAttachment?: AiChatAttachment | null;
+    appendUserMessage: boolean;
+    retryCount?: number;
+  }) => {
+    const prompt = options.prompt.trim();
     if (!prompt || isSending || !isInitialized) return;
 
     let targetSession = currentSession;
@@ -263,7 +272,7 @@ export function AiChatWorkspace({
         userId,
         {
           ...context,
-          initialAttachment: pendingAttachment,
+          initialAttachment: options.requestAttachment,
         },
         prompt
       );
@@ -276,17 +285,19 @@ export function AiChatWorkspace({
       setCurrentSession(targetSession);
       await refreshSessions(userId);
     }
-
+    const session = targetSession;
     const firstMessage =
-      targetSession.messageCount === 0 && messages.length === 0;
+      session.messageCount === 0 && options.baseMessages.length === 0;
     const now = Date.now();
-    const userMessage: ChatMessage = {
-      id: `chat-user-${now}`,
-      sender: 'user',
-      content: prompt,
-      timestamp: now,
-      imageUri: pendingAttachment?.uri,
-    };
+    const userMessage: ChatMessage | null = options.appendUserMessage
+      ? {
+          id: `chat-user-${now}`,
+          sender: 'user',
+          content: prompt,
+          timestamp: now,
+          imageUri: options.requestAttachment?.uri,
+        }
+      : null;
     const aiMessageId = `chat-ai-${now}`;
     const aiMessage: ChatMessage = {
       id: aiMessageId,
@@ -294,15 +305,20 @@ export function AiChatWorkspace({
       content: '',
       timestamp: now + 1,
       isStreaming: true,
+      retryCount: options.retryCount,
     };
-    const requestAttachment = pendingAttachment;
-    const requestMessages = [...messages, userMessage, aiMessage];
+    const requestMessages = [
+      ...options.baseMessages,
+      ...(userMessage ? [userMessage] : []),
+      aiMessage,
+    ];
     setMessages(requestMessages);
     setInputText('');
+    setEditingMessageId(null);
     setPendingAttachment(null);
     setIsSending(true);
     activeRequestRef.current = {
-      session: targetSession,
+      session,
       messages: requestMessages,
       aiMessageId,
       accumulated: '',
@@ -332,13 +348,14 @@ export function AiChatWorkspace({
                 activeRequest.accumulated ||
                 '暂时没有返回有效内容',
               isStreaming: false,
+              isError: false,
             }
           : message
       );
       setMessages(finalMessages);
       cancelRequestRef.current = null;
       activeRequestRef.current = null;
-      void persistConversation(targetSession, finalMessages)
+      void persistConversation(session, finalMessages)
         .catch((error) => {
           console.warn('[AiChatWorkspace] 保存会话失败:', error);
         })
@@ -352,13 +369,14 @@ export function AiChatWorkspace({
               ...message,
               content: `发送失败：${error.message}`,
               isStreaming: false,
+              isError: true,
             }
           : message
       );
       setMessages(finalMessages);
       cancelRequestRef.current = null;
       activeRequestRef.current = null;
-      void persistConversation(targetSession, finalMessages)
+      void persistConversation(session, finalMessages)
         .catch((saveError) => {
           console.warn('[AiChatWorkspace] 保存失败消息失败:', saveError);
         })
@@ -369,7 +387,7 @@ export function AiChatWorkspace({
       context.scene === 'exercise' && context.exerciseQuestion
         ? AiChatService.sendExerciseStreamMessage(
             prompt,
-            targetSession.id,
+            session.id,
             context.exerciseQuestion,
             {
               isNewSession: firstMessage,
@@ -383,8 +401,8 @@ export function AiChatWorkspace({
         : AiChatService.sendConversationMessage(
             {
               prompt,
-              sessionId: targetSession.id,
-              imageDataUrl: requestAttachment?.dataUrl,
+              sessionId: session.id,
+              imageDataUrl: options.requestAttachment?.dataUrl,
               subject: context.subject,
               sectionName: context.sectionName || context.resourceName,
               isNewSession: firstMessage,
@@ -397,6 +415,91 @@ export function AiChatWorkspace({
             onComplete,
             onError
           );
+  };
+
+  const handleSend = async (promptOverride?: string) => {
+    const prompt =
+      promptOverride?.trim() ||
+      inputText.trim() ||
+      (pendingAttachment ? '请分析这张图片中的内容' : '');
+    if (!prompt || isSending || !isInitialized) return;
+
+    if (editingMessageId) {
+      const editingIndex = messages.findIndex(
+        (message) => message.id === editingMessageId
+      );
+      if (editingIndex >= 0) {
+        await startAiRequest({
+          prompt,
+          baseMessages: messages.slice(0, editingIndex),
+          requestAttachment: pendingAttachment,
+          appendUserMessage: true,
+        });
+        return;
+      }
+      setEditingMessageId(null);
+    }
+
+    await startAiRequest({
+      prompt,
+      baseMessages: messages,
+      requestAttachment: pendingAttachment,
+      appendUserMessage: true,
+    });
+  };
+
+  const editMessage = (message: ChatMessage) => {
+    if (isSending || message.sender !== 'user') return;
+    setEditingMessageId(message.id);
+    setInputText(message.content);
+    setPendingAttachment(
+      message.imageUri?.startsWith('data:')
+        ? {
+            uri: message.imageUri,
+            dataUrl: message.imageUri,
+            label: '原提问图片',
+          }
+        : null
+    );
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessageId(null);
+    setInputText('');
+    setPendingAttachment(null);
+  };
+
+  const retryMessage = async (message: ChatMessage) => {
+    if (isSending || message.sender !== 'ai') return;
+    if ((message.retryCount || 0) >= 3) {
+      Alert.alert('已达到重试上限', '可以编辑原提问后重新发送');
+      return;
+    }
+    const aiIndex = messages.findIndex((item) => item.id === message.id);
+    if (aiIndex < 0) return;
+    let userIndex = aiIndex - 1;
+    while (userIndex >= 0 && messages[userIndex]?.sender !== 'user') {
+      userIndex -= 1;
+    }
+    const sourceMessage = messages[userIndex];
+    if (!sourceMessage || sourceMessage.sender !== 'user') {
+      Alert.alert('无法重试', '没有找到这条回答对应的提问');
+      return;
+    }
+    const requestAttachment = sourceMessage.imageUri?.startsWith('data:')
+      ? {
+          uri: sourceMessage.imageUri,
+          dataUrl: sourceMessage.imageUri,
+          label: '原提问图片',
+        }
+      : null;
+    await startAiRequest({
+      prompt: sourceMessage.content,
+      baseMessages: messages.slice(0, aiIndex),
+      requestAttachment,
+      appendUserMessage: false,
+      retryCount: (message.retryCount || 0) + 1,
+    });
   };
 
   const handleStop = () => {
@@ -448,6 +551,7 @@ export function AiChatWorkspace({
     setIsSending(false);
     setCurrentSession(session);
     setMessages(await AiChatSessionService.loadMessages(session.id));
+    setEditingMessageId(null);
     setPendingAttachment(null);
     await AiChatSessionService.setActiveSession(
       userId,
@@ -463,6 +567,7 @@ export function AiChatWorkspace({
     setCurrentSession(null);
     setMessages([]);
     setInputText('');
+    setEditingMessageId(null);
     setPendingAttachment(
       context.scene === 'textbook'
         ? context.initialAttachment || null
@@ -551,6 +656,34 @@ export function AiChatWorkspace({
     ]);
   };
 
+  const askTeacher = (selectedMessages: ChatMessage[]) => {
+    const draftQuestion = inputText.trim();
+    if (selectedMessages.length === 0 && !draftQuestion) {
+      pendingTeacherForwardRef.current = null;
+      setPendingTeacherForwardCount(0);
+      setChatCategory('teacher');
+      setActiveTab('sessions');
+      return;
+    }
+
+    const forwardText =
+      selectedMessages.length > 0
+        ? [
+            '【来自 AI 问答的对话】',
+            ...selectedMessages.map(
+              (message) =>
+                `${message.sender === 'user' ? '我' : '学伴'}：${message.content}`
+            ),
+          ].join('\n\n')
+        : `【来自 AI 问答的问题】\n\n${draftQuestion}`;
+    pendingTeacherForwardRef.current = forwardText;
+    setPendingTeacherForwardCount(
+      selectedMessages.length > 0 ? selectedMessages.length : 1
+    );
+    setChatCategory('teacher');
+    setActiveTab('sessions');
+  };
+
   const selectTeacherSession = async (session: TeacherChatSession) => {
     setChatCategory('teacher');
     setCurrentTeacherSession(session);
@@ -587,16 +720,42 @@ export function AiChatWorkspace({
         });
       }
       if (connectionResult.status === 'rejected') {
-        Alert.alert(
-          '实时连接失败',
-          connectionResult.reason instanceof Error
-            ? connectionResult.reason.message
-            : '可在答疑页点击重新连接'
+        if (!pendingTeacherForwardRef.current) {
+          Alert.alert(
+            '实时连接失败',
+            connectionResult.reason instanceof Error
+              ? connectionResult.reason.message
+              : '可在答疑页点击重新连接'
+          );
+        }
+      }
+
+      const pendingForward = pendingTeacherForwardRef.current;
+      if (pendingForward) {
+        if (connectionResult.status === 'rejected') {
+          throw connectionResult.reason;
+        }
+        const forwardedMessage = await teacherServiceRef.current.send(
+          session,
+          pendingForward
         );
+        setTeacherMessages((current) =>
+          current.some((item) => item.id === forwardedMessage.id)
+            ? current
+            : [...current, forwardedMessage]
+        );
+        pendingTeacherForwardRef.current = null;
+        setPendingTeacherForwardCount(0);
       }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '老师答疑加载失败';
+      const pendingForward = pendingTeacherForwardRef.current;
+      if (pendingForward) {
+        setTeacherInputText(pendingForward);
+        pendingTeacherForwardRef.current = null;
+        setPendingTeacherForwardCount(0);
+      }
       Alert.alert('老师答疑暂不可用', message);
     }
     if (currentTeacherSessionIdRef.current === session.id) {
@@ -641,6 +800,8 @@ export function AiChatWorkspace({
   const switchChatCategory = (category: 'companion' | 'teacher') => {
     setChatCategory(category);
     if (category === 'companion') {
+      pendingTeacherForwardRef.current = null;
+      setPendingTeacherForwardCount(0);
       teacherServiceRef.current.disconnect();
       setIsTeacherConnected(false);
     }
@@ -766,6 +927,11 @@ export function AiChatWorkspace({
             onToggleWebSearch={() =>
               setEnableWebSearch((current) => !current)
             }
+            editingMessageId={editingMessageId}
+            onCancelEdit={cancelEditMessage}
+            onEditMessage={editMessage}
+            onRetryMessage={(message) => void retryMessage(message)}
+            onAskTeacher={askTeacher}
           />
         ) : (
           <View style={styles.sessionHistory}>
@@ -845,6 +1011,7 @@ export function AiChatWorkspace({
                 sessions={teacherSessions}
                 currentSessionId={currentTeacherSession?.id}
                 unreadSessionIds={teacherUnreadIds}
+                pendingForwardCount={pendingTeacherForwardCount}
                 loading={isLoadingSessions}
                 onSelect={(session) => void selectTeacherSession(session)}
               />

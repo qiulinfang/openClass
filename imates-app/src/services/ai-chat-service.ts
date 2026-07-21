@@ -12,6 +12,8 @@ export interface ChatMessage {
   timestamp: number;
   isStreaming?: boolean;
   isStopped?: boolean;
+  isError?: boolean;
+  retryCount?: number;
   imageUri?: string; // 支持图片气泡渲染
 }
 

@@ -15,6 +15,7 @@ interface TeacherSessionListProps {
   currentSessionId?: string;
   unreadSessionIds?: ReadonlySet<string>;
   loading?: boolean;
+  pendingForwardCount?: number;
   onSelect: (session: TeacherChatSession) => void;
 }
 
@@ -23,6 +24,7 @@ export function TeacherSessionList({
   currentSessionId,
   unreadSessionIds,
   loading = false,
+  pendingForwardCount = 0,
   onSelect,
 }: TeacherSessionListProps) {
   const [query, setQuery] = useState('');
@@ -59,6 +61,20 @@ export function TeacherSessionList({
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {pendingForwardCount > 0 ? (
+        <View style={styles.forwardBanner}>
+          <View style={styles.forwardMark}>
+            <Text style={styles.forwardMarkText}>师</Text>
+          </View>
+          <View style={styles.forwardCopy}>
+            <Text style={styles.forwardTitle}>选择要咨询的老师</Text>
+            <Text style={styles.forwardHint}>
+              选中学科后，将发送 {pendingForwardCount} 条对话
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.centerState}>
@@ -154,6 +170,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   clearText: { fontSize: 24, color: '#858A9D' },
+  forwardBanner: {
+    minHeight: 62,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CDE8DB',
+    borderRadius: 16,
+    backgroundColor: '#F0FAF5',
+  },
+  forwardMark: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: '#27A875',
+  },
+  forwardMarkText: { fontSize: 13, fontWeight: '900', color: '#FFFFFF' },
+  forwardCopy: { flex: 1, marginLeft: 10 },
+  forwardTitle: { fontSize: 12, fontWeight: '900', color: '#24664E' },
+  forwardHint: { marginTop: 4, fontSize: 10, color: '#5C8574' },
   listContent: { paddingHorizontal: 12, paddingBottom: 24 },
   column: { alignItems: 'stretch' },
   subjectCard: {
