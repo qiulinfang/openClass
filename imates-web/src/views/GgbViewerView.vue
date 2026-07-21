@@ -62,7 +62,31 @@ const error = ref<string | null>(null)
 const fileName = ref<string>((route.query.fileName as string) || '导函数与原函数')
 
 const handleGoBack = () => {
-  router.back()
+  // 检查是否从学习页面跳转（通过检查路由参数中是否有 fromLearning）
+  const fromLearning = route.query.fromLearning === 'true'
+
+  if (fromLearning) {
+    // 从学习页面跳转来的，返回到知识图谱页面，并传递学习对话框所需的信息
+    router.push({
+      name: 'knowledgeGraph',
+      query: {
+        // 传递学习对话框所需的信息，用于自动打开对话框
+        openLearning: 'true',
+        learningNodeId: route.query.learningNodeId as string,
+        learningSectionName: (route.query.sectionName as string) || (route.query.textbookName as string),
+        learningLevel: route.query.learningLevel as string,
+        textbookId: route.query.id as string,
+        // 添加章节信息传递，确保返回后微课按钮能正常显示
+        learningChapterGrade: route.query.chapterGrade as string,
+        learningChapterSubject: route.query.chapterSubject as string,
+        learningChapterTextbook: route.query.chapterTextbook as string,
+        learningChapterTitle: route.query.chapterTitle as string,
+      },
+    })
+  } else {
+    // 其他情况，使用默认的返回行为
+    router.back()
+  }
 }
 
 // 动态加载本地 GeoGebra deploy 脚本
@@ -73,7 +97,7 @@ const loadGgbScript = () => {
       return
     }
     const script = document.createElement('script')
-    script.src = '/deployggb.js'
+    script.src = './deployggb.js'
     script.async = true
     script.onload = () => resolve()
     script.onerror = (err) => reject(err)

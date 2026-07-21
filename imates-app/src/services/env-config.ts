@@ -17,9 +17,9 @@ const parseEnvType = (value?: string): AppEnvType | null =>
 
 // Expo 会在构建时内联 EXPO_PUBLIC_*。EAS 测试/正式包以此为权威环境来源。
 const bundledEnvType = parseEnvType(process.env.EXPO_PUBLIC_APP_ENV);
-const lockedRuntimeEnv = bundledEnvType ??
-  (__DEV__ ? AppEnvType.INTERNAL_TEST : null);
-const runtimeDefaultEnv = lockedRuntimeEnv ?? AppEnvType.RELEASE;
+const lockedRuntimeEnv = bundledEnvType;
+const runtimeDefaultEnv = bundledEnvType ??
+  (__DEV__ ? AppEnvType.INTERNAL_TEST : AppEnvType.RELEASE);
 
 // 当前在内存中缓存的环境，以支持接口层同步读取。
 let currentEnvCache: AppEnvType = runtimeDefaultEnv;
