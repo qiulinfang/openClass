@@ -20,6 +20,9 @@ let renderedViewportWidth = 0;
 let pageObserver = null;
 let renderGeneration = 0;
 let documentReadyPosted = false;
+let zoomScale = 1;
+let pinchState = null;
+let suppressSelectionUntil = 0;
 
 const post = (type, payload = {}) => {
   const message = JSON.stringify({ type, ...payload });
@@ -39,7 +42,10 @@ const decodeBase64 = (base64) => {
 };
 
 const getTargetWidth = () =>
-  Math.max(240, Math.min(920, document.documentElement.clientWidth - 16));
+  Math.round(
+    Math.max(240, Math.min(920, document.documentElement.clientWidth - 16)) *
+      zoomScale
+  );
 
 const pointForEvent = (event, layer) => {
   const rect = layer.getBoundingClientRect();
@@ -128,7 +134,10 @@ const bindSelection = (pageIndex, layer, selectionBox) => {
     const completed = selection;
     selection = null;
     selectionBox.style.display = 'none';
-    if (event.type !== 'pointercancel') {
+    if (
+      event.type !== 'pointercancel' &&
+      Date.now() >= suppressSelectionUntil
+    ) {
       captureSelection(pageIndex, completed.start, completed.end);
     }
   };
@@ -207,7 +216,10 @@ const renderDocument = async () => {
   pageObserver?.disconnect();
   pagesRoot.replaceChildren();
   pageElements.clear();
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  const pixelRatio = Math.max(
+    1,
+    Math.min(window.devicePixelRatio || 1, 2, 4096 / renderedViewportWidth)
+  );
   const firstPdfPage = await pdfDocument.getPage(1);
   const firstBaseViewport = firstPdfPage.getViewport({ scale: 1 });
   const placeholderHeight = Math.round(
@@ -313,6 +325,78 @@ document.addEventListener(
   'touchmove',
   (event) => {
     if (event.touches.length > 1) event.preventDefault();
+  },
+  { passive: false }
+);
+
+const touchDistance = (touches) =>
+  Math.hypot(
+    touches[0].clientX - touches[1].clientX,
+    touches[0].clientY - touches[1].clientY
+  );
+
+document.addEventListener(
+  'touchstart',
+  (event) => {
+    if (event.touches.length !== 2 || !pdfDocument) return;
+    event.preventDefault();
+    suppressSelectionUntil = Date.now() + 500;
+    const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+    pinchState = {
+      distance: touchDistance(event.touches),
+      startZoom: zoomScale,
+      nextZoom: zoomScale,
+      centerX,
+      centerY,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    };
+  },
+  { passive: false }
+);
+
+document.addEventListener(
+  'touchmove',
+  (event) => {
+    if (!pinchState || event.touches.length !== 2) return;
+    event.preventDefault();
+    const nextZoom = Math.max(
+      1,
+      Math.min(
+        4,
+        pinchState.startZoom *
+          (touchDistance(event.touches) / pinchState.distance)
+      )
+    );
+    pinchState.nextZoom = nextZoom;
+    const previewScale = nextZoom / pinchState.startZoom;
+    pagesRoot.style.transformOrigin = `${
+      pinchState.scrollX + pinchState.centerX
+    }px ${pinchState.scrollY + pinchState.centerY}px`;
+    pagesRoot.style.transform = `scale(${previewScale})`;
+  },
+  { passive: false }
+);
+
+document.addEventListener(
+  'touchend',
+  () => {
+    if (!pinchState) return;
+    const completed = pinchState;
+    pinchState = null;
+    suppressSelectionUntil = Date.now() + 250;
+    pagesRoot.style.transform = '';
+    pagesRoot.style.transformOrigin = '';
+    if (Math.abs(completed.nextZoom - zoomScale) < 0.01) return;
+    const ratio = completed.nextZoom / completed.startZoom;
+    zoomScale = completed.nextZoom;
+    void renderDocument().then(() => {
+      window.scrollTo(
+        (completed.scrollX + completed.centerX) * ratio - completed.centerX,
+        (completed.scrollY + completed.centerY) * ratio - completed.centerY
+      );
+    });
   },
   { passive: false }
 );
