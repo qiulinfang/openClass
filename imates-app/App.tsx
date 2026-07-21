@@ -4,6 +4,7 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { storage } from '@/services/storage';
 import { authService } from '@/services/auth-service';
+import { initEnvConfig } from '@/services/env-config';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function App() {
@@ -21,6 +22,9 @@ function AppContent() {
   // 检查初始登录状态
   useEffect(() => {
     const checkLoginStatus = async () => {
+      // 环境必须先于登录态和所有业务接口初始化。
+      // 否则已有登录态会跳过 LoginScreen，导致测试环境被错误地当成正式环境。
+      await initEnvConfig();
       const token = await storage.getItem('XUEBAN_TOKEN');
       setIsLoggedIn(!!token);
     };

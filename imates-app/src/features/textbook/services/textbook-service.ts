@@ -1,5 +1,6 @@
 import { storage } from '@/services/storage';
 import { AppEnvType, getCurrentEnvType } from '@/services/env-config';
+import { getYanbanApiUrl } from '@/services/api-url';
 import { HomeworkService } from '@/services/homework-service';
 
 export interface UserTextbookInfo {
@@ -68,11 +69,7 @@ export class TextbookService {
   }
 
   private static getApiUrl(): string {
-    const env = getCurrentEnvType();
-    if (env === AppEnvType.INTERNAL_TEST) {
-      return 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook';
-    }
-    return 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook';
+    return getYanbanApiUrl('/api/app/teacher-textbook');
   }
 
   /**
@@ -209,77 +206,43 @@ export class TextbookService {
    * 拉取指定教材的章节目录树
    */
   public static async fetchSectionTree(textbookId: string): Promise<ChapterNode[]> {
-    try {
-      const env = getCurrentEnvType();
-      const url = env === AppEnvType.INTERNAL_TEST
-        ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree'
-        : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-section-tree';
+    const url = getYanbanApiUrl('/api/app/teacher-textbook-section-tree');
+    // 与 Web 资源下载保持一致：章节树严格使用教材主 ID。
+    const response = await this.postWithYanbanAuth(url, { id: textbookId });
+    const text = await response.text();
+    const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
+    const res = JSON.parse(sanitizedText);
+    const structure = this.extractArrayPayload(res);
 
-      const response = await this.postWithYanbanAuth(url, { id: textbookId });
-
-      const text = await response.text();
-      const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
-      const res = JSON.parse(sanitizedText);
-      console.log(`[TextbookService] fetchSectionTree raw response for textbookId: ${textbookId}:`, JSON.stringify(res));
-      const structure = this.extractArrayPayload(res);
-      // 对齐 imates-web：如果最外层是整本书的根节点容器，则剥离根节点，直接返回其子节点（即实际章节列表）
-      if (
-        Array.isArray(structure) &&
-        structure.length === 1 &&
-        structure[0]?.children?.length > 0 &&
-        (structure[0]?.isRoot || structure[0]?.parentId == null)
-      ) {
-        return structure[0].children;
-      }
-      return structure;
-    } catch (e) {
-      console.warn(`[TextbookService] 获取教材章节树失败 (textbookId: ${textbookId}):`, e);
-      throw e;
+    // 对齐 imates-web：剥离整本书根节点，返回实际章节列表。
+    if (
+      structure.length === 1 &&
+      structure[0]?.children?.length > 0 &&
+      (structure[0]?.isRoot || structure[0]?.parentId == null)
+    ) {
+      return structure[0].children;
     }
+    return structure;
   }
 
   /**
    * 拉取指定教材的学习资源包列表
    */
   public static async fetchLearningPackages(
-    textbookVersionId: string,
-    textbookId?: string
+    textbookVersionId: string
   ): Promise<LearningPackage[]> {
-    const env = getCurrentEnvType();
-    const url = env === AppEnvType.INTERNAL_TEST
-      ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/teacher-textbook-learning-package'
-      : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/teacher-textbook-learning-package';
-    const candidateIds = Array.from(
-      new Set([textbookVersionId, textbookId].filter((id): id is string => !!id))
+    const url = getYanbanApiUrl('/api/app/teacher-textbook-learning-package');
+    // 与 Web 保持一致：学习包必须按教材版本 ID 查询。
+    // 回退到 textbookId 会拿到其他/历史版本的资源，造成“更新后仍是旧内容”。
+    const response = await this.postWithYanbanAuth(url, { id: textbookVersionId });
+    const text = await response.text();
+    const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
+    const res = JSON.parse(sanitizedText);
+    const packages = this.mapLearningPackages(this.extractArrayPayload(res));
+    console.log(
+      `[TextbookService] 教材资源查询完成 (版本id: ${textbookVersionId})：${packages.length} 个资源包`
     );
-    let packagesWithoutFiles: LearningPackage[] = [];
-    let lastError: unknown;
-
-    for (const candidateId of candidateIds) {
-      try {
-        const response = await this.postWithYanbanAuth(url, { id: candidateId });
-        const text = await response.text();
-        const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
-        const res = JSON.parse(sanitizedText);
-        const packages = this.mapLearningPackages(this.extractArrayPayload(res));
-
-        console.log(
-          `[TextbookService] 教材资源查询完成 (id: ${candidateId})：${packages.length} 个资源包`
-        );
-
-        if (packages.some((pkg) => pkg.resourceList.length > 0)) {
-          return packages;
-        }
-        if (packages.length > 0) packagesWithoutFiles = packages;
-      } catch (error) {
-        lastError = error;
-        console.warn(`[TextbookService] 获取资源包失败 (id: ${candidateId}):`, error);
-      }
-    }
-
-    if (packagesWithoutFiles.length > 0) return packagesWithoutFiles;
-    if (lastError && candidateIds.length === 1) throw lastError;
-    return [];
+    return packages;
   }
 
   /**

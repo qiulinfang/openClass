@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { storage } from '@/services/storage';
+import { getCurrentEnvType } from '@/services/env-config';
 import {
   ChapterNode,
   LearningPackage,
@@ -56,10 +57,15 @@ export interface TextbookDownloadProgress {
   totalFiles: number;
 }
 
-const DOWNLOAD_INDEX_KEY_PREFIX = 'TEXTBOOK_DOWNLOAD_INDEX_V1';
+const DOWNLOAD_INDEX_KEY_PREFIX = 'TEXTBOOK_DOWNLOAD_INDEX_V2';
 const DOWNLOAD_ROOT = `${FileSystem.documentDirectory}textbooks/`;
-const WEB_CACHE_NAME = 'IMATES_TEXTBOOK_FILES_V1';
+const WEB_CACHE_NAME_PREFIX = 'IMATES_TEXTBOOK_FILES_V2';
 const WEB_CACHE_PATH = '/__imates_textbook_cache/';
+
+const environmentKey = (): string => getCurrentEnvType();
+const downloadRoot = (): string => `${DOWNLOAD_ROOT}${environmentKey()}/`;
+const webCacheName = (): string =>
+  `${WEB_CACHE_NAME_PREFIX}_${environmentKey()}`;
 
 const initialRecord = (textbook: UserTextbookInfo): StoredTextbookDownload => ({
   recordId: textbook.id,
@@ -134,7 +140,7 @@ export class TextbookDownloadService {
 
   private static async getIndexKey(): Promise<string> {
     const userId = (await storage.getItem('xuebanuserid'))?.trim() || 'anonymous';
-    return `${DOWNLOAD_INDEX_KEY_PREFIX}_${encodeURIComponent(userId)}`;
+    return `${DOWNLOAD_INDEX_KEY_PREFIX}_${encodeURIComponent(userId)}_${environmentKey()}`;
   }
 
   private static async withIndexLock<T>(operation: () => Promise<T>): Promise<T> {
@@ -195,14 +201,15 @@ export class TextbookDownloadService {
       return;
     }
 
-    const rootInfo = await FileSystem.getInfoAsync(DOWNLOAD_ROOT);
+    const root = downloadRoot();
+    const rootInfo = await FileSystem.getInfoAsync(root);
     if (!rootInfo.exists) {
-      await FileSystem.makeDirectoryAsync(DOWNLOAD_ROOT, { intermediates: true });
+      await FileSystem.makeDirectoryAsync(root, { intermediates: true });
     }
   }
 
   private static directoryFor(recordId: string): string {
-    return `${DOWNLOAD_ROOT}${safeFilePart(recordId)}/`;
+    return `${downloadRoot()}${safeFilePart(recordId)}/`;
   }
 
   private static fileUriFor(recordId: string, resource: ResourceFile): string {
@@ -216,12 +223,12 @@ export class TextbookDownloadService {
     if (typeof globalThis.caches === 'undefined') {
       throw new Error('当前浏览器不支持教材离线缓存，请使用最新版 Chrome、Edge 或 Safari');
     }
-    return globalThis.caches.open(WEB_CACHE_NAME);
+    return globalThis.caches.open(webCacheName());
   }
 
   private static webCachePrefix(recordId: string): string {
     const origin = globalThis.location?.origin || 'https://imates.local';
-    return `${origin}${WEB_CACHE_PATH}${encodeURIComponent(recordId)}/`;
+    return `${origin}${WEB_CACHE_PATH}${environmentKey()}/${encodeURIComponent(recordId)}/`;
   }
 
   private static webCacheUrl(recordId: string, resourceId: string): string {
@@ -491,8 +498,7 @@ export class TextbookDownloadService {
 
       try {
         const serverPackages = await TextbookService.fetchLearningPackages(
-          textbook.id,
-          textbook.textbookId
+          textbook.id
         );
         const serverFiles = uniqueResources(serverPackages);
         const localById = new Map(record.localFiles.map((file) => [file.id, file]));
@@ -591,8 +597,7 @@ export class TextbookDownloadService {
       : canUseEmbeddedPackages
         ? embeddedPackages
         : await TextbookService.fetchLearningPackages(
-            textbook.id,
-            textbook.textbookId
+            textbook.id
           );
 
     if (packages.length === 0 || uniqueResources(packages).length === 0) {
@@ -604,7 +609,8 @@ export class TextbookDownloadService {
     const chapterTree =
       canReusePausedPackages && record.chapterTree.length > 0
         ? record.chapterTree
-        : await TextbookService.fetchSectionTree(textbook.id).catch(() => record.chapterTree);
+        : await TextbookService.fetchSectionTree(textbook.textbookId)
+            .catch(() => record.chapterTree);
     const resources = uniqueResources(packages);
     const serverIds = new Set(resources.map((resource) => resource.id));
 

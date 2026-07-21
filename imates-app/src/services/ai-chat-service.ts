@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
+import { getXuebanApiUrl } from './api-url';
 import { authService } from './auth-service';
 
 export interface ChatMessage {
@@ -40,11 +41,7 @@ export class AiChatService {
    * 获取当前环境下的 AI 聊天 API 终点 URL
    */
   private static getApiUrl(): string {
-    const env = getCurrentEnvType();
-    if (env === AppEnvType.INTERNAL_TEST) {
-      return 'http://www.imates.com.cn:58443/blw-edu-service-alc/ai/2.0/chats';
-    }
-    return 'http://www.imates.com.cn:8222/blw-edu-service-alc/ai/2.0/chats';
+    return getXuebanApiUrl('/ai/2.0/chats');
   }
 
   /**

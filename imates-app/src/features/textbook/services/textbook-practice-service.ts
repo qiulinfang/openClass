@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { AppEnvType, getCurrentEnvType } from '@/services/env-config';
+import { getXuebanApiUrl } from '@/services/api-url';
 import { authService } from '@/services/auth-service';
 import { ExerciseItem } from '@/services/exercise-service';
 import { storage } from '@/services/storage';
@@ -53,9 +53,7 @@ export class TextbookPracticeService {
   }
 
   private static getXuebanBaseUrl(): string {
-    return getCurrentEnvType() === AppEnvType.INTERNAL_TEST
-      ? 'http://www.imates.com.cn:58443/blw-edu-service-alc'
-      : 'http://www.imates.com.cn:8222/blw-edu-service-alc';
+    return getXuebanApiUrl('');
   }
 
   private static async getHeaders(): Promise<Record<string, string>> {
