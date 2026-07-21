@@ -26,13 +26,17 @@ interface HomeworkScreenProps {
 }
 
 const LightColors = {
-  background: '#F8FAFC',
+  background: '#f1f3ff', // Web content background
   cardBackground: '#FFFFFF',
   cardBorder: '#E2E8F0',
-  textPrimary: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#94A3B8',
-  primary: '#3B82F6',
+  textPrimary: '#111827',
+  textSecondary: '#4b5563',
+  textMuted: '#696675',
+  primary: '#4F46E5', // Indigo-600 matching Web button
+  primaryLight: '#EEF2FF',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
 };
 
 // 学科筛选项配置
@@ -110,7 +114,6 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
   // 渲染作业卡片
   const renderHomeworkItem = ({ item }: { item: HomeworkUndoItem }) => {
     const subjectName = SUBJECT_ID_TO_NAME[item.subject] || item.subject;
-    const isMath = subjectName === '数学';
     
     const statusText = getHomeworkStatusText(item.status, item.deadline);
     const statusColor = getHomeworkStatusTagColor(item.status, item.deadline);
@@ -139,76 +142,110 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
       return `还剩${parts.join('')}截止`;
     })();
 
+    // Status dot color
+    const statusTagType = (() => {
+      if (item.status === '3') return 'success';
+      if (isExpired && item.lateSubmit !== '1') return 'gray';
+      return 'warning';
+    })();
+
+    const dotColor = (() => {
+      if (statusTagType === 'success') return LightColors.success;
+      if (statusTagType === 'warning') return LightColors.warning;
+      return LightColors.textMuted;
+    })();
+
+    // Button label and style matching getHomeworkButtonText / getHomeworkButtonVariant
+    const buttonText = item.status === '3' ? '查看解析' : isCompleted ? '已截止' : '开始作答';
+    const isButtonDisabled = isCompleted && item.status !== '3';
+    
     const tags = [subjectName];
     if (item.fullSubmit === '1') tags.push('一次性提交');
     if (item.lateSubmit === '1') tags.push('允许补交');
     if (item.resubmit === '1') tags.push('允许重交');
 
     return (
-      <Card style={styles.contentCard}>
-        <View style={styles.cardHeaderRow}>
-          <View style={styles.tagsContainer}>
-            {tags.map((tag, idx) => (
-              <Badge
-                key={idx}
-                text={tag}
-                style={{
-                  marginRight: 6,
-                  backgroundColor: isMath ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                  borderColor: isMath ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)',
-                }}
-                textStyle={{ color: isMath ? '#2563EB' : '#059669' }}
-              />
-            ))}
-          </View>
-          <Text style={[styles.dueDateText, { color: statusColor }]}>
-            {statusText}
-          </Text>
-        </View>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-
-        {item.remark ? (
-          <Text style={styles.remarkText} numberOfLines={2}>
-            💡 说明: {item.remark}
-          </Text>
-        ) : null}
-
-        <View style={styles.cardFooterRow}>
-          <View style={styles.metaInfo}>
-            <Text style={styles.scoreText}>{scoreText}</Text>
-            {timeLeftText ? (
-              <Text style={[styles.timeLeftText, isExpired && styles.expiredTimeText]}>
-                {timeLeftText}
-              </Text>
-            ) : null}
-          </View>
-          <TouchableOpacity
-            disabled={isCompleted}
-            onPress={() => onGoAnswer(item.id, item.title, item.subject)}
-            style={[
-              styles.actionBtn,
-              isCompleted
-                ? styles.disabledActionBtn
-                : { backgroundColor: LightColors.primary }
-            ]}
-          >
-            <Text style={[styles.actionBtnText, isCompleted && styles.disabledActionBtnText]}>
-              {isCompleted ? '已截止' : '去答题'}
+      <View style={styles.contentCard}>
+        {/* Left and Right Split Row */}
+        <View style={styles.cardContent}>
+          {/* Card Left */}
+          <View style={styles.cardLeft}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
             </Text>
-          </TouchableOpacity>
+
+            {/* Tags Row */}
+            <View style={styles.cardTags}>
+              {tags.map((tag, idx) => (
+                <View key={idx} style={styles.tagBadge}>
+                  <Text style={styles.tagBadgeText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Meta score/deadline Row */}
+            <View style={styles.cardMeta}>
+              <Text style={styles.metaScore}>{scoreText}</Text>
+              {timeLeftText ? (
+                <Text style={[styles.metaDeadline, isExpired && styles.isExpired]}>
+                  {timeLeftText}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Card Right */}
+          <View style={styles.cardRight}>
+            {/* Status Tag with Dot */}
+            <View style={styles.statusTag}>
+              <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+              <Text style={[styles.statusTagText, { color: dotColor }]}>{statusText}</Text>
+            </View>
+
+            {/* Action Button */}
+            <TouchableOpacity
+              disabled={isButtonDisabled}
+              onPress={() => onGoAnswer(item.id, item.title, item.subject)}
+              style={[
+                styles.actionBtn,
+                isButtonDisabled
+                  ? styles.disabledActionBtn
+                  : item.status === '3'
+                  ? styles.secondaryActionBtn
+                  : styles.primaryActionBtn
+              ]}
+            >
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  isButtonDisabled
+                    ? styles.disabledActionBtnText
+                    : item.status === '3'
+                    ? styles.secondaryActionBtnText
+                    : styles.primaryActionBtnText
+                ]}
+              >
+                {buttonText}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </Card>
+
+        {/* Card Footer (Remark) */}
+        {item.remark ? (
+          <View style={styles.cardFooter}>
+            <Text style={styles.homeworkRemark} numberOfLines={1}>
+              💡 说明: {item.remark}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-
+    <View style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.viewHeader}>
-          <Text style={styles.viewTitle}>我的作业</Text>
-          <Text style={styles.viewSub}>同步课后测试与单元诊断练习</Text>
-        </View>
 
         {/* 筛选条件控制模块 */}
         <View style={styles.filterWrapper}>
@@ -290,7 +327,7 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -299,93 +336,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: LightColors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderColor: LightColors.cardBorder,
-    backgroundColor: LightColors.cardBackground,
-  },
-  userProfile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: LightColors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  welcomeText: {
-    fontSize: 11,
-    color: LightColors.textSecondary,
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: LightColors.textPrimary,
-  },
-  logoutIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  logoutIconText: {
-    fontSize: 14,
-  },
   container: {
     flex: 1,
   },
   viewHeader: {
+    backgroundColor: '#ffffff',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 6,
+    paddingTop: 20,
+    paddingBottom: 4,
+    alignItems: 'center',
   },
   viewTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: LightColors.textPrimary,
-    marginBottom: 4,
-  },
-  viewSub: {
-    fontSize: 12,
-    color: LightColors.textSecondary,
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#111827',
   },
   filterWrapper: {
-    backgroundColor: LightColors.cardBackground,
+    backgroundColor: '#ffffff',
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderColor: LightColors.cardBorder,
-    paddingVertical: 10,
-    marginBottom: 4,
+    borderColor: '#E5E7EB',
   },
   subjectScrollContainer: {
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
   subjectChip: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   activeSubjectChip: {
     backgroundColor: LightColors.primary,
@@ -393,8 +376,8 @@ const styles = StyleSheet.create({
   },
   subjectChipText: {
     fontSize: 12,
-    color: LightColors.textSecondary,
-    fontWeight: '600',
+    color: '#4B5563',
+    fontWeight: '500',
   },
   activeSubjectChipText: {
     color: '#FFFFFF',
@@ -409,15 +392,15 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   dateNavText: {
     fontSize: 10,
-    color: LightColors.textSecondary,
+    color: '#4B5563',
   },
   dateTextContainer: {
     flex: 1,
@@ -425,116 +408,152 @@ const styles = StyleSheet.create({
   },
   dateDisplayLabel: {
     fontSize: 13,
-    fontWeight: '700',
-    color: LightColors.textPrimary,
+    fontWeight: '600',
+    color: '#111827',
   },
   clearDateBtn: {
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    backgroundColor: '#EEF2FF',
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#E0E7FF',
   },
   clearDateText: {
     fontSize: 11,
     color: LightColors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   listContent: {
     padding: 16,
     paddingBottom: 32,
   },
   contentCard: {
-    marginBottom: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     padding: 16,
-    backgroundColor: LightColors.cardBackground,
-    borderColor: LightColors.cardBorder,
-    borderWidth: 1,
+    marginBottom: 16,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
-  cardHeaderRow: {
+  cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  cardLeft: {
     flex: 1,
+    marginRight: 16,
+    alignItems: 'flex-start',
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: LightColors.textPrimary,
-    lineHeight: 22,
-    marginBottom: 12,
+    fontWeight: '600',
+    color: '#111827',
+    lineHeight: 20,
+    marginBottom: 8,
   },
-  remarkText: {
-    fontSize: 12,
-    color: '#D97706',
-    backgroundColor: 'rgba(217, 119, 6, 0.05)',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 12,
-    lineHeight: 16,
+  cardTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
   },
-  cardFooterRow: {
+  tagBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tagBadgeText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
-    paddingTop: 12,
+    gap: 14,
   },
-  metaInfo: {
-    flex: 1,
-  },
-  scoreText: {
+  metaScore: {
     fontSize: 12,
-    fontWeight: '600',
-    color: LightColors.textSecondary,
-    marginBottom: 2,
+    color: '#6B7280',
   },
-  timeLeftText: {
-    fontSize: 11,
-    color: '#10B981',
-  },
-  expiredTimeText: {
+  metaDeadline: {
+    fontSize: 12,
     color: '#EF4444',
   },
-  dueDateText: {
+  isExpired: {
+    color: '#6B7280',
+  },
+  cardRight: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  statusTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusTagText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   actionBtn: {
     borderRadius: 8,
-    paddingHorizontal: 16,
-    height: 32,
-    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 76,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actionBtnText: {
-    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
+  },
+  primaryActionBtn: {
+    backgroundColor: LightColors.primary,
+  },
+  primaryActionBtnText: {
+    color: '#FFFFFF',
+  },
+  secondaryActionBtn: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  secondaryActionBtnText: {
+    color: '#4B5563',
   },
   disabledActionBtn: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E5E7EB',
   },
   disabledActionBtnText: {
-    color: LightColors.textMuted,
+    color: '#9CA3AF',
+  },
+  cardFooter: {
+    borderTopWidth: 1,
+    borderColor: '#F3F4F6',
+    paddingTop: 10,
+    marginTop: 10,
+  },
+  homeworkRemark: {
+    fontSize: 12,
+    color: '#696675',
   },
   loadingContainer: {
     flex: 1,
@@ -545,7 +564,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 12,
-    color: LightColors.textSecondary,
+    color: '#6B7280',
   },
   emptyContainer: {
     flex: 1,
@@ -555,6 +574,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: LightColors.textMuted,
+    color: '#9CA3AF',
   },
 });

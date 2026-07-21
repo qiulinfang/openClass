@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,6 +22,7 @@ interface MistakeBookScreenProps {
   onLogout: () => void;
   onAskAI: (questionContent: string) => void;
   mode?: 'mistake' | 'exercise';
+  searchQuery?: string;
 }
 
 const LightColors = {
@@ -51,7 +52,7 @@ const SUBJECT_OPTIONS = [
   { label: '地理', value: '9' },
 ];
 
-export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreenProps) {
+export function MistakeBookScreen({ onLogout, onAskAI, mode, searchQuery = '' }: MistakeBookScreenProps) {
   const navigation = useNavigation<any>();
   const [activeMode, setActiveMode] = useState<'mistake' | 'exercise'>('mistake');
 
@@ -68,6 +69,29 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedAnalyses, setExpandedAnalyses] = useState<Record<string, boolean>>({});
+
+  // Subject Badge style mapping helper
+  const getSubjectStyle = (subjId: string) => {
+    if (subjId === '1') return { bg: '#EEF2FF', text: '#4F46E5' }; // Chinese (语文)
+    if (subjId === '2') return { bg: '#E0F2FE', text: '#0284C7' }; // Math (数学)
+    if (subjId === '3') return { bg: '#ECFDF5', text: '#059669' }; // English (英语)
+    if (subjId === '4') return { bg: '#F5F3FF', text: '#7C3AED' }; // Physics (物理)
+    if (subjId === '5') return { bg: '#FDF2F8', text: '#DB2777' }; // Chemistry (化学)
+    if (subjId === '6') return { bg: '#FEF3C7', text: '#D97706' }; // Biology (生物)
+    return { bg: '#F3F4F6', text: '#4B5563' };
+  };
+
+  // 动态提取当前错题/习题列表中存在的所有学科 ID
+  const availableSubjectIds = useMemo(() => {
+    const ids = new Set<string>();
+    const list = activeMode === 'mistake' ? mistakes : exercises;
+    list.forEach(q => {
+      if (q.subject) {
+        ids.add(q.subject);
+      }
+    });
+    return Array.from(ids).sort();
+  }, [mistakes, exercises, activeMode]);
 
   // 加载错题列表
   const loadMistakes = useCallback(async () => {
@@ -174,13 +198,19 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
 
   // 数据过滤
   const filteredMistakes = mistakes.filter(m => {
-    if (!selectedSubject) return true;
-    return m.subject === selectedSubject;
+    const matchesSubject = !selectedSubject || m.subject === selectedSubject;
+    const matchesSearch = !searchQuery || 
+      (m.questionData?.content || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.questionData?.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSubject && matchesSearch;
   });
 
   const filteredExercises = exercises.filter(ex => {
-    if (!selectedSubject) return true;
-    return ex.subject === selectedSubject;
+    const matchesSubject = !selectedSubject || ex.subject === selectedSubject;
+    const matchesSearch = !searchQuery || 
+      ex.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ex.title.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSubject && matchesSearch;
   });
 
   // 渲染错题卡片
@@ -188,6 +218,7 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
     const isExpanded = !!expandedAnalyses[item.id];
     const isSavedAsExercise = !!savedExerciseIds[item.id];
     const subjectName = SUBJECT_ID_TO_NAME[item.subject] || '学科';
+    const subStyle = getSubjectStyle(item.subject);
 
     // 适配嵌套结构的取值
     const homeworkName = item.practiceHistory?.[0]?.homeworkName || '课后作业';
@@ -197,20 +228,15 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
     const analysisText = item.questionData?.analysis || '暂无解析';
 
     return (
-      <Card style={styles.contentCard}>
-        {/* 来源与学科标签 */}
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.sourceText} numberOfLines={1}>
-            📌 来源于: {homeworkName}
-          </Text>
-          <View style={styles.subjectBadge}>
-            <Text style={styles.subjectBadgeText}>{subjectName}</Text>
-          </View>
+      <View style={styles.questionCard}>
+        {/* 右上角精致小闪电背景角 */}
+        <View style={styles.cardCornerBadge}>
+          <Text style={styles.cardCornerBadgeText}>⚡</Text>
         </View>
 
         {/* 题干 LaTeX 渲染 */}
-        <View style={styles.mathContainer}>
-          <MathRenderer content={questionText} textColor="#0F172A" />
+        <View style={styles.questionPreview} pointerEvents="none">
+          <MathRenderer content={questionText} textColor="#4B5563" />
         </View>
 
         {/* 作答与标准答案对比 */}
@@ -233,87 +259,83 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
           </View>
         )}
 
-        {/* 操作区 */}
-        <View style={styles.cardFooterRow}>
+        {/* 卡片主底栏：左侧学科/来源，右侧开始答题 */}
+        <View style={styles.cardFooter}>
+          <View style={styles.footerLeftBadges}>
+            <View style={[styles.subjectBadge, { backgroundColor: subStyle.bg }]}>
+              <Text style={[styles.subjectBadgeText, { color: subStyle.text }]}>{subjectName}</Text>
+            </View>
+            <View style={styles.sourceBadge}>
+              <Text style={styles.sourceBadgeText} numberOfLines={1}>📌 {homeworkName}</Text>
+            </View>
+          </View>
+
           <TouchableOpacity
-            style={styles.analysisToggleBtn}
-            onPress={() => toggleAnalysis(item.id)}
+            style={styles.goActionBtn}
+            onPress={() => {
+              const detail: HomeworkQuestionDetail = {
+                id: item.bmNo,
+                questionId: item.bmNo,
+                questionContent: questionText,
+                questionAnswer: correctAnswerText,
+                questionAnalysis: analysisText,
+              };
+              navigation.navigate('HomeworkAnswer', {
+                questionsList: [detail],
+                homeworkTitle: item.questionData?.title || '错题重练',
+                homeworkSubject: item.subject,
+                isReviewMode: true,
+              });
+            }}
           >
-            <Text style={styles.analysisToggleText}>
-              {isExpanded ? '收起解析 ▲' : '展开解析 ▼'}
+            <Text style={styles.goActionText}>再次练习</Text>
+            <Text style={styles.goActionArrow}>➔</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 快速辅助操作栏 */}
+        <View style={styles.quickActionBar}>
+          <TouchableOpacity onPress={() => toggleAnalysis(item.id)} style={styles.quickActionBtn}>
+            <Text style={styles.quickActionText}>{isExpanded ? '收起解析 ▲' : '展开解析 ▼'}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => onAskAI(`老师，我想针对这道作业错题发起讨论：\n\n${questionText}`)}
+            style={styles.quickActionBtn}
+          >
+            <Text style={styles.quickActionText}>🤖 问学伴</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => handleToggleExercise(item)} style={styles.quickActionBtn}>
+            <Text style={[styles.quickActionText, isSavedAsExercise && { color: '#F59E0B' }]}>
+              {isSavedAsExercise ? '★ 已加入习题' : '☆ 收藏此题'}
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.actionGroup}>
-            {/* 收藏习题按钮 */}
-            <TouchableOpacity
-              style={[styles.favBtn, isSavedAsExercise && styles.favBtnActive]}
-              onPress={() => handleToggleExercise(item)}
-            >
-              <Text style={[styles.favBtnText, isSavedAsExercise && styles.favBtnTextActive]}>
-                {isSavedAsExercise ? '★ 已加入习题' : '☆ 收藏此题'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.practiceBtn}
-              onPress={() => {
-                const detail: HomeworkQuestionDetail = {
-                  id: item.bmNo,
-                  questionId: item.bmNo,
-                  questionContent: questionText,
-                  questionAnswer: correctAnswerText,
-                  questionAnalysis: analysisText,
-                };
-                navigation.navigate('HomeworkAnswer', {
-                  questionsList: [detail],
-                  homeworkTitle: item.questionData?.title || '错题重练',
-                  homeworkSubject: item.subject,
-                  isReviewMode: true,
-                });
-              }}
-            >
-              <Text style={styles.practiceBtnText}>✍️ 再次练习</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.aiBtn}
-              onPress={() => onAskAI(`老师，我想针对这道作业错题发起讨论：\n\n${questionText}`)}
-            >
-              <Text style={styles.aiBtnText}>🤖 问学伴</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.removeBtn}
-              onPress={() => handleRemoveMistake(item.id)}
-            >
-              <Text style={styles.removeBtnText}>🗑️ 移除</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => handleRemoveMistake(item.id)} style={styles.quickActionBtn}>
+            <Text style={[styles.quickActionText, { color: '#EF4444' }]}>🗑️ 移除</Text>
+          </TouchableOpacity>
         </View>
-      </Card>
+      </View>
     );
   };
 
-  // 渲染我的习题卡片 (点击自动进入对应AI讨论)
+  // 渲染我的习题卡片
   const renderExerciseItem = ({ item }: { item: ExerciseItem }) => {
     const subjectName = SUBJECT_ID_TO_NAME[item.subject] || '学科';
+    const subStyle = getSubjectStyle(item.subject);
+    const isPreset = item.id.startsWith('preset');
 
     return (
-      <Card style={styles.contentCard}>
-        {/* 来源与学科标签 */}
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.sourceText} numberOfLines={1}>
-            ⭐ 我的习题集 • {item.title || '收藏题目'}
-          </Text>
-          <View style={[styles.subjectBadge, { backgroundColor: 'rgba(245, 158, 11, 0.08)' }]}>
-            <Text style={[styles.subjectBadgeText, { color: LightColors.warning }]}>{subjectName}</Text>
-          </View>
+      <View style={styles.questionCard}>
+        {/* 右上角精致小闪电背景角 */}
+        <View style={styles.cardCornerBadge}>
+          <Text style={styles.cardCornerBadgeText}>⚡</Text>
         </View>
 
         {/* 题干 LaTeX 渲染 */}
-        <View style={styles.mathContainer}>
-          <MathRenderer content={item.content} textColor="#0F172A" />
+        <View style={styles.questionPreview} pointerEvents="none">
+          <MathRenderer content={item.content} textColor="#4B5563" />
         </View>
 
         {/* 答案与解析显示 */}
@@ -326,17 +348,21 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
           </View>
         ) : null}
 
-        {/* 操作区 - 讨论跳转/学习闭环 */}
-        <View style={styles.cardFooterRow}>
-          <TouchableOpacity
-            style={styles.removeBtn}
-            onPress={() => handleRemoveExercise(item.id)}
-          >
-            <Text style={styles.removeBtnText}>💔 取消收藏</Text>
-          </TouchableOpacity>
+        {/* 卡片主底栏：左侧学科/来源，右侧开始答题 */}
+        <View style={styles.cardFooter}>
+          <View style={styles.footerLeftBadges}>
+            <View style={[styles.subjectBadge, { backgroundColor: subStyle.bg }]}>
+              <Text style={[styles.subjectBadgeText, { color: subStyle.text }]}>{subjectName}</Text>
+            </View>
+            <View style={[styles.sourceBadge, { backgroundColor: isPreset ? '#EFF6FF' : '#FEF3C7' }]}>
+              <Text style={[styles.sourceBadgeText, { color: isPreset ? '#3B82F6' : '#D97706' }]}>
+                {isPreset ? '💡 推荐' : '⭐ 收藏'}
+              </Text>
+            </View>
+          </View>
 
           <TouchableOpacity
-            style={styles.practiceBtn}
+            style={styles.goActionBtn}
             onPress={() => {
               const detail: HomeworkQuestionDetail = {
                 id: item.id,
@@ -353,22 +379,30 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
               });
             }}
           >
-            <Text style={styles.practiceBtnText}>✍️ 开始作答</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.discussBtn}
-            onPress={() => onAskAI(`老师，我想针对这道收藏的习题发起讨论，请为我讲解一下它的解题思路和知识点：\n\n${item.content}`)}
-          >
-            <Text style={styles.discussBtnText}>🤖 点击进入讨论 ➔</Text>
+            <Text style={styles.goActionText}>开始作答</Text>
+            <Text style={styles.goActionArrow}>➔</Text>
           </TouchableOpacity>
         </View>
-      </Card>
+
+        {/* 快速辅助操作栏 */}
+        <View style={styles.quickActionBar}>
+          <TouchableOpacity
+            onPress={() => onAskAI(`老师，我想针对这道收藏的习题发起讨论，请为我讲解一下它的解题思路和知识点：\n\n${item.content}`)}
+            style={styles.quickActionBtn}
+          >
+            <Text style={styles.quickActionText}>🤖 问学伴</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => handleRemoveExercise(item.id)} style={styles.quickActionBtn}>
+            <Text style={[styles.quickActionText, { color: '#EF4444' }]}>💔 取消收藏</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
 
 
       {/* 模块切换 Tab Segmented Control */}
@@ -394,28 +428,37 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
       )}
 
       <View style={styles.container}>
-        {/* 学科筛选 */}
-        <View style={styles.filterWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectScrollContainer}
-          >
-            {SUBJECT_OPTIONS.map((sub) => {
-              const isActive = selectedSubject === sub.value;
+        {/* 筛选 Chip 徽章组 */}
+        <View style={styles.filterChipsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScrollContent}>
+            <TouchableOpacity
+              style={[styles.filterChip, !selectedSubject && styles.activeFilterChip]}
+              onPress={() => setSelectedSubject('')}
+            >
+              <Text style={[styles.filterChipText, !selectedSubject && styles.activeFilterChipText]}>全部学科</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.filterChip}>
+              <Text style={styles.filterChipText}>本周</Text>
+            </TouchableOpacity>
+
+            {availableSubjectIds.map(id => {
+              const label = SUBJECT_ID_TO_NAME[id] || `学科 ${id}`;
+              const isActive = selectedSubject === id;
               return (
                 <TouchableOpacity
-                  key={sub.label}
-                  style={[styles.subjectChip, isActive && styles.activeSubjectChip]}
-                  onPress={() => setSelectedSubject(sub.value)}
+                  key={id}
+                  style={[styles.filterChip, isActive && styles.activeFilterChip]}
+                  onPress={() => setSelectedSubject(isActive ? '' : id)}
                 >
-                  <Text style={[styles.subjectChipText, isActive && styles.activeSubjectChipText]}>
-                    {sub.label}
-                  </Text>
+                  <Text style={[styles.filterChipText, isActive && styles.activeFilterChipText]}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
+          <TouchableOpacity style={styles.filterBtn}>
+            <Text style={styles.filterBtnText}>▼ 筛选</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 错题列表 vs 习题列表 */}
@@ -450,7 +493,7 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode }: MistakeBookScreen
           }
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -537,133 +580,165 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    backgroundColor: '#f1f3ff', // Web content background
   },
-  filterWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderColor: LightColors.border,
-    paddingVertical: 10,
-  },
-  subjectScrollContainer: {
+  filterChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  subjectChip: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 16,
+  chipsScrollContent: {
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 12,
+  },
+  filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
   },
-  activeSubjectChip: {
-    backgroundColor: LightColors.primary,
-    borderColor: LightColors.primary,
+  activeFilterChip: {
+    backgroundColor: '#EEF2FF',
   },
-  subjectChipText: {
+  filterChipText: {
     fontSize: 12,
-    color: LightColors.textSecondary,
+    color: '#4B5563',
+    fontWeight: '500',
   },
-  activeSubjectChipText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+  activeFilterChipText: {
+    color: '#4F46E5',
+    fontWeight: '600',
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 12,
+    borderLeftWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterBtnText: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
   },
   listContent: {
     padding: 16,
     paddingBottom: 40,
   },
-  contentCard: {
-    marginBottom: 16,
+  questionCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderColor: LightColors.border,
-    borderWidth: 1,
-    borderRadius: 12,
+    marginBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  cardCornerBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    backgroundColor: '#F3F4F6',
+    borderBottomLeftRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-    paddingBottom: 8,
+  },
+  cardCornerBadgeText: {
+    fontSize: 10,
+    color: '#D97706',
+  },
+  questionPreview: {
     marginBottom: 12,
   },
-  sourceText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: LightColors.textSecondary,
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderColor: '#F3F4F6',
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  footerLeftBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     flex: 1,
-    marginRight: 10,
+    marginRight: 12,
   },
   subjectBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   subjectBadgeText: {
-    fontSize: 10,
-    color: LightColors.primary,
-    fontWeight: '700',
-  },
-  mathContainer: {
-    marginBottom: 14,
-  },
-  answerCompareContainer: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 14,
-  },
-  answerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  answerLabel: {
-    fontSize: 12,
-    color: LightColors.textSecondary,
+    fontSize: 11,
     fontWeight: '600',
   },
-  wrongAnswerText: {
-    fontSize: 12,
-    color: LightColors.error,
-    fontWeight: '700',
-  },
-  correctAnswerText: {
-    fontSize: 12,
-    color: LightColors.success,
-    fontWeight: '700',
-  },
-  analysisContainer: {
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
-    paddingTop: 12,
-    marginBottom: 14,
-  },
-  analysisTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: LightColors.textPrimary,
-    marginBottom: 6,
-  },
-  cardFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  sourceBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    maxWidth: 150,
+  },
+  sourceBadgeText: {
+    fontSize: 11,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  goActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  goActionText: {
+    fontSize: 13,
+    color: '#4F46E5',
+    fontWeight: '600',
+  },
+  goActionArrow: {
+    fontSize: 8,
+    color: '#4F46E5',
+  },
+  quickActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderColor: '#F3F4F6',
+    paddingTop: 10,
+    gap: 8,
+  },
+  quickActionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  quickActionText: {
+    fontSize: 11,
+    color: '#4B5563',
+    fontWeight: '600',
   },
   analysisToggleBtn: {
     paddingVertical: 6,
@@ -746,6 +821,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  answerCompareContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 14,
+  },
+  answerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  answerLabel: {
+    fontSize: 12,
+    color: LightColors.textSecondary,
+    fontWeight: '600',
+  },
+  wrongAnswerText: {
+    fontSize: 12,
+    color: LightColors.error,
+    fontWeight: '700',
+  },
+  correctAnswerText: {
+    fontSize: 12,
+    color: LightColors.success,
+    fontWeight: '700',
+  },
+  analysisContainer: {
+    borderTopWidth: 1,
+    borderColor: '#F3F4F6',
+    paddingTop: 12,
+    marginBottom: 14,
+  },
+  analysisTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: LightColors.textPrimary,
+    marginBottom: 6,
   },
   emptyContainer: {
     alignItems: 'center',

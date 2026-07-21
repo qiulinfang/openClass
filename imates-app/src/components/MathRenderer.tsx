@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Markdown from 'react-native-markdown-display';
@@ -10,15 +10,20 @@ interface MathRendererProps {
   textColor?: string;
 }
 
+// Global static cache for WebView height to prevent FlatList upscroll layout jumps/flicker
+const heightCache = new Map<string, number>();
+
 export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: MathRendererProps) {
   // Parse the content into text and math blocks
   const blocks = parseLaTeX(content || '');
 
-  const [webViewHeight, setWebViewHeight] = useState(40);
+  const cacheKey = content || '';
+  const initialHeight = heightCache.get(cacheKey) || 40;
+  const [webViewHeight, setWebViewHeight] = useState(initialHeight);
   const webViewRef = useRef<WebView>(null);
 
   // Pre-load KaTeX and Marked JS templates
-  const htmlContent = `
+  const htmlContent = useMemo(() => `
     <!DOCTYPE html>
     <html>
       <head>
@@ -187,14 +192,17 @@ export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: 
         </script>
       </body>
     </html>
-  `;
+  `, [blocks, textColor]);
+
+  const source = useMemo(() => ({ html: htmlContent }), [htmlContent]);
 
   const onMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log(`[MathRenderer-Log][Content: "${(content || '').substring(0, 15)}..."]`, data);
       if (data.height) {
-        setWebViewHeight(data.height + 8);
+        const calculatedHeight = data.height + 8;
+        setWebViewHeight(calculatedHeight);
+        heightCache.set(cacheKey, calculatedHeight);
       }
     } catch (e) {
       console.warn('[MathRenderer] WebView height measurement failed:', e);
@@ -206,7 +214,7 @@ export function MathRenderer({ content, markdownStyle, textColor = '#0F172A' }: 
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ html: htmlContent }}
+        source={source}
         onMessage={onMessage}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}

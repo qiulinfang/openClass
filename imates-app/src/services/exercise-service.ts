@@ -25,29 +25,29 @@ export class ExerciseService {
   // 学科英文字符转换至 APP 端数字代码的映射
   private static normalizeSubjectId(subj: string): string {
     const s = subj.toLowerCase();
-    if (s === 'math') return '2';
-    if (s === 'biology') return '6';
-    if (s === 'chemistry') return '5';
-    if (s === 'physics') return '4';
     if (s === 'chinese') return '1';
+    if (s === 'math') return '2';
     if (s === 'english') return '3';
-    if (s === 'politics') return '9';
+    if (s === 'physics') return '4';
+    if (s === 'chemistry') return '5';
+    if (s === 'biology') return '6';
+    if (s === 'politics') return '7';
     if (s === 'history') return '8';
-    if (s === 'geography') return '7';
+    if (s === 'geography') return '9';
     return subj;
   }
 
   // 数字代码映射至英文字符以配合接口路由
   private static normalizeSubjectName(subjId: string): string {
-    if (subjId === '2') return 'math';
-    if (subjId === '6') return 'biology';
-    if (subjId === '5') return 'chemistry';
-    if (subjId === '4') return 'physics';
     if (subjId === '1') return 'chinese';
+    if (subjId === '2') return 'math';
     if (subjId === '3') return 'english';
-    if (subjId === '9') return 'politics';
+    if (subjId === '4') return 'physics';
+    if (subjId === '5') return 'chemistry';
+    if (subjId === '6') return 'biology';
+    if (subjId === '7') return 'politics';
     if (subjId === '8') return 'history';
-    if (subjId === '7') return 'geography';
+    if (subjId === '9') return 'geography';
     return 'math';
   }
 

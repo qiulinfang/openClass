@@ -1,53 +1,62 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, TextInput, Platform } from 'react-native';
 import { ExerciseSolveScreen } from './ExerciseSolveScreen';
 import { MistakeBookScreen } from './MistakeBookScreen';
-import { HomeworkQuestionDetail } from '@/services/homework-service';
 
 interface QuestionBankScreenProps {
   onLogout: () => void;
   onAskAI: (questionContent: string) => void;
 }
 
-type SubTabType = 'library' | 'mistakes' | 'favorites';
+type SubTabType = 'library' | 'mistakes';
 
 export function QuestionBankScreen({ onLogout, onAskAI }: QuestionBankScreenProps) {
   const [subTab, setSubTab] = useState<SubTabType>('library');
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
     <View style={styles.container}>
-      {/* 顶部三栏切换卡 */}
-      <View style={styles.subTabBar}>
-        <TouchableOpacity
-          style={[styles.subTabItem, subTab === 'library' && styles.activeSubTabItem]}
-          onPress={() => setSubTab('library')}
-        >
-          <Text style={[styles.subTabText, subTab === 'library' && styles.activeSubTabText]}>选题库</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.subTabItem, subTab === 'mistakes' && styles.activeSubTabItem]}
-          onPress={() => setSubTab('mistakes')}
-        >
-          <Text style={[styles.subTabText, subTab === 'mistakes' && styles.activeSubTabText]}>错题集</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.subTabItem, subTab === 'favorites' && styles.activeSubTabItem]}
-          onPress={() => setSubTab('favorites')}
-        >
-          <Text style={[styles.subTabText, subTab === 'favorites' && styles.activeSubTabText]}>题目收藏</Text>
-        </TouchableOpacity>
+      {/* 顶部搜索框 */}
+      <View style={styles.searchHeader}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="搜索我的习题或错题..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
+
+      {/* 双项大 Tab 切换槽 */}
+      <View style={styles.tabBarWrapper}>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabItem, subTab === 'library' && styles.activeTabItem]}
+            onPress={() => setSubTab('library')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, subTab === 'library' && styles.activeTabText]}>我的习题</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tabItem, subTab === 'mistakes' && styles.activeTabItem]}
+            onPress={() => setSubTab('mistakes')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, subTab === 'mistakes' && styles.activeTabText]}>错题本</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 视图内容承载区 */}
       <View style={styles.contentView}>
         {subTab === 'library' && (
-          <ExerciseSolveScreen onLogout={onLogout} />
+          <ExerciseSolveScreen onLogout={onLogout} searchQuery={searchQuery} />
         )}
         {subTab === 'mistakes' && (
-          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="mistake" />
-        )}
-        {subTab === 'favorites' && (
-          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="exercise" />
+          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="mistake" searchQuery={searchQuery} />
         )}
       </View>
     </View>
@@ -57,33 +66,81 @@ export function QuestionBankScreen({ onLogout, onAskAI }: QuestionBankScreenProp
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f1f3ff', // Web content background
   },
-  subTabBar: {
-    flexDirection: 'row',
-    height: 48,
-    backgroundColor: '#FFFFFF',
+  searchHeader: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 16 : 12,
+    paddingBottom: 8,
+  },
+  searchContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  searchInput: {
+    fontSize: 14,
+    color: '#111827',
+    padding: 0, // Reset default padding in Android
+  },
+  tabBarWrapper: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
-  subTabItem: {
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 3,
+  },
+  tabItem: {
     flex: 1,
+    height: 38,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
-  activeSubTabItem: {
-    borderBottomColor: '#4F46E5',
+  activeTabItem: {
+    backgroundColor: '#ffffff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  subTabText: {
+  tabText: {
     fontSize: 14,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  activeSubTabText: {
+  activeTabText: {
     color: '#4F46E5',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   contentView: {
     flex: 1,
