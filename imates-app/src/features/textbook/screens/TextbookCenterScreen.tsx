@@ -171,7 +171,9 @@ const TextbookCard = memo(function TextbookCard({
           accessibilityLabel={`删除${item.textbookName}本地资料`}
           accessibilityHint="删除前会再次确认"
         >
-          <Text style={styles.deleteButtonText}>删除</Text>
+          <View style={styles.deleteIconSurface}>
+            <Text style={styles.deleteButtonText}>×</Text>
+          </View>
         </MotionPressable>
       ) : null}
 
@@ -830,7 +832,7 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
       <View style={styles.resourceTabs}>
         <ResourceTabButton
           active={resourceTab === 'all'}
-          label="全部资源"
+          label="全部"
           reduceMotion={reduceMotion}
           onPress={showAllResources}
         />
@@ -1141,19 +1143,26 @@ const styles = StyleSheet.create({
     right: 8,
     top: 7,
     zIndex: 2,
-    minWidth: 52,
+    width: 44,
     height: 44,
-    paddingHorizontal: 10,
-    borderRadius: 14,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteIconSurface: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: Palette.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteButtonText: {
     color: Palette.danger,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '800',
+    marginTop: -1,
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   coverFrame: {
     width: 96,

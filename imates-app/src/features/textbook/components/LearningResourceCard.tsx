@@ -64,7 +64,9 @@ function LearningResourceCardComponent({
       </View>
 
       <View style={styles.action}>
-        <Text style={styles.actionText}>去学习</Text>
+        <Text style={styles.actionText}>
+          {meta.kind === 'office' ? '外部打开' : '去学习'}
+        </Text>
         <Text style={styles.chevron}>›</Text>
       </View>
     </TouchableOpacity>

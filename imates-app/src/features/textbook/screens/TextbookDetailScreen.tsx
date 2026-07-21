@@ -12,6 +12,7 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Alert,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,7 +28,11 @@ import type { TextbookPracticeContext } from '../types';
 import { TextbookPracticePanel } from '../components/TextbookPracticePanel';
 import { LearningResourceList } from '../components/LearningResourceList';
 import { LearningResourceViewer } from '../components/LearningResourceViewer';
-import { getUniqueLearningResources } from '../components/learning-resource';
+import {
+  getLearningResourceKind,
+  getUniqueLearningResources,
+} from '../components/learning-resource';
+import { openOfficeResource } from '../components/open-office-resource';
 import {
   PracticeQuestion,
   PreparedPracticeData,
@@ -74,6 +79,19 @@ export function TextbookDetailScreen({
     null
   );
   const closeResourceViewer = useCallback(() => setPreviewResource(null), []);
+  const openResource = useCallback((resource: ResourceFile) => {
+    if (getLearningResourceKind(resource) !== 'office') {
+      setPreviewResource(resource);
+      return;
+    }
+
+    void openOfficeResource(resource).catch((error) => {
+      Alert.alert(
+        '文件未能打开',
+        error instanceof Error ? error.message : '请安装兼容的办公应用后重试'
+      );
+    });
+  }, []);
   const [activeContentTab, setActiveContentTab] = useState<
     'resources' | 'practice'
   >('resources');
@@ -109,10 +127,6 @@ export function TextbookDetailScreen({
       (pkg) => pkg.sectionId?.trim().toLowerCase() === activeSectionId
     );
   }, [learningPackages, selectedChapterId, selectedLessonId]);
-  const activeResourceCount = useMemo(
-    () => getUniqueLearningResources(activePackages).length,
-    [activePackages]
-  );
   const practiceContext = useMemo<TextbookPracticeContext | null>(
     () =>
       selectedLesson
@@ -461,13 +475,6 @@ export function TextbookDetailScreen({
                       >
                         探索
                       </Text>
-                      {activeResourceCount > 0 ? (
-                        <View style={styles.resourceCountBadge}>
-                          <Text style={styles.resourceCountText}>
-                            {activeResourceCount}
-                          </Text>
-                        </View>
-                      ) : null}
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
@@ -510,7 +517,7 @@ export function TextbookDetailScreen({
                       <LearningResourceList
                         key={selectedLessonId || selectedChapterId}
                         packages={activePackages}
-                        onOpenResource={setPreviewResource}
+                        onOpenResource={openResource}
                       />
                     ) : (
                       <View style={styles.promptPanelCard}>
@@ -555,7 +562,7 @@ export function TextbookDetailScreen({
                   {learningPackages.length > 0 ? (
                     <LearningResourceList
                       packages={learningPackages}
-                      onOpenResource={setPreviewResource}
+                      onOpenResource={openResource}
                       emptyTitle="暂无课程资源"
                       emptyHint="下拉刷新或稍后再试"
                     />
@@ -575,6 +582,14 @@ export function TextbookDetailScreen({
 
       <LearningResourceViewer
         resource={previewResource}
+        subject={textbook.textbookSubjectLabel}
+        sectionName={
+          selectedLesson?.name ||
+          selectedLesson?.label ||
+          selectedChapter?.name ||
+          selectedChapter?.label ||
+          textbook.textbookName
+        }
         onClose={closeResourceViewer}
       />
     </View>
@@ -723,21 +738,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: LightColors.textMuted,
     textAlign: 'right',
-  },
-  resourceCountBadge: {
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 6,
-    marginLeft: 7,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ECE9FF',
-  },
-  resourceCountText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: LightColors.primary,
   },
   contentTabs: {
     minHeight: 52,

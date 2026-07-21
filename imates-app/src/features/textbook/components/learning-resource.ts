@@ -163,16 +163,3 @@ export const getUniqueLearningResources = (
         .map((resource) => [resource.id, resource])
     ).values()
   );
-
-export const getLearningResourcePreviewUri = (
-  resource: ResourceFile,
-  kind = getLearningResourceKind(resource)
-): string => {
-  if (kind !== 'office') return resource.fileUrl;
-
-  const remoteUri = resource.remoteUrl || resource.fileUrl;
-  if (!/^https?:\/\//i.test(remoteUri)) return resource.fileUrl;
-  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
-    remoteUri
-  )}`;
-};
