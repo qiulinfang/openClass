@@ -11,7 +11,6 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
   Modal,
   Platform,
@@ -26,9 +25,9 @@ import {
   initialWindowMetrics,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { captureRef, captureScreen } from 'react-native-view-shot';
+import { captureRef } from 'react-native-view-shot';
 import {
   TextbookService,
   type ResourceFile,
@@ -75,6 +74,14 @@ const webMediaStyle: React.CSSProperties = {
   height: '100%',
   objectFit: 'contain',
   background: '#11131D',
+};
+
+const webImageStageStyle: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  overflow: 'auto',
+  background: '#11131D',
+  touchAction: 'pan-x pan-y',
 };
 
 const webAudioStageStyle: React.CSSProperties = {
@@ -125,8 +132,19 @@ function LearningResourceViewerComponent({
   const previewRef = useRef<View>(null);
   const resourceWebViewRef = useRef<WebView>(null);
   const webImageRef = useRef<HTMLImageElement | null>(null);
+  const webImageStageRef = useRef<HTMLDivElement | null>(null);
+  const webImageScaleRef = useRef(1);
+  const webImagePinchRef = useRef<{
+    distance: number;
+    startScale: number;
+  } | null>(null);
   const webVideoRef = useRef<HTMLVideoElement | null>(null);
   const webFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const nativeVideoCaptureRef = useRef<{
+    resolve: (dataUrl: string) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  } | null>(null);
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
     insets.top,
@@ -151,6 +169,11 @@ function LearningResourceViewerComponent({
     useState(false);
   const [webMediaUri, setWebMediaUri] = useState('');
   const [webDocumentHtml, setWebDocumentHtml] = useState<string | null>(null);
+  const [webImageScale, setWebImageScale] = useState(1);
+  const [nativeImageViewport, setNativeImageViewport] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const kind = resource ? getLearningResourceKind(resource) : 'unknown';
   const meta = useMemo(
@@ -180,7 +203,78 @@ function LearningResourceViewerComponent({
     setPdfExploreRendererActivated(false);
     setWebMediaUri('');
     setWebDocumentHtml(null);
+    webImageScaleRef.current = 1;
+    setWebImageScale(1);
+    setNativeImageViewport({ width: 0, height: 0 });
   }, [kind, resource?.id]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || kind !== 'image') return;
+    const stage = webImageStageRef.current;
+    if (!stage) return;
+    const distance = (touches: TouchList) =>
+      Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      event.preventDefault();
+      webImagePinchRef.current = {
+        distance: distance(event.touches),
+        startScale: webImageScaleRef.current,
+      };
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const pinch = webImagePinchRef.current;
+      if (!pinch || event.touches.length !== 2) return;
+      event.preventDefault();
+      const nextScale = Math.max(
+        1,
+        Math.min(4, pinch.startScale * (distance(event.touches) / pinch.distance))
+      );
+      const previousScale = webImageScaleRef.current;
+      if (Math.abs(nextScale - previousScale) < 0.005) return;
+      const rect = stage.getBoundingClientRect();
+      const centerX =
+        (event.touches[0].clientX + event.touches[1].clientX) / 2 - rect.left;
+      const centerY =
+        (event.touches[0].clientY + event.touches[1].clientY) / 2 - rect.top;
+      const contentX = stage.scrollLeft + centerX;
+      const contentY = stage.scrollTop + centerY;
+      const ratio = nextScale / previousScale;
+      webImageScaleRef.current = nextScale;
+      setWebImageScale(nextScale);
+      requestAnimationFrame(() => {
+        stage.scrollLeft = contentX * ratio - centerX;
+        stage.scrollTop = contentY * ratio - centerY;
+      });
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) webImagePinchRef.current = null;
+    };
+    stage.addEventListener('touchstart', onTouchStart, { passive: false });
+    stage.addEventListener('touchmove', onTouchMove, { passive: false });
+    stage.addEventListener('touchend', onTouchEnd, { passive: false });
+    stage.addEventListener('touchcancel', onTouchEnd, { passive: false });
+    return () => {
+      stage.removeEventListener('touchstart', onTouchStart);
+      stage.removeEventListener('touchmove', onTouchMove);
+      stage.removeEventListener('touchend', onTouchEnd);
+      stage.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [kind, webMediaUri]);
+
+  useEffect(
+    () => () => {
+      const pending = nativeVideoCaptureRef.current;
+      if (!pending) return;
+      clearTimeout(pending.timeout);
+      pending.reject(new Error('资源预览已关闭'));
+      nativeVideoCaptureRef.current = null;
+    },
+    []
+  );
 
   useEffect(() => {
     if (
@@ -321,6 +415,7 @@ function LearningResourceViewerComponent({
     async (width: number, height: number): Promise<string> => {
       if (kind === 'image' && webImageRef.current) {
         const image = webImageRef.current;
+        const stage = webImageStageRef.current;
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
@@ -328,16 +423,21 @@ function LearningResourceViewerComponent({
         if (!context) throw new Error('图片截图画布不可用');
         context.fillStyle = '#ECEEF5';
         context.fillRect(0, 0, width, height);
+        const imageRect = image.getBoundingClientRect();
+        const stageRect = stage?.getBoundingClientRect() || {
+          left: 0,
+          top: 0,
+        };
         const scale = Math.min(
-          width / image.naturalWidth,
-          height / image.naturalHeight
+          imageRect.width / image.naturalWidth,
+          imageRect.height / image.naturalHeight
         );
         const drawWidth = image.naturalWidth * scale;
         const drawHeight = image.naturalHeight * scale;
         context.drawImage(
           image,
-          (width - drawWidth) / 2,
-          (height - drawHeight) / 2,
+          imageRect.left - stageRect.left + (imageRect.width - drawWidth) / 2,
+          imageRect.top - stageRect.top + (imageRect.height - drawHeight) / 2,
           drawWidth,
           drawHeight
         );
@@ -462,26 +562,146 @@ function LearningResourceViewerComponent({
     [kind]
   );
 
-  const captureNativeScreen = useCallback(async (): Promise<{
+  const getCapturedImageSize = useCallback(
+    (uri: string) =>
+      new Promise<{ width: number; height: number }>((resolve, reject) => {
+        Image.getSize(
+          uri,
+          (width, height) => resolve({ width, height }),
+          reject
+        );
+      }),
+    []
+  );
+
+  const captureNativePreview = useCallback(async (viewport: {
+    width: number;
+    height: number;
+  }): Promise<{
     uri: string;
     offsetX: number;
     offsetY: number;
+    sourceWidth: number;
+    sourceHeight: number;
+    scaleX: number;
+    scaleY: number;
   }> => {
     const preview = previewRef.current;
     if (!preview) throw new Error('资源截图区域不可用');
-    const offset = await new Promise<{ x: number; y: number }>((resolve) => {
-      preview.measureInWindow((x, y) => resolve({ x, y }));
-    });
-    const screen = Dimensions.get('screen');
-    const uri = await captureScreen({
+    const uri = await captureRef(preview, {
       format: 'jpg',
       quality: 0.9,
       result: 'data-uri',
-      width: Math.round(screen.width),
-      height: Math.round(screen.height),
+      width: viewport.width,
+      height: viewport.height,
+      useRenderInContext: false,
     });
-    return { uri, offsetX: offset.x, offsetY: offset.y };
-  }, []);
+    const imageSize = await getCapturedImageSize(uri);
+    return {
+      uri,
+      offsetX: 0,
+      offsetY: 0,
+      sourceWidth: imageSize.width,
+      sourceHeight: imageSize.height,
+      scaleX: imageSize.width / viewport.width,
+      scaleY: imageSize.height / viewport.height,
+    };
+  }, [getCapturedImageSize]);
+
+  const captureNativeVideoFrame = useCallback(
+    (width: number, height: number) =>
+      new Promise<string>((resolve, reject) => {
+        const webView = resourceWebViewRef.current;
+        if (!webView) {
+          reject(new Error('视频预览尚未准备好'));
+          return;
+        }
+        if (nativeVideoCaptureRef.current) {
+          clearTimeout(nativeVideoCaptureRef.current.timeout);
+          nativeVideoCaptureRef.current.reject(new Error('截图请求已被替换'));
+        }
+        const timeout = setTimeout(() => {
+          nativeVideoCaptureRef.current = null;
+          reject(new Error('视频帧截取超时，请重试'));
+        }, 8000);
+        nativeVideoCaptureRef.current = { resolve, reject, timeout };
+        webView.injectJavaScript(`
+          (function () {
+            try {
+              var video = document.querySelector('video');
+              if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+                throw new Error('视频画面尚未准备好');
+              }
+              video.pause();
+              var outputWidth = ${width};
+              var outputHeight = ${height};
+              var viewportWidth = window.innerWidth || outputWidth;
+              var viewportHeight = window.innerHeight || outputHeight;
+              var scaleX = outputWidth / viewportWidth;
+              var scaleY = outputHeight / viewportHeight;
+              var rect = video.getBoundingClientRect();
+              var containScale = Math.min(
+                rect.width / video.videoWidth,
+                rect.height / video.videoHeight
+              );
+              var drawWidth = video.videoWidth * containScale;
+              var drawHeight = video.videoHeight * containScale;
+              var drawX = rect.left + (rect.width - drawWidth) / 2;
+              var drawY = rect.top + (rect.height - drawHeight) / 2;
+              var canvas = document.createElement('canvas');
+              canvas.width = outputWidth;
+              canvas.height = outputHeight;
+              var context = canvas.getContext('2d');
+              context.fillStyle = '#11131D';
+              context.fillRect(0, 0, outputWidth, outputHeight);
+              context.drawImage(
+                video,
+                drawX * scaleX,
+                drawY * scaleY,
+                drawWidth * scaleX,
+                drawHeight * scaleY
+              );
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'resource-video-frame',
+                dataUrl: canvas.toDataURL('image/jpeg', 0.9)
+              }));
+            } catch (error) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'resource-video-frame-error',
+                message: error && error.message ? error.message : '视频帧截取失败'
+              }));
+            }
+          })();
+          true;
+        `);
+      }),
+    []
+  );
+
+  const handleResourceWebViewMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      try {
+        const message = JSON.parse(event.nativeEvent.data);
+        const pending = nativeVideoCaptureRef.current;
+        if (!pending) return;
+        if (
+          message.type === 'resource-video-frame' &&
+          typeof message.dataUrl === 'string'
+        ) {
+          clearTimeout(pending.timeout);
+          nativeVideoCaptureRef.current = null;
+          pending.resolve(message.dataUrl);
+        } else if (message.type === 'resource-video-frame-error') {
+          clearTimeout(pending.timeout);
+          nativeVideoCaptureRef.current = null;
+          pending.reject(new Error(message.message || '视频帧截取失败'));
+        }
+      } catch {
+        // 忽略资源页面中的其他消息。
+      }
+    },
+    []
+  );
 
   const handleResourceExploreSelection = useCallback(
     async (selection: ResourceExploreSelection) => {
@@ -492,34 +712,70 @@ function LearningResourceViewerComponent({
         const viewportWidth = Math.max(1, Math.round(selection.viewportWidth));
         const viewportHeight = Math.max(1, Math.round(selection.viewportHeight));
         const nativeCapture =
-          Platform.OS === 'web' ? null : await captureNativeScreen();
+          Platform.OS === 'web'
+            ? null
+            : kind === 'video'
+              ? {
+                  uri: await captureNativeVideoFrame(
+                    viewportWidth,
+                    viewportHeight
+                  ),
+                  offsetX: 0,
+                  offsetY: 0,
+                  sourceWidth: viewportWidth,
+                  sourceHeight: viewportHeight,
+                  scaleX: 1,
+                  scaleY: 1,
+                }
+              : await captureNativePreview({
+                  width: viewportWidth,
+                  height: viewportHeight,
+                });
         const capturedUri = nativeCapture
           ? nativeCapture.uri
           : await captureWebPreview(viewportWidth, viewportHeight);
         const originX = Math.max(
           0,
-          Math.round(selection.x + (nativeCapture?.offsetX || 0))
+          Math.round(
+            nativeCapture
+              ? (selection.x + nativeCapture.offsetX) * nativeCapture.scaleX
+              : selection.x
+          )
         );
         const originY = Math.max(
           0,
-          Math.round(selection.y + (nativeCapture?.offsetY || 0))
+          Math.round(
+            nativeCapture
+              ? (selection.y + nativeCapture.offsetY) * nativeCapture.scaleY
+              : selection.y
+          )
         );
         const sourceWidth = nativeCapture
-          ? Math.round(Dimensions.get('screen').width)
+          ? nativeCapture.sourceWidth
           : viewportWidth;
         const sourceHeight = nativeCapture
-          ? Math.round(Dimensions.get('screen').height)
+          ? nativeCapture.sourceHeight
           : viewportHeight;
         const crop = {
           originX,
           originY,
           width: Math.max(
             1,
-            Math.min(sourceWidth - originX, Math.round(selection.width))
+            Math.min(
+              sourceWidth - originX,
+              Math.round(
+                selection.width * (nativeCapture?.scaleX || 1)
+              )
+            )
           ),
           height: Math.max(
             1,
-            Math.min(sourceHeight - originY, Math.round(selection.height))
+            Math.min(
+              sourceHeight - originY,
+              Math.round(
+                selection.height * (nativeCapture?.scaleY || 1)
+              )
+            )
           ),
         };
         const result = await manipulateAsync(
@@ -544,10 +800,12 @@ function LearningResourceViewerComponent({
       }
     },
     [
-      captureNativeScreen,
+      captureNativePreview,
+      captureNativeVideoFrame,
       capturePending,
       captureWebPreview,
       handleExploreCapture,
+      kind,
     ]
   );
 
@@ -611,15 +869,22 @@ function LearningResourceViewerComponent({
     if (kind === 'image' && Platform.OS === 'web') {
       if (!webMediaUri) return null;
       return (
-        <img
-          ref={webImageRef}
-          key={`${resource.id}-${reloadKey}-${webMediaUri}`}
-          src={webMediaUri}
-          alt={resource.fileName}
-          style={webMediaStyle}
-          onLoad={handleReady}
-          onError={() => handleError('图片加载失败')}
-        />
+        <div ref={webImageStageRef} style={webImageStageStyle}>
+          <img
+            ref={webImageRef}
+            key={`${resource.id}-${reloadKey}-${webMediaUri}`}
+            src={webMediaUri}
+            alt={resource.fileName}
+            style={{
+              ...webMediaStyle,
+              width: `${webImageScale * 100}%`,
+              height: `${webImageScale * 100}%`,
+              maxWidth: 'none',
+            }}
+            onLoad={handleReady}
+            onError={() => handleError('图片加载失败')}
+          />
+        </div>
       );
     }
 
@@ -631,11 +896,27 @@ function LearningResourceViewerComponent({
           maximumZoomScale={4}
           minimumZoomScale={1}
           centerContent
+          bouncesZoom
+          onLayout={({ nativeEvent }) => {
+            const { width, height } = nativeEvent.layout;
+            setNativeImageViewport((current) =>
+              current.width === width && current.height === height
+                ? current
+                : { width, height }
+            );
+          }}
         >
           <Image
             key={`${resource.id}-${reloadKey}`}
             source={previewSource}
-            style={styles.previewImage}
+            style={[
+              styles.previewImage,
+              nativeImageViewport.width > 0 && {
+                width: nativeImageViewport.width,
+                height: nativeImageViewport.height,
+                minHeight: nativeImageViewport.height,
+              },
+            ]}
             resizeMode="contain"
             onLoad={handleReady}
             onError={({ nativeEvent }) =>
@@ -713,6 +994,7 @@ function LearningResourceViewerComponent({
           ? { allowingReadAccessToURL: readAccessUrl }
           : {})}
         startInLoadingState={false}
+        onMessage={handleResourceWebViewMessage}
         onLoadStart={() => setStatus('loading')}
         onLoadProgress={({ nativeEvent }) => {
           if (nativeEvent.progress >= 0.9) handleReady();

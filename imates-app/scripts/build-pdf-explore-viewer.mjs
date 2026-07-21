@@ -36,7 +36,7 @@ const html = `<!doctype html>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     html, body { width: 100%; min-height: 100%; margin: 0; background: #eceef5; touch-action: pan-x pan-y; }
-    body { overflow-x: hidden; overscroll-behavior-y: contain; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { overflow: auto; overscroll-behavior: contain; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
     #pages { width: 100%; min-height: 100vh; padding: var(--reader-top-inset, 16px) 0 var(--reader-bottom-inset, 24px); }
     .pdf-page { position: relative; margin: 0 auto 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(23, 27, 52, .12); }
     .pdf-canvas, .selection-layer { position: absolute; inset: 0; display: block; }

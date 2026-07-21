@@ -1,7 +1,6 @@
 import { storage } from './storage';
 import { getXuebanApiUrl } from './api-url';
 import { MistakeService, MistakeItem } from './mistake-service';
-import { DeviceEventEmitter } from 'react-native';
 import { AiChatSessionService } from '@/features/ai-chat/services/ai-chat-session-service';
 import type { AiChatSession } from '@/features/ai-chat/types';
 import type { ChatMessage } from './ai-chat-service';
@@ -29,9 +28,22 @@ export interface SyncPushResponse {
 export class SyncService {
   private static LAST_SYNC_MISTAKE = 'LAST_SYNC_TIME_MISTAKE';
   private static LAST_SYNC_CHAT = 'LAST_SYNC_TIME_CHAT';
+  private static cloudSyncUnavailable = false;
 
   private static getApiBaseUrl(): string {
     return getXuebanApiUrl('');
+  }
+
+  /**
+   * 云同步是可选能力，不能用它的鉴权结果清理 AI 主链路的登录态。
+   * 测试环境尚未部署同步接口时，本次运行内停止继续请求即可。
+   */
+  private static throwIfCloudSyncUnavailable(response: Response): void {
+    if (response.status !== 401 && response.status !== 404) return;
+    this.cloudSyncUnavailable = true;
+    throw new Error(
+      `[SyncService] 云同步接口暂不可用 (HTTP ${response.status})`
+    );
   }
 
   /**
@@ -57,13 +69,7 @@ export class SyncService {
       }
     });
 
-    if (response.status === 401) {
-      console.warn('[SyncService] Token 401 过期，触发强制登出...');
-      await storage.removeItem('XUEBAN_TOKEN');
-      await storage.removeItem('YANBAN_TOKEN');
-      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
-      throw new Error('设备已经在其他地方登陆');
-    }
+    this.throwIfCloudSyncUnavailable(response);
 
     if (!response.ok) {
       throw new Error(`[SyncService] Pull Request Failed (HTTP ${response.status})`);
@@ -99,13 +105,7 @@ export class SyncService {
       })
     });
 
-    if (response.status === 401) {
-      console.warn('[SyncService] Token 401 过期，触发强制登出...');
-      await storage.removeItem('XUEBAN_TOKEN');
-      await storage.removeItem('YANBAN_TOKEN');
-      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
-      throw new Error('设备已经在其他地方登陆');
-    }
+    this.throwIfCloudSyncUnavailable(response);
 
     if (!response.ok) {
       throw new Error(`[SyncService] Push Request Failed (HTTP ${response.status})`);
@@ -118,6 +118,7 @@ export class SyncService {
    * 执行错题本双向增量同步
    */
   public static async syncMistakes(): Promise<void> {
+    if (this.cloudSyncUnavailable) return;
     try {
       const lastSyncTime = Number(await storage.getItem(this.LAST_SYNC_MISTAKE)) || 0;
       console.log(`[SyncService] 🔄 开始同步错题本... 上次同步时间: ${lastSyncTime}`);
@@ -200,6 +201,7 @@ export class SyncService {
    * 执行 AI 对话会话双向同步
    */
   public static async syncChatHistory(): Promise<void> {
+    if (this.cloudSyncUnavailable) return;
     try {
       const lastSyncTime = Number(await storage.getItem(this.LAST_SYNC_CHAT)) || 0;
       const userId = await storage.getItem('xuebanuserid') || 'user';

@@ -5,7 +5,7 @@ const isInternalTest = (): boolean =>
   getCurrentEnvType() === AppEnvType.INTERNAL_TEST;
 
 const normalizePath = (path: string): string =>
-  path.startsWith('/') ? path : `/${path}`;
+  path === '' || path.startsWith('/') ? path : `/${path}`;
 
 /**
  * 学伴接口：Web 走 Metro/Nginx 同源代理，原生端直连对应环境端口。
