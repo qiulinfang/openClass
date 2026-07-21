@@ -1,6 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
+  AccessibilityInfo,
+  Animated,
   StyleSheet,
   View,
   TouchableOpacity,
@@ -40,8 +42,42 @@ const LightColors = {
 export function HomeScreen({ onLogout, route }: HomeScreenProps) {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>('ai');
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const centerTabProgress = React.useRef(
+    new Animated.Value(activeTab === 'ai' ? 1 : 0)
+  ).current;
   const [learningTextbook, setLearningTextbook] =
     useState<UserTextbookInfo | null>(null);
+
+  React.useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled
+    );
+
+    return () => subscription.remove();
+  }, []);
+
+  React.useEffect(() => {
+    const nextValue = activeTab === 'ai' ? 1 : 0;
+
+    if (reduceMotionEnabled) {
+      centerTabProgress.setValue(nextValue);
+      return;
+    }
+
+    const animation = Animated.spring(centerTabProgress, {
+      toValue: nextValue,
+      stiffness: 240,
+      damping: 22,
+      mass: 0.8,
+      useNativeDriver: true,
+    });
+
+    animation.start();
+    return () => animation.stop();
+  }, [activeTab, centerTabProgress, reduceMotionEnabled]);
 
   // 监听路由参数以切换 Tab
   React.useEffect(() => {
@@ -156,20 +192,60 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
 
         {/* Tab 3 (中央突出): AI 对话 */}
         <TouchableOpacity
-          style={[
-            styles.centerTabItem,
-            activeTab === 'ai' && styles.activeCenterTabItem
-          ]}
+          style={styles.centerTabItem}
           activeOpacity={0.85}
           onPress={() => setActiveTab('ai')}
+          accessibilityRole="tab"
+          accessibilityLabel="AI 对话"
+          accessibilityState={{ selected: activeTab === 'ai' }}
         >
-          <View style={styles.centerTabInner}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.centerFloatingTab,
+              {
+                opacity: centerTabProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                }),
+                transform: [
+                  {
+                    translateY: centerTabProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 20],
+                    }),
+                  },
+                  {
+                    scale: centerTabProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 0.82],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             <Text style={styles.centerTabIcon}>🤖</Text>
-            <Text style={[
-              styles.centerTabLabel,
-              activeTab === 'ai' && { color: '#FFFFFF' }
-            ]}>AI 对话</Text>
-          </View>
+            <Text style={styles.centerTabLabel}>AI 对话</Text>
+          </Animated.View>
+
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.centerStandardTab,
+              {
+                opacity: centerTabProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ]}
+          >
+            <Text style={[styles.tabIcon, styles.activeTabIcon]}>🤖</Text>
+            <Text style={[styles.tabLabel, styles.activeTabLabel]}>AI 对话</Text>
+          </Animated.View>
         </TouchableOpacity>
 
         {/* Tab 4: 题库 */}
@@ -254,8 +330,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // 中央突出 Tab 样式
+  // 中央 Tab：未选中时圆形上浮，选中后回归普通 Tab
   centerTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerFloatingTab: {
+    position: 'absolute',
+    top: -20,
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -264,8 +347,6 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -20, // 向上拉出 TabBar
-    marginHorizontal: 4,
     ...Platform.select({
       ios: {
         shadowColor: '#4F46E5',
@@ -278,11 +359,7 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  activeCenterTabItem: {
-    backgroundColor: '#4F46E5',
-    borderColor: '#4F46E5',
-  },
-  centerTabInner: {
+  centerStandardTab: {
     alignItems: 'center',
     justifyContent: 'center',
   },
