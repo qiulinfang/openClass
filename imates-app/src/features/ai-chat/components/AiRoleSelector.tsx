@@ -69,7 +69,6 @@ export function AiRoleSelector({
         accessibilityHint="打开回答方式选择"
         accessibilityState={{ expanded: visible, disabled }}
       >
-        <Text style={styles.triggerPrefix}>回答方式</Text>
         <Text style={styles.triggerValue}>{selected.label}</Text>
         <Text style={styles.chevron}>⌄</Text>
       </TouchableOpacity>
@@ -148,7 +147,7 @@ export function AiRoleSelector({
 
 const styles = StyleSheet.create({
   trigger: {
-    minHeight: 44,
+    height: 44,
     marginRight: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -166,21 +165,15 @@ const styles = StyleSheet.create({
   triggerDisabled: {
     opacity: 0.45,
   },
-  triggerPrefix: {
-    marginRight: 6,
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#777C90',
-  },
   triggerValue: {
     fontSize: 12,
     fontWeight: '900',
     color: '#5549CB',
   },
   chevron: {
-    marginLeft: 7,
-    marginTop: -3,
-    fontSize: 17,
+    marginLeft: 6,
+    marginTop: -2,
+    fontSize: 14,
     fontWeight: '700',
     color: '#6256D9',
   },

@@ -509,30 +509,46 @@ export function AiConversationView({
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.webToolButton}
+              style={[
+                styles.toolChip,
+                formulaVisible && styles.toolChipActive,
+              ]}
               onPress={() => setFormulaVisible(true)}
               disabled={isSending}
               accessibilityRole="button"
               accessibilityLabel="插入公式"
             >
-              <Image
-                source={formulaVisible ? formulaSelectedIcon : formulaIcon}
-                style={styles.formulaToolIcon}
-                resizeMode="contain"
-              />
+              <View style={styles.webIconCrop}>
+                <Image
+                  source={formulaVisible ? formulaSelectedIcon : formulaIcon}
+                  style={styles.formulaIconSource}
+                  resizeMode="stretch"
+                />
+              </View>
+              <Text
+                style={[
+                  styles.toolChipText,
+                  formulaVisible && styles.toolChipTextActive,
+                ]}
+              >
+                公式
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.webToolButton}
+              style={styles.toolChip}
               onPress={beginAskTeacher}
               disabled={isSending}
               accessibilityRole="button"
               accessibilityLabel="问老师"
             >
-              <Image
-                source={askTeacherIcon}
-                style={styles.askTeacherToolIcon}
-                resizeMode="contain"
-              />
+              <View style={styles.webIconCrop}>
+                <Image
+                  source={askTeacherIcon}
+                  style={styles.askTeacherIconSource}
+                  resizeMode="stretch"
+                />
+              </View>
+              <Text style={styles.toolChipText}>问老师</Text>
             </TouchableOpacity>
             {context.scene === 'general' && onPickImage ? (
               <TouchableOpacity
@@ -945,7 +961,7 @@ const styles = StyleSheet.create({
   },
   toolRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   toolScroll: {
     flex: 1,
@@ -954,9 +970,10 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     paddingRight: 4,
     paddingBottom: 7,
+    alignItems: 'center',
   },
   toolChip: {
-    minHeight: 44,
+    height: 44,
     marginRight: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -979,15 +996,26 @@ const styles = StyleSheet.create({
   toolChipTextActive: {
     color: '#5B50CE',
   },
-  webToolButton: {
-    minHeight: 44,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
+  webIconCrop: {
+    width: 18,
+    height: 18,
+    marginRight: 5,
+    overflow: 'hidden',
   },
-  formulaToolIcon: { width: 82, height: 38 },
-  askTeacherToolIcon: { width: 94, height: 38 },
+  formulaIconSource: {
+    position: 'absolute',
+    left: -8,
+    top: -5,
+    width: 61,
+    height: 28,
+  },
+  askTeacherIconSource: {
+    position: 'absolute',
+    left: -7,
+    top: -5,
+    width: 70,
+    height: 28,
+  },
   newConversationButton: {
     width: 44,
     height: 44,
@@ -1000,7 +1028,7 @@ const styles = StyleSheet.create({
   },
   newConversationIcon: {
     marginTop: -2,
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: '500',
     color: '#6256D9',
   },
