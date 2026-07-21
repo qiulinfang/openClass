@@ -78,6 +78,7 @@
     "markdown-it-texmath": "^1.0.0",
     "mathlive": "^0.107.0",
     "mpegts.js": "^1.7.7",
+    "mqtt": "^5.15.2",
     "mupdf": "^1.26.4",
     "pdfjs-dist": "^5.4.449",
     "perfect-freehand": "^1.2.2",

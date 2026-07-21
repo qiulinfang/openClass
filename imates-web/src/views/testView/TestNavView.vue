@@ -228,6 +228,22 @@ const navItems = [
     category: 'component',
     color: '#3f51b5',
     description: '测试 HomeworkHeader 头部组件在不同标题长度、不同题目数量下的布局与交互表现。'
+  },
+  {
+    title: 'GeoGebra 渲染测试',
+    path: '/app/ggb-viewer',
+    icon: 'change_history',
+    category: 'render',
+    color: '#ff9800',
+    description: '测试 GeoGebra (GGB) 交互几何课件渲染效果，默认载入“导函数与原函数”图形课件。'
+  },
+  {
+    title: 'MQTT 消息订阅测试',
+    path: '/test/mqtt',
+    icon: 'notifications_active',
+    category: 'debug',
+    color: '#009688',
+    description: '测试 MQTT over WebSocket 连接与消息订阅，支持订阅特定 Topic 以及实时消息推送。'
   }
 ]
 

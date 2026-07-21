@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <Modal
     v-model="localVisible"
     :title="sectionName"
@@ -55,6 +55,19 @@
             <div v-else class="empty-state">
               <q-icon name="school" size="32px" color="grey-5" />
               <div class="empty-text">该章节暂无学习方案</div>
+            </div>
+
+            <!-- 调试 GGB 按钮 (仅 Dev 环境) -->
+            <div v-if="isDev" class="q-pa-md text-center q-mt-auto">
+              <q-btn
+                outline
+                color="orange"
+                icon="science"
+                label="调试 GGB 课件"
+                @click="goToGgbDev"
+                class="full-width"
+                style="border-radius: 10px;"
+              />
             </div>
           </div>
         </div>
@@ -369,6 +382,8 @@ const getViewerRouteName = (fileName: string): string => {
   switch (extension) {
     case 'pdf':
       return 'pdfViewer'
+    case 'ggb':
+      return 'ggbViewer'
     case 'html':
     case 'htm':
       return 'htmlViewer'
@@ -728,6 +743,19 @@ watch(
 )
 
 // BScroll 初始化和刷新由组合式函数自动处理（已启用 autoWatch）
+
+const isDev = import.meta.env.DEV
+
+const goToGgbDev = () => {
+  router.push({
+    name: 'ggbViewer',
+    query: {
+      fileName: '004_导函数与原函数.ggb',
+      fromLearning: 'true',
+      learningNodeId: sectionId.value,
+    }
+  })
+}
 
 // 生命周期
 onMounted(async () => {

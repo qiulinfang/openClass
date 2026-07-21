@@ -8,6 +8,7 @@ import PdfViewerView from '@/views/PdfViewerView.vue'
 import HtmlViewerView from '@/views/HtmlViewerView.vue'
 import HtmlPreviewView from '@/views/HtmlPreviewView.vue'
 import VideoViewerView from '@/views/VideoViewerView.vue'
+import GgbViewerView from '@/views/GgbViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import LearningContentView from '@/views/LearningContentView.vue'
@@ -27,6 +28,7 @@ import TestExerciseView from '@/views/testView/TestExerciseView.vue'
 import DraftNotebookView from '@/views/DraftNotebookView.vue'
 import MarkdownRenderTestView from '@/views/testView/MarkdownRenderTestView.vue'
 import TestNavView from '@/views/testView/TestNavView.vue'
+import MqttTestView from '@/views/testView/MqttTestView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -94,6 +96,12 @@ const router = createRouter({
           path: 'video-viewer',
           name: 'videoViewer',
           component: VideoViewerView
+        },
+        // GGB查看器路由
+        {
+          path: 'ggb-viewer',
+          name: 'ggbViewer',
+          component: GgbViewerView
         },
         // 找题路由
         {
@@ -191,6 +199,11 @@ const router = createRouter({
       component: TestNavView
     },
     {
+      path: '/test/mqtt',
+      name: 'mqttTest',
+      component: MqttTestView
+    },
+    {
       path: '/lottie-test',
       name: 'lottieTest',
       component: LottieTest
@@ -257,6 +270,8 @@ router.beforeEach(async (to, from, next) => {
     to.path === '/markdown-test' ||
     to.name === 'testNav' ||
     to.path === '/test-nav' ||
+    to.name === 'mqttTest' ||
+    to.path === '/test/mqtt' ||
     to.name === 'homeworkHeaderTest' ||
     to.path === '/homework-header-test'
   ) {

@@ -96,6 +96,8 @@ export const ADDRESS_CATALOG = {
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
   HW_FORMULA_RECOGNIZE: 'http://49.232.39.212:9012',
   QUESTION_STRUCTURER: 'http://49.232.39.212:8055',
+  MQTT_WS_RELEASE: 'wss://www.imates.com.cn:8083/mqtt',
+  MQTT_WS_TEST: 'ws://www.imates.com.cn:8083/mqtt',
 } as const
 
 // localStorage 键名
@@ -190,6 +192,16 @@ export function getTeacherWsUrl(): string {
     return ADDRESS_CATALOG.TEACHER_WS_TEST
   }
   return ADDRESS_CATALOG.TEACHER_WS_RELEASE
+}
+
+/**
+ * 获取 MQTT WebSocket URL
+ */
+export function getMqttWsUrl(): string {
+  if (getIsInternalTest()) {
+    return ADDRESS_CATALOG.MQTT_WS_TEST
+  }
+  return ADDRESS_CATALOG.MQTT_WS_RELEASE
 }
 
 /**
