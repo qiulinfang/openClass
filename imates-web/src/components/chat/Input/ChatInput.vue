@@ -34,8 +34,7 @@
                 props.type === 'ai-homework' ||
                 props.type === 'ai-textbook' ||
                 props.type === 'user-client' ||
-                props.type === 'teacher' ||
-                props.type === 'html-preview'
+                props.type === 'teacher'
               "
               type="button"
               class="toolbar-btn"
@@ -528,9 +527,12 @@ const normalizedTools = computed<ToolbarTool[]>(() =>
 )
 
 // prefix 位置的工具（截图、选中并问）
-const prefixTools = computed(() =>
-  normalizedTools.value.filter((t) => TOOL_POSITION_MAP[t.type] === 'prefix')
-)
+const prefixTools = computed(() => {
+  if (props.type === 'html-preview') {
+    return []
+  }
+  return normalizedTools.value.filter((t) => TOOL_POSITION_MAP[t.type] === 'prefix')
+})
 const hasPrefixTool = computed(() => prefixTools.value.length > 0)
 
 // middle 位置的工具（公式、问老师）

@@ -331,3 +331,100 @@ export interface RecognizeHandwrittenFormulaResponse {
   /** 消息 */
   message: string
 }
+
+// ========== 填空题手写 OCR 判罚 API ==========
+
+/** 填空要点信息 */
+export interface OcrGradeBlankItem {
+  /** 空 ID */
+  blankId: string
+  /** 标准答案列表 */
+  standardAnswers: string[]
+  /** 手写答案裁剪图 URL 或 Base64 (如果提供) */
+  answerImageUrl?: string
+}
+
+/** 填空题手写 OCR 判罚请求 */
+export interface FillBlankHandwritingOcrGradeRequest {
+  /** 请求唯一 ID */
+  requestId?: string
+  /** 完整题目文本 */
+  completeQuestion?: string
+  /** 当前题目文本 (含 [blank_x] 占位) */
+  currentQuestion?: string
+  /** 单个空白图 OCR 模式参数 (可选) */
+  ocrOnly?: boolean
+  /** 整题图 URL (可选，若不为空且 blanks 中各项目无对应切图则通常识别整图) */
+  image_url?: string
+  /** 兼容 OSS 地址 (可选) */
+  oss_url?: string
+  /** 逐空明细数据 */
+  blanks?: OcrGradeBlankItem[]
+}
+
+/** 识别出来的手写细节项 */
+export interface OcrHandwritingItem {
+  /** 序号 */
+  itemIndex: number
+  /** 识别出来的手写文本 */
+  text: string
+  /** 在图片中的推断位置 */
+  location?: string
+  /** 置信度：high, medium, low */
+  confidence?: 'high' | 'medium' | 'low'
+}
+
+/** 逐空判罚结果项 */
+export interface OcrBlankResultItem {
+  /** 空 ID */
+  blankId: string
+  /** 识别出的学生手写答案 */
+  studentAnswer: string
+  /** 标准答案数组 */
+  standardAnswers?: string[]
+  /** 是否正确 */
+  isCorrect?: boolean | null
+  /** 判罚结果状态 */
+  judgement?: 'correct' | 'incorrect' | 'partial' | 'unknown'
+  /** 置信度 */
+  confidence?: 'high' | 'medium' | 'low'
+  /** 是否需要复核 */
+  needReview?: boolean
+  /** 匹配策略 */
+  matchingStrategy?: 'NORMALIZED_EXACT_MATCH' | 'LENIENT_LIST_MATCH' | 'MODEL_SEMANTIC' | 'OCR_ONLY' | string
+  /** 判罚原因 */
+  reason?: string
+}
+
+/** 填空题手写 OCR 判罚响应 */
+export interface FillBlankHandwritingOcrGradeResponse {
+  /** 状态 */
+  status: 'success' | string
+  /** 请求唯一 ID */
+  requestId?: string
+  /** 是否只做 OCR 识别 */
+  ocrOnly?: boolean
+  /** 整体正确性汇总 */
+  studentAnswer?: string
+  /** 逐空明细判罚结果 */
+  blankResults?: OcrBlankResultItem[]
+  /** 兼容蛇形字段命名 */
+  blank_results?: OcrBlankResultItem[]
+  /** 整图多文本手写识别明细 */
+  handwritingItems?: OcrHandwritingItem[]
+  /** 兼容蛇形字段命名 */
+  handwriting_items?: OcrHandwritingItem[]
+  /** 整体数据汇总 */
+  overall?: {
+    correctCount: number
+    totalCount: number
+    needReview: boolean
+  }
+  /** 包裹的返回实体数据，用于向下兼容 */
+  data?: {
+    blankResults?: OcrBlankResultItem[]
+    blank_results?: OcrBlankResultItem[]
+    handwritingItems?: OcrHandwritingItem[]
+    handwriting_items?: OcrHandwritingItem[]
+  }
+}

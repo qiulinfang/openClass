@@ -10,17 +10,42 @@
               <img :src="goBackIcon" alt="返回" class="goback-icon" />
             </q-btn>
             <div class="toolbar-spacer"></div>
-            <q-btn v-if="isDev" flat dense class="toolbar-action-btn" label="打印原始" @click="printOriginalHtml" />
-            <q-btn v-if="isDev" flat dense class="toolbar-action-btn" label="打印实时" @click="printLiveHtml" />
+            <q-btn
+              v-if="isDev"
+              flat
+              dense
+              class="toolbar-action-btn"
+              label="打印原始"
+              @click="printOriginalHtml"
+            />
+            <q-btn
+              v-if="isDev"
+              flat
+              dense
+              class="toolbar-action-btn"
+              label="打印实时"
+              @click="printLiveHtml"
+            />
           </div>
-            <div class="html-content-wrapper">
+          <div class="html-content-wrapper">
             <!-- iframe 显示 HTML -->
-            <iframe v-if="!error && htmlContentUrl" ref="iframeRef" :src="htmlContentUrl"
-              class="html-iframe" frameborder="0" allowfullscreen
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"
-              loading="lazy" />
+            <iframe
+              v-if="!error && htmlContentUrl"
+              ref="iframeRef"
+              :src="htmlContentUrl"
+              class="html-iframe"
+              frameborder="0"
+              allowfullscreen
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              referrerpolicy="no-referrer"
+              loading="lazy"
+            />
 
-            <HistoryDebugPanel v-if="false" ref="historyDebugRef" :extra-info="`htmlUrl: ${htmlUrl || '-'}`" />
+            <HistoryDebugPanel
+              v-if="false"
+              ref="historyDebugRef"
+              :extra-info="`htmlUrl: ${htmlUrl || '-'}`"
+            />
 
             <!-- 加载状态 -->
             <div v-if="isLoading" class="loading-overlay">
@@ -41,8 +66,14 @@
           </div>
 
           <!-- 悬浮按钮：右侧面板关闭时显示，点击打开 -->
-          <button v-if="!isRightPanelOpen" type="button" class="fab-chat"
-            :style="{ backgroundImage: `url(${ipNewIcon})` }" @click="isRightPanelOpen = true" title="打开对话"></button>
+          <button
+            v-if="!isRightPanelOpen"
+            type="button"
+            class="fab-chat"
+            :style="{ backgroundImage: `url(${ipNewIcon})` }"
+            @click="isRightPanelOpen = true"
+            title="打开对话"
+          ></button>
         </div>
       </template>
 
@@ -160,14 +191,17 @@ const handleScreenshotClick = async () => {
   // 在 HTML 预览页，截图工具切换到 PDF 页面使用
   const from = route.query.from
   if (from === 'pdf') {
-    historyDebugRef.value?.addEvent('push:pdfViewer', `from=${String(route.query.from || '')} url=${String(route.query.url || '')}`)
+    historyDebugRef.value?.addEvent(
+      'push:pdfViewer',
+      `from=${String(route.query.from || '')} url=${String(route.query.url || '')}`,
+    )
     // 返回 PDF 页面并开启截图工具
     router.push({
       name: 'pdfViewer',
       query: {
         ...route.query,
-        screenshot: 'true'
-      }
+        screenshot: 'true',
+      },
     })
   } else {
     // 非 PDF 来源，直接执行常规截图（参考 MainChatPanel 逻辑）
@@ -204,10 +238,10 @@ const handleCloseChatPanel = () => {
 
 // 处理来自 ChatPanel 的 HTML 预览点击 - 直接刷新 iframe，不操作路由
 const handleOpenHtmlPreviewFromPanel = async (payload: { url: string; html?: string }) => {
-  console.log('[HtmlPreviewView] handleOpenHtmlPreviewFromPanel 触发:', { 
-    url: payload.url, 
+  console.log('[HtmlPreviewView] handleOpenHtmlPreviewFromPanel 触发:', {
+    url: payload.url,
     hasHtml: !!payload.html,
-    htmlLength: payload.html?.length || 0 
+    htmlLength: payload.html?.length || 0,
   })
   const { url, html } = payload
   if (!url) return
@@ -228,7 +262,7 @@ const handleOpenHtmlPreviewFromPanel = async (payload: { url: string; html?: str
       query: {
         ...route.query,
         url,
-      }
+      },
     })
   }
 
@@ -269,10 +303,10 @@ const handleGoBack = () => {
 // 加载 HTML 内容
 const loadHtmlContent = () => {
   const urlFromQuery = route.query.url as string
-  console.log('[HtmlPreviewView] loadHtmlContent 启动:', { 
+  console.log('[HtmlPreviewView] loadHtmlContent 启动:', {
     queryUrl: urlFromQuery,
     currentHtmlUrl: htmlUrl.value,
-    hasOriginalHtml: !!originalHtml.value
+    hasOriginalHtml: !!originalHtml.value,
   })
   try {
     isLoading.value = true
@@ -300,12 +334,14 @@ const loadHtmlContent = () => {
     }
 
     // 验证 URL 格式 (允许本地域名、微软预览服务、生产环境域名及本地开发环境)
-    const isAllowedUrl = url.startsWith('https://kelvin-cosin.cloud/') || 
-                        url.startsWith('https://view.officeapps.live.com/') ||
-                        url.startsWith('https://www.imates.com.cn/') ||
-                        url.startsWith('blob:') ||
-                        (import.meta.env.DEV && (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')))
-    
+    const isAllowedUrl =
+      url.startsWith('https://kelvin-cosin.cloud/') ||
+      url.startsWith('https://view.officeapps.live.com/') ||
+      url.startsWith('https://www.imates.com.cn/') ||
+      url.startsWith('blob:') ||
+      (import.meta.env.DEV &&
+        (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')))
+
     if (!isAllowedUrl) {
       // 【优化】：如果已经有缓存的内容（秒开场景），允许继续渲染
       if (originalHtml.value && htmlUrl.value === url) {
@@ -346,10 +382,10 @@ const fetchHtmlSourceAndRender = async () => {
   }
   try {
     const htmlData = await apiService.fetchHtmlSource(htmlUrl.value)
-    console.log('[HtmlPreviewView] fetchHtmlSource 响应:', { 
+    console.log('[HtmlPreviewView] fetchHtmlSource 响应:', {
       success: !!htmlData,
       title: htmlData?.title,
-      htmlLength: (htmlData?.html || htmlData?.raw_html)?.length || 0 
+      htmlLength: (htmlData?.html || htmlData?.raw_html)?.length || 0,
     })
     // 直接使用后端已经增强过的 html
     const enhanced = htmlData?.html || htmlData?.raw_html
@@ -451,25 +487,34 @@ const collectLiveFocus = async (): Promise<HtmlPreviewFocus | null> => {
           }
         })
       } catch (e) {
-        return [{ index: -1, width: 0, height: 0, dataUrl: null, error: e instanceof Error ? e.message : String(e) }]
+        return [
+          {
+            index: -1,
+            width: 0,
+            height: 0,
+            dataUrl: null,
+            error: e instanceof Error ? e.message : String(e),
+          },
+        ]
       }
     })()
 
-    const screenshotDataUrl = canvasSnapshots?.find((s) => typeof s?.dataUrl === 'string')?.dataUrl || null
+    const screenshotDataUrl =
+      canvasSnapshots?.find((s) => typeof s?.dataUrl === 'string')?.dataUrl || null
     const screenshot = screenshotDataUrl
       ? await (async () => {
-        try {
-          const path = await apiService.uploadImageToYanban(screenshotDataUrl)
-          // 根据环境拼接完整可访问 URL
-          const apiPaths = getApiPaths()
-          const isTest = apiPaths.yanban.teacher.uploadImg.includes('/yb-test/')
-          const baseUrl = isTest ? 'https://43.138.16.5:50013' : 'https://www.imates.com.cn'
-          return path.startsWith('http') ? path : `${baseUrl}${path}`
-        } catch (e) {
-          console.warn('[HtmlPreview][live] screenshot upload failed:', e)
-          return null
-        }
-      })()
+          try {
+            const path = await apiService.uploadImageToYanban(screenshotDataUrl)
+            // 根据环境拼接完整可访问 URL
+            const apiPaths = getApiPaths()
+            const isTest = apiPaths.yanban.teacher.uploadImg.includes('/yb-test/')
+            const baseUrl = isTest ? 'https://43.138.16.5:50013' : 'https://www.imates.com.cn'
+            return path.startsWith('http') ? path : `${baseUrl}${path}`
+          } catch (e) {
+            console.warn('[HtmlPreview][live] screenshot upload failed:', e)
+            return null
+          }
+        })()
       : null
 
     return {
@@ -506,13 +551,13 @@ watch(
       loadHtmlContent()
       fetchHtmlSourceAndRender()
     }
-  }
+  },
 )
 
 // 生命周期
 onMounted(() => {
   console.log('[HtmlPreviewView] onMounted 挂载, query:', route.query)
-  
+
   // 设置复用会话 ID
   const sid = route.query.sessionId as string
   if (sid) {
@@ -523,8 +568,7 @@ onMounted(() => {
   loadHtmlContent()
   fetchHtmlSourceAndRender()
   window.addEventListener('message', onBridgeMessage)
-
-    ; (window as any).__htmlPreview_getFocus = collectLiveFocus
+  ;(window as any).__htmlPreview_getFocus = collectLiveFocus
 })
 
 onBeforeUnmount(() => {
@@ -560,7 +604,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  background: #0A0020;
+  background: #0a0020;
   border-bottom: 1px solid #e0e0e0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }

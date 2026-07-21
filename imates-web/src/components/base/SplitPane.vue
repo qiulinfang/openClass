@@ -67,6 +67,18 @@ const props = defineProps({
   modelValue: {
     type: Boolean,
     default: true
+  },
+  initialRatio: {
+    type: Number,
+    default: 60 // 默认修改为 60 (左 60%，右 40%)
+  },
+  minRatio: {
+    type: Number,
+    default: 30
+  },
+  maxRatio: {
+    type: Number,
+    default: 70 // 调高最大上限以支持更宽的比例适配
   }
 });
 
@@ -77,12 +89,12 @@ const isRightVisible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val)
 });
-const offset = ref(65); // 初始宽度百分比：左侧最大宽度
+const offset = ref(props.initialRatio); // 使用传入的初始比例初始化
 const isDragging = ref(false);
 const containerRef = ref(null);
 
-const minOffset = 30; // 左侧面板最小30%（右侧面板最大70%）
-const maxOffset = 65; // 左侧面板最大65%（右侧面板最小35%）
+const minOffset = props.minRatio; // 使用 Prop 控制最小左侧占比
+const maxOffset = props.maxRatio; // 使用 Prop 控制最大左侧占比
 
 // 计算样式
 const leftPaneStyle = computed(() => ({

@@ -41,6 +41,8 @@ import type {
   HomeworkInfoResp,
   RecognizeHandwrittenFormulaResponse,
   ApiResponse,
+  FillBlankHandwritingOcrGradeRequest,
+  FillBlankHandwritingOcrGradeResponse,
 } from '@/types'
 
 
@@ -449,6 +451,29 @@ export class ApiService {
     }
 
     return null
+  }
+
+  /**
+   * 填空题平板作答手写体 OCR 及判罚接口
+   * 对应后端 /api/fill-blank-handwriting-ocr-grade 接口
+   */
+  public async fillBlankHandwritingOcrGrade(
+    request: FillBlankHandwritingOcrGradeRequest
+  ): Promise<FillBlankHandwritingOcrGradeResponse> {
+    // 强制使用 POST 请求与独立判罚服务对接，使用完整的绝对服务地址或代理路径
+    // 如果是开发调试，也可以由 httpClient 的 buildFullUrl 根据网关动态配置
+    const ocrUrl = 'http://49.232.39.212:8793/api/fill-blank-handwriting-ocr-grade'
+    
+    const response = await httpClient.post<ApiResponse<FillBlankHandwritingOcrGradeResponse>>(
+      ocrUrl,
+      request
+    )
+
+    if (response.success && response.data) {
+      return response.data
+    }
+
+    throw new Error(response.message || '填空题手写 OCR 判罚服务调用失败')
   }
 }
 
