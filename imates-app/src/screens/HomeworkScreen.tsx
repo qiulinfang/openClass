@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/Card';
 import { Badge } from '@/components/Badge';
+import { CalendarModal } from '@/components/CalendarModal';
+import { useNavigation } from '@react-navigation/native';
 import {
   HomeworkService,
   HomeworkUndoItem,
@@ -20,10 +22,7 @@ import {
   getHomeworkStatusTagColor,
 } from '@/services/homework-service';
 
-interface HomeworkScreenProps {
-  onLogout: () => void;
-  onGoAnswer: (id: string, title: string, subject: string) => void;
-}
+interface HomeworkScreenProps {}
 
 const LightColors = {
   background: '#f1f3ff', // Web content background
@@ -32,8 +31,7 @@ const LightColors = {
   textPrimary: '#111827',
   textSecondary: '#4b5563',
   textMuted: '#696675',
-  primary: '#4F46E5', // Indigo-600 matching Web button
-  primaryLight: '#EEF2FF',
+  primary: '#4F46E5', // Indigo color matching design tokens
   success: '#10B981',
   warning: '#F59E0B',
   danger: '#EF4444',
@@ -53,13 +51,17 @@ const SUBJECT_OPTIONS = [
   { label: '地理', value: '9' },
 ];
 
-export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
+export function HomeworkScreen() {
+  const navigation = useNavigation<any>();
   const [homeworkList, setHomeworkList] = useState<HomeworkUndoItem[]>([]);
   const [isHomeworkLoading, setIsHomeworkLoading] = useState(false);
   
   // 筛选条件状态 (日期默认为今天，学科默认为空即全部)
   const [selectedDate, setSelectedDate] = useState<string | null>(new Date().toISOString().slice(0, 10));
   const [selectedSubject, setSelectedSubject] = useState<string>('');
+
+  // 悬浮日历组件显隐状态
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   const loadHomeworkList = useCallback(async () => {
     setIsHomeworkLoading(true);
@@ -82,14 +84,6 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
   useEffect(() => {
     loadHomeworkList();
   }, [loadHomeworkList]);
-
-  // 日期递增/递减调整
-  const adjustDate = (days: number) => {
-    const baseDate = selectedDate ? new Date(selectedDate) : new Date();
-    if (isNaN(baseDate.getTime())) return;
-    baseDate.setDate(baseDate.getDate() + days);
-    setSelectedDate(baseDate.toISOString().slice(0, 10));
-  };
 
   // 生成顶部日期显示文本
   const getDateDisplay = () => {
@@ -156,7 +150,7 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
     })();
 
     // Button label and style matching getHomeworkButtonText / getHomeworkButtonVariant
-    const buttonText = item.status === '3' ? '查看解析' : isCompleted ? '已截止' : '开始作答';
+    const buttonText = item.status === '3' ? '去查看' : isCompleted ? '已截止' : '去作答';
     const isButtonDisabled = isCompleted && item.status !== '3';
     
     const tags = [subjectName];
@@ -205,7 +199,14 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
             {/* Action Button */}
             <TouchableOpacity
               disabled={isButtonDisabled}
-              onPress={() => onGoAnswer(item.id, item.title, item.subject)}
+              onPress={() => {
+                navigation.navigate('HomeworkSolve', {
+                  homeworkId: item.id,
+                  homeworkTitle: item.title,
+                  homeworkSubject: item.subject,
+                  isSubmitted: item.status === '3',
+                });
+              }}
               style={[
                 styles.actionBtn,
                 isButtonDisabled
@@ -273,35 +274,16 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
 
           {/* 日期单日微调及快速切换 */}
           <View style={styles.dateSelectorRow}>
-            <TouchableOpacity style={styles.dateNavBtn} onPress={() => adjustDate(-1)}>
-              <Text style={styles.dateNavText}>◀</Text>
+            <TouchableOpacity
+              style={styles.calendarBtn}
+              onPress={() => setShowCalendarModal(true)}
+            >
+              <Text style={styles.calendarBtnText}>📅 日历</Text>
             </TouchableOpacity>
 
             <View style={styles.dateTextContainer}>
               <Text style={styles.dateDisplayLabel}>{getDateDisplay()}</Text>
             </View>
-
-            <TouchableOpacity style={styles.dateNavBtn} onPress={() => adjustDate(1)}>
-              <Text style={styles.dateNavText}>▶</Text>
-            </TouchableOpacity>
-
-            {selectedDate && (
-              <TouchableOpacity
-                style={styles.clearDateBtn}
-                onPress={() => setSelectedDate(null)}
-              >
-                <Text style={styles.clearDateText}>全部时间 🕒</Text>
-              </TouchableOpacity>
-            )}
-            
-            {!selectedDate && (
-              <TouchableOpacity
-                style={styles.clearDateBtn}
-                onPress={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
-              >
-                <Text style={styles.clearDateText}>切回今天 📅</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -326,6 +308,13 @@ export function HomeworkScreen({ onLogout, onGoAnswer }: HomeworkScreenProps) {
             }
           />
         )}
+
+        <CalendarModal
+          visible={showCalendarModal}
+          onClose={() => setShowCalendarModal(false)}
+          selectedDate={selectedDate}
+          onSelectDate={(date) => setSelectedDate(date)}
+        />
       </View>
     </View>
   );
@@ -388,19 +377,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 6,
   },
-  dateNavBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
+  calendarBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  dateNavText: {
-    fontSize: 10,
+  calendarBtnText: {
+    fontSize: 12,
     color: '#4B5563',
+    fontWeight: '600',
   },
   dateTextContainer: {
     flex: 1,
@@ -410,19 +400,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#111827',
-  },
-  clearDateBtn: {
-    backgroundColor: '#EEF2FF',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  clearDateText: {
-    fontSize: 11,
-    color: LightColors.primary,
-    fontWeight: '600',
   },
   listContent: {
     padding: 16,

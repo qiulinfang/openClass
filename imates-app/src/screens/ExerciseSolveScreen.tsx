@@ -19,7 +19,6 @@ import { SUBJECT_ID_TO_NAME, HomeworkQuestionDetail } from '@/services/homework-
 import { useNavigation } from '@react-navigation/native';
 
 interface ExerciseSolveScreenProps {
-  onLogout: () => void;
   onAskAI?: (questionContent: string) => void;
   searchQuery?: string;
 }
@@ -35,7 +34,7 @@ const LightColors = {
   success: '#10B981',
 };
 
-export function ExerciseSolveScreen({ onLogout, onAskAI, searchQuery = '' }: ExerciseSolveScreenProps) {
+export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolveScreenProps) {
   const navigation = useNavigation<any>();
   // 习题数据
   const [localExercises, setLocalExercises] = useState<ExerciseItem[]>([]);
@@ -79,19 +78,21 @@ export function ExerciseSolveScreen({ onLogout, onAskAI, searchQuery = '' }: Exe
   });
 
   const handleSelectQuestion = (q: ExerciseItem) => {
-    const detail: HomeworkQuestionDetail = {
-      id: q.id,
-      questionId: q.id,
-      questionContent: q.content,
-      questionAnswer: q.answer,
+    const list: HomeworkQuestionDetail[] = filteredQuestions.map(item => ({
+      id: item.id,
+      questionId: item.id,
+      questionContent: item.content,
+      questionAnswer: item.answer,
       questionAnalysis: '',
-    };
+    }));
     
-    navigation.navigate('HomeworkAnswer', {
-      questionsList: [detail],
+    const clickedIndex = filteredQuestions.findIndex(item => item.id === q.id);
+
+    navigation.navigate('PracticeReview', {
+      questionsList: list,
       homeworkTitle: q.title,
       homeworkSubject: q.subject,
-      isReviewMode: true,
+      initialIndex: clickedIndex >= 0 ? clickedIndex : 0,
     });
   };
 
@@ -137,9 +138,6 @@ export function ExerciseSolveScreen({ onLogout, onAskAI, searchQuery = '' }: Exe
             );
           })}
         </ScrollView>
-        <TouchableOpacity style={styles.filterBtn}>
-          <Text style={styles.filterBtnText}>▼ 筛选</Text>
-        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -253,16 +251,6 @@ const styles = StyleSheet.create({
   activeFilterChipText: {
     color: '#4F46E5',
     fontWeight: '600',
-  },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 8,
-  },
-  filterBtnText: {
-    fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 16,

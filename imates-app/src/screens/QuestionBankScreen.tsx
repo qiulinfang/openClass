@@ -4,13 +4,12 @@ import { ExerciseSolveScreen } from './ExerciseSolveScreen';
 import { MistakeBookScreen } from './MistakeBookScreen';
 
 interface QuestionBankScreenProps {
-  onLogout: () => void;
   onAskAI: (questionContent: string) => void;
 }
 
 type SubTabType = 'library' | 'mistakes';
 
-export function QuestionBankScreen({ onLogout, onAskAI }: QuestionBankScreenProps) {
+export function QuestionBankScreen({ onAskAI }: QuestionBankScreenProps) {
   const [subTab, setSubTab] = useState<SubTabType>('library');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -53,10 +52,10 @@ export function QuestionBankScreen({ onLogout, onAskAI }: QuestionBankScreenProp
       {/* 视图内容承载区 */}
       <View style={styles.contentView}>
         {subTab === 'library' && (
-          <ExerciseSolveScreen onLogout={onLogout} searchQuery={searchQuery} />
+          <ExerciseSolveScreen searchQuery={searchQuery} />
         )}
         {subTab === 'mistakes' && (
-          <MistakeBookScreen onLogout={onLogout} onAskAI={onAskAI} mode="mistake" searchQuery={searchQuery} />
+          <MistakeBookScreen onAskAI={onAskAI} mode="mistake" searchQuery={searchQuery} />
         )}
       </View>
     </View>

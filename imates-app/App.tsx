@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
-import { HomeworkAnswerScreen } from '@/screens/HomeworkAnswerScreen';
+import { HomeworkSolveScreen } from '@/screens/HomeworkSolveScreen';
+import { PracticeReviewScreen } from '@/screens/PracticeReviewScreen';
 import { storage } from '@/services/storage';
 import { authService } from '@/services/auth-service';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -78,7 +79,8 @@ function AppContent() {
         <Stack.Screen name="Home">
           {(props) => <HomeScreen {...props} onLogout={handleLogout} />}
         </Stack.Screen>
-        <Stack.Screen name="HomeworkAnswer" component={HomeworkAnswerScreen} />
+        <Stack.Screen name="HomeworkSolve" component={HomeworkSolveScreen} />
+        <Stack.Screen name="PracticeReview" component={PracticeReviewScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

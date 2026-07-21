@@ -13,15 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { MathRenderer } from '@/components/MathRenderer';
 import { Card } from '@/components/Card';
+import { QuestionViewer } from '@/components/QuestionViewer';
+import { MathRenderer } from '@/components/MathRenderer';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { MistakeService } from '@/services/mistake-service';
-import { ExerciseService } from '@/services/exercise-service';
+import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { storage } from '@/services/storage';
-
-interface HomeworkAnswerScreenProps {}
 
 const LightColors = {
   background: '#F8FAFC',
@@ -45,7 +44,7 @@ const CameraIcon = () => (
   </View>
 );
 
-export function HomeworkAnswerScreen() {
+export function HomeworkSolveScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
 
@@ -54,27 +53,21 @@ export function HomeworkAnswerScreen() {
     homeworkTitle,
     homeworkSubject = '6',
     questionsList,
-    isReviewMode = false,
+    initialIndex = 0,
+    isSubmitted = false,
   }: {
-    homeworkId?: string;
+    homeworkId: string;
     homeworkTitle: string;
     homeworkSubject?: string;
     questionsList?: HomeworkQuestionDetail[];
-    isReviewMode?: boolean;
+    initialIndex?: number;
+    isSubmitted?: boolean;
   } = route.params || {};
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleAskAI = async (questionContent: string) => {
-    // 写入预填输入并跳到 AI 对话 Tab
-    await storage.setItem(
-      'CHAT_PREFILL',
-      `老师，请问这道题该怎么做？\n\n【题目内容】：\n${questionContent}`
-    );
-    navigation.navigate('Home', { activeTab: 'ai' });
-  };
   const [questions, setQuestions] = useState<HomeworkQuestionDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -119,24 +112,59 @@ export function HomeworkAnswerScreen() {
       setIsFavorite(saved);
       Alert.alert(saved ? '★ 已加入习题本' : '☆ 已从习题本移除');
     } catch (e) {
-      console.warn('[HomeworkAnswerScreen] 切换习题收藏失败:', e);
+      console.warn('[HomeworkSolveScreen] 切换习题收藏失败:', e);
     }
   };
 
-  // 加载作业题目详情
+  // 加载作业题目详情与作答历史记录
   useEffect(() => {
-    if (questionsList && questionsList.length > 0) {
-      setQuestions(questionsList);
-
+    async function loadWithHistory(list: HomeworkQuestionDetail[]) {
       const initialAnswers: Record<string, string> = {};
       const initialImages: Record<string, string> = {};
-      questionsList.forEach(q => {
+      list.forEach(q => {
         initialAnswers[q.questionId] = '';
         initialImages[q.questionId] = '';
       });
+
+      try {
+        const localMistakes = await MistakeService.getMistakes();
+        list.forEach(q => {
+          const matchedMistake = localMistakes.find(m => m.bmNo === q.questionId);
+          if (matchedMistake && matchedMistake.practiceHistory && matchedMistake.practiceHistory.length > 0) {
+            const homeworkHistory = matchedMistake.practiceHistory
+              .filter(h => h.homeworkId === homeworkId)
+              .sort((a, b) => b.timestamp - a.timestamp);
+            
+            if (homeworkHistory.length > 0) {
+              const latestRecord = homeworkHistory[0];
+              const originalAns = latestRecord.originalAnswer as { studentAnswer?: string; studentImage?: string } | undefined;
+              if (originalAns) {
+                if (originalAns.studentAnswer !== undefined) {
+                  initialAnswers[q.questionId] = originalAns.studentAnswer;
+                }
+                if (originalAns.studentImage !== undefined) {
+                  initialImages[q.questionId] = originalAns.studentImage;
+                }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('[HomeworkSolveScreen] 预加载本地作答历史失败:', err);
+      }
+
       setAnswers(initialAnswers);
       setAnswersImage(initialImages);
-      setIsLoading(false);
+    }
+
+    if (questionsList && questionsList.length > 0) {
+      setQuestions(questionsList);
+      if (initialIndex >= 0 && initialIndex < questionsList.length) {
+        setCurrentIndex(initialIndex);
+      }
+      loadWithHistory(questionsList).then(() => {
+        setIsLoading(false);
+      });
       return;
     }
 
@@ -146,18 +174,9 @@ export function HomeworkAnswerScreen() {
       try {
         const list = await HomeworkService.getHomeworkDetailList(homeworkId);
         setQuestions(list);
-        
-        // 初始化答案和过程图
-        const initialAnswers: Record<string, string> = {};
-        const initialImages: Record<string, string> = {};
-        list.forEach(q => {
-          initialAnswers[q.questionId] = '';
-          initialImages[q.questionId] = '';
-        });
-        setAnswers(initialAnswers);
-        setAnswersImage(initialImages);
+        await loadWithHistory(list);
       } catch (error) {
-        console.warn('[HomeworkAnswerScreen] 加载题目详情错误:', error);
+        console.warn('[HomeworkSolveScreen] 加载题目详情错误:', error);
         Alert.alert('错误', '加载作业题目失败，请稍后重试');
       } finally {
         setIsLoading(false);
@@ -234,147 +253,167 @@ export function HomeworkAnswerScreen() {
     }));
   };
 
-  // (1) 拍照扫描/识别文本答案 (Mock OCR 逻辑)
+  // 拍照扫描/识别文本答案 (Mock OCR 逻辑)
   const handleScanTextAnswer = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('授权失败', '我们需要相机权限来拍摄照片！');
+      Alert.alert('提示', '请允许开启摄像头权限以进行扫描识字 📸');
       return;
     }
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        quality: 0.8,
+        quality: 0.5,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // 模拟识别出的三角形解答结果
-        const mockResult = "c = 5";
+        Alert.alert('扫描成功', '已模拟OCR自动识字提取文本');
         setAnswers(prev => ({
           ...prev,
-          [currentQuestion.questionId]: mockResult,
+          [currentQuestion.questionId]: '已模拟扫描提取得到的作答文本：通过手写OCR自动扫描获取。'
         }));
-        Alert.alert('识别成功', '已智能拍照识别解答结果并自动填入框内！');
       }
     } catch (e) {
-      console.warn('[HomeworkAnswerScreen] 扫码拍照识别失败:', e);
+      console.warn('[HomeworkSolveScreen] 扫码拍照识别失败:', e);
     }
   };
 
-  // (2) 拍照上传作答过程
-  const handleSelectImageForProcess = async () => {
+  // 拍摄解答过程图
+  const handleUploadImage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('授权失败', '我们需要相机权限来拍摄照片！');
+      Alert.alert('提示', '请允许开启相机权限以拍摄解答过程 📸');
       return;
     }
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        quality: 0.8,
+        quality: 0.6,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const uri = result.assets[0].uri;
+        const imagePath = result.assets[0].uri;
         setAnswersImage(prev => ({
           ...prev,
-          [currentQuestion.questionId]: uri,
+          [currentQuestion.questionId]: imagePath,
         }));
       }
     } catch (e) {
-      console.warn('[HomeworkAnswerScreen] 拍照上传过程失败:', e);
+      console.warn('[HomeworkSolveScreen] 拍照上传过程失败:', e);
     }
   };
 
-  const handleClearImageForProcess = () => {
+  const handleDeleteImage = () => {
     setAnswersImage(prev => ({
       ...prev,
       [currentQuestion.questionId]: '',
     }));
   };
 
-  // 清空本题全部输入
-  const handleClearAllCurrent = () => {
-    Alert.alert(
-      '确认清空',
-      '确定要清空本题的所有解答内容吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '确定',
-          onPress: () => {
-            setAnswers(prev => ({ ...prev, [currentQuestion.questionId]: '' }));
-            setAnswersImage(prev => ({ ...prev, [currentQuestion.questionId]: '' }));
-          }
-        }
-      ]
-    );
+  // 校验当前回答，进行静态提醒
+  const handleCheck = () => {
+    const textAns = (answers[currentQuestion.questionId] || '').trim();
+    const imgAns = (answersImage[currentQuestion.questionId] || '').trim();
+    if (textAns === '' && imgAns === '') {
+      Alert.alert('提醒', '您目前还没有在该题写下任何作答或拍摄过程哦 ✏️');
+    } else {
+      Alert.alert('已作答', '当前题目已填充作答，确认提交前可以继续修改。');
+    }
   };
 
-  // 检查已答题进度情况
-  const handleCheck = () => {
-    setShowCheckPanel(true);
+  const handleClearAllCurrent = () => {
+    setAnswers(prev => ({ ...prev, [currentQuestion.questionId]: '' }));
+    setAnswersImage(prev => ({ ...prev, [currentQuestion.questionId]: '' }));
   };
 
   // 提交整份作业
   const handleSubmit = async () => {
-    if (!homeworkId) return;
+    if (unansweredCount > 0) {
+      Alert.alert(
+        '确认提交',
+        `您还有 ${unansweredCount} 道题未作答，确定要提交吗？`,
+        [
+          { text: '检查看看', style: 'cancel', onPress: () => setShowCheckPanel(true) },
+          { text: '强制提交', style: 'destructive', onPress: performSubmit }
+        ]
+      );
+    } else {
+      Alert.alert(
+        '确认提交',
+        '您已完成全部题目，确定要提交作业吗？',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '确定提交', onPress: performSubmit }
+        ]
+      );
+    }
+  };
 
+  const performSubmit = async () => {
+    if (!homeworkId) {
+      Alert.alert('错误', '找不到作业ID');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const questionAnswerList = questions.map(q => {
-        const answerText = answers[q.questionId] || '';
-        const answerImg = answersImage[q.questionId] || '';
-        // 接口中 answerData 是数组，将文字答案和图片URI一并打包发送以防丢失
+      const submissions = questions.map(q => {
+        const textAns = answers[q.questionId] || '';
+        const imgAns = answersImage[q.questionId] || '';
+        const isChoice = q.questionChooseList && q.questionChooseList.length > 0;
+        
         return {
           questionId: q.questionId,
-          answerData: answerImg ? [answerText, answerImg] : [answerText],
+          answerData: isChoice ? [] : [textAns],
+          answerList: isChoice ? [] : (imgAns ? [imgAns] : []),
+          chooseList: isChoice ? [textAns] : [],
         };
       });
 
       const success = await HomeworkService.submitHomework({
         homeworkId,
-        questionAnswerList,
+        questionAnswerList: submissions,
       });
 
       if (success) {
-        // 自动将答错的题目记录到错题本
+        // 同步存入本地错题本
         for (const q of questions) {
-          const userAns = (answers[q.questionId] || '').trim();
-          const correctAns = (q.questionAnswer || '').trim();
-          if (userAns !== '' && userAns.toUpperCase() !== correctAns.toUpperCase()) {
-            try {
-              await MistakeService.addMistake({
-                bmNo: q.questionId,
-                questionData: {
-                  id: q.questionId,
-                  title: q.questionContent.substring(0, 30).replace(/<[^>]+>/g, '').trim(),
-                  subject: homeworkSubject,
-                  content: q.questionContent,
-                  answer: correctAns,
-                  analysis: q.questionAnalysis || '暂无解析',
-                  timestamp: Date.now()
-                },
-                originalAnswer: userAns,
-                homeworkId: homeworkId,
-                homeworkName: homeworkTitle,
-              });
-            } catch (mistakeErr) {
-              console.warn('[HomeworkAnswerScreen] 自动同步错题本失败:', mistakeErr);
-            }
+          const textAns = answers[q.questionId] || '';
+          const imgAns = answersImage[q.questionId] || '';
+          const exercise: ExerciseItem = {
+            id: q.questionId,
+            title: q.questionContent.substring(0, 15).replace(/<[^>]+>/g, '').trim() + '...',
+            subject: homeworkSubject,
+            content: q.questionContent,
+            answer: q.questionAnswer || '',
+            analysis: q.questionAnalysis || '暂无解析',
+            timestamp: Date.now(),
+          };
+          try {
+            await MistakeService.addMistake({
+              bmNo: q.questionId,
+              homeworkId: homeworkId,
+              homeworkName: homeworkTitle,
+              questionData: exercise,
+              originalAnswer: {
+                studentAnswer: textAns,
+                studentImage: imgAns,
+              }
+            });
+          } catch (mistakeErr) {
+            console.warn('[HomeworkSolveScreen] 自动同步错题本失败:', mistakeErr);
           }
         }
 
-        Alert.alert('成功', '作业提交保存成功！', [
+        Alert.alert('提交成功', '您的作业已经成功保存并提交！🎉', [
           { text: '确定', onPress: handleBack }
         ]);
       } else {
         Alert.alert('失败', '作业提交保存失败，请稍后重试');
       }
     } catch (e) {
-      console.warn('[HomeworkAnswerScreen] 提交作业异常:', e);
+      console.warn('[HomeworkSolveScreen] 提交作业异常:', e);
       Alert.alert('错误', '提交作业接口连接异常');
     } finally {
       setIsSubmitting(false);
@@ -382,99 +421,98 @@ export function HomeworkAnswerScreen() {
   };
 
   const renderAnswerArea = () => {
-    if (isReviewMode) {
-      return (
-        <View style={styles.reviewContentArea}>
-          <View style={styles.reviewSection}>
-            <Text style={styles.reviewLabel}>✅ 参考答案：</Text>
-            <Card style={styles.reviewCard}>
-              <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
-            </Card>
-          </View>
-          <View style={[styles.reviewSection, { marginTop: 14 }]}>
-            <Text style={styles.reviewLabel}>💡 题目解析：</Text>
-            <Card style={styles.reviewCard}>
-              <MathRenderer content={currentQuestion.questionAnalysis || '暂无解析'} textColor="#475569" />
-            </Card>
-          </View>
-        </View>
-      );
-    }
+    const textAns = (answers[currentQuestion.questionId] || '').trim();
+    const imgAns = (answersImage[currentQuestion.questionId] || '').trim();
+    const hasHistory = textAns !== '' || imgAns !== '';
 
-    if (options) {
-      return (
-        <View style={styles.optionsList}>
-          {options.map((opt, idx) => {
-            const char = opt.trim().charAt(0).toUpperCase();
-            const isSelected = answers[currentQuestion.questionId] === char;
-            return (
-              <TouchableOpacity
-                key={idx}
-                style={[styles.optionItem, isSelected && styles.activeOptionItem]}
-                onPress={() => handleSelectOption(opt)}
-              >
-                <View style={[styles.optionIndicator, isSelected && styles.activeOptionIndicator]}>
-                  <Text style={[styles.optionIndicatorText, isSelected && styles.activeOptionIndicatorText]}>
-                    {char}
-                  </Text>
-                </View>
-                <Text style={[styles.optionText, isSelected && styles.activeOptionText]}>
-                  {opt}
+    const interactionNode = options ? (
+      <View style={styles.optionsList}>
+        {options.map((opt, idx) => {
+          const char = opt.trim().charAt(0).toUpperCase();
+          const isSelected = answers[currentQuestion.questionId] === char;
+          return (
+            <TouchableOpacity
+              key={idx}
+              style={[styles.optionItem, isSelected && styles.activeOptionItem]}
+              onPress={() => handleSelectOption(opt)}
+            >
+              <View style={[styles.optionIndicator, isSelected && styles.activeOptionIndicator]}>
+                <Text style={[styles.optionIndicatorText, isSelected && styles.activeOptionIndicatorText]}>
+                  {char}
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.subjectiveAnswerArea}>
-        {/* (1) 填写答案 */}
-        <View style={styles.answerPart}>
-          <Text style={styles.partLabel}>(1) 填写答案:</Text>
-          <View style={styles.inputTextRow}>
-            <TextInput
-              style={styles.textInputShort}
-              placeholder="请输入计算结果..."
-              value={answers[currentQuestion.questionId]}
-              onChangeText={handleTextAnswerChange}
-              placeholderTextColor="#94A3B8"
-            />
-            <TouchableOpacity style={styles.cameraIconBtn} onPress={handleScanTextAnswer}>
-              <CameraIcon />
+              </View>
+              <Text style={[styles.optionText, isSelected && styles.activeOptionText]}>
+                {opt}
+              </Text>
             </TouchableOpacity>
-          </View>
+          );
+        })}
+      </View>
+    ) : (
+      <View style={styles.subjectiveArea}>
+        {/* 输入文本答题框 */}
+        <View style={styles.textAreaBox}>
+          <TextInput
+            multiline
+            numberOfLines={4}
+            style={styles.textInputStyle}
+            placeholder="请在此输入您的作谈文本或答案... ✏️"
+            placeholderTextColor="#94A3B8"
+            value={answers[currentQuestion.questionId] || ''}
+            onChangeText={handleTextAnswerChange}
+          />
+          <TouchableOpacity style={styles.ocrScanTrigger} onPress={handleScanTextAnswer}>
+            <Text style={styles.ocrScanTriggerText}>📷 扫图识字</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* (2) 拍照上传过程 */}
-        <View style={[styles.answerPart, { marginTop: 16 }]}>
-          <Text style={styles.partLabel}>(2) 拍照上传过程:</Text>
-          <TouchableOpacity style={styles.photoUploadBox} onPress={handleSelectImageForProcess}>
-            {answersImage[currentQuestion.questionId] ? (
+        {/* 上传解答照片过程 */}
+        <View style={styles.photoContainer}>
+          <Text style={styles.photoLabelText}>📷 过程照片（选填，用于老师查阅解答步骤）：</Text>
+          <TouchableOpacity
+            style={[styles.photoUploadBtn, imgAns !== '' && styles.photoUploadBtnHasPhoto]}
+            onPress={imgAns ? undefined : handleUploadImage}
+            activeOpacity={0.8}
+          >
+            {imgAns ? (
               <View style={styles.uploadedPhotoWrapper}>
-                <Image
-                  source={{ uri: answersImage[currentQuestion.questionId] }}
-                  style={styles.uploadedPhoto}
-                  resizeMode="contain"
-                />
-                <TouchableOpacity style={styles.deletePhotoBtn} onPress={handleClearImageForProcess}>
-                  <Text style={styles.deletePhotoText}>×</Text>
+                <Image source={{ uri: imgAns }} style={styles.uploadedPhotoImage} />
+                <TouchableOpacity style={styles.deletePhotoBadge} onPress={handleDeleteImage}>
+                  <Text style={styles.deletePhotoText}>✕</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.uploadPlaceholder}>
-                <View style={[styles.cameraIconContainer, { transform: [{ scale: 1.2 }], marginBottom: 6 }]}>
-                  <View style={styles.cameraTop} />
-                  <View style={styles.cameraBody}>
-                    <View style={styles.cameraLens} />
-                  </View>
-                </View>
+              <View style={{ alignItems: 'center' }}>
+                <CameraIcon />
                 <Text style={styles.uploadPlaceholderText}>拍摄照片</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
+      </View>
+    );
+
+    return (
+      <View style={{ width: '100%' }}>
+        {interactionNode}
+
+        {/* 如果该题已经作答（有历史记录），且存在答案/解析，则在下方显示参考答案与解析 */}
+        {hasHistory && (
+          <View style={styles.correctAnswerSection}>
+            <Text style={styles.correctAnswerTitle}>✅ 参考答案：</Text>
+            <Card style={styles.correctAnswerCard}>
+              <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
+            </Card>
+            {currentQuestion.questionAnalysis ? (
+              <>
+                <Text style={[styles.correctAnswerTitle, { marginTop: 14 }]}>💡 题目解析：</Text>
+                <Card style={styles.correctAnswerCard}>
+                  <MathRenderer content={currentQuestion.questionAnalysis} textColor="#475569" />
+                </Card>
+              </>
+            ) : null}
+          </View>
+        )}
       </View>
     );
   };
@@ -489,42 +527,18 @@ export function HomeworkAnswerScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {homeworkTitle}
         </Text>
-        <TouchableOpacity
-          style={styles.aiAssistBtn}
-          onPress={() => handleAskAI(currentQuestion.questionContent)}
-        >
-          <Text style={styles.aiAssistBtnText}>🤖 问学伴</Text>
-        </TouchableOpacity>
+        <View style={{ width: 60 }} />
       </View>
 
       {/* 题干部分 (Top Container) */}
-      <View style={styles.topContainer}>
-        <View style={styles.questionTagRow}>
-          <View style={styles.questionTypeTag}>
-            <Text style={styles.questionTypeTagText}>
-              {options ? '选择题' : '解答题'}
-            </Text>
-          </View>
-          <Text style={styles.progressText}>
-            第 {currentIndex + 1} / {questions.length} 题
-          </Text>
-          <TouchableOpacity
-            style={[styles.favoriteBtn, isFavorite && styles.favoriteBtnActive]}
-            onPress={handleToggleFavorite}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.favoriteBtnText, isFavorite && styles.favoriteBtnTextActive]}>
-              {isFavorite ? '★ 已加入习题' : '☆ 收藏此题'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.questionScroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.mathContainer}>
-            <MathRenderer content={currentQuestion.questionContent} textColor="#0F172A" />
-          </View>
-        </ScrollView>
-      </View>
+      <QuestionViewer
+        question={currentQuestion}
+        currentIndex={currentIndex}
+        totalCount={questions.length}
+        options={options}
+        isFavorite={isFavorite}
+        onToggleFavorite={handleToggleFavorite}
+      />
 
       {/* 分割线与拖动手柄效果 */}
       <View style={styles.splitterLine}>
@@ -534,14 +548,10 @@ export function HomeworkAnswerScreen() {
       {/* 作答区域 (Bottom Container) */}
       <View style={styles.bottomContainer}>
         <View style={styles.answerHeaderRow}>
-          <Text style={styles.answerSectionTitle}>
-            {isReviewMode ? '解答与解析' : '作答区域'}
-          </Text>
-          {!isReviewMode && (
-            <TouchableOpacity onPress={handleClearAllCurrent}>
-              <Text style={styles.clearAllBtnText}>清空全部</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.answerSectionTitle}>作答区域</Text>
+          <TouchableOpacity onPress={handleClearAllCurrent}>
+            <Text style={styles.clearAllBtnText}>清空全部</Text>
+          </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerScrollInner} showsVerticalScrollIndicator={false}>
@@ -568,23 +578,13 @@ export function HomeworkAnswerScreen() {
           </TouchableOpacity>
         </View>
 
-        {isReviewMode ? (
-          <>
-            <TouchableOpacity style={styles.reviewAskAiBtn} onPress={() => handleAskAI(currentQuestion.questionContent)}>
-              <Text style={styles.reviewAskAiText}>🤖 问 AI</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.reviewBackBtn} onPress={handleBack}>
-              <Text style={styles.reviewBackText}>关闭退出</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
+        {!isSubmitted && (
           <>
             <TouchableOpacity style={styles.checkBtn} onPress={handleCheck}>
               <Text style={styles.checkBtnText}>检查</Text>
             </TouchableOpacity>
 
-            {currentIndex === questions.length - 1 ? (
+            {currentIndex === questions.length - 1 && (
               <TouchableOpacity
                 style={styles.submitBtnStyle}
                 disabled={isSubmitting}
@@ -595,13 +595,6 @@ export function HomeworkAnswerScreen() {
                 ) : (
                   <Text style={styles.submitBtnTextStyle}>确认提交</Text>
                 )}
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.submitBtnStyle}
-                onPress={() => setCurrentIndex(prev => prev + 1)}
-              >
-                <Text style={styles.submitBtnTextStyle}>下一题</Text>
               </TouchableOpacity>
             )}
           </>
@@ -719,288 +712,205 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 10,
   },
-  aiAssistBtn: {
-    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(79, 70, 229, 0.25)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  aiAssistBtnText: {
-    fontSize: 12,
-    color: LightColors.primary,
-    fontWeight: '700',
-  },
-
-  // 拆分容器布局
-  topContainer: {
-    flex: 1.1,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  questionTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  questionTypeTag: {
-    backgroundColor: LightColors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  questionTypeTagText: {
-    color: LightColors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: LightColors.textSecondary,
-    flex: 1,
-  },
-  favoriteBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  favoriteBtnActive: {
-    borderColor: '#F59E0B',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-  },
-  favoriteBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: LightColors.textSecondary,
-  },
-  favoriteBtnTextActive: {
-    color: '#F59E0B',
-    fontWeight: '700',
-  },
-  questionScroll: {
-    flex: 1,
-  },
-  mathContainer: {
-    marginTop: 4,
-  },
-
-  // 分割线拖动手柄
   splitterLine: {
-    height: 8,
-    backgroundColor: '#F1F5F9',
+    height: 10,
+    backgroundColor: '#F8FAFC',
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: '#E2E8F0',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   splitterHandle: {
-    width: 36,
+    width: 32,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#CBD5E1',
   },
-
-  // 下部作答容器
   bottomContainer: {
-    flex: 1.3,
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 10,
   },
   answerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: '#F1F5F9',
-    marginBottom: 8,
   },
   answerSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: LightColors.textPrimary,
+    color: '#334155',
   },
   clearAllBtnText: {
-    fontSize: 13,
-    color: LightColors.textSecondary,
+    fontSize: 12,
+    color: LightColors.danger,
+    fontWeight: '600',
   },
   answerScroll: {
     flex: 1,
   },
   answerScrollInner: {
-    paddingBottom: 20,
+    padding: 16,
   },
-
-  // 选择题列表
   optionsList: {
-    marginTop: 4,
+    width: '100%',
   },
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: LightColors.border,
-    borderRadius: 8,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
     padding: 12,
     marginBottom: 10,
   },
   activeOptionItem: {
-    borderColor: LightColors.primary,
+    borderColor: '#4F46E5',
     backgroundColor: 'rgba(79, 70, 229, 0.04)',
   },
   optionIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   activeOptionIndicator: {
-    backgroundColor: LightColors.primary,
-    borderColor: LightColors.primary,
+    borderColor: '#4F46E5',
+    backgroundColor: '#4F46E5',
   },
   optionIndicatorText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: LightColors.textSecondary,
+    color: '#64748B',
   },
   activeOptionIndicatorText: {
     color: '#FFFFFF',
   },
   optionText: {
     fontSize: 14,
-    color: LightColors.textSecondary,
+    fontWeight: '600',
+    color: '#334155',
     flex: 1,
   },
   activeOptionText: {
-    color: LightColors.textPrimary,
-    fontWeight: '600',
+    color: '#4F46E5',
   },
-
-  // 简答主观题作答区域样式
-  subjectiveAnswerArea: {
-    marginTop: 6,
-  },
-  answerPart: {
+  subjectiveArea: {
     width: '100%',
   },
-  partLabel: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 6,
-    fontWeight: '600',
-  },
-  inputTextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  textInputShort: {
-    flex: 1,
-    height: 44,
+  textAreaBox: {
+    width: '100%',
+    minHeight: 120,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: LightColors.textPrimary,
-    marginRight: 12,
-  },
-  cameraIconBtn: {
-    width: 44,
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // 纯 View 的相机图标样式
-  cameraIconContainer: {
-    width: 20,
-    height: 14,
-    backgroundColor: '#475569',
-    borderRadius: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 10,
+    padding: 12,
     position: 'relative',
+    marginBottom: 16,
   },
-  cameraTop: {
-    width: 8,
-    height: 3,
-    backgroundColor: '#475569',
-    borderTopLeftRadius: 1,
-    borderTopRightRadius: 1,
+  textInputStyle: {
+    fontSize: 14,
+    color: '#1E293B',
+    textAlignVertical: 'top',
+    paddingBottom: 28,
+  },
+  ocrScanTrigger: {
     position: 'absolute',
-    top: -3,
+    right: 12,
+    bottom: 12,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
-  cameraBody: {
+  ocrScanTriggerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  photoContainer: {
     width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  cameraLens: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#475569',
+  photoLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 8,
   },
-
-  // 拍照上传框
-  photoUploadBox: {
-    width: '100%',
-    height: 160,
+  photoUploadBtn: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderStyle: 'dashed',
-    borderRadius: 8,
     backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
-  uploadPlaceholder: {
+  photoUploadBtnHasPhoto: {
+    borderStyle: 'solid',
+    borderColor: '#E2E8F0',
+  },
+  cameraIconContainer: {
     alignItems: 'center',
+    marginBottom: 4,
+  },
+  cameraTop: {
+    width: 14,
+    height: 3,
+    backgroundColor: '#94A3B8',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  cameraBody: {
+    width: 26,
+    height: 18,
+    backgroundColor: '#94A3B8',
+    borderRadius: 3,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraLens: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: '#94A3B8',
   },
   uploadPlaceholderText: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 11,
     fontWeight: '600',
+    color: '#94A3B8',
   },
   uploadedPhotoWrapper: {
     width: '100%',
     height: '100%',
     position: 'relative',
-    backgroundColor: '#F8FAFC',
   },
-  uploadedPhoto: {
+  uploadedPhotoImage: {
     width: '100%',
     height: '100%',
   },
-  deletePhotoBtn: {
+  deletePhotoBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 4,
+    right: 4,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -1014,8 +924,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: -2,
   },
-
-  // 底部控制栏
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1048,60 +956,47 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 1,
+        elevation: 2,
       },
     }),
   },
   disabledRoundNavBtn: {
-    opacity: 0.3,
-    backgroundColor: '#F1F5F9',
+    opacity: 0.4,
   },
   roundNavText: {
     fontSize: 14,
-    color: '#475569',
+    color: '#64748B',
     fontWeight: 'bold',
   },
   checkBtn: {
     flex: 1,
     height: 44,
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   checkBtnText: {
+    color: '#475569',
     fontSize: 14,
     fontWeight: '700',
-    color: '#3B82F6',
   },
   submitBtnStyle: {
-    flex: 1.4,
+    flex: 1.5,
     height: 44,
+    backgroundColor: '#4F46E5',
     borderRadius: 8,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#3B82F6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
   submitBtnTextStyle: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
-  // 答题卡检查面板样式
   modalBackdrop: {
     position: 'absolute',
     top: 0,
@@ -1174,9 +1069,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   gridItem: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1209,54 +1104,24 @@ const styles = StyleSheet.create({
   gridItemTextCurrent: {
     color: '#4F46E5',
   },
-  // 题库复习查看解析模式样式
-  reviewContentArea: {
-    marginTop: 6,
+  correctAnswerSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
     width: '100%',
   },
-  reviewSection: {
-    width: '100%',
-  },
-  reviewLabel: {
+  correctAnswerTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
     marginBottom: 6,
   },
-  reviewCard: {
+  correctAnswerCard: {
     padding: 12,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 8,
-  },
-  reviewAskAiBtn: {
-    flex: 1.2,
-    height: 44,
-    backgroundColor: '#4F46E5',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  reviewAskAiText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  reviewBackBtn: {
-    flex: 1,
-    height: 44,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  reviewBackText: {
-    color: '#475569',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

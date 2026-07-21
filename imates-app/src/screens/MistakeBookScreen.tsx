@@ -19,7 +19,6 @@ import { SyncService } from '@/services/sync-service';
 import { useNavigation } from '@react-navigation/native';
 
 interface MistakeBookScreenProps {
-  onLogout: () => void;
   onAskAI: (questionContent: string) => void;
   mode?: 'mistake' | 'exercise';
   searchQuery?: string;
@@ -52,7 +51,7 @@ const SUBJECT_OPTIONS = [
   { label: '地理', value: '9' },
 ];
 
-export function MistakeBookScreen({ onLogout, onAskAI, mode, searchQuery = '' }: MistakeBookScreenProps) {
+export function MistakeBookScreen({ onAskAI, mode, searchQuery = '' }: MistakeBookScreenProps) {
   const navigation = useNavigation<any>();
   const [activeMode, setActiveMode] = useState<'mistake' | 'exercise'>('mistake');
 
@@ -280,11 +279,10 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode, searchQuery = '' }:
                 questionAnswer: correctAnswerText,
                 questionAnalysis: analysisText,
               };
-              navigation.navigate('HomeworkAnswer', {
+              navigation.navigate('PracticeReview', {
                 questionsList: [detail],
                 homeworkTitle: item.questionData?.title || '错题重练',
                 homeworkSubject: item.subject,
-                isReviewMode: true,
               });
             }}
           >
@@ -371,11 +369,10 @@ export function MistakeBookScreen({ onLogout, onAskAI, mode, searchQuery = '' }:
                 questionAnswer: item.answer || '',
                 questionAnalysis: item.analysis || '',
               };
-              navigation.navigate('HomeworkAnswer', {
+              navigation.navigate('PracticeReview', {
                 questionsList: [detail],
                 homeworkTitle: item.title || '收藏练习',
                 homeworkSubject: item.subject,
-                isReviewMode: true,
               });
             }}
           >

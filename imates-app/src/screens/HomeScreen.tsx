@@ -56,20 +56,12 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
     SyncService.syncChatHistory();
   }, []);
 
-  const handleGoAnswer = (id: string, title: string, subject: string) => {
-    navigation.navigate('HomeworkAnswer', {
-      homeworkId: id,
-      homeworkTitle: title,
-      homeworkSubject: subject,
-    });
-  };
 
   const handleGoAnswerQuestions = (list: HomeworkQuestionDetail[], title: string, subject: string) => {
-    navigation.navigate('HomeworkAnswer', {
+    navigation.navigate('PracticeReview', {
       questionsList: list,
       homeworkTitle: title,
       homeworkSubject: subject,
-      isReviewMode: true,
     });
   };
 
@@ -121,7 +113,7 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
         )}
 
         {activeTab === 'homework' && (
-          <HomeworkScreen onLogout={onLogout} onGoAnswer={handleGoAnswer} />
+          <HomeworkScreen />
         )}
 
         {activeTab === 'ai' && (
@@ -130,7 +122,6 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
 
         {activeTab === 'question_bank' && (
           <QuestionBankScreen
-            onLogout={onLogout}
             onAskAI={handleAskAI}
           />
         )}
