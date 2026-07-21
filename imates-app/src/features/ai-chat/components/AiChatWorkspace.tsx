@@ -47,6 +47,30 @@ const attachmentKey = (
     ? `${attachment.pageNumber || 0}-${attachment.dataUrl.slice(-48)}`
     : '';
 
+const sortSessions = (
+  first: AiChatSession,
+  second: AiChatSession
+): number => {
+  if (!!first.pinned !== !!second.pinned) return first.pinned ? -1 : 1;
+  return second.updatedAt - first.updatedAt;
+};
+
+const replaceMessage = (
+  messages: ChatMessage[],
+  messageId: string,
+  update: (message: ChatMessage) => ChatMessage
+): ChatMessage[] => {
+  const lastIndex = messages.length - 1;
+  const index =
+    messages[lastIndex]?.id === messageId
+      ? lastIndex
+      : messages.findIndex((message) => message.id === messageId);
+  if (index < 0) return messages;
+  const nextMessages = messages.slice();
+  nextMessages[index] = update(messages[index]);
+  return nextMessages;
+};
+
 export function AiChatWorkspace({
   context,
   onClose,
@@ -117,6 +141,14 @@ export function AiChatWorkspace({
     );
     setSessions(nextSessions);
     return nextSessions;
+  };
+
+  const upsertSession = (session: AiChatSession) => {
+    setSessions((current) =>
+      [session, ...current.filter((item) => item.id !== session.id)].sort(
+        sortSessions
+      )
+    );
   };
 
   useEffect(() => {
@@ -250,7 +282,7 @@ export function AiChatWorkspace({
         nextMessages
       );
     setCurrentSession(savedSession);
-    await refreshSessions(userId);
+    upsertSession(savedSession);
     if (context.scene === 'general') {
       void SyncService.syncChatHistory();
     }
@@ -283,7 +315,7 @@ export function AiChatWorkspace({
         targetSession.id
       );
       setCurrentSession(targetSession);
-      await refreshSessions(userId);
+      upsertSession(targetSession);
     }
     const session = targetSession;
     const firstMessage =
@@ -329,11 +361,10 @@ export function AiChatWorkspace({
       if (activeRequest?.aiMessageId !== aiMessageId) return;
       activeRequest.accumulated += chunk;
       setMessages((current) =>
-        current.map((message) =>
-          message.id === aiMessageId
-            ? { ...message, content: activeRequest.accumulated }
-            : message
-        )
+        replaceMessage(current, aiMessageId, (message) => ({
+          ...message,
+          content: activeRequest.accumulated,
+        }))
       );
     };
     const onComplete = (fullText: string) => {
@@ -582,8 +613,15 @@ export function AiChatWorkspace({
   };
 
   const togglePin = async (session: AiChatSession) => {
-    await AiChatSessionService.togglePinned(userId, session.id);
-    await refreshSessions(userId);
+    const nextSessions = await AiChatSessionService.togglePinned(
+      userId,
+      session.id
+    );
+    setSessions(
+      nextSessions
+        .filter((item) => item.scopeKey === context.scopeKey)
+        .sort(sortSessions)
+    );
   };
 
   const deleteSession = async (session: AiChatSession) => {

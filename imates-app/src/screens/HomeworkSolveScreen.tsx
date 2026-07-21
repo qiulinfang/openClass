@@ -21,7 +21,7 @@ import { MistakeService } from '@/services/mistake-service';
 import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { storage } from '@/services/storage';
-import { GlobalAiAssistant } from '@/features/ai-chat';
+import { GlobalAiAssistant, type AiChatContext } from '@/features/ai-chat';
 
 const LightColors = {
   background: '#F8FAFC',
@@ -733,6 +733,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: LightColors.textSecondary,
+  },
+  headerRightPlaceholder: {
+    width: 64,
   },
   headerTitle: {
     flex: 1,

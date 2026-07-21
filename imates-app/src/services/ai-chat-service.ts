@@ -1,8 +1,6 @@
 import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
-import { DeviceEventEmitter } from 'react-native';
-import { getXuebanApiUrl } from './api-url';
 import { authService } from './auth-service';
 
 export interface ChatMessage {
@@ -19,20 +17,15 @@ export interface ChatMessage {
 
 interface SSEPayload {
   content?: string;
-  agent_status?: string;
-  history_messages?: any[];
 }
 
-export interface TextbookExploreRequest {
+export interface AiConversationRequest {
   prompt: string;
   sessionId: string;
   imageDataUrl?: string;
   subject?: string;
   sectionName?: string;
   isNewSession: boolean;
-}
-
-export interface AiConversationRequest extends TextbookExploreRequest {
   scene: 'general' | 'textbook' | 'exercise';
   role?: 'mate' | 'mentor' | 'researcher';
   enableWebSearch?: boolean;
@@ -40,13 +33,6 @@ export interface AiConversationRequest extends TextbookExploreRequest {
 }
 
 export class AiChatService {
-  /**
-   * 获取当前环境下的 AI 聊天 API 终点 URL
-   */
-  private static getApiUrl(): string {
-    return getXuebanApiUrl('/ai/2.0/chats');
-  }
-
   /**
    * 教材截图问答与 Web 端保持相同路由。
    * Web 必须走 Metro/Nginx 同源代理，原生端继续使用原有学伴服务地址。
@@ -148,7 +134,6 @@ export class AiChatService {
     hasData: boolean;
     ended: boolean;
     textChunk: string;
-    latestHistory?: any[];
   } {
     const input = String(raw || '');
     const normalized = input.replace(/\r\n/g, '\n');
@@ -167,7 +152,6 @@ export class AiChatService {
     let hasData = false;
     let ended = false;
     let textChunk = '';
-    let latestHistory: any[] | undefined;
 
     if (lines.length === 1 && lines[0] === 'end') {
       return { hasData: false, ended: true, textChunk: '' };
@@ -193,9 +177,6 @@ export class AiChatService {
         const payload = JSON.parse(withoutTrailingEnd) as SSEPayload;
         if (typeof payload.content === 'string' && payload.content.length > 0) {
           textChunk += payload.content;
-        }
-        if (Array.isArray(payload.history_messages) && payload.history_messages.length > 0) {
-          latestHistory = payload.history_messages;
         }
       } catch (e) {
         console.warn('[AiChatService] SSE payload 解析失败:', { payloadStr: withoutTrailingEnd, error: e });
@@ -235,137 +216,7 @@ export class AiChatService {
       hasData,
       ended,
       textChunk,
-      latestHistory,
     };
-  }
-
-  /**
-   * 发送聊天请求并以打字机流式效果返回回复（对接真实轮询接口）
-   * @param userMessage 用户输入内容
-   * @param sessionId 当前会话 ID
-   * @param onChunk 每次收到字符碎片时的回调
-   * @param onComplete 回复结束时的回调
-   * @param onError 发生错误时的回调
-   */
-  public static sendStreamMessage(
-    userMessage: string,
-    sessionId: string,
-    onChunk: (chunk: string) => void,
-    onComplete: (fullText: string, historyMessages?: any[]) => void,
-    onError: (err: Error) => void
-  ) {
-    let isCancelled = false;
-    let accumulatedContent = '';
-    let latestHistory: any[] = [];
-    let pollTimer: NodeJS.Timeout | null = null;
-
-    const cancel = () => {
-      isCancelled = true;
-      if (pollTimer) clearTimeout(pollTimer);
-    };
-
-    const poll = async (isFirst: boolean) => {
-      if (isCancelled) return;
-
-      try {
-        const url = this.getApiUrl();
-        const token = await storage.getItem('XUEBAN_TOKEN') || '';
-        const userId = await storage.getItem('xuebanuserid') || 'User';
-
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'Token': token,
-          'sa-token': token,
-          'authorization': token,
-        };
-
-        const dstUrl = getCurrentEnvType() === AppEnvType.INTERNAL_TEST
-          ? '/xb-test/ai/2.0/chats'
-          : '/xb-release/ai/2.0/chats';
-
-        const body = {
-          sessionId: sessionId,
-          newValue: isFirst ? '1' : '0',
-          coversation: isFirst ? userMessage : '',
-          question: '',
-          answer: '',
-          name: userId,
-          reason: isFirst ? 'start' : 'continue',
-          bmNo: sessionId,
-          isWebSearch: '0',
-          role: 'mate',
-          subject: '',
-          dstUrl: dstUrl,
-          explanation: '',
-        };
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-        });
-
-        if (response.status === 401) {
-          console.warn('[AiChatService] Token 401 过期，触发强制登出...');
-          await storage.removeItem('XUEBAN_TOKEN');
-          await storage.removeItem('YANBAN_TOKEN');
-          DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '设备已经在其他地方登陆，请重新登录。' });
-          throw new Error('设备已经在其他地方登陆');
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP 异常: ${response.status}`);
-        }
-
-        const resData = await response.json();
-        
-        if (!resData.success) {
-          throw new Error(resData.message || '服务器返回错误');
-        }
-
-        // 提取消息内容
-        const rawMessage = resData.data && resData.data.message != null ? resData.data.message : resData.message ?? '';
-        const rawStr = String(rawMessage).trim();
-
-        // 采用 Web 端的健壮式解析
-        const parsed = this.parseSseText(rawStr);
-        
-        if (parsed.latestHistory && parsed.latestHistory.length > 0) {
-          latestHistory = parsed.latestHistory;
-        }
-
-        const chunkText = parsed.hasData ? parsed.textChunk : this.stripTrailingEnd(rawStr);
-
-        if (chunkText) {
-          // 合并内容，完美解决全量包与增量包对齐问题
-          const newAccumulated = this.mergeContent(accumulatedContent, chunkText);
-          const delta = newAccumulated.slice(accumulatedContent.length);
-          if (delta) {
-            accumulatedContent = newAccumulated;
-            onChunk(delta);
-          }
-        }
-
-        // 判断是否结束
-        if (parsed.ended || rawStr.endsWith('end') || rawStr === 'end') {
-          onComplete(accumulatedContent, latestHistory);
-        } else {
-          // 继续轮询
-          pollTimer = setTimeout(() => {
-            poll(false);
-          }, 500);
-        }
-      } catch (err: any) {
-        if (!isCancelled) {
-          onError(err);
-        }
-      }
-    };
-
-    // 启动轮询
-    poll(true);
-
-    return cancel;
   }
 
   /**
@@ -571,27 +422,6 @@ export class AiChatService {
   }
 
   /**
-   * 保留教材调用入口，内部转到统一对话请求。
-   */
-  public static sendTextbookExploreMessage(
-    request: TextbookExploreRequest,
-    onChunk: (chunk: string) => void,
-    onComplete: (fullText: string) => void,
-    onError: (err: Error) => void
-  ) {
-    return this.sendConversationMessage(
-      {
-        ...request,
-        scene: 'textbook',
-        forcePreviewPictureApi: true,
-      },
-      onChunk,
-      onComplete,
-      onError
-    );
-  }
-
-  /**
    * 练习场景专用 AI 请求：沿用 Web 端 solvingbot 参数，传递真实题干、答案与题号。
    */
   public static sendExerciseStreamMessage(
@@ -615,7 +445,7 @@ export class AiChatService {
   ) {
     let isCancelled = false;
     let accumulatedContent = '';
-    let pollTimer: NodeJS.Timeout | null = null;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
     const abortController = new AbortController();
 
     const subjectMap: Record<string, string> = {

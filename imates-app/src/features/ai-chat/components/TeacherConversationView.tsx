@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
   Platform,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   StyleSheet,
   Text,
   TextInput,
@@ -28,7 +30,47 @@ interface TeacherConversationViewProps {
   onRetry: () => void;
 }
 
-export function TeacherConversationView({
+const TeacherMessageItem = memo(function TeacherMessageItem({
+  message,
+}: {
+  message: ChatMessage;
+}) {
+  const user = message.sender === 'user';
+  return (
+    <View
+      style={[
+        styles.messageRow,
+        user ? styles.userRow : styles.teacherRow,
+      ]}
+    >
+      {!user ? (
+        <View style={styles.teacherAvatar}>
+          <Text style={styles.teacherAvatarText}>师</Text>
+        </View>
+      ) : null}
+      <View
+        style={[
+          styles.bubble,
+          user ? styles.userBubble : styles.teacherBubble,
+        ]}
+      >
+        {message.imageUri ? (
+          <Image
+            source={{ uri: message.imageUri }}
+            style={styles.messageImage}
+            resizeMode="contain"
+          />
+        ) : user ? (
+          <Text style={styles.userText}>{message.content}</Text>
+        ) : (
+          <MathRenderer content={message.content} textColor="#20243D" />
+        )}
+      </View>
+    </View>
+  );
+});
+
+function TeacherConversationViewComponent({
   session,
   messages,
   inputText,
@@ -41,14 +83,52 @@ export function TeacherConversationView({
   onRetry,
 }: TeacherConversationViewProps) {
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const scrollFrameRef = useRef<number | null>(null);
+
+  const scheduleScrollToEnd = useCallback((animated: boolean) => {
+    if (scrollFrameRef.current !== null) {
+      cancelAnimationFrame(scrollFrameRef.current);
+    }
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(
-      () => listRef.current?.scrollToEnd({ animated: true }),
-      80
-    );
-    return () => clearTimeout(timer);
-  }, [messages]);
+    if (messages[messages.length - 1]?.sender === 'user') {
+      shouldStickToBottomRef.current = true;
+      scheduleScrollToEnd(true);
+    }
+  }, [messages[messages.length - 1]?.id, scheduleScrollToEnd]);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    []
+  );
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      shouldStickToBottomRef.current =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height) < 96;
+    },
+    []
+  );
+
+  const handleContentSizeChange = useCallback(() => {
+    if (shouldStickToBottomRef.current) scheduleScrollToEnd(false);
+  }, [scheduleScrollToEnd]);
+
+  const renderMessage = useCallback(
+    ({ item }: { item: ChatMessage }) => <TeacherMessageItem message={item} />,
+    []
+  );
 
   return (
     <KeyboardAvoidingView
@@ -60,46 +140,19 @@ export function TeacherConversationView({
         ref={listRef}
         data={messages}
         keyExtractor={(item) => item.id}
+        renderItem={renderMessage}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        scrollEventThrottle={32}
+        onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
         contentContainerStyle={[
           styles.messageContent,
           messages.length === 0 && styles.emptyContent,
         ]}
-        renderItem={({ item }) => {
-          const user = item.sender === 'user';
-          return (
-            <View
-              style={[
-                styles.messageRow,
-                user ? styles.userRow : styles.teacherRow,
-              ]}
-            >
-              {!user ? (
-                <View style={styles.teacherAvatar}>
-                  <Text style={styles.teacherAvatarText}>师</Text>
-                </View>
-              ) : null}
-              <View
-                style={[
-                  styles.bubble,
-                  user ? styles.userBubble : styles.teacherBubble,
-                ]}
-              >
-                {item.imageUri ? (
-                  <Image
-                    source={{ uri: item.imageUri }}
-                    style={styles.messageImage}
-                    resizeMode="contain"
-                  />
-                ) : user ? (
-                  <Text style={styles.userText}>{item.content}</Text>
-                ) : (
-                  <MathRenderer content={item.content} textColor="#20243D" />
-                )}
-              </View>
-            </View>
-          );
-        }}
         ListEmptyComponent={
           loading ? (
             <View style={styles.centerState}>
@@ -177,6 +230,8 @@ export function TeacherConversationView({
     </KeyboardAvoidingView>
   );
 }
+
+export const TeacherConversationView = memo(TeacherConversationViewComponent);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -22,10 +22,13 @@ const normalizeTitle = (value: string): string => {
 };
 
 const messageSummary = (messages: ChatMessage[]): string => {
-  const content =
-    [...messages]
-      .reverse()
-      .find((message) => message.content.trim())?.content || '';
+  let content = '';
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].content.trim()) {
+      content = messages[index].content;
+      break;
+    }
+  }
   return normalizeTitle(content).slice(0, 46);
 };
 
@@ -62,7 +65,7 @@ export class AiChatSessionService {
   ): Promise<void> {
     const payload: PersistedSessionIndex = {
       version: SESSION_INDEX_VERSION,
-      sessions: sessions.sort(sessionSort),
+      sessions: [...sessions].sort(sessionSort),
     };
     await storage.setItem(this.indexKey(userId), JSON.stringify(payload));
   }
@@ -245,7 +248,7 @@ export class AiChatSessionService {
       target.updatedAt = Date.now();
       await this.writeAll(userId, sessions);
     }
-    return sessions.sort(sessionSort);
+    return [...sessions].sort(sessionSort);
   }
 
   public static async deleteSession(
