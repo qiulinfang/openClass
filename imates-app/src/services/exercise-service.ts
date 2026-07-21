@@ -1,5 +1,5 @@
 import { storage } from './storage';
-import { AppEnvType, getCurrentEnvType } from './env-config';
+import { getXuebanApiUrl } from './api-url';
 
 export interface ExerciseItem {
   id: string;
@@ -15,11 +15,7 @@ const STORAGE_KEY = 'XUEBAN_FAVORITE_EXERCISES';
 
 export class ExerciseService {
   private static getApiBaseUrl(): string {
-    const env = getCurrentEnvType();
-    if (env === AppEnvType.INTERNAL_TEST) {
-      return 'http://www.imates.com.cn:58443/blw-edu-service-alc';
-    }
-    return 'http://www.imates.com.cn:8222/blw-edu-service-alc';
+    return getXuebanApiUrl('');
   }
 
   // 学科英文字符转换至 APP 端数字代码的映射
@@ -79,7 +75,7 @@ export class ExerciseService {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'token': token.trim(),
+            'Token': token.trim(),
             'sa-token': token.trim(),
             'authorization': token.trim(),
           }
@@ -158,7 +154,7 @@ export class ExerciseService {
           const response = await fetch(deleteUrl, {
             method: 'DELETE',
             headers: {
-              'token': token.trim(),
+              'Token': token.trim(),
               'sa-token': token.trim(),
               'authorization': token.trim(),
             }
@@ -185,7 +181,7 @@ export class ExerciseService {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'token': token.trim(),
+              'Token': token.trim(),
               'sa-token': token.trim(),
               'authorization': token.trim(),
             },

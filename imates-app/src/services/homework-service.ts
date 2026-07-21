@@ -1,6 +1,7 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
 import { DeviceEventEmitter } from 'react-native';
+import { getYanbanApiUrl } from './api-url';
 
 // 接口定义符合 MyHomeworkView.vue
 export interface HomeworkUndoItem {
@@ -246,11 +247,7 @@ export class HomeworkService {
    * 获取当前环境下的作业 API 终点 URL
    */
   private static getApiUrl(): string {
-    const env = getCurrentEnvType();
-    if (env === AppEnvType.INTERNAL_TEST) {
-      return 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/homework-undo-list';
-    }
-    return 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/homework-undo-list';
+    return getYanbanApiUrl('/api/app/homework-undo-list');
   }
 
   /**
@@ -258,10 +255,7 @@ export class HomeworkService {
    */
   public static async loginYanban(account: string, pass: string): Promise<string> {
     const md5Password = md5(pass);
-    const env = getCurrentEnvType();
-    const url = env === AppEnvType.INTERNAL_TEST
-      ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/auth/login-student'
-      : 'https://www.imates.com.cn/yb-release/blw-edu-yb/auth/login-student';
+    const url = getYanbanApiUrl('/auth/login-student');
 
     const response = await fetch(url, {
       method: 'POST',
@@ -450,4 +444,3 @@ export interface HomeworkSubmitSaveReq {
     chooseList?: string[];
   }[];
 }
-

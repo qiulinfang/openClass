@@ -16,6 +16,10 @@ import {
 import { storage } from '@/services/storage';
 import { SyncService } from '@/services/sync-service';
 import { AiChatSessionService } from '../services/ai-chat-session-service';
+import {
+  TeacherChatService,
+  type TeacherChatSession,
+} from '../services/teacher-chat-service';
 import type {
   AiChatAttachment,
   AiChatContext,
@@ -25,6 +29,8 @@ import type {
 } from '../types';
 import { AiConversationView } from './AiConversationView';
 import { AiSessionList } from './AiSessionList';
+import { TeacherConversationView } from './TeacherConversationView';
+import { TeacherSessionList } from './TeacherSessionList';
 
 interface AiChatWorkspaceProps {
   context: AiChatContext;
@@ -50,9 +56,19 @@ export function AiChatWorkspace({
 }: AiChatWorkspaceProps) {
   const insets = useSafeAreaInsets();
   const cancelRequestRef = useRef<(() => void) | null>(null);
+  const activeRequestRef = useRef<{
+    session: AiChatSession;
+    messages: ChatMessage[];
+    aiMessageId: string;
+    accumulated: string;
+  } | null>(null);
   const loadedAttachmentKeyRef = useRef('');
+  const teacherServiceRef = useRef(new TeacherChatService());
+  const currentTeacherSessionIdRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] =
     useState<AiChatWorkspaceTab>('chat');
+  const [chatCategory, setChatCategory] =
+    useState<'companion' | 'teacher'>('companion');
   const [userId, setUserId] = useState('user');
   const [sessions, setSessions] = useState<AiChatSession[]>([]);
   const [currentSession, setCurrentSession] =
@@ -68,6 +84,20 @@ export function AiChatWorkspace({
   const [isSending, setIsSending] = useState(false);
   const [role, setRole] = useState<AiChatRole>('mate');
   const [enableWebSearch, setEnableWebSearch] = useState(false);
+  const [teacherSessions, setTeacherSessions] = useState<
+    TeacherChatSession[]
+  >([]);
+  const [currentTeacherSession, setCurrentTeacherSession] =
+    useState<TeacherChatSession | null>(null);
+  const [teacherMessages, setTeacherMessages] = useState<ChatMessage[]>([]);
+  const [teacherInputText, setTeacherInputText] = useState('');
+  const [isLoadingTeacherHistory, setIsLoadingTeacherHistory] =
+    useState(false);
+  const [isSendingToTeacher, setIsSendingToTeacher] = useState(false);
+  const [isTeacherConnected, setIsTeacherConnected] = useState(false);
+  const [teacherUnreadIds, setTeacherUnreadIds] = useState<Set<string>>(
+    new Set()
+  );
 
   const initialAttachmentKey = useMemo(
     () => attachmentKey(context.initialAttachment),
@@ -89,6 +119,7 @@ export function AiChatWorkspace({
     let disposed = false;
     cancelRequestRef.current?.();
     cancelRequestRef.current = null;
+    activeRequestRef.current = null;
     setIsSending(false);
     setIsLoadingSessions(true);
     setIsInitialized(false);
@@ -100,9 +131,11 @@ export function AiChatWorkspace({
         nextUserId,
         context.scopeKey
       );
+      const nextTeacherSessions = await TeacherChatService.getSessions();
       if (disposed) return;
       setUserId(nextUserId);
       setSessions(nextSessions);
+      setTeacherSessions(nextTeacherSessions);
 
       const hasFreshTextbookCapture =
         context.scene === 'textbook' && !!initialAttachmentKey;
@@ -151,8 +184,30 @@ export function AiChatWorkspace({
     return () => {
       disposed = true;
       cancelRequestRef.current?.();
+      teacherServiceRef.current.disconnect();
     };
   }, [context.scopeKey, context.scene, initialAttachmentKey]);
+
+  useEffect(() => {
+    teacherServiceRef.current.setListeners({
+      onMessage: (message, sessionId) => {
+        if (sessionId === currentTeacherSessionIdRef.current) {
+          setTeacherMessages((current) =>
+            current.some((item) => item.id === message.id)
+              ? current
+              : [...current, message]
+          );
+          return;
+        }
+        setTeacherUnreadIds((current) => {
+          const next = new Set(current);
+          next.add(sessionId);
+          return next;
+        });
+      },
+      onConnectionChange: setIsTeacherConnected,
+    });
+  }, []);
 
   useEffect(() => {
     if (
@@ -164,6 +219,8 @@ export function AiChatWorkspace({
     }
     loadedAttachmentKeyRef.current = initialAttachmentKey;
     cancelRequestRef.current?.();
+    cancelRequestRef.current = null;
+    activeRequestRef.current = null;
     setCurrentSession(null);
     setMessages([]);
     setInputText('');
@@ -244,72 +301,128 @@ export function AiChatWorkspace({
     setInputText('');
     setPendingAttachment(null);
     setIsSending(true);
-    let accumulated = '';
+    activeRequestRef.current = {
+      session: targetSession,
+      messages: requestMessages,
+      aiMessageId,
+      accumulated: '',
+    };
+
+    const onChunk = (chunk: string) => {
+      const activeRequest = activeRequestRef.current;
+      if (activeRequest?.aiMessageId !== aiMessageId) return;
+      activeRequest.accumulated += chunk;
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === aiMessageId
+            ? { ...message, content: activeRequest.accumulated }
+            : message
+        )
+      );
+    };
+    const onComplete = (fullText: string) => {
+      const activeRequest = activeRequestRef.current;
+      if (activeRequest?.aiMessageId !== aiMessageId) return;
+      const finalMessages = requestMessages.map((message) =>
+        message.id === aiMessageId
+          ? {
+              ...message,
+              content:
+                fullText ||
+                activeRequest.accumulated ||
+                '暂时没有返回有效内容',
+              isStreaming: false,
+            }
+          : message
+      );
+      setMessages(finalMessages);
+      cancelRequestRef.current = null;
+      activeRequestRef.current = null;
+      void persistConversation(targetSession, finalMessages)
+        .catch((error) => {
+          console.warn('[AiChatWorkspace] 保存会话失败:', error);
+        })
+        .finally(() => setIsSending(false));
+    };
+    const onError = (error: Error) => {
+      if (activeRequestRef.current?.aiMessageId !== aiMessageId) return;
+      const finalMessages = requestMessages.map((message) =>
+        message.id === aiMessageId
+          ? {
+              ...message,
+              content: `发送失败：${error.message}`,
+              isStreaming: false,
+            }
+          : message
+      );
+      setMessages(finalMessages);
+      cancelRequestRef.current = null;
+      activeRequestRef.current = null;
+      void persistConversation(targetSession, finalMessages)
+        .catch((saveError) => {
+          console.warn('[AiChatWorkspace] 保存失败消息失败:', saveError);
+        })
+        .finally(() => setIsSending(false));
+    };
 
     cancelRequestRef.current =
-      AiChatService.sendConversationMessage(
-        {
-          prompt,
-          sessionId: targetSession.id,
-          imageDataUrl: requestAttachment?.dataUrl,
-          subject: context.subject,
-          sectionName: context.sectionName || context.resourceName,
-          isNewSession: firstMessage,
-          scene: context.scene,
-          role,
-          enableWebSearch,
-          forcePreviewPictureApi: context.scene === 'textbook',
-        },
-        (chunk) => {
-          accumulated += chunk;
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === aiMessageId
-                ? { ...message, content: accumulated }
-                : message
-            )
+      context.scene === 'exercise' && context.exerciseQuestion
+        ? AiChatService.sendExerciseStreamMessage(
+            prompt,
+            targetSession.id,
+            context.exerciseQuestion,
+            {
+              isNewSession: firstMessage,
+              role,
+              enableWebSearch,
+            },
+            onChunk,
+            onComplete,
+            onError
+          )
+        : AiChatService.sendConversationMessage(
+            {
+              prompt,
+              sessionId: targetSession.id,
+              imageDataUrl: requestAttachment?.dataUrl,
+              subject: context.subject,
+              sectionName: context.sectionName || context.resourceName,
+              isNewSession: firstMessage,
+              scene: context.scene,
+              role,
+              enableWebSearch,
+              forcePreviewPictureApi: context.scene === 'textbook',
+            },
+            onChunk,
+            onComplete,
+            onError
           );
-        },
-        (fullText) => {
-          const finalMessages = requestMessages.map((message) =>
-            message.id === aiMessageId
-              ? {
-                  ...message,
-                  content:
-                    fullText ||
-                    accumulated ||
-                    '暂时没有返回有效内容',
-                  isStreaming: false,
-                }
-              : message
-          );
-          setMessages(finalMessages);
-          cancelRequestRef.current = null;
-          void persistConversation(targetSession, finalMessages)
-            .catch((error) => {
-              console.warn('[AiChatWorkspace] 保存会话失败:', error);
-            })
-            .finally(() => setIsSending(false));
-        },
-        (error) => {
-          const finalMessages = requestMessages.map((message) =>
-            message.id === aiMessageId
-              ? {
-                  ...message,
-                  content: `发送失败：${error.message}`,
-                  isStreaming: false,
-                }
-              : message
-          );
-          setMessages(finalMessages);
-          cancelRequestRef.current = null;
-          void persistConversation(targetSession, finalMessages)
-            .catch((saveError) => {
-              console.warn('[AiChatWorkspace] 保存失败消息失败:', saveError);
-            })
-            .finally(() => setIsSending(false));
-        }
-      );
+  };
+
+  const handleStop = () => {
+    const activeRequest = activeRequestRef.current;
+    if (!isSending || !activeRequest) return;
+
+    cancelRequestRef.current?.();
+    cancelRequestRef.current = null;
+    activeRequestRef.current = null;
+
+    const finalMessages = activeRequest.messages.map((message) =>
+      message.id === activeRequest.aiMessageId
+        ? {
+            ...message,
+            content: activeRequest.accumulated,
+            isStreaming: false,
+            isStopped: true,
+          }
+        : message
+    );
+    setMessages(finalMessages);
+    void persistConversation(activeRequest.session, finalMessages)
+      .catch((error) => {
+        console.warn('[AiChatWorkspace] 保存已停止的会话失败:', error);
+      })
+      .finally(() => setIsSending(false));
   };
 
   useEffect(() => {
@@ -328,7 +441,10 @@ export function AiChatWorkspace({
   }, [isInitialized, prefillStorageKey]);
 
   const selectSession = async (session: AiChatSession) => {
+    setChatCategory('companion');
     cancelRequestRef.current?.();
+    cancelRequestRef.current = null;
+    activeRequestRef.current = null;
     setIsSending(false);
     setCurrentSession(session);
     setMessages(await AiChatSessionService.loadMessages(session.id));
@@ -343,6 +459,7 @@ export function AiChatWorkspace({
 
   const createNewConversation = () => {
     if (isSending) return;
+    setChatCategory('companion');
     setCurrentSession(null);
     setMessages([]);
     setInputText('');
@@ -434,55 +551,127 @@ export function AiChatWorkspace({
     ]);
   };
 
+  const selectTeacherSession = async (session: TeacherChatSession) => {
+    setChatCategory('teacher');
+    setCurrentTeacherSession(session);
+    currentTeacherSessionIdRef.current = session.id;
+    teacherServiceRef.current.setCurrentSession(session.id);
+    setTeacherMessages([]);
+    setTeacherInputText('');
+    setIsLoadingTeacherHistory(true);
+    setTeacherUnreadIds((current) => {
+      const next = new Set(current);
+      next.delete(session.id);
+      return next;
+    });
+    setActiveTab('chat');
+    const [historyResult, connectionResult] = await Promise.allSettled([
+      teacherServiceRef.current.loadHistory(session.id),
+      teacherServiceRef.current.connect(),
+    ]);
+    try {
+      if (historyResult.status === 'rejected') {
+        throw historyResult.reason;
+      }
+      if (currentTeacherSessionIdRef.current === session.id) {
+        setTeacherMessages((current) => {
+          const byId = new Map(
+            [...historyResult.value, ...current].map((message) => [
+              message.id,
+              message,
+            ])
+          );
+          return Array.from(byId.values()).sort(
+            (a, b) => a.timestamp - b.timestamp
+          );
+        });
+      }
+      if (connectionResult.status === 'rejected') {
+        Alert.alert(
+          '实时连接失败',
+          connectionResult.reason instanceof Error
+            ? connectionResult.reason.message
+            : '可在答疑页点击重新连接'
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : '老师答疑加载失败';
+      Alert.alert('老师答疑暂不可用', message);
+    }
+    if (currentTeacherSessionIdRef.current === session.id) {
+      setIsLoadingTeacherHistory(false);
+    }
+  };
+
+  const retryTeacherConnection = async () => {
+    try {
+      await teacherServiceRef.current.connect();
+    } catch (error) {
+      Alert.alert(
+        '连接失败',
+        error instanceof Error ? error.message : '请稍后重试'
+      );
+    }
+  };
+
+  const sendToTeacher = async () => {
+    const prompt = teacherInputText.trim();
+    const session = currentTeacherSession;
+    if (!prompt || !session || isSendingToTeacher) return;
+    setIsSendingToTeacher(true);
+    try {
+      const message = await teacherServiceRef.current.send(session, prompt);
+      setTeacherMessages((current) =>
+        current.some((item) => item.id === message.id)
+          ? current
+          : [...current, message]
+      );
+      setTeacherInputText('');
+    } catch (error) {
+      Alert.alert(
+        '发送失败',
+        error instanceof Error ? error.message : '请稍后重试'
+      );
+    } finally {
+      setIsSendingToTeacher(false);
+    }
+  };
+
+  const switchChatCategory = (category: 'companion' | 'teacher') => {
+    setChatCategory(category);
+    if (category === 'companion') {
+      teacherServiceRef.current.disconnect();
+      setIsTeacherConnected(false);
+    }
+  };
+
+  const openConversationTab = () => {
+    if (chatCategory === 'teacher') {
+      if (!currentTeacherSession) {
+        setActiveTab('sessions');
+        return;
+      }
+      if (!isTeacherConnected) void retryTeacherConnection();
+    }
+    setActiveTab('chat');
+  };
+
+  const interactionBusy = isSending || isSendingToTeacher;
+  const bottomInset =
+    respectBottomSafeArea && Platform.OS === 'ios'
+      ? Math.max(8, insets.bottom)
+      : 10;
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>{context.title}</Text>
-          <View style={styles.subtitleRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {context.subtitle || 'AI 助手在线'}
-            </Text>
-          </View>
-        </View>
-        {context.scene === 'textbook' && onReselect ? (
-          <TouchableOpacity
-            style={styles.headerAction}
-            onPress={onReselect}
-            disabled={isSending}
-          >
-            <Text style={styles.headerActionText}>重新框选</Text>
-          </TouchableOpacity>
-        ) : null}
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={createNewConversation}
-          disabled={isSending}
-          accessibilityRole="button"
-          accessibilityLabel="新建会话"
-        >
-          <Text style={styles.newIcon}>＋</Text>
-        </TouchableOpacity>
-        {onClose ? (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="关闭 AI 对话"
-          >
-            <Text style={styles.closeIcon}>×</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
       <View style={styles.tabs}>
         <TouchableOpacity
           style={[
             styles.tab,
             activeTab === 'chat' && styles.tabActive,
           ]}
-          onPress={() => setActiveTab('chat')}
+          onPress={openConversationTab}
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'chat' }}
         >
@@ -492,21 +681,21 @@ export function AiChatWorkspace({
               activeTab === 'chat' && styles.tabTextActive,
             ]}
           >
-            AI问答
+            {chatCategory === 'teacher' ? '老师答疑' : 'AI问答'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.tab,
             activeTab === 'sessions' && styles.tabActive,
-            isSending && styles.tabDisabled,
+            interactionBusy && styles.tabDisabled,
           ]}
           onPress={() => setActiveTab('sessions')}
-          disabled={isSending}
+          disabled={interactionBusy}
           accessibilityRole="tab"
           accessibilityState={{
             selected: activeTab === 'sessions',
-            disabled: isSending,
+            disabled: interactionBusy,
           }}
         >
           <Text
@@ -517,34 +706,60 @@ export function AiChatWorkspace({
           >
             会话记录
           </Text>
-          {sessions.length > 0 ? (
+          {sessions.length + teacherSessions.length > 0 ? (
             <View style={styles.tabBadge}>
               <Text style={styles.tabBadgeText}>
-                {Math.min(99, sessions.length)}
+                {Math.min(99, sessions.length + teacherSessions.length)}
               </Text>
             </View>
           ) : null}
         </TouchableOpacity>
+        <View style={styles.tabActions}>
+          {onClose ? (
+            <TouchableOpacity
+              style={styles.tabIconButton}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="关闭 AI 对话"
+            >
+              <Text style={styles.closeIcon}>×</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.content}>
-        {activeTab === 'chat' ? (
+        {activeTab === 'chat' &&
+        chatCategory === 'teacher' &&
+        currentTeacherSession ? (
+          <TeacherConversationView
+            session={currentTeacherSession}
+            messages={teacherMessages}
+            inputText={teacherInputText}
+            loading={isLoadingTeacherHistory}
+            sending={isSendingToTeacher}
+            connected={isTeacherConnected}
+            bottomInset={bottomInset}
+            onInputChange={setTeacherInputText}
+            onSend={() => void sendToTeacher()}
+            onRetry={() => void retryTeacherConnection()}
+          />
+        ) : activeTab === 'chat' ? (
           <AiConversationView
             context={context}
             messages={messages}
             inputText={inputText}
             attachment={pendingAttachment}
+            isInitializing={!isInitialized}
             isSending={isSending}
             role={role}
             enableWebSearch={enableWebSearch}
-            bottomInset={
-              respectBottomSafeArea && Platform.OS === 'ios'
-                ? Math.max(8, insets.bottom)
-                : 10
-            }
+            bottomInset={bottomInset}
             onInputChange={setInputText}
             onSend={(prompt) => void handleSend(prompt)}
+            onStop={handleStop}
             onPickImage={showImageSource}
+            onCreateConversation={createNewConversation}
             onRemoveAttachment={() => setPendingAttachment(null)}
             onReselect={onReselect}
             onRoleChange={setRole}
@@ -553,15 +768,88 @@ export function AiChatWorkspace({
             }
           />
         ) : (
-          <AiSessionList
-            sessions={sessions}
-            currentSessionId={currentSession?.id}
-            loading={isLoadingSessions}
-            onSelect={(session) => void selectSession(session)}
-            onTogglePin={(session) => void togglePin(session)}
-            onDelete={(session) => void deleteSession(session)}
-            onCreate={createNewConversation}
-          />
+          <View style={styles.sessionHistory}>
+            <View
+              style={styles.categorySelector}
+              accessibilityRole="tablist"
+            >
+              <TouchableOpacity
+                style={[
+                  styles.categoryButton,
+                  chatCategory === 'companion' &&
+                    styles.categoryButtonActive,
+                ]}
+                onPress={() => switchChatCategory('companion')}
+                accessibilityRole="tab"
+                accessibilityState={{
+                  selected: chatCategory === 'companion',
+                }}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    chatCategory === 'companion' &&
+                      styles.categoryTextActive,
+                  ]}
+                >
+                  学伴默认
+                </Text>
+                <Text style={styles.categoryCount}>{sessions.length}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryButton,
+                  chatCategory === 'teacher' &&
+                    styles.categoryButtonActive,
+                ]}
+                onPress={() => switchChatCategory('teacher')}
+                accessibilityRole="tab"
+                accessibilityState={{
+                  selected: chatCategory === 'teacher',
+                }}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    chatCategory === 'teacher' &&
+                      styles.categoryTextActive,
+                  ]}
+                >
+                  老师答疑
+                </Text>
+                {teacherUnreadIds.size > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>
+                      {Math.min(9, teacherUnreadIds.size)}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.categoryCount}>
+                    {teacherSessions.length}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            {chatCategory === 'companion' ? (
+              <AiSessionList
+                sessions={sessions}
+                currentSessionId={currentSession?.id}
+                loading={isLoadingSessions}
+                onSelect={(session) => void selectSession(session)}
+                onTogglePin={(session) => void togglePin(session)}
+                onDelete={(session) => void deleteSession(session)}
+                onCreate={createNewConversation}
+              />
+            ) : (
+              <TeacherSessionList
+                sessions={teacherSessions}
+                currentSessionId={currentTeacherSession?.id}
+                unreadSessionIds={teacherUnreadIds}
+                loading={isLoadingSessions}
+                onSelect={(session) => void selectTeacherSession(session)}
+              />
+            )}
+          </View>
         )}
       </View>
     </View>
@@ -573,65 +861,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F7FC',
   },
-  header: {
-    minHeight: 62,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DFE1EA',
-    backgroundColor: '#FFFFFF',
-  },
-  headerCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#20243D',
-  },
-  subtitleRow: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    marginRight: 5,
-    borderRadius: 3,
-    backgroundColor: '#27B77A',
-  },
-  subtitle: {
-    flex: 1,
-    fontSize: 10,
-    color: '#74798F',
-  },
-  headerAction: {
-    minHeight: 44,
-    marginLeft: 6,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerActionText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#6256D9',
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    marginLeft: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-  },
-  newIcon: {
-    fontSize: 26,
-    color: '#6256D9',
-  },
   closeIcon: {
     marginTop: -2,
     fontSize: 28,
@@ -639,7 +868,8 @@ const styles = StyleSheet.create({
   },
   tabs: {
     minHeight: 52,
-    paddingHorizontal: 16,
+    paddingLeft: 12,
+    paddingRight: 4,
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -647,7 +877,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   tab: {
-    minWidth: 104,
+    minWidth: 96,
     minHeight: 48,
     marginRight: 8,
     paddingHorizontal: 13,
@@ -656,6 +886,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderBottomWidth: 3,
     borderColor: 'transparent',
+  },
+  tabActions: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  tabIconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
   },
   tabActive: {
     borderColor: '#6256D9',
@@ -689,5 +933,60 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  sessionHistory: {
+    flex: 1,
+  },
+  categorySelector: {
+    minHeight: 54,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 2,
+    padding: 4,
+    flexDirection: 'row',
+    borderRadius: 16,
+    backgroundColor: '#ECECF4',
+  },
+  categoryButton: {
+    flex: 1,
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+  },
+  categoryButtonActive: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E0DDF7',
+    backgroundColor: '#FFFFFF',
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#73788C',
+  },
+  categoryTextActive: {
+    color: '#5348C9',
+  },
+  categoryCount: {
+    marginLeft: 7,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#9498A9',
+  },
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    marginLeft: 7,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: '#E94C5C',
+  },
+  unreadBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
 });

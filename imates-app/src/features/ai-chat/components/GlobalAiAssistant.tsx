@@ -7,6 +7,7 @@ import React, {
 import {
   Animated,
   Image,
+  type ImageSourcePropType,
   type LayoutChangeEvent,
   Modal,
   PanResponder,
@@ -21,9 +22,14 @@ import {
 } from 'react-native-safe-area-context';
 import { AiChatWorkspace } from './AiChatWorkspace';
 import { GENERAL_AI_CHAT_CONTEXT } from '../general-context';
+import type { AiChatContext } from '../types';
 
 interface GlobalAiAssistantProps {
   hidden?: boolean;
+  context?: AiChatContext;
+  mascotSource?: ImageSourcePropType;
+  accessibilityLabel?: string;
+  prefillStorageKey?: string;
 }
 
 const OTTER_ANIMATION = require('../../../../assets/ai-otter.webp');
@@ -34,6 +40,10 @@ const INITIAL_BOTTOM_CLEARANCE = 68;
 
 function GlobalAiAssistantComponent({
   hidden = false,
+  context = GENERAL_AI_CHAT_CONTEXT,
+  mascotSource = OTTER_ANIMATION,
+  accessibilityLabel = '打开 AI 问答',
+  prefillStorageKey = 'CHAT_PREFILL',
 }: GlobalAiAssistantProps) {
   const insets = useSafeAreaInsets();
   const modalTopInset =
@@ -163,7 +173,7 @@ function GlobalAiAssistantComponent({
             {...panResponder.panHandlers}
             accessible
             accessibilityRole="button"
-            accessibilityLabel="打开 AI 问答"
+            accessibilityLabel={accessibilityLabel}
             accessibilityHint="轻点打开，按住可在屏幕内拖动"
             onAccessibilityTap={openChat}
             renderToHardwareTextureAndroid
@@ -183,7 +193,7 @@ function GlobalAiAssistantComponent({
               ]}
             >
               <Image
-                source={OTTER_ANIMATION}
+                source={mascotSource}
                 style={styles.slothImage}
                 resizeMode="contain"
                 fadeDuration={0}
@@ -212,9 +222,9 @@ function GlobalAiAssistantComponent({
               ]}
             >
               <AiChatWorkspace
-                context={GENERAL_AI_CHAT_CONTEXT}
+                context={context}
                 onClose={closeChat}
-                prefillStorageKey="CHAT_PREFILL"
+                prefillStorageKey={prefillStorageKey}
                 respectBottomSafeArea={false}
               />
             </View>

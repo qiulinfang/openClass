@@ -20,6 +20,8 @@ config.server.enhanceMiddleware = (metroMiddleware, metroServer) => {
     const isGatewayRequest =
       pathname.startsWith('/yb-release/') ||
       pathname.startsWith('/yb-test/') ||
+      pathname.startsWith('/yb-teacher-release/') ||
+      pathname.startsWith('/yb-teacher-test/') ||
       pathname.startsWith('/xb-release/') ||
       pathname.startsWith('/xb-test/');
     if (!isKnowledgeRequest && !isGatewayRequest) {

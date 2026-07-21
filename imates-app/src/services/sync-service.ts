@@ -1,6 +1,5 @@
-import { Platform } from 'react-native';
 import { storage } from './storage';
-import { AppEnvType, getCurrentEnvType } from './env-config';
+import { getXuebanApiUrl } from './api-url';
 import { MistakeService, MistakeItem } from './mistake-service';
 import { DeviceEventEmitter } from 'react-native';
 import { AiChatSessionService } from '@/features/ai-chat/services/ai-chat-session-service';
@@ -32,14 +31,7 @@ export class SyncService {
   private static LAST_SYNC_CHAT = 'LAST_SYNC_TIME_CHAT';
 
   private static getApiBaseUrl(): string {
-    const env = getCurrentEnvType();
-    if (Platform.OS === 'web') {
-      return env === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
-    }
-    if (env === AppEnvType.INTERNAL_TEST) {
-      return 'http://www.imates.com.cn:58443/blw-edu-service-alc';
-    }
-    return 'http://www.imates.com.cn:8222/blw-edu-service-alc';
+    return getXuebanApiUrl('');
   }
 
   /**
@@ -59,7 +51,7 @@ export class SyncService {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'token': token.trim(),
+        'Token': token.trim(),
         'sa-token': token.trim(),
         'authorization': token.trim(),
       }
@@ -97,7 +89,7 @@ export class SyncService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'token': token.trim(),
+        'Token': token.trim(),
         'sa-token': token.trim(),
         'authorization': token.trim(),
       },
