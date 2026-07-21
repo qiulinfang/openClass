@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -33,6 +33,7 @@ const LightColors = {
   danger: '#EF4444',
   success: '#10B981',
 };
+const EXERCISE_ASSISTANT = require('../../assets/exercise-assistant.png');
 
 // 纯 View 绘制的极简相机图标
 const CameraIcon = () => (
@@ -92,6 +93,25 @@ export function HomeworkSolveScreen() {
 
   // 监听当前题目变化，检查是否已被加入习题本
   const activeQuestion = questions[currentIndex];
+  const questionAiContext = useMemo<AiChatContext | null>(() => {
+    if (!activeQuestion) return null;
+    return {
+      scene: 'exercise',
+      scopeKey: `exercise-${activeQuestion.questionId}`,
+      title: '题目学伴',
+      subtitle: '围绕当前题目启发式答疑',
+      resourceId: activeQuestion.questionId,
+      resourceName: homeworkTitle,
+      subject: homeworkSubject,
+      exerciseQuestion: {
+        id: activeQuestion.questionId,
+        content: activeQuestion.questionContent,
+        answer: activeQuestion.questionAnswer || '',
+        analysis: activeQuestion.questionAnalysis || '',
+        subject: homeworkSubject,
+      },
+    };
+  }, [activeQuestion, homeworkSubject, homeworkTitle]);
   useEffect(() => {
     if (activeQuestion) {
       ExerciseService.isExerciseSaved(activeQuestion.questionId).then(setIsFavorite);
@@ -527,7 +547,7 @@ export function HomeworkSolveScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {homeworkTitle}
         </Text>
-        <View style={{ width: 60 }} />
+        <View style={styles.headerRightPlaceholder} />
       </View>
 
       {/* 题干部分 (Top Container) */}
@@ -653,6 +673,15 @@ export function HomeworkSolveScreen() {
           </View>
         </View>
       )}
+      {questionAiContext ? (
+        <GlobalAiAssistant
+          hidden={showCheckPanel}
+          context={questionAiContext}
+          mascotSource={EXERCISE_ASSISTANT}
+          accessibilityLabel="打开当前题目的 AI 问答"
+          prefillStorageKey={`EXERCISE_CHAT_PREFILL_${activeQuestion.questionId}`}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1123,5 +1152,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 8,
+  },
+  reviewBackBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewBackText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

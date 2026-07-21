@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -17,11 +11,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  AiChatWorkspace,
-  type AiChatContext,
-} from '@/features/ai-chat';
-import type { PdfExploreCapture } from './PdfAnnotationViewer';
+import { AiChatWorkspace, type AiChatContext } from '@/features/ai-chat';
+import type { PdfExploreCapture } from './PdfExploreViewer';
 
 interface PdfExplorePanelProps {
   visible: boolean;
@@ -30,8 +21,9 @@ interface PdfExplorePanelProps {
   resourceName: string;
   subject: string;
   sectionName: string;
+  showPageNumber?: boolean;
   onClose: () => void;
-  onReselect: () => void;
+  onReselect?: () => void;
 }
 
 export function PdfExplorePanel({
@@ -41,16 +33,14 @@ export function PdfExplorePanel({
   resourceName,
   subject,
   sectionName,
+  showPageNumber = true,
   onClose,
   onReselect,
 }: PdfExplorePanelProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const collapsedOffset = Math.max(72, windowHeight * 0.12);
-  const collapsedHeight = windowHeight - collapsedOffset;
-  const sheetHeight = useRef(
-    new Animated.Value(collapsedHeight)
-  ).current;
+  const collapsedHeight = windowHeight - Math.max(72, windowHeight * 0.12);
+  const sheetHeight = useRef(new Animated.Value(collapsedHeight)).current;
   const gestureStartRef = useRef(collapsedHeight);
   const [expanded, setExpanded] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -80,62 +70,42 @@ export function PdfExplorePanel({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // iOS 上从手柄按下时立即取得 responder，避免触摸被下方会话滚动区抢走。
         onStartShouldSetPanResponder: () => true,
         onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dy) > 6 &&
-          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+          Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
-          Math.abs(gesture.dy) > 4 &&
-          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+          Math.abs(gesture.dy) > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderGrant: () => {
           sheetHeight.stopAnimation((value) => {
             gestureStartRef.current = value;
           });
         },
         onPanResponderMove: (_, gesture) => {
-          const nextValue = Math.max(
-            collapsedHeight,
-            Math.min(
-              windowHeight,
-              gestureStartRef.current - gesture.dy
+          sheetHeight.setValue(
+            Math.max(
+              collapsedHeight,
+              Math.min(windowHeight, gestureStartRef.current - gesture.dy)
             )
           );
-          sheetHeight.setValue(nextValue);
         },
         onPanResponderRelease: (_, gesture) => {
-          const isTap =
-            Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6;
-          if (isTap) {
+          if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
             settleSheet(!expanded);
-            return;
-          }
-          if (gesture.dy < -16 || gesture.vy < -0.22) {
+          } else if (gesture.dy < -16 || gesture.vy < -0.22) {
             settleSheet(true);
-            return;
-          }
-          if (gesture.dy > 16 || gesture.vy > 0.22) {
+          } else if (gesture.dy > 16 || gesture.vy > 0.22) {
             settleSheet(false);
-            return;
+          } else {
+            const projected = gestureStartRef.current - gesture.dy - gesture.vy * 80;
+            settleSheet(projected > (collapsedHeight + windowHeight) / 2);
           }
-          const projected =
-            gestureStartRef.current - gesture.dy - gesture.vy * 80;
-          settleSheet(
-            projected > (collapsedHeight + windowHeight) / 2
-          );
         },
         onPanResponderTerminate: () => settleSheet(expanded),
         onPanResponderTerminationRequest: () => false,
         onShouldBlockNativeResponder: () => true,
       }),
-    [
-      collapsedHeight,
-      expanded,
-      settleSheet,
-      sheetHeight,
-      windowHeight,
-    ]
+    [collapsedHeight, expanded, settleSheet, sheetHeight, windowHeight]
   );
 
   const context = useMemo<AiChatContext>(
@@ -143,9 +113,10 @@ export function PdfExplorePanel({
       scene: 'textbook',
       scopeKey: `textbook:${resourceId}`,
       title: '探索区域',
-      subtitle: capture
-        ? `第 ${capture.pageNumber} 页 · ${resourceName}`
-        : resourceName,
+      subtitle:
+        capture && showPageNumber
+          ? `第 ${capture.pageNumber} 页 · ${resourceName}`
+          : resourceName,
       resourceId,
       resourceName,
       subject,
@@ -154,18 +125,14 @@ export function PdfExplorePanel({
         ? {
             uri: capture.dataUrl,
             dataUrl: capture.dataUrl,
-            label: `第 ${capture.pageNumber} 页框选内容`,
-            pageNumber: capture.pageNumber,
+            label: showPageNumber
+              ? `第 ${capture.pageNumber} 页框选内容`
+              : `${resourceName}框选内容`,
+            pageNumber: showPageNumber ? capture.pageNumber : undefined,
           }
         : null,
     }),
-    [
-      capture,
-      resourceId,
-      resourceName,
-      sectionName,
-      subject,
-    ]
+    [capture, resourceId, resourceName, sectionName, showPageNumber, subject]
   );
 
   return (
@@ -181,10 +148,7 @@ export function PdfExplorePanel({
         <Animated.View
           style={[
             styles.sheet,
-            {
-              height: sheetHeight,
-              paddingTop: expanded ? insets.top : 0,
-            },
+            { height: sheetHeight, paddingTop: expanded ? insets.top : 0 },
             expanded && styles.sheetExpanded,
           ]}
         >
@@ -195,21 +159,14 @@ export function PdfExplorePanel({
             accessibilityRole="adjustable"
             accessibilityLabel="探索区域高度"
             accessibilityHint="上滑展开，下滑收回"
-            accessibilityValue={{
-              text: expanded ? '全屏' : '默认高度',
-            }}
+            accessibilityValue={{ text: expanded ? '全屏' : '默认高度' }}
             accessibilityActions={[
               { name: 'increment', label: '展开至全屏' },
               { name: 'decrement', label: '收回至默认高度' },
             ]}
             onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === 'increment') {
-                settleSheet(true);
-              } else if (
-                event.nativeEvent.actionName === 'decrement'
-              ) {
-                settleSheet(false);
-              }
+              if (event.nativeEvent.actionName === 'increment') settleSheet(true);
+              if (event.nativeEvent.actionName === 'decrement') settleSheet(false);
             }}
             {...panResponder.panHandlers}
           >
@@ -234,10 +191,7 @@ export function PdfExplorePanel({
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(25, 23, 45, 0.46)',
@@ -257,15 +211,8 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 18,
   },
-  sheetExpanded: {
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
-  grabberRow: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  sheetExpanded: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  grabberRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
   grabberCopy: {
     flex: 1,
     minHeight: 44,
@@ -273,20 +220,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sheetHandle: {
-    width: 34,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D3D2DE',
-  },
-  grabberHint: {
-    marginLeft: 8,
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#8A8EA0',
-  },
-  workspace: {
-    flex: 1,
-    overflow: 'hidden',
-  },
+  sheetHandle: { width: 34, height: 4, borderRadius: 2, backgroundColor: '#D3D2DE' },
+  grabberHint: { marginLeft: 8, fontSize: 9, fontWeight: '700', color: '#8A8EA0' },
+  workspace: { flex: 1, overflow: 'hidden' },
 });

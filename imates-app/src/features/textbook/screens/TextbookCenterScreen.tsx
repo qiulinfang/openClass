@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   FlatList,
@@ -33,6 +32,7 @@ import {
   TextbookFilterSelect,
   type TextbookFilterOption,
 } from '../components/TextbookFilterSelect';
+import { TextbookDeleteDialog } from '../components/TextbookDeleteDialog';
 import {
   MotionPressable,
   textbookMotionConfig,
@@ -161,27 +161,19 @@ const TextbookCard = memo(function TextbookCard({
         item.downloadStatus === 1 && styles.textbookCardDownloading,
       ]}
     >
-      {item.isDownloaded ? (
+      {canClear ? (
         <MotionPressable
-          style={styles.downloadedMark}
+          style={styles.deleteButton}
           onPress={() => onClear(item)}
           reduceMotion={reduceMotion}
-          pressedScale={0.88}
+          pressedScale={0.94}
           accessibilityRole="button"
-          accessibilityLabel={`${item.textbookName}已下载，点击可清除本地资料`}
+          accessibilityLabel={`删除${item.textbookName}本地资料`}
+          accessibilityHint="删除前会再次确认"
         >
-          <Text style={styles.downloadedMarkText}>✓</Text>
-        </MotionPressable>
-      ) : canClear ? (
-        <MotionPressable
-          style={styles.clearButton}
-          onPress={() => onClear(item)}
-          reduceMotion={reduceMotion}
-          pressedScale={0.88}
-          accessibilityRole="button"
-          accessibilityLabel={`清除${item.textbookName}本地资料`}
-        >
-          <Text style={styles.clearButtonText}>×</Text>
+          <View style={styles.deleteIconSurface}>
+            <Text style={styles.deleteButtonText}>×</Text>
+          </View>
         </MotionPressable>
       ) : null}
 
@@ -302,6 +294,7 @@ const TextbookCard = memo(function TextbookCard({
 
 interface ResourceTabButtonProps {
   active: boolean;
+  badgeCount?: number;
   label: string;
   reduceMotion: boolean;
   onPress: () => void;
@@ -309,6 +302,7 @@ interface ResourceTabButtonProps {
 
 const ResourceTabButton = memo(function ResourceTabButton({
   active,
+  badgeCount = 0,
   label,
   reduceMotion,
   onPress,
@@ -340,7 +334,9 @@ const ResourceTabButton = memo(function ResourceTabButton({
       pressedScale={0.96}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      accessibilityLabel={label}
+      accessibilityLabel={
+        badgeCount > 0 ? `${label}，${badgeCount}本教材可更新` : label
+      }
     >
       <Text
         style={[
@@ -359,6 +355,13 @@ const ResourceTabButton = memo(function ResourceTabButton({
           },
         ]}
       />
+      {badgeCount > 0 ? (
+        <View style={styles.resourceTabBadge}>
+          <Text style={styles.resourceTabBadgeText}>
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </Text>
+        </View>
+      ) : null}
     </MotionPressable>
   );
 });
@@ -446,6 +449,8 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [resourceTab, setResourceTab] = useState<ResourceTab>('all');
   const [message, setMessage] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<TextbookListItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showMessage = useCallback((nextMessage: string) => {
@@ -469,12 +474,17 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
           await TextbookDownloadService.pauseAll();
         }
         const serverBooks = await TextbookService.fetchTextbooks();
+        // 必须先用本地已安装版本做三级对账，再同步服务端教材元数据；
+        // 否则刷新会覆盖本地版本基线，教材级更新时间永远无法命中。
+        const updates = await TextbookDownloadService.checkForUpdates(serverBooks);
         await TextbookDownloadService.syncServerTextbooks(serverBooks);
         await refreshMergedState(serverBooks);
-
-        const updates = await TextbookDownloadService.checkForUpdates(serverBooks);
-        if (updates.size > 0) {
-          await refreshMergedState(serverBooks);
+        if (pullToRefresh) {
+          showMessage(
+            updates.size > 0
+              ? `发现 ${updates.size} 本教材可更新`
+              : '已是最新版本'
+          );
         }
       } catch (error) {
         showMessage(
@@ -580,6 +590,13 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
     selectedVersion,
     textbooks,
   ]);
+  const updateCount = useMemo(
+    () =>
+      textbooks.filter(
+        (textbook) => textbook.isDownloaded && textbook.hasUpdatesAvailable
+      ).length,
+    [textbooks]
+  );
 
   const updateItemState = useCallback(
     (recordId: string, updates: Partial<TextbookListItem>) => {
@@ -593,9 +610,10 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
   const handleDownload = useCallback(
     async (textbook: TextbookListItem, forceRefresh = false) => {
       if (textbook.downloadStatus === 1) return;
+      const isUpdating = textbook.isDownloaded && forceRefresh;
       updateItemState(textbook.id, {
         downloadStatus: 1,
-        isDownloaded: false,
+        isDownloaded: isUpdating,
         hasUpdatesAvailable: false,
         downloadProgress: 0,
       });
@@ -618,7 +636,7 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
               downloadStatus: 1,
               downloadedFiles,
               totalFiles,
-              isDownloaded: false,
+              isDownloaded: isUpdating,
               downloadProgress: progress,
             });
             if (progress === 100) {
@@ -685,31 +703,34 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
 
   const handleClear = useCallback(
     (textbook: TextbookListItem) => {
-      Alert.alert(
-        '清除本地资料',
-        `确定要清除《${textbook.textbookName}》的本地下载资料吗？清除后需要重新下载才能离线学习。`,
-        [
-          { text: '取消', style: 'cancel' },
-          {
-            text: '确认清除',
-            style: 'destructive',
-            onPress: () => {
-              void (async () => {
-                try {
-                  await TextbookDownloadService.clearTextbook(textbook.id);
-                  updateItemState(textbook.id, emptyDownloadState);
-                  showMessage(`《${textbook.textbookName}》本地资料已清除`);
-                } catch (error) {
-                  showMessage(error instanceof Error ? error.message : '清除失败，请重试');
-                }
-              })();
-            },
-          },
-        ]
-      );
+      setPendingDelete(textbook);
     },
-    [showMessage, updateItemState]
+    []
   );
+  const cancelDelete = useCallback(() => {
+    if (!isDeleting) setPendingDelete(null);
+  }, [isDeleting]);
+  const confirmDelete = useCallback(() => {
+    if (!pendingDelete || isDeleting) return;
+    const textbook = pendingDelete;
+    setIsDeleting(true);
+    void (async () => {
+      try {
+        await TextbookDownloadService.clearTextbook(textbook.id);
+        updateItemState(textbook.id, emptyDownloadState);
+        setPendingDelete(null);
+        showMessage(`《${textbook.textbookName}》本地资料已删除`);
+      } catch (error) {
+        showMessage(
+          error instanceof Error
+            ? `删除失败：${error.message}`
+            : '删除失败，请重试'
+        );
+      } finally {
+        setIsDeleting(false);
+      }
+    })();
+  }, [isDeleting, pendingDelete, showMessage, updateItemState]);
 
   const renderTextbook = useCallback(
     ({ item }: { item: TextbookListItem }) => {
@@ -811,12 +832,13 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
       <View style={styles.resourceTabs}>
         <ResourceTabButton
           active={resourceTab === 'all'}
-          label="全部资源"
+          label="全部"
           reduceMotion={reduceMotion}
           onPress={showAllResources}
         />
         <ResourceTabButton
           active={resourceTab === 'downloaded'}
+          badgeCount={updateCount}
           label="已下载"
           reduceMotion={reduceMotion}
           onPress={showDownloadedResources}
@@ -890,6 +912,14 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
           }
         />
       )}
+      <TextbookDeleteDialog
+        visible={pendingDelete !== null}
+        textbookName={pendingDelete?.textbookName || ''}
+        deleting={isDeleting}
+        reduceMotion={reduceMotion}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
+      />
     </SafeAreaView>
   );
 }
@@ -1053,6 +1083,24 @@ const styles = StyleSheet.create({
   resourceTabSpacer: {
     flex: 1,
   },
+  resourceTabBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 3,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.warning,
+  },
+  resourceTabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '800',
+  },
   listCount: {
     color: Palette.secondary,
     fontSize: 12,
@@ -1090,23 +1138,31 @@ const styles = StyleSheet.create({
   textbookCardDownloading: {
     borderColor: 'rgba(101, 86, 232, 0.35)',
   },
-  clearButton: {
+  deleteButton: {
     position: 'absolute',
     right: 8,
     top: 7,
     zIndex: 2,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F5F8',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clearButtonText: {
-    color: Palette.secondary,
-    fontSize: 19,
-    lineHeight: 20,
-    fontWeight: '400',
+  deleteIconSurface: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Palette.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: {
+    color: Palette.danger,
+    marginTop: -1,
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   coverFrame: {
     width: 96,
@@ -1138,7 +1194,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 23,
     fontWeight: '800',
-    paddingRight: 25,
+    paddingRight: 62,
   },
   tagRow: {
     marginTop: 8,
@@ -1157,29 +1213,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 14,
     fontWeight: '700',
-  },
-  downloadedMark: {
-    position: 'absolute',
-    right: 10,
-    top: 9,
-    zIndex: 2,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadedMarkText: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: Palette.success,
-    borderRadius: 10,
-    color: Palette.success,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '900',
-    textAlign: 'center',
   },
   cardProgressArea: {
     marginTop: 'auto',
