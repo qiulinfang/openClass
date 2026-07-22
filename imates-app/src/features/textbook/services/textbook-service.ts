@@ -20,6 +20,45 @@ export interface UserTextbookInfo {
 
 export class TextbookService {
   private static yanbanLoginPromise: Promise<string> | null = null;
+  private static textbooksRequestPromises = new Map<
+    string,
+    Promise<UserTextbookInfo[]>
+  >();
+  private static textbookListCache = new Map<string, UserTextbookInfo[]>();
+
+  private static async getTextbookListCacheKey(): Promise<string> {
+    const userId = (await storage.getItem('xuebanuserid'))?.trim() || 'anonymous';
+    return `TEXTBOOK_LIST_CACHE_V1_${encodeURIComponent(userId)}_${getCurrentEnvType()}`;
+  }
+
+  /**
+   * 读取完整教材列表缓存。缓存按账号和运行环境隔离，避免账号或测试/正式环境串数据。
+   */
+  public static async getCachedTextbooks(): Promise<UserTextbookInfo[]> {
+    const cacheKey = await this.getTextbookListCacheKey();
+    const memoryCache = this.textbookListCache.get(cacheKey);
+    if (memoryCache) return memoryCache;
+
+    const raw = await storage.getItem(cacheKey);
+    if (!raw) return [];
+
+    try {
+      const cached = JSON.parse(raw);
+      if (!Array.isArray(cached)) return [];
+      this.textbookListCache.set(cacheKey, cached as UserTextbookInfo[]);
+      return cached as UserTextbookInfo[];
+    } catch {
+      return [];
+    }
+  }
+
+  private static async cacheTextbooks(
+    cacheKey: string,
+    textbooks: UserTextbookInfo[]
+  ): Promise<void> {
+    this.textbookListCache.set(cacheKey, textbooks);
+    await storage.setItem(cacheKey, JSON.stringify(textbooks));
+  }
 
   /**
    * 兼容研伴接口在不同网关下的 data / data.data / records / list 包装。
@@ -162,16 +201,20 @@ export class TextbookService {
    * 拉取用户所有的线上教材资源
    */
   public static async fetchTextbooks(): Promise<UserTextbookInfo[]> {
-    try {
-      const response = await this.postWithYanbanAuth(this.getApiUrl(), {});
+    const cacheKey = await this.getTextbookListCacheKey();
+    const pendingRequest = this.textbooksRequestPromises.get(cacheKey);
+    if (pendingRequest) return pendingRequest;
 
-      const text = await response.text();
-      const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
-      const res = JSON.parse(sanitizedText);
-      const rawList = this.extractArrayPayload(res);
-      if (Array.isArray(rawList)) {
-        const BASE_URL = 'https://www.imates.com.cn:9099';
-        return rawList.map((item: any) => {
+    const request = (async () => {
+      try {
+        const response = await this.postWithYanbanAuth(this.getApiUrl(), {});
+
+        const text = await response.text();
+        const sanitizedText = text.replace(/:\s*(-?\d{15,})/g, ':"$1"');
+        const res = JSON.parse(sanitizedText);
+        const rawList = this.extractArrayPayload(res);
+        const textbooks = rawList.map((item: any) => {
+          const BASE_URL = 'https://www.imates.com.cn:9099';
           let cover = item.textbookCover || '';
           if (cover && !cover.startsWith('http')) {
             cover = BASE_URL + cover;
@@ -194,12 +237,18 @@ export class TextbookService {
             ),
           };
         });
+        await this.cacheTextbooks(cacheKey, textbooks);
+        return textbooks;
+      } catch (e) {
+        console.warn('[TextbookService] 获取教材列表出错:', e);
+        throw e;
       }
-      return [];
-    } catch (e) {
-      console.warn('[TextbookService] 获取教材列表出错:', e);
-      throw e;
-    }
+    })().finally(() => {
+      this.textbooksRequestPromises.delete(cacheKey);
+    });
+
+    this.textbooksRequestPromises.set(cacheKey, request);
+    return request;
   }
 
   /**

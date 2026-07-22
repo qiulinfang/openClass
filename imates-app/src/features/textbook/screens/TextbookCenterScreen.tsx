@@ -465,9 +465,9 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
   }, []);
 
   const loadResources = useCallback(
-    async (pullToRefresh = false) => {
+    async (pullToRefresh = false, silent = false) => {
       if (pullToRefresh) setIsRefreshing(true);
-      else setIsLoading(true);
+      else if (!silent) setIsLoading(true);
 
       try {
         if (pullToRefresh) {
@@ -487,12 +487,14 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
           );
         }
       } catch (error) {
-        showMessage(
-          error instanceof Error ? `加载失败：${error.message}` : '加载资源失败，请稍后重试'
-        );
+        if (!silent) {
+          showMessage(
+            error instanceof Error ? `加载失败：${error.message}` : '加载资源失败，请稍后重试'
+          );
+        }
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (!silent) setIsLoading(false);
+        if (pullToRefresh) setIsRefreshing(false);
       }
     },
     [refreshMergedState, showMessage]
@@ -501,15 +503,18 @@ export function TextbookCenterScreen({ onLearn }: TextbookCenterScreenProps) {
   useEffect(() => {
     let mounted = true;
     const loadCachedThenRefresh = async () => {
-      const [cachedBooks, records] = await Promise.all([
+      const [cachedBooks, downloadedBooks, records] = await Promise.all([
+        TextbookService.getCachedTextbooks(),
         TextbookDownloadService.getCachedTextbooks(),
         TextbookDownloadService.getRecords(),
       ]);
-      if (mounted && cachedBooks.length > 0) {
-        setTextbooks(mergeTextbooks(cachedBooks, records));
+      const booksToDisplay = cachedBooks.length > 0 ? cachedBooks : downloadedBooks;
+      const hasCachedBooks = booksToDisplay.length > 0;
+      if (mounted && hasCachedBooks) {
+        setTextbooks(mergeTextbooks(booksToDisplay, records));
         setIsLoading(false);
       }
-      if (mounted) await loadResources(false);
+      if (mounted) await loadResources(false, hasCachedBooks);
     };
     void loadCachedThenRefresh();
 
