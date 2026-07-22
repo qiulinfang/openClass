@@ -223,6 +223,10 @@ function GlobalAiAssistantComponent({
   const handleLayerLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const { width, height } = event.nativeEvent.layout;
+      // 页面返回动画可能短暂上报 0×0（或小于悬浮物）的尺寸。
+      // 忽略这类过渡布局，避免当前坐标被 clamp 到左上角。
+      if (width <= floatingWidth || height <= floatingHeight) return;
+
       boundsRef.current = { width, height };
       const nextPosition = initializedRef.current
         ? clampPosition(positionRef.current.x, positionRef.current.y)
