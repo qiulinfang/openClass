@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "学伴移动端",
+    "name": "手机学伴",
     "slug": "imates-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -25,7 +25,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      "./plugins/with-android-app-identity"
     ],
     "extra": {
       "eas": {

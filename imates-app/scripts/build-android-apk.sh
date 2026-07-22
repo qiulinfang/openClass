@@ -6,21 +6,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ANDROID_DIR="${PROJECT_ROOT}/android"
 APK_SOURCE="${ANDROID_DIR}/app/build/outputs/apk/release/app-release.apk"
-BUILD_CHANNEL="${1:-internal}"
+REQUESTED_VARIANT="${1:-all}"
 
-case "${BUILD_CHANNEL}" in
-  internal)
-    APP_ENV="RELEASE"
-    BUILD_CHANNEL_ENV="INTERNAL"
-    APK_OUTPUT="${PROJECT_ROOT}/imates-app-internal.apk"
-    ;;
-  release)
-    APP_ENV="RELEASE"
-    BUILD_CHANNEL_ENV="RELEASE"
-    APK_OUTPUT="${PROJECT_ROOT}/imates-app-release.apk"
-    ;;
+case "${REQUESTED_VARIANT}" in
+  all|development|internal|release) ;;
   *)
-    echo "用法：$0 [internal|release]" >&2
+    echo "用法：$0 [all|release|internal|development]" >&2
     exit 1
     ;;
 esac
@@ -40,7 +31,7 @@ npm run build:pdf-explore-viewer
 npx tsc --noEmit
 
 if [[ ! -d "${ANDROID_DIR}" ]]; then
-  npx expo prebuild --platform android --no-install
+  EXPO_PUBLIC_BUILD_CHANNEL=RELEASE npx expo prebuild --platform android --no-install
 fi
 
 if [[ ! -f "${ANDROID_DIR}/local.properties" ]]; then
@@ -58,20 +49,67 @@ if [[ ! -f "${ANDROID_DIR}/local.properties" ]]; then
   printf 'sdk.dir=%s\n' "${SDK_PATH}" > "${ANDROID_DIR}/local.properties"
 fi
 
-cd "${ANDROID_DIR}"
-# Gradle 不会自动把环境变量变化视为 Metro bundle 输入，删除指定构建产物以强制重新打包 JS。
-rm -f \
-  app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle \
-  app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map
-NODE_ENV=production \
-EXPO_PUBLIC_APP_ENV="${APP_ENV}" \
-EXPO_PUBLIC_BUILD_CHANNEL="${BUILD_CHANNEL_ENV}" \
-./gradlew assembleRelease
+build_variant() {
+  local variant="$1"
+  local app_env
+  local build_channel
+  local application_id
+  local app_name
+  local apk_output
 
-cp "${APK_SOURCE}" "${APK_OUTPUT}"
+  case "${variant}" in
+    release)
+      app_env="RELEASE"
+      build_channel="RELEASE"
+      application_id="com.cosinetech.imates.edu"
+      app_name="手机学伴"
+      apk_output="${PROJECT_ROOT}/手机学伴.apk"
+      ;;
+    internal)
+      app_env="RELEASE"
+      build_channel="INTERNAL"
+      application_id="com.cosinetech.imates.edu.internal"
+      app_name="手机学伴内测版"
+      apk_output="${PROJECT_ROOT}/手机学伴内测版.apk"
+      ;;
+    development)
+      app_env="INTERNAL_TEST"
+      build_channel="DEVELOPMENT"
+      application_id="com.cosinetech.imates.edu.development"
+      app_name="手机学伴开发版"
+      apk_output="${PROJECT_ROOT}/手机学伴开发版.apk"
+      ;;
+  esac
 
-echo
-echo "构建渠道：${BUILD_CHANNEL_ENV}，接口环境：${APP_ENV}"
-echo "APK 已生成：${APK_OUTPUT}"
-ls -lh "${APK_OUTPUT}"
-shasum -a 256 "${APK_OUTPUT}"
+  echo
+  echo "开始构建：${app_name} (${application_id})"
+  (
+    cd "${ANDROID_DIR}"
+    # 环境变量不是 Gradle 的声明式输入，精确删除 JS 产物以确保每一版重新内联环境配置。
+    rm -f \
+      app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle \
+      app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map
+    NODE_ENV=production \
+    EXPO_PUBLIC_APP_ENV="${app_env}" \
+    EXPO_PUBLIC_BUILD_CHANNEL="${build_channel}" \
+    ./gradlew \
+      -Pimates.applicationId="${application_id}" \
+      -Pimates.appName="${app_name}" \
+      assembleRelease
+  )
+
+  cp "${APK_SOURCE}" "${apk_output}"
+  echo "构建渠道：${build_channel}，接口环境：${app_env}"
+  echo "应用包名：${application_id}"
+  echo "APK 已生成：${apk_output}"
+  ls -lh "${apk_output}"
+  shasum -a 256 "${apk_output}"
+}
+
+if [[ "${REQUESTED_VARIANT}" == "all" ]]; then
+  build_variant release
+  build_variant internal
+  build_variant development
+else
+  build_variant "${REQUESTED_VARIANT}"
+fi

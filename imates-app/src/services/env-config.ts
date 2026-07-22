@@ -7,6 +7,7 @@ export enum AppEnvType {
 }
 
 export enum AppBuildChannel {
+  DEVELOPMENT = 'DEVELOPMENT',
   INTERNAL = 'INTERNAL',
   RELEASE = 'RELEASE',
 }
@@ -22,8 +23,10 @@ const parseEnvType = (value?: string): AppEnvType | null =>
 
 // Expo 会在构建时内联 EXPO_PUBLIC_*。EAS 测试/正式包以此为权威环境来源。
 const bundledEnvType = parseEnvType(process.env.EXPO_PUBLIC_APP_ENV);
-const bundledBuildChannel = process.env.EXPO_PUBLIC_BUILD_CHANNEL === AppBuildChannel.INTERNAL
-  ? AppBuildChannel.INTERNAL
+const bundledBuildChannel = Object.values(AppBuildChannel).includes(
+  process.env.EXPO_PUBLIC_BUILD_CHANNEL as AppBuildChannel,
+)
+  ? process.env.EXPO_PUBLIC_BUILD_CHANNEL as AppBuildChannel
   : AppBuildChannel.RELEASE;
 const lockedRuntimeEnv = bundledEnvType;
 const runtimeDefaultEnv = bundledEnvType ??
@@ -88,7 +91,13 @@ export const getIsInternalTest = (): boolean => getCurrentEnvType() === AppEnvTy
 export const getBuildChannel = (): AppBuildChannel => bundledBuildChannel;
 
 export const isInternalBuild = (): boolean =>
-  __DEV__ || bundledBuildChannel === AppBuildChannel.INTERNAL;
+  __DEV__ || bundledBuildChannel !== AppBuildChannel.RELEASE;
+
+export const getBuildDisplayName = (): string => {
+  if (__DEV__ || bundledBuildChannel === AppBuildChannel.DEVELOPMENT) return '开发版';
+  if (bundledBuildChannel === AppBuildChannel.INTERNAL) return '内测版';
+  return '正式版';
+};
 
 /**
  * 获取环境显示名称

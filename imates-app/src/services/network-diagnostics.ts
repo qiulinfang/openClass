@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { getXuebanApiUrl } from './api-url';
-import { getBuildChannel, getCurrentEnvType, isInternalBuild } from './env-config';
+import { getBuildDisplayName, getCurrentEnvType, isInternalBuild } from './env-config';
 
 export const isDetailedDiagnosticsEnabled = (): boolean =>
   isInternalBuild();
@@ -11,7 +11,7 @@ export async function runLoginNetworkDiagnostics(): Promise<string> {
   const startedAt = Date.now();
   const lines = [
     `诊断时间: ${new Date().toISOString()}`,
-    `构建模式: ${__DEV__ ? '开发模式' : getBuildChannel() === 'INTERNAL' ? '内测模式' : '正式模式'}`,
+    `构建模式: ${getBuildDisplayName()}`,
     `运行环境: ${env}`,
     `平台: ${Platform.OS} ${String(Platform.Version)}`,
     `登录地址: ${url}`,

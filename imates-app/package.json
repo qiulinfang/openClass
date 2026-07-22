@@ -34,6 +34,8 @@
   },
   "scripts": {
     "build:pdf-explore-viewer": "node scripts/build-pdf-explore-viewer.mjs",
+    "build:android:all": "./scripts/build-android-apk.sh all",
+    "build:android:development": "./scripts/build-android-apk.sh development",
     "build:android:internal": "./scripts/build-android-apk.sh internal",
     "build:android:release": "./scripts/build-android-apk.sh release",
     "start": "expo start",

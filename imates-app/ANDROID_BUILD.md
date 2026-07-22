@@ -16,34 +16,40 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="$PATH:$ANDROID_HOME/platform-tools"
 ```
 
-## 2. 一键生成可安装 APK
+## 2. 一键生成三个可并存安装的 APK
 
 在项目目录执行：
 
 ```bash
 cd /Users/chuwenlong/Desktop/yxCode/openClass/imates-app
-npm run build:android:internal
+npm run build:android:all
 ```
 
-内测版使用正式接口，显示“内测版”标识，并在所有页面提供全局 `NET` 网络仪表台。仪表台可查看每一个 Fetch 接口的请求、响应、耗时和完整错误，敏感字段会自动遮盖：
+一次生成：
 
 ```text
-imates-app/imates-app-internal.apk
+手机学伴.apk
+手机学伴内测版.apk
+手机学伴开发版.apk
 ```
 
-生成正式版：
+三版使用不同包名，可同时安装：
+
+| 构建 | 桌面名称 | Android 包名 | 接口 | 网络调试 |
+| --- | --- | --- | --- | --- |
+| 正式版 | 手机学伴 | `com.cosinetech.imates.edu` | 正式 | 关闭 |
+| 正式调试版 | 手机学伴内测版 | `com.cosinetech.imates.edu.internal` | 正式 | 开启 |
+| 测试版 | 手机学伴开发版 | `com.cosinetech.imates.edu.development` | 测试 | 开启 |
+
+也可以单独构建：
 
 ```bash
 npm run build:android:release
+npm run build:android:internal
+npm run build:android:development
 ```
 
-正式版使用正式接口，显示“正式版”标识，只向用户显示安全、简洁的错误提示：
-
-```text
-imates-app/imates-app-release.apk
-```
-
-也可以直接执行 `./scripts/build-android-apk.sh internal` 或 `./scripts/build-android-apk.sh release`。脚本会依次检查依赖、生成 PDF viewer、执行 TypeScript 检查、生成 Android 原生工程，并运行 `assembleRelease`。
+内测版和开发版在所有页面提供全局 `NET` 网络仪表台，可查看每个 Fetch 接口的请求、响应、耗时和完整错误，敏感字段会自动遮盖。
 
 ## 3. 完全手动执行
 
@@ -62,7 +68,13 @@ npx expo prebuild --platform android --no-install
 
 ```bash
 cd android
-NODE_ENV=production EXPO_PUBLIC_APP_ENV=RELEASE ./gradlew assembleRelease
+NODE_ENV=production \
+EXPO_PUBLIC_APP_ENV=RELEASE \
+EXPO_PUBLIC_BUILD_CHANNEL=RELEASE \
+./gradlew \
+  -Pimates.applicationId=com.cosinetech.imates.edu \
+  -Pimates.appName=手机学伴 \
+  assembleRelease
 ```
 
 Gradle 原始产物位于：
@@ -85,7 +97,9 @@ npx expo prebuild --clean --platform android
 
 ```bash
 adb devices
-adb install -r imates-app-release.apk
+adb install -r 手机学伴.apk
+adb install -r 手机学伴内测版.apk
+adb install -r 手机学伴开发版.apk
 ```
 
 若手机中已有同包名但签名不同的版本，需要先卸载旧版本；卸载会清除该应用的本地数据。

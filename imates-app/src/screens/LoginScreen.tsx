@@ -23,6 +23,7 @@ import { authService, getUserId, getPassword } from '@/services/auth-service';
 import { HomeworkService } from '@/services/homework-service';
 import {
   AppEnvType,
+  getBuildDisplayName,
   getCurrentEnvType,
   getEnvDisplayName,
   isInternalBuild,
@@ -405,7 +406,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           {/* 版本号（支持连续点击触发环境切换） */}
           <TouchableOpacity activeOpacity={0.8} onPress={handleVersionClick} style={styles.versionContainer}>
             <Text style={styles.versionText}>
-              v{appVersion} · {__DEV__ ? '开发版' : isInternalBuild() ? '内测版' : '正式版'}
+              v{appVersion} · {getBuildDisplayName()}
             </Text>
           </TouchableOpacity>
         </View>
