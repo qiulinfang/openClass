@@ -9,7 +9,7 @@ interface MathRendererProps {
 }
 
 /**
- * WebView-free message renderer shared by Web and iOS.
+ * WebView-free message renderer shared by Web, iOS, and Android.
  * It keeps AI content visible even when embedded browser scripts are blocked.
  */
 export function MathRenderer({

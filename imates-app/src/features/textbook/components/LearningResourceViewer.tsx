@@ -889,6 +889,39 @@ function LearningResourceViewerComponent({
     }
 
     if (kind === 'image') {
+      if (Platform.OS === 'android') {
+        return (
+          <WebView
+            ref={resourceWebViewRef}
+            key={`${resource.id}-${reloadKey}`}
+            source={previewSource}
+            style={styles.imageWebView}
+            originWhitelist={['*']}
+            allowFileAccess
+            allowFileAccessFromFileURLs
+            allowUniversalAccessFromFileURLs
+            scalesPageToFit
+            setBuiltInZoomControls
+            setDisplayZoomControls={false}
+            nestedScrollEnabled
+            startInLoadingState={false}
+            onLoadStart={() => setStatus('loading')}
+            onLoadProgress={({ nativeEvent }) => {
+              if (nativeEvent.progress >= 0.9) handleReady();
+            }}
+            onLoad={handleReady}
+            onError={({ nativeEvent }) =>
+              handleError(nativeEvent.description || '图片加载失败')
+            }
+            onHttpError={({ nativeEvent }) => {
+              if (nativeEvent.url === previewUri) {
+                handleError(`图片请求失败（HTTP ${nativeEvent.statusCode}）`);
+              }
+            }}
+          />
+        );
+      }
+
       return (
         <ScrollView
           style={styles.imageScroll}
@@ -1165,6 +1198,10 @@ const styles = StyleSheet.create({
   },
   imageScroll: {
     flex: 1,
+  },
+  imageWebView: {
+    flex: 1,
+    backgroundColor: '#11131D',
   },
   imageStage: {
     flexGrow: 1,
