@@ -13,7 +13,9 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Alert,
+  ScrollView,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Card } from '@/components/Card';
@@ -23,10 +25,16 @@ import {
   AppEnvType,
   getCurrentEnvType,
   getEnvDisplayName,
+  isInternalBuild,
   trySwitchEnv,
   initEnvConfig,
 } from '@/services/env-config';
 import { storage } from '@/services/storage';
+import { formatApiError, getPublicErrorMessage } from '@/services/api-error';
+import {
+  isDetailedDiagnosticsEnabled,
+  runLoginNetworkDiagnostics,
+} from '@/services/network-diagnostics';
 
 interface SavedAccount {
   account: string;
@@ -60,6 +68,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [envModalVisible, setEnvModalVisible] = useState(false);
   const [envPassword, setEnvPassword] = useState('');
   const [targetEnv, setTargetEnv] = useState<AppEnvType>(AppEnvType.RELEASE);
+
+  // 内测/开发构建的网络诊断状态。正式构建不会显示完整技术细节。
+  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [diagnosticsReport, setDiagnosticsReport] = useState('尚未运行网络诊断');
 
   // 初始化加载
   useEffect(() => {
@@ -221,11 +234,35 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       // 登录成功回调
       onLoginSuccess();
-    } catch (error: any) {
-      setErrorMessage(error?.message || '登录失败，请检查网络连接');
+    } catch (error: unknown) {
+      const publicMessage = getPublicErrorMessage(error);
+      const fullError = formatApiError(error);
+      console.error('[LoginScreen] 登录失败完整信息\n' + fullError);
+      setErrorMessage(publicMessage);
+
+      if (isDetailedDiagnosticsEnabled()) {
+        setDiagnosticsReport(fullError);
+        setDiagnosticsVisible(true);
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRunDiagnostics = async () => {
+    setDiagnosticsVisible(true);
+    setDiagnosticsLoading(true);
+    setDiagnosticsReport('正在检查登录服务器连接...');
+    try {
+      setDiagnosticsReport(await runLoginNetworkDiagnostics());
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  };
+
+  const handleCopyDiagnostics = async () => {
+    await Clipboard.setStringAsync(diagnosticsReport);
+    Alert.alert('已复制', '诊断信息已复制到剪贴板');
   };
 
   const isFormValid = account.trim() !== '' && password.trim() !== '' && !errors.account && !errors.password;
@@ -328,6 +365,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             {errorMessage ? (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorBannerText}>{errorMessage}</Text>
+                {isDetailedDiagnosticsEnabled() ? (
+                  <TouchableOpacity onPress={() => setDiagnosticsVisible(true)}>
+                    <Text style={styles.errorDetailLink}>查看完整错误</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ) : null}
 
@@ -348,11 +390,22 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </TouchableOpacity>
           </Card>
 
+          {isDetailedDiagnosticsEnabled() ? (
+            <TouchableOpacity
+              style={styles.diagnosticsButton}
+              onPress={handleRunDiagnostics}
+              disabled={diagnosticsLoading}
+            >
+              <Text style={styles.diagnosticsButtonText}>
+                {diagnosticsLoading ? '诊断中...' : '网络诊断工具'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
           {/* 版本号（支持连续点击触发环境切换） */}
           <TouchableOpacity activeOpacity={0.8} onPress={handleVersionClick} style={styles.versionContainer}>
             <Text style={styles.versionText}>
-              v{appVersion}
-              {currentEnv === AppEnvType.INTERNAL_TEST ? '\nJoined Testflight' : ''}
+              v{appVersion} · {__DEV__ ? '开发版' : isInternalBuild() ? '内测版' : '正式版'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -397,6 +450,42 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 onPress={handleEnvSwitchConfirm}
               >
                 <Text style={styles.modalConfirmText}>确认切换</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 仅开发/内测构建可见，避免正式版向普通用户暴露接口细节。 */}
+      <Modal
+        visible={diagnosticsVisible && isDetailedDiagnosticsEnabled()}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDiagnosticsVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.diagnosticsModalContent}>
+            <Text style={styles.modalTitle}>登录网络诊断</Text>
+            <Text style={styles.diagnosticsWarning}>
+              报告不包含密码，但可能包含接口地址和服务器响应。
+            </Text>
+            <ScrollView style={styles.diagnosticsScroll}>
+              <Text selectable style={styles.diagnosticsReportText}>
+                {diagnosticsReport}
+              </Text>
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelBtn]}
+                onPress={() => setDiagnosticsVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>关闭</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirmBtn]}
+                onPress={handleCopyDiagnostics}
+              >
+                <Text style={styles.modalConfirmText}>复制报告</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -568,6 +657,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  errorDetailLink: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+  },
   loginButton: {
     backgroundColor: '#3B82F6',
     borderRadius: 12,
@@ -598,7 +694,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   versionContainer: {
-    marginTop: 32,
+    marginTop: 16,
     padding: 10,
   },
   versionText: {
@@ -680,5 +776,48 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  diagnosticsButton: {
+    marginTop: 18,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+  },
+  diagnosticsButtonText: {
+    color: '#2563EB',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  diagnosticsModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '82%',
+  },
+  diagnosticsWarning: {
+    color: '#B45309',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  diagnosticsScroll: {
+    width: '100%',
+    marginBottom: 16,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
+    padding: 12,
+  },
+  diagnosticsReportText: {
+    color: '#E2E8F0',
+    fontSize: 11,
+    lineHeight: 17,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

@@ -9,14 +9,16 @@
       "distribution": "internal",
       "environment": "development",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "INTERNAL_TEST"
+        "EXPO_PUBLIC_APP_ENV": "RELEASE",
+        "EXPO_PUBLIC_BUILD_CHANNEL": "INTERNAL"
       }
     },
     "preview": {
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "INTERNAL_TEST"
+        "EXPO_PUBLIC_APP_ENV": "RELEASE",
+        "EXPO_PUBLIC_BUILD_CHANNEL": "INTERNAL"
       }
     },
     "testflight": {
@@ -24,14 +26,16 @@
       "autoIncrement": true,
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "INTERNAL_TEST"
+        "EXPO_PUBLIC_APP_ENV": "RELEASE",
+        "EXPO_PUBLIC_BUILD_CHANNEL": "INTERNAL"
       }
     },
     "production": {
       "autoIncrement": true,
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "RELEASE"
+        "EXPO_PUBLIC_APP_ENV": "RELEASE",
+        "EXPO_PUBLIC_BUILD_CHANNEL": "RELEASE"
       }
     }
   },

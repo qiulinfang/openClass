@@ -6,6 +6,11 @@ export enum AppEnvType {
   INTERNAL_TEST = 'INTERNAL_TEST',
 }
 
+export enum AppBuildChannel {
+  INTERNAL = 'INTERNAL',
+  RELEASE = 'RELEASE',
+}
+
 const STORAGE_KEY = 'app_env_type_v2';
 const LEGACY_STORAGE_KEY = 'app_env_type';
 const TEST_ENV_PASSWORD = '985211';
@@ -17,6 +22,9 @@ const parseEnvType = (value?: string): AppEnvType | null =>
 
 // Expo 会在构建时内联 EXPO_PUBLIC_*。EAS 测试/正式包以此为权威环境来源。
 const bundledEnvType = parseEnvType(process.env.EXPO_PUBLIC_APP_ENV);
+const bundledBuildChannel = process.env.EXPO_PUBLIC_BUILD_CHANNEL === AppBuildChannel.INTERNAL
+  ? AppBuildChannel.INTERNAL
+  : AppBuildChannel.RELEASE;
 const lockedRuntimeEnv = bundledEnvType;
 const runtimeDefaultEnv = bundledEnvType ??
   (__DEV__ ? AppEnvType.INTERNAL_TEST : AppEnvType.RELEASE);
@@ -76,6 +84,11 @@ export function getCurrentEnvType(): AppEnvType {
  * 获取当前环境配置
  */
 export const getIsInternalTest = (): boolean => getCurrentEnvType() === AppEnvType.INTERNAL_TEST;
+
+export const getBuildChannel = (): AppBuildChannel => bundledBuildChannel;
+
+export const isInternalBuild = (): boolean =>
+  __DEV__ || bundledBuildChannel === AppBuildChannel.INTERNAL;
 
 /**
  * 获取环境显示名称

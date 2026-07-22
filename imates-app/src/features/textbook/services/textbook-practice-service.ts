@@ -152,7 +152,7 @@ export class TextbookPracticeService {
     const payload = await this.post(
       Platform.OS === 'web'
         ? '/knowledge'
-        : 'http://www.imates.com.cn:8090/knowledge',
+        : 'https://www.imates.com.cn/knowledge',
       {
         subject: this.normalizeSubject(subject),
         param: [{ textbook_id: textbookId, section_id: sectionId }],

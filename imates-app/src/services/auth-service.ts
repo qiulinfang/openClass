@@ -1,6 +1,7 @@
 import { storage } from './storage';
 import { getXuebanApiUrl } from './api-url';
 import { HomeworkService } from './homework-service';
+import { ApiRequestError } from './api-error';
 
 export interface UserInfo {
   id: string;
@@ -61,31 +62,87 @@ export class AuthService {
    * 学伴真实登录
    */
   public async loginXueban(account: string, password: string): Promise<string> {
-    console.log('[AuthService] 正在请求真实登录接口...', { account });
-
     const baseUrl = this.getApiBaseUrl();
     const url = `${baseUrl}/admin/login`;
+    const method = 'POST';
+    const requestId = `login-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const startedAt = Date.now();
+    console.log('[AuthService] 登录请求开始', { requestId, url, account });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        account,
-        password,
-      }),
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': requestId,
+        },
+        body: JSON.stringify({
+          account,
+          password,
+        }),
+      });
+    } catch (cause) {
+      const causeError = cause instanceof Error ? cause : new Error(String(cause));
+      const error = new ApiRequestError('登录请求未到达服务器', {
+        requestId,
+        method,
+        url,
+        durationMs: Date.now() - startedAt,
+        causeName: causeError.name,
+        causeMessage: causeError.message,
+      });
+      console.error('[AuthService] 登录网络错误', error.details);
+      throw error;
+    }
+
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
     });
-
-    if (!response.ok) {
-      throw new Error(`登录接口网络异常 (HTTP ${response.status})`);
+    const responseBody = await response.text();
+    let resJson: any;
+    try {
+      resJson = responseBody ? JSON.parse(responseBody) : null;
+    } catch (cause) {
+      const causeError = cause instanceof Error ? cause : new Error(String(cause));
+      throw new ApiRequestError('登录接口返回了无法解析的数据', {
+        requestId,
+        method,
+        url,
+        durationMs: Date.now() - startedAt,
+        status: response.status,
+        statusText: response.statusText,
+        responseHeaders,
+        responseBody,
+        causeName: causeError.name,
+        causeMessage: causeError.message,
+      });
     }
 
-    const resJson = await response.json();
-    if (!resJson.success) {
-      throw new Error(resJson.message || '登录失败，请检查账号密码');
+    if (!response.ok || !resJson?.success) {
+      const error = new ApiRequestError(
+        resJson?.message || `登录接口异常 (HTTP ${response.status})`,
+        {
+          requestId,
+          method,
+          url,
+          durationMs: Date.now() - startedAt,
+          status: response.status,
+          statusText: response.statusText,
+          responseHeaders,
+          responseBody,
+        },
+      );
+      console.error('[AuthService] 登录业务错误', error.details);
+      throw error;
     }
 
+    console.log('[AuthService] 登录请求成功', {
+      requestId,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+    });
     const token = resJson.data?.data?.token || resJson.data?.token;
     if (!token) {
       throw new Error('未获取到有效的 Token');

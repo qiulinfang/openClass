@@ -1,7 +1,7 @@
-import { Platform } from 'react-native';
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
 import { authService } from './auth-service';
+import { getXuebanApiUrl } from './api-url';
 
 export interface ChatMessage {
   id: string;
@@ -34,15 +34,11 @@ export interface AiConversationRequest {
 
 export class AiChatService {
   /**
-   * 教材截图问答与 Web 端保持相同路由。
-   * Web 必须走 Metro/Nginx 同源代理，原生端继续使用原有学伴服务地址。
+   * AI 请求统一走学伴 HTTPS 路由。path 可能已带 /xb-release 或 /xb-test，
+   * 先移除环境前缀，再由统一 URL helper 按当前接口环境补回。
    */
   private static getConversationApiUrl(path: string): string {
-    if (Platform.OS === 'web') return path;
-    const port =
-      getCurrentEnvType() === AppEnvType.INTERNAL_TEST ? '58443' : '8222';
-    const endpoint = path.split('/ai/2.0/')[1] || 'chats';
-    return `http://www.imates.com.cn:${port}/blw-edu-service-alc/ai/2.0/${endpoint}`;
+    return getXuebanApiUrl(path.replace(/^\/xb-(?:test|release)/, ''));
   }
 
   /**

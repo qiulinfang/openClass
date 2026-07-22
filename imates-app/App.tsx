@@ -10,6 +10,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DeviceEventEmitter, Alert, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NetworkDebugOverlay } from '@/components/NetworkDebugOverlay';
+import { installNetworkDebugger } from '@/services/network-debugger';
+
+installNetworkDebugger();
 
 const Stack = createNativeStackNavigator();
 
@@ -17,6 +21,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppContent />
+      <NetworkDebugOverlay />
     </SafeAreaProvider>
   );
 }

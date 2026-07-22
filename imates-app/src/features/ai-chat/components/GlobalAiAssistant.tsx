@@ -36,7 +36,9 @@ interface GlobalAiAssistantProps {
   prefillStorageKey?: string;
 }
 
-const OTTER_ANIMATION = require('../../../../assets/ai-otter.webp');
+// Android 构建未启用动态 WebP 解码；统一使用已启用原生支持的 GIF。
+// 避免 Metro 同时打包同名 GIF/WebP 时产生 Android drawable 重名冲突。
+const OTTER_ANIMATION = require('../../../../assets/ai-otter.gif');
 const FLOATING_WIDTH = 76;
 const FLOATING_HEIGHT = 86;
 // 对齐 Web `.textbookip-float`：图片宽 120，right: -64，仅保留左侧半身在屏内。
@@ -382,6 +384,12 @@ function GlobalAiAssistantComponent({
                 ]}
                 resizeMode="contain"
                 fadeDuration={0}
+                onError={(event) => {
+                  console.error('[GlobalAiAssistant] 海獭资源加载失败', {
+                    platform: Platform.OS,
+                    message: event.nativeEvent.error,
+                  });
+                }}
               />
             </Animated.View>
           </Animated.View>

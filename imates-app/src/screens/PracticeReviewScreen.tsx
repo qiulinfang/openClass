@@ -19,6 +19,7 @@ import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-ser
 import { ExerciseService } from '@/services/exercise-service';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { storage } from '@/services/storage';
+import { getXuebanApiUrl } from '@/services/api-url';
 import { getCurrentEnvType, AppEnvType } from '@/services/env-config';
 import { GlobalAiAssistant, type AiChatContext } from '@/features/ai-chat';
 
@@ -157,15 +158,10 @@ export function PracticeReviewScreen() {
     setShowSimilarModal(true);
     try {
       const token = await storage.getItem('XUEBAN_TOKEN') || '';
-      const env = getCurrentEnvType();
-      const baseUrl = env === AppEnvType.INTERNAL_TEST
-        ? 'http://www.imates.com.cn:58443/blw-edu-service-alc'
-        : 'http://www.imates.com.cn:8222/blw-edu-service-alc';
-      
       const subjId = homeworkSubject || '2';
       const subjectName = (SUBJECT_ID_TO_ENGLISH[subjId] || 'math').toLowerCase();
       
-      const response = await fetch(`${baseUrl}/permission/topicAndAck`, {
+      const response = await fetch(getXuebanApiUrl('/permission/topicAndAck'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

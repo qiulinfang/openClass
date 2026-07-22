@@ -8,16 +8,16 @@ const normalizePath = (path: string): string =>
   path === '' || path.startsWith('/') ? path : `/${path}`;
 
 /**
- * 学伴接口：Web 走 Metro/Nginx 同源代理，原生端直连对应环境端口。
- * 同源代理可确保浏览器真正发送 Token、sa-token、authorization 请求头。
+ * 学伴接口：Web 走 Metro/Nginx 同源代理，原生端走同一套 HTTPS 路由。
+ * Android release 默认禁止 HTTP 明文流量，登录凭据也不应通过 HTTP 发送。
  */
 export const getXuebanApiUrl = (path: string): string => {
   const normalizedPath = normalizePath(path);
+  const routedPath = `${isInternalTest() ? '/xb-test' : '/xb-release'}${normalizedPath}`;
   if (Platform.OS === 'web') {
-    return `${isInternalTest() ? '/xb-test' : '/xb-release'}${normalizedPath}`;
+    return routedPath;
   }
-  const port = isInternalTest() ? '58443' : '8222';
-  return `http://www.imates.com.cn:${port}/blw-edu-service-alc${normalizedPath}`;
+  return `https://www.imates.com.cn${routedPath}`;
 };
 
 /**
