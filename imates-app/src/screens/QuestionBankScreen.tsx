@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     height: 44,
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 16,
     ...Platform.select({
       ios: {
@@ -94,8 +95,12 @@ const styles = StyleSheet.create({
     }),
   },
   searchInput: {
+    width: '100%',
+    height: '100%',
     fontSize: 14,
     color: '#111827',
+    textAlign: 'center',
+    textAlignVertical: 'center',
     padding: 0, // Reset default padding in Android
   },
   tabBarWrapper: {

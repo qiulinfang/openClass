@@ -3,6 +3,7 @@ import { getXuebanApiUrl } from './api-url';
 
 export interface ExerciseItem {
   id: string;
+  bmNo?: string; // 题目真正的题号 bmNo
   title: string; // 题目简短标题
   subject: string; // 学科数字代码 (1-9)
   content: string; // 题干富文本 / LaTeX
@@ -85,6 +86,7 @@ export class ExerciseService {
         const list = resJson?.data?.questionsList || [];
         return list.map((item: any) => ({
           id: String(item.id || item.bmNo || ''),
+          bmNo: String(item.bmNo || item.id || ''),
           title: item.title || item.question || '自选练习题',
           subject: this.normalizeSubjectId(item.subject || subj),
           content: item.question || item.content || item.title || '',

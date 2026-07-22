@@ -364,7 +364,8 @@ export function MistakeBookScreen({ onAskAI, mode, searchQuery = '' }: MistakeBo
             onPress={() => {
               const detail: HomeworkQuestionDetail = {
                 id: item.id,
-                questionId: item.id,
+                bmNo: item.bmNo || item.id,
+                questionId: item.bmNo || item.id,
                 questionContent: item.content,
                 questionAnswer: item.answer || '',
                 questionAnalysis: item.analysis || '',

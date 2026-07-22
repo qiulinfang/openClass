@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Card } from '@/components/Card';
 import { QuestionViewer } from '@/components/QuestionViewer';
 import { MathRenderer } from '@/components/MathRenderer';
+import { AnswerCheckModal } from '@/components/AnswerCheckModal';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { MistakeService } from '@/services/mistake-service';
 import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
@@ -81,6 +82,8 @@ export function HomeworkSolveScreen() {
   // 是否显示答题卡检查面板
   const [showCheckPanel, setShowCheckPanel] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 作业提交状态：未提交前隐藏 AI 悬浮窗，提交成功后才显示海獭悬浮窗
+  const [hasSubmitted, setHasSubmitted] = useState<boolean>(!!isSubmitted);
 
   // 计算未答题数量
   const unansweredCount = questions.filter(q => {
@@ -333,15 +336,9 @@ export function HomeworkSolveScreen() {
     }));
   };
 
-  // 校验当前回答，进行静态提醒
+  // 点击检查按钮：开启全题填写情况预览 Modal
   const handleCheck = () => {
-    const textAns = (answers[currentQuestion.questionId] || '').trim();
-    const imgAns = (answersImage[currentQuestion.questionId] || '').trim();
-    if (textAns === '' && imgAns === '') {
-      Alert.alert('提醒', '您目前还没有在该题写下任何作答或拍摄过程哦 ✏️');
-    } else {
-      Alert.alert('已作答', '当前题目已填充作答，确认提交前可以继续修改。');
-    }
+    setShowCheckPanel(true);
   };
 
   const handleClearAllCurrent = () => {
@@ -398,6 +395,7 @@ export function HomeworkSolveScreen() {
       });
 
       if (success) {
+        setHasSubmitted(true);
         // 同步存入本地错题本
         for (const q of questions) {
           const textAns = answers[q.questionId] || '';
@@ -517,8 +515,8 @@ export function HomeworkSolveScreen() {
       <View style={{ width: '100%' }}>
         {interactionNode}
 
-        {/* 如果该题已经作答（有历史记录），且存在答案/解析，则在下方显示参考答案与解析 */}
-        {hasHistory && (
+        {/* 作业提交之后，才在下方显示参考答案与解析 */}
+        {hasSubmitted && (
           <View style={styles.correctAnswerSection}>
             <Text style={styles.correctAnswerTitle}>✅ 参考答案：</Text>
             <Card style={styles.correctAnswerCard}>
@@ -599,82 +597,39 @@ export function HomeworkSolveScreen() {
           </TouchableOpacity>
         </View>
 
-        {!isSubmitted && (
+        {!hasSubmitted && (
           <>
             <TouchableOpacity style={styles.checkBtn} onPress={handleCheck}>
-              <Text style={styles.checkBtnText}>检查</Text>
+              <Text style={styles.checkBtnText}>📋 检查</Text>
             </TouchableOpacity>
 
-            {currentIndex === questions.length - 1 && (
-              <TouchableOpacity
-                style={styles.submitBtnStyle}
-                disabled={isSubmitting}
-                onPress={handleSubmit}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitBtnTextStyle}>确认提交</Text>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.submitBtnStyle}
+              disabled={isSubmitting}
+              onPress={handleSubmit}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitBtnTextStyle}>确认提交</Text>
+              )}
+            </TouchableOpacity>
           </>
         )}
       </View>
 
-      {/* 答题卡检查面板 (Bottom Sheet) */}
-      {showCheckPanel && (
-        <View style={styles.modalBackdrop}>
-          <TouchableOpacity style={styles.backdropClickArea} onPress={() => setShowCheckPanel(false)} />
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>答题卡检查 📋</Text>
-              <TouchableOpacity onPress={() => setShowCheckPanel(false)} style={styles.modalCloseBtn}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSummary}>
-              共 {questions.length} 题，已答 <Text style={{ color: LightColors.success, fontWeight: 'bold' }}>{questions.length - unansweredCount}</Text> 题，未答 <Text style={{ color: LightColors.danger, fontWeight: 'bold' }}>{unansweredCount}</Text> 题
-            </Text>
-
-            <ScrollView contentContainerStyle={styles.gridContainer} showsVerticalScrollIndicator={false}>
-              {questions.map((q, idx) => {
-                const textAns = (answers[q.questionId] || '').trim();
-                const imgAns = (answersImage[q.questionId] || '').trim();
-                const isAnswered = textAns !== '' || imgAns !== '';
-                const isCurrent = idx === currentIndex;
-
-                return (
-                  <TouchableOpacity
-                    key={q.questionId}
-                    style={[
-                      styles.gridItem,
-                      isAnswered ? styles.gridItemAnswered : styles.gridItemUnanswered,
-                      isCurrent && styles.gridItemCurrent
-                    ]}
-                    onPress={() => {
-                      setCurrentIndex(idx);
-                      setShowCheckPanel(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.gridItemText,
-                        isAnswered ? styles.gridItemTextAnswered : styles.gridItemTextUnanswered,
-                        isCurrent && styles.gridItemTextCurrent
-                      ]}
-                    >
-                      {idx + 1}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      )}
-      {questionAiContext ? (
+      {/* 答题卡全题作答检查组件 */}
+      <AnswerCheckModal
+        visible={showCheckPanel}
+        onClose={() => setShowCheckPanel(false)}
+        questions={questions}
+        currentIndex={currentIndex}
+        answers={answers}
+        answersImage={answersImage}
+        onSelectQuestion={setCurrentIndex}
+      />
+      {/* 作业未提交前严禁显示 AI 问答悬浮窗；提交完成之后再显示海獭悬浮图标 */}
+      {hasSubmitted && questionAiContext ? (
         <GlobalAiAssistant
           hidden={showCheckPanel}
           context={questionAiContext}
@@ -1089,11 +1044,27 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: 'bold',
   },
-  modalSummary: {
+  statusLegendRow: {
+    marginBottom: 14,
+  },
+  modalSummaryText: {
     fontSize: 13,
+    fontWeight: '600',
     color: '#475569',
-    marginBottom: 16,
-    lineHeight: 18,
+    marginBottom: 8,
+  },
+  legendBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
   gridContainer: {
     flexDirection: 'row',
@@ -1110,29 +1081,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 8,
   },
-  gridItemAnswered: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  gridItemComplete: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderColor: '#10B981',
   },
-  gridItemUnanswered: {
-    backgroundColor: 'rgba(239, 68, 68, 0.04)',
-    borderColor: '#E2E8F0',
+  gridItemHalf: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: '#F59E0B',
+  },
+  gridItemNone: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: '#EF4444',
     borderStyle: 'dashed',
   },
   gridItemCurrent: {
     borderColor: '#4F46E5',
     borderWidth: 2,
-    backgroundColor: 'rgba(79, 70, 229, 0.08)',
   },
   gridItemText: {
     fontSize: 14,
     fontWeight: '700',
   },
-  gridItemTextAnswered: {
-    color: '#10B981',
+  gridItemTextComplete: {
+    color: '#059669',
   },
-  gridItemTextUnanswered: {
-    color: '#94A3B8',
+  gridItemTextHalf: {
+    color: '#D97706',
+  },
+  gridItemTextNone: {
+    color: '#DC2626',
   },
   gridItemTextCurrent: {
     color: '#4F46E5',

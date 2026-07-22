@@ -80,10 +80,11 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
   const handleSelectQuestion = (q: ExerciseItem) => {
     const list: HomeworkQuestionDetail[] = filteredQuestions.map(item => ({
       id: item.id,
-      questionId: item.id,
+      bmNo: item.bmNo || item.id,
+      questionId: item.bmNo || item.id,
       questionContent: item.content,
       questionAnswer: item.answer,
-      questionAnalysis: '',
+      questionAnalysis: item.analysis || '',
     }));
     
     const clickedIndex = filteredQuestions.findIndex(item => item.id === q.id);
@@ -119,10 +120,6 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
             <Text style={[styles.filterChipText, !selectedSubjectFilter && styles.activeFilterChipText]}>全部学科</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.filterChip}>
-            <Text style={styles.filterChipText}>本周</Text>
-          </TouchableOpacity>
-
           {/* 动态渲染有习题数据的学科筛选 */}
           {availableSubjectIds.map(id => {
             const label = SUBJECT_ID_TO_NAME[id] || `学科 ${id}`;
@@ -150,36 +147,24 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
         windowSize={11}
         removeClippedSubviews={false}
         updateCellsBatchingPeriod={100}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const subjectName = SUBJECT_ID_TO_NAME[item.subject] || '学科';
           const subStyle = getSubjectStyle(item.subject);
-
-          // 拟合 mock 题数及难度等元数据，匹配效果图
-          const totalCount = ((item.id.charCodeAt(0) || 0) % 3 + 2) * 5; // 10, 15, 或 20 题
-          const difficultyText = (() => {
-            const diffIndex = (item.id.charCodeAt(1) || 0) % 3;
-            if (diffIndex === 0) return '简单';
-            if (diffIndex === 1) return '中等';
-            return '较难';
-          })();
-          const completedCount = (() => {
-            const comp = (item.id.charCodeAt(2) || 0) % (totalCount + 1);
-            return Math.min(totalCount, comp === 0 ? totalCount - 2 : comp);
-          })();
-
-          const progressPercent = completedCount / totalCount;
 
           return (
             <TouchableOpacity onPress={() => handleSelectQuestion(item)} activeOpacity={0.85}>
               <View style={styles.questionCard}>
-                {/* 右上角精致小闪电背景角 */}
-                <View style={styles.cardCornerBadge}>
-                  <Text style={styles.cardCornerBadgeText}>⚡</Text>
+                {/* 题目卡片头部：题目序号与右上角闪电标记 */}
+                <View style={styles.cardHeader}>
+                  <Text style={styles.questionIndexText}>题目 {index + 1}</Text>
+                  <View style={styles.cardCornerBadge}>
+                    <Text style={styles.cardCornerBadgeText}>⚡</Text>
+                  </View>
                 </View>
 
-                {/* 题目内容 LaTeX 渲染 */}
+                {/* 题目内容 LaTeX 渲染区 (固定最大高度，溢出隐藏) */}
                 <View style={styles.questionPreview} pointerEvents="none">
-                  <MathRenderer content={item.content} textColor="#4B5563" />
+                  <MathRenderer content={item.content} textColor="#334155" />
                 </View>
 
                 {/* 跳转行动及学科、来源标签 */}
@@ -257,18 +242,20 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   questionCard: {
+    height: 180,
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
+    justifyContent: 'space-between',
     position: 'relative',
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#6366F1',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
       },
       android: {
         elevation: 2,
@@ -276,32 +263,27 @@ const styles = StyleSheet.create({
     }),
   },
   cardCornerBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
     backgroundColor: '#EEF2FF',
-    borderBottomLeftRadius: 8,
-    width: 20,
-    height: 20,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardCornerBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     color: '#4F46E5',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  questionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    flex: 1,
-    marginRight: 12,
+  questionIndexText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   subjectBadge: {
     borderRadius: 8,
@@ -330,30 +312,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
-  },
-  metaCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
   questionPreview: {
-    marginBottom: 12,
+    flex: 1,
+    maxHeight: 84,
+    overflow: 'hidden',
+    justifyContent: 'flex-start',
+    marginTop: 2,
+    marginBottom: 6,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderColor: '#F3F4F6',
-    paddingTop: 12,
+    borderColor: '#F1F5F9',
+    paddingTop: 10,
   },
   progressArea: {
     flexDirection: 'row',

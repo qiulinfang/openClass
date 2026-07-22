@@ -427,6 +427,7 @@ export class HomeworkService {
 
 export interface HomeworkQuestionDetail {
   id: string;
+  bmNo?: string;
   questionId: string;
   questionContent: string;
   questionAnswer?: string;

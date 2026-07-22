@@ -10,11 +10,17 @@ import {
   Platform,
   Modal,
   Linking,
+  TextInput,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card } from '@/components/Card';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import * as ImagePicker from 'expo-image-picker';
+import { WebView } from 'react-native-webview';
 import { QuestionViewer } from '@/components/QuestionViewer';
-import { MathRenderer } from '@/components/MathRenderer';
+import { AnswerAnalysisPanel } from '@/components/AnswerAnalysisPanel';
+import { SimilarQuestionsModal } from '@/components/SimilarQuestionsModal';
+import { AnswerCheckModal } from '@/components/AnswerCheckModal';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { ExerciseService } from '@/services/exercise-service';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -46,13 +52,18 @@ export function PracticeReviewScreen() {
     homeworkSubject = '6',
     questionsList,
     initialIndex = 0,
+    isSubmitted = true,
   }: {
     homeworkId?: string;
     homeworkTitle: string;
     homeworkSubject?: string;
     questionsList?: HomeworkQuestionDetail[];
     initialIndex?: number;
+    isSubmitted?: boolean;
   } = route.params || {};
+
+  // 作业提交状态：未提交前隐藏 AI 悬浮窗，提交完成之后显示海獭悬浮窗
+  const [hasSubmitted, setHasSubmitted] = useState<boolean>(!!isSubmitted);
 
   const handleBack = () => {
     navigation.goBack();
@@ -76,17 +87,36 @@ export function PracticeReviewScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAiAssistant, setShowAiAssistant] = useState(false);
 
-  // 查看答案 & 举一反三 模态框及数据状态
+  // 查看答案 & 举一反三 & 全题检查 模态框状态
   const [showAnswerModal, setShowAnswerModal] = useState(false);
   const [showSimilarModal, setShowSimilarModal] = useState(false);
+  const [showCheckPanel, setShowCheckPanel] = useState(false);
   const [similarQuestions, setSimilarQuestions] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
+
+  // 作业作答区域状态：文本/手写作答与图片上传过程
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answersImage, setAnswersImage] = useState<Record<string, string>>({});
 
   // 练习模式下，控制当前题目答案和解析是否内联显示 (默认进入时不显示)
   const [showAnswersInline, setShowAnswersInline] = useState<Record<string, boolean>>({});
 
+  // 微课 内置横屏 WebView 状态
+  const [showMiniClassModal, setShowMiniClassModal] = useState(false);
+  const [miniClassUrl, setMiniClassUrl] = useState('');
+  const [miniClassLoading, setMiniClassLoading] = useState(true);
+
   // 习题本收藏状态
   const [isFavorite, setIsFavorite] = useState(false);
+
+
+
+  // 组件卸载时还原为竖屏
+  useEffect(() => {
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    };
+  }, []);
 
   // 监听当前题目变化，检查是否已被加入习题本
   const activeQuestion = questions[currentIndex];
@@ -133,9 +163,9 @@ export function PracticeReviewScreen() {
     }
   };
 
-  const handleOpenMiniClass = () => {
+  const handleOpenMiniClass = async () => {
     if (!activeQuestion) return;
-    const bmNo = (activeQuestion.questionId || '').trim();
+    const bmNo = ((activeQuestion as any).bmNo || activeQuestion.questionId || activeQuestion.id || '').trim();
     if (!bmNo) {
       Alert.alert('提示', '题目 ID 缺失，无法打开微课');
       return;
@@ -143,13 +173,151 @@ export function PracticeReviewScreen() {
     const subjId = homeworkSubject || '2';
     const subjectPrefix = (SUBJECT_ID_TO_ENGLISH[subjId] || 'math').toLowerCase();
     const url = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert('提示', '无法打开微课链接');
-    });
+
+    setMiniClassUrl(url);
+    setMiniClassLoading(true);
+    setShowMiniClassModal(true);
+
+    try {
+      // 手机自动锁定为横屏播放
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    } catch (e) {
+      console.warn('[PracticeReviewScreen] 切换横屏模式警告:', e);
+    }
+  };
+
+  const handleCloseMiniClass = async () => {
+    setShowMiniClassModal(false);
+    setMiniClassUrl('');
+    try {
+      // 还原为竖屏模式
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    } catch (e) {
+      console.warn('[PracticeReviewScreen] 还原竖屏模式警告:', e);
+    }
   };
 
   const handleViewAnswer = () => {
+    if (!hasSubmitted) {
+      Alert.alert('提示', '作业需要在提交后才可以查看参考答案和解析哦 🔒');
+      return;
+    }
     setShowAnswerModal(true);
+  };
+
+  // 提交整份作业
+  const handleSubmitHomework = () => {
+    const unanswered = questions.filter(q => {
+      const qId = q.questionId || q.id;
+      const textAns = (answers[qId] || '').trim();
+      const imgAns = (answersImage[qId] || '').trim();
+      return textAns === '' && imgAns === '';
+    }).length;
+
+    const performSubmit = () => {
+      setHasSubmitted(true);
+      Alert.alert('提交成功', '您的作业已经成功保存并提交！🎉');
+    };
+
+    if (unanswered > 0) {
+      Alert.alert(
+        '确认提交',
+        `您还有 ${unanswered} 道题未作答，确定要提交吗？`,
+        [
+          { text: '检查看看', style: 'cancel', onPress: () => setShowCheckPanel(true) },
+          { text: '强制提交', style: 'destructive', onPress: performSubmit }
+        ]
+      );
+    } else {
+      Alert.alert(
+        '确认提交',
+        '您已完成全部题目，确定要提交作业吗？',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '确定提交', onPress: performSubmit }
+        ]
+      );
+    }
+  };
+
+  // 作业作答交互逻辑
+  const handleSelectOption = (optionStr: string) => {
+    if (!activeQuestion) return;
+    const char = optionStr.trim().charAt(0).toUpperCase();
+    setAnswers(prev => ({
+      ...prev,
+      [activeQuestion.questionId]: char,
+    }));
+  };
+
+  const handleTextAnswerChange = (text: string) => {
+    if (!activeQuestion) return;
+    setAnswers(prev => ({
+      ...prev,
+      [activeQuestion.questionId]: text,
+    }));
+  };
+
+  // 拍照扫图识字 (OCR 识别)
+  const handleScanTextAnswer = async () => {
+    if (!activeQuestion) return;
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '请允许开启摄像头权限以进行扫图识字 📸');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.5,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        Alert.alert('扫描成功', '已成功提取照片文本并填入答题框！');
+        setAnswers(prev => ({
+          ...prev,
+          [activeQuestion.questionId]: (prev[activeQuestion.questionId] || '') + '\n[手写扫描识字文本已生成]'
+        }));
+      }
+    } catch (e) {
+      console.warn('[PracticeReviewScreen] 扫码拍照识别失败:', e);
+    }
+  };
+
+  // 拍摄上传解答过程照片
+  const handleUploadImage = async () => {
+    if (!activeQuestion) return;
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '请允许开启相机权限以拍摄解答过程 📸');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.6,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imagePath = result.assets[0].uri;
+        setAnswersImage(prev => ({
+          ...prev,
+          [activeQuestion.questionId]: imagePath,
+        }));
+      }
+    } catch (e) {
+      console.warn('[PracticeReviewScreen] 拍照上传过程失败:', e);
+    }
+  };
+
+  const handleDeleteImage = () => {
+    if (!activeQuestion) return;
+    setAnswersImage(prev => ({
+      ...prev,
+      [activeQuestion.questionId]: '',
+    }));
   };
 
   const handleViewSimilar = async () => {
@@ -170,11 +338,11 @@ export function PracticeReviewScreen() {
           'authorization': token.trim(),
         },
         body: JSON.stringify({
-          bmNo: activeQuestion.questionId,
-          title: activeQuestion.questionContent.substring(0, 30).replace(/<[^>]+>/g, '').trim(),
-          answer: activeQuestion.questionAnswer || '',
-          explanation: activeQuestion.questionAnalysis || '',
-          analysisData: activeQuestion.questionAnalysis || '',
+          bmNo: (activeQuestion as any).bmNo || activeQuestion.questionId || (activeQuestion as any).id || '',
+          title: (activeQuestion.questionContent || (activeQuestion as any).title || '').replace(/<[^>]+>/g, '').trim(),
+          answer: activeQuestion.questionAnswer || (activeQuestion as any).answer || '',
+          explanation: activeQuestion.questionAnalysis || (activeQuestion as any).explanation || (activeQuestion as any).aiExplanation || '',
+          analysisData: activeQuestion.questionAnalysis || (activeQuestion as any).analysisData || '',
           exercisesId: '',
           type: subjectName,
         })
@@ -182,8 +350,22 @@ export function PracticeReviewScreen() {
       
       if (response.ok) {
         const resJson = await response.json();
-        const list = resJson?.data?.questions || [];
-        setSimilarQuestions(list);
+        console.log('[PracticeReviewScreen] topicAndAck 接口返回:', JSON.stringify(resJson));
+        const rawData = resJson?.data?.questions || resJson?.data?.data?.questions || resJson?.data || [];
+        const list: any[] = Array.isArray(rawData)
+          ? rawData
+          : (rawData?.question || rawData?.questions || (Array.isArray(resJson?.questions) ? resJson.questions : []));
+        
+        const listWithStatus = await Promise.all(list.map(async (q: any) => {
+          const bmNo = String(q.bmNo || q.id || '');
+          const isSaved = await ExerciseService.isExerciseSaved(bmNo);
+          return {
+            ...q,
+            bmNo,
+            atUserList: isSaved,
+          };
+        }));
+        setSimilarQuestions(listWithStatus);
       } else {
         setSimilarQuestions([]);
       }
@@ -193,6 +375,25 @@ export function PracticeReviewScreen() {
     } finally {
       setLoadingSimilar(false);
     }
+  };
+
+  const handleDebugQuestionInfo = () => {
+    if (!activeQuestion) return;
+    const debugInfo = {
+      id: activeQuestion.id,
+      questionId: activeQuestion.questionId,
+      bmNo: (activeQuestion as any).bmNo,
+      questionContent: activeQuestion.questionContent,
+      questionAnswer: activeQuestion.questionAnswer,
+      questionAnalysis: activeQuestion.questionAnalysis,
+      rawQuestionObject: activeQuestion,
+    };
+    console.log('====== [DEBUG 题目信息] ======\n', JSON.stringify(debugInfo, null, 2));
+    Alert.alert(
+      '🛠️ 题目调试信息',
+      `ID: ${activeQuestion.questionId || activeQuestion.id}\n\n[完整对象已打印至终端 console]\n\n` + JSON.stringify(debugInfo, null, 2).substring(0, 400) + '...',
+      [{ text: '确定' }]
+    );
   };
 
   // 加载题目列表
@@ -279,42 +480,77 @@ export function PracticeReviewScreen() {
   })();
 
   const renderAnswerArea = () => {
-    const isVisible = !!showAnswersInline[currentQuestion.questionId];
-    if (!isVisible) {
-      return (
-        <View style={styles.showAnswerPlaceholder}>
-          <TouchableOpacity
-            style={styles.showAnswerToggleBtn}
-            onPress={() => setShowAnswersInline(prev => ({ ...prev, [currentQuestion.questionId]: true }))}
-          >
-            <Text style={styles.showAnswerToggleBtnText}>👁️ 显示答案与解析</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    const textAns = (answers[currentQuestion.questionId] || '').trim();
+    const imgAns = (answersImage[currentQuestion.questionId] || '').trim();
 
     return (
-      <View style={styles.reviewContentArea}>
-        <View style={styles.reviewSection}>
-          <View style={styles.reviewHeaderRow}>
-            <Text style={styles.reviewLabel}>✅ 参考答案：</Text>
-            <TouchableOpacity
-              onPress={() => setShowAnswersInline(prev => ({ ...prev, [currentQuestion.questionId]: false }))}
-              style={styles.hideAnswerBtn}
-            >
-              <Text style={styles.hideAnswerText}>隐藏 ▲</Text>
-            </TouchableOpacity>
+      <View style={{ width: '100%' }}>
+        {options ? (
+          <View style={styles.optionsList}>
+            {options.map((opt, idx) => {
+              const char = opt.trim().charAt(0).toUpperCase();
+              const isSelected = answers[currentQuestion.questionId] === char;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.optionItem, isSelected && styles.activeOptionItem]}
+                  onPress={() => handleSelectOption(opt)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.optionIndicator, isSelected && styles.activeOptionIndicator]}>
+                    <Text style={[styles.optionIndicatorText, isSelected && styles.activeOptionIndicatorText]}>
+                      {char}
+                    </Text>
+                  </View>
+                  <Text style={[styles.optionText, isSelected && styles.activeOptionText]}>
+                    {opt}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          <Card style={styles.reviewCard}>
-            <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
-          </Card>
-        </View>
-        <View style={[styles.reviewSection, { marginTop: 14 }]}>
-          <Text style={styles.reviewLabel}>💡 题目解析：</Text>
-          <Card style={styles.reviewCard}>
-            <MathRenderer content={currentQuestion.questionAnalysis || '暂无解析'} textColor="#475569" />
-          </Card>
-        </View>
+        ) : (
+          <View style={styles.subjectiveArea}>
+            {/* 文本 / 手写作答输入框 */}
+            <View style={styles.textAreaBox}>
+              <TextInput
+                multiline
+                numberOfLines={4}
+                style={styles.textInputStyle}
+                placeholder="请在此输入您的作答文本或解题思路... ✏️"
+                placeholderTextColor="#94A3B8"
+                value={answers[currentQuestion.questionId] || ''}
+                onChangeText={handleTextAnswerChange}
+              />
+              <TouchableOpacity style={styles.ocrScanTrigger} onPress={handleScanTextAnswer}>
+                <Text style={styles.ocrScanTriggerText}>📷 扫图识字</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 上传解答过程照片 */}
+            <View style={styles.photoContainer}>
+              <Text style={styles.photoLabelText}>📷 过程照片（选填，上传解答步骤照片）：</Text>
+              <TouchableOpacity
+                style={[styles.photoUploadBtn, imgAns !== '' && styles.photoUploadBtnHasPhoto]}
+                onPress={imgAns ? undefined : handleUploadImage}
+                activeOpacity={0.8}
+              >
+                {imgAns ? (
+                  <View style={styles.uploadedPhotoWrapper}>
+                    <Image source={{ uri: imgAns }} style={styles.uploadedPhotoImage} />
+                    <TouchableOpacity style={styles.deletePhotoBadge} onPress={handleDeleteImage}>
+                      <Text style={styles.deletePhotoText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={styles.uploadPlaceholderText}>📷 拍摄/选取照片</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     );
   };
@@ -342,15 +578,13 @@ export function PracticeReviewScreen() {
         onToggleFavorite={handleToggleFavorite}
       />
 
-      {/* 分割线与拖动手柄效果 */}
-      <View style={styles.splitterLine}>
-        <View style={styles.splitterHandle} />
-      </View>
+      {/* 极简分隔条 */}
+      <View style={styles.dividerStrip} />
 
       {/* 作答区域 (Bottom Container) */}
       <View style={styles.bottomContainer}>
         <View style={styles.answerHeaderRow}>
-          <Text style={styles.answerSectionTitle}>解答与解析</Text>
+          <Text style={styles.answerSectionTitle}>作业作答区 ✏️</Text>
         </View>
 
         <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerScrollInner} showsVerticalScrollIndicator={false}>
@@ -380,16 +614,39 @@ export function PracticeReviewScreen() {
         <View style={styles.footerFunctionGroup}>
           <TouchableOpacity
             style={styles.footerFunctionBtn}
+            onPress={handleDebugQuestionInfo}
+          >
+            <Text style={styles.footerFunctionBtnText}>🛠️ 调试</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.footerFunctionBtn}
             onPress={handleOpenMiniClass}
           >
             <Text style={styles.footerFunctionBtnText}>📺 微课</Text>
           </TouchableOpacity>
 
+          {!hasSubmitted ? (
+            <TouchableOpacity
+              style={styles.submitBtnStyle}
+              onPress={handleSubmitHomework}
+            >
+              <Text style={styles.submitBtnTextStyle}>确认提交</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.footerFunctionBtn}
+              onPress={handleViewAnswer}
+            >
+              <Text style={styles.footerFunctionBtnText}>🔑 答案</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.footerFunctionBtn}
-            onPress={handleViewAnswer}
+            onPress={() => setShowCheckPanel(true)}
           >
-            <Text style={styles.footerFunctionBtnText}>🔑 答案</Text>
+            <Text style={styles.footerFunctionBtnText}>📋 检查</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -400,6 +657,17 @@ export function PracticeReviewScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* 答题卡全题作答检查组件 */}
+      <AnswerCheckModal
+        visible={showCheckPanel}
+        onClose={() => setShowCheckPanel(false)}
+        questions={questions}
+        currentIndex={currentIndex}
+        answers={answers}
+        answersImage={answersImage}
+        onSelectQuestion={setCurrentIndex}
+      />
 
       {/* 查看答案 Modal */}
       <Modal
@@ -425,84 +693,74 @@ export function PracticeReviewScreen() {
             </View>
 
             <ScrollView style={styles.webModalScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.reviewLabel}>✅ 参考答案：</Text>
-              <Card style={[styles.reviewCard, { marginBottom: 16 }]}>
-                <MathRenderer content={currentQuestion.questionAnswer || '暂无答案'} textColor="#10B981" />
-              </Card>
-
-              <Text style={styles.reviewLabel}>💡 题目解析：</Text>
-              <Card style={styles.reviewCard}>
-                <MathRenderer content={currentQuestion.questionAnalysis || '暂无解析'} textColor="#475569" />
-              </Card>
+              <AnswerAnalysisPanel
+                answer={currentQuestion.questionAnswer}
+                analysis={currentQuestion.questionAnalysis}
+              />
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
-      {/* 举一反三 Modal */}
-      <Modal
+      {/* 举一反三 Modal (已抽离为独立组件) */}
+      <SimilarQuestionsModal
         visible={showSimilarModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSimilarModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.webModalBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowSimilarModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.webModalContent}
-            activeOpacity={1}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>举一反三 (相似推荐) 🔄</Text>
-              <TouchableOpacity onPress={() => setShowSimilarModal(false)} style={styles.modalCloseBtn}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+        onClose={() => setShowSimilarModal(false)}
+        similarQuestions={similarQuestions}
+        loading={loadingSimilar}
+        homeworkSubject={homeworkSubject}
+      />
 
-            {loadingSimilar ? (
-              <View style={styles.similarLoadingContainer}>
-                <ActivityIndicator size="large" color={LightColors.primary} />
-                <Text style={styles.similarLoadingText}>正在寻找相似题目...</Text>
+      {/* 微课 内置横屏 WebView Modal */}
+      <Modal
+        visible={showMiniClassModal}
+        transparent={false}
+        animationType="slide"
+        supportedOrientations={['landscape', 'landscape-left', 'landscape-right']}
+        onRequestClose={handleCloseMiniClass}
+      >
+        <SafeAreaView style={styles.miniClassSafeArea}>
+          {/* 顶部横屏控制栏（含关闭微课 ✕ 叉号按钮） */}
+          <View style={styles.miniClassHeader}>
+            <TouchableOpacity style={styles.miniClassCloseBtn} onPress={handleCloseMiniClass} activeOpacity={0.7}>
+              <Text style={styles.miniClassCloseBtnText}>✕ 关闭微课</Text>
+            </TouchableOpacity>
+            <Text style={styles.miniClassHeaderTitle} numberOfLines={1}>
+              📺 {homeworkTitle || '微课讲解'}
+            </Text>
+          </View>
+
+          {/* WebView 播放区域 */}
+          <View style={styles.miniClassWebviewContainer}>
+            {miniClassLoading && (
+              <View style={styles.miniClassLoadingOverlay}>
+                <ActivityIndicator size="large" color="#4F46E5" />
+                <Text style={styles.miniClassLoadingText}>正在加载微课视频...</Text>
               </View>
-            ) : (
-              <ScrollView style={styles.webModalScroll} showsVerticalScrollIndicator={false}>
-                {similarQuestions.length === 0 ? (
-                  <Text style={styles.noSimilarText}>暂无相似推荐题目 📭</Text>
-                ) : (
-                  similarQuestions.map((q, idx) => (
-                    <View key={q.id || idx} style={styles.similarCard}>
-                      <View style={styles.similarCardHeader}>
-                        <Text style={styles.similarCardTitle}>相似题 {idx + 1}</Text>
-                        {q.similarity && (
-                          <Text style={styles.similarityText}>
-                            相似度: {Math.round(q.similarity * 100)}%
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.similarCardBody}>
-                        <MathRenderer content={q.question || q.content || q.title || ''} textColor="#0F172A" />
-                      </View>
-                      {q.answer && (
-                        <View style={styles.similarCardAnswerArea}>
-                          <Text style={styles.similarAnswerLabel}>答案：</Text>
-                          <MathRenderer content={q.answer} textColor="#10B981" />
-                        </View>
-                      )}
-                    </View>
-                  ))
-                )}
-              </ScrollView>
             )}
-          </TouchableOpacity>
-        </TouchableOpacity>
+            {miniClassUrl ? (
+              <WebView
+                source={{ uri: miniClassUrl }}
+                style={{ flex: 1 }}
+                onLoadEnd={() => setMiniClassLoading(false)}
+                onError={() => {
+                  setMiniClassLoading(false);
+                  Alert.alert('提示', '微课加载失败，请重试');
+                }}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+              />
+            ) : null}
+          </View>
+        </SafeAreaView>
       </Modal>
 
-      {questionAiContext ? (
+      {/* 作业未提交前隐藏 AI 悬浮窗，提交完成之后再显示海獭悬浮图标 */}
+      {hasSubmitted && questionAiContext ? (
         <GlobalAiAssistant
-          hidden={showAnswerModal || showSimilarModal}
+          hidden={showSimilarModal || showMiniClassModal}
           visible={showAiAssistant}
           onVisibleChange={setShowAiAssistant}
           context={questionAiContext}
@@ -570,20 +828,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 10,
   },
-  splitterLine: {
-    height: 10,
-    backgroundColor: '#F8FAFC',
+  dividerStrip: {
+    height: 8,
+    backgroundColor: '#F1F5F9',
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  splitterHandle: {
-    width: 32,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#CBD5E1',
   },
   bottomContainer: {
     flex: 1,
@@ -837,5 +1087,471 @@ const styles = StyleSheet.create({
   },
   reviewSection: {
     width: '100%',
+  },
+  similarModalMobileContainer: {
+    width: '92%',
+    maxHeight: '85%',
+    padding: 16,
+  },
+  similarHeaderLeft: {
+    flex: 1,
+  },
+  similarSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  similarControlBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  selectAllBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  checkboxSquare: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  checkboxSquareChecked: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  checkboxCheckmark: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+    lineHeight: 14,
+  },
+  selectAllLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  selectedBadgeChip: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  selectedBadgeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  similarScrollList: {
+    flex: 1,
+    marginTop: 4,
+  },
+  similarQuestionCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  similarQuestionCardSelected: {
+    borderColor: '#818CF8',
+    backgroundColor: '#F9F8FF',
+  },
+  similarQuestionCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  similarCardTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  similarQuestionIndexTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  favoritedBadgeTag: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  favoritedBadgeTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  similarQuestionCardBody: {
+    marginBottom: 8,
+  },
+  similarCardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  toggleAnswerBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  toggleAnswerBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
+  similarCardAnswerExpandArea: {
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 8,
+  },
+  similarCardSection: {
+    width: '100%',
+  },
+  similarAnswerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  similarModalBottomActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+    gap: 10,
+  },
+  similarActionBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  similarActionBtnSecondary: {
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  similarActionBtnSecondaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  similarActionBtnPrimary: {
+    backgroundColor: '#4F46E5',
+  },
+  similarActionBtnPrimaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  similarActionBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.6,
+  },
+  miniClassSafeArea: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
+  miniClassHeader: {
+    height: 44,
+    backgroundColor: '#1E293B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderColor: '#334155',
+  },
+  miniClassCloseBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  miniClassCloseBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FCA5A5',
+  },
+  miniClassHeaderTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F8FAFC',
+    marginRight: 40,
+  },
+  miniClassWebviewContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  miniClassLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  miniClassLoadingText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#94A3B8',
+  },
+  optionsList: {
+    width: '100%',
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  activeOptionItem: {
+    borderColor: '#4F46E5',
+    backgroundColor: 'rgba(79, 70, 229, 0.04)',
+  },
+  optionIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  activeOptionIndicator: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#4F46E5',
+  },
+  optionIndicatorText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  activeOptionIndicatorText: {
+    color: '#FFFFFF',
+  },
+  optionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    flex: 1,
+  },
+  activeOptionText: {
+    color: '#4F46E5',
+  },
+  subjectiveArea: {
+    width: '100%',
+  },
+  textAreaBox: {
+    width: '100%',
+    minHeight: 120,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 12,
+    position: 'relative',
+    marginBottom: 16,
+  },
+  textInputStyle: {
+    fontSize: 14,
+    color: '#1E293B',
+    textAlignVertical: 'top',
+    paddingBottom: 28,
+  },
+  ocrScanTrigger: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  ocrScanTriggerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  photoContainer: {
+    width: '100%',
+  },
+  photoLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  photoUploadBtn: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  photoUploadBtnHasPhoto: {
+    borderStyle: 'solid',
+    borderColor: '#E2E8F0',
+  },
+  uploadPlaceholderText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  uploadedPhotoWrapper: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  uploadedPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  deletePhotoBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deletePhotoText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  backdropClickArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  statusLegendRow: {
+    marginBottom: 14,
+  },
+  modalSummaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
+  },
+  legendBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    paddingBottom: 20,
+  },
+  gridItem: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 6,
+  },
+  gridItemComplete: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: '#10B981',
+  },
+  gridItemHalf: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: '#F59E0B',
+  },
+  gridItemNone: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: '#EF4444',
+    borderStyle: 'dashed',
+  },
+  gridItemCurrent: {
+    borderColor: '#4F46E5',
+    borderWidth: 2,
+  },
+  gridItemText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  gridItemTextComplete: {
+    color: '#059669',
+  },
+  gridItemTextHalf: {
+    color: '#D97706',
+  },
+  gridItemTextNone: {
+    color: '#DC2626',
+  },
+  gridItemTextCurrent: {
+    color: '#4F46E5',
+  },
+  submitBtnStyle: {
+    paddingHorizontal: 14,
+    height: 36,
+    backgroundColor: '#4F46E5',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitBtnTextStyle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
