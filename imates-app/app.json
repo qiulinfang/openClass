@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "imates-app",
+    "name": "学伴移动端",
     "slug": "imates-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/xueban-android-icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -16,10 +16,8 @@
     "android": {
       "package": "com.cosinetech.imates.edu",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#3A2B86",
+        "foregroundImage": "./assets/xueban-android-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
