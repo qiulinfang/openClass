@@ -9,7 +9,10 @@ import {
 } from 'react-native';
 import { storage } from '@/services/storage';
 
-const EXERCISE_ASSISTANT = require('../../../../assets/exercise-assistant.png');
+// 与 Web 端 SuggestedQuestions.vue 使用同源视觉资源；SVG 转为 PNG 以兼容原生 Image。
+const WEB_SUGGESTION_MASCOT = require('../../../../assets/web-changwenwenti.png');
+const WEB_SUGGESTION_TITLE = require('../../../../assets/web-cainixiangwen.png');
+const WEB_SUGGESTION_GRID = require('../../../../assets/web-zisewangge.png');
 const STORAGE_KEY = 'suggested_questions_ai-exercise';
 const CUSTOM_PLACEHOLDER = '点击编辑自定义问题...';
 const DEFAULT_SUGGESTIONS = [
@@ -86,16 +89,30 @@ function ExerciseSuggestedQuestionsComponent({
     <View style={styles.wrapper}>
       <View style={styles.card}>
         <View style={styles.header}>
+          <View
+            style={styles.headerGridClip}
+            pointerEvents="none"
+            accessible={false}
+          >
+            <Image
+              source={WEB_SUGGESTION_GRID}
+              style={styles.headerGrid}
+              resizeMode="stretch"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
           <Image
-            source={EXERCISE_ASSISTANT}
+            source={WEB_SUGGESTION_MASCOT}
             style={styles.mascot}
             resizeMode="contain"
             accessibilityLabel="题目学伴"
           />
-          <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>题目学伴</Text>
-            <Text style={styles.title}>猜你想问</Text>
-          </View>
+          <Image
+            source={WEB_SUGGESTION_TITLE}
+            style={styles.titleImage}
+            resizeMode="contain"
+            accessibilityLabel="猜你想问"
+          />
         </View>
 
         <View style={styles.list}>
@@ -169,44 +186,47 @@ const styles = StyleSheet.create({
   card: {
     overflow: 'visible',
     borderWidth: 1,
-    borderColor: '#C9C5F2',
-    borderRadius: 18,
+    borderColor: 'rgba(122, 124, 255, 0.42)',
+    borderRadius: 16,
     backgroundColor: '#F3F2FF',
   },
   header: {
-    minHeight: 62,
-    paddingLeft: 92,
-    paddingRight: 16,
+    height: 44,
+    paddingLeft: 78,
+    paddingRight: 12,
     justifyContent: 'center',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    backgroundColor: '#E9E6FF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  headerGridClip: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  headerGrid: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.22,
   },
   mascot: {
     position: 'absolute',
-    left: 4,
-    bottom: -2,
-    width: 88,
+    left: -20,
+    top: -16,
+    width: 94,
     height: 78,
+    zIndex: 1,
   },
-  headerCopy: {
-    minWidth: 0,
-  },
-  eyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#756CC7',
-  },
-  title: {
-    marginTop: 1,
-    fontSize: 19,
-    fontWeight: '900',
-    color: '#3A326E',
+  titleImage: {
+    width: 118,
+    height: 45,
   },
   list: {
+    zIndex: 2,
     paddingHorizontal: 10,
-    paddingTop: 10,
+    paddingTop: 8,
     paddingBottom: 12,
+    backgroundColor: '#F3F2FF',
   },
   item: {
     minHeight: 52,

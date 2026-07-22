@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -20,6 +20,7 @@ import { ExerciseService } from '@/services/exercise-service';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { storage } from '@/services/storage';
 import { getCurrentEnvType, AppEnvType } from '@/services/env-config';
+import { GlobalAiAssistant, type AiChatContext } from '@/features/ai-chat';
 
 const LightColors = {
   background: '#F8FAFC',
@@ -32,6 +33,7 @@ const LightColors = {
   danger: '#EF4444',
   success: '#10B981',
 };
+const EXERCISE_ASSISTANT = require('../../assets/exercise-assistant.png');
 
 export function PracticeReviewScreen() {
   const route = useRoute<any>();
@@ -68,18 +70,10 @@ export function PracticeReviewScreen() {
     '9': 'geography',
   };
 
-  const handleAskAI = async (questionContent: string) => {
-    // 写入预填输入并跳到 AI 对话 Tab
-    await storage.setItem(
-      'CHAT_PREFILL',
-      `老师，请问这道题该怎么做？\n\n【题目内容】：\n${questionContent}`
-    );
-    navigation.navigate('Home', { activeTab: 'ai' });
-  };
-
   const [questions, setQuestions] = useState<HomeworkQuestionDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
 
   // 查看答案 & 举一反三 模态框及数据状态
   const [showAnswerModal, setShowAnswerModal] = useState(false);
@@ -95,6 +89,25 @@ export function PracticeReviewScreen() {
 
   // 监听当前题目变化，检查是否已被加入习题本
   const activeQuestion = questions[currentIndex];
+  const questionAiContext = useMemo<AiChatContext | null>(() => {
+    if (!activeQuestion) return null;
+    return {
+      scene: 'exercise',
+      scopeKey: `exercise-${activeQuestion.questionId}`,
+      title: '题目学伴',
+      subtitle: '围绕当前题目启发式答疑',
+      resourceId: activeQuestion.questionId,
+      resourceName: homeworkTitle,
+      subject: homeworkSubject,
+      exerciseQuestion: {
+        id: activeQuestion.questionId,
+        content: activeQuestion.questionContent,
+        answer: activeQuestion.questionAnswer || '',
+        analysis: activeQuestion.questionAnalysis || '',
+        subject: homeworkSubject,
+      },
+    };
+  }, [activeQuestion, homeworkSubject, homeworkTitle]);
   useEffect(() => {
     if (activeQuestion) {
       ExerciseService.isExerciseSaved(activeQuestion.questionId).then(setIsFavorite);
@@ -371,13 +384,6 @@ export function PracticeReviewScreen() {
         <View style={styles.footerFunctionGroup}>
           <TouchableOpacity
             style={styles.footerFunctionBtn}
-            onPress={() => handleAskAI(currentQuestion.questionContent)}
-          >
-            <Text style={styles.footerFunctionBtnText}>🤖 问学伴</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.footerFunctionBtn}
             onPress={handleOpenMiniClass}
           >
             <Text style={styles.footerFunctionBtnText}>📺 微课</Text>
@@ -497,6 +503,18 @@ export function PracticeReviewScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {questionAiContext ? (
+        <GlobalAiAssistant
+          hidden={showAnswerModal || showSimilarModal}
+          visible={showAiAssistant}
+          onVisibleChange={setShowAiAssistant}
+          context={questionAiContext}
+          mascotSource={EXERCISE_ASSISTANT}
+          accessibilityLabel="打开当前题目的 AI 问答"
+          prefillStorageKey={`EXERCISE_CHAT_PREFILL_${activeQuestion.questionId}`}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

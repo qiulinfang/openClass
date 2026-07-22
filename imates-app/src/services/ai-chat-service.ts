@@ -455,15 +455,18 @@ export class AiChatService {
       '4': 'physics',
       '5': 'chemistry',
       '6': 'biology',
-      '7': 'geography',
+      '7': 'politics',
       '8': 'history',
-      '9': 'politics',
+      '9': 'geography',
       数学: 'math',
       生物: 'biology',
       化学: 'chemistry',
       物理: 'physics',
       语文: 'chinese',
       英语: 'english',
+      政治: 'politics',
+      历史: 'history',
+      地理: 'geography',
     };
     const normalizedSubject =
       subjectMap[String(question.subject)] ||
