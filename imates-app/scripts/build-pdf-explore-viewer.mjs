@@ -31,14 +31,14 @@ const html = `<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=4,user-scalable=yes,viewport-fit=cover">
   <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
-    html, body { width: 100%; min-height: 100%; margin: 0; background: #eceef5; touch-action: pan-x pan-y; }
+    html, body { width: 100%; min-height: 100%; margin: 0; background: #eceef5; touch-action: pan-x pan-y pinch-zoom; }
     body { overflow: auto; overscroll-behavior: contain; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
     #pages { width: 100%; min-height: 100vh; padding: var(--reader-top-inset, 16px) 0 var(--reader-bottom-inset, 24px); }
-    .pdf-page { position: relative; margin: 0 auto 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(23, 27, 52, .12); }
+    .pdf-page { position: relative; contain: layout paint style; margin: 0 auto 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(23, 27, 52, .12); }
     .pdf-canvas, .selection-layer { position: absolute; inset: 0; display: block; }
     .selection-layer { z-index: 2; pointer-events: none; }
     body.explore-mode .selection-layer { pointer-events: auto; cursor: crosshair; touch-action: none; }

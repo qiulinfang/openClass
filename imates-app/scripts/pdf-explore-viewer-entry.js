@@ -14,15 +14,16 @@ const emptyState = document.getElementById('empty');
 const pageElements = new Map();
 let pdfDocument = null;
 let expectedChunks = 0;
-let incomingPdf = [];
+let expectedBytes = 0;
+let incomingPdf = null;
+let receivedChunks = [];
 let exploreMode = false;
 let renderedViewportWidth = 0;
 let pageObserver = null;
 let renderGeneration = 0;
 let documentReadyPosted = false;
-let zoomScale = 1;
-let pinchState = null;
-let suppressSelectionUntil = 0;
+let renderQueueRunning = false;
+const pendingPageRenders = new Set();
 
 const post = (type, payload = {}) => {
   const message = JSON.stringify({ type, ...payload });
@@ -42,10 +43,7 @@ const decodeBase64 = (base64) => {
 };
 
 const getTargetWidth = () =>
-  Math.round(
-    Math.max(240, Math.min(920, document.documentElement.clientWidth - 16)) *
-      zoomScale
-  );
+  Math.round(Math.max(240, Math.min(920, document.documentElement.clientWidth - 16)));
 
 const pointForEvent = (event, layer) => {
   const rect = layer.getBoundingClientRect();
@@ -134,10 +132,7 @@ const bindSelection = (pageIndex, layer, selectionBox) => {
     const completed = selection;
     selection = null;
     selectionBox.style.display = 'none';
-    if (
-      event.type !== 'pointercancel' &&
-      Date.now() >= suppressSelectionUntil
-    ) {
+    if (event.type !== 'pointercancel') {
       captureSelection(pageIndex, completed.start, completed.end);
     }
   };
@@ -165,8 +160,10 @@ const renderPage = async (pageIndex, generation) => {
   const page = pageElements.get(pageIndex);
   if (!pdfDocument || !page || page.rendered || page.rendering) return;
   page.rendering = true;
+  let pdfPage = null;
+  let renderCanvas = null;
   try {
-    const pdfPage = await pdfDocument.getPage(pageIndex + 1);
+    pdfPage = await pdfDocument.getPage(pageIndex + 1);
     if (generation !== renderGeneration) return;
     const baseViewport = pdfPage.getViewport({ scale: 1 });
     const viewport = pdfPage.getViewport({
@@ -176,22 +173,30 @@ const renderPage = async (pageIndex, generation) => {
     const cssHeight = Math.round(viewport.height);
     page.wrapper.style.width = `${cssWidth}px`;
     page.wrapper.style.height = `${cssHeight}px`;
-    page.canvas.style.width = `${cssWidth}px`;
-    page.canvas.style.height = `${cssHeight}px`;
-    page.canvas.width = Math.round(cssWidth * page.pixelRatio);
-    page.canvas.height = Math.round(cssHeight * page.pixelRatio);
-    page.cssWidth = cssWidth;
-    page.cssHeight = cssHeight;
-    await pdfPage.render({
-      canvasContext: page.canvas.getContext('2d'),
+    renderCanvas = document.createElement('canvas');
+    renderCanvas.width = Math.round(cssWidth * page.pixelRatio);
+    renderCanvas.height = Math.round(cssHeight * page.pixelRatio);
+    const renderTask = pdfPage.render({
+      canvasContext: renderCanvas.getContext('2d'),
       viewport,
       transform: [page.pixelRatio, 0, 0, page.pixelRatio, 0, 0],
-    }).promise;
+    });
+    page.renderTask = renderTask;
+    await renderTask.promise;
     if (generation !== renderGeneration) return;
+    page.canvas.style.width = `${cssWidth}px`;
+    page.canvas.style.height = `${cssHeight}px`;
+    page.canvas.width = renderCanvas.width;
+    page.canvas.height = renderCanvas.height;
+    page.canvas.getContext('2d').drawImage(renderCanvas, 0, 0);
+    renderCanvas.width = 1;
+    renderCanvas.height = 1;
+    page.cssWidth = cssWidth;
+    page.cssHeight = cssHeight;
     page.rendered = true;
+    page.rendering = false;
+    page.renderTask = null;
     page.wrapper.classList.add('is-rendered');
-    pageObserver?.unobserve(page.wrapper);
-    pdfPage.cleanup();
     if (!documentReadyPosted && pageIndex === 0) {
       documentReadyPosted = true;
       emptyState.hidden = true;
@@ -199,6 +204,8 @@ const renderPage = async (pageIndex, generation) => {
     }
   } catch (error) {
     page.rendering = false;
+    page.renderTask = null;
+    if (error?.name === 'RenderingCancelledException') return;
     if (pageIndex === 0) {
       emptyState.hidden = false;
       emptyState.textContent = 'PDF 文件无法打开';
@@ -206,12 +213,60 @@ const renderPage = async (pageIndex, generation) => {
         message: error instanceof Error ? error.message : 'PDF 首页无法渲染',
       });
     }
+  } finally {
+    pdfPage?.cleanup();
+    if (renderCanvas) {
+      renderCanvas.width = 1;
+      renderCanvas.height = 1;
+    }
   }
+};
+
+const releasePage = (pageIndex) => {
+  const page = pageElements.get(pageIndex);
+  if (!page || (!page.rendered && !page.rendering)) return;
+  page.renderTask?.cancel();
+  page.renderTask = null;
+  page.rendered = false;
+  page.rendering = false;
+  page.wrapper.classList.remove('is-rendered');
+  page.canvas.width = 1;
+  page.canvas.height = 1;
+};
+
+const queuePageRender = (pageIndex) => {
+  pendingPageRenders.add(pageIndex);
+  if (renderQueueRunning) return;
+  renderQueueRunning = true;
+  void (async () => {
+    while (pendingPageRenders.size > 0) {
+      const activeGeneration = renderGeneration;
+      const viewportCenter = window.innerHeight / 2;
+      const nextPageIndex = [...pendingPageRenders].sort((left, right) => {
+        const leftRect = pageElements.get(left)?.wrapper.getBoundingClientRect();
+        const rightRect = pageElements.get(right)?.wrapper.getBoundingClientRect();
+        const leftDistance = leftRect
+          ? Math.abs((leftRect.top + leftRect.bottom) / 2 - viewportCenter)
+          : Number.POSITIVE_INFINITY;
+        const rightDistance = rightRect
+          ? Math.abs((rightRect.top + rightRect.bottom) / 2 - viewportCenter)
+          : Number.POSITIVE_INFINITY;
+        return leftDistance - rightDistance;
+      })[0];
+      pendingPageRenders.delete(nextPageIndex);
+      await renderPage(nextPageIndex, activeGeneration);
+    }
+    renderQueueRunning = false;
+    if (pendingPageRenders.size > 0) {
+      queuePageRender([...pendingPageRenders][0]);
+    }
+  })();
 };
 
 const renderDocument = async () => {
   if (!pdfDocument) return;
   const generation = ++renderGeneration;
+  pendingPageRenders.clear();
   renderedViewportWidth = getTargetWidth();
   pageObserver?.disconnect();
   pagesRoot.replaceChildren();
@@ -241,31 +296,36 @@ const renderDocument = async () => {
     });
   }
 
+  await renderPage(0, generation);
+
   pageObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
         const pageIndex = Number(entry.target.dataset.pageIndex);
-        void renderPage(pageIndex, generation);
+        if (entry.isIntersecting) {
+          queuePageRender(pageIndex);
+        } else {
+          pendingPageRenders.delete(pageIndex);
+          releasePage(pageIndex);
+        }
       });
     },
-    { rootMargin: '900px 0px' }
+    { rootMargin: '1000px 0px' }
   );
   pageElements.forEach((page, pageIndex) => {
     page.wrapper.dataset.pageIndex = String(pageIndex);
     pageObserver.observe(page.wrapper);
   });
-  await renderPage(0, generation);
 };
 
-const loadPdfBytes = async (base64) => {
+const loadPdfBytes = async (bytes) => {
   try {
     emptyState.hidden = false;
     emptyState.textContent = '正在渲染 PDF…';
     documentReadyPosted = false;
     pageObserver?.disconnect();
     if (pdfDocument) await pdfDocument.destroy();
-    pdfDocument = await pdfjsLib.getDocument({ data: decodeBase64(base64) }).promise;
+    pdfDocument = await pdfjsLib.getDocument({ data: bytes }).promise;
     await renderDocument();
   } catch (error) {
     emptyState.textContent = 'PDF 文件无法打开';
@@ -288,18 +348,40 @@ const handleMessage = (rawMessage) => {
     post('ready');
   } else if (message.type === 'pdf-start') {
     expectedChunks = Number(message.totalChunks) || 0;
-    incomingPdf = new Array(expectedChunks);
+    expectedBytes = Number(message.totalBytes) || 0;
+    incomingPdf = expectedBytes > 0 ? new Uint8Array(expectedBytes) : null;
+    receivedChunks = new Array(expectedChunks).fill(false);
   } else if (message.type === 'pdf-chunk') {
-    incomingPdf[message.index] = message.data;
-    post('pdf-chunk-ack', { index: message.index });
+    const index = Number(message.index);
+    const offset = Number(message.offset);
+    if (
+      !incomingPdf ||
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= expectedChunks ||
+      !Number.isInteger(offset) ||
+      offset < 0
+    ) {
+      post('documentError', { message: 'PDF 数据块无效，请重试' });
+      return;
+    }
+    const chunk = decodeBase64(message.data);
+    if (offset + chunk.length > incomingPdf.length) {
+      post('documentError', { message: 'PDF 数据超出预期大小，请重试' });
+      return;
+    }
+    incomingPdf.set(chunk, offset);
+    receivedChunks[index] = true;
+    post('pdf-chunk-ack', { index });
   } else if (message.type === 'pdf-end') {
-    if (incomingPdf.filter(Boolean).length !== expectedChunks) {
+    if (!incomingPdf || receivedChunks.filter(Boolean).length !== expectedChunks) {
       post('documentError', { message: 'PDF 数据传输不完整，请重试' });
       return;
     }
-    const base64 = incomingPdf.join('');
-    incomingPdf = [];
-    void loadPdfBytes(base64);
+    const bytes = incomingPdf;
+    incomingPdf = null;
+    receivedChunks = [];
+    void loadPdfBytes(bytes);
   } else if (message.type === 'exploreMode') {
     exploreMode = message.enabled === true;
     document.body.classList.toggle('explore-mode', exploreMode);
@@ -317,89 +399,6 @@ const handleMessage = (rawMessage) => {
 window.addEventListener('message', (event) => handleMessage(event.data));
 document.addEventListener('message', (event) => handleMessage(event.data));
 
-const preventGestureZoom = (event) => event.preventDefault();
-document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
-document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
-document.addEventListener('gestureend', preventGestureZoom, { passive: false });
-document.addEventListener(
-  'touchmove',
-  (event) => {
-    if (event.touches.length > 1) event.preventDefault();
-  },
-  { passive: false }
-);
-
-const touchDistance = (touches) =>
-  Math.hypot(
-    touches[0].clientX - touches[1].clientX,
-    touches[0].clientY - touches[1].clientY
-  );
-
-document.addEventListener(
-  'touchstart',
-  (event) => {
-    if (event.touches.length !== 2 || !pdfDocument) return;
-    event.preventDefault();
-    suppressSelectionUntil = Date.now() + 500;
-    const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-    const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-    pinchState = {
-      distance: touchDistance(event.touches),
-      startZoom: zoomScale,
-      nextZoom: zoomScale,
-      centerX,
-      centerY,
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
-    };
-  },
-  { passive: false }
-);
-
-document.addEventListener(
-  'touchmove',
-  (event) => {
-    if (!pinchState || event.touches.length !== 2) return;
-    event.preventDefault();
-    const nextZoom = Math.max(
-      1,
-      Math.min(
-        4,
-        pinchState.startZoom *
-          (touchDistance(event.touches) / pinchState.distance)
-      )
-    );
-    pinchState.nextZoom = nextZoom;
-    const previewScale = nextZoom / pinchState.startZoom;
-    pagesRoot.style.transformOrigin = `${
-      pinchState.scrollX + pinchState.centerX
-    }px ${pinchState.scrollY + pinchState.centerY}px`;
-    pagesRoot.style.transform = `scale(${previewScale})`;
-  },
-  { passive: false }
-);
-
-document.addEventListener(
-  'touchend',
-  () => {
-    if (!pinchState) return;
-    const completed = pinchState;
-    pinchState = null;
-    suppressSelectionUntil = Date.now() + 250;
-    pagesRoot.style.transform = '';
-    pagesRoot.style.transformOrigin = '';
-    if (Math.abs(completed.nextZoom - zoomScale) < 0.01) return;
-    const ratio = completed.nextZoom / completed.startZoom;
-    zoomScale = completed.nextZoom;
-    void renderDocument().then(() => {
-      window.scrollTo(
-        (completed.scrollX + completed.centerX) * ratio - completed.centerX,
-        (completed.scrollY + completed.centerY) * ratio - completed.centerY
-      );
-    });
-  },
-  { passive: false }
-);
 document.addEventListener(
   'wheel',
   (event) => {

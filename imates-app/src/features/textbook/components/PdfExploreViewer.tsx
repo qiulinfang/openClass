@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import pdfExploreViewerHtml from '@/generated/pdf-explore-viewer-html';
@@ -25,12 +26,13 @@ interface PdfExploreViewerProps {
   onExploreCaptureError: (message: string) => void;
 }
 
-const TRANSFER_CHUNK_SIZE = Platform.OS === 'web' ? 512 * 1024 : 128 * 1024;
+// 96 KiB becomes exactly 128 KiB after base64 encoding. Keeping bridge messages
+// small avoids duplicating an entire large PDF in the React Native JS heap.
+const TRANSFER_CHUNK_BYTES = Platform.OS === 'web' ? 384 * 1024 : 96 * 1024;
 const CHUNK_ACK_TIMEOUT = 8000;
 const PDF_WEBVIEW_SOURCE = { html: pdfExploreViewerHtml };
 
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
+const bytesToBase64 = (bytes: Uint8Array<ArrayBuffer>): string => {
   let binary = '';
   const sliceSize = 32 * 1024;
   for (let offset = 0; offset < bytes.length; offset += sliceSize) {
@@ -39,7 +41,7 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   return globalThis.btoa(binary);
 };
 
-const readWebPdf = async (resource: ResourceFile): Promise<string> => {
+const readWebPdf = async (resource: ResourceFile): Promise<ArrayBuffer> => {
   let response: Response | undefined;
   if (typeof globalThis.caches !== 'undefined') {
     response = (await globalThis.caches.match(resource.fileUrl)) || undefined;
@@ -82,10 +84,10 @@ const readWebPdf = async (resource: ResourceFile): Promise<string> => {
       response ? `PDF 请求失败（HTTP ${response.status}）` : 'PDF 请求失败'
     );
   }
-  return arrayBufferToBase64(await response.arrayBuffer());
+  return response.arrayBuffer();
 };
 
-const readNativePdf = async (resource: ResourceFile): Promise<string> => {
+const getNativePdfUri = async (resource: ResourceFile): Promise<string> => {
   let uri = resource.fileUrl;
   if (!uri.startsWith('file://')) {
     const cacheRoot = FileSystem.cacheDirectory;
@@ -102,9 +104,7 @@ const readNativePdf = async (resource: ResourceFile): Promise<string> => {
     }
     uri = result.uri;
   }
-  return FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  return uri;
 };
 
 function PdfExploreViewerComponent({
@@ -151,30 +151,63 @@ function PdfExploreViewerComponent({
 
   const transferPdf = useCallback(async () => {
     const transferId = ++transferIdRef.current;
+    let nativeHandle: ReturnType<File['open']> | null = null;
     try {
-      const base64 =
-        Platform.OS === 'web'
-          ? await readWebPdf(resource)
-          : await readNativePdf(resource);
-      if (transferId !== transferIdRef.current) return;
-      const totalChunks = Math.ceil(base64.length / TRANSFER_CHUNK_SIZE);
-      send({ type: 'pdf-start', totalChunks });
-      for (let index = 0; index < totalChunks; index += 1) {
+      if (Platform.OS === 'web') {
+        const buffer = await readWebPdf(resource);
         if (transferId !== transferIdRef.current) return;
-        const ack = waitForChunkAck(index);
-        send({
-          type: 'pdf-chunk',
-          index,
-          data: base64.slice(
-            index * TRANSFER_CHUNK_SIZE,
-            (index + 1) * TRANSFER_CHUNK_SIZE
-          ),
-        });
-        await ack;
+        const bytes = new Uint8Array(buffer);
+        const totalChunks = Math.ceil(bytes.length / TRANSFER_CHUNK_BYTES);
+        send({ type: 'pdf-start', totalChunks, totalBytes: bytes.length });
+        for (let index = 0; index < totalChunks; index += 1) {
+          if (transferId !== transferIdRef.current) return;
+          const ack = waitForChunkAck(index);
+          const start = index * TRANSFER_CHUNK_BYTES;
+          send({
+            type: 'pdf-chunk',
+            index,
+            offset: start,
+            data: bytesToBase64(
+              bytes.subarray(
+                start,
+                Math.min(bytes.length, start + TRANSFER_CHUNK_BYTES)
+              )
+            ),
+          });
+          await ack;
+        }
+      } else {
+        const uri = await getNativePdfUri(resource);
+        if (transferId !== transferIdRef.current) return;
+        nativeHandle = new File(uri).open();
+        const totalBytes = nativeHandle.size || 0;
+        if (totalBytes <= 0) throw new Error('PDF 文件内容为空');
+        const totalChunks = Math.ceil(totalBytes / TRANSFER_CHUNK_BYTES);
+        send({ type: 'pdf-start', totalChunks, totalBytes });
+        for (let index = 0; index < totalChunks; index += 1) {
+          if (transferId !== transferIdRef.current) return;
+          const chunk = nativeHandle.readBytes(
+            Math.min(
+              TRANSFER_CHUNK_BYTES,
+              totalBytes - index * TRANSFER_CHUNK_BYTES
+            )
+          );
+          const ack = waitForChunkAck(index);
+          send({
+            type: 'pdf-chunk',
+            index,
+            offset: index * TRANSFER_CHUNK_BYTES,
+            data: bytesToBase64(chunk),
+          });
+          await ack;
+        }
       }
+      if (transferId !== transferIdRef.current) return;
       send({ type: 'pdf-end' });
     } catch (caught) {
       onError(caught instanceof Error ? caught.message : 'PDF 文件读取失败');
+    } finally {
+      nativeHandle?.close();
     }
   }, [onError, resource, send, waitForChunkAck]);
 
@@ -318,6 +351,7 @@ function PdfExploreViewerComponent({
           }
           showsVerticalScrollIndicator
           scrollEnabled
+          nestedScrollEnabled
           setBuiltInZoomControls
           setDisplayZoomControls={false}
           overScrollMode="never"
