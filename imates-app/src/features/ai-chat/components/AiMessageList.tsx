@@ -22,6 +22,7 @@ import { MathRenderer } from '@/components/MathRenderer';
 import type { ChatMessage } from '@/services/ai-chat-service';
 import type { AiChatContext } from '../types';
 import { ExerciseSuggestedQuestions } from './ExerciseSuggestedQuestions';
+import { ImagePreviewModal } from './ImagePreviewModal';
 
 const copyIcon = require('../../../../assets/ai-copy.png');
 const editIcon = require('../../../../assets/ai-edit.png');
@@ -65,6 +66,7 @@ interface AiMessageItemProps {
   onToggle: (messageId: string) => void;
   onEdit: (message: ChatMessage) => void;
   onRetry: (message: ChatMessage) => void;
+  onPreviewImage: (uri: string, title: string) => void;
 }
 
 const AiMessageItem = memo(function AiMessageItem({
@@ -79,6 +81,7 @@ const AiMessageItem = memo(function AiMessageItem({
   onToggle,
   onEdit,
   onRetry,
+  onPreviewImage,
 }: AiMessageItemProps) {
   const user = message.sender === 'user';
   const containsFormula = FORMULA_PATTERN.test(message.content);
@@ -126,11 +129,24 @@ const AiMessageItem = memo(function AiMessageItem({
           ]}
         >
           {message.imageUri ? (
-            <Image
-              source={{ uri: message.imageUri }}
-              style={styles.messageImage}
-              resizeMode="cover"
-            />
+            <TouchableOpacity
+              onPress={() =>
+                onPreviewImage(
+                  message.imageUri!,
+                  user ? '我的图片' : 'AI 图片'
+                )
+              }
+              disabled={selectable}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="查看消息图片"
+            >
+              <Image
+                source={{ uri: message.imageUri }}
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           ) : null}
           {user && containsFormula ? (
             <MathRenderer content={message.content} textColor="#FFFFFF" />
@@ -214,6 +230,13 @@ function AiMessageListComponent({
   const scrollFrameRef = useRef<number | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{
+    uri: string;
+    title: string;
+  } | null>(null);
+  const openImagePreview = useCallback((uri: string, title: string) => {
+    setPreviewImage({ uri, title });
+  }, []);
 
   const { lastUserMessageId, retryableAiMessageId } = useMemo(() => {
     let lastUserId: string | null = null;
@@ -317,6 +340,7 @@ function AiMessageListComponent({
         onToggle={onToggleForwardMessage}
         onEdit={onEditMessage}
         onRetry={onRetryMessage}
+        onPreviewImage={openImagePreview}
       />
     ),
     [
@@ -325,6 +349,7 @@ function AiMessageListComponent({
       isSending,
       lastUserMessageId,
       onEditMessage,
+      openImagePreview,
       onRetryMessage,
       onToggleForwardMessage,
       retryableAiMessageId,
@@ -339,7 +364,8 @@ function AiMessageListComponent({
       : GENERAL_SUGGESTIONS;
 
   return (
-    <FlatList
+    <>
+      <FlatList
       ref={listRef}
       data={messages}
       keyExtractor={(item) => item.id}
@@ -398,7 +424,14 @@ function AiMessageListComponent({
           </View>
         )
       }
-    />
+      />
+      <ImagePreviewModal
+        visible={!!previewImage}
+        uri={previewImage?.uri || null}
+        title={previewImage?.title}
+        onClose={() => setPreviewImage(null)}
+      />
+    </>
   );
 }
 

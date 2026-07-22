@@ -11,6 +11,7 @@ import {
 import type { AiChatAttachment, AiChatContext, AiChatRole } from '../types';
 import { AiRoleSelector } from './AiRoleSelector';
 import { FormulaInsertModal } from './FormulaInsertModal';
+import { ImagePreviewModal } from './ImagePreviewModal';
 
 const formulaIcon = require('../../../../assets/ai-formula.png');
 const formulaSelectedIcon = require('../../../../assets/ai-formula-selected.png');
@@ -61,6 +62,8 @@ function AiChatComposerComponent({
 }: AiChatComposerProps) {
   const inputRef = useRef<TextInput>(null);
   const [formulaVisible, setFormulaVisible] = useState(false);
+  const [attachmentPreviewVisible, setAttachmentPreviewVisible] =
+    useState(false);
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
 
   const insertFormula = (latex: string) => {
@@ -86,11 +89,20 @@ function AiChatComposerComponent({
       >
         {attachment ? (
           <View style={styles.attachmentBar}>
-            <Image
-              source={{ uri: attachment.uri }}
-              style={styles.attachmentImage}
-              resizeMode="cover"
-            />
+            <TouchableOpacity
+              style={styles.attachmentImageButton}
+              onPress={() => setAttachmentPreviewVisible(true)}
+              activeOpacity={0.78}
+              accessibilityRole="button"
+              accessibilityLabel={`查看${attachment.label}`}
+              accessibilityHint="打开框选图片预览"
+            >
+              <Image
+                source={{ uri: attachment.uri }}
+                style={styles.attachmentImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
             <View style={styles.attachmentCopy}>
               <Text style={styles.attachmentTitle} numberOfLines={1}>
                 {attachment.label}
@@ -296,6 +308,12 @@ function AiChatComposerComponent({
         onClose={() => setFormulaVisible(false)}
         onInsert={insertFormula}
       />
+      <ImagePreviewModal
+        visible={attachmentPreviewVisible && !!attachment}
+        uri={attachment?.uri || null}
+        title={attachment?.label}
+        onClose={() => setAttachmentPreviewVisible(false)}
+      />
     </>
   );
 }
@@ -322,9 +340,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3FF',
   },
   attachmentImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+    backgroundColor: '#E8E9F0',
+  },
+  attachmentImageButton: {
     width: 58,
     height: 54,
     borderRadius: 10,
+    overflow: 'hidden',
     backgroundColor: '#E8E9F0',
   },
   attachmentCopy: { flex: 1, minWidth: 0, marginLeft: 10 },

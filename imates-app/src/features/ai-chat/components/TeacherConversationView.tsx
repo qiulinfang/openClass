@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,6 +16,7 @@ import {
 import type { ChatMessage } from '@/services/ai-chat-service';
 import { MathRenderer } from '@/components/MathRenderer';
 import type { TeacherChatSession } from '../services/teacher-chat-service';
+import { ImagePreviewModal } from './ImagePreviewModal';
 
 interface TeacherConversationViewProps {
   session: TeacherChatSession;
@@ -32,8 +33,10 @@ interface TeacherConversationViewProps {
 
 const TeacherMessageItem = memo(function TeacherMessageItem({
   message,
+  onPreviewImage,
 }: {
   message: ChatMessage;
+  onPreviewImage: (uri: string, title: string) => void;
 }) {
   const user = message.sender === 'user';
   return (
@@ -55,11 +58,23 @@ const TeacherMessageItem = memo(function TeacherMessageItem({
         ]}
       >
         {message.imageUri ? (
-          <Image
-            source={{ uri: message.imageUri }}
-            style={styles.messageImage}
-            resizeMode="contain"
-          />
+          <TouchableOpacity
+            onPress={() =>
+              onPreviewImage(
+                message.imageUri!,
+                user ? '我的图片' : '老师图片'
+              )
+            }
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="查看消息图片"
+          >
+            <Image
+              source={{ uri: message.imageUri }}
+              style={styles.messageImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         ) : user ? (
           <Text style={styles.userText}>{message.content}</Text>
         ) : (
@@ -85,6 +100,13 @@ function TeacherConversationViewComponent({
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const shouldStickToBottomRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
+  const [previewImage, setPreviewImage] = useState<{
+    uri: string;
+    title: string;
+  } | null>(null);
+  const openImagePreview = useCallback((uri: string, title: string) => {
+    setPreviewImage({ uri, title });
+  }, []);
 
   const scheduleScrollToEnd = useCallback((animated: boolean) => {
     if (scrollFrameRef.current !== null) {
@@ -126,8 +148,13 @@ function TeacherConversationViewComponent({
   }, [scheduleScrollToEnd]);
 
   const renderMessage = useCallback(
-    ({ item }: { item: ChatMessage }) => <TeacherMessageItem message={item} />,
-    []
+    ({ item }: { item: ChatMessage }) => (
+      <TeacherMessageItem
+        message={item}
+        onPreviewImage={openImagePreview}
+      />
+    ),
+    [openImagePreview]
   );
 
   return (
@@ -227,6 +254,12 @@ function TeacherConversationViewComponent({
           </TouchableOpacity>
         </View>
       </View>
+      <ImagePreviewModal
+        visible={!!previewImage}
+        uri={previewImage?.uri || null}
+        title={previewImage?.title}
+        onClose={() => setPreviewImage(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
