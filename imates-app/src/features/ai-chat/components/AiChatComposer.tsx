@@ -271,7 +271,7 @@ function AiChatComposerComponent({
               setInputSelection(event.nativeEvent.selection)
             }
             style={styles.input}
-            placeholder={isSending ? 'AI 正在回复中…' : '向 iMates 提问…'}
+            placeholder="输入你的问题"
             placeholderTextColor="#9499AC"
             multiline
             maxLength={2000}

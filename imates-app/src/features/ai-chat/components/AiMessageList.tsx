@@ -27,6 +27,7 @@ import { ImagePreviewModal } from './ImagePreviewModal';
 const copyIcon = require('../../../../assets/ai-copy.png');
 const editIcon = require('../../../../assets/ai-edit.png');
 const retryIcon = require('../../../../assets/ai-retry.png');
+const aiChatAvatar = require('../../../../assets/ai-chat-avatar.png');
 const FORMULA_PATTERN = /\$\$?[\s\S]+?\$\$?|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/;
 const GENERAL_SUGGESTIONS = [
   '帮我制定本周复习计划',
@@ -110,10 +111,13 @@ const AiMessageItem = memo(function AiMessageItem({
         </View>
       ) : null}
       {!user ? (
-        <View style={styles.aiAvatar}>
-          <View style={styles.avatarDot} />
-          <View style={styles.avatarLine} />
-        </View>
+        <Image
+          source={aiChatAvatar}
+          style={styles.aiAvatar}
+          resizeMode="cover"
+          accessible
+          accessibilityLabel="AI 助手头像"
+        />
       ) : null}
       <View
         style={[
@@ -392,11 +396,13 @@ function AiMessageListComponent({
           <ExerciseSuggestedQuestions disabled={isSending} onSelect={onSend} />
         ) : (
           <View style={styles.welcome}>
-            <View style={styles.welcomeMark}>
-              <View style={styles.welcomeMarkDot} />
-              <View style={styles.welcomeMarkLine} />
-              <View style={styles.welcomeMarkLineShort} />
-            </View>
+            <Image
+              source={aiChatAvatar}
+              style={styles.welcomeAvatar}
+              resizeMode="cover"
+              accessible
+              accessibilityLabel="AI 助手头像"
+            />
             <Text style={styles.welcomeTitle}>
               {context.scene === 'textbook'
                 ? '围绕教材内容深入探索'
@@ -485,23 +491,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     marginRight: 8,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    borderRadius: 11,
-    backgroundColor: '#EDEAFE',
-  },
-  avatarDot: {
-    width: 5,
-    height: 5,
-    marginBottom: 4,
-    borderRadius: 3,
-    backgroundColor: '#6256D9',
-  },
-  avatarLine: {
-    height: 3,
-    marginBottom: 3,
-    borderRadius: 2,
-    backgroundColor: '#8B83E5',
+    borderRadius: 16,
   },
   messageColumn: { maxWidth: '84%', alignItems: 'flex-start' },
   userMessageColumn: { alignItems: 'flex-end' },
@@ -561,34 +551,12 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     justifyContent: 'center',
   },
-  welcomeMark: {
+  welcomeAvatar: {
     width: 62,
     height: 62,
     marginBottom: 18,
-    paddingHorizontal: 15,
     alignSelf: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: '#6256D9',
-  },
-  welcomeMarkDot: {
-    width: 7,
-    height: 7,
-    marginBottom: 7,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
-  },
-  welcomeMarkLine: {
-    height: 4,
-    marginBottom: 5,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  welcomeMarkLineShort: {
-    width: '68%',
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#CFCBFA',
+    borderRadius: 31,
   },
   welcomeTitle: {
     fontSize: 21,

@@ -1,12 +1,46 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Markdown from 'react-native-markdown-display';
+import FitImage from 'react-native-fit-image';
+import Markdown, { type RenderRules } from 'react-native-markdown-display';
 
 interface MathRendererProps {
   content: string;
   markdownStyle?: any;
   textColor?: string;
 }
+
+const markdownRules: RenderRules = {
+  image: (
+    node,
+    _children,
+    _parent,
+    markdownStyles,
+    allowedImageHandlers,
+    defaultImageHandler
+  ) => {
+    const { alt, src } = node.attributes;
+    const hasAllowedHandler = allowedImageHandlers.some((handler) =>
+      src.toLowerCase().startsWith(handler.toLowerCase())
+    );
+
+    if (!hasAllowedHandler && defaultImageHandler === null) {
+      return null;
+    }
+
+    return (
+      <FitImage
+        key={node.key}
+        indicator
+        style={markdownStyles._VIEW_SAFE_image}
+        source={{
+          uri: hasAllowedHandler ? src : `${defaultImageHandler}${src}`,
+        }}
+        accessible={Boolean(alt)}
+        accessibilityLabel={alt || undefined}
+      />
+    );
+  },
+};
 
 /**
  * WebView-free message renderer shared by Web, iOS, and Android.
@@ -41,7 +75,9 @@ export function MathRenderer({
 
   return (
     <View style={styles.container}>
-      <Markdown style={resolvedStyle}>{content || ''}</Markdown>
+      <Markdown style={resolvedStyle} rules={markdownRules}>
+        {content || ''}
+      </Markdown>
     </View>
   );
 }
