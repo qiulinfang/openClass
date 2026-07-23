@@ -178,7 +178,7 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
           }}
         >
           <Text style={[styles.tabIcon, activeTab === 'resources' && styles.activeTabIcon]}>📖</Text>
-          <Text style={[styles.tabLabel, activeTab === 'resources' && styles.activeTabLabel]}>资源</Text>
+          <Text style={[styles.tabLabel, activeTab === 'resources' && styles.activeTabLabel]}>教材</Text>
         </TouchableOpacity>
 
         {/* Tab 2: 作业 */}
