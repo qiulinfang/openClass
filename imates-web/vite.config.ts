@@ -194,6 +194,14 @@ export default defineConfig(() => {
             attachBasicProxyLog(proxy, '/get_shor_term_memory')
           },
         },
+        '/get_shor_term_memory_admin': {
+          target: ADDRESS_CATALOG.HISTORY_MANAGE,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/get_shor_term_memory_admin')
+          },
+        },
         // 图片资源
         '/img': {
           target: ADDRESS_CATALOG.YANBAN_RELEASE,

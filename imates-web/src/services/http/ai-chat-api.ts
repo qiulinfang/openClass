@@ -729,4 +729,14 @@ export class AiChatApi {
     });
     return response;
   }
+
+  public async getShortTermMemoryAdmin(threadId: string, agentName: string = 'chatbot'): Promise<any> {
+    const url = `/get_shor_term_memory_admin?thread_id=${encodeURIComponent(threadId)}&agent_name=${encodeURIComponent(agentName)}`;
+    const response = await httpClient.get<any>(url, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    return response;
+  }
 }

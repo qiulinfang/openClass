@@ -424,6 +424,7 @@ export function getRouteBaseMap(): Record<string, string> {
     // 学伴服务（根据环境动态切换）
     '/history_manage': ADDRESS_CATALOG.HISTORY_MANAGE,
     '/get_shor_term_memory': ADDRESS_CATALOG.HISTORY_MANAGE,
+    '/get_shor_term_memory_admin': ADDRESS_CATALOG.HISTORY_MANAGE,
     // gaokao-agent-llm 服务
     '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
     // recognize-handwritten-formula-image 服务
