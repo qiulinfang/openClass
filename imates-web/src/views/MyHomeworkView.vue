@@ -9,19 +9,16 @@
         </div>
         <div class="filter-item">
           <span class="filter-label">学科：</span>
-          <CommonSelect
-            v-model="selectedSubject"
-            :options="subjects"
-            placeholder="请选择学科"
-          />
+          <CommonSelect v-model="selectedSubject" :options="subjects" placeholder="请选择学科" />
         </div>
       </div>
       <!-- 调试按钮，dev 下才显示 -->
       <Button
+        v-if="isDev"
         label="清空本地作业数据(Debug)"
         variant="secondary"
         size="mdCompact"
-        style="border: 1.5px dashed #ff5b5b; color: #ff5b5b;"
+        style="border: 1.5px dashed #ff5b5b; color: #ff5b5b"
         @click="handleClearAllHomework"
       />
     </div>
@@ -75,12 +72,7 @@
               </div>
 
               <div class="card-right">
-                <StatusTag
-                  :text="item.statusText"
-                  :type="item.statusTagType"
-                  size="sm"
-                  dot
-                />
+                <StatusTag :text="item.statusText" :type="item.statusTagType" size="sm" dot />
                 <Button
                   :label="item.buttonText"
                   size="mdCompact"
@@ -96,7 +88,9 @@
             </div>
           </div>
         </div>
-        <div v-if="!hasMore && !loading && homeworkList.length > 0" class="list-footer">没有更多了</div>
+        <div v-if="!hasMore && !loading && homeworkList.length > 0" class="list-footer">
+          没有更多了
+        </div>
       </RubberBandList>
     </div>
   </div>
@@ -110,8 +104,19 @@ import { apiService } from '@/services/http/api-service'
 import { showMessage } from '@/utils'
 import type { HomeworkUndoItem, HomeworkQuestionDetail } from '@/types'
 import type { ExerciseItem } from '@/types'
-import { SUBJECT_ID_TO_NAME, HOMEWORK_SUBJECT_OPTIONS, normalizeSubject } from '@/constants/subjects'
-import { getHomeworkStatusText, getHomeworkStatusType, getHomeworkStatusTagType, getHomeworkTagText, getHomeworkButtonText, getHomeworkButtonVariant } from '@/constants/homework'
+import {
+  SUBJECT_ID_TO_NAME,
+  HOMEWORK_SUBJECT_OPTIONS,
+  normalizeSubject,
+} from '@/constants/subjects'
+import {
+  getHomeworkStatusText,
+  getHomeworkStatusType,
+  getHomeworkStatusTagType,
+  getHomeworkTagText,
+  getHomeworkButtonText,
+  getHomeworkButtonVariant,
+} from '@/constants/homework'
 import Button from '@/components/base/Button.vue'
 import CommonDatePicker from '@/components/base/DatePicker.vue'
 import CommonSelect from '@/components/base/Select.vue'
@@ -159,18 +164,18 @@ const fetchHomeworkList = async () => {
 
     // 使用 homeworkStore 的缓存方法
     const result = await homeworkStore.fetchHomeworkList(queryReq)
-    
+
     // 异步查询每个作业在本地的实际提交状态
     const mappedResult = await Promise.all(
       result.map(async (item) => {
         const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
         return {
           ...item,
-          isSubmitted: dbData ? dbData.isSubmitted : false
+          isSubmitted: dbData ? dbData.isSubmitted : false,
         }
-      })
+      }),
     )
-    
+
     if (pageNumber.value === 1) {
       homeworkList.value = mappedResult
     } else {
@@ -192,7 +197,7 @@ const handleRefresh = async () => {
   try {
     pageNumber.value = 1
     hasMore.value = true
-    
+
     // 强制刷新，忽略缓存
     const queryReq = {
       pageNumber: pageNumber.value,
@@ -200,20 +205,20 @@ const handleRefresh = async () => {
       subject: selectedSubject.value || undefined,
       date: selectedDate.value || undefined,
     }
-    
+
     const result = await homeworkStore.fetchHomeworkList(queryReq, true)
-    
+
     // 异步查询每个作业在本地的实际提交状态
     const mappedResult = await Promise.all(
       result.map(async (item) => {
         const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
         return {
           ...item,
-          isSubmitted: dbData ? dbData.isSubmitted : false
+          isSubmitted: dbData ? dbData.isSubmitted : false,
         }
-      })
+      }),
     )
-    
+
     homeworkList.value = mappedResult
     hasMore.value = result.length >= pageSize.value
   } catch (error) {
@@ -232,19 +237,23 @@ const handleLoadMore = async () => {
   }
 }
 
-
 // 优化后的计算属性，使用缓存减少重复计算
 const displayHomeworkList = computed(() => {
   return homeworkList.value.map((homework: HomeworkUndoItem & { isSubmitted?: boolean }) => {
-    const statusText = homework.isSubmitted ? '已提交' : getHomeworkStatusText(homework.status, homework.deadline)
+    const statusText = homework.isSubmitted
+      ? '已提交'
+      : getHomeworkStatusText(homework.status, homework.deadline)
     const statusType = getHomeworkStatusType(homework.status)
-    const statusTagType = homework.isSubmitted ? 'green' : getHomeworkStatusTagType(statusType, homework.deadline)
+    const statusTagType = homework.isSubmitted
+      ? 'green'
+      : getHomeworkStatusTagType(statusType, homework.deadline)
 
     // 生成标签数组
     const tags = []
     if (homework.subject) {
       // 根据科目ID映射到中文名称
-      const subjectName = SUBJECT_ID_TO_NAME[homework.subject as keyof typeof SUBJECT_ID_TO_NAME] || homework.subject
+      const subjectName =
+        SUBJECT_ID_TO_NAME[homework.subject as keyof typeof SUBJECT_ID_TO_NAME] || homework.subject
       tags.push(subjectName)
     }
     if (homework.fullSubmit === '1') tags.push(getHomeworkTagText('fullSubmit'))
@@ -253,9 +262,8 @@ const displayHomeworkList = computed(() => {
 
     const releaseText = homework.releaseTime ? formatDate(homework.releaseTime) : ''
     const deadlineText = homework.deadline ? formatDate(homework.deadline) : ''
-    const rangeText = (releaseText && deadlineText)
-      ? `${releaseText}-${deadlineText}`
-      : (releaseText || deadlineText)
+    const rangeText =
+      releaseText && deadlineText ? `${releaseText}-${deadlineText}` : releaseText || deadlineText
 
     const scoreText = homework.totalScore ? `总分：${homework.totalScore}分` : '总分：--'
 
@@ -333,7 +341,6 @@ const getTimeLeftText = (deadline?: string) => {
   return `还剩${parts.join('')}截止`
 }
 
-
 // 监听筛选条件变化，添加防抖优化
 watch(
   [selectedDate, selectedSubject],
@@ -342,7 +349,7 @@ watch(
     if (debounceTimer.value) {
       clearTimeout(debounceTimer.value)
     }
-    
+
     // 设置防抖，300ms后执行
     debounceTimer.value = window.setTimeout(async () => {
       pageNumber.value = 1
@@ -351,7 +358,7 @@ watch(
       debounceTimer.value = null
     }, 300)
   },
-  { immediate: false }
+  { immediate: false },
 )
 
 onMounted(async () => {
@@ -396,9 +403,11 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
 
     if (questionDetails && questionDetails.length > 0) {
       // 将题目列表存入 homeworkStore
-      const exerciseItems: ExerciseItem[] = questionDetails.map((question: HomeworkQuestionDetail, index: number) => {
-        return mapHomeworkQuestionFromApi(question, index, item.homework.subject)
-      })
+      const exerciseItems: ExerciseItem[] = questionDetails.map(
+        (question: HomeworkQuestionDetail, index: number) => {
+          return mapHomeworkQuestionFromApi(question, index, item.homework.subject)
+        },
+      )
 
       // 尝试加载本地 IndexedDB 中的已有数据进行智能无损合并
       const existingSubmission = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
@@ -434,7 +443,7 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
 </script>
 
 <style scoped>
-.my-homework-view { 
+.my-homework-view {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -626,7 +635,6 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
   flex-shrink: 0;
   gap: 10px;
 }
-
 
 @media (max-width: 1024px) {
   .homework-grid {

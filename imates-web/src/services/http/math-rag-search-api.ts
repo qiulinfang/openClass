@@ -105,9 +105,11 @@ export class MathRagSearchApi {
     const formData = new FormData()
     formData.append('image', imageFile)
 
+    const apiKey = ocrApiKey || (import.meta as any).env?.VITE_MATHRAG_OCR_API_KEY || ''
+
     const headers: Record<string, string> = {}
-    if (ocrApiKey) {
-      headers['X-OCR-API-Key'] = ocrApiKey
+    if (apiKey) {
+      headers['X-OCR-API-Key'] = apiKey
     }
 
     const response = await fetch(url, {
