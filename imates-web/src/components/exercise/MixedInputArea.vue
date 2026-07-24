@@ -411,20 +411,20 @@ const debounceExportImage = (boardData: any) => {
 const handleBoardSave = (boardData: any) => {
   updateUndoRedoStates()
   
-  // 1. 立即发射当前的矢量轨迹和已有底图缓存，保障笔迹流流畅、写字绝不卡顿
+  // 立即生成并发送最新状态给父组件 Store，保持受控单向流
+  const boardImg = drawingBoardRef.value?.exportToJpg?.(0.9) || cachedBoardImg.value
+  cachedBoardImg.value = boardImg
+
   const newValue: StructuredAnswerItem = {
     type: 'board',
     boardData,
-    boardImg: cachedBoardImg.value,
+    boardImg,
     photoUrl: photoUrl.value || undefined,
     originalPhotoUrl: originalPhotoUrl.value || undefined,
     boardHeight: addedHeight.value,
   }
   emit('update:modelValue', newValue)
   emit('change', newValue)
-
-  // 2. 防抖更新重度底图数据
-  debounceExportImage(boardData)
 }
 
 const handleCropConfirm = async (croppedDataUrl: string) => {

@@ -152,7 +152,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { ref, watch, reactive } from 'vue'
+import { ref, watch, reactive, computed } from 'vue'
 import type { ExerciseItem } from '../../types/exercise'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import ChoiceQuestion from './ChoiceQuestion.vue'
@@ -221,19 +221,15 @@ const isSubAnswered = (sub: any): boolean => {
 
 const { renderMessageContent } = useMessageRenderer()
 
-const localModelValue = ref<Record<string, any>>({})
-
-watch(
-  () => props.modelValue,
-  (newVal) => {
-    localModelValue.value = newVal ? { ...newVal } : {}
-  },
-  { immediate: true, deep: true }
-)
+const subAnswers = computed<Record<string, any>>({
+  get: () => props.modelValue || {},
+  set: (val) => emit('update:modelValue', val),
+})
 
 const handleUpdate = (id: string, value: unknown) => {
-  localModelValue.value[id] = value
-  emit('update:modelValue', { ...localModelValue.value })
+  const updated = { ...subAnswers.value, [id]: value }
+  subAnswers.value = updated
+  emit('change', updated)
 }
 
 const subjectiveQuestionRefsTab = ref<any>(null)

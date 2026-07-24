@@ -1448,7 +1448,7 @@ const handleBoardUpload = async () => {
 const isInitialized = ref(false)
 let activeSavePromise: Promise<any> = Promise.resolve()
 
-// 自动持久化保存机制：防抖 2 秒，仅静默保存内存状态到 IndexedDB，不触发昂贵的图片导出
+// 自动持久化保存机制：防抖 500ms，快速静默保存内存作答状态到 IndexedDB
 const autoSaveSubmission = debounce(async () => {
   const homeworkId = route.params.homeworkId as string
   if (homeworkId && !isHomeworkSubmitted.value) {
@@ -1456,12 +1456,12 @@ const autoSaveSubmission = debounce(async () => {
       // 仅持久化 Pinia 内存中的现有作答数据（已包含画板实时同步的矢量轨迹）
       activeSavePromise = homeworkStore.saveCurrentHomeworkSubmission(homeworkId, isHomeworkSubmitted.value)
       await activeSavePromise
-      console.log('[HOMEWORK_STORAGE] ✅ 自动保存成功')
+      console.log('[HOMEWORK_STORAGE] ✅ 自动防抖保存成功')
     } catch (e) {
       console.error('[HOMEWORK_STORAGE] 自动保存失败:', e)
     }
   }
-}, 2000)
+}, 500)
 
 // 监听作答数据变化，自动触发持久化
 watch(

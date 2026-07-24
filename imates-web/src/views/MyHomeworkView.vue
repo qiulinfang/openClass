@@ -18,7 +18,6 @@
       </div>
       <!-- 调试按钮，dev 下才显示 -->
       <Button
-        v-if="isDev"
         label="清空本地作业数据(Debug)"
         variant="secondary"
         size="mdCompact"
@@ -401,13 +400,16 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
         return mapHomeworkQuestionFromApi(question, index, item.homework.subject)
       })
 
+      // 尝试加载本地 IndexedDB 中的已有数据进行智能无损合并
+      const existingSubmission = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
+
       homeworkStore.setQuestions(exerciseItems)
       // 记录当前这份作业的原始信息、名称 and 允许重复提交类型，供 HomeworkAnswerView 使用
       homeworkStore.setCurrentHomeworkInfo(item.homework)
       homeworkStore.setHomeworkName(item.homework.title)
       homeworkStore.setResubmitType(item.homework.resubmit || '0')
 
-      // 用新获取的题目覆盖 IndexedDB 中的旧题目，保留已有的作答记录
+      // 用新获取的题目智能覆盖/合并到 IndexedDB，保留已有的作答记录
       await homeworkStore.updateQuestionsInDB(item.id)
 
       router.push({

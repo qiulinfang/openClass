@@ -14,6 +14,7 @@ import { apiService } from '@/services/http/api-service'
 import {
   hydrateQuestionsFromStorage,
   toHomeworkSubmissionPayload,
+  mergeApiQuestionsWithLocalStore,
 } from '@/services/boundary/homework'
 import type { LegacyAnswerCacheItem } from '@/services/boundary/homework'
 
@@ -209,18 +210,20 @@ export const useHomeworkStore = defineStore('homework', () => {
 
     try {
       const existing = await loadHomeworkSubmission(homeworkId)
+      let mergedQuestions = questions.value
       if (existing) {
-        const payload = toHomeworkSubmissionPayload({
-          homeworkId,
-          homeworkName: homeworkName.value || existing.homeworkName,
-          isSubmitted: existing.isSubmitted,
-          questions: questions.value,
-          existingLegacyCache: (existing.answerDataCache || {}) as Record<string, LegacyAnswerCacheItem>,
-        })
-        await saveHomeworkSubmission(payload)
-        console.log(`[HOMEWORK_STORAGE] ✅ 题目列表已更新到 IndexedDB: ${homeworkId}`)
+        mergedQuestions = mergeApiQuestionsWithLocalStore(questions.value, existing)
+        questions.value = mergedQuestions
       }
-      // 如果 DB 中不存在，不创建新记录（等 HomeworkAnswerView 中作答时再创建）
+
+      const payload = toHomeworkSubmissionPayload({
+        homeworkId,
+        homeworkName: homeworkName.value || existing?.homeworkName || '',
+        isSubmitted: existing?.isSubmitted || false,
+        questions: mergedQuestions,
+      })
+      await saveHomeworkSubmission(payload)
+      console.log(`[HOMEWORK_STORAGE] ✅ 题目列表已无损合并并更新到 IndexedDB: ${homeworkId}`)
     } catch (error) {
       console.error('[HOMEWORK_STORAGE] ❌ 更新题目列表失败:', error)
     }

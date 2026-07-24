@@ -141,5 +141,65 @@ function buildLegacyCacheFromQuestions(
 
     legacyCache[String(key)] = item
   })
-  return legacyCache
 }
+
+/**
+ * 智能合并算法：将服务端获取的新题目列表与本地已有（IndexedDB或内存）的作答数据进行无损合并
+ */
+export function mergeApiQuestionsWithLocalStore(
+  apiQuestions: ExerciseItem[],
+  existingSubmission: {
+    answerDataCache?: Record<string, LegacyAnswerCacheItem>
+    questions?: ExerciseItem[]
+  } | null,
+): ExerciseItem[] {
+  // 1. 先初始化所有新题目的作答结构
+  apiQuestions.forEach((q) => initExerciseAnswerFields(q))
+
+  if (!existingSubmission) {
+    return apiQuestions
+  }
+
+  // 2. 构造本地题目的快捷查询 Map (以 bmNo 或 id 为 key)
+  const existingQuestionsMap = new Map<string, ExerciseItem>()
+  if (existingSubmission.questions && existingSubmission.questions.length > 0) {
+    existingSubmission.questions.forEach((eq) => {
+      const key = eq.bmNo || eq.id
+      if (key) {
+        existingQuestionsMap.set(String(key), eq)
+      }
+    })
+  }
+
+  const legacyCache = existingSubmission.answerDataCache || {}
+
+  // 3. 将本地作答合并到新题目中
+  apiQuestions.forEach((apiQ) => {
+    const key = apiQ.bmNo || apiQ.id
+    if (!key) return
+    const keyStr = String(key)
+
+    // A. 优先尝试从本地已有 ExerciseItem 节点直接克隆作答数据
+    const existingQ = existingQuestionsMap.get(keyStr)
+    if (existingQ && existingQ.structuredContent && apiQ.structuredContent) {
+      if (!isUserAnswerEmpty(existingQ.structuredContent.userAnswer)) {
+        apiQ.structuredContent.userAnswer = JSON.parse(JSON.stringify(existingQ.structuredContent.userAnswer))
+      }
+      if (existingQ.structuredContent.boardData) {
+        apiQ.structuredContent.boardData = JSON.parse(JSON.stringify(existingQ.structuredContent.boardData))
+      }
+      if (existingQ.structuredContent.imageData !== undefined) {
+        apiQ.structuredContent.imageData = existingQ.structuredContent.imageData
+      }
+    }
+
+    // B. 若 LegacyCache 存在且当前作答仍为空，补充 legacyCache 数据
+    const cacheItem = legacyCache[keyStr]
+    if (cacheItem) {
+      applyLegacyCacheToQuestion(apiQ, cacheItem)
+    }
+  })
+
+  return apiQuestions
+}
+

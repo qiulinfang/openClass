@@ -32,7 +32,7 @@
         <MixedInputArea
           ref="mixedInputAreaRef"
           key="blank-input-shared"
-          :model-value="activeBlank !== null ? finalAnswers[activeBlank] : (blankCount > 0 ? finalAnswers[lastActiveBlank] : undefined)"
+          :model-value="activeBlank !== null ? answers[activeBlank] : (blankCount > 0 ? answers[lastActiveBlank] : undefined)"
           question-type="fill"
           :disabled="disabled || activeBlank === null"
           :label="''"
@@ -49,7 +49,7 @@
           <div class="fallback-blank-label text-subtitle2 text-grey-7 q-mb-xs" style="font-size: 14px; font-weight: 600;">第 {{ index }} 空：</div>
           <MixedInputArea
             :ref="el => setFallbackInputRef(el, index - 1)"
-            :model-value="finalAnswers[index - 1]"
+            :model-value="answers[index - 1]"
             question-type="fill"
             :disabled="disabled"
             :label="''"
@@ -111,8 +111,11 @@ watch(activeBlank, (newVal) => {
   }
 })
 
-// 内部最终答案数组
-const finalAnswers = ref<StructuredAnswerItem[]>(props.modelValue || [])
+// 填空题作答状态完全受控处理，取消内部副本变量，直接绑定父级 props.modelValue
+const answers = computed<StructuredAnswerItem[]>({
+  get: () => props.modelValue || [],
+  set: (val) => emit('update:modelValue', val),
+})
 
 // 填空数量
 const blankCount = computed(() => {
@@ -122,17 +125,12 @@ const blankCount = computed(() => {
   return 0
 })
 
-// 是否包含行内占位符
-const hasInlineBlanks = computed(() => {
-  return parsedParts.value.some(part => part.type === 'blank')
-})
-
 // 解析题干
 const parsedParts = computed(() => {
   const stem = props.question.structuredContent?.stem || ''
   const regex = /\[blank_(\d+)\]/g
-  const parts: Array<{ type: 'text' | 'blank', content?: string, blankIndex: number }> = []
-  
+  const parts: Array<{ type: 'text' | 'blank'; content?: string; blankIndex: number }> = []
+
   let lastIndex = 0
   let match
 
@@ -141,12 +139,12 @@ const parsedParts = computed(() => {
       parts.push({
         type: 'text',
         content: stem.substring(lastIndex, match.index),
-        blankIndex: -1
+        blankIndex: -1,
       })
     }
     parts.push({
       type: 'blank',
-      blankIndex: parseInt(match[1])
+      blankIndex: parseInt(match[1]),
     })
     lastIndex = regex.lastIndex
   }
@@ -155,16 +153,21 @@ const parsedParts = computed(() => {
     parts.push({
       type: 'text',
       content: stem.substring(lastIndex),
-      blankIndex: -1
+      blankIndex: -1,
     })
   }
 
   return parts
 })
 
+// 是否包含行内占位符
+const hasInlineBlanks = computed(() => {
+  return parsedParts.value.some((part) => part.type === 'blank')
+})
+
 // 判断填空项是否已作答
 const isBlankAnswered = (index: number): boolean => {
-  const ans = finalAnswers.value[index]
+  const ans = answers.value[index]
   if (!ans) return false
   if (ans.type === 'photo') return !!ans.photoUrl
   if (ans.type === 'board') {
@@ -200,39 +203,20 @@ const selectBlank = (index: number) => {
   }
 }
 
-// 初始化
-onMounted(() => {
-  if (props.modelValue) {
-    finalAnswers.value = [...props.modelValue]
-  }
-  activeBlank.value = null
-})
-
-onUnmounted(() => {
-})
-
 // 监听题目切换
 watch(
   () => props.question.id || props.question.bmNo,
   () => {
     activeBlank.value = null
     lastActiveBlank.value = 0
-    if (props.modelValue) {
-      finalAnswers.value = [...props.modelValue]
-    }
   },
 )
 
-// 监听外部 modelValue 变化
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    finalAnswers.value = [...newVal]
-  }
-}, { deep: true })
-
 const handleBlankUpdate = (index: number, val: any) => {
-  finalAnswers.value[index] = val
-  emit('update:modelValue', [...finalAnswers.value])
+  const newAnswers = [...answers.value]
+  newAnswers[index] = val
+  answers.value = newAnswers
+  emit('change', newAnswers)
 }
 
 const fallbackInputRefs = ref<any[]>([])
@@ -248,7 +232,7 @@ const forceSave = () => {
       mixedInputAreaRef.value.forceSave?.()
     }
   } else {
-    fallbackInputRefs.value.forEach((ref, idx) => {
+    fallbackInputRefs.value.forEach((ref) => {
       ref?.forceSave?.()
     })
   }

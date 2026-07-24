@@ -6,7 +6,7 @@
           <span class="dialog-title">
             {{ title }}
           </span>
-          <button @click="closeDialog" class="dialog-close-top" aria-label="关闭">
+          <button @click="handleCloseBtnClick" class="dialog-close-top" aria-label="关闭">
             <svg
               class="icon-close"
               fill="none"
@@ -92,6 +92,14 @@ const openDialog = () => {
 }
 
 /**
+ * 点击右上角关闭按钮
+ */
+const handleCloseBtnClick = () => {
+  closeDialog()
+  emit('cancel')
+}
+
+/**
  * 关闭对话框
  */
 const closeDialog = () => {
@@ -107,6 +115,7 @@ const closeDialog = () => {
 const handleBackdropClick = (e) => {
   if (e.target === myDialog.value) {
     closeDialog()
+    emit('cancel')
   }
 }
 
