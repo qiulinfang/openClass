@@ -122,6 +122,11 @@ export function useChatEngine(options: UseChatEngineOptions = {}) {
     }
 
     const onHistoryUpdate = (history: BackendHistoryMessage[], agentStatus?: string) => {
+      // 保存包含原始 history_messages 的引用，方便调试上下文弹窗在后端为空时兜底提取
+      if (Array.isArray(history) && history.length > 0 && messages.value.length > 0) {
+        const lastIndex = messages.value.length - 1
+        ;(messages.value[lastIndex] as any).history_messages = history
+      }
       // 只处理历史消息同步，messageType 设置由 onComplete 统一处理
       applyHistoryUpdate(history).catch(() => {
         // ignore

@@ -86,6 +86,13 @@ export class ApiService {
     return this.aiChatApi.getShortTermMemory(threadId, agentName)
   }
 
+  public async getShortTermMemoryAdmin(
+    threadId: string,
+    agentName: string = 'chatbot',
+  ): Promise<any> {
+    return this.aiChatApi.getShortTermMemoryAdmin(threadId, agentName)
+  }
+
   public static getInstance(): ApiService {
     if (!ApiService.instance) {
       ApiService.instance = new ApiService()

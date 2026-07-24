@@ -2,20 +2,29 @@
   <!-- 聊天视图主容器 - 支持键盘动画状态 -->
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
     <!-- 调试上下文按钮 (仅测试环境显示) -->
-    <button
-      class="debug-context-btn"
-      @click="openDebugDialog"
-      title="查看历史上下文"
-    >
-      <span class="debug-btn-icon">📜</span>
-      <span class="debug-btn-text">调试上下文</span>
-    </button>
+    <div v-if="showDebugBtn" class="debug-btn-group">
+      <button class="debug-context-btn" @click="openDebugDialog" title="查看历史上下文">
+        <span class="debug-btn-icon">📜</span>
+        <span class="debug-btn-text">显示上下文</span>
+      </button>
+      <button
+        class="debug-context-btn admin-btn"
+        @click="openAdminDebugDialog"
+        title="查看 Admin 原始内存 State"
+      >
+        <span class="debug-btn-icon">⚙️</span>
+        <span class="debug-btn-text">显示详细上下文</span>
+      </button>
+    </div>
     <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
       <RubberBandList
         ref="rubberBandListRef"
         class="chat-rubber-list"
-        :enable-load-top="(props.type === 'user-client' && chatStrategy?.supportsPaginatedHistory?.()) || (props.type === 'teacher' && teacherStore.pagination.hasMore)"
+        :enable-load-top="
+          (props.type === 'user-client' && chatStrategy?.supportsPaginatedHistory?.()) ||
+          (props.type === 'teacher' && teacherStore.pagination.hasMore)
+        "
         :load-top-threshold="100"
         @load-top="handleLoadTop"
       >
@@ -32,15 +41,21 @@
         />
 
         <!-- 顶部加载指示器（教师聊天分页加载） -->
-        <div v-if="type === 'teacher' && teacherStore.pagination.isLoadingMore"
-             class="loading-more-indicator">
+        <div
+          v-if="type === 'teacher' && teacherStore.pagination.isLoadingMore"
+          class="loading-more-indicator"
+        >
           <div class="loading-spinner"></div>
           <span>正在加载历史消息...</span>
         </div>
 
         <!-- 没有更多数据提示（教师聊天） -->
-        <div v-if="type === 'teacher' && !teacherStore.pagination.hasMore && displayedMessages.length > 0"
-             class="no-more-indicator">
+        <div
+          v-if="
+            type === 'teacher' && !teacherStore.pagination.hasMore && displayedMessages.length > 0
+          "
+          class="no-more-indicator"
+        >
           没有更多历史消息了
         </div>
         <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
@@ -162,17 +177,14 @@
           @update:modelValue="handleSelectAllCheckboxChange"
         />
         <span class="select-all-text">全选</span>
-        <span class="selection-count">已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span>
+        <span class="selection-count"
+          >已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span
+        >
       </div>
 
       <!-- 右侧：操作按钮组（使用原生按钮，样式靠 CSS 控制） -->
       <div class="selection-actions">
-        <Button
-          label="取消"
-          variant="outline"
-          size="md"
-          @click="exitSelectionMode"
-        />
+        <Button label="取消" variant="outline" size="md" @click="exitSelectionMode" />
 
         <Button
           v-if="chatStrategy?.shouldShowForwardButton()"
@@ -349,28 +361,73 @@
       @confirm="copyDebugContext"
       @cancel="closeDebugContext"
     >
-      <div class="debug-dialog-content" style="max-height: 480px; overflow-y: auto; text-align: left; padding: 4px;">
-        <div v-if="!latestHistoryList || latestHistoryList.length === 0" style="color: #64748b; text-align: center; padding: 20px; font-size: 13px;">
+      <div
+        class="debug-dialog-content"
+        style="max-height: 480px; overflow-y: auto; text-align: left; padding: 4px"
+      >
+        <div
+          v-if="rawTextHistory"
+          style="
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            color: #1e293b;
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          "
+        >
+          {{ rawTextHistory }}
+        </div>
+        <div
+          v-else-if="!latestHistoryList || latestHistoryList.length === 0"
+          style="color: #64748b; text-align: center; padding: 20px; font-size: 13px"
+        >
           暂无历史消息
         </div>
-        <div v-else class="debug-history-list" style="display: flex; flex-direction: column; gap: 14px;">
-          <div 
-            v-for="(msg, idx) in latestHistoryList" 
-            :key="msg.id || idx" 
+        <div
+          v-else
+          class="debug-history-list"
+          style="display: flex; flex-direction: column; gap: 14px"
+        >
+          <div
+            v-for="(msg, idx) in latestHistoryList"
+            :key="msg.id || idx"
             class="debug-history-item"
-            style="border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;"
+            style="border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px"
           >
             <!-- 头部信息 -->
-            <div style="font-size: 11px; color: #8e8e93; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div
+              style="
+                font-size: 11px;
+                color: #8e8e93;
+                margin-bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              "
+            >
+              <span style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px">
                 {{ msg.type === 'human' || msg.type === 'user' ? 'Human' : 'AI' }}
               </span>
-              <span v-if="msg.response_metadata?.model_name" style="color: #aeaea2; font-size: 10px;">
+              <span
+                v-if="msg.response_metadata?.model_name"
+                style="color: #aeaea2; font-size: 10px"
+              >
                 ({{ msg.response_metadata.model_provider }}: {{ msg.response_metadata.model_name }})
               </span>
             </div>
             <!-- 内容 -->
-            <div style="color: #3a3a3c; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;">
+            <div
+              style="
+                color: #3a3a3c;
+                font-size: 13px;
+                line-height: 1.5;
+                white-space: pre-wrap;
+                word-break: break-all;
+              "
+            >
               {{ msg.content }}
             </div>
           </div>
@@ -398,6 +455,12 @@ import { androidBridge } from '@/services/business/android-bridge'
 import { showMessage } from '@/utils'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { apiService } from '@/services'
+import { getIsInternalTest } from '@/config/env-config'
+
+// 判断是否为测试环境或调试状态（测试环境 AppEnvType.INTERNAL_TEST，开发环境，或开启了 VITE_ENABLE_DEBUG）
+const showDebugBtn = computed(
+  () => getIsInternalTest() || import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEBUG === 'true',
+)
 
 // 子组件导入
 import ChatMessage from '@/components/chat/message/ChatMessage.vue'
@@ -437,7 +500,14 @@ import { findLastUserMessageIndex } from './messageActionVisibility'
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(
   defineProps<{
-    type: 'ai-general' | 'ai-exercise' | 'ai-homework' | 'ai-textbook' | 'teacher' | 'user-client' | 'html-preview'
+    type:
+      | 'ai-general'
+      | 'ai-exercise'
+      | 'ai-homework'
+      | 'ai-textbook'
+      | 'teacher'
+      | 'user-client'
+      | 'html-preview'
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
@@ -465,7 +535,7 @@ const props = withDefaults(
     showReadStatus: false, // 默认不显示已读状态
     showTime: false, // 默认不显示时间
     hideHistory: false, // 默认显示历史
-  }
+  },
 )
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -479,7 +549,7 @@ const emit = defineEmits<{
       forwardMode?: string
       successCount?: number
       sessionId?: string
-    }
+    },
   ] // 切换到老师对话事件
   'switch-to-teacher': [
     {
@@ -489,7 +559,7 @@ const emit = defineEmits<{
       forwardMode?: string
       successCount?: number
       sessionId?: string
-    }
+    },
   ]
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
@@ -573,11 +643,11 @@ const createStrategy = () => {
 
     // 状态访问
     getLastMessageCount: () => lastMessageCount.value,
-    setLastMessageCount: (count: number) => lastMessageCount.value = count,
+    setLastMessageCount: (count: number) => (lastMessageCount.value = count),
     getIsUserAtBottom: () => isUserAtBottom.value,
-    setIsUserAtBottom: (isAtBottom: boolean) => isUserAtBottom.value = isAtBottom,
+    setIsUserAtBottom: (isAtBottom: boolean) => (isUserAtBottom.value = isAtBottom),
     getShowNewMessageIndicator: () => showNewMessageIndicator.value,
-    setShowNewMessageIndicator: (show: boolean) => showNewMessageIndicator.value = show,
+    setShowNewMessageIndicator: (show: boolean) => (showNewMessageIndicator.value = show),
     getIsKeyboardVisible: () => isKeyboardVisible.value,
     getIsKeyboardAnimating: () => isKeyboardAnimating.value,
 
@@ -587,18 +657,18 @@ const createStrategy = () => {
 
     // 编辑相关
     getIsEditingMessage: () => isEditingMessage.value,
-    setIsEditingMessage: (editing: boolean) => isEditingMessage.value = editing,
+    setIsEditingMessage: (editing: boolean) => (isEditingMessage.value = editing),
     getEditingQuestionId: () => editingQuestionId.value || undefined,
     cancelEditMessage,
     clearInputContent: () => {
       if (chatInputRef.value && typeof chatInputRef.value.clearInputContent === 'function') {
         chatInputRef.value.clearInputContent()
       }
-    }
+    },
   }
 
   chatStrategy.value = ChatStrategyFactory.create(props.type, {
-    chatView: chatViewInterface
+    chatView: chatViewInterface,
   })
 }
 
@@ -613,6 +683,7 @@ const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null) 
 const debugContextDialogRef = ref<any>(null)
 const debugContextJson = ref('')
 const latestHistoryList = ref<any[]>([])
+const rawTextHistory = ref('')
 const isTestEnv = computed(() => localStorage.getItem('app_env_type') === 'INTERNAL_TEST')
 
 // 动态获取当前活跃的会话 ID
@@ -640,24 +711,150 @@ const currentSessionId = computed(() => {
 
 const openDebugDialog = async () => {
   const sid = currentSessionId.value
-  let history = null
+  let historyData: any = null
 
   if (sid) {
     try {
-      const agentName = (props.type === 'ai-exercise' || props.type === 'ai-homework') ? 'solvingbot' : 'chatbot'
+      const agentName =
+        props.type === 'ai-exercise' || props.type === 'ai-homework' ? 'solvingbot' : 'chatbot'
       const response = await apiService.getShortTermMemory(sid, agentName)
-      if (response && response.success && response.data && Array.isArray(response.data.data)) {
-        history = response.data.data
+      if (response) {
+        // 如果后端返回的是规范包装格式且包含 data
+        if (response.data !== undefined) {
+          historyData = response.data.data !== undefined ? response.data.data : response.data
+        } else {
+          historyData = response
+        }
       }
     } catch (e) {
       console.warn('[ChatView] 获取后端短期记忆失败:', e)
     }
   }
 
-  latestHistoryList.value = history || []
-  debugContextJson.value = history && history.length > 0
-    ? JSON.stringify(history, null, 2)
-    : '暂无历史上下文消息，且未能从后端拉取到记忆。'
+  // 判断是否为无效/空文本（如 "[空对话历史]"、""、"暂无历史消息" 等）
+  const isEmptyDataStr =
+    typeof historyData === 'string' &&
+    (historyData.trim() === '' ||
+      historyData.includes('[空对话历史]') ||
+      historyData.includes('暂无历史'))
+
+  // 💡 特殊降级处理：若后端 /get_shor_term_memory 返回为空，直接使用当前页面展示的对话消息构造上下文
+  if (!historyData || isEmptyDataStr) {
+    console.log(
+      '[ChatView] 后端 /get_shor_term_memory 返回为空或 [空对话历史]，使用当前页面对话消息构造上下文',
+      { propsType: props.type, originalHistoryData: historyData },
+    )
+
+    if (displayedMessages.value && displayedMessages.value.length > 0) {
+      historyData = displayedMessages.value.map((m) => ({
+        type: m.sender === 'user' ? 'human' : 'ai',
+        content: m.content,
+        id: m.messageId || m.id,
+        name: m.sender === 'ai' ? 'chat_bot' : null,
+      }))
+      console.log('[ChatView] 页面上下文构造成功:', historyData)
+    } else {
+      console.warn('[ChatView] 当前页面无对话消息')
+    }
+  }
+
+  // 尝试深度解析 SSE 或 previewPictureQA 包装层中的 history_messages / json
+  if (historyData) {
+    let targetStr =
+      typeof historyData === 'string'
+        ? historyData
+        : typeof historyData === 'object'
+          ? JSON.stringify(historyData)
+          : ''
+    if (targetStr.includes('history_messages')) {
+      try {
+        // 使用更具容错性的正则，匹配 history_messages 数组
+        const match =
+          targetStr.match(/"history_messages"\s*:\s*(\[[\s\S]*?\])\s*[,}\n]/) ||
+          targetStr.match(/\\?"history_messages\\?"\s*:\s*(\[[\s\S]*?\])\s*[,}\n]/)
+        if (match && match[1]) {
+          // 清理可能转义的字符
+          const unescaped = match[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+          const parsedMsgs = JSON.parse(unescaped)
+          if (Array.isArray(parsedMsgs) && parsedMsgs.length > 0) {
+            historyData = parsedMsgs
+          }
+        }
+      } catch (err) {
+        console.warn('[ChatView] 解析 SSE 消息流中的 history_messages 失败:', err)
+      }
+    }
+  }
+
+  // 兼容 1: 格式化为 JSON 数组；兼容 2: 纯字符串格式
+  if (Array.isArray(historyData)) {
+    latestHistoryList.value = historyData
+    rawTextHistory.value = ''
+    debugContextJson.value = JSON.stringify(historyData, null, 2)
+  } else if (typeof historyData === 'string') {
+    latestHistoryList.value = []
+    rawTextHistory.value = historyData
+    debugContextJson.value = historyData
+  } else if (historyData && typeof historyData === 'object') {
+    // 检查对象内部是否嵌套包含 history_messages
+    const innerMsgs =
+      historyData.history_messages || historyData.data?.history_messages || historyData.data
+    if (Array.isArray(innerMsgs)) {
+      latestHistoryList.value = innerMsgs
+      rawTextHistory.value = ''
+    } else {
+      latestHistoryList.value = Array.isArray(historyData.data) ? historyData.data : []
+      rawTextHistory.value = typeof historyData.data === 'string' ? historyData.data : ''
+    }
+    debugContextJson.value = JSON.stringify(historyData, null, 2)
+  } else {
+    latestHistoryList.value = []
+    rawTextHistory.value = ''
+    debugContextJson.value = '暂无历史上下文消息，且未能从后端拉取到记忆。'
+  }
+
+  debugContextDialogRef.value?.openDialog()
+}
+
+const openAdminDebugDialog = async () => {
+  const sid = currentSessionId.value
+  let historyData: any = null
+
+  if (sid) {
+    try {
+      const agentName =
+        props.type === 'ai-exercise' || props.type === 'ai-homework' ? 'solvingbot' : 'chatbot'
+      const response = await apiService.getShortTermMemoryAdmin(sid, agentName)
+      if (response) {
+        if (response.data !== undefined) {
+          historyData = response.data.data !== undefined ? response.data.data : response.data
+        } else {
+          historyData = response
+        }
+      }
+    } catch (e) {
+      console.warn('[ChatView] 获取后端 Admin 短期记忆失败:', e)
+    }
+  }
+
+  if (Array.isArray(historyData)) {
+    latestHistoryList.value = historyData
+    rawTextHistory.value = ''
+    debugContextJson.value = JSON.stringify(historyData, null, 2)
+  } else if (typeof historyData === 'string') {
+    latestHistoryList.value = []
+    rawTextHistory.value = historyData
+    debugContextJson.value = historyData
+  } else if (historyData && typeof historyData === 'object') {
+    latestHistoryList.value = Array.isArray(historyData.data) ? historyData.data : []
+    rawTextHistory.value = typeof historyData.data === 'string' ? historyData.data : ''
+    debugContextJson.value = JSON.stringify(historyData, null, 2)
+  } else {
+    latestHistoryList.value = []
+    rawTextHistory.value = ''
+    debugContextJson.value = '暂无 Admin 原始记忆数据，且未能从后端拉取到 Admin 状态。'
+  }
+
   debugContextDialogRef.value?.openDialog()
 }
 
@@ -667,7 +864,8 @@ const closeDebugContext = () => {
 
 const copyDebugContext = () => {
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(debugContextJson.value)
+    navigator.clipboard
+      .writeText(debugContextJson.value)
       .then(() => showMessage('已复制到剪贴板', 'success'))
       .catch(() => showMessage('复制失败', 'warning'))
   } else {
@@ -721,43 +919,44 @@ const onImageSelected = async (imageData: ChatImageData) => {
   // ChatView 不再负责截图编辑弹窗，这里仅负责"把图挂到输入框缩略图区 / 或交给上层处理"
   if (!imageData?.base64DataUrl) return
 
-    // ai-general / ai-exercise / ai-homework / user-client：直接打开截图编辑器（包含裁剪和标注）
-    if (
-      props.type === 'ai-general' ||
-      props.type === 'ai-exercise' ||
-      props.type === 'ai-homework' ||
-      props.type === 'ai-textbook' ||
-      props.type === 'user-client' ||
-      props.type === 'html-preview'
-    ) {
-      const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
-      if (strategyInputAttachedScreenshots.value.length >= maxImages) {
-        showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
-        return
-      }
-
-      // 生成截图 ID 并挂载
-      const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      const newShot: AttachedScreenshot = {
-        id: shotId,
-        dataUrl: imageData.base64DataUrl,
-        originalDataUrl: imageData.base64DataUrl,
-        width: imageData.width || 0,
-        height: imageData.height || 0,
-      }
-      
-      if (chatStrategy.value?.appendInputAttachedScreenshots) {
-        chatStrategy.value.appendInputAttachedScreenshots([newShot])
-      }
-
-      // 直接打开编辑器
-      openScreenshotEditor({
-        mode: 'multiple',
-        initialShotId: shotId,
-        lastCapturedShotId: shotId,
-      })
+  // ai-general / ai-exercise / ai-homework / user-client：直接打开截图编辑器（包含裁剪和标注）
+  if (
+    props.type === 'ai-general' ||
+    props.type === 'ai-exercise' ||
+    props.type === 'ai-homework' ||
+    props.type === 'ai-textbook' ||
+    props.type === 'user-client' ||
+    props.type === 'html-preview'
+  ) {
+    const maxImages =
+      chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+    if (strategyInputAttachedScreenshots.value.length >= maxImages) {
+      showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
       return
     }
+
+    // 生成截图 ID 并挂载
+    const shotId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const newShot: AttachedScreenshot = {
+      id: shotId,
+      dataUrl: imageData.base64DataUrl,
+      originalDataUrl: imageData.base64DataUrl,
+      width: imageData.width || 0,
+      height: imageData.height || 0,
+    }
+
+    if (chatStrategy.value?.appendInputAttachedScreenshots) {
+      chatStrategy.value.appendInputAttachedScreenshots([newShot])
+    }
+
+    // 直接打开编辑器
+    openScreenshotEditor({
+      mode: 'multiple',
+      initialShotId: shotId,
+      lastCapturedShotId: shotId,
+    })
+    return
+  }
 
   // 其它场景：走策略的"发送图片"逻辑
   if (!chatStrategy.value?.sendImageMessage) return
@@ -831,7 +1030,10 @@ const processCroppedImage = async (imageData: ChatImageData) => {
     // 由策略内部操作 store
     if (chatStrategy.value?.appendInputAttachedScreenshots) {
       chatStrategy.value.appendInputAttachedScreenshots([shot])
-    } else if (chatStrategy.value?.setInputAttachedScreenshots && chatStrategy.value?.getInputAttachedScreenshots) {
+    } else if (
+      chatStrategy.value?.setInputAttachedScreenshots &&
+      chatStrategy.value?.getInputAttachedScreenshots
+    ) {
       const current = chatStrategy.value.getInputAttachedScreenshots() || []
       chatStrategy.value.setInputAttachedScreenshots(current.concat([shot]))
     }
@@ -868,7 +1070,8 @@ const attachImageDirectToPreview = async (imageData: ChatImageData) => {
     props.type === 'user-client' ||
     props.type === 'html-preview'
   ) {
-    const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+    const maxImages =
+      chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
     if (strategyInputAttachedScreenshots.value.length >= maxImages) {
       showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
       return
@@ -898,7 +1101,7 @@ const attachImageDirectToPreview = async (imageData: ChatImageData) => {
 // 图片裁剪确认处理 - 适配新组件
 const handleImageCropConfirm = async (croppedDataUrl: string) => {
   if (!pendingImageData.value) return
-  
+
   try {
     pendingAnnotateImageData.value = pendingImageData.value
 
@@ -913,12 +1116,12 @@ const handleImageCropConfirm = async (croppedDataUrl: string) => {
         width: pendingImageData.value?.width || 0,
         height: pendingImageData.value?.height || 0,
       }
-      
+
       // 先添加到store，再打开编辑器编辑
       if (chatStrategy.value?.appendInputAttachedScreenshots) {
         chatStrategy.value.appendInputAttachedScreenshots([newShot])
       }
-      
+
       openScreenshotEditor({
         mode: 'multiple',
         initialShotId: shotId,
@@ -977,7 +1180,10 @@ const closeScreenshotEditor = () => {
   pendingAnnotateImageData.value = null
 }
 
-const openTextbookScreenshotEditor = (payload?: { shotId?: string; lastCapturedShotId?: string }) => {
+const openTextbookScreenshotEditor = (payload?: {
+  shotId?: string
+  lastCapturedShotId?: string
+}) => {
   if (props.type !== 'ai-textbook') return
   openScreenshotEditor({
     initialShotId: payload?.shotId || '',
@@ -1054,9 +1260,7 @@ const handleScreenshotInputConfirm = async (
     const edited = shots?.[0]
     if (edited?.id) {
       const current = chatStrategy.value?.getInputAttachedScreenshots?.() ?? []
-      const updated = current.map((s) =>
-        s.id === edited.id ? { ...s, ...edited } : s
-      )
+      const updated = current.map((s) => (s.id === edited.id ? { ...s, ...edited } : s))
       chatStrategy.value?.setInputAttachedScreenshots?.(updated)
     }
 
@@ -1210,7 +1414,7 @@ const cancelDeleteSession = () => {
 // 显示转发成功对话框
 const showForwardSuccessDialog = (
   message: string,
-  sessionId?: string
+  sessionId?: string,
 ): Promise<{ goToTeacher: boolean; sessionId?: string }> => {
   return new Promise((resolve) => {
     forwardSuccessMessage.value = message
@@ -1337,9 +1541,10 @@ const displayedMessages = computed<ChatBubble[]>(() => {
   // 处理 hideHistory 逻辑：只显示挂载后产生的新消息
   let baseMessages = rawMessages
   if (props.hideHistory) {
-    baseMessages = rawMessages.filter(msg => {
+    baseMessages = rawMessages.filter((msg) => {
       // 正在流式传输的消息或者是挂载后产生的消息
-      const isNew = msg.isStreaming || (msg.timestamp && new Date(msg.timestamp).getTime() > mountTime.value)
+      const isNew =
+        msg.isStreaming || (msg.timestamp && new Date(msg.timestamp).getTime() > mountTime.value)
       return isNew
     })
   }
@@ -1557,7 +1762,7 @@ const handleKeyboardHidden = () => {
   // 如果当前不是激活实例，不做动画，但需要硬重置键盘状态，防止旧状态影响下次显示
   if (!isActiveInstance.value) {
     console.log(
-      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only'
+      '[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only',
     )
     hardResetKeyboardState()
     return
@@ -1903,7 +2108,9 @@ const sendMessage = async (attachedFile?: File) => {
       strategyInputAttachedScreenshots.value.length > 0 &&
       chatStrategy.value?.buildImagePayloadFromAttachedScreenshots
     ) {
-      const payload = chatStrategy.value.buildImagePayloadFromAttachedScreenshots(strategyInputAttachedScreenshots.value)
+      const payload = chatStrategy.value.buildImagePayloadFromAttachedScreenshots(
+        strategyInputAttachedScreenshots.value,
+      )
       imageDataForApi = payload.imageData
       imageListForApi = payload.imageList
 
@@ -2137,7 +2344,6 @@ const checkIfUserAtBottom = () => {
   isUserAtBottom.value = distanceToBottom <= threshold
 }
 
-
 // 作用：处理输入框失去焦点事件，响应键盘已隐藏状态
 // 键盘隐藏支持失焦和全局事件两种方式
 const onInputBlur = () => {
@@ -2207,7 +2413,9 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
   // 如果这里继续走原生键盘逻辑，会触发对其它 input 的 focus，从而把 math-field 顶掉，导致公式键盘立刻隐藏
   const activeTagName = document.activeElement?.tagName
   if (activeTagName === 'MATH-FIELD') {
-    console.log('[ChatView][Keyboard] handleKeyboardShown skipped because activeElement is MATH-FIELD')
+    console.log(
+      '[ChatView][Keyboard] handleKeyboardShown skipped because activeElement is MATH-FIELD',
+    )
     return
   }
 
@@ -2279,7 +2487,8 @@ const showImagePickerDialog = async () => {
   }
 
   // 检查图片数量限制
-  const maxImages = chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
+  const maxImages =
+    chatStrategy.value?.getMaxAttachedImages?.() ?? (props.type === 'user-client' ? 5 : 3)
   if (strategyInputAttachedScreenshots.value.length >= maxImages) {
     showMessage(`最多只能添加 ${maxImages} 张图片`, 'info')
     return
@@ -3068,8 +3277,6 @@ defineExpose({
   gap: 8px;
 }
 
-
-
 /* 空状态 */
 .snapshot-empty {
   flex: 1;
@@ -3127,7 +3334,9 @@ defineExpose({
 /* 加载指示器过渡动画 - 淡入淡出效果 */
 .loading-fade-enter-active,
 .loading-fade-leave-active {
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition:
+    opacity 0.2s ease-in-out,
+    transform 0.2s ease-in-out;
 }
 
 .loading-fade-enter-from {
@@ -3222,8 +3431,12 @@ defineExpose({
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 没有更多数据提示 */
@@ -3236,12 +3449,19 @@ defineExpose({
   font-size: 12px;
 }
 
-/* 调试上下文按钮 */
-.debug-context-btn {
+/* 调试上下文按钮组 */
+.debug-btn-group {
   position: absolute;
   bottom: 180px; /* 避开输入区域，悬浮在右下角 */
   right: 16px;
   z-index: 99;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.debug-context-btn {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -3256,6 +3476,13 @@ defineExpose({
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
 }
+
+.debug-context-btn.admin-btn {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
 .debug-context-btn:hover {
   background-color: #f8fafc;
   border-color: #cbd5e1;
@@ -3263,6 +3490,13 @@ defineExpose({
   transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
 }
+
+.debug-context-btn.admin-btn:hover {
+  background-color: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
 .debug-btn-icon {
   font-size: 13px;
 }
