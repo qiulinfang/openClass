@@ -58,23 +58,74 @@ export interface SearchImageRequest {
 
 /** 1. 拍照搜题响应体 (/v2/search_image) */
 export interface SearchImageResponse {
-  source?: string
-  ocr_text?: string
-  best_score?: number | null
-  is_same_question?: boolean | null
-  same_question_label?: SameQuestionLabel | string | null
-  question_bank_hit?: boolean
-  question_bank_hit_label?: SameQuestionLabel | string | null
-  question_bank_auto_reusable?: boolean
-  ocr_confidence?: number | null
-  ocr_low_confidence?: boolean
-  ocr_low_confidence_threshold?: number
-  auto_judgement_failed?: boolean
-  auto_judgement_failure_reason?: string | null
-  results?: MathRagSearchResultItem[]
-  reason?: string
-  message?: string
-  image_received?: boolean
+  source: string
+  ocr_text: string
+  best_score: number
+  is_same_question: boolean | null
+  same_question_label: SameQuestionLabel
+  question_bank_hit: boolean
+  question_bank_hit_label: SameQuestionLabel
+  question_bank_auto_reusable: boolean
+  ocr_confidence: number | null
+  ocr_low_confidence: boolean
+  ocr_low_confidence_threshold: number
+  auto_judgement_failed: boolean
+  auto_judgement_failure_reason: string | null
+  results: MathRagSearchResultItem[]
+  [key: string]: any
+}
+
+/** 4. 图片 OCR 识别请求与响应类型 (/v2/ocr) */
+export interface OcrQuestion {
+  question_id: string
+  question_no: string
+  page_index: number
+  text: string
+  question_text: string
+  answer_text: string
+  confidence: number | null
+  answer_confidence: number | null
+  bbox: [number, number, number, number] | null
+  question_bbox: [number, number, number, number] | null
+  answer_bbox: [number, number, number, number] | null
+}
+
+export interface OcrBlock {
+  page_index: number
+  order: number
+  label: string
+  text: string
+  bbox: [number, number, number, number] | null
+  confidence: number | null
+}
+
+export interface OcrResponse {
+  source: 'image_ocr'
+  provider: string
+  model: string
+  job_id: string
+  ocr_text: string
+  ocr_confidence: number | null
+  ocr_low_confidence: boolean
+  ocr_low_confidence_threshold: number
+  auto_judgement_failed: boolean
+  auto_judgement_failure_reason: string | null
+  page_count: number
+  document: {
+    width: number
+    height: number
+    bbox_coordinate_space: string
+  }
+  image: {
+    width: number
+    height: number
+    original_size: number
+    processed_size: number
+    resized: boolean
+  }
+  questions: OcrQuestion[]
+  blocks: OcrBlock[]
+  warnings: string[]
 }
 
 /** 2. 文本搜题请求参数 (/v2/search) */

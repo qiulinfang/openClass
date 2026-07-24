@@ -192,6 +192,8 @@
       @retake="handleRetake"
       @select-candidate="selectCandidateQuestion"
       @keyword-search="handleKeywordSearch"
+      @clear-photo="handleClearPhoto"
+      @clear-keyword="handleClearKeywordData"
       @chat-response="handleChatResponse"
       @send-message="handleSendSuggestionInPhotoSearch"
       @favorite="handleFavoriteInChat"
@@ -1435,9 +1437,12 @@ const handleRetake = async () => {
   showDrawer.value = false // 关闭抽屉
   cropRect.value = null
   cropPreviewImage.value = ''
+  croppedImageBase64.value = ''
   imageDrawInfo.value = null
   originalDrawInfo.value = null
   photoQuestionData.value = null
+  keywordQuestionData.value = null
+  keywordText.value = ''
   isCropping.value = false
   isDragging.value = false
   isPanning.value = false
@@ -1455,6 +1460,24 @@ const handleRetake = async () => {
 
 // 切换选中的候选题
 const selectCandidateQuestion = (candidate: any) => {
+  if (keywordQuestionData.value && (keywordQuestionData.value.mathRagV2?.results?.some((item: any) => item.id === candidate.id) || keywordQuestionData.value.id === candidate.id)) {
+    const currentMathRag = keywordQuestionData.value.mathRagV2
+    keywordQuestionData.value = {
+      ...keywordQuestionData.value,
+      id: candidate.id,
+      bmNo: String(candidate.id),
+      title: candidate.question,
+      question: candidate.question,
+      mathRagV2: {
+        ...currentMathRag,
+        sameQuestionLabel: candidate.same_question?.label,
+        conflicts: candidate.same_question?.conflicts || [],
+        probability: candidate.same_question?.probability,
+      },
+    }
+    return
+  }
+
   if (!photoQuestionData.value) return
   const currentMathRag = photoQuestionData.value.mathRagV2
 
@@ -1693,7 +1716,11 @@ watch(
 )
 
 // 处理关键词搜索
-const handleKeywordSearch = async () => {
+const handleKeywordSearch = async (text?: string) => {
+  if (typeof text === 'string') {
+    keywordText.value = text
+  }
+
   if (!keywordText.value.trim()) {
     showMessage('请输入题目关键字再搜索', 'warning')
     return
@@ -1728,6 +1755,19 @@ const handleKeywordSearch = async () => {
   } finally {
     isKeywordSearching.value = false
   }
+}
+
+// 清空拍照搜题记录
+const handleClearPhoto = () => {
+  croppedImageBase64.value = ''
+  cropPreviewImage.value = ''
+  photoQuestionData.value = null
+}
+
+// 清空关键词搜题记录
+const handleClearKeywordData = () => {
+  keywordText.value = ''
+  keywordQuestionData.value = null
 }
 
 // 渲染题目内容（支持Markdown和公式）

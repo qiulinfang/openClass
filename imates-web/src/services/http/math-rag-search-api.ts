@@ -98,7 +98,34 @@ export class MathRagSearchApi {
   }
 
   /**
-   * 4. 健康检查 (/v2/health)
+   * 4. 图片 OCR 识别 (/v2/ocr)
+   */
+  public async recognizeOcr(imageFile: File | Blob, ocrApiKey?: string): Promise<import('@/types').OcrResponse> {
+    const url = `${this.baseUrl}/v2/ocr`
+    const formData = new FormData()
+    formData.append('image', imageFile)
+
+    const headers: Record<string, string> = {}
+    if (ocrApiKey) {
+      headers['X-OCR-API-Key'] = ocrApiKey
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => null)
+      throw new Error(errorJson?.detail ?? `[MathRagSearchApi] recognizeOcr 状态码异常: ${response.status}`)
+    }
+
+    return (await response.json()) as import('@/types').OcrResponse
+  }
+
+  /**
+   * 5. 健康检查 (/v2/health)
    */
   public async getHealth(): Promise<MathRagHealthResponse> {
     const url = `${this.baseUrl}/v2/health`

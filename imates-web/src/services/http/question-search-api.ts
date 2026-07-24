@@ -50,85 +50,82 @@ export class QuestionSearchApi {
   }
 
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
-    // 1. 尝试使用原有服务识别或者默认提取
-    const endpoint =
-      normalizeSubject(subject).toLowerCase() === 'biology'
-        ? getApiPaths().xueban.permission.img
-        : getApiPaths().xueban.permission.imgMath
-
-    const formData = new FormData()
-    formData.append('imgFile', imageFile, 'default.jpg')
+    const { mathRagSearchApi } = await import('./math-rag-search-api')
 
     try {
-      const response = await httpClient.post<{
-        success: boolean
-        code: number
-        message: string
-        data: {
-          item: {
-            questionsConfirm: Array<{
-              bmNo: string
-              title: string
-              answer: string
-              explanation: string
-              analysisData: string
-              id: string
-            }>
-          }
+      // 1. 调用新版 MathRAG v2 系统的 /v2/ocr 接口对上传图片进行 PaddleOCR 级提取
+      let ocrRes: import('@/types').OcrResponse | null = null
+      let rawTitle = ''
+      let ocrConfidence = 0.92
+
+      try {
+        ocrRes = await mathRagSearchApi.recognizeOcr(imageFile)
+        if (ocrRes && ocrRes.questions && ocrRes.questions.length > 0) {
+          const topQ = ocrRes.questions[0]
+          rawTitle = topQ.question_text || topQ.text || ocrRes.ocr_text || ''
+          ocrConfidence = topQ.confidence ?? ocrRes.ocr_confidence ?? 0.92
+        } else if (ocrRes?.ocr_text) {
+          rawTitle = ocrRes.ocr_text
+          ocrConfidence = ocrRes.ocr_confidence ?? 0.92
         }
-      }>(endpoint, formData)
+      } catch (ocrErr) {
+        console.warn('[QuestionSearchApi] MathRAG v2 /v2/ocr 接口调用未就绪或报错，回退兼容识别模式:', ocrErr)
+      }
 
-      if (response.success && (response.data as any)?.data?.item?.questionsConfirm?.length > 0) {
-        const questionData = (response.data as any).data.item.questionsConfirm[0]
-        const rawTitle = questionData.title || ''
+      // 2. 如果 /v2/ocr 暂时未能返回文本，作为兼容兜底尝试传统网关识别
+      if (!rawTitle) {
+        const endpoint =
+          normalizeSubject(subject).toLowerCase() === 'biology'
+            ? getApiPaths().xueban.permission.img
+            : getApiPaths().xueban.permission.imgMath
 
-        // 2. 将识别到的文本提交给 MathRAG v2 执行精准的召回和同题判断
-        try {
-          const { mathRagSearchApi } = await import('./math-rag-search-api')
-          const ragRes = await mathRagSearchApi.searchImage({
-            ocr_text: rawTitle,
-            ocr_confidence: 0.92,
-            k: 5,
-            explain: true,
-          })
+        const formData = new FormData()
+        formData.append('imgFile', imageFile, 'default.jpg')
 
-          const topResult = ragRes.results && ragRes.results.length > 0 ? ragRes.results[0] : null
+        const legacyRes = await httpClient.post<{
+          success: boolean
+          data: { item: { questionsConfirm: Array<{ title: string; id: string; bmNo: string }> } }
+        }>(endpoint, formData)
 
-          return {
-            id: topResult?.id || questionData.id,
-            bmNo: String(topResult?.id || questionData.bmNo),
-            title: topResult?.question || questionData.title,
-            question: topResult?.question || questionData.title,
-            answer: questionData.answer,
-            explanation: questionData.explanation,
-            analysisData: questionData.analysisData,
-            subject: subject.toLowerCase(),
-            // 附带 MathRAG v2 判定元数据
-            mathRagV2: {
-              sameQuestionLabel: ragRes.same_question_label || topResult?.same_question?.label,
-              questionBankHit: ragRes.question_bank_hit,
-              autoReusable: ragRes.question_bank_auto_reusable,
-              autoJudgementFailed: ragRes.auto_judgement_failed,
-              failureReason: ragRes.auto_judgement_failure_reason,
-              conflicts: topResult?.same_question?.conflicts || [],
-              probability: topResult?.same_question?.probability,
-              results: ragRes.results || [],
-            },
-          }
-        } catch (ragErr) {
-          console.warn('[QuestionSearchApi] MathRAG v2 搜题调用异常，回退原始识别结果:', ragErr)
+        if (legacyRes.success && (legacyRes.data as any)?.data?.item?.questionsConfirm?.length > 0) {
+          rawTitle = (legacyRes.data as any).data.item.questionsConfirm[0].title || ''
         }
+      }
 
-        return {
-          id: questionData.id,
-          bmNo: questionData.bmNo,
-          title: questionData.title,
-          question: questionData.title,
-          answer: questionData.answer,
-          explanation: questionData.explanation,
-          analysisData: questionData.analysisData,
-          subject: subject.toLowerCase(),
-        }
+      if (!rawTitle) {
+        return null
+      }
+
+      // 3. 将 OCR 提取到的精细题目文本和置信度送入 /v2/search_image 完成同题与相似题判定
+      const ragRes = await mathRagSearchApi.searchImage({
+        ocr_text: rawTitle,
+        ocr_confidence: ocrConfidence,
+        k: 5,
+        explain: true,
+      })
+
+      const topResult = ragRes.results && ragRes.results.length > 0 ? ragRes.results[0] : null
+
+      return {
+        id: topResult?.id || 'temp-' + Date.now(),
+        bmNo: String(topResult?.id || ''),
+        title: topResult?.question || rawTitle,
+        question: topResult?.question || rawTitle,
+        answer: '',
+        explanation: '',
+        analysisData: '',
+        subject: subject.toLowerCase(),
+        mathRagV2: {
+          sameQuestionLabel: ragRes.same_question_label || topResult?.same_question?.label,
+          questionBankHit: ragRes.question_bank_hit,
+          autoReusable: ragRes.question_bank_auto_reusable,
+          autoJudgementFailed: ragRes.auto_judgement_failed,
+          failureReason: ragRes.auto_judgement_failure_reason,
+          conflicts: topResult?.same_question?.conflicts || [],
+          probability: topResult?.same_question?.probability,
+          results: ragRes.results || [],
+          ocrQuestions: ocrRes?.questions || [],
+        },
       }
     } catch (err) {
       console.error('[QuestionSearchApi] recognizeImage 异常:', err)
@@ -139,12 +136,13 @@ export class QuestionSearchApi {
 
   public async searchQuestionByText(keyText: string, subject: string): Promise<any | null> {
     try {
-      // 调用 MathRAG v2 进行文本搜题与同题判定
+      // 调用 MathRAG v2 /v2/search 进行文本搜题
       const { mathRagSearchApi } = await import('./math-rag-search-api')
-      const ragRes = await mathRagSearchApi.searchImage({
-        ocr_text: keyText,
-        ocr_confidence: 0.95,
+      const ragRes = await mathRagSearchApi.searchText({
+        query: keyText,
         k: 5,
+        candidate_pool: 50,
+        min_score: 0,
         explain: true,
       })
 
@@ -161,11 +159,11 @@ export class QuestionSearchApi {
           analysisData: '',
           subject: subject.toLowerCase(),
           mathRagV2: {
-            sameQuestionLabel: ragRes.same_question_label || topResult.same_question?.label,
-            questionBankHit: ragRes.question_bank_hit,
-            autoReusable: ragRes.question_bank_auto_reusable,
-            autoJudgementFailed: ragRes.auto_judgement_failed,
-            failureReason: ragRes.auto_judgement_failure_reason,
+            sameQuestionLabel: topResult.same_question?.label || 'similar',
+            questionBankHit: true,
+            autoReusable: false,
+            autoJudgementFailed: false,
+            failureReason: null,
             conflicts: topResult.same_question?.conflicts || [],
             probability: topResult.same_question?.probability,
             results: ragRes.results || [],

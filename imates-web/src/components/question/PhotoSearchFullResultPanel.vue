@@ -67,66 +67,125 @@
               >
                 <div class="panel-card problem-card">
                   <div class="panel-card-body q-pa-sm flex column full-height">
-                    <!-- 上半部：拍照原始切图卡片 -->
+                    <!-- 上半部：依据搜题模式动态展示 (拍照搜题 -> 原图切片预览 + 清空重拍；文字搜题 -> 输入框 + 搜索/清空) -->
                     <div class="crop-preview-card q-mb-sm">
-                      <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
-                        <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
-                          <q-icon name="crop_original" size="18px" color="primary" class="q-mr-xs" />
-                          拍照切图切片
-                        </span>
-                        <span class="text-caption text-indigo-6 bg-indigo-1 q-px-xs rounded-borders">原图区域</span>
-                      </div>
-                      <div class="img-preview-box row items-center justify-center">
-                        <img
-                          v-if="croppedImageBase64 || cropPreviewImage"
-                          :src="croppedImageBase64 || cropPreviewImage"
-                          alt="拍照切图"
-                          class="user-cropped-img"
-                        />
-                        <div v-else class="text-caption text-slate-400">暂无切图预览</div>
-                      </div>
+                      <!-- 1. 拍照搜题模式：显示拍照切片及清空/重拍按钮 -->
+                      <template v-if="activeTab === 'photo'">
+                        <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
+                          <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
+                            <q-icon name="crop_original" size="18px" color="primary" class="q-mr-xs" />
+                            拍照切图切片
+                          </span>
+                          <div class="row items-center q-gutter-xs">
+                            <q-btn
+                              v-if="croppedImageBase64 || cropPreviewImage"
+                              flat
+                              dense
+                              size="xs"
+                              color="grey-7"
+                              icon="delete_outline"
+                              label="清空图片"
+                              @click="$emit('clear-photo')"
+                            />
+                            <q-btn
+                              flat
+                              dense
+                              size="xs"
+                              color="primary"
+                              icon="camera_alt"
+                              label="重新拍照"
+                              @click="handleRetakeAndClose"
+                            />
+                          </div>
+                        </div>
+                        <div class="img-preview-box row items-center justify-center">
+                          <img
+                            v-if="croppedImageBase64 || cropPreviewImage"
+                            :src="croppedImageBase64 || cropPreviewImage"
+                            alt="拍照切图"
+                            class="user-cropped-img"
+                          />
+                          <div v-else class="text-caption text-slate-400">暂无切图预览</div>
+                        </div>
+                      </template>
+
+                      <!-- 2. 文字/关键词搜题模式：显示输入框、搜索和清空按钮 -->
+                      <template v-else-if="activeTab === 'keyword'">
+                        <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
+                          <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
+                            <q-icon name="search" size="18px" color="primary" class="q-mr-xs" />
+                            关键词搜索
+                          </span>
+                          <q-btn
+                            v-if="keywordText"
+                            flat
+                            dense
+                            size="xs"
+                            color="grey-7"
+                            icon="clear"
+                            label="清空"
+                            @click="handleClearKeyword"
+                          />
+                        </div>
+                        <div class="keyword-input-box q-pa-sm bg-white border-top-slate">
+                          <AutoHeightTextarea
+                            v-model="keywordText"
+                            placeholder="请输入题目的关键字，多个词可用空格隔开"
+                            :min-height="54"
+                            :max-height="110"
+                            :show-action-button="true"
+                            action-button-class="keyword-search-btn"
+                            action-button-color="primary"
+                            action-button-icon="search"
+                            :action-button-loading="isKeywordSearching"
+                            :action-button-disabled="!keywordText.trim()"
+                            @keydown.enter.prevent="$emit('keyword-search', keywordText)"
+                            @action-click="$emit('keyword-search', keywordText)"
+                          />
+                        </div>
+                      </template>
                     </div>
 
-                    <!-- 下半部：搜到的候选题目列表卡片 -->
+                    <!-- 下半部：搜到的候选题目列表卡片 (根据 activeTab 展示拍照或关键词的题目列表) -->
                     <div class="candidates-card col flex column overflow-hidden">
                       <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
                         <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
                           <q-icon name="format_list_bulleted" size="18px" color="primary" class="q-mr-xs" />
-                          匹配题目列表
+                          {{ activeTab === 'photo' ? '拍照匹配题目' : '关键词匹配题目' }}
                         </span>
                         <q-chip
-                          v-if="photoQuestionData?.mathRagV2?.results"
+                          v-if="currentModeQuestionData?.mathRagV2?.results"
                           size="xs"
                           color="indigo-1"
                           text-color="indigo-9"
                           class="text-weight-bold"
                         >
-                          {{ photoQuestionData.mathRagV2.results.length }} 题命中
+                          {{ currentModeQuestionData.mathRagV2.results.length }} 题命中
                         </q-chip>
                       </div>
 
                       <div class="candidate-list-scroll col overflow-auto q-px-xs q-py-xs">
-                        <div v-if="isSearching" class="q-pa-md text-center">
+                        <div v-if="(activeTab === 'photo' && isSearching) || (activeTab === 'keyword' && isKeywordSearching)" class="q-pa-md text-center">
                           <q-spinner-dots color="primary" size="32px" />
                           <div class="text-caption text-grey-7 q-mt-xs">检索中...</div>
                         </div>
 
                         <q-list
                           v-else-if="
-                            photoQuestionData?.mathRagV2?.results &&
-                            photoQuestionData.mathRagV2.results.length > 0
+                            currentModeQuestionData?.mathRagV2?.results &&
+                            currentModeQuestionData.mathRagV2.results.length > 0
                           "
                           separator
                           class="rounded-borders"
                         >
                           <q-item
-                            v-for="(candidate, cIdx) in photoQuestionData.mathRagV2.results"
+                            v-for="(candidate, cIdx) in currentModeQuestionData.mathRagV2.results"
                             :key="cIdx"
                             clickable
                             v-ripple
                             :active="
-                              photoQuestionData.id === candidate.id ||
-                              photoQuestionData.bmNo === String(candidate.id)
+                              currentModeQuestionData.id === candidate.id ||
+                              currentModeQuestionData.bmNo === String(candidate.id)
                             "
                             active-class="bg-blue-1 text-primary text-weight-bold"
                             class="q-pa-xs rounded-borders q-mb-xs"
@@ -167,7 +226,7 @@
                           </q-item>
                         </q-list>
 
-                        <div v-else-if="photoQuestionData" class="q-pa-xs">
+                        <div v-else-if="currentModeQuestionData" class="q-pa-xs">
                           <q-item
                             active
                             active-class="bg-blue-1 text-primary"
@@ -178,7 +237,7 @@
                                 #1
                                 <span
                                   class="markdown-content inline-markdown"
-                                  v-html="renderQuestionContent(photoQuestionData)"
+                                  v-html="renderQuestionContent(currentModeQuestionData)"
                                 ></span>
                               </q-item-label>
                             </q-item-section>
@@ -186,7 +245,7 @@
                         </div>
 
                         <div v-else class="text-caption text-grey-5 text-center q-pa-md">
-                          暂无候选题目
+                          {{ activeTab === 'photo' ? '暂无拍照切图匹配题目' : '暂无关键词搜题记录' }}
                         </div>
                       </div>
                     </div>
@@ -196,7 +255,7 @@
             </div>
           </template>
 
-          <!-- 中间列：【题目内容 + DrawingBoardNew 草稿本】 (对齐 ExerciseSolveViewNew draft-card) -->
+          <!-- 中间列：纯粹展示题目 + 草稿本 (对齐 ExerciseSolveViewNew draft-card) -->
           <template #center="{}">
             <div class="panel-bg"></div>
             <div class="panel-content" :style="{ width: '100%', minWidth: '500px' }">
@@ -204,85 +263,66 @@
                 class="panel-card draft-card"
                 :class="{ 'draft-mode-left': splitMode === 'left', 'draft-mode-right': splitMode === 'right' }"
               >
-                <!-- 题目区域 (带收缩动画) -->
+                <!-- 题目区域 (纯粹展示选中题目的详情与 Markdown/LaTeX 公式解析) -->
                 <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
                   <div class="question-image-content">
-                    <div v-if="activeTab === 'photo'">
-                      <div v-if="isSearching" class="search-loading-container text-center q-pa-md">
-                        <q-spinner-dots color="primary" size="40px" />
-                        <div class="text-subtitle2 text-grey-7 q-mt-sm">正在调取 MathRAG 智能判定...</div>
-                      </div>
-                      <div v-else-if="photoQuestionData">
-                        <div v-if="photoQuestionData?.mathRagV2" class="mathrag-status-banner q-mb-sm">
-                          <div class="row items-center q-gutter-xs">
-                            <q-chip
-                              size="sm"
-                              :color="
-                                photoQuestionData.mathRagV2.sameQuestionLabel === 'same'
-                                  ? 'positive'
-                                  : photoQuestionData.mathRagV2.sameQuestionLabel === 'likely_same'
-                                    ? 'orange'
-                                    : 'grey-7'
-                              "
-                              text-color="white"
-                              icon="verified"
-                            >
-                              {{
-                                photoQuestionData.mathRagV2.sameQuestionLabel === 'same'
-                                  ? '同题精准命中'
-                                  : photoQuestionData.mathRagV2.sameQuestionLabel === 'likely_same'
-                                    ? '疑似同题'
-                                    : '题库相似推荐'
-                              }}
-                            </q-chip>
-                            <q-chip
-                              v-if="photoQuestionData.mathRagV2.autoReusable"
-                              size="sm"
-                              color="blue-1"
-                              text-color="blue-9"
-                              icon="auto_awesome"
-                            >
-                              支持自动解答复用
-                            </q-chip>
-                          </div>
-                          <div
-                            v-if="
-                              photoQuestionData.mathRagV2.conflicts &&
-                              photoQuestionData.mathRagV2.conflicts.length > 0
-                            "
-                            class="conflict-alert-box q-mt-xs"
-                          >
-                            <q-icon name="warning" color="warning" size="16px" class="q-mr-xs" />
-                            <span class="text-caption text-orange-9">
-                              提示：检测到差异 ({{ photoQuestionData.mathRagV2.conflicts.join(', ') }})，请注意甄别。
-                            </span>
-                          </div>
-                        </div>
-                        <div class="problem-text markdown-content" v-html="renderQuestionContent(photoQuestionData)"></div>
-                      </div>
-                      <div v-else class="empty-result-container text-center q-pa-md text-grey-6">
-                        <q-icon name="search_off" size="40px" />
-                        <div class="text-caption q-mt-xs">未识别到匹配题目</div>
-                      </div>
+                    <div v-if="isSearching || isKeywordSearching" class="search-loading-container text-center q-pa-md">
+                      <q-spinner-dots color="primary" size="40px" />
+                      <div class="text-subtitle2 text-grey-7 q-mt-sm">正在检索题目并调取 MathRAG 智能分析...</div>
                     </div>
 
-                    <div v-else-if="activeTab === 'keyword'">
-                      <AutoHeightTextarea
-                        v-model="keywordText"
-                        placeholder="输入题目的关键词，空格分隔"
-                        :min-height="44"
-                        :max-height="100"
-                        :show-action-button="true"
-                        action-button-class="keyword-search-btn"
-                        action-button-color="primary"
-                        action-button-icon="search"
-                        :action-button-loading="isKeywordSearching"
-                        :action-button-disabled="!keywordText.trim()"
-                        @action-click="$emit('keyword-search', keywordText)"
-                      />
-                      <div v-if="keywordQuestionData" class="keyword-result-wrapper q-mt-sm">
-                        <div class="problem-text" v-html="renderQuestionContent(keywordQuestionData)"></div>
+                    <div v-else-if="currentQuestionData" class="results-main-area">
+                      <div v-if="currentQuestionData?.mathRagV2" class="mathrag-status-banner q-mb-sm">
+                        <div class="row items-center q-gutter-xs">
+                          <q-chip
+                            size="sm"
+                            :color="
+                              currentQuestionData.mathRagV2.sameQuestionLabel === 'same'
+                                ? 'positive'
+                                : currentQuestionData.mathRagV2.sameQuestionLabel === 'likely_same'
+                                  ? 'orange'
+                                  : 'grey-7'
+                            "
+                            text-color="white"
+                            icon="verified"
+                          >
+                            {{
+                              currentQuestionData.mathRagV2.sameQuestionLabel === 'same'
+                                ? '同题精准命中'
+                                : currentQuestionData.mathRagV2.sameQuestionLabel === 'likely_same'
+                                  ? '疑似同题'
+                                  : '题库相似推荐'
+                            }}
+                          </q-chip>
+                          <q-chip
+                            v-if="currentQuestionData.mathRagV2.autoReusable"
+                            size="sm"
+                            color="blue-1"
+                            text-color="blue-9"
+                            icon="auto_awesome"
+                          >
+                            支持自动解答复用
+                          </q-chip>
+                        </div>
+                        <div
+                          v-if="
+                            currentQuestionData.mathRagV2.conflicts &&
+                            currentQuestionData.mathRagV2.conflicts.length > 0
+                          "
+                          class="conflict-alert-box q-mt-xs"
+                        >
+                          <q-icon name="warning" color="warning" size="16px" class="q-mr-xs" />
+                          <span class="text-caption text-orange-9">
+                            提示：检测到差异 ({{ currentQuestionData.mathRagV2.conflicts.join(', ') }})，请注意甄别。
+                          </span>
+                        </div>
                       </div>
+                      <div class="problem-text markdown-content" v-html="renderQuestionContent(currentQuestionData)"></div>
+                    </div>
+
+                    <div v-else class="empty-result-container text-center q-pa-md text-grey-6">
+                      <q-icon name="search_off" size="40px" />
+                      <div class="text-caption q-mt-xs">未选择或未匹配到题目</div>
                     </div>
                   </div>
                 </div>
@@ -351,7 +391,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import Toolbar from '@/components/drawing/Toolbar.vue'
@@ -387,6 +427,8 @@ const emit = defineEmits<{
   (e: 'retake'): void
   (e: 'select-candidate', candidate: any): void
   (e: 'keyword-search', text: string): void
+  (e: 'clear-photo'): void
+  (e: 'clear-keyword'): void
   (e: 'chat-response'): void
   (e: 'send-message', msg: any): void
   (e: 'favorite'): void
@@ -406,6 +448,28 @@ const currentQuestionData = computed(() => {
   if (activeTab.value === 'photo') return props.photoQuestionData
   return props.keywordQuestionData
 })
+
+const currentModeQuestionData = computed(() => {
+  return activeTab.value === 'photo' ? props.photoQuestionData : props.keywordQuestionData
+})
+
+const handleClearKeyword = () => {
+  keywordText.value = ''
+  emit('clear-keyword')
+}
+
+// 监听全屏面板关闭，完全重置子组件内部的搜索 Tab 与分屏等状态
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (!val) {
+      activeTab.value = 'photo'
+      keywordText.value = ''
+      splitMode.value = 'left'
+      isQuestionImageCollapsed.value = true
+    }
+  },
+)
 
 const handleClose = () => {
   emit('update:modelValue', false)
