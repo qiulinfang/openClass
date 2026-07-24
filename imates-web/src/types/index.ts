@@ -31,8 +31,9 @@ export * from './media'
 // ========== 配置相关 ==========
 export * from './config'
 
-// ========== 数学公式相关 ==========
+// ========== 数学公式与搜题相关 ==========
 export * from './math'
+export * from './math-rag-search'
 
 // ========== Android Bridge相关 ==========
 export * from './bridge'

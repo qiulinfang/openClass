@@ -26,8 +26,10 @@ export const DB_NAMES = {
   // 作业作答数据库
   HOMEWORK_SUBMISSION: () => `HomeworkStorageDB_${getUserId()}${getEnvSuffix()}`,
   
-  // 错题本数据库 (全新的专用存储库，废弃旧数据)
+  // 错题本数据库 (全新的专用存储库)
   MISTAKE_STORAGE: () => `MistakeVaultDB_${getUserId()}${getEnvSuffix()}`,
+  // 错题本旧版数据库 (用于数据平滑无缝迁移)
+  OLD_MISTAKE_STORAGE: () => `MistakeStorageDB_${getUserId()}${getEnvSuffix()}`,
 
   // 草稿数据库
   DRAFTS_STORAGE: () => `ExerciseDraftsDB_${getUserId()}${getEnvSuffix()}`,

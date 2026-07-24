@@ -37,12 +37,79 @@ function getMistakeStorage(): IndexedDBService {
 }
 
 /**
- * 初始化错题存储
+ * 初始化错题存储，并自动检测/迁移旧版 IndexedDB 错题数据
  */
 export async function initMistakeStorage(): Promise<void> {
   const mistakeStorage = getMistakeStorage()
   if (!mistakeStorage.isInitialized) {
     await mistakeStorage.init()
+  }
+
+  // 执行自动数据无缝迁移
+  await migrateOldMistakeDataIfNeeded()
+}
+
+/**
+ * 尝试检测并无缝迁移旧库 (MistakeStorageDB) 的数据至新库 (MistakeVaultDB)
+ */
+async function migrateOldMistakeDataIfNeeded(): Promise<void> {
+  const oldDbName = DB_NAMES.OLD_MISTAKE_STORAGE()
+  const migrationFlagKey = `MISTAKE_MIGRATED_${oldDbName}`
+
+  try {
+    // 检查是否已经完成过迁移
+    if (localStorage.getItem(migrationFlagKey) === 'true') {
+      return
+    }
+
+    // 先安全检测旧数据库在浏览器中是否存在，若不存在则跳过，避免盲目打开空库
+    const exists = await IndexedDBService.exists(oldDbName)
+    if (!exists) {
+      localStorage.setItem(migrationFlagKey, 'true')
+      return
+    }
+
+    // 1. 初始化旧数据库服务 (带 3 秒超时容错保护)
+    const oldStorage = IndexedDBService.getInstance({
+      dbName: oldDbName,
+      version: 11,
+      stores: [{ name: STORE_NAMES.MISTAKES, keyPath: 'id' }],
+    })
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Old DB init timeout')), 3000)
+    )
+
+    await Promise.race([oldStorage.init(), timeoutPromise])
+
+    // 2. 读取旧库中的所有错题记录
+    const oldMistakes = await oldStorage.getAll<MistakeItem>(STORE_NAMES.MISTAKES)
+
+    if (oldMistakes && oldMistakes.length > 0) {
+      console.log(`[MISTAKE_MIGRATION] 🚚 检测到旧数据库数据 ${oldMistakes.length} 条，开始迁移至新库...`)
+      const newStorage = getMistakeStorage()
+
+      // 3. 逐条无缝导入新库（防止主键冲突，保留原有历史）
+      for (const item of oldMistakes) {
+        if (!item.id && !item.bmNo) continue
+        const id = item.id || item.bmNo
+        const existing = await newStorage.get<MistakeItem>(STORE_NAMES.MISTAKES, id)
+        if (!existing) {
+          await newStorage.put(STORE_NAMES.MISTAKES, item)
+        }
+      }
+      console.log('[MISTAKE_MIGRATION] ✅ 旧错题数据成功迁移完毕！')
+    }
+
+    // 4. 标记迁移已处理
+    localStorage.setItem(migrationFlagKey, 'true')
+
+    // 5. 迁移完成后清理旧数据库，释放资源
+    oldStorage.deleteDatabase().catch(() => {})
+  } catch (error) {
+    // 绝对安全降级：捕获所有异常（包括打不开旧库、权限拦截、损坏、超时），不中断页面渲染与新库使用
+    console.warn('[MISTAKE_MIGRATION] ⚠️ 迁移旧错题数据静默跳过 (旧库不存在或损坏):', error)
+    localStorage.setItem(migrationFlagKey, 'true')
   }
 }
 

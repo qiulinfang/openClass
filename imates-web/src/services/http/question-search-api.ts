@@ -50,6 +50,7 @@ export class QuestionSearchApi {
   }
 
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
+    // 1. 尝试使用原有服务识别或者默认提取
     const endpoint =
       normalizeSubject(subject).toLowerCase() === 'biology'
         ? getApiPaths().xueban.permission.img
@@ -58,42 +59,124 @@ export class QuestionSearchApi {
     const formData = new FormData()
     formData.append('imgFile', imageFile, 'default.jpg')
 
-    const response = await httpClient.post<{
-      success: boolean
-      code: number
-      message: string
-      data: {
-        item: {
-          questionsConfirm: Array<{
-            bmNo: string
-            title: string
-            answer: string
-            explanation: string
-            analysisData: string
-            id: string
-          }>
+    try {
+      const response = await httpClient.post<{
+        success: boolean
+        code: number
+        message: string
+        data: {
+          item: {
+            questionsConfirm: Array<{
+              bmNo: string
+              title: string
+              answer: string
+              explanation: string
+              analysisData: string
+              id: string
+            }>
+          }
+        }
+      }>(endpoint, formData)
+
+      if (response.success && (response.data as any)?.data?.item?.questionsConfirm?.length > 0) {
+        const questionData = (response.data as any).data.item.questionsConfirm[0]
+        const rawTitle = questionData.title || ''
+
+        // 2. 将识别到的文本提交给 MathRAG v2 执行精准的召回和同题判断
+        try {
+          const { mathRagSearchApi } = await import('./math-rag-search-api')
+          const ragRes = await mathRagSearchApi.searchImage({
+            ocr_text: rawTitle,
+            ocr_confidence: 0.92,
+            k: 5,
+            explain: true,
+          })
+
+          const topResult = ragRes.results && ragRes.results.length > 0 ? ragRes.results[0] : null
+
+          return {
+            id: topResult?.id || questionData.id,
+            bmNo: String(topResult?.id || questionData.bmNo),
+            title: topResult?.question || questionData.title,
+            question: topResult?.question || questionData.title,
+            answer: questionData.answer,
+            explanation: questionData.explanation,
+            analysisData: questionData.analysisData,
+            subject: subject.toLowerCase(),
+            // 附带 MathRAG v2 判定元数据
+            mathRagV2: {
+              sameQuestionLabel: ragRes.same_question_label || topResult?.same_question?.label,
+              questionBankHit: ragRes.question_bank_hit,
+              autoReusable: ragRes.question_bank_auto_reusable,
+              autoJudgementFailed: ragRes.auto_judgement_failed,
+              failureReason: ragRes.auto_judgement_failure_reason,
+              conflicts: topResult?.same_question?.conflicts || [],
+              probability: topResult?.same_question?.probability,
+              results: ragRes.results || [],
+            },
+          }
+        } catch (ragErr) {
+          console.warn('[QuestionSearchApi] MathRAG v2 搜题调用异常，回退原始识别结果:', ragErr)
+        }
+
+        return {
+          id: questionData.id,
+          bmNo: questionData.bmNo,
+          title: questionData.title,
+          question: questionData.title,
+          answer: questionData.answer,
+          explanation: questionData.explanation,
+          analysisData: questionData.analysisData,
+          subject: subject.toLowerCase(),
         }
       }
-    }>(endpoint, formData)
-
-    if (response.success && (response.data as any)?.data?.item?.questionsConfirm?.length > 0) {
-      const questionData = (response.data as any).data.item.questionsConfirm[0]
-      return {
-        id: questionData.id,
-        bmNo: questionData.bmNo,
-        title: questionData.title,
-        question: questionData.title,
-        answer: questionData.answer,
-        explanation: questionData.explanation,
-        analysisData: questionData.analysisData,
-        subject: subject.toLowerCase(),
-      }
+    } catch (err) {
+      console.error('[QuestionSearchApi] recognizeImage 异常:', err)
     }
 
     return null
   }
 
   public async searchQuestionByText(keyText: string, subject: string): Promise<any | null> {
+    try {
+      // 调用 MathRAG v2 进行文本搜题与同题判定
+      const { mathRagSearchApi } = await import('./math-rag-search-api')
+      const ragRes = await mathRagSearchApi.searchImage({
+        ocr_text: keyText,
+        ocr_confidence: 0.95,
+        k: 5,
+        explain: true,
+      })
+
+      const topResult = ragRes.results && ragRes.results.length > 0 ? ragRes.results[0] : null
+
+      if (topResult) {
+        return {
+          id: topResult.id,
+          bmNo: String(topResult.id),
+          title: topResult.question,
+          question: topResult.question,
+          answer: '',
+          explanation: '',
+          analysisData: '',
+          subject: subject.toLowerCase(),
+          mathRagV2: {
+            sameQuestionLabel: ragRes.same_question_label || topResult.same_question?.label,
+            questionBankHit: ragRes.question_bank_hit,
+            autoReusable: ragRes.question_bank_auto_reusable,
+            autoJudgementFailed: ragRes.auto_judgement_failed,
+            failureReason: ragRes.auto_judgement_failure_reason,
+            conflicts: topResult.same_question?.conflicts || [],
+            probability: topResult.same_question?.probability,
+            results: ragRes.results || [],
+          },
+        }
+      }
+    } catch (err) {
+      console.warn('[QuestionSearchApi] MathRAG v2 文本搜题失败，尝试备用搜题:', err)
+    }
+
+    // 备用文本搜题
     const endpointBase =
       normalizeSubject(subject).toLowerCase() === 'biology'
         ? getApiPaths().xueban.permission.textSearchBase

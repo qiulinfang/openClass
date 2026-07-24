@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 通用IndexedDB服务类
  * 提供数据库初始化、CRUD操作、事务处理和错误处理
  */
@@ -639,5 +639,20 @@ export class IndexedDBService {
       version: this.config.version,
       stores: this.config.stores.map(store => store.name)
     }
+  }
+
+  /**
+   * 检查指定名称的数据库在浏览器中是否存在
+   */
+  public static async exists(dbName: string): Promise<boolean> {
+    try {
+      if ('databases' in indexedDB && typeof indexedDB.databases === 'function') {
+        const dbs = await indexedDB.databases()
+        return dbs.some((db) => db.name === dbName)
+      }
+    } catch (e) {
+      // 某些浏览器无特权或不支持
+    }
+    return true
   }
 }

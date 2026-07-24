@@ -98,6 +98,7 @@ export const ADDRESS_CATALOG = {
   QUESTION_STRUCTURER: 'http://49.232.39.212:8055',
   MQTT_WS_RELEASE: 'wss://www.imates.com.cn:8083/mqtt',
   MQTT_WS_TEST: 'ws://www.imates.com.cn:8083/mqtt',
+  MATHRAG_V2_SEARCH: 'http://49.232.39.212:18211',
 } as const
 
 // localStorage 键名

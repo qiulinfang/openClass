@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="photo-search-fullscreen">
     <!-- 左上角返回按钮 -->
     <q-btn flat round dense class="back-btn" @click="handleClose">
@@ -122,8 +122,6 @@
       </div>
     </div>
 
-    
-
     <!-- 框选内容临时面板（仅开发环境显示） -->
     <Transition name="crop-preview-panel">
       <div
@@ -179,151 +177,33 @@
     <!-- ImagePicker 组件 -->
     <ImagePicker />
 
-    <!-- 抽屉：拍照问答结果 -->
-    <Transition name="drawer-slide">
-      <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
-        <button type="button" class="drawer-back-btn" @click="handleCloseDrawer">
-          <img :src="goBackIcon" alt="返回" class="drawer-back-icon" />
-        </button>
-        <div class="drawer-content" @click.stop>
-          <!-- 识别图片区域 -->
-          <!-- 图片标签页 -->
-          <div class="image-tabs">
-            <div
-              class="tab-item"
-              :class="{ active: activeTab === 'photo' }"
-              @click="handleTabSwitch('photo')"
-            >
-              拍照搜题
-            </div>
-            <div
-              class="tab-item"
-              :class="{ active: activeTab === 'keyword' }"
-              @click="handleTabSwitch('keyword')"
-            >
-              关键词搜题
-            </div>
-          </div>
-
-          <!-- 拍照搜题内容 -->
-          <div v-if="activeTab === 'photo'" class="photo-result-wrapper">
-            <div ref="photoResultRef" class="recognized-problem">
-              <div
-                class="problem-text"
-                v-if="photoQuestionData"
-                v-html="renderQuestionContent(photoQuestionData)"
-              ></div>
-            </div>
-          </div>
-
-          <!-- 关键词搜题内容 -->
-          <div v-if="activeTab === 'keyword'" class="keyword-search-container">
-            <AutoHeightTextarea
-              ref="keywordInputRef"
-              v-model="keywordText"
-              placeholder="可输入关键字进行精确搜题，输入题目的关键词，空格或逗号分隔多个关键词"
-              :min-height="44"
-              :max-height="120"
-              :show-action-button="true"
-              action-button-class="keyword-search-btn"
-              action-button-color="primary"
-              action-button-icon="search"
-              :action-button-loading="isKeywordSearching"
-              :action-button-disabled="!keywordText.trim()"
-              @keydown.ctrl.enter="handleKeywordSearch"
-              @keydown.meta.enter="handleKeywordSearch"
-              @action-click="handleKeywordSearch"
-            />
-          </div>
-          <!-- 关键词搜索结果展示 -->
-          <div
-            v-if="keywordQuestionData && activeTab === 'keyword'"
-            ref="keywordResultRef"
-            class="keyword-result-wrapper"
-          >
-            <div class="keyword-search-result">
-              <div class="problem-text" v-html="renderQuestionContent(keywordQuestionData)"></div>
-            </div>
-          </div>
-          <!-- Chat 输入区域（使用 ChatView + simple 模式） -->
-          <div class="drawer-chat-section" v-if="currentQuestionData">
-            <!-- 使用 ChatView 组件，简单输入模式 -->
-            <ChatView
-              ref="chatViewRef"
-              type="ai-exercise"
-              input-mode="simple"
-              :compressed-height="97"
-              :question="currentQuestionData"
-              @response="handleChatResponse"
-              @send-message="handleSendSuggestionInPhotoSearch"
-              size="small"
-            >
-              <!-- 前置插槽：操作按钮组 -->
-              <template #header-prefix>
-                <div class="chat-action-group">
-                  <div class="chat-action-item" @click="handleRetake">
-                    <img :src="zaipaiyitiIcon" style="width: 20px; height: 20px;" />
-                    <span class="chat-action-text">再拍一题</span>
-                  </div>
-                  <div class="chat-action-item" @click="handleFavoriteInChat">
-                    <img
-                      :src="isFavoriteInChat ? xingxingLightIcon : shoucangIcon"
-                      :class="{ favorited: isFavoriteInChat }"
-                      style="width: 20px; height: 20px;"
-                    />
-                    <span class="chat-action-text">收藏</span>
-                  </div>
-                  <div class="chat-action-item" @click="handleAddToPracticeInChat">
-                    <img
-                      :src="isInPracticeList ? jiarulianxiLightIcon : jiarulianxiIcon"
-                      style="width: 20px; height: 20px;"
-                      :class="{ 'in-practice': isInPracticeList }"
-                    />
-                    <span class="chat-action-text">加入练习</span>
-                  </div>
-                </div>
-              </template>
-            </ChatView>
-          </div>
-          <!-- 加入练习成功后提示是否跳转“我的习题” -->
-          <div v-if="showAddToPracticeDialog" class="practice-dialog-overlay">
-            <div class="practice-dialog">
-              <div class="practice-dialog-card">
-                <!-- 头部：标题 + 关闭按钮 -->
-                <div class="practice-dialog-header">
-                  <div class="practice-dialog-title">题目已加入练习</div>
-                  <button class="practice-dialog-close" type="button" @click="handleStayInPhotoSearch">
-                    <q-icon name="close" size="20px" />
-                  </button>
-                </div>
-                <div class="practice-dialog-divider"></div>
-
-                <!-- 内容文案 -->
-                <div class="practice-dialog-body">
-                  题目已添加到“我的习题”，现在前往查看吗？
-                </div>
-
-                <!-- 底部按钮区 -->
-                <div class="practice-dialog-actions">
-                  <div class="practice-dialog-btn" @click="handleStayInPhotoSearch">
-                    先留在本页
-                  </div>
-                  <div class="practice-dialog-btn primary" @click="handleGoToMyExercises">
-                    前往我的习题
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-    </div>
+    <!-- 结果全屏面板：拍照问答结果 (已封装为独立子组件) -->
+    <PhotoSearchFullResultPanel
+      v-model="showDrawer"
+      :cropped-image-base64="croppedImageBase64"
+      :crop-preview-image="cropPreviewImage"
+      :is-searching="isSearching"
+      :photo-question-data="photoQuestionData"
+      :keyword-question-data="keywordQuestionData"
+      :is-keyword-searching="isKeywordSearching"
+      :is-favorite-in-chat="isFavoriteInChat"
+      :is-in-practice-list="isInPracticeList"
+      :render-question-content="renderQuestionContent"
+      @retake="handleRetake"
+      @select-candidate="selectCandidateQuestion"
+      @keyword-search="handleKeywordSearch"
+      @chat-response="handleChatResponse"
+      @send-message="handleSendSuggestionInPhotoSearch"
+      @favorite="handleFavoriteInChat"
+      @add-practice="handleAddToPracticeInChat"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import PhotoSearchFullResultPanel from '@/components/question/PhotoSearchFullResultPanel.vue'
 import QuestionList from '@/components/question/QuestionList.vue'
 import ImagePicker from '@/components/chat/Input/ImagePicker.vue'
 import ImageCropOverlay from '@/components/base/ImageCropper.vue'
@@ -339,6 +219,12 @@ import { useQuestionStore } from '@/stores/questionStore'
 import ChatView from '@/components/chat/ChatView.vue'
 import AutoHeightTextarea from '@/components/base/Textarea.vue'
 
+import SplitPanel from '@/components/base/SplitPanel.vue'
+import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
+import FloatBubble from '@/components/base/Fab.vue'
+import textbookipIcon from '/icons/textbookip.png'
+import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
+
 import goBackIcon from '/icons/goback.svg'
 import searchMathIcon from '/icons/searchMath.svg'
 import searchBioIcon from '/icons/searchBio.svg'
@@ -352,6 +238,24 @@ import jiarulianxiIcon from '/icons/jiarulianxi.svg'
 import shoucangIcon from '/icons/shoucang1.svg'
 import xingxingLightIcon from '/icons/xingxing-light.svg'
 import jiarulianxiLightIcon from '/icons/jiarulianxi-light.svg'
+
+// SplitPanel 模式管理 (对齐 ExerciseSolveViewNew.vue)
+const splitPanelRef = ref<InstanceType<typeof SplitPanel> | null>(null)
+const draftBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
+const splitMode = ref<'left' | 'right'>('left') // 'left'=显示左+中(题目列表+题目内容), 'right'=显示中+右(题目内容+AI问答)
+const isQuestionImageCollapsed = ref(true) // 默认收起题目区域，留出大部分给草稿本
+
+const toggleQuestionImage = () => {
+  isQuestionImageCollapsed.value = !isQuestionImageCollapsed.value
+}
+
+const handleSplitModeChange = (newMode: 'left' | 'right') => {
+  splitMode.value = newMode
+}
+
+const toggleAiPanel = () => {
+  splitPanelRef.value?.toggle()
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -974,8 +878,8 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
             new Error(
               `Base64 解码失败: ${
                 decodeError instanceof Error ? decodeError.message : String(decodeError)
-              }`
-            )
+              }`,
+            ),
           )
         }
         return
@@ -1004,7 +908,7 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
       resolve(new File([u8arr], filename, { type: mime }))
     } catch (error) {
       reject(
-        new Error(`Base64 转 File 失败: ${error instanceof Error ? error.message : String(error)}`)
+        new Error(`Base64 转 File 失败: ${error instanceof Error ? error.message : String(error)}`),
       )
     }
   })
@@ -1170,7 +1074,7 @@ const isPointInCropRect = (x: number, y: number): boolean => {
 // 检测鼠标位置在哪个调整区域
 const getResizeHandle = (
   x: number,
-  y: number
+  y: number,
 ): 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | null => {
   if (!cropRect.value) return null
 
@@ -1207,7 +1111,7 @@ const getResizeHandle = (
 
 // 获取调整手柄对应的光标样式
 const getCursorForHandle = (
-  handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | null
+  handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | null,
 ): string => {
   if (!handle) return 'default'
 
@@ -1549,29 +1453,51 @@ const handleRetake = async () => {
   await startCamera()
 }
 
+// 切换选中的候选题
+const selectCandidateQuestion = (candidate: any) => {
+  if (!photoQuestionData.value) return
+  const currentMathRag = photoQuestionData.value.mathRagV2
+
+  photoQuestionData.value = {
+    ...photoQuestionData.value,
+    id: candidate.id,
+    bmNo: String(candidate.id),
+    title: candidate.question,
+    question: candidate.question,
+    mathRagV2: {
+      ...currentMathRag,
+      sameQuestionLabel: candidate.same_question?.label,
+      conflicts: candidate.same_question?.conflicts || [],
+      probability: candidate.same_question?.probability,
+    },
+  }
+}
+
 const handleCropConfirm = async (croppedDataUrl: string) => {
   if (!selectedSubject.value) {
     showMessage('请先选择学科', 'warning')
     return
   }
 
-  try {
-    isSearching.value = true
-    croppedImageBase64.value = croppedDataUrl
+  // 1. 立即弹出结果抽屉并展示剪裁后的切图及右侧全屏 Loading 状态
+  croppedImageBase64.value = croppedDataUrl
+  showDrawer.value = true
+  activeTab.value = 'photo'
+  isSearching.value = true
+  photoQuestionData.value = null
 
+  try {
     const croppedFile = await base64ToFile(croppedDataUrl, 'cropped.jpg')
     const question = await apiService.recognizeImage(croppedFile, selectedSubject.value)
 
     if (question) {
       photoQuestionData.value = question
-      showDrawer.value = true
-      activeTab.value = 'photo'
     } else {
-      showMessage('未识别到题目', 'warning')
+      showMessage('未识别到匹配题目', 'warning')
     }
   } catch (error) {
     console.error('图片识别失败:', error)
-    showMessage('图片识别失败', 'error')
+    showMessage('图片识别失败，请重试', 'error')
   } finally {
     isSearching.value = false
   }
@@ -1627,7 +1553,7 @@ const getCroppedImage = (): Promise<File | null> => {
         0,
         0,
         canvas.width,
-        canvas.height
+        canvas.height,
       )
 
       // 转换为 Blob 再转为 File
@@ -1641,7 +1567,7 @@ const getCroppedImage = (): Promise<File | null> => {
           }
         },
         'image/jpeg',
-        0.9
+        0.9,
       )
     }
     img.onerror = () => {
@@ -1717,7 +1643,7 @@ const updateCropPreview = () => {
         Math.max(0, Math.floor(cropRectValue.x)),
         Math.max(0, Math.floor(cropRectValue.y)),
         Math.min(mainCanvas.width - Math.floor(cropRectValue.x), Math.floor(cropRectValue.width)),
-        Math.min(mainCanvas.height - Math.floor(cropRectValue.y), Math.floor(cropRectValue.height))
+        Math.min(mainCanvas.height - Math.floor(cropRectValue.y), Math.floor(cropRectValue.height)),
       )
 
       // 创建临时 canvas 用于缩放
@@ -1763,7 +1689,7 @@ watch(
       cropPreviewImage.value = ''
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // 处理关键词搜索
@@ -1779,7 +1705,7 @@ const handleKeywordSearch = async () => {
     // 调用关键词搜索API
     const question = await apiService.searchQuestionByText(
       keywordText.value.trim(),
-      selectedSubject.value
+      selectedSubject.value,
     )
 
     if (question) {
@@ -1891,14 +1817,16 @@ const handleAddToPracticeInChat = async () => {
         const matchedQuestion = questionStore.questions.find((q) => (q.bmNo || q.id) === currentId)
         // 优先使用后端返回的 id，如果没有则使用 bmNo
         const deleteId = matchedQuestion?.id || matchedQuestion?.bmNo || currentId
-        
+
         // 调用后端删除练习题目
         const success = await apiService.deleteExercise(deleteId, selectedSubject.value)
         if (success) {
           showMessage('已从练习列表中移除', 'success')
           // 立即从本地列表中移除该题目，确保 isInPracticeList 计算属性更新
           const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
-          const indexToRemove = questionStore.questions.findIndex((q) => (q.bmNo || q.id) === currentId)
+          const indexToRemove = questionStore.questions.findIndex(
+            (q) => (q.bmNo || q.id) === currentId,
+          )
           if (indexToRemove !== -1) {
             questionStore.questions.splice(indexToRemove, 1)
           }
@@ -2007,7 +1935,7 @@ watch(
       selectedSubject.value = newSubject
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 // 组件挂载时初始化
@@ -2372,7 +2300,6 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.3s ease;
 
-
   &.active {
     background: #7a55ff;
     color: white;
@@ -2501,31 +2428,40 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-// 抽屉样式
+// 结果面板（全屏形式展示）
 .photo-qa-drawer {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: #000;
+  width: 100vw;
+  height: 100vh;
+  background: #f5f5f5;
   z-index: 10002;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+}
+
+.fullscreen-top-header {
+  flex-shrink: 0;
+  height: 52px;
 }
 
 .drawer-content {
-  width: 100%;
-  height: 90vh;
-  max-height: 90vh;
-  background: white;
-  border-radius: 20px 20px 0 0;
+  width: 100vw;
+  flex: 1;
+  height: 0;
+  background: #ffffff;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-  padding: 12px 12px 0 12px;
+  box-shadow: none;
+  padding: 0;
 }
 
 .drawer-back-btn {
@@ -2787,7 +2723,6 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
-
 // ChatView 区域（使用 ChatView + simple 模式）
 .drawer-chat-section {
   flex: 1;
@@ -2802,8 +2737,8 @@ onUnmounted(() => {
   }
 
   :deep(.chat-input-area) {
-      background-color: #ffffff;
-    }
+    background-color: #ffffff;
+  }
 }
 
 .chat-action-group {
@@ -2846,12 +2781,12 @@ onUnmounted(() => {
 /* 覆盖抽屉内部内容的遮罩层 */
 .practice-dialog-overlay {
   position: absolute;
-  inset: 0;                 /* 顶/右/底/左全覆盖 drawer-content */
+  inset: 0; /* 顶/右/底/左全覆盖 drawer-content */
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;              /* 高于 drawer-content 内其他元素即可 */
+  z-index: 10; /* 高于 drawer-content 内其他元素即可 */
 }
 
 /* 中间的对话框容器 */
@@ -2893,7 +2828,6 @@ onUnmounted(() => {
   cursor: pointer;
   color: #666;
 }
-
 
 .practice-dialog-body {
   padding: 16px 4px 8px;

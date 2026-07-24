@@ -244,6 +244,14 @@ const navItems = [
     category: 'debug',
     color: '#009688',
     description: '测试 MQTT over WebSocket 连接与消息订阅，支持订阅特定 Topic 以及实时消息推送。'
+  },
+  {
+    title: 'MathRAG v2 拍照搜题测试',
+    path: '/test/math-rag-search',
+    icon: 'center_focus_strong',
+    category: 'business',
+    color: '#2196f3',
+    description: '测试 MathRAG v2 拍照搜题、同题判断、多路召回及 OCR 低置信度自动研判拦截逻辑。'
   }
 ]
 

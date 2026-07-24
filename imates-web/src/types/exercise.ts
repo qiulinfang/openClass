@@ -79,6 +79,18 @@ export interface ExerciseItem {
   // 复合材料题相关
   material?: string
   subQuestions?: ExerciseItem[]
+
+  // MathRAG v2 判定元数据扩展
+  mathRagV2?: {
+    sameQuestionLabel?: string
+    questionBankHit?: boolean
+    autoReusable?: boolean
+    autoJudgementFailed?: boolean
+    failureReason?: string
+    conflicts?: string[]
+    probability?: number
+    results?: any[]
+  }
 }
 
 /** 相似题目接口，继承 ExerciseItem 并添加相似度 */

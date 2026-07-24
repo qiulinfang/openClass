@@ -29,6 +29,7 @@ import DraftNotebookView from '@/views/DraftNotebookView.vue'
 import MarkdownRenderTestView from '@/views/testView/MarkdownRenderTestView.vue'
 import TestNavView from '@/views/testView/TestNavView.vue'
 import MqttTestView from '@/views/testView/MqttTestView.vue'
+import MathRagSearchTestView from '@/views/testView/MathRagSearchTestView.vue'
 import { getXuebanToken } from '@/services'
 import { useUserClientStore } from '@/stores/userClientStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
@@ -202,6 +203,11 @@ const router = createRouter({
       path: '/test/mqtt',
       name: 'mqttTest',
       component: MqttTestView
+    },
+    {
+      path: '/test/math-rag-search',
+      name: 'mathRagSearchTest',
+      component: MathRagSearchTestView
     },
     {
       path: '/lottie-test',
