@@ -31,27 +31,29 @@ const getFavoritesStorageKey = (): string => {
 }
 
 // 题目收藏ID归一化（兼容新旧格式）
-const normalizeExerciseId = (id: string): string => {
-  if (!id) return ''
+const normalizeExerciseId = (id: string | number): string => {
+  if (id === undefined || id === null) return ''
+  const strId = String(id)
   // 旧格式：exercise_{itemId}_{timestamp}
-  if (id.startsWith('exercise_')) {
-    const parts = id.split('_')
-    return parts.length >= 2 ? parts[1] : id
+  if (strId.startsWith('exercise_')) {
+    const parts = strId.split('_')
+    return parts.length >= 2 ? parts[1] : strId
   }
   // 新格式：直接是bmNo或id
-  return id
+  return strId
 }
 
 // 会话收藏ID归一化（兼容新旧格式）
-const normalizeSessionId = (id: string): string => {
-  if (!id) return ''
+const normalizeSessionId = (id: string | number): string => {
+  if (id === undefined || id === null) return ''
+  const strId = String(id)
   // 旧格式：session_{sessionId}_{timestamp}
-  if (id.startsWith('session_')) {
-    const parts = id.split('_')
-    return parts.length >= 2 ? parts[1] : id
+  if (strId.startsWith('session_')) {
+    const parts = strId.split('_')
+    return parts.length >= 2 ? parts[1] : strId
   }
   // 新格式：直接是sessionId
-  return id
+  return strId
 }
 
 /**

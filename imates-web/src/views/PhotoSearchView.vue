@@ -179,7 +179,9 @@
 
     <!-- 结果全屏面板：拍照问答结果 (已封装为独立子组件) -->
     <PhotoSearchFullResultPanel
+      ref="fullResultPanelRef"
       v-model="showDrawer"
+      v-model:active-tab="activeTab"
       :cropped-image-base64="croppedImageBase64"
       :crop-preview-image="cropPreviewImage"
       :is-searching="isSearching"
@@ -308,6 +310,9 @@ const keywordResultRef = ref<HTMLDivElement | null>(null)
 // 拍照搜题内容引用
 const photoResultRef = ref<HTMLDivElement | null>(null)
 
+// PhotoSearchFullResultPanel 组件引用
+const fullResultPanelRef = ref<InstanceType<typeof PhotoSearchFullResultPanel> | null>(null)
+
 // Chat 输入相关状态
 const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 const isChatLoading = ref(false) // 用于调试面板显示
@@ -318,9 +323,14 @@ const handleChatResponse = () => {
 }
 
 // 处理推荐问题点击：直接发送消息（复用 ExerciseSolveView 中的模式）
-const handleSendSuggestionInPhotoSearch = (message: string) => {
-  if (chatViewRef.value?.sendMessage) {
-    chatViewRef.value.inputMessage = message
+const handleSendSuggestionInPhotoSearch = (message: any) => {
+  const msgText = typeof message === 'string' ? message : message?.content || ''
+  if (!msgText) return
+
+  if (fullResultPanelRef.value && typeof fullResultPanelRef.value.sendMessage === 'function') {
+    fullResultPanelRef.value.sendMessage(msgText)
+  } else if (chatViewRef.value?.sendMessage) {
+    chatViewRef.value.inputMessage = msgText
     chatViewRef.value.sendMessage()
   }
 }

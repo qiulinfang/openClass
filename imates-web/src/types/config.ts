@@ -9,6 +9,7 @@ export interface RequestConfig {
   headers?: Record<string, string>
   timeout?: number
   retries?: number
+  skipAuth401Retry?: boolean
 }
 
 /** 流式响应配置接口 */

@@ -98,7 +98,6 @@ export const ADDRESS_CATALOG = {
   QUESTION_STRUCTURER: 'http://49.232.39.212:8055',
   MQTT_WS_RELEASE: 'wss://www.imates.com.cn:8083/mqtt',
   MQTT_WS_TEST: 'ws://www.imates.com.cn:8083/mqtt',
-  MATHRAG_V2_SEARCH: 'http://49.232.39.212:18211',
 } as const
 
 // localStorage 键名
@@ -428,6 +427,8 @@ export function getRouteBaseMap(): Record<string, string> {
     '/get_shor_term_memory_admin': ADDRESS_CATALOG.HISTORY_MANAGE,
     // gaokao-agent-llm 服务
     '/v1': ADDRESS_CATALOG.GAOKAO_AGENT_LLM,
+    // MathRAG v2 服务
+    '/v2': ADDRESS_CATALOG.IMATES_HTTP,
     // recognize-handwritten-formula-image 服务
     '/api/recognize-handwritten-formula-image': ADDRESS_CATALOG.HW_FORMULA_RECOGNIZE,
     // 图片上传服务

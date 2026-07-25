@@ -1,63 +1,91 @@
-# UniApp 完整语法文档
+# UniApp 完整语法与开发手册
 
-> 基于 Vue 3 + Composition API，适用于 uni-app 3.x 版本（HBuilderX 3.x+）。覆盖 H5 / 微信小程序 / App（iOS/Android）三端。
-
----
-
-## 目录
-
-1. [项目结构](#1-项目结构)
-2. [配置文件](#2-配置文件)
-3. [生命周期](#3-生命周期)
-4. [模板语法](#4-模板语法)
-5. [内置组件](#5-内置组件)
-6. [自定义组件](#6-自定义组件)
-7. [路由与导航](#7-路由与导航)
-8. [网络请求](#8-网络请求)
-9. [数据存储](#9-数据存储)
-10. [媒体 API](#10-媒体-api)
-11. [设备 API](#11-设备-api)
-12. [界面 API](#12-界面-api)
-13. [状态管理（Pinia）](#13-状态管理pinia)
-14. [样式与 rpx](#14-样式与-rpx)
-15. [条件编译](#15-条件编译)
-16. [事件总线](#16-事件总线)
-17. [uni_modules 插件](#17-uni_modules-插件)
-18. [性能优化](#18-性能优化)
-19. [常见问题速查](#19-常见问题速查)
+> **适配版本**：Vue 3 + Composition API + TypeScript，适用于 uni-app 3.x（HBuilderX / Vite 驱动）。
+> **跨端覆盖**：H5 / 微信小程序 (`MP-WEIXIN`) / App (iOS & Android `APP-PLUS`)。
 
 ---
 
-## 1. 项目结构
+## 📌 目录导航
 
-```
-my-project/
+- [一、 项目工程结构与配置文件](#一-项目工程结构与配置文件)
+  - [1.1 标准目录架构](#11-标准目录架构)
+  - [1.2 核心配置文件解析](#12-核心配置文件解析)
+- [二、 生命周期机制（Vue 3 + UniApp）](#二-生命周期机制vue-3--uniapp)
+  - [2.1 应用级生命周期 (App.vue)](#21-应用级生命周期-appvue)
+  - [2.2 页面级生命周期](#22-页面级生命周期)
+  - [2.3 组件级生命周期 (Vue 3 组合式)](#23-组件级生命周期-vue-3-组合式)
+- [三、 Vue 3 核心语法在 UniApp 中的应用 (简约提炼)](#三-vue-3-核心语法在-uniapp-中的应用-简约提炼)
+  - [3.1 模板绑定与常用指令](#31-模板绑定与常用指令)
+  - [3.2 组合式 API (Script Setup)](#32-组合式-api-script-setup)
+  - [3.3 组件通信](#33-组件通信)
+- [四、 UniApp 核心内置组件](#四-uniapp-核心内置组件)
+  - [4.1 视图与滚动容器](#41-视图与滚动容器)
+  - [4.2 文本与媒体组件](#42-文本与媒体组件)
+  - [4.3 表单组件](#43-表单组件)
+  - [4.4 导航组件](#44-导航组件)
+- [五、 页面路由与跨页通信](#五-页面路由与跨页通信)
+  - [5.1 原生路由 API](#51-原生路由-api)
+  - [5.2 复杂对象跨页通信 (EventChannel)](#52-复杂对象跨页通信-eventchannel)
+- [六、 网络请求与数据持久化](#六-网络请求与数据持久化)
+  - [6.1 原生网络请求 (uni.request 拦截器封装模式)](#61-原生网络请求-unirequest-拦截器封装模式)
+  - [6.2 数据本地存储 (Storage API)](#62-数据本地存储-storage-api)
+- [七、 原生设备与系统 API](#七-原生设备与系统-api)
+  - [7.1 界面交互提示 (UI API)](#71-界面交互提示-ui-api)
+  - [7.2 设备能力与媒体](#72-设备能力与媒体)
+- [八、 全局状态管理 (Pinia)](#八-全局状态管理-pinia)
+- [九、 跨端兼容与条件编译 (核心优势)](#九-跨端兼容与条件编译-核心优势)
+  - [9.1 语法与注释规则](#91-语法与注释规则)
+  - [9.2 跨端代码示例](#92-跨端代码示例)
+- [十、 样式布局与响应式适配](#十-样式布局与响应式适配)
+  - [10.1 尺寸单位 rpx 响应式原理](#101-尺寸单位-rpx-响应式原理)
+  - [10.2 底部安全区域适配](#102-底部安全区域适配-针对-iphone-x-及全面屏)
+- [十一、 高级特性与最佳实践](#十一-高级特性与最佳实践)
+  - [11.1 事件总线 (跨组件解耦通信)](#111-事件总线-跨组件解耦通信)
+  - [11.2 分包加载与小程序体积优化策略](#112-分包加载与小程序体积优化策略)
+  - [11.3 性能优化要点总结](#113-性能优化要点总结)
+- [十二、 微信小程序 (MP-WEIXIN) 专项开发指南](#十二-微信小程序-mp-weixin-专项开发指南)
+  - [12.1 微信登录鉴权与快捷授权流程](#121-微信登录鉴权与快捷授权流程)
+  - [12.2 订阅消息推送机制](#122-订阅消息推送机制)
+  - [12.3 WXS 高性能视图层脚本](#123-wxs-高性能视图层脚本)
+  - [12.4 独立分包与分包异步化](#124-独立分包与分包异步化)
+  - [12.5 微信原生能力 (微信支付 / 小程序跳转)](#125-微信原生能力-微信支付--小程序跳转)
+  - [12.6 自定义胶囊导航栏高度计算公式](#126-自定义胶囊导航栏高度计算公式)
+  - [12.7 隐私协议与地理位置权限说明配置](#127-隐私协议与地理位置权限说明配置)
+
+---
+
+## 一、 项目工程结构与配置文件
+
+### 1.1 标准目录架构
+
+```text
+my-uniapp-project/
 ├── src/
-│   ├── pages/                  # 页面目录
+│   ├── pages/                  # 页面目录（受 pages.json 路由管控）
 │   │   ├── index/
-│   │   │   └── index.vue       # 页面文件
+│   │   │   └── index.vue       # 主页面
 │   │   └── user/
 │   │       └── user.vue
-│   ├── components/             # 全局组件（easycom 自动注册）
-│   ├── static/                 # 静态资源（不会被 webpack 处理）
+│   ├── components/             # 全局组件（easycom 规则自动引入）
+│   ├── static/                 # 静态资源（图片、字体，打包时不被构建压缩处理）
 │   ├── store/                  # Pinia 状态管理
-│   ├── utils/                  # 工具函数
-│   ├── api/                    # 接口请求
-│   ├── uni_modules/            # uni 插件
-│   ├── App.vue                 # 应用根组件
-│   ├── main.js                 # 入口文件
-│   ├── pages.json              # 页面路由 + 窗口配置（核心配置）
-│   └── manifest.json           # 应用信息 + 平台配置
-├── index.html                  # H5 模板
-└── vite.config.js              # Vite 配置
+│   ├── utils/                  # 通用工具函数
+│   ├── api/                    # 网络请求接口
+│   ├── subPackages/            # 预留分包目录
+│   │   └── pagesA/
+│   ├── App.vue                 # 应用根组件（监听全局生命周期与全局样式）
+│   ├── main.ts                 # 入口初始化文件
+│   ├── pages.json              # 页面路由与窗口外观配置（核心）
+│   └── manifest.json           # 多端应用配置与打包参数
+├── index.html                  # H5 端入口模板
+└── vite.config.ts              # Vite 构建与环境变量代理配置
 ```
 
 ---
 
-## 2. 配置文件
+### 1.2 核心配置文件解析
 
-### 2.1 pages.json（路由与窗口配置）
-
+#### (1) `pages.json`（路由、窗口外观与分包配置）
 ```json
 {
   "pages": [
@@ -67,10 +95,8 @@ my-project/
         "navigationBarTitleText": "首页",
         "navigationBarBackgroundColor": "#ffffff",
         "navigationBarTextStyle": "black",
-        "backgroundColor": "#f5f5f5",
         "enablePullDownRefresh": true,
         "onReachBottomDistance": 50,
-        "disableScroll": false,
         "navigationStyle": "custom"
       }
     },
@@ -83,10 +109,9 @@ my-project/
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "应用名称",
+    "navigationBarTitleText": "默认应用标题",
     "navigationBarBackgroundColor": "#F8F8F8",
-    "backgroundColor": "#F8F8F8",
-    "usingComponents": {}
+    "backgroundColor": "#F8F8F8"
   },
   "tabBar": {
     "color": "#999999",
@@ -110,16 +135,19 @@ my-project/
   },
   "subPackages": [
     {
-      "root": "pagesA",
+      "root": "subPackages/pagesA",
       "pages": [
-        { "path": "detail/detail", "style": { "navigationBarTitleText": "详情" } }
+        {
+          "path": "detail/detail",
+          "style": { "navigationBarTitleText": "详情页" }
+        }
       ]
     }
   ],
   "preloadRule": {
     "pages/index/index": {
       "network": "all",
-      "packages": ["pagesA"]
+      "packages": ["subPackages/pagesA"]
     }
   },
   "easycom": {
@@ -131,27 +159,15 @@ my-project/
 }
 ```
 
-### 2.2 manifest.json（应用信息）
-
+#### (2) `manifest.json`（多端发布与环境配置）
 ```json
 {
-  "name": "应用名称",
+  "name": "UniApp应用名称",
   "appid": "__UNI__XXXXXXX",
-  "description": "应用描述",
   "versionName": "1.0.0",
   "versionCode": "100",
-  "transformPx": false,
   "app-plus": {
     "usingComponents": true,
-    "nvueStyleCompiler": "uni-app",
-    "compilerVersion": 3,
-    "splashscreen": {
-      "alwaysShowBeforeRender": true,
-      "waiting": true,
-      "autoclose": true,
-      "delay": 0
-    },
-    "modules": {},
     "distribute": {
       "android": {
         "permissions": [
@@ -162,2072 +178,959 @@ my-project/
       "ios": {}
     }
   },
-  "quickapp": {},
   "mp-weixin": {
-    "appid": "wx_your_appid",
+    "appid": "wx1234567890abcdef",
     "setting": {
       "urlCheck": false,
-      "es6": true,
-      "postcss": true,
-      "minified": true
+      "es6": true
     },
     "usingComponents": true,
     "lazyCodeLoading": "requiredComponents"
   },
-  "mp-alipay": { "usingComponents": true },
-  "mp-baidu": { "usingComponents": true },
-  "mp-toutiao": { "usingComponents": true },
   "h5": {
-    "title": "H5 标题",
-    "domain": "https://your-domain.com",
-    "router": { "mode": "hash", "base": "/" },
-    "devServer": {
-      "https": false,
-      "port": 5173,
-      "proxy": {
-        "/api": {
-          "target": "http://localhost:3000",
-          "changeOrigin": true,
-          "pathRewrite": { "^/api": "" }
-        }
-      }
-    }
+    "title": "Web 页面",
+    "router": { "mode": "hash", "base": "./" }
   }
 }
 ```
 
-### 2.3 App.vue（应用根组件）
+---
 
+## 二、 生命周期机制（Vue 3 + UniApp）
+
+### 2.1 应用级生命周期 (`App.vue`)
 ```vue
 <script setup>
-import { onLaunch, onShow, onHide, onError, onUniNViewMessage } from '@dcloudio/uni-app';
+import { onLaunch, onShow, onHide, onError } from '@dcloudio/uni-app'
 
-// 应用启动时触发（只触发一次）
+// 全局应用初始化（仅触发 1 次）
 onLaunch((options) => {
-  console.log('App Launch', options);
-  // 检查登录态
-  checkLogin();
-});
+  console.log('App Launch, 启动参数:', options)
+})
 
-// 应用从后台切换到前台
+// 应用切入前台
 onShow((options) => {
-  console.log('App Show', options);
-});
+  console.log('App Show', options)
+})
 
-// 应用切换到后台
+// 应用切入后台
 onHide(() => {
-  console.log('App Hide');
-});
+  console.log('App Hide')
+})
 
-// 应用报错
+// 应用脚本报错捕获
 onError((err) => {
-  console.error('App Error', err);
-});
+  console.error('App Global Error:', err)
+})
 </script>
 
 <style>
-/* 全局样式（不加 scoped） */
+/* 全局公共样式 (注意: 不加 scoped) */
 page {
   background-color: #f5f5f5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 </style>
 ```
 
-### 2.4 main.js（入口文件）
-
-```js
-import { createSSRApp } from 'vue';
-import App from './App.vue';
-import { createPinia } from 'pinia';
-
-// 全局组件注册
-import MyButton from './components/MyButton.vue';
-
-export function createApp() {
-  const app = createSSRApp(App);
-  const pinia = createPinia();
-
-  app.use(pinia);
-  app.component('MyButton', MyButton);
-
-  // 全局属性
-  app.config.globalProperties.$baseUrl = 'https://api.example.com';
-  app.config.globalProperties.$utils = utils;
-
-  return { app, pinia };
-}
-```
-
 ---
 
-## 3. 生命周期
-
-### 3.1 应用生命周期（App.vue）
-
-| 函数 | 触发时机 |
-|------|---------|
-| `onLaunch` | 初始化完成时触发（全局只触发一次） |
-| `onShow` | 启动或从后台切回前台 |
-| `onHide` | 切入后台 |
-| `onError` | 脚本错误或 API 调用失败 |
-| `onUniNViewMessage` | nvue 页面发送消息 |
-| `onPageNotFound` | 页面不存在 |
-| `onUnhandledRejection` | 未处理的 Promise 拒绝 |
-| `onThemeChange` | 系统主题改变（深色/浅色） |
-
-### 3.2 页面生命周期
+### 2.2 页面级生命周期
 
 ```vue
 <script setup>
-import {
-  onLoad,         // 页面加载（携带参数）
-  onShow,         // 页面显示（每次显示都触发）
-  onReady,        // 页面初次渲染完成
-  onHide,         // 页面隐藏
-  onUnload,       // 页面卸载
-  onPullDownRefresh,  // 下拉刷新
-  onReachBottom,      // 上拉加载（触底）
-  onPageScroll,       // 页面滚动
-  onResize,           // 页面尺寸变化
-  onTabItemTap,       // TabBar 被点击
-  onShareAppMessage,  // 分享给朋友
-  onShareTimeline,    // 分享到朋友圈
-  onAddToFavorites,   // 收藏
-  onNavigationBarButtonTap, // 原生标题栏按钮点击
-  onBackPress,        // 返回键（App/H5）
-} from '@dcloudio/uni-app';
+import { 
+  onLoad, 
+  onShow, 
+  onReady, 
+  onHide, 
+  onUnload, 
+  onPullDownRefresh, 
+  onReachBottom, 
+  onPageScroll, 
+  onShareAppMessage,
+  onShareTimeline
+} from '@dcloudio/uni-app'
 
-// onLoad 接收路由参数
+// 页面加载，获取路由 query 参数
 onLoad((query) => {
-  console.log('页面参数:', query); // { id: '123' }
-});
+  console.log('页面路由参数 id:', query?.id)
+})
 
+// 页面每次显示/切回前台
 onShow(() => {
-  console.log('页面显示');
-});
+  console.log('页面显示')
+})
 
+// 页面初次渲染完成（可操作 Canvas/DOM 界面节点）
 onReady(() => {
-  console.log('页面渲染完成，可操作 DOM');
-});
+  console.log('页面初次渲染完成')
+})
 
-onHide(() => {
-  console.log('页面隐藏');
-});
+// 页面隐藏
+onHide(() => {})
 
-onUnload(() => {
-  console.log('页面卸载，清理定时器等');
-});
+// 页面卸载（清理定时器/解除事件订阅）
+onUnload(() => {})
 
-// 下拉刷新（需在 pages.json 开启 enablePullDownRefresh）
+// 下拉刷新触发（需在 pages.json 中开启 "enablePullDownRefresh": true）
 onPullDownRefresh(async () => {
-  await loadData();
-  uni.stopPullDownRefresh(); // 停止刷新动画
-});
+  console.log('触发下拉刷新')
+  await reloadData()
+  uni.stopPullDownRefresh() // 停止动画
+})
 
-// 触底加载更多（需设置 onReachBottomDistance）
+// 上拉触底触发（距离阈值由 pages.json "onReachBottomDistance" 控制）
 onReachBottom(() => {
-  loadMore();
-});
+  console.log('触底加载下一页')
+})
 
-// 页面滚动
-onPageScroll(({ scrollTop }) => {
-  console.log('滚动距离:', scrollTop);
-});
+// 页面滚动监听
+onPageScroll((e) => {
+  console.log('当前页面滚动高度:', e.scrollTop)
+})
 
-// 分享配置
+// 微信小程序发送给朋友分享
 onShareAppMessage(() => {
   return {
-    title: '分享标题',
+    title: '专属分享标题',
     path: '/pages/index/index?from=share',
-    imageUrl: 'https://example.com/share.jpg',
-  };
-});
-</script>
-```
+    imageUrl: '/static/share-banner.png'
+  }
+})
 
-### 3.3 组件生命周期（Vue 3）
-
-```vue
-<script setup>
-import { onMounted, onUpdated, onUnmounted, onBeforeMount, onBeforeUpdate, onBeforeUnmount, onActivated, onDeactivated } from 'vue';
-
-onBeforeMount(() => {});   // 挂载前
-onMounted(() => {});       // 挂载后（可访问 DOM）
-onBeforeUpdate(() => {});  // 更新前
-onUpdated(() => {});       // 更新后
-onBeforeUnmount(() => {}); // 卸载前
-onUnmounted(() => {});     // 卸载后（清理定时器、取消订阅）
-onActivated(() => {});     // keep-alive 激活
-onDeactivated(() => {});   // keep-alive 停用
+// 微信小程序分享到朋友圈
+onShareTimeline(() => {
+  return {
+    title: '朋友圈展示文案',
+    query: 'from=timeline'
+  }
+})
 </script>
 ```
 
 ---
 
-## 4. 模板语法
+### 2.3 组件级生命周期 (Vue 3 组合式)
+```vue
+<script setup>
+import { onMounted, onUpdated, onUnmounted, onActivated, onDeactivated } from 'vue'
 
-### 4.1 数据绑定
+onMounted(() => { /* 组件挂载 */ })
+onUpdated(() => { /* DOM 更新 */ })
+onUnmounted(() => { /* 组件销毁 */ })
+onActivated(() => { /* keep-alive 激活 */ })
+onDeactivated(() => { /* keep-alive 休眠 */ })
+</script>
+```
 
+---
+
+## 三、 Vue 3 核心语法在 UniApp 中的应用 (简约提炼)
+
+### 3.1 模板绑定与常用指令
 ```vue
 <template>
-  <!-- 插值表达式 -->
+  <!-- 文本与动态绑定 -->
   <text>{{ message }}</text>
-  <text>{{ count + 1 }}</text>
-  <text>{{ ok ? '是' : '否' }}</text>
-  <text>{{ name.toUpperCase() }}</text>
+  <image :src="avatarUrl" :style="{ width: size + 'rpx' }" />
+  
+  <!-- 条件与列表渲染 -->
+  <view v-if="status === 'success'" class="badge">成功</view>
+  <view v-else-if="status === 'pending'">处理中</view>
+  <view v-else>失败</view>
 
-  <!-- v-text（不解析 HTML） -->
-  <text v-text="message"></text>
-
-  <!-- 属性绑定 -->
-  <image :src="imgUrl" :style="{ width: size + 'rpx' }"></image>
-  <view :class="{ active: isActive, disabled: isDisabled }"></view>
-  <view :class="[baseClass, isActive ? 'active' : '']"></view>
-
-  <!-- 一次性绑定（不响应更新） -->
-  <text v-once>{{ message }}</text>
-</template>
-```
-
-### 4.2 指令
-
-```vue
-<template>
-  <!-- 条件渲染 -->
-  <view v-if="type === 'A'">A</view>
-  <view v-else-if="type === 'B'">B</view>
-  <view v-else>其他</view>
-
-  <!-- v-show（保留 DOM，切换 display） -->
-  <view v-show="isVisible">可见内容</view>
-
-  <!-- 列表渲染 -->
   <view v-for="(item, index) in list" :key="item.id">
-    {{ index }}. {{ item.name }}
+    {{ index + 1 }} - {{ item.name }}
   </view>
 
-  <!-- 遍历对象 -->
-  <view v-for="(value, key, index) in obj" :key="key">
-    {{ key }}: {{ value }}
-  </view>
-
-  <!-- 事件绑定 -->
-  <button @click="handleClick">点击</button>
-  <button @click="handleClick($event, 'param')">带参数</button>
-  <input @input="handleInput" @blur="handleBlur" />
-
-  <!-- 事件修饰符 -->
-  <view @click.stop="handleClick">阻止冒泡</view>
-  <form @submit.prevent="handleSubmit">阻止默认行为</form>
-  <view @click.once="handleClickOnce">只触发一次</view>
-
-  <!-- 双向绑定 -->
-  <input v-model="inputValue" />
-  <input v-model.trim="name" />
-  <input v-model.number="age" type="number" />
-  <input v-model.lazy="email" />  <!-- blur 时更新 -->
-
-  <!-- 模板引用 -->
-  <view ref="myView">内容</view>
-
-  <!-- 动态组件 -->
-  <component :is="currentComponent" />
-
-  <!-- 透传所有属性 -->
-  <MyComp v-bind="$attrs" />
+  <!-- 双向绑定与事件绑定 -->
+  <input v-model="inputText" @input="handleInput" />
+  <button @click="handleClick('customParam')">点击按钮</button>
+  <view @click.stop="handleChildClick">阻止事件冒泡</view>
 </template>
 ```
 
-### 4.3 计算属性与侦听器
+---
 
+### 3.2 组合式 API (Script Setup)
 ```vue
 <script setup>
-import { ref, reactive, computed, watch, watchEffect } from 'vue';
+import { ref, reactive, computed, watch, watchEffect } from 'vue'
 
-const firstName = ref('张');
-const lastName = ref('三');
+// 基础类型与引用类型响应式
+const count = ref(0)
+const userInfo = reactive({ name: '张三', role: 'admin' })
 
-// 计算属性（带缓存）
-const fullName = computed(() => `${firstName.value} ${lastName.value}`);
+// 计算属性 (带缓存)
+const doubleCount = computed(() => count.value * 2)
 
-// 可写计算属性
-const fullNameWritable = computed({
-  get: () => `${firstName.value} ${lastName.value}`,
-  set: (val) => {
-    const parts = val.split(' ');
-    firstName.value = parts[0];
-    lastName.value = parts[1] ?? '';
-  },
-});
+// 侦听器
+watch(count, (newVal, oldVal) => {
+  console.log(`count 变更: ${oldVal} -> ${newVal}`)
+})
 
-// watch
-watch(firstName, (newVal, oldVal) => {
-  console.log(`firstName 从 ${oldVal} 变为 ${newVal}`);
-}, { immediate: true, deep: false });
-
-// 监听多个源
-watch([firstName, lastName], ([newFirst, newLast]) => {
-  console.log(newFirst, newLast);
-});
-
-// 监听对象（deep）
-const user = reactive({ profile: { name: 'Alice' } });
-watch(() => user.profile.name, (val) => {
-  console.log('name changed:', val);
-}, { deep: true });
-
-// watchEffect（自动追踪依赖）
-const stop = watchEffect(() => {
-  console.log('firstName:', firstName.value);
-  // 自动追踪 firstName
-});
-// 停止侦听
-stop();
+// 自动追踪依赖侦听
+watchEffect(() => {
+  console.log('自动收集依赖并执行:', userInfo.name)
+})
 </script>
 ```
 
 ---
 
-## 5. 内置组件
-
-### 5.1 基础容器
-
+### 3.3 组件通信
 ```vue
-<!-- view：块级容器（类似 div） -->
-<view class="container" hover-class="hover" hover-start-time="20" hover-stay-time="70">
-  内容
+<!-- 子组件 MyCard.vue -->
+<template>
+  <view class="card" @click="emit('card-click', title)">
+    <text>{{ title }}</text>
+    <slot name="content" />
+  </view>
+</template>
+
+<script setup>
+import { defineProps, defineEmits, defineExpose, inject } from 'vue'
+
+const props = defineProps({
+  title: { type: String, default: '默认标题' }
+})
+
+const emit = defineEmits(['card-click'])
+
+// 注入父级 provide 传递的数据
+const globalTheme = inject('globalTheme', 'light')
+
+const childMethod = () => console.log('子组件内部暴露的方法')
+defineExpose({ childMethod })
+</script>
+```
+
+---
+
+## 四、 UniApp 核心内置组件
+
+### 4.1 视图与滚动容器
+```vue
+<!-- view: 基础块级容器 (支持 hover 按压反馈) -->
+<view class="box" hover-class="box--active" :hover-stay-time="100">
+  点击块
 </view>
 
-<!-- scroll-view：可滚动容器 -->
+<!-- scroll-view: 可滚动容器 (纵向滚动、下拉刷新、触底) -->
 <scroll-view
   scroll-y
-  :scroll-top="scrollTop"
-  scroll-with-animation
-  enable-back-to-top
-  @scroll="handleScroll"
-  @scrolltoupper="handleScrollToTop"
-  @scrolltolower="handleScrollToBottom"
-  @refresherrefresh="onRefresh"
+  style="height: 400rpx;"
   refresher-enabled
   :refresher-triggered="isRefreshing"
+  @refresherrefresh="onRefresh"
+  @scrolltolower="loadMore"
 >
-  <view v-for="item in list" :key="item.id">{{ item.name }}</view>
+  <view v-for="i in 20" :key="i" class="scroll-item">行数据 {{ i }}</view>
 </scroll-view>
 
-<!-- swiper：轮播 -->
+<!-- swiper: 轮播容器 -->
 <swiper
-  :indicator-dots="true"
-  :autoplay="true"
+  indicator-dots
+  autoplay
+  circular
   :interval="3000"
   :duration="500"
-  circular
-  :current="currentIndex"
-  @change="handleSwiperChange"
 >
-  <swiper-item v-for="item in banners" :key="item.id">
-    <image :src="item.url" mode="aspectFill" />
+  <swiper-item v-for="(banner, idx) in banners" :key="idx">
+    <image :src="banner.img" mode="aspectFill" class="banner-img" />
   </swiper-item>
 </swiper>
 ```
 
-### 5.2 文本与图片
+---
 
+### 4.2 文本与媒体组件
 ```vue
-<!-- text：文本（类似 span） -->
-<text selectable decode space="emsp">
-  可选中的文本 &amp; 解码实体
-</text>
+<!-- text: 可长按选中与转义文本 -->
+<text selectable decode space="emsp">首行缩进&emsp;长按可选中复制</text>
 
-<!-- rich-text：富文本 -->
-<rich-text :nodes="htmlContent" />
-<!-- nodes 支持 string（HTML）或 Array（node 树） -->
+<!-- rich-text: HTML 字符串富文本渲染 -->
+<rich-text :nodes="htmlContentString" />
 
-<!-- image：图片 -->
-<image
-  src="https://example.com/pic.jpg"
-  mode="aspectFill"
-  lazy-load
-  webp
-  @load="onImageLoad"
-  @error="onImageError"
-/>
-<!--
-  mode 可选值：
-  scaleToFill（默认，拉伸填充）
-  aspectFit（保持比例，完整显示）
-  aspectFill（保持比例，填充裁剪）
-  widthFix（宽度固定，高度自适应）
-  heightFix（高度固定，宽度自适应）
-  top / bottom / left / right / center（裁剪对齐）
--->
-```
+<!-- image: 切图模式模式 aspectFill / widthFix / aspectFit -->
+<image src="/static/logo.png" mode="aspectFill" lazy-load @error="onImgError" />
 
-### 5.3 表单组件
-
-```vue
-<!-- input -->
-<input
-  v-model="value"
-  type="text"
-  placeholder="请输入"
-  placeholder-style="color: #999"
-  :maxlength="20"
-  :disabled="isDisabled"
-  :password="isPassword"
-  confirm-type="done"
-  @input="onInput"
-  @focus="onFocus"
-  @blur="onBlur"
-  @confirm="onConfirm"
-/>
-<!--
-  type: text / number / idcard / digit / tel / safe-password / nickname
-  confirm-type: send / search / next / go / done
--->
-
-<!-- textarea -->
-<textarea
-  v-model="content"
-  placeholder="请输入内容"
-  :maxlength="500"
-  auto-height
-  :show-confirm-bar="false"
-/>
-
-<!-- button -->
-<button
-  type="primary"
-  size="default"
-  :loading="isLoading"
-  :disabled="isDisabled"
-  @click="handleClick"
-  open-type="getUserInfo"
-  @getuserinfo="onGetUserInfo"
->
-  按钮
-</button>
-<!--
-  type: primary / default / warn
-  size: default / mini
-  open-type（微信小程序）: getUserInfo / contact / share / getPhoneNumber / launchApp / openSetting
--->
-
-<!-- checkbox-group -->
-<checkbox-group @change="onCheckChange">
-  <label v-for="item in items" :key="item.value">
-    <checkbox :value="item.value" :checked="item.checked" />
-    {{ item.label }}
-  </label>
-</checkbox-group>
-
-<!-- radio-group -->
-<radio-group @change="onRadioChange">
-  <label v-for="item in items" :key="item.value">
-    <radio :value="item.value" :checked="selectedValue === item.value" />
-    {{ item.label }}
-  </label>
-</radio-group>
-
-<!-- switch -->
-<switch :checked="isSwitchOn" @change="onSwitchChange" color="#007AFF" />
-
-<!-- slider -->
-<slider
-  :value="sliderValue"
-  :min="0"
-  :max="100"
-  :step="1"
-  show-value
-  @change="onSliderChange"
-  @changing="onSliding"
-/>
-
-<!-- picker：选择器 -->
-<!-- 普通选择 -->
-<picker mode="selector" :range="options" :value="selectedIndex" @change="onPickerChange">
-  <view>{{ options[selectedIndex] }}</view>
-</picker>
-
-<!-- 时间选择 -->
-<picker mode="time" :value="time" start="09:00" end="21:00" @change="onTimeChange">
-  <view>{{ time }}</view>
-</picker>
-
-<!-- 日期选择 -->
-<picker mode="date" :value="date" start="2020-01-01" end="2030-12-31" @change="onDateChange">
-  <view>{{ date }}</view>
-</picker>
-
-<!-- 地区选择 -->
-<picker mode="region" :value="region" @change="onRegionChange">
-  <view>{{ region.join(' ') }}</view>
-</picker>
-
-<!-- picker-view：嵌入式滚动选择 -->
-<picker-view :value="pickerValue" @change="onPickerViewChange">
-  <picker-view-column>
-    <view v-for="item in column1" :key="item">{{ item }}</view>
-  </picker-view-column>
-  <picker-view-column>
-    <view v-for="item in column2" :key="item">{{ item }}</view>
-  </picker-view-column>
-</picker-view>
-
-<!-- form -->
-<form @submit="onSubmit" @reset="onReset">
-  <input name="username" placeholder="用户名" />
-  <button form-type="submit">提交</button>
-  <button form-type="reset">重置</button>
-</form>
-```
-
-### 5.4 导航组件
-
-```vue
-<!-- navigator：页面跳转链接 -->
-<navigator url="/pages/detail/detail?id=123" open-type="navigate">
-  跳转到详情
-</navigator>
-<!--
-  open-type: navigate / redirect / switchTab / reLaunch / navigateBack
--->
-```
-
-### 5.5 媒体组件
-
-```vue
-<!-- video -->
-<video
-  src="https://example.com/video.mp4"
-  :controls="true"
-  :autoplay="false"
-  :loop="false"
-  :muted="false"
-  :poster="posterUrl"
-  object-fit="contain"
-  @play="onPlay"
-  @pause="onPause"
-  @ended="onEnded"
-  @timeupdate="onTimeUpdate"
-/>
-
-<!-- map -->
-<map
-  :latitude="latitude"
-  :longitude="longitude"
-  :scale="14"
-  :markers="markers"
-  :polyline="polyline"
-  :polygons="polygons"
-  :show-location="true"
-  @markertap="onMarkerTap"
-  @callouttap="onCalloutTap"
-  @regionchange="onRegionChange"
-/>
-```
-
-### 5.6 其他组件
-
-```vue
-<!-- web-view：嵌入网页（不支持 tabBar 页面） -->
-<web-view :src="webUrl" @message="onWebMessage" />
-
-<!-- ad：广告 -->
-<ad unit-id="your-ad-unit-id" ad-type="banner" />
-
-<!-- live-player：直播播放 -->
-<live-player src="rtmp://..." mode="live" :muted="false" />
+<!-- video: 视频播放 -->
+<video src="https://domain.com/video.mp4" controls autoplay poster="/static/poster.jpg" />
 ```
 
 ---
 
-## 6. 自定义组件
+### 4.3 表单组件
+```vue
+<!-- input: 输入框 -->
+<input v-model="phone" type="number" placeholder="请输入手机号" maxlength="11" confirm-type="search" />
 
-### 6.1 组合式 API 组件
+<!-- picker: 原生选择器 (支持 selector/time/date/region) -->
+<picker mode="selector" :range="genderOptions" :value="genderIndex" @change="onGenderChange">
+  <view>当前选择：{{ genderOptions[genderIndex] }}</view>
+</picker>
+
+<picker mode="region" @change="onRegionChange">
+  <view>选择省市区</view>
+</picker>
+
+<!-- button: 小程序快捷开放能力 open-type -->
+<!-- 微信小程序获取手机号 (需认证企业主体) -->
+<button type="primary" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
+  快捷获取手机号
+</button>
+```
+
+---
+
+### 4.4 导航组件
+```vue
+<!-- navigator: 页面跳转组件 -->
+<navigator url="/pages/user/user" open-type="navigate">跳转到个人中心</navigator>
+<navigator url="/pages/index/index" open-type="switchTab">切换 Tab 首页</navigator>
+```
+
+---
+
+## 五、 页面路由与跨页通信
+
+### 5.1 原生路由 API
+```typescript
+// 1. 保留当前页，打开新页面 (可返回)
+uni.navigateTo({
+  url: '/pages/detail/detail?id=1001&type=goods'
+})
+
+// 2. 关闭当前页，打开新页面
+uni.redirectTo({
+  url: '/pages/login/login'
+})
+
+// 3. 切换 TabBar 页面 (并关闭所有非 tabBar 页面)
+uni.switchTab({
+  url: '/pages/index/index'
+})
+
+// 4. 重启打开指定页面 (关闭所有历史页面)
+uni.reLaunch({
+  url: '/pages/index/index'
+})
+
+// 5. 返回上一页或多页
+uni.navigateBack({
+  delta: 1 // 返回层数
+})
+```
+
+---
+
+### 5.2 复杂对象跨页通信 (`EventChannel`)
+```typescript
+// 【发送页】
+uni.navigateTo({
+  url: '/pages/detail/detail',
+  success: (res) => {
+    // 弹出通道派发大数据对象
+    res.eventChannel.emit('acceptDataFromOpenerPage', {
+      bigObject: { name: '高清图', rawData: [...] }
+    })
+  }
+})
+
+// 【接收页 detail.vue】
+onLoad(() => {
+  // #ifdef MP-WEIXIN || APP-PLUS || H5
+  const instance = getCurrentInstance()
+  const eventChannel = instance?.proxy?.getOpenerEventChannel()
+  eventChannel?.on('acceptDataFromOpenerPage', (data) => {
+    console.log('接收到上页派发的复杂对象:', data.bigObject)
+  })
+  // #endif
+})
+```
+
+---
+
+## 六、 网络请求与数据持久化
+
+### 6.1 原生网络请求 (`uni.request` 拦截器封装模式)
+
+```typescript
+// utils/request.ts
+const BASE_URL = 'https://api.domain.com'
+
+export const request = <T = any>(options: UniApp.RequestOptions): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    // 自动拼装 Token
+    const token = uni.getStorageSync('TOKEN')
+    
+    uni.request({
+      ...options,
+      url: options.url.startsWith('http') ? options.url : `${BASE_URL}${options.url}`,
+      header: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        ...options.header
+      },
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const data = res.data as any
+          if (data.code === 200 || data.success) {
+            resolve(data)
+          } else {
+            uni.showToast({ title: data.message || '业务异常', icon: 'none' })
+            reject(data)
+          }
+        } else if (res.statusCode === 401) {
+          uni.removeStorageSync('TOKEN')
+          uni.navigateTo({ url: '/pages/login/login' })
+          reject(res)
+        } else {
+          uni.showToast({ title: `HTTP ${res.statusCode}`, icon: 'none' })
+          reject(res)
+        }
+      },
+      fail: (err) => {
+        uni.showToast({ title: '网络连接失败', icon: 'none' })
+        reject(err)
+      }
+    })
+  })
+}
+```
+
+---
+
+### 6.2 数据本地存储 (Storage API)
+
+```typescript
+// 同步操作 (推荐)
+uni.setStorageSync('USER_INFO', { id: 1, name: 'Alice' }) // 写入
+const userInfo = uni.getStorageSync('USER_INFO')           // 读取
+uni.removeStorageSync('USER_INFO')                        // 删除单项
+uni.clearStorageSync()                                    // 清空所有缓存
+
+// 异步操作
+uni.setStorage({
+  key: 'TOKEN',
+  data: 'eyJhbGci...',
+  success: () => console.log('异步保存成功')
+})
+```
+
+---
+
+## 七、 原生设备与系统 API
+
+### 7.1 界面交互提示 (UI API)
+```typescript
+// 1. 消息提示框
+uni.showToast({
+  title: '操作成功',
+  icon: 'success', // 'success' | 'loading' | 'error' | 'none'
+  duration: 2000
+})
+
+// 2. 加载提示框
+uni.showLoading({ title: '数据加载中...' })
+setTimeout(() => uni.hideLoading(), 1500)
+
+// 3. 模态弹窗 (Modal)
+uni.showModal({
+  title: '提示',
+  content: '确定要删除该记录吗？',
+  confirmColor: '#FF4D4F',
+  success: (res) => {
+    if (res.confirm) {
+      console.log('用户点击了确定')
+    }
+  }
+})
+
+// 4. 底部操作菜单
+uni.showActionSheet({
+  itemList: ['拍照', '从相册选择'],
+  success: (res) => {
+    console.log('点击序号:', res.tapIndex)
+  }
+})
+```
+
+---
+
+### 7.2 设备能力与媒体
+
+```typescript
+// 1. 选择图片与预览
+uni.chooseImage({
+  count: 3,
+  sizeType: ['compressed'],
+  sourceType: ['album', 'camera'],
+  success: (res) => {
+    const tempFilePaths = res.tempFilePaths
+    uni.previewImage({
+      urls: tempFilePaths,
+      current: tempFilePaths[0]
+    })
+  }
+})
+
+// 2. 获取设备信息与顶部胶囊安全区
+const windowInfo = uni.getWindowInfo()
+console.log('屏幕宽度:', windowInfo.screenWidth)
+console.log('底部安全区域高度:', windowInfo.safeAreaInsets?.bottom)
+
+// #ifdef MP-WEIXIN
+// 微信小程序获取右侧胶囊按钮坐标高度 (用于自定义导航栏对齐)
+const menuButton = uni.getMenuButtonBoundingClientRect()
+console.log('胶囊高度:', menuButton.height, '胶囊 Top:', menuButton.top)
+// #endif
+
+// 3. 剪贴板读写
+uni.setClipboardData({
+  data: '复制的文本内容',
+  success: () => uni.showToast({ title: '已复制到剪贴板', icon: 'none' })
+})
+```
+
+---
+
+## 八、 全局状态管理 (Pinia)
+
+```typescript
+// stores/user.ts
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+export const useUserStore = defineStore('user', () => {
+  const token = ref<string>(uni.getStorageSync('TOKEN') || '')
+  const userInfo = ref<any>(null)
+
+  const isLoggedIn = computed(() => !!token.value)
+
+  function setToken(newToken: string) {
+    token.value = newToken
+    uni.setStorageSync('TOKEN', newToken)
+  }
+
+  function logout() {
+    token.value = ''
+    userInfo.value = null
+    uni.removeStorageSync('TOKEN')
+  }
+
+  return { token, userInfo, isLoggedIn, setToken, logout }
+})
+```
+
+---
+
+## 九、 跨端兼容与条件编译 (核心优势)
+
+### 9.1 语法与注释规则
+UniApp 使用特殊的注释 `// #ifdef` / `/* #ifdef */` / `<!-- #ifdef -->` 来对代码块进行条件编译，仅编译到指定平台。
+
+| 标记类型 | 含义 |
+| :--- | :--- |
+| `#ifdef %PLATFORM%` | 仅在指定平台包含该代码 |
+| `#ifndef %PLATFORM%` | 在除指定平台外的其他平台包含 |
+| `#endif` | 结束条件编译块 |
+
+---
+
+### 9.2 跨端代码示例
 
 ```vue
-<!-- components/MyCard.vue -->
 <template>
-  <view class="card" :class="{ 'card--shadow': shadow }">
-    <slot name="header">
-      <text class="card__title">{{ title }}</text>
-    </slot>
+  <view class="container">
+    <!-- #ifdef MP-WEIXIN -->
+    <view>只在微信小程序中显示的特有节点</view>
+    <!-- #endif -->
 
-    <view class="card__body">
-      <slot />
-    </view>
-
-    <slot name="footer" />
+    <!-- #ifdef H5 -->
+    <view>只在 H5 浏览器中显示的内容</view>
+    <!-- #endif -->
   </view>
 </template>
 
 <script setup>
-import { ref, computed, defineProps, defineEmits, defineExpose } from 'vue';
+// #ifdef APP-PLUS
+console.log('只有 iOS/Android 原生 App 端才会执行的逻辑')
+// #endif
 
-// Props 定义
-const props = defineProps({
-  title: {
-    type: String,
-    default: '标题',
-  },
-  shadow: {
-    type: Boolean,
-    default: false,
-  },
-  modelValue: {
-    type: [String, Number],
-    required: false,
-  },
-});
-
-// Emits 定义
-const emit = defineEmits(['update:modelValue', 'click', 'close']);
-
-// 内部状态
-const isExpanded = ref(false);
-
-// 计算属性
-const cardClass = computed(() => ({
-  card: true,
-  'card--expanded': isExpanded.value,
-}));
-
-// 方法
-function toggle() {
-  isExpanded.value = !isExpanded.value;
-  emit('click', isExpanded.value);
-}
-
-function close() {
-  isExpanded.value = false;
-  emit('close');
-}
-
-// 暴露给父组件（通过 ref 访问）
-defineExpose({ toggle, close, isExpanded });
+// #ifndef MP-WEIXIN
+console.log('除了微信小程序之外的其他平台')
+// #endif
 </script>
 
 <style scoped>
-.card {
-  background: #fff;
-  border-radius: 12rpx;
-  padding: 24rpx;
+/* #ifdef H5 */
+.container {
+  padding-top: 44px; /* H5 顶部导航补偿 */
 }
-.card--shadow {
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+/* #endif */
+
+/* #ifdef MP-WEIXIN */
+.container {
+  padding-top: 0;
 }
+/* #endif */
 </style>
 ```
 
-### 6.2 使用自定义组件
+---
+
+## 十、 样式布局与响应式适配
+
+### 10.1 尺寸单位 `rpx` 响应式原理
+`rpx`（responsive pixel）是 UniApp 针对多端屏幕宽度自动缩放的响应式单位：
+- **设计基准**：规定屏幕宽度固定为 **750rpx**；
+- **公式换算**：在 iPhone 6 (屏幕宽度 375px) 下，`1px = 2rpx`；
+- **开发建议**：设计稿统一按 `750px` 宽度出图，测量多少像素就直接写多少 `rpx`。
+
+```css
+.card {
+  width: 750rpx;       /* 宽度占满整屏 */
+  padding: 30rpx;      /* 响应式边距 */
+  font-size: 28rpx;    /* 响应式字号 */
+}
+```
+
+---
+
+### 10.2 底部安全区域适配 (针对 iPhone X 及全面屏)
+```css
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* 自动补充全面屏底部黑条安全距离 */
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  background-color: #ffffff;
+}
+```
+
+---
+
+## 十一、 高级特性与最佳实践
+
+### 11.1 事件总线 (跨组件解耦通信)
+```typescript
+// 派发事件
+uni.$emit('update-user-avatar', { avatarUrl: '/static/new.png' })
+
+// 监听事件 (建议在 onLoad 或 onMounted 中注册)
+const handleAvatarUpdate = (data: any) => {
+  console.log('接收到新头像:', data.avatarUrl)
+}
+uni.$on('update-user-avatar', handleAvatarUpdate)
+
+// 销毁监听 (必须在 onUnload 或 onUnmounted 中及时移除，防止内存泄露)
+onUnload(() => {
+  uni.$off('update-user-avatar', handleAvatarUpdate)
+})
+```
+
+---
+
+### 11.2 分包加载与小程序体积优化策略
+1. **主包仅保留核心 Tab 页**：把非首屏展示的页面全部分割到 `subPackages` 中；
+2. **静态资源外置 CDN**：小程序主包限制 2MB，大图、音视频切勿放入 `static/`，建议统一提升至 CDN；
+3. **启用按需加载**：在 `manifest.json` 中配置 `"lazyCodeLoading": "requiredComponents"`。
+
+---
+
+### 11.3 性能优化要点总结
+
+```text
+┌─────────────────────────┬────────────────────────────────────────────────────────┐
+│ 优化方向                │ 推荐做法                                               │
+├─────────────────────────┼────────────────────────────────────────────────────────┤
+│ 1. 减少数据响应式开销   │ 非 DOM 渲染依赖的大对象不要挂载在 ref/reactive 中       │
+│ 2. 列表视图高性能渲染   │ 页面优先使用 <scroll-view> + 分页 / 虚表机制           │
+│ 3. 减少 setData 频次    │ 避免在 onPageScroll 里面做复杂的 setData/高频数据改变   │
+│ 4. 样式穿透与组件重置   │ 自定义组件重写样式使用 :deep(.target) 或外部 class      │
+└─────────────────────────┴────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 十二、 微信小程序 (MP-WEIXIN) 专项开发指南
+
+### 12.1 微信登录鉴权与快捷授权流程
+
+微信小程序推荐采用 **`uni.login()` 获取 `code` $\rightarrow$ 后端换取 `openid`/`session_key`** 的无感登录模式。
+
+```typescript
+// 1. 无感静默登录获取 Code
+const handleWxLogin = async () => {
+  try {
+    const [err, res] = await uni.login({ provider: 'weixin' })
+    if (res?.code) {
+      console.log('临时登录凭证 code:', res.code)
+      // 发送 code 到后端换取自定义登录态 Token & openid
+      const data = await request({ url: '/api/v1/wx-login', method: 'POST', data: { code: res.code } })
+      uni.setStorageSync('TOKEN', data.token)
+    }
+  } catch (error) {
+    console.error('微信登录失败:', error)
+  }
+}
+```
 
 ```vue
+<!-- 2. 快捷获取加密手机号 (需企业主体小程序) -->
 <template>
-  <!-- easycom 自动注册，直接使用 -->
-  <MyCard
-    title="我的卡片"
-    :shadow="true"
-    v-model="value"
-    @click="onCardClick"
-    ref="cardRef"
-  >
-    <template #header>
-      <text>自定义头部</text>
-    </template>
+  <button type="primary" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
+    一键绑定手机号
+  </button>
 
-    <text>默认插槽内容</text>
-
-    <template #footer>
-      <button @click="cardRef.close()">关闭</button>
-    </template>
-  </MyCard>
+  <!-- 3. 新版微信头像与昵称填写规范 -->
+  <button class="avatar-wrapper" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+    <image class="avatar" :src="avatarUrl" />
+  </button>
+  <input type="nickname" class="wechat-input" placeholder="请输入微信昵称" @blur="onNicknameBlur" />
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref } from 'vue'
 
-const value = ref('');
-const cardRef = ref(null);
+const avatarUrl = ref('/static/default-avatar.png')
 
-function onCardClick(expanded) {
-  console.log('卡片状态:', expanded);
+// 选择微信头像回调
+const onChooseAvatar = (e) => {
+  avatarUrl.value = e.detail.avatarUrl // 临时图片路径
+}
+
+// 快速获取手机号解密回调 (微信新版回传 code，传给后端解密)
+const onGetPhoneNumber = async (e) => {
+  if (e.detail.code) {
+    await request({ url: '/api/v1/bind-phone', method: 'POST', data: { phoneCode: e.detail.code } })
+    uni.showToast({ title: '绑定成功' })
+  }
 }
 </script>
 ```
 
-### 6.3 provide / inject（跨层级通信）
-
-```vue
-<!-- 父组件 -->
-<script setup>
-import { provide, ref } from 'vue';
-
-const theme = ref('light');
-const setTheme = (t) => { theme.value = t; };
-
-provide('theme', { theme, setTheme });
-</script>
-
-<!-- 深层子组件 -->
-<script setup>
-import { inject } from 'vue';
-
-const { theme, setTheme } = inject('theme', {
-  theme: ref('light'),
-  setTheme: () => {},
-});
-</script>
-```
-
-### 6.4 Composables（组合式函数）
-
-```js
-// composables/useRequest.js
-import { ref, reactive } from 'vue';
-
-export function useRequest(url, options = {}) {
-  const data = ref(null);
-  const loading = ref(false);
-  const error = ref(null);
-
-  async function execute(params = {}) {
-    loading.value = true;
-    error.value = null;
-    try {
-      const res = await uni.request({
-        url,
-        data: params,
-        ...options,
-      });
-      data.value = res.data;
-      return res.data;
-    } catch (e) {
-      error.value = e;
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  return { data, loading, error, execute };
-}
-
-// 使用
-const { data, loading, execute } = useRequest('/api/users');
-onLoad(() => execute({ page: 1 }));
-```
-
 ---
 
-## 7. 路由与导航
-
-### 7.1 跳转方式
-
-```js
-// 1. navigate：保留当前页面（可返回），最多 10 层
-uni.navigateTo({
-  url: '/pages/detail/detail?id=123&name=Alice',
-  success: (res) => { console.log('跳转成功', res); },
-  fail: (err) => { console.error('跳转失败', err); },
-  complete: () => {},
-});
-
-// 2. redirect：关闭当前页面后跳转（无法返回）
-uni.redirectTo({ url: '/pages/login/login' });
-
-// 3. reLaunch：关闭所有页面后跳转
-uni.reLaunchTo({ url: '/pages/index/index' });
-
-// 4. switchTab：跳转到 tabBar 页面（关闭其他非 tabBar 页面）
-uni.switchTab({ url: '/pages/index/index' });
-
-// 5. navigateBack：返回上一层（或多层）
-uni.navigateBack({ delta: 1 });
-uni.navigateBack({ delta: 2 }); // 返回 2 层
-
-// 6. 预加载页面（App 端）
-const page = uni.preloadPage({ url: '/pages/detail/detail' });
-```
-
-### 7.2 获取页面参数
-
-```vue
-<script setup>
-import { onLoad } from '@dcloudio/uni-app';
-
-onLoad((query) => {
-  // URL 参数自动解析为对象
-  const { id, name } = query;
-  console.log(id, decodeURIComponent(name));
-});
-</script>
-```
-
-### 7.3 页面间通信
-
-```js
-// ======= 方案一：URL 参数（简单数据）=======
-uni.navigateTo({ url: '/pages/detail?id=123' });
-
-// ======= 方案二：EventChannel（navigate 时传复杂数据）=======
-// 发送方（跳转时）
-uni.navigateTo({
-  url: '/pages/detail/detail',
-  success: (res) => {
-    res.eventChannel.emit('sendData', { list: [1, 2, 3] });
-  },
-  events: {
-    // 监听目标页面返回的事件
-    onDataBack: (data) => {
-      console.log('收到返回数据:', data);
-    },
-  },
-});
-
-// 接收方（目标页面）
-onLoad(() => {
-  const eventChannel = getCurrentInstance().proxy.$scope.eventChannel;
-  // or:
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1];
-  const channel = currentPage.getOpenerEventChannel();
-
-  channel.on('sendData', (data) => {
-    console.log('收到数据:', data);
-  });
-  // 向前一页发送事件
-  channel.emit('onDataBack', { result: 'ok' });
-});
-
-// ======= 方案三：globalData / Pinia（全局状态）=======
-// 推荐使用 Pinia
-
-// ======= 方案四：uni.$emit / $on（事件总线）=======
-// 见第 16 节
-```
-
-### 7.4 获取页面栈
-
-```js
-// 获取当前页面栈
-const pages = getCurrentPages();
-const currentPage = pages[pages.length - 1];
-const prevPage = pages[pages.length - 2];
-
-// 直接操作前一页数据（谨慎使用）
-prevPage.$vm.someData = 'updated';
-prevPage.$vm.loadData();
-```
-
----
-
-## 8. 网络请求
-
-### 8.1 uni.request 基础
-
-```js
-// GET 请求
-uni.request({
-  url: 'https://api.example.com/users',
-  method: 'GET',
-  data: { page: 1, size: 10 },
-  header: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000,
-  success: (res) => {
-    if (res.statusCode === 200) {
-      console.log(res.data);
-    }
-  },
-  fail: (err) => {
-    console.error(err);
-  },
-});
-
-// Promise 封装
-function request(options) {
-  return new Promise((resolve, reject) => {
-    uni.request({
-      ...options,
-      success: resolve,
-      fail: reject,
-    });
-  });
-}
-```
-
-### 8.2 完整封装（拦截器 + 统一错误处理）
-
-```js
-// utils/request.js
-const BASE_URL = 'https://api.example.com';
-const TIMEOUT = 10000;
-
-// 请求拦截器列表
-const requestInterceptors = [];
-// 响应拦截器列表
-const responseInterceptors = [];
-
-function http(config) {
-  // 执行请求拦截器
-  let reqConfig = { ...config };
-  for (const interceptor of requestInterceptors) {
-    reqConfig = interceptor(reqConfig) || reqConfig;
-  }
-
-  return new Promise((resolve, reject) => {
-    // 显示 loading
-    uni.showLoading({ title: '加载中...', mask: true });
-
-    const task = uni.request({
-      url: BASE_URL + reqConfig.url,
-      method: reqConfig.method || 'GET',
-      data: reqConfig.data,
-      header: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${uni.getStorageSync('token') || ''}`,
-        ...reqConfig.header,
-      },
-      timeout: TIMEOUT,
-      success: (res) => {
-        uni.hideLoading();
-        // 执行响应拦截器
-        let resData = res;
-        for (const interceptor of responseInterceptors) {
-          resData = interceptor(resData) || resData;
-        }
-
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          const { code, data, message } = res.data;
-          if (code === 0 || code === 200) {
-            resolve(data);
-          } else if (code === 401) {
-            uni.removeStorageSync('token');
-            uni.reLaunch({ url: '/pages/login/login' });
-            reject(new Error('登录已过期'));
-          } else {
-            uni.showToast({ title: message || '请求失败', icon: 'none' });
-            reject(new Error(message));
-          }
-        } else {
-          uni.showToast({ title: `网络错误 ${res.statusCode}`, icon: 'none' });
-          reject(new Error(`HTTP ${res.statusCode}`));
-        }
-      },
-      fail: (err) => {
-        uni.hideLoading();
-        if (err.errMsg?.includes('timeout')) {
-          uni.showToast({ title: '请求超时', icon: 'none' });
-        } else {
-          uni.showToast({ title: '网络连接失败', icon: 'none' });
-        }
-        reject(err);
-      },
-    });
-
-    // 保存请求任务（可用于取消请求）
-    if (reqConfig.onTask) reqConfig.onTask(task);
-  });
-}
-
-// 便捷方法
-http.get = (url, data, config) => http({ url, method: 'GET', data, ...config });
-http.post = (url, data, config) => http({ url, method: 'POST', data, ...config });
-http.put = (url, data, config) => http({ url, method: 'PUT', data, ...config });
-http.delete = (url, data, config) => http({ url, method: 'DELETE', data, ...config });
-
-// 添加拦截器
-http.addRequestInterceptor = (fn) => requestInterceptors.push(fn);
-http.addResponseInterceptor = (fn) => responseInterceptors.push(fn);
-
-export default http;
-```
-
-### 8.3 文件上传与下载
-
-```js
-// 上传图片
-uni.chooseImage({
-  count: 1,
-  success: ({ tempFilePaths }) => {
-    const uploadTask = uni.uploadFile({
-      url: 'https://api.example.com/upload',
-      filePath: tempFilePaths[0],
-      name: 'file',
-      formData: { userId: '123' },
-      header: { Authorization: `Bearer ${token}` },
-      success: (res) => {
-        const data = JSON.parse(res.data);
-        console.log('上传成功:', data.url);
-      },
-    });
-
-    // 监听上传进度
-    uploadTask.onProgressUpdate(({ progress }) => {
-      console.log('上传进度:', progress);
-    });
-
-    // 取消上传
-    // uploadTask.abort();
-  },
-});
-
-// 下载文件
-const downloadTask = uni.downloadFile({
-  url: 'https://example.com/file.pdf',
-  success: ({ tempFilePath }) => {
-    uni.openDocument({ filePath: tempFilePath });
-  },
-});
-
-downloadTask.onProgressUpdate(({ progress }) => {
-  console.log('下载进度:', progress);
-});
-```
-
----
-
-## 9. 数据存储
-
-### 9.1 本地存储（同步）
-
-```js
-// 存储
-uni.setStorageSync('key', 'value');
-uni.setStorageSync('user', { name: 'Alice', age: 30 }); // 自动序列化
-
-// 读取
-const value = uni.getStorageSync('key');
-const user = uni.getStorageSync('user'); // 自动反序列化
-
-// 删除
-uni.removeStorageSync('key');
-
-// 清空
-uni.clearStorageSync();
-
-// 获取存储信息
-const info = uni.getStorageInfoSync();
-console.log(info.keys, info.currentSize, info.limitSize);
-```
-
-### 9.2 本地存储（异步）
-
-```js
-// 存储
-uni.setStorage({
-  key: 'token',
-  data: 'Bearer xxx',
-  success: () => console.log('存储成功'),
-  fail: console.error,
-});
-
-// 读取
-uni.getStorage({
-  key: 'token',
-  success: ({ data }) => console.log(data),
-  fail: console.error,
-});
-
-// Promise 化
-const { data } = await uni.getStorage({ key: 'token' });
-```
-
-### 9.3 安全存储（App 端，加密存储）
-
-```js
-// uni.setStorageSync 本身无加密，敏感数据建议：
-// 1. 使用原生插件（如 DCloud 安全存储插件）
-// 2. 在应用层加密后存储
-
-// 微信小程序安全登录态存储
-// wx.setStorageSync 与 uni.setStorageSync 等价
-
-// 敏感信息存储建议（AES 加密）
-import CryptoJS from 'crypto-js';
-
-const SECRET = 'your-secret-key';
-
-export function secureSet(key, value) {
-  const encrypted = CryptoJS.AES.encrypt(
-    JSON.stringify(value),
-    SECRET
-  ).toString();
-  uni.setStorageSync(key, encrypted);
-}
-
-export function secureGet(key) {
-  const encrypted = uni.getStorageSync(key);
-  if (!encrypted) return null;
-  const bytes = CryptoJS.AES.decrypt(encrypted, SECRET);
-  return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-}
-```
-
----
-
-## 10. 媒体 API
-
-### 10.1 图片
-
-```js
-// 选择图片
-uni.chooseImage({
-  count: 9,
-  sizeType: ['original', 'compressed'],
-  sourceType: ['album', 'camera'],
-  success: ({ tempFilePaths, tempFiles }) => {
-    console.log('选择的图片路径:', tempFilePaths);
-    console.log('图片文件信息:', tempFiles);
-  },
-});
-
-// 预览图片
-uni.previewImage({
-  current: 0,  // 当前显示图片的索引或 URL
-  urls: ['https://example.com/1.jpg', 'https://example.com/2.jpg'],
-  longPressActions: {
-    itemList: ['发送给朋友', '保存图片'],
-    success: ({ tapIndex, index }) => {},
-  },
-});
-
-// 保存到相册
-uni.saveImageToPhotosAlbum({
-  filePath: tempFilePath,
-  success: () => uni.showToast({ title: '保存成功' }),
-});
-
-// 获取图片信息
-uni.getImageInfo({
-  src: 'https://example.com/pic.jpg',
-  success: ({ width, height, path, orientation, type }) => {},
-});
-
-// 压缩图片
-uni.compressImage({
-  src: tempFilePath,
-  quality: 80,      // 0-100
-  success: ({ tempFilePath: compressed }) => {},
-});
-```
-
-### 10.2 视频与相机
-
-```js
-// 选择视频
-uni.chooseVideo({
-  sourceType: ['album', 'camera'],
-  maxDuration: 60,    // 最长录制时间（秒）
-  camera: 'back',     // back / front
-  compressed: true,   // 是否压缩
-  success: ({ tempFilePath, duration, size, width, height }) => {},
-});
-
-// 保存视频到相册
-uni.saveVideoToPhotosAlbum({ filePath: tempFilePath });
-
-// 相机（App 端）
-const cameraContext = uni.createCameraContext();
-cameraContext.takePhoto({
-  quality: 'high',
-  success: ({ tempImagePath }) => {},
-});
-cameraContext.startRecord({ success: () => {} });
-cameraContext.stopRecord({
-  success: ({ tempThumbPath, tempVideoPath }) => {},
-});
-```
-
-### 10.3 音频
-
-```js
-// 播放音效（短音频）
-const audio = uni.createInnerAudioContext();
-audio.src = 'https://example.com/sound.mp3';
-audio.autoplay = true;
-audio.loop = false;
-audio.volume = 0.8;
-
-audio.onPlay(() => console.log('开始播放'));
-audio.onPause(() => console.log('暂停'));
-audio.onStop(() => console.log('停止'));
-audio.onEnded(() => console.log('播放完毕'));
-audio.onError((err) => console.error(err));
-audio.onTimeUpdate(() => {
-  console.log(audio.currentTime, audio.duration);
-});
-
-audio.play();
-audio.pause();
-audio.stop();
-audio.seek(30); // 跳到 30 秒
-
-// 销毁实例
-audio.destroy();
-
-// 背景音频（App/微信小程序，退出后继续播放）
-const bgAudio = uni.getBackgroundAudioManager();
-bgAudio.src = 'https://example.com/music.mp3';
-bgAudio.title = '歌曲名称';
-bgAudio.singer = '歌手名';
-bgAudio.coverImgUrl = 'https://example.com/cover.jpg';
-bgAudio.onPlay(() => {});
-bgAudio.onPause(() => {});
-```
-
----
-
-## 11. 设备 API
-
-### 11.1 地理位置
-
-```js
-// 获取当前位置
-uni.getLocation({
-  type: 'gcj02',    // wgs84 / gcj02
-  altitude: true,   // 是否需要海拔
-  geocode: true,    // 是否解析地址（App 端）
-  success: ({ latitude, longitude, accuracy, speed, altitude, address }) => {
-    console.log(latitude, longitude);
-  },
-  fail: (err) => {
-    if (err.code === 1) {
-      uni.showModal({ title: '提示', content: '请开启位置权限' });
-    }
-  },
-});
-
-// 持续监听位置变化
-uni.startLocationUpdate({ type: 'gcj02' });
-uni.onLocationChange(({ latitude, longitude }) => {
-  console.log(latitude, longitude);
-});
-uni.stopLocationUpdate();
-
-// 打开地图选择位置
-uni.chooseLocation({
-  latitude: 39.90,
-  longitude: 116.40,
-  success: ({ name, address, latitude, longitude }) => {},
-});
-
-// 打开导航
-uni.openLocation({
-  latitude: 39.90,
-  longitude: 116.40,
-  name: '目的地名称',
-  address: '详细地址',
-  scale: 18,
-});
-```
-
-### 11.2 扫码
-
-```js
-uni.scanCode({
-  onlyFromCamera: false,  // 是否只允许相机扫
-  scanType: ['qrCode', 'barCode'],
-  success: ({ result, scanType, charSet }) => {
-    console.log('扫描结果:', result);
-  },
-});
-```
-
-### 11.3 系统信息
-
-```js
-// 同步获取系统信息（推荐）
-const sysInfo = uni.getSystemInfoSync();
-console.log(sysInfo.platform);       // ios / android / web
-console.log(sysInfo.osName);         // iOS / android
-console.log(sysInfo.osVersion);      // 系统版本
-console.log(sysInfo.windowWidth);    // 窗口宽度（px）
-console.log(sysInfo.windowHeight);   // 窗口高度
-console.log(sysInfo.screenWidth);
-console.log(sysInfo.screenHeight);
-console.log(sysInfo.statusBarHeight);// 状态栏高度
-console.log(sysInfo.safeArea);       // 安全区域
-console.log(sysInfo.safeAreaInsets); // 安全区域内边距
-console.log(sysInfo.pixelRatio);     // 设备像素比
-console.log(sysInfo.SDKVersion);     // 小程序基础库版本
-console.log(sysInfo.language);
-console.log(sysInfo.version);        // 微信版本号
-
-// 获取胶囊按钮信息（微信小程序）
-const menuButton = uni.getMenuButtonBoundingClientRect();
-// { top, left, right, bottom, width, height }
-
-// 自定义导航栏高度计算
-const navBarHeight = sysInfo.statusBarHeight + 44;
-```
-
-### 11.4 网络状态
-
-```js
-// 获取网络类型
-uni.getNetworkType({
-  success: ({ networkType }) => {
-    // wifi / 2g / 3g / 4g / 5g / none / unknown
-    console.log('网络类型:', networkType);
-  },
-});
-
-// 监听网络状态变化
-uni.onNetworkStatusChange(({ isConnected, networkType }) => {
-  if (!isConnected) {
-    uni.showToast({ title: '网络已断开', icon: 'none' });
-  }
-});
-uni.offNetworkStatusChange();
-```
-
-### 11.5 振动
-
-```js
-uni.vibrateShort({ type: 'medium' });  // 短振动（light/medium/heavy）
-uni.vibrateLong();                      // 长振动
-```
-
-### 11.6 剪贴板
-
-```js
-// 写入剪贴板
-uni.setClipboardData({
-  data: '复制的内容',
-  success: () => uni.showToast({ title: '已复制' }),
-});
-
-// 读取剪贴板
-uni.getClipboardData({
-  success: ({ data }) => console.log(data),
-});
-```
-
-### 11.7 权限检查与申请（App）
-
-```js
-// 检查权限
-const status = uni.getPermissionStatus({
-  permissionID: 'location',
-});
-
-// 申请权限
-uni.authorize({
-  scope: 'scope.userLocation',
-  success: () => { /* 已授权 */ },
-  fail: () => {
-    // 引导用户开启
-    uni.showModal({
-      title: '提示',
-      content: '需要位置权限，请在设置中开启',
-      confirmText: '去设置',
-      success: ({ confirm }) => {
-        if (confirm) uni.openSetting();
-      },
-    });
-  },
-});
-```
-
----
-
-## 12. 界面 API
-
-### 12.1 提示框
-
-```js
-// Toast（轻提示）
-uni.showToast({
-  title: '操作成功',
-  icon: 'success',    // success / error / fail / loading / none
-  image: '',          // 自定义图标（优先于 icon）
-  duration: 2000,
-  mask: false,        // 是否防止触摸穿透
-});
-uni.hideToast();
-
-// Loading
-uni.showLoading({ title: '加载中...', mask: true });
-uni.hideLoading();
-
-// Modal（对话框）
-uni.showModal({
-  title: '提示',
-  content: '确认删除？',
-  showCancel: true,
-  cancelText: '取消',
-  confirmText: '确定',
-  confirmColor: '#FF4757',
-  editable: false,    // 是否显示输入框
-  success: ({ confirm, cancel, content }) => {
-    if (confirm) handleDelete();
-  },
-});
-
-// ActionSheet（底部菜单）
-uni.showActionSheet({
-  title: '请选择操作',
-  itemList: ['拍照', '从相册选择', '取消'],
-  itemColor: '#333',
-  success: ({ tapIndex }) => {
-    const actions = ['camera', 'album', 'cancel'];
-    handleAction(actions[tapIndex]);
-  },
-});
-```
-
-### 12.2 导航栏操作
-
-```js
-// 设置导航栏标题
-uni.setNavigationBarTitle({ title: '新标题' });
-
-// 设置导航栏颜色
-uni.setNavigationBarColor({
-  frontColor: '#ffffff',       // 仅支持 #ffffff 或 #000000
-  backgroundColor: '#007AFF',
-  animation: { duration: 400, timingFunc: 'easeIn' },
-});
-
-// 显示/隐藏导航栏 loading
-uni.showNavigationBarLoading();
-uni.hideNavigationBarLoading();
-
-// 自定义右上角按钮（pages.json 中配置）
-// "navigationBarButtons": [{ "text": "添加", "color": "#007AFF" }]
-// 通过 onNavigationBarButtonTap 监听点击
-```
-
-### 12.3 TabBar 操作
-
-```js
-// 设置 tabBar 角标
-uni.setTabBarBadge({ index: 0, text: '99+' });
-uni.removeTabBarBadge({ index: 0 });
-
-// 显示红点
-uni.showTabBarRedDot({ index: 1 });
-uni.hideTabBarRedDot({ index: 1 });
-
-// 设置 tabBar 某项
-uni.setTabBarItem({
-  index: 0,
-  text: '首页',
-  iconPath: 'static/home.png',
-  selectedIconPath: 'static/home-active.png',
-});
-
-// 显示/隐藏 tabBar
-uni.showTabBar({ animation: true });
-uni.hideTabBar({ animation: true });
-```
-
-### 12.4 页面通信与滚动
-
-```js
-// 页面滚动到指定位置
-uni.pageScrollTo({
-  scrollTop: 0,
-  duration: 300,
-  selector: '#anchor',  // 滚动到指定元素（H5 不支持 selector）
-});
-
-// 获取元素位置
-const query = uni.createSelectorQuery();
-query.select('#myElement').boundingClientRect((rect) => {
-  console.log(rect.top, rect.left, rect.width, rect.height);
-}).exec();
-
-// 也可以链式调用
-uni.createSelectorQuery()
-  .selectAll('.item')
-  .boundingClientRect()
-  .exec(([rects]) => {
-    rects.forEach(rect => console.log(rect));
-  });
-```
-
-### 12.5 动画
-
-```js
-// 创建动画
-const animation = uni.createAnimation({
-  duration: 500,
-  timingFunction: 'ease',    // linear/ease/ease-in/ease-out/ease-in-out/step-start/step-end
-  delay: 0,
-  transformOrigin: '50% 50% 0',
-});
-
-// 链式定义动画步骤
-animation
-  .opacity(0.5)
-  .rotate(45)
-  .step()              // 每步之间用 step() 分隔
-  .opacity(1)
-  .rotate(90)
-  .step({ duration: 1000 });
-
-// 导出动画数据
-const animData = animation.export();
-
-// 应用到模板
-// <view :animation="animData"></view>
-```
-
----
-
-## 13. 状态管理（Pinia）
-
-### 13.1 定义 Store
-
-```js
-// stores/userStore.js
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-
-// 组合式 Store（推荐）
-export const useUserStore = defineStore('user', () => {
-  // state
-  const token = ref(uni.getStorageSync('token') || '');
-  const userInfo = ref(null);
-  const isLoggedIn = computed(() => !!token.value);
-
-  // actions
-  async function login(credentials) {
-    try {
-      const res = await http.post('/auth/login', credentials);
-      token.value = res.token;
-      userInfo.value = res.user;
-      uni.setStorageSync('token', res.token);
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  function logout() {
-    token.value = '';
-    userInfo.value = null;
-    uni.removeStorageSync('token');
-    uni.reLaunch({ url: '/pages/login/login' });
-  }
-
-  async function fetchUserInfo() {
-    if (!token.value) return;
-    userInfo.value = await http.get('/user/info');
-  }
-
-  // 持久化
-  function $persist() {
-    uni.setStorageSync('user_info', JSON.stringify(userInfo.value));
-  }
-
-  return {
-    token,
-    userInfo,
-    isLoggedIn,
-    login,
-    logout,
-    fetchUserInfo,
-  };
-});
-
-// 选项式 Store（旧写法，也支持）
-export const useCartStore = defineStore('cart', {
-  state: () => ({
-    items: [],
-    total: 0,
-  }),
-  getters: {
-    itemCount: (state) => state.items.length,
-    totalPrice: (state) => state.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-  },
-  actions: {
-    addItem(product) {
-      const existing = this.items.find(i => i.id === product.id);
-      if (existing) {
-        existing.quantity++;
-      } else {
-        this.items.push({ ...product, quantity: 1 });
+### 12.2 订阅消息推送机制
+
+订阅消息需由用户在小程序前端**手动点击触发**授权拉起弹窗。
+
+```typescript
+const requestSubscribeMessage = () => {
+  const TEMPLATE_ID = 'your_wx_template_id_xxx' // 在微信公众平台申请的模板 ID
+
+  uni.requestSubscribeMessage({
+    tmplIds: [TEMPLATE_ID],
+    success: (res) => {
+      if (res[TEMPLATE_ID] === 'accept') {
+        uni.showToast({ title: '订阅成功，后续将收到通知', icon: 'none' })
       }
     },
-    removeItem(id) {
-      this.items = this.items.filter(i => i.id !== id);
-    },
-    clearCart() {
-      this.$reset(); // 重置到初始状态
-    },
-  },
-});
-```
-
-### 13.2 使用 Store
-
-```vue
-<script setup>
-import { storeToRefs } from 'pinia';
-import { useUserStore } from '@/stores/userStore';
-import { useCartStore } from '@/stores/cartStore';
-
-const userStore = useUserStore();
-const cartStore = useCartStore();
-
-// storeToRefs 保持响应性（只解构 state 和 getter）
-const { token, userInfo, isLoggedIn } = storeToRefs(userStore);
-// actions 直接解构
-const { login, logout } = userStore;
-
-// 订阅 store 变化
-userStore.$subscribe((mutation, state) => {
-  console.log('user store changed:', mutation.type, state);
-});
-
-// 直接修改（不推荐，但可用）
-userStore.$patch({ token: 'new_token' });
-userStore.$patch((state) => {
-  state.token = 'new_token';
-  state.userInfo = null;
-});
-</script>
+    fail: (err) => console.error('订阅消息拉起失败:', err)
+  })
+}
 ```
 
 ---
 
-## 14. 样式与 rpx
+### 12.3 WXS 高性能视图层脚本
 
-### 14.1 rpx 单位
-
-```css
-/*
-  rpx（responsive pixel）：响应式单位
-  以 750rpx 为设计稿宽度基准
-  在 375px 宽的屏幕上：1rpx = 0.5px
-  在 750px 宽的屏幕上：1rpx = 1px
-
-  公式：rpx = 设计稿px * 750 / 设计稿宽度
-  例：设计稿750px宽，元素100px → 100rpx
-  例：设计稿375px宽，元素100px → 200rpx
-*/
-.container {
-  width: 750rpx;    /* 全宽 */
-  padding: 24rpx;
-  font-size: 28rpx; /* 约 14px */
-}
-```
-
-### 14.2 内置 CSS 变量
-
-```css
-/* 安全区域适配 */
-.footer {
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-bottom: constant(safe-area-inset-bottom); /* iOS < 11.2 */
-}
-
-.top-bar {
-  padding-top: env(safe-area-inset-top);
-}
-```
-
-### 14.3 样式作用域
-
-```vue
-<style scoped>
-/* scoped：仅作用于当前组件，不影响子组件 */
-.container { color: red; }
-
-/* 深度选择器：穿透 scoped 影响子组件 */
-:deep(.child-class) { color: blue; }
-/* 旧写法（不推荐）：/deep/ 或 >>> */
-</style>
-
-<style>
-/* 无 scoped：全局样式 */
-.global-class { font-size: 28rpx; }
-</style>
-
-<style lang="scss">
-/* 支持 SCSS/LESS（需安装对应 loader） */
-$primary: #007AFF;
-.button {
-  background: $primary;
-  &:hover { opacity: 0.8; }
-}
-</style>
-```
-
-### 14.4 平台样式适配
-
-```vue
-<style>
-/* H5 独有样式 */
-/* #ifdef H5 */
-.container { max-width: 750px; margin: 0 auto; }
-/* #endif */
-
-/* 微信小程序独有样式 */
-/* #ifdef MP-WEIXIN */
-.nav-bar { background: #07C160; }
-/* #endif */
-</style>
-```
-
----
-
-## 15. 条件编译
-
-### 15.1 JS 条件编译
-
-```js
-// 平台判断
-// #ifdef APP-PLUS
-console.log('仅在 App 端执行');
-import nativePlugin from 'nativePlugin';
-// #endif
-
-// #ifdef H5
-console.log('仅在 H5 端执行');
-// #endif
-
-// #ifdef MP-WEIXIN
-console.log('仅在微信小程序执行');
-// #endif
-
-// #ifdef MP-ALIPAY
-console.log('仅在支付宝小程序执行');
-// #endif
-
-// #ifndef H5
-console.log('非 H5 端执行（排除 H5）');
-// #endif
-
-// 多平台
-// #ifdef APP-PLUS || H5
-console.log('App 或 H5 执行');
-// #endif
-
-// #ifdef APP-PLUS-ANDROID
-console.log('仅 Android');
-// #endif
-
-// #ifdef APP-PLUS-IOS
-console.log('仅 iOS');
-// #endif
-```
-
-### 15.2 模板条件编译
+**WXS（WeiXin Script）** 运行在视图层（View），能够绕过逻辑层与视图层之间的双线程跨线程通信开销，适合做 **60fps 的手势拖拽、触摸跟手与高频动画**。
 
 ```vue
 <template>
-  <!-- #ifdef H5 -->
-  <view>仅 H5 显示</view>
-  <!-- #endif -->
-
-  <!-- #ifdef MP-WEIXIN -->
-  <button open-type="getUserInfo">微信授权</button>
-  <!-- #endif -->
-
-  <!-- #ifndef MP-WEIXIN -->
-  <button @click="customLogin">登录</button>
-  <!-- #ifndef -->
+  <view class="area">
+    <!-- 绑定 WXS 触摸事件处理 -->
+    <view 
+      class="movable-box" 
+      :change:prop="wxsModule.propObserver" 
+      :prop="customData"
+      @touchstart="wxsModule.onTouchStart" 
+      @touchmove="wxsModule.onTouchMove"
+    >
+      拖拽我
+    </view>
+  </view>
 </template>
+
+<!-- #ifdef MP-WEIXIN -->
+<script module="wxsModule" lang="wxs">
+var startX = 0
+var startY = 0
+
+module.exports = {
+  onTouchStart: function(event, ownerInstance) {
+    var touch = event.touches[0] || event.changedTouches[0]
+    startX = touch.clientX
+    startY = touch.clientY
+  },
+  onTouchMove: function(event, ownerInstance) {
+    var touch = event.touches[0] || event.changedTouches[0]
+    var left = touch.clientX - startX
+    var top = touch.clientY - startY
+    // 直接修改视图层样式，无跨线程延迟
+    ownerInstance.selectComponent('.movable-box').setStyle({
+      transform: 'translate(' + left + 'px, ' + top + 'px)'
+    })
+  }
+}
+</script>
+<!-- #endif -->
 ```
 
-### 15.3 pages.json 条件编译
+---
+
+### 12.4 独立分包与分包异步化
+
+#### (1) `pages.json` 声明独立分包 (`independent`)
+独立分包无需加载主包资源即可秒开启动：
 
 ```json
 {
-  "pages": [
-    // #ifdef APP-PLUS
+  "subPackages": [
     {
-      "path": "pages/app-only/index",
-      "style": {}
-    },
-    // #endif
-    {
-      "path": "pages/index/index",
-      "style": {}
+      "root": "moduleA",
+      "name": "independentModule",
+      "independent": true, // 标记为独立分包
+      "pages": [
+        { "path": "promo/promo", "style": { "navigationBarTitleText": "限时特惠活动" } }
+      ]
     }
   ]
 }
 ```
 
-### 15.4 平台判断（运行时）
-
-```js
-// 推荐在编译期用条件编译，但也可运行时判断
-const platform = uni.getSystemInfoSync().platform;
-
-if (platform === 'android') {
-  // Android 逻辑
-} else if (platform === 'ios') {
-  // iOS 逻辑
-}
-
-// 通过 process.env 判断
-if (process.env.UNI_PLATFORM === 'h5') {
-  // H5 专属逻辑
-}
-```
-
----
-
-## 16. 事件总线
-
-### 16.1 uni.$emit / $on（全局事件总线）
-
-```js
-// 发送事件（任意页面/组件）
-uni.$emit('refreshData', { type: 'user', id: 123 });
-
-// 监听事件（需在页面显示时注册，隐藏时注销）
-onShow(() => {
-  uni.$on('refreshData', handleRefresh);
-});
-
-onHide(() => {
-  uni.$off('refreshData', handleRefresh);
-});
-
-function handleRefresh(data) {
-  console.log('收到刷新事件:', data);
-  loadData();
-}
-
-// 只监听一次
-uni.$once('initDone', () => {
-  console.log('初始化完成');
-});
-
-// 注销所有监听
-uni.$off('refreshData');
-```
-
----
-
-## 17. uni_modules 插件
-
-### 17.1 安装与使用
-
-```
-1. 在 HBuilderX 中：右键项目 → 从插件市场导入插件
-2. 在 uni-app cli 项目：uni_modules 目录下自动管理
-```
-
-### 17.2 常用官方组件库（uni-ui）
-
-```vue
-<!-- 自动安装后，通过 easycom 直接使用 -->
-
-<!-- 日历 -->
-<uni-calendar :selected="selectedDates" @change="onCalendarChange" />
-
-<!-- 轮播图增强 -->
-<uni-swipe-action>
-  <uni-swipe-action-item :right-options="options" @click="onSwipeClick">
-    <view class="list-item">{{ item.name }}</view>
-  </uni-swipe-action-item>
-</uni-swipe-action>
-
-<!-- 图标 -->
-<uni-icons type="home" size="28" color="#007AFF" />
-
-<!-- 加载更多 -->
-<uni-load-more status="loading" />  <!-- loading / noMore / more -->
-
-<!-- 搜索栏 -->
-<uni-search-bar v-model="searchText" placeholder="搜索" @confirm="onSearch" />
-
-<!-- 表单 -->
-<uni-forms :model="formData" :rules="rules" ref="formRef">
-  <uni-forms-item label="姓名" name="name">
-    <uni-easyinput v-model="formData.name" placeholder="请输入姓名" />
-  </uni-forms-item>
-</uni-forms>
-
-<!-- 数量选择 -->
-<uni-number-box v-model="count" :min="1" :max="99" />
-
-<!-- 弹出层 -->
-<uni-popup ref="popupRef" type="bottom">
-  <view class="popup-content">弹出内容</view>
-</uni-popup>
-<button @click="popupRef.open()">打开</button>
-```
-
----
-
-## 18. 性能优化
-
-### 18.1 渲染优化
-
-```vue
-<!-- 1. 列表渲染必须加 key -->
-<view v-for="item in list" :key="item.id">...</view>
-
-<!-- 2. 长列表使用虚拟列表（uni-app 提供 recycle-list） -->
-<recycle-list :list-data="bigList" :item-size="80">
-  <cell-slot :index="index">
-    <view>{{ dataItem.name }}</view>
-  </cell-slot>
-</recycle-list>
-
-<!-- 3. 避免频繁操作 DOM，使用数据驱动 -->
-<!-- 4. 图片懒加载 -->
-<image lazy-load :src="item.url" />
-
-<!-- 5. 使用 v-memo 缓存子树（Vue 3.2+） -->
-<view v-memo="[item.id, item.status]">
-  <!-- 只有 id 或 status 变化才重渲染 -->
-</view>
-```
-
-### 18.2 数据优化
-
-```js
-// 1. 减少 setData 调用（小程序）
-// 错误：频繁赋值
-list.value.forEach((item, i) => {
-  list.value[i].count++; // 每次都触发更新
-});
-
-// 正确：批量更新
-const newList = list.value.map(item => ({ ...item, count: item.count + 1 }));
-list.value = newList; // 一次更新
-
-// 2. 分页加载
-const page = ref(1);
-const list = ref([]);
-const noMore = ref(false);
-
-async function loadMore() {
-  if (noMore.value) return;
-  const res = await http.get('/api/list', { page: page.value, size: 20 });
-  list.value.push(...res.data);
-  noMore.value = res.data.length < 20;
-  page.value++;
-}
-
-// 3. 防抖搜索
-import { debounce } from 'lodash-es';
-const search = debounce(async (keyword) => {
-  const res = await http.get('/api/search', { q: keyword });
-  searchResults.value = res.data;
-}, 300);
-```
-
-### 18.3 分包加载
-
+#### (2) 分包异步化（跨分包组件与 JS 逻辑异步加载）
 ```json
-// pages.json
+// 在 main.json 或 pages.json 页面组件定义中配置 componentPlaceholder
 {
-  "pages": [/* 主包页面 */],
-  "subPackages": [
-    {
-      "root": "pagesA",
-      "pages": [{ "path": "detail/index" }]
-    }
-  ],
-  "preloadRule": {
-    "pages/index/index": {
-      "network": "wifi",
-      "packages": ["pagesA"]
-    }
-  }
-}
-```
-
-### 18.4 启动优化
-
-```js
-// 1. 减少首屏请求数
-// 2. 使用骨架屏
-// 3. 本地缓存策略
-async function loadData() {
-  // 先读缓存，立即显示
-  const cached = uni.getStorageSync('home_data');
-  if (cached) data.value = JSON.parse(cached);
-
-  // 再请求网络，更新数据
-  try {
-    const fresh = await http.get('/api/home');
-    data.value = fresh;
-    uni.setStorageSync('home_data', JSON.stringify(fresh));
-  } catch (err) {
-    // 网络失败，使用缓存
+  "usingComponents": {
+    "async-header": "/subPackages/pagesA/components/Header"
+  },
+  "componentPlaceholder": {
+    "async-header": "view" // 在组件异步加载就绪前使用 view 占位
   }
 }
 ```
 
 ---
 
-## 19. 常见问题速查
+### 12.5 微信原生能力 (微信支付 / 小程序跳转)
 
-### 19.1 样式问题
+```typescript
+// 1. 唤起微信原生支付
+const handleWxPay = async () => {
+  const payParams = await request({ url: '/api/v1/create-pay-order', method: 'POST' })
+  
+  uni.requestPayment({
+    provider: 'wxpay',
+    timeStamp: payParams.timeStamp,
+    nonceStr: payParams.nonceStr,
+    package: payParams.packageValue,
+    signType: payParams.signType || 'MD5',
+    paySign: payParams.paySign,
+    success: () => uni.showToast({ title: '支付成功' }),
+    fail: () => uni.showToast({ title: '支付取消或失败', icon: 'none' })
+  })
+}
 
-```
-Q: rpx 和 px 如何换算？
-A: 设计稿750px时，rpx与px 1:1；设计稿375px时，1px = 2rpx
-
-Q: 小程序不支持哪些 CSS？
-A: 不支持 * 选择器、:root 选择器、属性选择器[attr]（部分支持）
-
-Q: 如何使用字体图标？
-A: 将 .ttf 文件转为 base64 后在 App.vue 全局样式中用 @font-face 引入
-
-Q: 自定义导航栏高度如何适配？
-A: statusBarHeight + 44（胶囊按钮区域）= 导航栏总高度
-```
-
-### 19.2 平台差异
-
-```
-Q: 微信小程序不支持 window/document 对象
-A: 使用 uni.createSelectorQuery() 替代 querySelector
-
-Q: H5 端路由 history 模式如何配置 Nginx？
-A: try_files $uri $uri/ /index.html;
-
-Q: App 端如何调用原生能力？
-A: 使用 plus.xxx API，或 uni-app 原生插件
-
-Q: 小程序包大小限制？
-A: 主包 2MB，单个分包 2MB，总包 20MB（微信）
-```
-
-### 19.3 常见错误
-
-```
-Q: "Cannot read property of undefined"
-A: 使用可选链 obj?.prop 或在模板中使用 v-if 判断
-
-Q: 请求失败 "request:fail abort"
-A: 检查域名是否在小程序后台白名单中
-
-Q: 图片不显示
-A: 检查路径（小程序不支持绝对路径本地图片），使用 @/ 相对路径或网络图片
-
-Q: 页面返回数据丢失
-A: 使用 Pinia / eventChannel / uni.$emit 传递数据
-
-Q: iOS 安全区域遮挡内容
-A: 使用 env(safe-area-inset-bottom) 添加底部内边距
-
-Q: v-model 在自定义组件中无效
-A: 确认组件 defineProps(['modelValue']) 和 emit('update:modelValue', val)
-
-Q: 微信小程序 webview 无法使用
-A: webview 页面不能是 tabBar 页面，且域名需配置业务域名白名单
+// 2. 跳转到其他微信小程序
+const navigateToOtherMiniProgram = () => {
+  uni.navigateToMiniProgram({
+    appId: 'wx9999999999999999', // 目标小程序 AppID
+    path: 'pages/index/index?from=myApp',
+    extraData: { foo: 'bar' },
+    envVersion: 'release' // 'develop' | 'trial' | 'release'
+  })
+}
 ```
 
 ---
 
-> 📌 **参考资源**
-> - [uni-app 官方文档](https://uniapp.dcloud.net.cn/)
-> - [uni-app GitHub](https://github.com/dcloudio/uni-app)
-> - [DCloud 插件市场](https://ext.dcloud.net.cn/)
-> - [uni-ui 组件库](https://uniapp.dcloud.net.cn/component/uniui/uni-ui.html)
-> - [HBuilderX 下载](https://www.dcloud.io/hbuilderx.html)
+### 12.6 自定义胶囊导航栏高度计算公式
+
+当设置 `"navigationStyle": "custom"` 自定义导航栏时，需通过微信右上角**胶囊按钮坐标**动态推算 NavBar 准确高度，实现完美对齐与防遮挡：
+
+```vue
+<script setup>
+import { ref, onMounted } from 'vue'
+
+const navBarHeight = ref(0)
+const statusBarHeight = ref(0)
+const menuButtonHeight = ref(0)
+
+onMounted(() => {
+  // #ifdef MP-WEIXIN
+  // 1. 获取系统状态栏高度
+  const systemInfo = uni.getWindowInfo()
+  statusBarHeight.value = systemInfo.statusBarHeight || 0
+
+  // 2. 获取右上角胶囊按钮布局信息
+  const menuButton = uni.getMenuButtonBoundingClientRect()
+  menuButtonHeight.value = menuButton.height
+
+  // 3. 计算公式：导航栏总高度 = (胶囊Top - 状态栏Top) * 2 + 胶囊自身Height + 状态栏Top
+  const navHeight = (menuButton.top - statusBarHeight.value) * 2 + menuButton.height
+  navBarHeight.value = navHeight
+  // #endif
+})
+</script>
+
+<template>
+  <!-- 自定义顶部固定导航 -->
+  <view class="custom-nav" :style="{ paddingTop: statusBarHeight + 'px', height: navBarHeight + 'px' }">
+    <view class="nav-title" :style="{ height: menuButtonHeight + 'px', lineHeight: menuButtonHeight + 'px' }">
+      自定义对齐标题
+    </view>
+  </view>
+</template>
+```
+
+---
+
+### 12.7 隐私协议与地理位置权限说明配置
+
+在打包发布微信小程序前，若使用了**地理位置、摄像头、保存到相册**等能力，必须在 `manifest.json` 中明确声明原因，否则提审会被直接拒绝：
+
+#### (1) `manifest.json` 权限与隐私声明
+```json
+{
+  "mp-weixin": {
+    "appid": "wx1234567890abcdef",
+    "requiredPrivateInfos": [
+      "getLocation",
+      "chooseLocation",
+      "chooseAddress"
+    ],
+    "permission": {
+      "scope.userLocation": {
+        "desc": "您的位置信息将用于为您精准推荐附近的线下门店与学习中心"
+      }
+    },
+    "__usePrivacyCheck__": true
+  }
+}
+```
+
+#### (2) 触发微信隐私协议二次确认弹窗 (`uni.requirePrivacyAuthorize`)
+```typescript
+// 在调用隐私敏感 API (如选择图片/定位) 前弹出隐私协议确认
+if (wx.requirePrivacyAuthorize) {
+  wx.requirePrivacyAuthorize({
+    success: () => {
+      // 用户同意隐私协议，继续执行敏感逻辑
+      uni.chooseImage({ count: 1 })
+    },
+    fail: () => {
+      uni.showToast({ title: '需要同意隐私协议后方可继续使用', icon: 'none' })
+    }
+  })
+}
+```

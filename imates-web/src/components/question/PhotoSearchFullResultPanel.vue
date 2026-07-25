@@ -154,38 +154,38 @@
                           {{ activeTab === 'photo' ? '拍照匹配题目' : '关键词匹配题目' }}
                         </span>
                         <q-chip
-                          v-if="currentModeQuestionData?.mathRagV2?.results"
+                          v-if="currentQuestionData?.mathRagV2?.results"
                           size="xs"
                           color="indigo-1"
                           text-color="indigo-9"
                           class="text-weight-bold"
                         >
-                          {{ currentModeQuestionData.mathRagV2.results.length }} 题命中
+                          {{ currentQuestionData.mathRagV2.results.length }} 题命中
                         </q-chip>
                       </div>
 
                       <div class="candidate-list-scroll col overflow-auto q-px-xs q-py-xs">
-                        <div v-if="(activeTab === 'photo' && isSearching) || (activeTab === 'keyword' && isKeywordSearching)" class="q-pa-md text-center">
+                        <div v-if="isCurrentSearching" class="q-pa-md text-center">
                           <q-spinner-dots color="primary" size="32px" />
                           <div class="text-caption text-grey-7 q-mt-xs">检索中...</div>
                         </div>
 
                         <q-list
                           v-else-if="
-                            currentModeQuestionData?.mathRagV2?.results &&
-                            currentModeQuestionData.mathRagV2.results.length > 0
+                            currentQuestionData?.mathRagV2?.results &&
+                            currentQuestionData.mathRagV2.results.length > 0
                           "
                           separator
                           class="rounded-borders"
                         >
                           <q-item
-                            v-for="(candidate, cIdx) in currentModeQuestionData.mathRagV2.results"
+                            v-for="(candidate, cIdx) in currentQuestionData.mathRagV2.results"
                             :key="cIdx"
                             clickable
                             v-ripple
                             :active="
-                              currentModeQuestionData.id === candidate.id ||
-                              currentModeQuestionData.bmNo === String(candidate.id)
+                              currentQuestionData.id === candidate.id ||
+                              currentQuestionData.bmNo === String(candidate.id)
                             "
                             active-class="bg-blue-1 text-primary text-weight-bold"
                             class="q-pa-xs rounded-borders q-mb-xs"
@@ -226,7 +226,7 @@
                           </q-item>
                         </q-list>
 
-                        <div v-else-if="currentModeQuestionData" class="q-pa-xs">
+                        <div v-else-if="currentQuestionData" class="q-pa-xs">
                           <q-item
                             active
                             active-class="bg-blue-1 text-primary"
@@ -237,7 +237,7 @@
                                 #1
                                 <span
                                   class="markdown-content inline-markdown"
-                                  v-html="renderQuestionContent(currentModeQuestionData)"
+                                  v-html="renderQuestionContent(currentQuestionData)"
                                 ></span>
                               </q-item-label>
                             </q-item-section>
@@ -266,36 +266,25 @@
                 <!-- 题目区域 (纯粹展示选中题目的详情与 Markdown/LaTeX 公式解析) -->
                 <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
                   <div class="question-image-content">
-                    <div v-if="isSearching || isKeywordSearching" class="search-loading-container text-center q-pa-md">
+                    <div v-if="isCurrentSearching" class="search-loading-container text-center q-pa-md">
                       <q-spinner-dots color="primary" size="40px" />
                       <div class="text-subtitle2 text-grey-7 q-mt-sm">正在检索题目并调取 MathRAG 智能分析...</div>
                     </div>
 
                     <div v-else-if="currentQuestionData" class="results-main-area">
-                      <div v-if="currentQuestionData?.mathRagV2" class="mathrag-status-banner q-mb-sm">
+                      <div class="mathrag-status-banner q-mb-sm row items-center justify-between">
                         <div class="row items-center q-gutter-xs">
                           <q-chip
+                            v-if="currentQuestionData?.mathRagV2"
                             size="sm"
-                            :color="
-                              currentQuestionData.mathRagV2.sameQuestionLabel === 'same'
-                                ? 'positive'
-                                : currentQuestionData.mathRagV2.sameQuestionLabel === 'likely_same'
-                                  ? 'orange'
-                                  : 'grey-7'
-                            "
+                            :color="mathRagBadge.color"
                             text-color="white"
                             icon="verified"
                           >
-                            {{
-                              currentQuestionData.mathRagV2.sameQuestionLabel === 'same'
-                                ? '同题精准命中'
-                                : currentQuestionData.mathRagV2.sameQuestionLabel === 'likely_same'
-                                  ? '疑似同题'
-                                  : '题库相似推荐'
-                            }}
+                            {{ mathRagBadge.text }}
                           </q-chip>
                           <q-chip
-                            v-if="currentQuestionData.mathRagV2.autoReusable"
+                            v-if="currentQuestionData?.mathRagV2?.autoReusable"
                             size="sm"
                             color="blue-1"
                             text-color="blue-9"
@@ -304,12 +293,35 @@
                             支持自动解答复用
                           </q-chip>
                         </div>
+
+                        <!-- 题目操作按钮区：收藏 & 加入我的练习 -->
+                        <div class="question-header-actions row items-center q-gutter-xs">
+                          <q-btn
+                            flat
+                            dense
+                            size="sm"
+                            :color="isFavoriteInChat ? 'amber-9' : 'grey-7'"
+                            :icon="isFavoriteInChat ? 'star' : 'star_border'"
+                            :label="isFavoriteInChat ? '已收藏' : '收藏'"
+                            @click="handleFavoriteClick"
+                          />
+                          <q-btn
+                            flat
+                            dense
+                            size="sm"
+                            :color="isInPracticeList ? 'negative' : 'primary'"
+                            :icon="isInPracticeList ? 'remove_circle_outline' : 'add_circle_outline'"
+                            :label="isInPracticeList ? '移出练习' : '加入我的练习'"
+                            @click="handleAddPracticeClick"
+                          />
+                        </div>
+
                         <div
                           v-if="
-                            currentQuestionData.mathRagV2.conflicts &&
+                            currentQuestionData?.mathRagV2?.conflicts &&
                             currentQuestionData.mathRagV2.conflicts.length > 0
                           "
-                          class="conflict-alert-box q-mt-xs"
+                          class="conflict-alert-box full-width q-mt-xs"
                         >
                           <q-icon name="warning" color="warning" size="16px" class="q-mr-xs" />
                           <span class="text-caption text-orange-9">
@@ -377,7 +389,9 @@
                       :question="currentQuestionData"
                       :show-close-button="true"
                       @close="toggleAiPanel"
-                      @send-message="(msg) => $emit('send-message', msg)"
+                      @send-message="handleSendMessageFromChild"
+                      @add-session="handleAddSessionCard"
+                      @screenshot-click="handleScreenshotClick"
                     />
                   </div>
                 </div>
@@ -411,6 +425,7 @@ import jiarulianxiLightIcon from '/icons/jiarulianxi-light.svg'
 
 const props = defineProps<{
   modelValue: boolean
+  activeTab?: 'photo' | 'keyword'
   croppedImageBase64: string
   cropPreviewImage: string
   isSearching: boolean
@@ -424,6 +439,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', val: boolean): void
+  (e: 'update:activeTab', val: 'photo' | 'keyword'): void
   (e: 'retake'): void
   (e: 'select-candidate', candidate: any): void
   (e: 'keyword-search', text: string): void
@@ -439,18 +455,38 @@ const splitPanelRef = ref<InstanceType<typeof SplitPanel> | null>(null)
 const draftBoardRef = ref<InstanceType<typeof DrawingBoardNew> | null>(null)
 const exerciseChatPanelRef = ref<InstanceType<typeof ExerciseChatPanelNew> | null>(null)
 
-const activeTab = ref<'photo' | 'keyword'>('photo')
+const activeTab = computed({
+  get: () => props.activeTab || 'photo',
+  set: (val: 'photo' | 'keyword') => emit('update:activeTab', val)
+})
 const keywordText = ref('')
 const splitMode = ref<'left' | 'right'>('left')
 const isQuestionImageCollapsed = ref(true)
 
+const handleFavoriteClick = (e: Event) => {
+  e.stopPropagation()
+  emit('favorite')
+}
+
+const handleAddPracticeClick = (e: Event) => {
+  e.stopPropagation()
+  emit('add-practice')
+}
+
+const isCurrentSearching = computed(() => {
+  return activeTab.value === 'photo' ? props.isSearching : props.isKeywordSearching
+})
+
+const mathRagBadge = computed(() => {
+  const label = currentQuestionData.value?.mathRagV2?.sameQuestionLabel
+  if (label === 'same') return { color: 'positive', text: '同题精准命中' }
+  if (label === 'likely_same') return { color: 'orange', text: '疑似同题' }
+  return { color: 'grey-7', text: '题库相似推荐' }
+})
+
 const currentQuestionData = computed(() => {
   if (activeTab.value === 'photo') return props.photoQuestionData
   return props.keywordQuestionData
-})
-
-const currentModeQuestionData = computed(() => {
-  return activeTab.value === 'photo' ? props.photoQuestionData : props.keywordQuestionData
 })
 
 const handleClearKeyword = () => {
@@ -471,12 +507,18 @@ watch(
   },
 )
 
+// v-model (modelValue) 的双向计算属性
+const isVisible = computed({
+  get: () => props.modelValue,
+  set: (val: boolean) => emit('update:modelValue', val),
+})
+
 const handleClose = () => {
-  emit('update:modelValue', false)
+  isVisible.value = false
 }
 
 const handleRetakeAndClose = () => {
-  emit('update:modelValue', false)
+  isVisible.value = false
   emit('retake')
 }
 
@@ -495,6 +537,47 @@ const toggleQuestionImage = () => {
 const selectCandidateQuestion = (candidate: any) => {
   emit('select-candidate', candidate)
 }
+
+const handleAddSessionCard = async () => {
+  const chatView = getChatViewRef() as any
+  if (chatView?.addSessionCard) {
+    await chatView.addSessionCard()
+  }
+}
+
+const handleScreenshotClick = async (active: boolean) => {
+  if (draftBoardRef.value) {
+    if (active) {
+      draftBoardRef.value.handleToolbarToolChange('askAi')
+    } else {
+      draftBoardRef.value.handleToolbarToolChange('draw')
+    }
+  }
+}
+
+const handleSendMessageFromChild = (msg: any) => {
+  const chatView = getChatViewRef()
+  if (chatView && typeof chatView.sendMessage === 'function') {
+    chatView.inputMessage = typeof msg === 'string' ? msg : msg?.content || ''
+    chatView.sendMessage()
+  } else {
+    emit('send-message', msg)
+  }
+}
+
+const getChatViewRef = () => {
+  if (exerciseChatPanelRef.value && typeof exerciseChatPanelRef.value.getChatViewRef === 'function') {
+    return exerciseChatPanelRef.value.getChatViewRef()
+  }
+  return null
+}
+
+defineExpose({
+  getChatViewRef,
+  sendMessage: (msg: string) => {
+    handleSendMessageFromChild(msg)
+  }
+})
 </script>
 
 <style scoped lang="scss">
