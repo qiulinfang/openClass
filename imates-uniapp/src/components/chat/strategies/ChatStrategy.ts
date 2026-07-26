@@ -1,0 +1,89 @@
+/**
+ * 聊天策略接口 (imates-uniapp)
+ * 定义不同对话类型需要实现的方法
+ */
+
+import type { AttachedScreenshot, ChatBubble } from '@/types/chat'
+import type { SendMessageOptions, InitializeOptions } from './types'
+import type { ChatImageData } from '@/store/utils/chatStoreUtils'
+import { Sender } from '@/types/enums'
+
+export interface ChatViewInterface {
+  scrollToBottom(instant?: boolean): Promise<void>
+  checkIfUserAtBottom(): void
+  getDisplayedMessages(): ChatBubble[]
+  clearInputContent(): void
+}
+
+export interface ForwardResult {
+  success: boolean
+  successCount?: number
+  sessionId?: string
+  error?: string
+}
+
+export interface ForwardOptions {
+  showDialog?: boolean
+  onSuccess?: (result: ForwardResult) => void | Promise<void>
+  onError?: (error: string) => void
+  currentQuestion?: unknown
+}
+
+export interface ChatStrategy {
+  getMessages(): ChatBubble[]
+  addMessage(message: ChatBubble): Promise<void>
+  sendMessage(content: string, options?: SendMessageOptions): Promise<void>
+  getWelcomeMessage(): string
+  requiresQuestion(): boolean
+  getMessageType(): Sender
+  getSenderType(): Sender
+  saveChatHistory(): Promise<void>
+  disableHistorySave?: boolean
+  isChatLoading?(): boolean
+  canForwardMessage(): boolean
+  getCurrentSubjectForForward(): 'biology' | 'math' | null
+  forwardMessages(messages: ChatBubble[], options?: ForwardOptions): Promise<ForwardResult>
+  getPlaceholderText(hasSelectedQuestion: boolean): string
+  getCurrentSubject(): 'biology' | 'math'
+  initialize(options: InitializeOptions): Promise<void>
+  shouldOptimisticSend(): boolean
+  sendVoiceMessage(voiceInfo: {
+    filePath: string
+    duration: number
+    fileSize: number
+  }): Promise<{ success: boolean; message?: string }>
+  shouldClearInputAfterImage(): boolean
+  sendImageMessage(
+    imageInfo: {
+      filePath: string
+      width: number
+      height: number
+      fileSize: number
+      base64DataUrl?: string
+    },
+    textContent?: string,
+    options?: SendMessageOptions
+  ): Promise<void>
+
+  supportsImagePicker?(): boolean
+  supportsScreenshotAttach?(): boolean
+  getMaxAttachedImages?(): number
+  getInputAttachedScreenshots?(): AttachedScreenshot[]
+  setInputAttachedScreenshots?(shots: AttachedScreenshot[]): void
+  appendInputAttachedScreenshots?(shots: AttachedScreenshot[]): void
+  removeInputAttachedScreenshot?(id: string): void
+  clearInputAttachedScreenshots?(): void
+
+  shouldShowForwardButton(): boolean
+  resetSession?(): void
+  deleteMessage?(messageId: string, options?: { currentQuestion?: unknown }): Promise<void>
+  getSessionCards?(): unknown[]
+  createNewSession?(options?: { currentQuestion?: unknown }): Promise<void>
+  switchToSession?(sessionId: string): Promise<void>
+  deleteSession?(sessionId: string, options?: { currentQuestion?: unknown }): Promise<void>
+  getEnableWebSearch?(): boolean
+  toggleWebSearch?(): void
+  retryMessage?(messageId: string, options?: { currentQuestion?: unknown }): Promise<void>
+  setChatView?(chatView: ChatViewInterface): void
+  onQuestionChanged?(newQuestion: unknown, oldQuestion: unknown): void
+}
