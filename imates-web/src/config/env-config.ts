@@ -90,7 +90,7 @@ export const ADDRESS_CATALOG = {
   TEACHER_WS_RELEASE: 'wss://www.imates.com.cn',
   TEACHER_WS_TEST: 'wss://www.imates.com.cn',
   TEACHER_API_RELEASE: 'http://www.imates.com.cn:8201',
-  HISTORY_MANAGE: 'https://kelvin-cosin.cloud/api',
+  HISTORY_MANAGE: 'https://kelvin-cosin.cloud/test/api',
   ZAMMAD_API: 'http://app.imates.com.cn:8080',
   KNOWLEDGE_API: 'http://www.imates.com.cn:8090',
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
