@@ -18,6 +18,7 @@
       </div>
       <!-- 调试按钮，dev 下才显示 -->
       <Button
+        v-if="isDev"
         label="清空本地作业数据(Debug)"
         variant="secondary"
         size="mdCompact"
