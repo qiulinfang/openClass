@@ -40,6 +40,8 @@ export interface AiChatSession {
   updatedAt: number;
   messageCount: number;
   pinned?: boolean;
+  favorited?: boolean;
+  favoritedAt?: number;
   thumbnailUri?: string;
   pageNumber?: number;
   resourceName?: string;

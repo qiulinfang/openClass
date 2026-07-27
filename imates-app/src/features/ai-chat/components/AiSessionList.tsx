@@ -16,7 +16,9 @@ interface AiSessionListProps {
   sessions: AiChatSession[];
   currentSessionId?: string;
   loading?: boolean;
+  allowFavorite?: boolean;
   onSelect: (session: AiChatSession) => void;
+  onToggleFavorite: (session: AiChatSession) => void;
   onTogglePin: (session: AiChatSession) => void;
   onDelete: (session: AiChatSession) => void;
   onCreate: () => void;
@@ -70,7 +72,9 @@ export function AiSessionList({
   sessions,
   currentSessionId,
   loading = false,
+  allowFavorite = true,
   onSelect,
+  onToggleFavorite,
   onTogglePin,
   onDelete,
   onCreate,
@@ -195,6 +199,9 @@ export function AiSessionList({
                     {item.summary || '点击继续对话'}
                   </Text>
                   <View style={styles.sessionMeta}>
+                    {allowFavorite && item.favorited ? (
+                      <Text style={styles.favoriteLabel}>已收藏</Text>
+                    ) : null}
                     {item.pinned ? (
                       <Text style={styles.pinnedLabel}>已置顶</Text>
                     ) : null}
@@ -209,8 +216,31 @@ export function AiSessionList({
                   </View>
                 </View>
                 <View style={styles.actions}>
+                  {allowFavorite ? (
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => onToggleFavorite(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        item.favorited ? '取消收藏会话' : '收藏会话'
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.actionText,
+                          item.favorited &&
+                            styles.favoriteActionText,
+                        ]}
+                      >
+                        {item.favorited ? '取消收藏' : '收藏'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={[
+                      styles.actionButton,
+                      allowFavorite && styles.actionButtonGap,
+                    ]}
                     onPress={() => onTogglePin(item)}
                     accessibilityRole="button"
                     accessibilityLabel={item.pinned ? '取消置顶' : '置顶'}
@@ -424,6 +454,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#6256D9',
   },
+  favoriteLabel: {
+    marginRight: 8,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#D97706',
+  },
   metaText: {
     marginRight: 8,
     fontSize: 10,
@@ -445,6 +481,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#6256D9',
+  },
+  favoriteActionText: {
+    color: '#D97706',
   },
   deleteText: {
     fontSize: 11,

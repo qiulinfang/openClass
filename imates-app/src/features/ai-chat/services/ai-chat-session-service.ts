@@ -119,6 +119,22 @@ export class AiChatSessionService {
       .sort(sessionSort);
   }
 
+  public static async loadFavoriteSessions(
+    userId: string
+  ): Promise<AiChatSession[]> {
+    const sessions = await this.readAll(userId);
+    return sessions
+      .filter(
+        (session) =>
+          session.favorited && session.scene === 'general'
+      )
+      .sort(
+        (first, second) =>
+          (second.favoritedAt || second.updatedAt) -
+          (first.favoritedAt || first.updatedAt)
+      );
+  }
+
   public static async getActiveSessionId(
     userId: string,
     scopeKey: string
@@ -246,6 +262,20 @@ export class AiChatSessionService {
     if (target) {
       target.pinned = !target.pinned;
       target.updatedAt = Date.now();
+      await this.writeAll(userId, sessions);
+    }
+    return [...sessions].sort(sessionSort);
+  }
+
+  public static async toggleFavorite(
+    userId: string,
+    sessionId: string
+  ): Promise<AiChatSession[]> {
+    const sessions = await this.readAll(userId);
+    const target = sessions.find((session) => session.id === sessionId);
+    if (target) {
+      target.favorited = !target.favorited;
+      target.favoritedAt = target.favorited ? Date.now() : undefined;
       await this.writeAll(userId, sessions);
     }
     return [...sessions].sort(sessionSort);

@@ -35,6 +35,11 @@ interface HomeScreenProps {
 }
 
 type TabType = 'resources' | 'homework' | 'ai' | 'question_bank' | 'profile';
+type ChatLaunchTarget = {
+  tab: 'chat' | 'sessions';
+  category: 'companion' | 'teacher';
+  sessionId?: string;
+};
 
 const LightColors = {
   background: '#F8FAFC',
@@ -45,6 +50,11 @@ const LightColors = {
 export function HomeScreen({ onLogout, route }: HomeScreenProps) {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>('ai');
+  const [chatLaunchTarget, setChatLaunchTarget] =
+    useState<ChatLaunchTarget>({
+      tab: 'chat',
+      category: 'companion',
+    });
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const centerTabProgress = React.useRef(
     new Animated.Value(activeTab === 'ai' ? 1 : 0)
@@ -87,7 +97,14 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
     if (route?.params?.activeTab) {
       setActiveTab(route.params.activeTab);
     }
-  }, [route?.params?.activeTab]);
+    if (route?.params?.chatLaunchTarget) {
+      setChatLaunchTarget(route.params.chatLaunchTarget);
+    }
+  }, [
+    route?.params?.activeTab,
+    route?.params?.chatLaunchId,
+    route?.params?.chatLaunchTarget,
+  ]);
 
   // 当 App 进入主界面挂载时，异步触发错题本与聊天历史的云端增量同步
   React.useEffect(() => {
@@ -110,12 +127,18 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
       'CHAT_PREFILL',
       `老师，请问这道题该怎么做？\n\n【题目内容】：\n${questionContent}`
     );
+    setChatLaunchTarget({ tab: 'chat', category: 'companion' });
     setActiveTab('ai');
   };
 
   const handleLearnTextbook = (textbook: UserTextbookInfo) => {
     setLearningTextbook(textbook);
     setActiveTab('resources');
+  };
+
+  const openChatRecords = (category: ChatLaunchTarget['category']) => {
+    setChatLaunchTarget({ tab: 'sessions', category });
+    setActiveTab('ai');
   };
 
   const handleStartTextbookPractice = (questions: PracticeQuestion[]) => {
@@ -156,7 +179,11 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
         )}
 
         {activeTab === 'ai' && (
-          <ChatScreen />
+          <ChatScreen
+            initialTab={chatLaunchTarget.tab}
+            initialCategory={chatLaunchTarget.category}
+            initialSessionId={chatLaunchTarget.sessionId}
+          />
         )}
 
         {activeTab === 'question_bank' && (
@@ -166,7 +193,13 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
         )}
 
         {activeTab === 'profile' && (
-          <ProfileScreen onLogout={onLogout} />
+          <ProfileScreen
+            onLogout={onLogout}
+            onOpenTeacherRecords={() => openChatRecords('teacher')}
+            onOpenFavorites={() => navigation.navigate('MyFavorites')}
+            onOpenQuestionRecords={() => openChatRecords('companion')}
+            onOpenSupport={() => navigation.navigate('CustomerSupport')}
+          />
         )}
       </View>
 
@@ -197,7 +230,10 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
         <TouchableOpacity
           style={styles.centerTabItem}
           activeOpacity={0.85}
-          onPress={() => setActiveTab('ai')}
+          onPress={() => {
+            setChatLaunchTarget({ tab: 'chat', category: 'companion' });
+            setActiveTab('ai');
+          }}
           accessibilityRole="tab"
           accessibilityLabel="AI 对话"
           accessibilityState={{ selected: activeTab === 'ai' }}

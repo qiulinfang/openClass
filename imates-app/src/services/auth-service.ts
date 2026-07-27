@@ -7,6 +7,7 @@ export interface UserInfo {
   id: string;
   name: string;
   avatar?: string;
+  avatarNew?: string;
   role?: string;
 }
 
@@ -193,10 +194,12 @@ export class AuthService {
     }
 
     const rawData = resJson.data?.data || resJson.data;
+    const existingUserInfo = await getUserInfo();
     const userInfo: UserInfo = {
       id: rawData.id || '10001',
       name: rawData.name || rawData.username || '学伴用户',
       avatar: rawData.avatar || '',
+      avatarNew: existingUserInfo?.avatarNew || '',
       role: rawData.role || 'STUDENT',
     };
 

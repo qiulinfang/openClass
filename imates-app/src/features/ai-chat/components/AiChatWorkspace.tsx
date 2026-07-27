@@ -37,6 +37,9 @@ interface AiChatWorkspaceProps {
   onReselect?: () => void;
   prefillStorageKey?: string;
   respectBottomSafeArea?: boolean;
+  initialTab?: AiChatWorkspaceTab;
+  initialCategory?: 'companion' | 'teacher';
+  initialSessionId?: string;
 }
 
 const attachmentKey = (
@@ -76,6 +79,9 @@ export function AiChatWorkspace({
   onReselect,
   prefillStorageKey,
   respectBottomSafeArea = true,
+  initialTab = 'chat',
+  initialCategory = 'companion',
+  initialSessionId,
 }: AiChatWorkspaceProps) {
   const insets = useAppSafeAreaInsets();
   const cancelRequestRef = useRef<(() => void) | null>(null);
@@ -90,9 +96,9 @@ export function AiChatWorkspace({
   const currentTeacherSessionIdRef = useRef<string | null>(null);
   const pendingTeacherForwardRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] =
-    useState<AiChatWorkspaceTab>('chat');
+    useState<AiChatWorkspaceTab>(initialTab);
   const [chatCategory, setChatCategory] =
-    useState<'companion' | 'teacher'>('companion');
+    useState<'companion' | 'teacher'>(initialCategory);
   const [userId, setUserId] = useState('user');
   const [sessions, setSessions] = useState<AiChatSession[]>([]);
   const [currentSession, setCurrentSession] =
@@ -188,6 +194,9 @@ export function AiChatWorkspace({
           );
         const nextSession =
           nextSessions.find(
+            (session) => session.id === initialSessionId
+          ) ||
+          nextSessions.find(
             (session) => session.id === activeSessionId
           ) ||
           nextSessions[0] ||
@@ -222,7 +231,12 @@ export function AiChatWorkspace({
       cancelRequestRef.current?.();
       teacherServiceRef.current.disconnect();
     };
-  }, [context.scopeKey, context.scene, initialAttachmentKey]);
+  }, [
+    context.scopeKey,
+    context.scene,
+    initialAttachmentKey,
+    initialSessionId,
+  ]);
 
   useEffect(() => {
     teacherServiceRef.current.setListeners({
@@ -613,6 +627,18 @@ export function AiChatWorkspace({
 
   const togglePin = async (session: AiChatSession) => {
     const nextSessions = await AiChatSessionService.togglePinned(
+      userId,
+      session.id
+    );
+    setSessions(
+      nextSessions
+        .filter((item) => item.scopeKey === context.scopeKey)
+        .sort(sortSessions)
+    );
+  };
+
+  const toggleFavorite = async (session: AiChatSession) => {
+    const nextSessions = await AiChatSessionService.toggleFavorite(
       userId,
       session.id
     );
@@ -1037,7 +1063,11 @@ export function AiChatWorkspace({
                 sessions={sessions}
                 currentSessionId={currentSession?.id}
                 loading={isLoadingSessions}
+                allowFavorite={context.scene === 'general'}
                 onSelect={(session) => void selectSession(session)}
+                onToggleFavorite={(session) =>
+                  void toggleFavorite(session)
+                }
                 onTogglePin={(session) => void togglePin(session)}
                 onDelete={(session) => void deleteSession(session)}
                 onCreate={createNewConversation}

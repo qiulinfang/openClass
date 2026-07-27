@@ -307,6 +307,8 @@ export class SyncService {
           updatedAt,
           messageCount: mergedMessages.length,
           pinned: localSession?.pinned,
+          favorited: localSession?.favorited,
+          favoritedAt: localSession?.favoritedAt,
         };
         await AiChatSessionService.importConversation(
           userId,

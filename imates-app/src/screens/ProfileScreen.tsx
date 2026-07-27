@@ -6,16 +6,36 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  ImageManipulator,
+  SaveFormat,
+} from 'expo-image-manipulator';
 import { getUserInfo, UserInfo } from '@/services/auth-service';
 import { storage } from '@/services/storage';
-import { SyncService } from '@/services/sync-service';
+import appJson from '../../app.json';
 
 interface ProfileScreenProps {
   onLogout: () => void;
+  onOpenTeacherRecords: () => void;
+  onOpenFavorites: () => void;
+  onOpenQuestionRecords: () => void;
+  onOpenSupport: () => void;
 }
+
+const APP_VERSION = appJson.expo.version;
+const AVATAR_STORAGE_KEY = 'userInfo';
+
+const resolveAvatarUri = (userInfo: UserInfo | null): string | null => {
+  const avatar = userInfo?.avatarNew || userInfo?.avatar;
+  if (!avatar) return null;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(avatar)) return avatar;
+  return `https://www.imates.com.cn${avatar.startsWith('/') ? '' : '/'}${avatar}`;
+};
 
 const LightColors = {
   background: '#f1f3ff', // Soft purple-blue matching Web
@@ -30,10 +50,16 @@ const LightColors = {
   warning: '#F59E0B',
 };
 
-export function ProfileScreen({ onLogout }: ProfileScreenProps) {
+export function ProfileScreen({
+  onLogout,
+  onOpenTeacherRecords,
+  onOpenFavorites,
+  onOpenQuestionRecords,
+  onOpenSupport,
+}: ProfileScreenProps) {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -45,39 +71,48 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
     loadUser();
   }, []);
 
-  const handleClearCache = async () => {
-    Alert.alert(
-      '清除缓存',
-      '确定要清除本地的答题历史和临时缓存吗？这不会影响云端已保存的数据。',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '确定',
-          onPress: async () => {
-            const keys = await storage.getAllKeys();
-            for (const key of keys) {
-              if (key !== 'xuebanuserid' && key !== 'userPassword' && key !== 'saved_accounts') {
-                await storage.removeItem(key);
-              }
-            }
-            Alert.alert('清理成功', '本地缓存已完全清理干净！');
-          },
-        },
-      ]
-    );
-  };
-
-  const handleManualSync = async () => {
-    setIsSyncing(true);
+  const handleChangeAvatar = async () => {
     try {
-      await SyncService.syncMistakes();
-      await SyncService.syncChatHistory();
-      Alert.alert('同步成功', '本地错题本与聊天记录已与云端同步完成！🔄');
-    } catch (e) {
-      console.warn('[ProfileScreen] 手动同步失败:', e);
-      Alert.alert('提示', '数据同步完成或部分数据离线已缓存。');
-    } finally {
-      setIsSyncing(false);
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('需要相册权限', '请允许访问相册后再更换头像。');
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.75,
+      });
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      const imageContext = ImageManipulator.manipulate(asset.uri);
+      imageContext.resize({ width: 512, height: 512 });
+      const renderedImage = await imageContext.renderAsync();
+      const optimizedImage = await renderedImage.saveAsync({
+        base64: true,
+        compress: 0.72,
+        format: SaveFormat.JPEG,
+      });
+      const avatarNew = optimizedImage.base64
+        ? `data:image/jpeg;base64,${optimizedImage.base64}`
+        : optimizedImage.uri;
+      const nextUserInfo: UserInfo = {
+        ...(userInfo || { id: '', name: '学伴用户' }),
+        avatarNew,
+      };
+
+      await storage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(nextUserInfo));
+      setUserInfo(nextUserInfo);
+      setAvatarLoadFailed(false);
+      Alert.alert('头像已更新', '新的头像已保存。');
+    } catch (error) {
+      console.warn('[ProfileScreen] 更换头像失败:', error);
+      Alert.alert('更换失败', '暂时无法读取所选图片，请稍后重试。');
     }
   };
 
@@ -121,11 +156,31 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
 
         {/* 头像及基本信息 */}
         <View style={styles.userProfileRow}>
-          <View style={styles.avatarWrapper}>
-            {/* 默认人像 Icon */}
-            <View style={styles.avatarHead} />
-            <View style={styles.avatarBody} />
-          </View>
+          <TouchableOpacity
+            style={styles.avatarWrapper}
+            onPress={handleChangeAvatar}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="更换头像"
+          >
+            {resolveAvatarUri(userInfo) && !avatarLoadFailed ? (
+              <Image
+                source={{ uri: resolveAvatarUri(userInfo)! }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+                onError={() => setAvatarLoadFailed(true)}
+                accessibilityLabel="用户头像"
+              />
+            ) : (
+              <>
+                <View style={styles.avatarHead} />
+                <View style={styles.avatarBody} />
+              </>
+            )}
+            <View style={styles.avatarEditOverlay}>
+              <Text style={styles.avatarEditText}>更换</Text>
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.profileTextInfo}>
             <View style={styles.userNameRow}>
@@ -138,51 +193,14 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
             <Text style={styles.userSubText}>九年级 · 乐学少年</Text>
           </View>
         </View>
-
-        {/* 学习统计三栏 */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCol}>
-            <Text style={styles.statNumber}>128</Text>
-            <Text style={styles.statLabel}>累计学习(h)</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statCol}>
-            <Text style={styles.statNumber}>45</Text>
-            <Text style={styles.statLabel}>解决难题</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statCol}>
-            <Text style={styles.statNumber}>95%</Text>
-            <Text style={styles.statLabel}>平均进度</Text>
-          </View>
-        </View>
       </View>
 
       {/* 下方流式卡片区 */}
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentInner} showsVerticalScrollIndicator={false}>
         {/* 菜单列表主卡片组 */}
         <View style={styles.menuGroupCard}>
-          {/* 0. 学霸积分 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('积分中心', '学霸积分商城建设中...')}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBg, { backgroundColor: '#F1F5F9' }]}>
-                <Text style={styles.menuItemIcon}>💳</Text>
-              </View>
-              <View style={styles.pointsTexts}>
-                <Text style={styles.menuItemLabel}>学霸积分</Text>
-                <Text style={styles.pointsSubtitle}>当前余额: 1,240</Text>
-              </View>
-            </View>
-            <Text style={styles.arrowIcon}>▶</Text>
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-          {/* 1. 老师答疑记录 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('答疑记录', '老师答疑记录模块载入中...')}>
+          {/* 老师答疑记录 */}
+          <TouchableOpacity style={styles.menuItem} onPress={onOpenTeacherRecords}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIconBg, { backgroundColor: '#EFF6FF' }]}>
                 <Text style={styles.menuItemIcon}>💬</Text>
@@ -200,8 +218,8 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
 
           <View style={styles.menuDivider} />
 
-          {/* 2. 我的收藏 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('我的收藏', '收藏列表正在载入...')}>
+          {/* 我的收藏 */}
+          <TouchableOpacity style={styles.menuItem} onPress={onOpenFavorites}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIconBg, { backgroundColor: '#FEF3C7' }]}>
                 <Text style={styles.menuItemIcon}>⭐</Text>
@@ -213,8 +231,8 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
 
           <View style={styles.menuDivider} />
 
-          {/* 3. 问答记录 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('问答记录', '问答历史记录载入中...')}>
+          {/* 问答记录 */}
+          <TouchableOpacity style={styles.menuItem} onPress={onOpenQuestionRecords}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIconBg, { backgroundColor: '#F3E8FF' }]}>
                 <Text style={styles.menuItemIcon}>📝</Text>
@@ -226,64 +244,8 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
 
           <View style={styles.menuDivider} />
 
-          {/* 4. 荣誉勋章 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('荣誉勋章', '勋章墙建设中...')}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBg, { backgroundColor: '#FCE7F3' }]}>
-                <Text style={styles.menuItemIcon}>🎖️</Text>
-              </View>
-              <Text style={styles.menuItemLabel}>荣誉勋章</Text>
-            </View>
-            <Text style={styles.arrowIcon}>▶</Text>
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* 5. 权限管理 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('权限管理', '应用权限列表加载中...')}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBg, { backgroundColor: '#ECFDF5' }]}>
-                <Text style={styles.menuItemIcon}>🛡️</Text>
-              </View>
-              <Text style={styles.menuItemLabel}>权限管理</Text>
-            </View>
-            <Text style={styles.arrowIcon}>▶</Text>
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* 6. 数据云端同步 (原本的功能保留) */}
-          <TouchableOpacity style={styles.menuItem} onPress={handleManualSync} disabled={isSyncing}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBg, { backgroundColor: '#EEF2FF' }]}>
-                <Text style={styles.menuItemIcon}>🔄</Text>
-              </View>
-              <Text style={styles.menuItemLabel}>数据云同步</Text>
-            </View>
-            {isSyncing ? (
-              <ActivityIndicator size="small" color={LightColors.primary} />
-            ) : (
-              <Text style={styles.arrowIcon}>▶</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* 7. 清理缓存 (原本功能) */}
-          <TouchableOpacity style={styles.menuItem} onPress={handleClearCache}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBg, { backgroundColor: '#F1F5F9' }]}>
-                <Text style={styles.menuItemIcon}>🧹</Text>
-              </View>
-              <Text style={styles.menuItemLabel}>清除本地缓存</Text>
-            </View>
-            <Text style={styles.arrowIcon}>▶</Text>
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* 8. 系统的在线客服 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('客服', '智能学伴助理即将接入...')}>
+          {/* 在线客服 */}
+          <TouchableOpacity style={styles.menuItem} onPress={onOpenSupport}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIconBg, { backgroundColor: '#F1F5F9' }]}>
                 <Text style={styles.menuItemIcon}>🎧</Text>
@@ -295,16 +257,15 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
 
           <View style={styles.menuDivider} />
 
-          {/* 9. 系统设置 */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('系统设置', '系统配置中心正在载入...')}>
+          <View style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBg, { backgroundColor: '#F1F5F9' }]}>
-                <Text style={styles.menuItemIcon}>⚙️</Text>
+              <View style={[styles.menuIconBg, { backgroundColor: '#EEF2FF' }]}>
+                <Text style={styles.versionIcon}>v</Text>
               </View>
-              <Text style={styles.menuItemLabel}>设置</Text>
+              <Text style={styles.menuItemLabel}>版本号</Text>
             </View>
-            <Text style={styles.arrowIcon}>▶</Text>
-          </TouchableOpacity>
+            <Text style={styles.versionText}>v{APP_VERSION}</Text>
+          </View>
         </View>
 
         {/* 退出登录 */}
@@ -331,7 +292,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#3E3FD8', // Vibrant Indigo header base
     paddingTop: Platform.OS === 'ios' ? 56 : 40,
     paddingHorizontal: 24,
-    paddingBottom: 12,
+    paddingBottom: 24,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     position: 'relative',
@@ -354,7 +315,6 @@ const styles = StyleSheet.create({
   userProfileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
   avatarWrapper: {
     width: 68,
@@ -383,6 +343,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     position: 'absolute',
     bottom: -20,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarEditOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 18,
+    backgroundColor: 'rgba(17, 24, 39, 0.58)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarEditText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
   },
   profileTextInfo: {
     justifyContent: 'center',
@@ -414,31 +393,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.75)',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-  },
-  statCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
   scrollContent: {
     flex: 1,
   },
@@ -446,58 +400,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 40,
   },
-  pointsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: -30, // Overlaps header
-    ...Platform.select({
-      ios: {
-        shadowColor: '#6366F1',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 18,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  pointsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pointsIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  pointsIcon: {
-    fontSize: 20,
-  },
-  pointsTexts: {
-    justifyContent: 'center',
-  },
-  pointsTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  pointsSubtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
   arrowIcon: {
     fontSize: 10,
     color: '#94A3B8',
+  },
+  versionText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontVariant: ['tabular-nums'],
+  },
+  versionIcon: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#4F46E5',
   },
   menuGroupCard: {
     backgroundColor: '#FFFFFF',

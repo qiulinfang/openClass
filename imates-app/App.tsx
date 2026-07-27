@@ -3,6 +3,8 @@ import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { HomeworkSolveScreen } from '@/screens/HomeworkSolveScreen';
 import { PracticeReviewScreen } from '@/screens/PracticeReviewScreen';
+import { CustomerSupportScreen } from '@/screens/CustomerSupportScreen';
+import { MyFavoritesScreen } from '@/screens/MyFavoritesScreen';
 import { storage } from '@/services/storage';
 import { authService } from '@/services/auth-service';
 import { initEnvConfig } from '@/services/env-config';
@@ -90,6 +92,8 @@ function AppContent() {
         </Stack.Screen>
         <Stack.Screen name="HomeworkSolve" component={HomeworkSolveScreen} />
         <Stack.Screen name="PracticeReview" component={PracticeReviewScreen} />
+        <Stack.Screen name="CustomerSupport" component={CustomerSupportScreen} />
+        <Stack.Screen name="MyFavorites" component={MyFavoritesScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

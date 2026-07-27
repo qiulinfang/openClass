@@ -4,12 +4,21 @@ import {
   AiChatWorkspace,
   GENERAL_AI_CHAT_CONTEXT,
 } from '@/features/ai-chat';
+import type { AiChatWorkspaceTab } from '@/features/ai-chat/types';
 
 interface ChatScreenProps {
   onBack?: () => void;
+  initialTab?: AiChatWorkspaceTab;
+  initialCategory?: 'companion' | 'teacher';
+  initialSessionId?: string;
 }
 
-export function ChatScreen({ onBack }: ChatScreenProps) {
+export function ChatScreen({
+  onBack,
+  initialTab,
+  initialCategory,
+  initialSessionId,
+}: ChatScreenProps) {
   return (
     <View style={styles.container}>
       <AiChatWorkspace
@@ -17,6 +26,9 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
         onClose={onBack}
         prefillStorageKey="CHAT_PREFILL"
         respectBottomSafeArea={false}
+        initialTab={initialTab}
+        initialCategory={initialCategory}
+        initialSessionId={initialSessionId}
       />
     </View>
   );

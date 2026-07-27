@@ -26,6 +26,14 @@
     },
     "plugins": [
       "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许手机学伴访问相册，以便更换个人头像。",
+          "cameraPermission": "允许手机学伴使用相机，以便拍照答题和上传图片。",
+          "microphonePermission": false
+        }
+      ],
       "./plugins/with-android-app-identity"
     ],
     "extra": {
