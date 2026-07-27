@@ -33,7 +33,7 @@
 
         <!-- 右侧：重拍（关闭全屏面板并返回拍照模式） -->
         <div class="header-right row items-center">
-          <q-btn flat round dense icon="close" color="grey-8" title="重拍" @click="handleRetakeAndClose" />
+          <BaseButton size="xs" variant="ghost" label="✕" title="重拍" @click="handleRetakeAndClose" />
         </div>
       </header>
 
@@ -63,36 +63,9 @@
                   <div class="panel-card-body q-pa-sm flex column full-height">
                     <!-- 上半部：依据搜题模式动态展示 (拍照搜题 -> 原图切片预览 + 清空重拍；文字搜题 -> 输入框 + 搜索/清空) -->
                     <div class="crop-preview-card q-mb-sm">
-                      <!-- 1. 拍照搜题模式：显示拍照切片及清空/重拍按钮 -->
+                      <!-- 1. 拍照搜题模式：显示拍照切片及重新拍照按钮 -->
                       <template v-if="activeTab === 'photo'">
-                        <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
-                          <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
-                            <q-icon name="crop_original" size="18px" color="primary" class="q-mr-xs" />
-                            拍照切图切片
-                          </span>
-                          <div class="row items-center q-gutter-xs">
-                            <q-btn
-                              v-if="croppedImageBase64 || cropPreviewImage"
-                              flat
-                              dense
-                              size="xs"
-                              color="grey-7"
-                              icon="delete_outline"
-                              label="清空图片"
-                              @click="$emit('clear-photo')"
-                            />
-                            <q-btn
-                              flat
-                              dense
-                              size="xs"
-                              color="primary"
-                              icon="camera_alt"
-                              label="重新拍照"
-                              @click="handleRetakeAndClose"
-                            />
-                          </div>
-                        </div>
-                        <div class="img-preview-box row items-center justify-center">
+                        <div class="img-preview-box relative-position row items-center justify-center">
                           <img
                             v-if="croppedImageBase64 || cropPreviewImage"
                             :src="croppedImageBase64 || cropPreviewImage"
@@ -100,27 +73,18 @@
                             class="user-cropped-img"
                           />
                           <div v-else class="text-caption text-slate-400">暂无切图预览</div>
+                          <BaseButton
+                            size="xs"
+                            variant="outline"
+                            label="重新拍照"
+                            class="retake-btn"
+                            @click="handleRetakeAndClose"
+                          />
                         </div>
                       </template>
 
                       <!-- 2. 文字/关键词搜题模式：显示输入框、搜索和清空按钮 -->
                       <template v-else-if="activeTab === 'keyword'">
-                        <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
-                          <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
-                            <q-icon name="search" size="18px" color="primary" class="q-mr-xs" />
-                            关键词搜索
-                          </span>
-                          <q-btn
-                            v-if="keywordText"
-                            flat
-                            dense
-                            size="xs"
-                            color="grey-7"
-                            icon="clear"
-                            label="清空"
-                            @click="handleClearKeyword"
-                          />
-                        </div>
                         <div class="keyword-input-box q-pa-sm bg-white border-top-slate">
                           <AutoHeightTextarea
                             v-model="keywordText"
@@ -142,26 +106,10 @@
 
                     <!-- 下半部：搜到的候选题目列表卡片 (根据 activeTab 展示拍照或关键词的题目列表) -->
                     <div class="candidates-card col flex column overflow-hidden">
-                      <div class="card-sub-header row items-center justify-between q-px-sm q-py-xs">
-                        <span class="text-subtitle2 text-weight-bold text-slate-800 row items-center">
-                          <q-icon name="format_list_bulleted" size="18px" color="primary" class="q-mr-xs" />
-                          {{ activeTab === 'photo' ? '拍照匹配题目' : '关键词匹配题目' }}
-                        </span>
-                        <q-chip
-                          v-if="currentQuestionData?.mathRagV2?.results"
-                          size="xs"
-                          color="indigo-1"
-                          text-color="indigo-9"
-                          class="text-weight-bold"
-                        >
-                          {{ currentQuestionData.mathRagV2.results.length }} 题命中
-                        </q-chip>
-                      </div>
 
                       <div class="candidate-list-scroll col overflow-auto q-px-xs q-py-xs">
                         <div v-if="isCurrentSearching" class="q-pa-md text-center">
-                          <q-spinner-dots color="primary" size="32px" />
-                          <div class="text-caption text-grey-7 q-mt-xs">检索中...</div>
+                          <BaseLoading text="检索中..." :size="28" />
                         </div>
 
                         <QuestionList
@@ -178,21 +126,9 @@
                         >
                           <template #question-status="{ question }">
                             <div class="row items-center q-gutter-xs q-ml-xs">
-                              <q-badge
+                              <BaseTag
                                 size="xs"
-                                :color="
-                                  (question as any).rawCandidate?.same_question?.label === 'same' ||
-                                  (question as any).same_question?.label === 'same' ||
-                                  question.mathRagV2?.sameQuestionLabel === 'same'
-                                    ? 'positive'
-                                    : (question as any).rawCandidate?.same_question?.label === 'likely_same' ||
-                                      (question as any).same_question?.label === 'likely_same' ||
-                                      question.mathRagV2?.sameQuestionLabel === 'likely_same'
-                                      ? 'orange'
-                                      : 'grey-6'
-                                "
-                              >
-                                {{
+                                :text="
                                   (question as any).rawCandidate?.same_question?.label === 'same' ||
                                   (question as any).same_question?.label === 'same' ||
                                   question.mathRagV2?.sameQuestionLabel === 'same'
@@ -202,8 +138,19 @@
                                       question.mathRagV2?.sameQuestionLabel === 'likely_same'
                                       ? '疑似同题'
                                       : '相似题'
-                                }}
-                              </q-badge>
+                                "
+                                :type="
+                                  (question as any).rawCandidate?.same_question?.label === 'same' ||
+                                  (question as any).same_question?.label === 'same' ||
+                                  question.mathRagV2?.sameQuestionLabel === 'same'
+                                    ? 'green'
+                                    : (question as any).rawCandidate?.same_question?.label === 'likely_same' ||
+                                      (question as any).same_question?.label === 'likely_same' ||
+                                      question.mathRagV2?.sameQuestionLabel === 'likely_same'
+                                      ? 'orange'
+                                      : 'gray'
+                                "
+                              />
                               <span
                                 v-if="
                                   (question as any).rawCandidate?.score !== undefined ||
@@ -240,85 +187,39 @@
                 <div class="question-image-section" :class="{ collapsed: isQuestionImageCollapsed }">
                   <div class="question-image-content">
                     <div v-if="isCurrentSearching" class="search-loading-container text-center q-pa-md">
-                      <q-spinner-dots color="primary" size="40px" />
-                      <div class="text-subtitle2 text-grey-7 q-mt-sm">正在检索题目并调取 MathRAG 智能分析...</div>
+                      <BaseLoading text="正在检索题目并调取 MathRAG 智能分析..." :size="36" />
                     </div>
 
                     <div v-else-if="currentQuestionData" class="results-main-area">
-                      <div class="mathrag-status-banner q-mb-sm row items-center justify-between">
-                        <div class="row items-center q-gutter-xs">
-                          <q-chip
-                            v-if="currentQuestionData?.mathRagV2"
-                            size="sm"
-                            :color="mathRagBadge.color"
-                            text-color="white"
-                            icon="verified"
-                          >
-                            {{ mathRagBadge.text }}
-                          </q-chip>
-                          <q-chip
-                            v-if="currentQuestionData?.mathRagV2?.autoReusable"
-                            size="sm"
-                            color="blue-1"
-                            text-color="blue-9"
-                            icon="auto_awesome"
-                          >
-                            支持自动解答复用
-                          </q-chip>
-                        </div>
-
+                      <div class="mathrag-status-banner q-mb-sm row items-center justify-end">
                         <!-- 题目操作按钮区：Debug 调试 & 收藏 & 加入我的练习 -->
                         <div class="question-header-actions row items-center q-gutter-xs">
-                          <q-btn
+                          <BaseButton
                             v-if="isDev && currentQuestionData"
-                            flat
-                            dense
-                            size="sm"
-                            color="deep-purple-6"
-                            icon="bug_report"
+                            size="xs"
+                            variant="outline"
                             label="Debug 题目"
                             @click="logCurrentQuestionInfo"
-                          >
-                            <q-tooltip>在控制台打印当前题目完整信息</q-tooltip>
-                          </q-btn>
-                          <q-btn
-                            flat
-                            dense
-                            size="sm"
-                            :color="isFavoriteInChat ? 'amber-9' : 'grey-7'"
-                            :icon="isFavoriteInChat ? 'star' : 'star_border'"
+                          />
+                          <BaseButton
+                            size="xs"
+                            :variant="isFavoriteInChat ? 'primary' : 'ghost'"
                             :label="isFavoriteInChat ? '已收藏' : '收藏'"
                             @click="handleFavoriteClick"
                           />
-                          <q-btn
-                            flat
-                            dense
-                            size="sm"
-                            :color="isInPracticeList ? 'negative' : 'primary'"
-                            :icon="isInPracticeList ? 'remove_circle_outline' : 'add_circle_outline'"
+                          <BaseButton
+                            size="xs"
+                            :variant="isInPracticeList ? 'danger' : 'outline'"
                             :label="isInPracticeList ? '移出练习' : '加入我的练习'"
                             @click="handleAddPracticeClick"
                           />
-                        </div>
-
-                        <div
-                          v-if="
-                            currentQuestionData?.mathRagV2?.conflicts &&
-                            currentQuestionData.mathRagV2.conflicts.length > 0
-                          "
-                          class="conflict-alert-box full-width q-mt-xs"
-                        >
-                          <q-icon name="warning" color="warning" size="16px" class="q-mr-xs" />
-                          <span class="text-caption text-orange-9">
-                            提示：检测到差异 ({{ currentQuestionData.mathRagV2.conflicts.join(', ') }})，请注意甄别。
-                          </span>
                         </div>
                       </div>
                       <div class="problem-text markdown-content" v-html="renderQuestionContent(currentQuestionData)"></div>
                     </div>
 
                     <div v-else class="empty-result-container text-center q-pa-md text-grey-6">
-                      <q-icon name="search_off" size="40px" />
+                      <div class="empty-search-icon">🔍</div>
                       <div class="text-caption q-mt-xs">未选择或未匹配到题目</div>
                     </div>
                   </div>
@@ -326,12 +227,7 @@
 
                 <!-- 折叠切换控制按钮 -->
                 <div class="collapse-toggle-btn" @click="toggleQuestionImage">
-                  <img
-                    :src="collapseToggleIcon"
-                    alt="toggle"
-                    class="collapse-toggle-svg"
-                    :style="{ transform: isQuestionImageCollapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }"
-                  />
+                  <img :src="collapseToggleIcon" alt="toggle" class="collapse-toggle-svg" />
                 </div>
 
                 <!-- 草稿本区域（自带悬浮/内部工具栏） -->
@@ -354,7 +250,7 @@
                 :class="['textbookip-float', splitMode === 'left' ? 'float-right' : 'float-left']"
                 @toggle="toggleAiPanel"
               >
-                <img :src="textbookipIcon" alt="问AI" />
+                <img :src="textbookipIcon" alt="textbookip" />
               </FloatBubble>
             </div>
           </template>
@@ -391,6 +287,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import BaseButton from '@/components/base/Button.vue'
+import BaseTag from '@/components/base/Tag.vue'
+import BaseLoading from '@/components/base/Loading.vue'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
 import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew.vue'
@@ -689,13 +588,13 @@ defineExpose({
 
 .panel-bg1 {
   height: 100%;
-  background: linear-gradient(to right, #0f002e 4%, #ffffff 6%);
+  background: linear-gradient(to right, #ffffff 4%, #ffffff 6%);
   width: 100%;
 }
 
 .panel-bg2 {
   height: 100%;
-  background: linear-gradient(to left, #0f002e 4%, #ffffff 6%);
+  background: linear-gradient(to left, #fefefe 4%, #ffffff 6%);
   width: 100%;
 }
 
@@ -705,7 +604,7 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(to right, #0f002e 50%, #ffffff 50%);
+  background: linear-gradient(to right, #ffffff 50%, #ffffff 50%);
   border-radius: 20px;
   z-index: -1;
 }
@@ -728,15 +627,16 @@ defineExpose({
 }
 
 .problem-card {
+  background: #f7f6ff;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
 }
 
 .crop-preview-card,
 .candidates-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -744,9 +644,12 @@ defineExpose({
   .img-preview-box {
     max-height: 160px;
     min-height: 100px;
-    padding: 6px;
+    padding: 8px;
     background: #ffffff;
-    border-top: 1px solid #f1f5f9;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    margin: 2px 4px;
+    position: relative;
 
     .user-cropped-img {
       max-width: 100%;
@@ -754,16 +657,138 @@ defineExpose({
       object-fit: contain;
       border-radius: 6px;
     }
+
+    .retake-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #3b82f6;
+      padding: 3px 8px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+      &:hover {
+        background: #ffffff;
+      }
+    }
   }
 }
 
-.candidates-card {
-  .card-sub-header {
-    border-bottom: 1px solid #f1f5f9;
+.header-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 50%;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #1e293b;
   }
 }
+
+.custom-spinner-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    background-color: #6366f1;
+    border-radius: 50%;
+    animation: spinnerBounce 1.4s infinite ease-in-out both;
+
+    &:nth-child(1) { animation-delay: -0.32s; }
+    &:nth-child(2) { animation-delay: -0.16s; }
+  }
+
+  &.large .dot {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+@keyframes spinnerBounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.custom-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  color: #ffffff;
+  line-height: 1.2;
+
+  &.badge-same {
+    background-color: #22c55e;
+  }
+  &.badge-likely {
+    background-color: #f97316;
+  }
+  &.badge-similar {
+    background-color: #94a3b8;
+  }
+}
+
+.custom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f8fafc;
+  }
+
+  &.debug-btn {
+    color: #7c3aed;
+    border-color: #ddd6fe;
+    background: #f5f3ff;
+  }
+
+  &.favorite-btn.active {
+    color: #d97706;
+    border-color: #fde68a;
+    background: #fffbeb;
+  }
+
+  &.practice-btn.active {
+    color: #ef4444;
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+}
+
+.empty-search-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+
 
 .draft-card {
+  display: flex;
+  flex-direction: column;
   transition: border-radius 0.5s ease-in-out;
 }
 
@@ -795,35 +820,34 @@ defineExpose({
   overflow: hidden;
   margin: 8px 12px 0 12px;
   position: relative;
+  will-change: flex;
+  contain: layout paint;
 }
 
 .question-image-section.collapsed {
-  flex: 0.35 0 0;
+  flex: 0.25 0 0;
 }
 
 .collapse-toggle-btn {
   position: relative;
   top: -1px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  width: 48px;
-  height: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(110, 85, 255, 0.32);
-  border-top: none;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
+  height: auto;
+  width: auto;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  padding: 0;
+  align-self: center;
+  background: transparent;
+}
 
-  .collapse-toggle-svg {
-    width: 10px;
-    height: 10px;
-  }
+.collapse-toggle-svg {
+  width: 100px;
+  height: auto;
+  display: block;
 }
 
 .image-tabs {
@@ -862,24 +886,42 @@ defineExpose({
   }
 }
 
+/* FloatBubble 悬浮按钮样式 (与 ExerciseSolveViewNew 保持 100% 一致) */
 .textbookip-float {
   position: absolute;
-  bottom: 24px;
-  z-index: 999;
-  cursor: pointer;
+  bottom: 100px;
+  z-index: 100;
+  transition: left 0.5s ease-in-out, right 0.5s ease-in-out;
+}
 
-  &.float-right {
-    right: 24px;
+/* 做题模式（left）：紧贴草稿本右侧 */
+.textbookip-float.float-right {
+  right: -70px;
+}
+
+/* AI模式（right）：紧贴草稿本左侧 */
+.textbookip-float.float-left {
+  left: -70px;
+}
+
+/* 悬浮按钮图片大小 */
+.textbookip-float img {
+  width: 135px;
+  object-fit: contain;
+}
+
+/* AI模式：IP形象带从小到大缩放过渡动画 */
+.textbookip-float.float-left img {
+  animation: ipScaleIn 0.1s ease-in-out forwards;
+  transform: scaleX(-1);
+}
+
+@keyframes ipScaleIn {
+  0% {
+    transform: scaleX(-1) scale(0.75);
   }
-
-  &.float-left {
-    left: 24px;
-  }
-
-  img {
-    width: 48px;
-    height: 48px;
-    display: block;
+  100% {
+    transform: scaleX(-1) scale(1);
   }
 }
 
