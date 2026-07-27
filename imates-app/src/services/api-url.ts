@@ -21,6 +21,18 @@ export const getXuebanApiUrl = (path: string): string => {
 };
 
 /**
+ * 课节知识点查询服务。
+ *
+ * Web 端通过 Metro/Nginx 的同源代理访问。原生端不能使用主站的 HTTPS
+ * `/knowledge` 路由：该路由当前会把 HTTPS 流量错误地转发给 HTTP 上游并返回
+ * 400，因此直接访问仅提供 HTTP 的 8090 服务。此接口不携带任何登录凭据。
+ */
+export const getKnowledgeApiUrl = (): string =>
+  Platform.OS === 'web'
+    ? '/knowledge'
+    : 'http://www.imates.com.cn:8090/knowledge';
+
+/**
  * 研伴接口：Web 使用同源 /yb-test 或 /yb-release，原生端使用 HTTPS 绝对地址。
  */
 export const getYanbanApiUrl = (path: string): string => {

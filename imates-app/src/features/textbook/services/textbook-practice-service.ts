@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-import { getXuebanApiUrl } from '@/services/api-url';
+import { getKnowledgeApiUrl, getXuebanApiUrl } from '@/services/api-url';
 import { authService } from '@/services/auth-service';
 import { ExerciseItem } from '@/services/exercise-service';
 import { storage } from '@/services/storage';
@@ -30,6 +29,7 @@ const SUBJECT_MAP: Record<string, string> = {
   生物学: 'biology',
   化学: 'chemistry',
   物理: 'physics',
+  物理学: 'physics',
   语文: 'chinese',
   英语: 'english',
   地理: 'geography',
@@ -41,15 +41,43 @@ const SUBJECT_MAP: Record<string, string> = {
   '4': 'physics',
   '5': 'chemistry',
   '6': 'biology',
-  '7': 'geography',
-  '8': 'history',
+  '7': 'history',
+  '8': 'geography',
   '9': 'politics',
 };
 
 export class TextbookPracticeService {
   public static normalizeSubject(subject: string): string {
     const value = String(subject || '').trim();
-    return SUBJECT_MAP[value] || value.toLowerCase() || 'math';
+    if (!value) return 'math';
+
+    const upper = value.toUpperCase();
+    const withoutPrefix = upper.startsWith('SUBJECT_')
+      ? upper.slice('SUBJECT_'.length)
+      : upper;
+    const withoutSuffix = withoutPrefix.replace(/[学科]$/, '');
+    const directMatch =
+      SUBJECT_MAP[value] ||
+      SUBJECT_MAP[withoutPrefix] ||
+      SUBJECT_MAP[withoutSuffix];
+    if (directMatch) return directMatch;
+
+    const normalized = value.toLowerCase();
+    const supported = new Set(Object.values(SUBJECT_MAP));
+    if (supported.has(normalized)) return normalized;
+
+    const englishMatch = [
+      'math',
+      'biology',
+      'chemistry',
+      'physics',
+      'chinese',
+      'english',
+      'geography',
+      'history',
+      'politics',
+    ].find((candidate) => normalized.includes(candidate));
+    return englishMatch || 'math';
   }
 
   private static getXuebanBaseUrl(): string {
@@ -150,9 +178,7 @@ export class TextbookPracticeService {
     subject: string
   ): Promise<string> {
     const payload = await this.post(
-      Platform.OS === 'web'
-        ? '/knowledge'
-        : 'https://www.imates.com.cn/knowledge',
+      getKnowledgeApiUrl(),
       {
         subject: this.normalizeSubject(subject),
         param: [{ textbook_id: textbookId, section_id: sectionId }],
