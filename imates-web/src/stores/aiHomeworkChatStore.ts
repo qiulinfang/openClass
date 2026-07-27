@@ -16,6 +16,7 @@ import { validateGeneralChatRequest } from './utils/requestValidator'
 import { normalizeSubject } from '@/constants/subjects'
 import { getApiPaths } from '@/config/env-config'
 import { Sender } from '@/types/enums'
+import { formatExerciseToMarkdown } from '@/services/boundary/exercise'
 
 /**
  * 构建 AI 作业对话消息请求
@@ -45,17 +46,8 @@ const buildAiHomeworkMessage = (
   const effectiveApiSubject = normalizeSubject((question as any)?.subject || 'BIOLOGY')
   const dstUrl = effectiveApiSubject === 'math' ? getApiPaths().xueban.ai.chatMath : getApiPaths().xueban.ai.chat
   
-  // 构建完整的题目信息（题干 + 选项）
-  const fullQuestion = (() => {
-    let q = question?.question || question?.title || ''
-    if (question?.structuredContent?.options && question.structuredContent.options.length > 0) {
-      const optionsStr = question.structuredContent.options
-        .map(opt => `${opt.label}. ${opt.text}`)
-        .join('\n')
-      q += `\n\n选项：\n${optionsStr}`
-    }
-    return q
-  })()
+  // 构建完整的题目信息（题干 + 选项 + 材料 + 子题）
+  const fullQuestion = question ? formatExerciseToMarkdown(question) : ''
 
   const request: AiChatMessageRequest = {
     sessionId: finalSessionId,

@@ -1,9 +1,24 @@
 <template>
   <div class="question-footer" v-if="show">
     <div class="analysis-section">
-      <div class="section-title">参考答案：</div>
-      <div class="section-content answer-val" v-if="formattedAnswer" v-html="formattedAnswer"></div>
-      <div class="field-missing-warning" v-else>【警告：未配置参考答案】</div>
+      <div class="analysis-block">
+        <div class="section-title">参考答案：</div>
+        <div
+          class="section-content answer-val"
+          v-if="formattedAnswer"
+          v-html="formattedAnswer"
+        ></div>
+        <div class="field-missing-warning" v-else>【警告：未配置参考答案】</div>
+      </div>
+      <div class="analysis-block" style="margin-top: 16px">
+        <div class="section-title">题目解析：</div>
+        <div
+          class="section-content explanation-val"
+          v-if="formattedAnalysis"
+          v-html="formattedAnalysis"
+        ></div>
+        <div class="empty-analysis-tip" v-else>暂无解析</div>
+      </div>
     </div>
   </div>
 </template>
@@ -13,12 +28,15 @@ import { computed } from 'vue'
 import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 
-const props = withDefaults(defineProps<{
-  question: ExerciseItem
-  show?: boolean
-}>(), {
-  show: false
-})
+const props = withDefaults(
+  defineProps<{
+    question: ExerciseItem
+    show?: boolean
+  }>(),
+  {
+    show: false,
+  },
+)
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -26,15 +44,25 @@ const formattedAnswer = computed(() => {
   const structured = props.question.structuredContent || props.question
   if (structured?.type === 'fill_in_blank' && Array.isArray(structured.blanks)) {
     const blankAnswers = structured.blanks.map((blank, index) => {
-      const ans = Array.isArray(blank.answers) ? blank.answers.join(' 或 ') : (blank.answer || '');
-      return `(${index + 1}): ${ans}`;
-    });
-    return renderMessageContent(blankAnswers.join('; '));
+      const ans = Array.isArray(blank.answers) ? blank.answers.join(' 或 ') : blank.answer || ''
+      return `(${index + 1}): ${ans}`
+    })
+    return renderMessageContent(blankAnswers.join('; '))
   }
   const answer = structured?.answer
   if (Array.isArray(answer)) return renderMessageContent(answer.join(', '))
   if (answer === undefined || answer === null) return ''
   return renderMessageContent(String(answer))
+})
+
+const formattedAnalysis = computed(() => {
+  const q = props.question
+  const structured = q.structuredContent
+  const rawAnalysis =
+    q.explanation || q.questionReason || q.analysisData || structured?.analysis || ''
+
+  if (!rawAnalysis || !rawAnalysis.trim()) return ''
+  return renderMessageContent(rawAnalysis)
 })
 </script>
 
@@ -79,6 +107,11 @@ const formattedAnswer = computed(() => {
   width: fit-content;
 }
 
+.empty-analysis-tip {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
 :deep(table) {
   border-collapse: collapse;
   width: 100%;
@@ -87,7 +120,8 @@ const formattedAnswer = computed(() => {
   overflow: hidden;
   border: 1px solid #e2e8f0;
 }
-:deep(th), :deep(td) {
+:deep(th),
+:deep(td) {
   border: 1px solid #e2e8f0;
   padding: 8px 12px;
   text-align: left;
