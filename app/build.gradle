@@ -15,8 +15,8 @@ android {
         applicationId "com.cosinetech.imates.bj1011"
         minSdk 24
         targetSdk 34
-        versionCode 111
-        versionName "1.1.111"
+        versionCode 117
+        versionName "1.1.117"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
