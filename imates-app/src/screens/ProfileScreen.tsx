@@ -130,6 +130,7 @@ export function ProfileScreen({
   const selectedAvatarImageRef =
     useRef<SelectedAvatarImage | null>(null);
   const cropViewportSizeRef = useRef(220);
+  const cropGestureAreaRef = useRef<View | null>(null);
   const cropTransformRef =
     useRef<AvatarCropTransform>(INITIAL_CROP_TRANSFORM);
   const cropGestureStartRef = useRef({
@@ -137,6 +138,16 @@ export function ProfileScreen({
     x: 0,
     y: 0,
     pinchDistance: 0,
+  });
+  const webCropGestureStartRef = useRef({
+    scale: 1,
+    x: 0,
+    y: 0,
+    pinchDistance: 0,
+    centerX: 0,
+    centerY: 0,
+    pointerX: 0,
+    pointerY: 0,
   });
 
   const constrainCropTransform = (
@@ -179,7 +190,11 @@ export function ProfileScreen({
       PanResponder.create({
         onStartShouldSetPanResponder: () =>
           !!selectedAvatarImageRef.current,
+        onStartShouldSetPanResponderCapture: () =>
+          !!selectedAvatarImageRef.current,
         onMoveShouldSetPanResponder: () =>
+          !!selectedAvatarImageRef.current,
+        onMoveShouldSetPanResponderCapture: () =>
           !!selectedAvatarImageRef.current,
         onPanResponderGrant: (event) => {
           const current = cropTransformRef.current;
@@ -188,6 +203,14 @@ export function ProfileScreen({
             pinchDistance: getTouchDistance(
               event.nativeEvent.touches
             ),
+          };
+        },
+        onPanResponderStart: (event) => {
+          const touches = event.nativeEvent.touches;
+          if (touches.length < 2) return;
+          cropGestureStartRef.current = {
+            ...cropTransformRef.current,
+            pinchDistance: getTouchDistance(touches),
           };
         },
         onPanResponderMove: (event, gestureState) => {
@@ -224,9 +247,158 @@ export function ProfileScreen({
             y: start.y + gestureState.dy,
           });
         },
+        onPanResponderEnd: (event) => {
+          const touches = event.nativeEvent.touches;
+          cropGestureStartRef.current = {
+            ...cropTransformRef.current,
+            pinchDistance:
+              touches.length >= 2
+                ? getTouchDistance(touches)
+                : 0,
+          };
+        },
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
       }),
     []
   );
+
+  useEffect(() => {
+    if (
+      Platform.OS !== 'web' ||
+      !selectedAvatarImage ||
+      !avatarModalVisible
+    ) {
+      return;
+    }
+
+    const gestureArea =
+      cropGestureAreaRef.current as unknown as HTMLElement | null;
+    if (!gestureArea) return;
+
+    gestureArea.style.touchAction = 'none';
+    gestureArea.style.overscrollBehavior = 'contain';
+
+    const getCenter = (touches: TouchList) => ({
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    });
+    const getDistance = (touches: TouchList) =>
+      Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+
+    const beginGesture = (event: TouchEvent) => {
+      event.preventDefault();
+      const current = cropTransformRef.current;
+      if (event.touches.length >= 2) {
+        const center = getCenter(event.touches);
+        webCropGestureStartRef.current = {
+          ...current,
+          pinchDistance: getDistance(event.touches),
+          centerX: center.x,
+          centerY: center.y,
+          pointerX: 0,
+          pointerY: 0,
+        };
+      } else if (event.touches.length === 1) {
+        webCropGestureStartRef.current = {
+          ...current,
+          pinchDistance: 0,
+          centerX: 0,
+          centerY: 0,
+          pointerX: event.touches[0].clientX,
+          pointerY: event.touches[0].clientY,
+        };
+      }
+    };
+
+    const moveGesture = (event: TouchEvent) => {
+      if (event.touches.length === 0) return;
+      event.preventDefault();
+      const start = webCropGestureStartRef.current;
+
+      if (event.touches.length >= 2) {
+        const distance = getDistance(event.touches);
+        if (start.pinchDistance <= 0) {
+          beginGesture(event);
+          return;
+        }
+        const center = getCenter(event.touches);
+        const ratio = distance / start.pinchDistance;
+        const nextScale = clamp(
+          start.scale * ratio,
+          MIN_CROP_SCALE,
+          MAX_CROP_SCALE
+        );
+        const appliedRatio = nextScale / start.scale;
+        const rect = gestureArea.getBoundingClientRect();
+        const focalX =
+          start.centerX - (rect.left + rect.width / 2);
+        const focalY =
+          start.centerY - (rect.top + rect.height / 2);
+
+        updateCropTransform({
+          scale: nextScale,
+          x:
+            start.x +
+            (center.x - start.centerX) +
+            (1 - appliedRatio) * (focalX - start.x),
+          y:
+            start.y +
+            (center.y - start.centerY) +
+            (1 - appliedRatio) * (focalY - start.y),
+        });
+        return;
+      }
+
+      if (start.pinchDistance > 0) {
+        beginGesture(event);
+        return;
+      }
+      updateCropTransform({
+        scale: start.scale,
+        x: start.x + event.touches[0].clientX - start.pointerX,
+        y: start.y + event.touches[0].clientY - start.pointerY,
+      });
+    };
+
+    const endGesture = (event: TouchEvent) => {
+      if (event.touches.length > 0) beginGesture(event);
+    };
+
+    const listenerOptions: AddEventListenerOptions = {
+      passive: false,
+    };
+    gestureArea.addEventListener(
+      'touchstart',
+      beginGesture,
+      listenerOptions
+    );
+    gestureArea.addEventListener(
+      'touchmove',
+      moveGesture,
+      listenerOptions
+    );
+    gestureArea.addEventListener(
+      'touchend',
+      endGesture,
+      listenerOptions
+    );
+    gestureArea.addEventListener(
+      'touchcancel',
+      endGesture,
+      listenerOptions
+    );
+
+    return () => {
+      gestureArea.removeEventListener('touchstart', beginGesture);
+      gestureArea.removeEventListener('touchmove', moveGesture);
+      gestureArea.removeEventListener('touchend', endGesture);
+      gestureArea.removeEventListener('touchcancel', endGesture);
+    };
+  }, [avatarModalVisible, selectedAvatarImage]);
 
   useEffect(() => {
     async function loadUser() {
@@ -471,17 +643,17 @@ export function ProfileScreen({
         animationType="fade"
         onRequestClose={handleCloseAvatarModal}
       >
-        <Pressable
-          style={styles.avatarModalScrim}
-          onPress={handleCloseAvatarModal}
-          accessible={false}
-        >
+        <View style={styles.avatarModalScrim}>
           <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={handleCloseAvatarModal}
+            accessible={false}
+          />
+          <View
             style={[
               styles.avatarModalCard,
               compactAvatarModal && styles.avatarModalCardCompact,
             ]}
-            onPress={(event) => event.stopPropagation()}
           >
             <View style={styles.avatarModalHeader}>
               <View style={styles.avatarModalHeaderSpacer} />
@@ -517,8 +689,19 @@ export function ProfileScreen({
             >
               {selectedAvatarImage && cropBaseSize ? (
                 <View
-                  style={styles.avatarCropGestureArea}
-                  {...cropPanResponder.panHandlers}
+                  ref={cropGestureAreaRef}
+                  collapsable={false}
+                  style={[
+                    styles.avatarCropGestureArea,
+                    Platform.OS === 'web' &&
+                      ({
+                        touchAction: 'none',
+                        overscrollBehavior: 'contain',
+                      } as any),
+                  ]}
+                  {...(Platform.OS === 'web'
+                    ? {}
+                    : cropPanResponder.panHandlers)}
                   accessibilityRole="adjustable"
                   accessibilityLabel="头像裁切区域"
                   accessibilityHint="拖动调整位置，双指缩放图片"
@@ -743,8 +926,8 @@ export function ProfileScreen({
                 )}
               </TouchableOpacity>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </AppModal>
 
       {/* 下方流式卡片区 */}
