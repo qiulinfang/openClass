@@ -6,11 +6,11 @@ import { PracticeReviewScreen } from '@/screens/PracticeReviewScreen';
 import { storage } from '@/services/storage';
 import { authService } from '@/services/auth-service';
 import { initEnvConfig } from '@/services/env-config';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DeviceEventEmitter, Alert, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NetworkDebugOverlay } from '@/components/NetworkDebugOverlay';
+import { AppSafeAreaProvider } from '@/components/AppSafeArea';
 import { installNetworkDebugger } from '@/services/network-debugger';
 
 installNetworkDebugger();
@@ -19,10 +19,10 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <AppSafeAreaProvider>
       <AppContent />
       <NetworkDebugOverlay />
-    </SafeAreaProvider>
+    </AppSafeAreaProvider>
   );
 }
 
