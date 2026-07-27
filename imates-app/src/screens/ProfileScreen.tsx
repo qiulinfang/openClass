@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,12 +14,16 @@ import {
   Image,
   ScrollView,
   Platform,
+  Pressable,
+  useWindowDimensions,
+  PanResponder,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ImageManipulator,
   SaveFormat,
 } from 'expo-image-manipulator';
+import { AppModal } from '@/components/AppSafeArea';
 import { getUserInfo, UserInfo } from '@/services/auth-service';
 import { storage } from '@/services/storage';
 import appJson from '../../app.json';
@@ -29,6 +38,54 @@ interface ProfileScreenProps {
 
 const APP_VERSION = appJson.expo.version;
 const AVATAR_STORAGE_KEY = 'userInfo';
+const MIN_CROP_SCALE = 1;
+const MAX_CROP_SCALE = 4;
+
+interface SelectedAvatarImage {
+  uri: string;
+  width: number;
+  height: number;
+}
+
+interface AvatarCropTransform {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+const INITIAL_CROP_TRANSFORM: AvatarCropTransform = {
+  scale: 1,
+  x: 0,
+  y: 0,
+};
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+const getTouchDistance = (touches: readonly any[]): number => {
+  if (touches.length < 2) return 0;
+  return Math.hypot(
+    touches[0].pageX - touches[1].pageX,
+    touches[0].pageY - touches[1].pageY
+  );
+};
+
+const getCoverImageSize = (
+  image: SelectedAvatarImage,
+  viewportSize: number
+): { width: number; height: number } => {
+  const aspect = image.width / image.height;
+  if (aspect >= 1) {
+    return {
+      width: viewportSize * aspect,
+      height: viewportSize,
+    };
+  }
+  return {
+    width: viewportSize,
+    height: viewportSize / aspect,
+  };
+};
 
 const resolveAvatarUri = (userInfo: UserInfo | null): string | null => {
   const avatar = userInfo?.avatarNew || userInfo?.avatar;
@@ -57,9 +114,119 @@ export function ProfileScreen({
   onOpenQuestionRecords,
   onOpenSupport,
 }: ProfileScreenProps) {
+  const { width: windowWidth, height: windowHeight } =
+    useWindowDimensions();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+  const [pendingAvatarUri, setPendingAvatarUri] =
+    useState<string | null>(null);
+  const [selectedAvatarImage, setSelectedAvatarImage] =
+    useState<SelectedAvatarImage | null>(null);
+  const [cropTransform, setCropTransform] =
+    useState<AvatarCropTransform>(INITIAL_CROP_TRANSFORM);
+  const [isPreparingAvatar, setIsPreparingAvatar] = useState(false);
+  const selectedAvatarImageRef =
+    useRef<SelectedAvatarImage | null>(null);
+  const cropViewportSizeRef = useRef(220);
+  const cropTransformRef =
+    useRef<AvatarCropTransform>(INITIAL_CROP_TRANSFORM);
+  const cropGestureStartRef = useRef({
+    scale: 1,
+    x: 0,
+    y: 0,
+    pinchDistance: 0,
+  });
+
+  const constrainCropTransform = (
+    transform: AvatarCropTransform
+  ): AvatarCropTransform => {
+    const image = selectedAvatarImageRef.current;
+    const viewportSize = cropViewportSizeRef.current;
+    const scale = clamp(
+      transform.scale,
+      MIN_CROP_SCALE,
+      MAX_CROP_SCALE
+    );
+    if (!image) return { scale, x: 0, y: 0 };
+    const baseSize = getCoverImageSize(image, viewportSize);
+    const maxX = Math.max(
+      0,
+      (baseSize.width * scale - viewportSize) / 2
+    );
+    const maxY = Math.max(
+      0,
+      (baseSize.height * scale - viewportSize) / 2
+    );
+    return {
+      scale,
+      x: clamp(transform.x, -maxX, maxX),
+      y: clamp(transform.y, -maxY, maxY),
+    };
+  };
+
+  const updateCropTransform = (
+    transform: AvatarCropTransform
+  ) => {
+    const next = constrainCropTransform(transform);
+    cropTransformRef.current = next;
+    setCropTransform(next);
+  };
+
+  const cropPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () =>
+          !!selectedAvatarImageRef.current,
+        onMoveShouldSetPanResponder: () =>
+          !!selectedAvatarImageRef.current,
+        onPanResponderGrant: (event) => {
+          const current = cropTransformRef.current;
+          cropGestureStartRef.current = {
+            ...current,
+            pinchDistance: getTouchDistance(
+              event.nativeEvent.touches
+            ),
+          };
+        },
+        onPanResponderMove: (event, gestureState) => {
+          const start = cropGestureStartRef.current;
+          const touches = event.nativeEvent.touches;
+          if (touches.length >= 2) {
+            const nextDistance = getTouchDistance(touches);
+            if (start.pinchDistance <= 0) {
+              cropGestureStartRef.current = {
+                ...cropTransformRef.current,
+                pinchDistance: nextDistance,
+              };
+              return;
+            }
+            updateCropTransform({
+              scale:
+                start.scale *
+                (nextDistance / start.pinchDistance),
+              x: start.x,
+              y: start.y,
+            });
+            return;
+          }
+          if (start.pinchDistance > 0) {
+            cropGestureStartRef.current = {
+              ...cropTransformRef.current,
+              pinchDistance: 0,
+            };
+            return;
+          }
+          updateCropTransform({
+            scale: start.scale,
+            x: start.x + gestureState.dx,
+            y: start.y + gestureState.dy,
+          });
+        },
+      }),
+    []
+  );
 
   useEffect(() => {
     async function loadUser() {
@@ -73,6 +240,7 @@ export function ProfileScreen({
 
   const handleChangeAvatar = async () => {
     try {
+      setIsPreparingAvatar(true);
       if (Platform.OS !== 'web') {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
@@ -83,14 +251,81 @@ export function ProfileScreen({
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.75,
+        allowsEditing: false,
+        quality: 1,
       });
       if (result.canceled || !result.assets[0]) return;
 
       const asset = result.assets[0];
-      const imageContext = ImageManipulator.manipulate(asset.uri);
+      const selectedImage = {
+        uri: asset.uri,
+        width: asset.width || 1,
+        height: asset.height || 1,
+      };
+      selectedAvatarImageRef.current = selectedImage;
+      setSelectedAvatarImage(selectedImage);
+      setPendingAvatarUri(null);
+      updateCropTransform(INITIAL_CROP_TRANSFORM);
+    } catch (error) {
+      console.warn('[ProfileScreen] 更换头像失败:', error);
+      Alert.alert('更换失败', '暂时无法读取所选图片，请稍后重试。');
+    } finally {
+      setIsPreparingAvatar(false);
+    }
+  };
+
+  const handleCloseAvatarModal = () => {
+    if (isPreparingAvatar) return;
+    setPendingAvatarUri(null);
+    setSelectedAvatarImage(null);
+    selectedAvatarImageRef.current = null;
+    updateCropTransform(INITIAL_CROP_TRANSFORM);
+    setAvatarModalVisible(false);
+  };
+
+  const handleApplyAvatarCrop = async () => {
+    if (!selectedAvatarImage || isPreparingAvatar) return;
+    try {
+      setIsPreparingAvatar(true);
+      const viewportSize = cropViewportSizeRef.current;
+      const baseSize = getCoverImageSize(
+        selectedAvatarImage,
+        viewportSize
+      );
+      const displayWidth = baseSize.width * cropTransform.scale;
+      const displayHeight = baseSize.height * cropTransform.scale;
+      const imageLeft =
+        (viewportSize - displayWidth) / 2 + cropTransform.x;
+      const imageTop =
+        (viewportSize - displayHeight) / 2 + cropTransform.y;
+      const pixelsPerPoint =
+        selectedAvatarImage.width / displayWidth;
+      const rawCropSize = viewportSize * pixelsPerPoint;
+      const cropSize = Math.min(
+        rawCropSize,
+        selectedAvatarImage.width,
+        selectedAvatarImage.height
+      );
+      const originX = clamp(
+        -imageLeft * pixelsPerPoint,
+        0,
+        selectedAvatarImage.width - cropSize
+      );
+      const originY = clamp(
+        -imageTop * pixelsPerPoint,
+        0,
+        selectedAvatarImage.height - cropSize
+      );
+
+      const imageContext = ImageManipulator.manipulate(
+        selectedAvatarImage.uri
+      );
+      imageContext.crop({
+        originX,
+        originY,
+        width: cropSize,
+        height: cropSize,
+      });
       imageContext.resize({ width: 512, height: 512 });
       const renderedImage = await imageContext.renderAsync();
       const optimizedImage = await renderedImage.saveAsync({
@@ -98,21 +333,52 @@ export function ProfileScreen({
         compress: 0.72,
         format: SaveFormat.JPEG,
       });
-      const avatarNew = optimizedImage.base64
+      const previewUri = optimizedImage.base64
         ? `data:image/jpeg;base64,${optimizedImage.base64}`
         : optimizedImage.uri;
+      setPendingAvatarUri(previewUri);
+      setSelectedAvatarImage(null);
+      selectedAvatarImageRef.current = null;
+    } catch (error) {
+      console.warn('[ProfileScreen] 裁切头像失败:', error);
+      Alert.alert('裁切失败', '暂时无法裁切图片，请重新选择。');
+    } finally {
+      setIsPreparingAvatar(false);
+    }
+  };
+
+  const handleAdjustCropScale = (delta: number) => {
+    const current = cropTransformRef.current;
+    updateCropTransform({
+      ...current,
+      scale: current.scale + delta,
+    });
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!pendingAvatarUri || isPreparingAvatar) return;
+    try {
+      setIsPreparingAvatar(true);
       const nextUserInfo: UserInfo = {
         ...(userInfo || { id: '', name: '学伴用户' }),
-        avatarNew,
+        avatarNew: pendingAvatarUri,
       };
-
-      await storage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(nextUserInfo));
+      await storage.setItem(
+        AVATAR_STORAGE_KEY,
+        JSON.stringify(nextUserInfo)
+      );
       setUserInfo(nextUserInfo);
       setAvatarLoadFailed(false);
+      setPendingAvatarUri(null);
+      setSelectedAvatarImage(null);
+      selectedAvatarImageRef.current = null;
+      setAvatarModalVisible(false);
       Alert.alert('头像已更新', '新的头像已保存。');
     } catch (error) {
-      console.warn('[ProfileScreen] 更换头像失败:', error);
-      Alert.alert('更换失败', '暂时无法读取所选图片，请稍后重试。');
+      console.warn('[ProfileScreen] 保存头像失败:', error);
+      Alert.alert('保存失败', '头像暂时无法保存，请稍后重试。');
+    } finally {
+      setIsPreparingAvatar(false);
     }
   };
 
@@ -142,30 +408,42 @@ export function ProfileScreen({
     );
   }
 
+  const avatarUri = resolveAvatarUri(userInfo);
+  const previewAvatarUri = pendingAvatarUri || avatarUri;
+  const canShowPreviewAvatar =
+    !!previewAvatarUri && (!!pendingAvatarUri || !avatarLoadFailed);
+  const compactAvatarModal = windowHeight < 500;
+  const avatarPreviewSize = compactAvatarModal
+    ? 112
+    : Math.min(220, windowWidth - 112);
+  cropViewportSizeRef.current = avatarPreviewSize;
+  selectedAvatarImageRef.current = selectedAvatarImage;
+  cropTransformRef.current = cropTransform;
+  const cropBaseSize = selectedAvatarImage
+    ? getCoverImageSize(selectedAvatarImage, avatarPreviewSize)
+    : null;
+  const cropDisplayWidth =
+    (cropBaseSize?.width || 0) * cropTransform.scale;
+  const cropDisplayHeight =
+    (cropBaseSize?.height || 0) * cropTransform.scale;
+
   return (
     <View style={styles.container}>
       {/* 顶部蓝紫渐变区 */}
       <View style={styles.gradientHeader}>
-        {/* 右上角轻量设置圆盘 */}
-        <TouchableOpacity
-          style={styles.headerSettingBtn}
-          onPress={() => Alert.alert('设置', '系统高级选项模块载入中...')}
-        >
-          <Text style={styles.headerSettingIcon}>⚙️</Text>
-        </TouchableOpacity>
-
         {/* 头像及基本信息 */}
         <View style={styles.userProfileRow}>
           <TouchableOpacity
             style={styles.avatarWrapper}
-            onPress={handleChangeAvatar}
+            onPress={() => setAvatarModalVisible(true)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="更换头像"
+            accessibilityLabel="查看头像大图"
+            accessibilityHint="打开后可以裁切并更换头像"
           >
-            {resolveAvatarUri(userInfo) && !avatarLoadFailed ? (
+            {avatarUri && !avatarLoadFailed ? (
               <Image
-                source={{ uri: resolveAvatarUri(userInfo)! }}
+                source={{ uri: avatarUri }}
                 style={styles.avatarImage}
                 resizeMode="cover"
                 onError={() => setAvatarLoadFailed(true)}
@@ -177,23 +455,297 @@ export function ProfileScreen({
                 <View style={styles.avatarBody} />
               </>
             )}
-            <View style={styles.avatarEditOverlay}>
-              <Text style={styles.avatarEditText}>更换</Text>
-            </View>
           </TouchableOpacity>
 
           <View style={styles.profileTextInfo}>
             <View style={styles.userNameRow}>
               <Text style={styles.userNameText}>{userInfo?.name || '张同学'}</Text>
-              {/* 学霸 ⚡ 徽章 */}
-              <View style={styles.badgeWrapper}>
-                <Text style={styles.badgeText}>⚡</Text>
-              </View>
             </View>
-            <Text style={styles.userSubText}>九年级 · 乐学少年</Text>
           </View>
         </View>
       </View>
+
+      <AppModal
+        visible={avatarModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseAvatarModal}
+      >
+        <Pressable
+          style={styles.avatarModalScrim}
+          onPress={handleCloseAvatarModal}
+          accessible={false}
+        >
+          <Pressable
+            style={[
+              styles.avatarModalCard,
+              compactAvatarModal && styles.avatarModalCardCompact,
+            ]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.avatarModalHeader}>
+              <View style={styles.avatarModalHeaderSpacer} />
+              <Text style={styles.avatarModalTitle}>
+                {selectedAvatarImage
+                  ? '调整头像'
+                  : pendingAvatarUri
+                    ? '圆形头像预览'
+                    : '头像预览'}
+              </Text>
+              <TouchableOpacity
+                style={styles.avatarModalClose}
+                onPress={handleCloseAvatarModal}
+                disabled={isPreparingAvatar}
+                accessibilityRole="button"
+                accessibilityLabel="关闭头像预览"
+              >
+                <Text style={styles.avatarModalCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={[
+                styles.avatarPreviewFrame,
+                {
+                  width: avatarPreviewSize,
+                  height: avatarPreviewSize,
+                  borderRadius: avatarPreviewSize / 2,
+                },
+                compactAvatarModal &&
+                  styles.avatarPreviewFrameCompact,
+              ]}
+            >
+              {selectedAvatarImage && cropBaseSize ? (
+                <View
+                  style={styles.avatarCropGestureArea}
+                  {...cropPanResponder.panHandlers}
+                  accessibilityRole="adjustable"
+                  accessibilityLabel="头像裁切区域"
+                  accessibilityHint="拖动调整位置，双指缩放图片"
+                  accessibilityValue={{
+                    min: MIN_CROP_SCALE * 100,
+                    max: MAX_CROP_SCALE * 100,
+                    now: Math.round(cropTransform.scale * 100),
+                    text: `${Math.round(
+                      cropTransform.scale * 100
+                    )}%`,
+                  }}
+                  accessibilityActions={[
+                    { name: 'increment', label: '放大头像' },
+                    { name: 'decrement', label: '缩小头像' },
+                  ]}
+                  onAccessibilityAction={(event) => {
+                    if (
+                      event.nativeEvent.actionName === 'increment'
+                    ) {
+                      handleAdjustCropScale(0.25);
+                    } else if (
+                      event.nativeEvent.actionName === 'decrement'
+                    ) {
+                      handleAdjustCropScale(-0.25);
+                    }
+                  }}
+                >
+                  <Image
+                    source={{ uri: selectedAvatarImage.uri }}
+                    style={[
+                      styles.avatarCropImage,
+                      {
+                        width: cropDisplayWidth,
+                        height: cropDisplayHeight,
+                        left:
+                          (avatarPreviewSize - cropDisplayWidth) /
+                            2 +
+                          cropTransform.x,
+                        top:
+                          (avatarPreviewSize - cropDisplayHeight) /
+                            2 +
+                          cropTransform.y,
+                      },
+                    ]}
+                    resizeMode="stretch"
+                    accessibilityLabel="待裁切头像"
+                  />
+                </View>
+              ) : canShowPreviewAvatar ? (
+                <Image
+                  source={{ uri: previewAvatarUri! }}
+                  style={styles.avatarPreviewImage}
+                  resizeMode="cover"
+                  accessibilityLabel="头像圆形预览"
+                />
+              ) : (
+                <>
+                  <View style={styles.avatarPreviewHead} />
+                  <View style={styles.avatarPreviewBody} />
+                </>
+              )}
+            </View>
+
+            <Text
+              style={[
+                styles.avatarModalHint,
+                compactAvatarModal && styles.avatarModalHintCompact,
+              ]}
+            >
+              {pendingAvatarUri
+                ? '确认头像在圆形区域内显示完整后再保存'
+                : selectedAvatarImage
+                  ? '拖动调整位置，双指或按钮放大缩小'
+                  : '选择图片后可自由调整头像位置和大小'}
+            </Text>
+
+            {selectedAvatarImage ? (
+              <>
+                <View style={styles.avatarZoomControls}>
+                  <TouchableOpacity
+                    style={[
+                      styles.avatarZoomButton,
+                      (isPreparingAvatar ||
+                        cropTransform.scale <= MIN_CROP_SCALE) &&
+                        styles.avatarButtonDisabled,
+                    ]}
+                    onPress={() => handleAdjustCropScale(-0.25)}
+                    disabled={
+                      isPreparingAvatar ||
+                      cropTransform.scale <= MIN_CROP_SCALE
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="缩小头像"
+                  >
+                    <Text style={styles.avatarZoomButtonText}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.avatarZoomValue}>
+                    {Math.round(cropTransform.scale * 100)}%
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.avatarZoomButton,
+                      (isPreparingAvatar ||
+                        cropTransform.scale >= MAX_CROP_SCALE) &&
+                        styles.avatarButtonDisabled,
+                    ]}
+                    onPress={() => handleAdjustCropScale(0.25)}
+                    disabled={
+                      isPreparingAvatar ||
+                      cropTransform.scale >= MAX_CROP_SCALE
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="放大头像"
+                  >
+                    <Text style={styles.avatarZoomButtonText}>＋</Text>
+                  </TouchableOpacity>
+                </View>
+                <View
+                  style={[
+                    styles.avatarModalActions,
+                    compactAvatarModal &&
+                      styles.avatarModalActionsCompact,
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.avatarSecondaryButton}
+                    onPress={() => void handleChangeAvatar()}
+                    disabled={isPreparingAvatar}
+                    activeOpacity={0.78}
+                    accessibilityRole="button"
+                    accessibilityLabel="重新选择头像图片"
+                  >
+                    <Text style={styles.avatarSecondaryButtonText}>
+                      重新选择
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.avatarPrimaryButton,
+                      isPreparingAvatar &&
+                        styles.avatarButtonDisabled,
+                    ]}
+                    onPress={() => void handleApplyAvatarCrop()}
+                    disabled={isPreparingAvatar}
+                    activeOpacity={0.78}
+                    accessibilityRole="button"
+                    accessibilityLabel="确认裁切头像"
+                  >
+                    {isPreparingAvatar ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.avatarPrimaryButtonText}>
+                        确认裁切
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : pendingAvatarUri ? (
+              <View
+                style={[
+                  styles.avatarModalActions,
+                  compactAvatarModal &&
+                    styles.avatarModalActionsCompact,
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.avatarSecondaryButton,
+                    isPreparingAvatar && styles.avatarButtonDisabled,
+                  ]}
+                  onPress={() => void handleChangeAvatar()}
+                  disabled={isPreparingAvatar}
+                  activeOpacity={0.78}
+                  accessibilityRole="button"
+                  accessibilityLabel="重新选择并裁切头像"
+                >
+                  <Text style={styles.avatarSecondaryButtonText}>
+                    重新选择
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.avatarPrimaryButton,
+                    isPreparingAvatar && styles.avatarButtonDisabled,
+                  ]}
+                  onPress={() => void handleSaveAvatar()}
+                  disabled={isPreparingAvatar}
+                  activeOpacity={0.78}
+                  accessibilityRole="button"
+                  accessibilityLabel="保存头像"
+                >
+                  {isPreparingAvatar ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.avatarPrimaryButtonText}>
+                      保存头像
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.avatarPrimaryButtonFull,
+                  compactAvatarModal &&
+                    styles.avatarPrimaryButtonFullCompact,
+                  isPreparingAvatar && styles.avatarButtonDisabled,
+                ]}
+                onPress={() => void handleChangeAvatar()}
+                disabled={isPreparingAvatar}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityLabel="从相册选择并裁切头像"
+              >
+                {isPreparingAvatar ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.avatarPrimaryButtonText}>
+                    更换头像
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </Pressable>
+        </Pressable>
+      </AppModal>
 
       {/* 下方流式卡片区 */}
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentInner} showsVerticalScrollIndicator={false}>
@@ -207,13 +759,7 @@ export function ProfileScreen({
               </View>
               <Text style={styles.menuItemLabel}>老师答疑记录</Text>
             </View>
-            <View style={styles.menuRightArea}>
-              {/* 示意设计图上的小电力指示符 */}
-              <View style={styles.miniBadge}>
-                <Text style={styles.miniBadgeText}>⚡</Text>
-              </View>
-              <Text style={styles.arrowIcon}>▶</Text>
-            </View>
+            <Text style={styles.arrowIcon}>▶</Text>
           </TouchableOpacity>
 
           <View style={styles.menuDivider} />
@@ -297,21 +843,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
     position: 'relative',
   },
-  headerSettingBtn: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 40,
-    right: 20,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSettingIcon: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
   userProfileRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -348,50 +879,212 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  avatarEditOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 18,
-    backgroundColor: 'rgba(17, 24, 39, 0.58)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEditText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '600',
-  },
   profileTextInfo: {
     justifyContent: 'center',
   },
   userNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
   },
   userNameText: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginRight: 8,
   },
-  badgeWrapper: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+  avatarModalScrim: {
+    flex: 1,
+    paddingHorizontal: 24,
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(15, 18, 38, 0.62)',
+  },
+  avatarModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
+    borderRadius: 28,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#111827',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.22,
+        shadowRadius: 30,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  avatarModalCardCompact: {
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  avatarModalHeader: {
+    width: '100%',
+    minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  badgeText: {
-    fontSize: 10,
+  avatarModalHeaderSpacer: {
+    width: 44,
+  },
+  avatarModalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#20243D',
+  },
+  avatarModalClose: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F8',
+  },
+  avatarModalCloseText: {
+    marginTop: -2,
+    fontSize: 28,
+    lineHeight: 30,
+    color: '#656B80',
+  },
+  avatarPreviewFrame: {
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 6,
+    borderColor: '#E8E5FF',
+    backgroundColor: '#7775E8',
+  },
+  avatarPreviewFrameCompact: {
+    marginTop: 8,
+    borderWidth: 4,
+  },
+  avatarPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarCropGestureArea: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  avatarCropImage: {
+    position: 'absolute',
+  },
+  avatarPreviewHead: {
+    width: 72,
+    height: 72,
+    marginTop: 20,
+    borderRadius: 36,
+    backgroundColor: '#FFFFFF',
+  },
+  avatarPreviewBody: {
+    position: 'absolute',
+    bottom: -72,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#FFFFFF',
+  },
+  avatarModalHint: {
+    marginTop: 18,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: '#74798C',
+  },
+  avatarModalHintCompact: {
+    marginTop: 8,
+  },
+  avatarZoomControls: {
+    height: 44,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarZoomButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#DADCE6',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7F7FC',
+  },
+  avatarZoomButtonText: {
+    marginTop: -2,
+    fontSize: 25,
+    lineHeight: 28,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  avatarZoomValue: {
+    minWidth: 70,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#555B70',
+    fontVariant: ['tabular-nums'],
+  },
+  avatarModalActions: {
+    width: '100%',
+    marginTop: 22,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  avatarModalActionsCompact: {
+    marginTop: 10,
+  },
+  avatarPrimaryButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4F46E5',
+  },
+  avatarPrimaryButtonFull: {
+    width: '100%',
+    minHeight: 48,
+    marginTop: 22,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4F46E5',
+  },
+  avatarPrimaryButtonFullCompact: {
+    marginTop: 10,
+  },
+  avatarPrimaryButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
-  userSubText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.75)',
+  avatarSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: '#DADCE6',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  avatarSecondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#555B70',
+  },
+  avatarButtonDisabled: {
+    opacity: 0.55,
   },
   scrollContent: {
     flex: 1,
@@ -457,23 +1150,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#111827',
-  },
-  menuRightArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  miniBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniBadgeText: {
-    fontSize: 10,
-    color: '#4F46E5',
   },
   menuDivider: {
     height: 1,

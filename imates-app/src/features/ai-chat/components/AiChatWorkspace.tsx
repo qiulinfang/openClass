@@ -870,18 +870,23 @@ export function AiChatWorkspace({
     }
   };
 
-  const openConversationTab = () => {
-    if (chatCategory === 'teacher') {
-      if (!currentTeacherSession) {
-        setActiveTab('sessions');
-        return;
-      }
-      if (!isTeacherConnected) void retryTeacherConnection();
-    }
+  const openAiConversationTab = () => {
+    if (interactionBusy) return;
+    switchChatCategory('companion');
     setActiveTab('chat');
   };
 
   const interactionBusy = isSending || isSendingToTeacher;
+
+  const openTeacherConversationTab = () => {
+    if (interactionBusy) return;
+    switchChatCategory('teacher');
+    setActiveTab('chat');
+    if (currentTeacherSession && !isTeacherConnected) {
+      void retryTeacherConnection();
+    }
+  };
+
   const bottomInset = respectBottomSafeArea
     ? Math.max(10, insets.bottom)
     : 10;
@@ -892,20 +897,69 @@ export function AiChatWorkspace({
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === 'chat' && styles.tabActive,
+            activeTab === 'chat' &&
+              chatCategory === 'companion' &&
+              styles.tabActive,
+            interactionBusy && styles.tabDisabled,
           ]}
-          onPress={openConversationTab}
+          onPress={openAiConversationTab}
+          disabled={interactionBusy}
           accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'chat' }}
+          accessibilityState={{
+            selected:
+              activeTab === 'chat' &&
+              chatCategory === 'companion',
+            disabled: interactionBusy,
+          }}
         >
           <Text
             style={[
               styles.tabText,
-              activeTab === 'chat' && styles.tabTextActive,
+              activeTab === 'chat' &&
+                chatCategory === 'companion' &&
+                styles.tabTextActive,
             ]}
+            numberOfLines={1}
           >
-            {chatCategory === 'teacher' ? '老师答疑' : 'AI问答'}
+            AI问答
           </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'chat' &&
+              chatCategory === 'teacher' &&
+              styles.tabActive,
+            interactionBusy && styles.tabDisabled,
+          ]}
+          onPress={openTeacherConversationTab}
+          disabled={interactionBusy}
+          accessibilityRole="tab"
+          accessibilityState={{
+            selected:
+              activeTab === 'chat' &&
+              chatCategory === 'teacher',
+            disabled: interactionBusy,
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'chat' &&
+                chatCategory === 'teacher' &&
+                styles.tabTextActive,
+            ]}
+            numberOfLines={1}
+          >
+            老师答疑
+          </Text>
+          {teacherUnreadIds.size > 0 ? (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>
+                {Math.min(9, teacherUnreadIds.size)}
+              </Text>
+            </View>
+          ) : null}
         </TouchableOpacity>
         <TouchableOpacity
           style={[
@@ -952,21 +1006,44 @@ export function AiChatWorkspace({
       </View>
 
       <View style={styles.content}>
-        {activeTab === 'chat' &&
-        chatCategory === 'teacher' &&
-        currentTeacherSession ? (
-          <TeacherConversationView
-            session={currentTeacherSession}
-            messages={teacherMessages}
-            inputText={teacherInputText}
-            loading={isLoadingTeacherHistory}
-            sending={isSendingToTeacher}
-            connected={isTeacherConnected}
-            bottomInset={bottomInset}
-            onInputChange={setTeacherInputText}
-            onSend={() => void sendToTeacher()}
-            onRetry={() => void retryTeacherConnection()}
-          />
+        {activeTab === 'chat' && chatCategory === 'teacher' ? (
+          currentTeacherSession ? (
+            <TeacherConversationView
+              session={currentTeacherSession}
+              messages={teacherMessages}
+              inputText={teacherInputText}
+              loading={isLoadingTeacherHistory}
+              sending={isSendingToTeacher}
+              connected={isTeacherConnected}
+              bottomInset={bottomInset}
+              onInputChange={setTeacherInputText}
+              onSend={() => void sendToTeacher()}
+              onRetry={() => void retryTeacherConnection()}
+            />
+          ) : (
+            <View style={styles.teacherEmptyState}>
+              <View style={styles.teacherEmptyMark}>
+                <Text style={styles.teacherEmptyMarkText}>师</Text>
+              </View>
+              <Text style={styles.teacherEmptyTitle}>
+                请先选择学科老师
+              </Text>
+              <Text style={styles.teacherEmptyHint}>
+                选择需要答疑的学科后，即可进入对应老师的固定会话
+              </Text>
+              <TouchableOpacity
+                style={styles.teacherEmptyAction}
+                onPress={() => setActiveTab('sessions')}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityLabel="选择学科老师"
+              >
+                <Text style={styles.teacherEmptyActionText}>
+                  选择学科老师
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )
         ) : activeTab === 'chat' ? (
           <AiConversationView
             context={context}
@@ -1101,8 +1178,8 @@ const styles = StyleSheet.create({
   },
   tabs: {
     minHeight: 52,
-    paddingLeft: 12,
-    paddingRight: 4,
+    paddingLeft: 8,
+    paddingRight: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1110,10 +1187,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   tab: {
-    minWidth: 96,
+    minWidth: 68,
     minHeight: 48,
-    marginRight: 8,
-    paddingHorizontal: 13,
+    marginRight: 2,
+    paddingHorizontal: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1166,6 +1243,55 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  teacherEmptyState: {
+    flex: 1,
+    paddingHorizontal: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7F7FC',
+  },
+  teacherEmptyMark: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EDEAFF',
+  },
+  teacherEmptyMarkText: {
+    fontSize: 27,
+    fontWeight: '900',
+    color: '#6256D9',
+  },
+  teacherEmptyTitle: {
+    marginTop: 20,
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#24283E',
+  },
+  teacherEmptyHint: {
+    maxWidth: 320,
+    marginTop: 9,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: '#7B8093',
+  },
+  teacherEmptyAction: {
+    minWidth: 168,
+    minHeight: 48,
+    marginTop: 24,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6256D9',
+  },
+  teacherEmptyActionText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   sessionHistory: {
     flex: 1,
