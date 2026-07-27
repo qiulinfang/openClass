@@ -6,7 +6,7 @@
       <div class="question-list-loading-text">题目加载中...</div>
     </div>
     <!-- 搜索输入框 -->
-    <div class="search-container">
+    <div v-if="props.showSearch !== false" class="search-container">
       <!-- 拍照搜题按钮：根据策略能力和 props 决定是否显示 -->
       <q-btn
         v-if="props.showPhotoSearch !== false && strategy.canPhotoSearch()"
@@ -40,7 +40,6 @@
         dense
         class="debug-store-btn q-ml-sm"
         icon="bug_report"
-        @click="logStoreAndQuestions"
       >
         <q-tooltip>Debug Store / 题目数据</q-tooltip>
       </q-btn>
@@ -387,9 +386,12 @@ const handleLinkClick = (event: MouseEvent) => {
 const props = withDefaults(
   defineProps<{
     searchQuery?: string
+    showSearch?: boolean
     selectedSubjectFilter?: string | null
     // 当父组件传入题目列表时，QuestionList 仅负责展示和操作，不再自行从 store/API 加载
     externalQuestions?: ExerciseItem[]
+    questions?: ExerciseItem[]
+    selectedQuestionId?: string | number
     // 是否显示拍照搜题按钮，默认 true
     showPhotoSearch?: boolean
     // 是否显示“发送给AI”操作，默认 true；可在作业作答页关闭
@@ -438,42 +440,12 @@ const logQuestion = (question: ExerciseItem) => {
   console.log('[Dev Debug] Question Info:', question)
 }
 
-// 打印 Store 和题目列表数据的 Debug 函数
-const logStoreAndQuestions = () => {
-  console.log(
-    '%c[Dev Debug] --- QuestionList Debug Info ---',
-    'color: #9c27b0; font-weight: bold; font-size: 14px;',
-  )
-  console.log('[Dev Debug] Component Props:', {
-    type: props.type,
-    searchQuery: props.searchQuery,
-    selectedSubjectFilter: props.selectedSubjectFilter,
-    externalQuestionsCount: props.externalQuestions?.length,
-    showPhotoSearch: props.showPhotoSearch,
-    showSendToAi: props.showSendToAi,
-    showQuestionActions: props.showQuestionActions,
-    showMistakeBadge: props.showMistakeBadge,
-  })
-  console.log('[Dev Debug] List Type:', props.type || 'exercise')
-  console.log('[Dev Debug] Current Selected Index:', selectedQuestionIndex.value)
-  console.log('[Dev Debug] Current Selected Question:', currentQuestion.value)
-  console.log('[Dev Debug] Displayed Questions (Current Page):', displayedQuestions.value)
-  console.log('[Dev Debug] Local questions.value (All):', questions.value)
-  console.log('[Dev Debug] Strategy:', strategy.value)
-  if (props.type === 'homework') {
-    const homeworkStore = useHomeworkStore()
-    console.log('[Dev Debug] Store Questions (homeworkStore):', homeworkStore.questions)
-  } else {
-    console.log('[Dev Debug] Store Questions (questionStore):', questionStore.questions)
-  }
-  showMessage('Store 中的题目数据已成功打印至控制台！', 'success')
-}
-
 // 创建策略实例（根据 type prop 决定使用哪个策略）
 const strategy = computed(() => createQuestionListStrategy(props.type || 'exercise'))
 
 // 响应式数据
 const questions = ref<ExerciseItem[]>([])
+const effectiveExternalQuestions = computed(() => props.questions || props.externalQuestions)
 const selectedSubject = ref('math')
 const selectedQuestionIndex = ref(-1)
 const loading = ref(true)
@@ -537,12 +509,23 @@ const handlePhotoSearch = () => {
   })
 }
 
-// 判断题目是否被选中（基于题目ID，支持筛选状态）
+// 判断题目是否被选中（优先匹配 props.selectedQuestionId，其次匹配 selectedQuestionIndex，最后匹配 Store）
 const isQuestionSelected = (questionId: string): boolean => {
+  if (props.selectedQuestionId !== undefined && props.selectedQuestionId !== null && props.selectedQuestionId !== '') {
+    const selId = String(props.selectedQuestionId)
+    return selId === questionId || selId === String(questionId)
+  }
+  if (selectedQuestionIndex.value >= 0 && questions.value[selectedQuestionIndex.value]) {
+    const activeId = getQuestionUniqueId(questions.value[selectedQuestionIndex.value])
+    if (activeId === questionId || String(activeId) === String(questionId)) {
+      return true
+    }
+  }
   if (!currentQuestion.value) {
     return false
   }
-  return getQuestionUniqueId(currentQuestion.value) === questionId
+  const currentId = getQuestionUniqueId(currentQuestion.value)
+  return currentId === questionId || String(currentId) === String(questionId)
 }
 
 // 题目全局序号映射：根据原始 questions 列表的位置计算（从 1 开始）
@@ -1107,10 +1090,10 @@ const loadMoreQuestions = async () => {
 }
 
 const loadQuestions = async () => {
-  // 如果父组件通过 externalQuestions 传入题目列表，则不再自行加载，只同步本地列表
-  if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+  // 如果父组件通过 externalQuestions / questions 传入题目列表，则不再自行加载，只同步本地列表
+  if (effectiveExternalQuestions.value && Array.isArray(effectiveExternalQuestions.value)) {
     emit('refresh') // 通知父组件刷新数据源（例如从数据库重新加载）
-    questions.value = [...props.externalQuestions]
+    questions.value = [...effectiveExternalQuestions.value]
     if (questions.value.length > 0) {
       displayedCount.value = INITIAL_DISPLAY_COUNT
       currentPage.value = 1
@@ -1193,13 +1176,13 @@ const refreshQuestions = () => {
 // 下拉刷新处理（由 RubberBandList 触发）
 // 要求：强制重新请求接口，而不是只同步本地 store
 const handlePullDownRefresh = async () => {
-  // 外部题目模式：仅同步 externalQuestions，不请求服务器
-  if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+  // 外部题目模式：仅同步 externalQuestions / questions，不请求服务器
+  if (effectiveExternalQuestions.value && Array.isArray(effectiveExternalQuestions.value)) {
     try {
       console.log('[QuestionList] 下拉刷新（外部题目模式）')
       emit('refresh') // 通知父组件刷新
-      if (props.externalQuestions) {
-        questions.value = [...props.externalQuestions]
+      if (effectiveExternalQuestions.value) {
+        questions.value = [...effectiveExternalQuestions.value]
       }
     } finally {
       const container = scrollContainer.value as any
@@ -1567,19 +1550,18 @@ watch(
   { immediate: false },
 )
 
-// 监听外部传入的题目列表变化（例如 HomeworkAnswerView 在 onMounted 后解析路由再赋值）
+// 监听外部传入的题目列表变化（例如 PhotoSearchFullResultPanel / HomeworkAnswerView 传入题目）
 watch(
-  () => props.externalQuestions,
+  effectiveExternalQuestions,
   (newVal) => {
     if (newVal && Array.isArray(newVal)) {
       questions.value = [...newVal]
-      if (questions.value.length > 0) {
-        displayedCount.value = INITIAL_DISPLAY_COUNT
-        currentPage.value = 1
-      }
+      displayedCount.value = INITIAL_DISPLAY_COUNT
+      currentPage.value = 1
+      loading.value = false
     }
   },
-  { immediate: false },
+  { immediate: true },
 )
 
 // 监听学科过滤变化，重置分页并可能需要重新加载题目
@@ -1587,7 +1569,7 @@ watch(
   selectedSubjectFilter,
   async (newFilter) => {
     // 外部题目模式：不触发任何 store/API 加载，仅重置分页，让过滤逻辑基于 externalQuestions 生效
-    if (props.externalQuestions && Array.isArray(props.externalQuestions)) {
+    if (effectiveExternalQuestions.value && Array.isArray(effectiveExternalQuestions.value)) {
       displayedCount.value = INITIAL_DISPLAY_COUNT
       currentPage.value = 1
       return

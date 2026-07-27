@@ -4,16 +4,10 @@
     <div v-if="modelValue" class="photo-qa-drawer exercise-solve-container">
       <!-- 顶部导航栏 (完全对齐 ExerciseSolveViewNew.vue header) -->
       <header class="exercise-solve-header">
-        <!-- 左侧：返回按钮与标题 -->
+        <!-- 左侧：返回按钮 -->
         <div class="header-left">
           <div class="left-header-back" @click="handleClose">
             <img :src="goBackIcon" alt="返回" class="back-icon" />
-          </div>
-          <div class="logo-section cursor-pointer" @click="handleClose">
-            <div class="title-group">
-              <h1 class="main-title">拍照搜题结果</h1>
-              <p class="sub-title">MathRAG v2 智能精准判定</p>
-            </div>
           </div>
         </div>
 
@@ -170,79 +164,58 @@
                           <div class="text-caption text-grey-7 q-mt-xs">检索中...</div>
                         </div>
 
-                        <q-list
-                          v-else-if="
-                            currentQuestionData?.mathRagV2?.results &&
-                            currentQuestionData.mathRagV2.results.length > 0
-                          "
-                          separator
-                          class="rounded-borders"
+                        <QuestionList
+                          v-else-if="candidateExerciseItems.length > 0"
+                          :questions="candidateExerciseItems"
+                          :selected-question-id="currentQuestionData?.id || currentQuestionData?.bmNo"
+                          :show-search="false"
+                          :show-subject-filter="false"
+                          :show-question-actions="false"
+                          :show-send-to-ai="false"
+                          :show-mistake-badge="false"
+                          type="exercise"
+                          @question-selected="handleQuestionListSelect"
                         >
-                          <q-item
-                            v-for="(candidate, cIdx) in currentQuestionData.mathRagV2.results"
-                            :key="cIdx"
-                            clickable
-                            v-ripple
-                            :active="
-                              currentQuestionData.id === candidate.id ||
-                              currentQuestionData.bmNo === String(candidate.id)
-                            "
-                            active-class="bg-blue-1 text-primary text-weight-bold"
-                            class="q-pa-xs rounded-borders q-mb-xs"
-                            @click="selectCandidateQuestion(candidate)"
-                          >
-                            <q-item-section>
-                              <q-item-label class="text-body2 ellipsis-2-lines">
-                                #{{ cIdx + 1 }}
-                                <span
-                                  class="markdown-content inline-markdown"
-                                  v-html="renderQuestionContent(candidate)"
-                                ></span>
-                              </q-item-label>
-                              <q-item-label caption class="row items-center q-gutter-xs q-mt-xs">
-                                <q-badge
-                                  size="xs"
-                                  :color="
-                                    candidate.same_question?.label === 'same'
-                                      ? 'positive'
-                                      : candidate.same_question?.label === 'likely_same'
-                                        ? 'orange'
-                                        : 'grey-6'
-                                  "
-                                >
-                                  {{
-                                    candidate.same_question?.label === 'same'
-                                      ? '同题命中'
-                                      : candidate.same_question?.label === 'likely_same'
-                                        ? '疑似同题'
-                                        : '相似题'
-                                  }}
-                                </q-badge>
-                                <span class="text-grey-7"
-                                  >匹配: {{ (candidate.score * 100).toFixed(0) }}%</span
-                                >
-                              </q-item-label>
-                            </q-item-section>
-                          </q-item>
-                        </q-list>
-
-                        <div v-else-if="currentQuestionData" class="q-pa-xs">
-                          <q-item
-                            active
-                            active-class="bg-blue-1 text-primary"
-                            class="rounded-borders"
-                          >
-                            <q-item-section>
-                              <q-item-label class="text-body2 ellipsis-2-lines">
-                                #1
-                                <span
-                                  class="markdown-content inline-markdown"
-                                  v-html="renderQuestionContent(currentQuestionData)"
-                                ></span>
-                              </q-item-label>
-                            </q-item-section>
-                          </q-item>
-                        </div>
+                          <template #question-status="{ question }">
+                            <div class="row items-center q-gutter-xs q-ml-xs">
+                              <q-badge
+                                size="xs"
+                                :color="
+                                  (question as any).rawCandidate?.same_question?.label === 'same' ||
+                                  (question as any).same_question?.label === 'same' ||
+                                  question.mathRagV2?.sameQuestionLabel === 'same'
+                                    ? 'positive'
+                                    : (question as any).rawCandidate?.same_question?.label === 'likely_same' ||
+                                      (question as any).same_question?.label === 'likely_same' ||
+                                      question.mathRagV2?.sameQuestionLabel === 'likely_same'
+                                      ? 'orange'
+                                      : 'grey-6'
+                                "
+                              >
+                                {{
+                                  (question as any).rawCandidate?.same_question?.label === 'same' ||
+                                  (question as any).same_question?.label === 'same' ||
+                                  question.mathRagV2?.sameQuestionLabel === 'same'
+                                    ? '同题命中'
+                                    : (question as any).rawCandidate?.same_question?.label === 'likely_same' ||
+                                      (question as any).same_question?.label === 'likely_same' ||
+                                      question.mathRagV2?.sameQuestionLabel === 'likely_same'
+                                      ? '疑似同题'
+                                      : '相似题'
+                                }}
+                              </q-badge>
+                              <span
+                                v-if="
+                                  (question as any).rawCandidate?.score !== undefined ||
+                                  (question as any).score !== undefined
+                                "
+                                class="text-caption text-grey-7"
+                              >
+                                匹配: {{ (((question as any).rawCandidate?.score ?? (question as any).score ?? 0) * 100).toFixed(0) }}%
+                              </span>
+                            </div>
+                          </template>
+                        </QuestionList>
 
                         <div v-else class="text-caption text-grey-5 text-center q-pa-md">
                           {{ activeTab === 'photo' ? '暂无拍照切图匹配题目' : '暂无关键词搜题记录' }}
@@ -294,8 +267,20 @@
                           </q-chip>
                         </div>
 
-                        <!-- 题目操作按钮区：收藏 & 加入我的练习 -->
+                        <!-- 题目操作按钮区：Debug 调试 & 收藏 & 加入我的练习 -->
                         <div class="question-header-actions row items-center q-gutter-xs">
+                          <q-btn
+                            v-if="isDev && currentQuestionData"
+                            flat
+                            dense
+                            size="sm"
+                            color="deep-purple-6"
+                            icon="bug_report"
+                            label="Debug 题目"
+                            @click="logCurrentQuestionInfo"
+                          >
+                            <q-tooltip>在控制台打印当前题目完整信息</q-tooltip>
+                          </q-btn>
                           <q-btn
                             flat
                             dense
@@ -408,20 +393,15 @@
 import { ref, computed, watch } from 'vue'
 import SplitPanel from '@/components/base/SplitPanel.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
-import Toolbar from '@/components/drawing/Toolbar.vue'
 import ExerciseChatPanelNew from '@/components/chat/chatpanel/ExerciseChatPanelNew.vue'
 import FloatBubble from '@/components/base/Fab.vue'
 import AutoHeightTextarea from '@/components/base/Textarea.vue'
 import type { ExerciseItem } from '@/types'
+import QuestionList from './QuestionList.vue'
 
 import goBackIcon from '/icons/goback.svg'
 import textbookipIcon from '/icons/textbookip.png'
 import collapseToggleIcon from '/icons/collapse-toggle-icon.svg'
-import zaipaiyitiIcon from '/icons/zaipaiyiti.svg'
-import jiarulianxiIcon from '/icons/jiarulianxi.svg'
-import shoucangIcon from '/icons/shoucang1.svg'
-import xingxingLightIcon from '/icons/xingxing-light.svg'
-import jiarulianxiLightIcon from '/icons/jiarulianxi-light.svg'
 
 const props = defineProps<{
   modelValue: boolean
@@ -488,6 +468,45 @@ const currentQuestionData = computed(() => {
   if (activeTab.value === 'photo') return props.photoQuestionData
   return props.keywordQuestionData
 })
+
+const isDev = import.meta.env.DEV
+
+const logCurrentQuestionInfo = () => {
+  console.log('=== [Dev Debug] PhotoSearch Current Selected Question ===')
+  console.log('ID / bmNo:', currentQuestionData.value?.id || currentQuestionData.value?.bmNo)
+  console.log('Title / Question:', currentQuestionData.value?.title || currentQuestionData.value?.question)
+  console.log('MathRAG v2 Info:', currentQuestionData.value?.mathRagV2)
+  console.log('Raw ExerciseItem Object:', currentQuestionData.value)
+  console.log('========================================================')
+}
+
+const candidateExerciseItems = computed<ExerciseItem[]>(() => {
+  const results = currentQuestionData.value?.mathRagV2?.results
+  if (results && results.length > 0) {
+    return results.map((candidate: any, index: number) => ({
+      id: String(candidate.id || index),
+      bmNo: String(candidate.id || index + 1),
+      title: candidate.question || candidate.title || '',
+      question: candidate.question || candidate.title || '',
+      answer: candidate.answer || '',
+      explanation: candidate.explanation || '',
+      mathRagV2: candidate.mathRagV2 || {
+        sameQuestionLabel: candidate.same_question?.label,
+        probability: candidate.same_question?.probability,
+      },
+      rawCandidate: candidate,
+    }))
+  }
+  if (currentQuestionData.value) {
+    return [currentQuestionData.value]
+  }
+  return []
+})
+
+const handleQuestionListSelect = (question: ExerciseItem) => {
+  const raw = (question as any).rawCandidate || question
+  selectCandidateQuestion(raw)
+}
 
 const handleClearKeyword = () => {
   keywordText.value = ''

@@ -76,7 +76,7 @@ export class MathRagSearchApi {
     const response = await httpClient.post<import('@/types').OcrResponse>(
       '/v2/ocr',
       formData,
-      { headers, skipAuth401Retry: true }
+      { headers, skipAuth401Retry: true, timeout: 300000 }
     )
     return response.data!
   }

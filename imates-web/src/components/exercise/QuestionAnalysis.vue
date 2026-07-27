@@ -59,7 +59,11 @@ const formattedAnalysis = computed(() => {
   const q = props.question
   const structured = q.structuredContent
   const rawAnalysis =
-    q.explanation || q.questionReason || q.analysisData || structured?.analysis || ''
+    structured?.analysis ||
+    q.questionAnalysis ||
+    q.explanation ||
+    (typeof q.answer === 'string' ? q.answer : '') ||
+    ''
 
   if (!rawAnalysis || !rawAnalysis.trim()) return ''
   return renderMessageContent(rawAnalysis)
