@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppSafeAreaInsets } from '@/components/AppSafeArea';
 import * as ImagePicker from 'expo-image-picker';
 import {
   AiChatService,
@@ -78,7 +77,7 @@ export function AiChatWorkspace({
   prefillStorageKey,
   respectBottomSafeArea = true,
 }: AiChatWorkspaceProps) {
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const cancelRequestRef = useRef<(() => void) | null>(null);
   const activeRequestRef = useRef<{
     session: AiChatSession;
@@ -857,10 +856,9 @@ export function AiChatWorkspace({
   };
 
   const interactionBusy = isSending || isSendingToTeacher;
-  const bottomInset =
-    respectBottomSafeArea && Platform.OS === 'ios'
-      ? Math.max(8, insets.bottom)
-      : 10;
+  const bottomInset = respectBottomSafeArea
+    ? Math.max(10, insets.bottom)
+    : 10;
 
   return (
     <View style={styles.container}>

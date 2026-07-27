@@ -9,7 +9,10 @@ import {
   Text,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  AppBottomBar,
+  AppScreenSafeArea,
+} from '@/components/AppSafeArea';
 import { HomeworkScreen } from './HomeworkScreen';
 import { ChatScreen } from './ChatScreen';
 import { ProfileScreen } from './ProfileScreen';
@@ -133,7 +136,7 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <AppScreenSafeArea style={styles.safeArea}>
       {/* 主选项卡视口 */}
       <View style={styles.tabContentContainer}>
         {activeTab === 'resources' && (
@@ -168,7 +171,7 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
       </View>
 
       {/* 底部 Tab 导航栏 */}
-      <View style={styles.tabBar}>
+      <AppBottomBar style={styles.tabBar}>
         {/* Tab 1: 资源 */}
         <TouchableOpacity
           style={[styles.tabItem, activeTab === 'resources' && styles.activeTabItem]}
@@ -265,14 +268,14 @@ export function HomeScreen({ onLogout, route }: HomeScreenProps) {
           <Text style={[styles.tabIcon, activeTab === 'profile' && styles.activeTabIcon]}>👤</Text>
           <Text style={[styles.tabLabel, activeTab === 'profile' && styles.activeTabLabel]}>我的</Text>
         </TouchableOpacity>
-      </View>
+      </AppBottomBar>
 
       <GlobalAiAssistant
         hidden={activeTab === 'ai'}
       />
 
       <StatusBar style="dark" />
-    </SafeAreaView>
+    </AppScreenSafeArea>
   );
 }
 
@@ -285,12 +288,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabBar: {
-    flexDirection: 'row',
-    height: 60 + (Platform.OS === 'ios' ? 8 : 0),
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderColor: '#E2E8F0',
-    paddingBottom: Platform.OS === 'ios' ? 8 : 0,
     overflow: 'visible', // 允许中央的圆形突出来
     ...Platform.select({
       ios: {

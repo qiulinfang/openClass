@@ -10,17 +10,15 @@ import {
   Image,
   type ImageSourcePropType,
   type LayoutChangeEvent,
-  Modal,
   PanResponder,
   Platform,
   StyleSheet,
   View,
 } from 'react-native';
 import {
-  initialWindowMetrics,
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+  AppModal,
+  AppModalSafeArea,
+} from '@/components/AppSafeArea';
 import { AiChatWorkspace } from './AiChatWorkspace';
 import { GENERAL_AI_CHAT_CONTEXT } from '../general-context';
 import type { AiChatContext } from '../types';
@@ -109,7 +107,6 @@ function GlobalAiAssistantComponent({
   accessibilityLabel = '打开 AI 问答',
   prefillStorageKey = 'CHAT_PREFILL',
 }: GlobalAiAssistantProps) {
-  const insets = useSafeAreaInsets();
   const isExerciseAssistant = context.scene === 'exercise';
   const floatingWidth = isExerciseAssistant
     ? EXERCISE_FLOATING_WIDTH
@@ -117,16 +114,6 @@ function GlobalAiAssistantComponent({
   const floatingHeight = isExerciseAssistant
     ? EXERCISE_FLOATING_HEIGHT
     : FLOATING_HEIGHT;
-  const modalTopInset =
-    Platform.OS === 'ios'
-      ? Math.max(
-          insets.top,
-          initialWindowMetrics?.insets.top || 0,
-          insets.top === 0 && !initialWindowMetrics?.insets.top
-            ? 44
-            : 0
-        )
-      : 0;
   const [internalChatVisible, setInternalChatVisible] = useState(false);
   const chatVisible = visible ?? internalChatVisible;
   const [positionReady, setPositionReady] = useState(false);
@@ -397,23 +384,14 @@ function GlobalAiAssistantComponent({
       ) : null}
 
       {chatVisible ? (
-        <Modal
+        <AppModal
           visible
           animationType="slide"
           presentationStyle="fullScreen"
-          statusBarTranslucent={false}
           onRequestClose={closeChat}
         >
-          <SafeAreaView
-            style={styles.chatSafeArea}
-            edges={['left', 'right', 'bottom']}
-          >
-            <View
-              style={[
-                styles.chatContent,
-                { paddingTop: modalTopInset },
-              ]}
-            >
+          <AppModalSafeArea style={styles.chatSafeArea}>
+            <View style={styles.chatContent}>
               <AiChatWorkspace
                 context={context}
                 onClose={closeChat}
@@ -421,8 +399,8 @@ function GlobalAiAssistantComponent({
                 respectBottomSafeArea={false}
               />
             </View>
-          </SafeAreaView>
-        </Modal>
+          </AppModalSafeArea>
+        </AppModal>
       ) : null}
     </>
   );
