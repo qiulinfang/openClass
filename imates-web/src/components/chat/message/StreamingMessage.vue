@@ -26,12 +26,13 @@
           <div v-if="seg.type === 'text'" class="html-text-segment">
             <span v-html="seg.rendered"></span>
           </div>
-          <!-- 网页 -->
+          <!-- 网页/化学分子式卡片 -->
           <div
             v-else
             class="html-card"
-            role="button"
-            tabindex="0"
+            :class="{ 'non-clickable': isNonClickableHtml(seg.url) }"
+            :role="isNonClickableHtml(seg.url) ? undefined : 'button'"
+            :tabindex="isNonClickableHtml(seg.url) ? undefined : 0"
             @click.stop="openHtmlDialog(seg.url)"
           >
             <div class="html-card-content">
@@ -40,6 +41,7 @@
                 :src="props.rawHtmlMap?.[seg.url]?.[1]"
                 alt="HTML预览"
                 class="html-card-img"
+                :style="isNonClickableHtml(seg.url) ? { cursor: 'default' } : {}"
                 @click.stop="openHtmlDialog(seg.url)"
               />
               <Loading v-else text="加载中..." :size="24" class="html-card-loading-wrapper" />
@@ -94,8 +96,17 @@ const pdfViewerStore = usePdfViewerStore()
 // 使用公共的 markdown 渲染器
 const { renderMessageContent } = useMessageRenderer()
 
+const isNonClickableHtml = (url?: string) => {
+  if (!url) return false
+  return url.includes('chemdraw_html')
+}
+
 const openHtmlDialog = (urlArg?: string) => {
   if (!urlArg) return
+  if (isNonClickableHtml(urlArg)) {
+    console.log('[StreamingMessage] chemdraw_html 类型不支持点击跳转预览')
+    return
+  }
 
   // 获取本地缓存的 HTML 内容
   const cachedHtml = props.rawHtmlMap?.[urlArg]?.[0]
@@ -109,18 +120,28 @@ const handleReloadClick = (url?: string) => {
   emit('reload-html-image', url)
 }
 
-// 计算显示的内容（用于打字机效果，流式与非流式统一使用 displayedLength 控制）
+// 计算显示的内容（用于打字机效果，流式与非流式统一处理）
 const displayedContent = computed(() => {
-  const content = props.content
+  let content = props.content
   
-  // 对于 HTML 消息，过滤掉 HTML URL 及其包装语法，只显示文字描述
+  // 1. 如果正在接收消息（流式传输中），屏蔽过滤掉各种格式的链接和 URL，避免接收中途闪烁或展示未完成的链接
+  if (props.isStreaming) {
+    // 隐藏完整的 Markdown 格式链接 [显示文本](http...) -> 仅保留显示文本
+    content = content.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '$1')
+    // 隐藏未接收完整的 Markdown 链接前缀如 [显示文本](http...
+    content = content.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]*)$/g, '$1')
+    // 隐藏独立的网址 URL (包括 HTML 卡片链接和普通 http/https 链接)
+    content = content.replace(/(`?!\[\]\()?\s*https?:\/\/[^\s\n]+\s*(\)`?)?/gi, '')
+    return renderMessageContent(content.trim())
+  }
+
+  // 2. 接收完成后（非流式）：对于 HTML 卡片消息，过滤掉 URL 占位符，交给 htmlSegments 渲染卡片
   if (props.messageType === 'html') {
-    // 匹配: `![](URL)` 或 ![](URL) 或 单独 URL
-    // 以及前后可能的空白字符
     const filteredContent = content.replace(/(`?!\[\]\()?\s*https:\/\/[a-z0-9.-]*kelvin-cosin\.cloud\/.*?\.html\s*(\)`?)?.*?(\n|$)/gi, '')
     return renderMessageContent(filteredContent.trim())
   }
   
+  // 3. 接收完成后的普通文本消息：渲染完整的包含链接的 Markdown 内容
   return renderMessageContent(content)
 })
 
@@ -473,6 +494,11 @@ const setTypewriterContentRef = (el: any) => {
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
+}
+
+.html-card.non-clickable {
+  cursor: default;
+  pointer-events: none;
 }
 
 .html-description {

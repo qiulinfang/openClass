@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, watch, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch, isRef, type Ref } from 'vue'
 import { getMqttService, type MqttMessage, type MqttConnectionStatus } from '@/services/mqtt/mqttService'
 
 export interface UseMqttOptions {
@@ -63,7 +63,7 @@ export function useMqtt(
   // 获取当前订阅主题数组
   const getTopics = (): string[] => {
     if (!topic) return []
-    const val = typeof topic === 'function' ? (topic as any)() : 'value' in topic ? topic.value : topic
+    const val = typeof topic === 'function' ? (topic as any)() : isRef(topic) ? topic.value : topic
     if (Array.isArray(val)) {
       return val
     }
@@ -88,7 +88,7 @@ export function useMqtt(
   }
 
   // 监听主题的变化
-  if (topic && ('value' in topic || typeof topic === 'function')) {
+  if (topic && (isRef(topic) || typeof topic === 'function')) {
     watch(
       () => (typeof topic === 'function' ? (topic as any)() : (topic as Ref<any>).value),
       () => {

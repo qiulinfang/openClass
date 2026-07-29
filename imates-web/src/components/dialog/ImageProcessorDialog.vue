@@ -15,9 +15,9 @@
     @confirm="handleConfirm"
     @cancel="handleCancel"
   >
-    <!-- 调试按钮 -->
+    <!-- 调试按钮（仅在 dev 环境显示） -->
     <template #header-right>
-      <q-btn flat round dense icon="bug_report" color="primary" @click="handleDebugLog">
+      <q-btn v-if="isDev" flat round dense icon="bug_report" color="primary" @click="handleDebugLog">
         <q-tooltip>打印调试数据</q-tooltip>
       </q-btn>
     </template>
@@ -153,6 +153,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+const isDev = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // 调试打印函数
 const handleDebugLog = () => {

@@ -6,7 +6,7 @@
         <h1 class="text-h5 text-weight-bold q-ma-none">MQTT over WebSocket 调试中心</h1>
         <p class="text-caption text-grey-7 q-ma-none">测试底层 MQTT 连接、主题订阅及消息推送</p>
       </div>
-      <q-btn flat rounded icon="arrow_back" label="返回控制台" to="/test/nav" color="primary" />
+      <q-btn flat rounded icon="arrow_back" label="返回控制台" to="/test-nav" color="primary" />
     </div>
 
     <div class="row q-col-gutter-md">
@@ -234,8 +234,8 @@ defineOptions({
 })
 
 const brokerUrl = ref(getMqttWsUrl())
-const username = ref('')
-const password = ref('')
+const username = ref('admin')
+const password = ref('admin')
 
 const newTopic = ref('imates/test/topic')
 const subscribedTopics = ref<string[]>([])
@@ -254,7 +254,11 @@ const logs = ref<LogEntry[]>([])
 
 // 获取或初始化 MQTT 服务
 let mqttService = getMqttService({
-  url: brokerUrl.value
+  url: brokerUrl.value,
+  options: {
+    username: username.value || undefined,
+    password: password.value || undefined
+  }
 })
 
 const addLog = (type: 'system' | 'message' | 'error', content: string, topic?: string) => {

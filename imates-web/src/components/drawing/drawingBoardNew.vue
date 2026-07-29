@@ -2952,9 +2952,9 @@ const exportToJpg = (quality = 0.9) => {
     exportScale = window.devicePixelRatio || 1
   }
 
-  const padding = 40
-  const width = (maxX - minX) * exportScale + padding * 2
-  const height = (maxY - minY) * exportScale + padding * 2
+  const padding = 0
+  const width = (maxX - minX) * exportScale
+  const height = (maxY - minY) * exportScale
 
   const tempCanvas = document.createElement('canvas')
   tempCanvas.width = width

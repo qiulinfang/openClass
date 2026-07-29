@@ -18,40 +18,68 @@
 
         <!-- 导航菜单-->
         <div class="nav-items-wrapper">
-          <div
-            v-for="item in navMainItems"
-            :key="item.key"
-            class="nav-item"
-            :class="{ active: isNavItemActive(item.key) }"
-            @click="handleNavItemClick(item)"
-          >
-            <div class="nav-icon-wrapper" v-if="item.key === 'toolbox'">
-              <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-              <span class="notification-badge" v-if="userClientUnreadCount > 0">{{
-                userClientUnreadCount
-              }}</span>
-            </div>
-            <img v-else :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-            <span class="nav-text">{{ item.label }}</span>
-          </div>
+          <!-- 工具箱 -->
+          <NavItem
+            label="工具箱"
+            :is-active="isNavItemActive('toolbox')"
+            :icon="currentToolBoxIcon"
+            :badge-count="userClientUnreadCount"
+            @click="handleToolBoxClick"
+          />
+
+          <!-- 知识图谱 -->
+          <NavItem
+            label="知识图谱"
+            :is-active="isNavItemActive('knowledge')"
+            :icon="currentKnowledgeGraphIcon"
+            @click="handleKnowledgeGraphClick"
+          />
+
+          <!-- 我的习题 -->
+          <NavItem
+            label="我的习题"
+            :is-active="isNavItemActive('exercises')"
+            :icon="currentExerciseIcon"
+            @click="handleMyExercisesClick"
+          />
+
+          <!-- 我的作业 -->
+          <NavItem
+            label="我的作业"
+            :is-active="isNavItemActive('homework')"
+            :icon="currentHomeworkIcon"
+            :badge-count="unreadHomeworkCount"
+            :has-notification="hasHomeworkNotification"
+            @click="handleMyHomeworkClick"
+          />
+
+          <!-- 错题本 -->
+          <NavItem
+            label="错题本"
+            :is-active="isNavItemActive('mistakeBook')"
+            :icon="currentMistakeBookIcon"
+            @click="handleMistakeBookClick"
+          />
+
+          <!-- 拍照答疑 -->
+          <NavItem
+            label="拍照答疑"
+            :is-active="isNavItemActive('photoQa')"
+            :icon="currentPhotoQaIcon"
+            @click="handlePhotoQaClick"
+          />
         </div>
 
         <!-- 底部菜单项 -->
         <div class="nav-items-bottom">
-          <div
-            v-for="item in navBottomItems"
-            :key="item.key"
-            class="nav-item"
-            :class="{ active: isNavItemActive(item.key) }"
-            @click="handleNavItemClick(item)"
-          >
-            <div class="nav-icon-wrapper" v-if="item.key === 'resources'">
-              <img :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-              <span class="notification-dot" v-if="hasResourceNotification"></span>
-            </div>
-            <img v-else :src="getNavIcon(item)" :alt="item.label" class="nav-icon" />
-            <span class="nav-text">{{ item.label }}</span>
-          </div>
+          <!-- 资源下载 -->
+          <NavItem
+            label="资源下载"
+            :is-active="isNavItemActive('resources')"
+            :icon="currentDownloadResourcesIcon"
+            :has-notification="hasResourceNotification"
+            @click="goToResources"
+          />
         </div>
       </div>
     </div>
@@ -183,6 +211,7 @@ import GlobalChatDialog from '@/components/dialog/GlobalChatDialog.vue'
 import FeedbackDialog from '@/components/dialog/FeedbackDialog.vue'
 import ProfileDialog from '@/components/dialog/ProfileDialog.vue'
 import MainChatPanel from '@/components/chat/chatpanel/MainChatPanel.vue'
+import NavItem, { type NavItemConfig, type NavKey } from '@/components/nav/NavItem.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import Modal from '@/components/base/Modal.vue'
 import DrawingBoardNew from '@/components/drawing/drawingBoardNew.vue'
@@ -194,6 +223,8 @@ import { getUserId } from '@/services'
 import { useDraftStore } from '@/stores/draftStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
+import { useHomeworkStore } from '@/stores/homeworkStore'
+import { useMqtt } from '@/composables/useMqtt'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import type { ChatEntry } from '../types/chat'
 import type { ScreenshotDrawingState } from '@/stores/aiTextbookChatStore'
@@ -255,6 +286,29 @@ const resourceStore = useResourceStore()
 const teacherChatStore = useTeacherChatStore()
 const draftStore = useDraftStore()
 const userClientStore = useUserClientStore()
+const homeworkStore = useHomeworkStore()
+
+const unreadHomeworkCount = computed(() => homeworkStore.unreadHomeworkCount)
+const hasHomeworkNotification = computed(() => homeworkStore.hasHomeworkNotification)
+
+// 根据当前登录的学生账号，精确订阅 RabbitMQ 对应学生路由 Key 的 MQTT 通知 Topic (如 ROUTE_MESSAGE_NOTIFICATION_guest045)
+const studentNotificationTopics = computed(() => {
+  const account = getUserId() || currentUserInfo.value.id
+  if (account) {
+    return [`ROUTE_MESSAGE_NOTIFICATION_${account}`, '#']
+  }
+  return ['#']
+})
+
+// 全局 MQTT 消息监听：收到对应学生账号通知或全局消息时，自动累加未读作业数量并在“我的作业”展示小红点
+useMqtt(
+  studentNotificationTopics,
+  (msg) => {
+    console.log('[Global MQTT] 收到学生通知消息，累加未读作业数量:', msg)
+    homeworkStore.incrementUnreadHomework(1)
+  },
+  { autoConnect: true },
+)
 
 const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
 
@@ -266,100 +320,55 @@ const createFabTraceId = (prefix: string) => {
 const activeNavItem = ref(props.activeNavItem)
 const isInClass = ref(false)
 
-type NavKey =
-  | 'toolbox'
-  | 'knowledge'
-  | 'exercises'
-  | 'homework'
-  | 'mistakeBook'
-  | 'resources'
-  | 'photoQa'
-  | 'canvas'
-  | 'logout'
-
-interface NavItemConfig {
-  key: NavKey
-  label: string
-  iconType: NavKey
-  position: 'main' | 'bottom'
-  routeName?: string
-}
-
-interface SchoolNavConfig {
-  main: NavItemConfig[]
-  bottom: NavItemConfig[]
-}
-
-interface SchoolAppConfig {
-  schoolId: string
-  nav: SchoolNavConfig
-  appUpdatePath?: string
-}
-
-const currentSchoolAppConfig: SchoolAppConfig = {
-  schoolId: 'jinshanyuanyang',
-  nav: {
-    main: [
-      { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
-      {
-        key: 'knowledge',
-        label: '知识图谱',
-        iconType: 'knowledge',
-        position: 'main',
-        routeName: 'knowledgeGraph',
-      },
-      {
-        key: 'exercises',
-        label: '我的习题',
-        iconType: 'exercises',
-        position: 'main',
-        routeName: 'exerciseSolve',
-      },
-      {
-        key: 'homework',
-        label: '我的作业',
-        iconType: 'homework',
-        position: 'main',
-        routeName: 'myHomework',
-      },
-      {
-        key: 'mistakeBook',
-        label: '错题本',
-        iconType: 'mistakeBook',
-        position: 'main',
-        routeName: 'mistakeBook',
-      },
-      {
-        key: 'photoQa',
-        label: '拍照答疑',
-        iconType: 'photoQa',
-        position: 'main',
-        routeName: 'photoSearch',
-      },
-      // {
-      //   key: 'canvas',
-      //   label: '创意画布',
-      //   iconType: 'canvas',
-      //   position: 'main',
-      //   routeName: 'interactiveCanvas',
-      // },
-    ],
-    bottom: [
-      {
-        key: 'resources',
-        label: '资源下载',
-        iconType: 'resources',
-        position: 'bottom',
-        routeName: 'myResources',
-      },
-    ],
+// 主菜单与底部菜单配置（写死定义）
+const navMainItems: NavItemConfig[] = [
+  { key: 'toolbox', label: '工具箱', iconType: 'toolbox', position: 'main' },
+  {
+    key: 'knowledge',
+    label: '知识图谱',
+    iconType: 'knowledge',
+    position: 'main',
+    routeName: 'knowledgeGraph',
   },
-  appUpdatePath: '/bj101/appupdate.json',
-}
+  {
+    key: 'exercises',
+    label: '我的习题',
+    iconType: 'exercises',
+    position: 'main',
+    routeName: 'exerciseSolve',
+  },
+  {
+    key: 'homework',
+    label: '我的作业',
+    iconType: 'homework',
+    position: 'main',
+    routeName: 'myHomework',
+  },
+  {
+    key: 'mistakeBook',
+    label: '错题本',
+    iconType: 'mistakeBook',
+    position: 'main',
+    routeName: 'mistakeBook',
+  },
+  {
+    key: 'photoQa',
+    label: '拍照答疑',
+    iconType: 'photoQa',
+    position: 'main',
+    routeName: 'photoSearch',
+  },
+]
 
-// 根据学校配置拆分主菜单和底部菜单
-const navMainItems = computed(() => currentSchoolAppConfig.nav.main)
-const navBottomItems = computed(() => currentSchoolAppConfig.nav.bottom)
+const navBottomItems: NavItemConfig[] = [
+  {
+    key: 'resources',
+    label: '资源下载',
+    iconType: 'resources',
+    position: 'bottom',
+    routeName: 'myResources',
+  },
+]
 
 // 用户头像显示：从用户信息中获取
 const userAvatar = computed(() => {
@@ -471,7 +480,11 @@ const aiChatDialogRef = ref<
 >(null)
 
 // 使用全局的 MainChatPanel 状态管理
-const { isMainChatPanelVisible: showMainChatPanel, hideMainChatPanel, showMainChatPanel: showPanel } = useMainChatPanel()
+const {
+  isMainChatPanelVisible: showMainChatPanel,
+  hideMainChatPanel,
+  showMainChatPanel: showPanel,
+} = useMainChatPanel()
 
 const mainChatPanelEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
 const aiChatDialogEntry = ref<ChatEntry>({ mode: 'default', category: 'ai-general' })
@@ -545,7 +558,17 @@ const fabStyle = computed(() => ({
 }))
 
 // 需要隐藏左侧导航菜单的路由
-const routesHideFunctionMenu: string[] = ['homeworkExercise', 'homeworkAnswer','exerciseSolve','pdfViewer','htmlViewer','videoViewer','htmlPreview', 'draftNotebook', 'ggbViewer']
+const routesHideFunctionMenu: string[] = [
+  'homeworkExercise',
+  'homeworkAnswer',
+  'exerciseSolve',
+  'pdfViewer',
+  'htmlViewer',
+  'videoViewer',
+  'htmlPreview',
+  'draftNotebook',
+  'ggbViewer',
+]
 
 // 是否隐藏左侧导航菜单
 // 在作业作答 / 作业答题等专注场景隐藏，避免干扰
@@ -555,7 +578,13 @@ const hideFunctionMenu = computed(() => {
 })
 
 // 不显示悬浮按钮的路由
-const routesHideFab: string[] = ['exerciseSolve', 'homeworkAnswer', 'homeworkExercise', 'photoSearch','htmlPreview']
+const routesHideFab: string[] = [
+  'exerciseSolve',
+  'homeworkAnswer',
+  'homeworkExercise',
+  'photoSearch',
+  'htmlPreview',
+]
 
 // 计算是否显示悬浮按钮：
 // 1）在部分路由（routesHideFab）隐藏
@@ -582,7 +611,7 @@ watch(
     if (!androidReady) return
     androidBridge.setFloatingFabVisible(visible)
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 // 兜底同步：从后台回到前台时，原生可能重置了悬浮按钮状态，这里强制按当前 showFab 再同步一次
@@ -793,30 +822,6 @@ const currentDownloadResourcesIcon = computed(() => {
   return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
 })
 
-// 根据导航项配置获取当前应显示的图标（普通/选中）
-const getNavIcon = (item: NavItemConfig) => {
-  switch (item.iconType) {
-    case 'toolbox':
-      return currentToolBoxIcon.value
-    case 'knowledge':
-      return currentKnowledgeGraphIcon.value
-    case 'exercises':
-      return currentExerciseIcon.value
-    case 'homework':
-      return currentHomeworkIcon.value
-    case 'mistakeBook':
-      return currentMistakeBookIcon.value
-    case 'photoQa':
-      return currentPhotoQaIcon.value
-    case 'canvas':
-      return currentCanvasIcon.value
-    case 'resources':
-      return currentDownloadResourcesIcon.value
-    default:
-      return currentDownloadResourcesIcon.value
-  }
-}
-
 // 开始拖动
 const startDrag = (event: MouseEvent | TouchEvent) => {
   // 设置拖动状态
@@ -917,6 +922,29 @@ const isNavItemActive = (key: NavKey | string) => {
   return activeNavItem.value === key
 }
 
+// 根据导航 key 获取对应的静态/动态图标
+const getNavIcon = (key: NavKey | string) => {
+  const isActive = isNavItemActive(key)
+  switch (key) {
+    case 'toolbox':
+      return isActive ? toolBoxSelectIcon : toolBoxIcon
+    case 'knowledge':
+      return isActive ? knowledgeGraphSelectIcon : knowledgeGraphIcon
+    case 'exercises':
+      return isActive ? exerciseSelectIcon : exerciseIcon
+    case 'homework':
+      return isActive ? homeworkSelectIcon : homeworkIcon
+    case 'mistakeBook':
+      return isActive ? mistakeBookSelectIcon : mistakeBookIcon
+    case 'photoQa':
+      return isActive ? photoQaSelectIcon : photoQaIcon
+    case 'resources':
+      return isActive ? downloadResourcesSelectIcon : downloadResourcesIcon
+    default:
+      return ''
+  }
+}
+
 // 检查教材更新状态和未下载状态（纯读逻辑，不写 IndexedDB）
 const checkResourceUpdates = async () => {
   try {
@@ -952,10 +980,12 @@ const checkResourceUpdates = async () => {
 // 初始化按钮位置
 onMounted(async () => {
   // 登录并初始化主界面后，异步触发错题本和对话历史的云端增量同步
-  import('@/services/storage/sync-service').then(m => {
-    m.SyncService.syncMistakes()
-    m.SyncService.syncChatHistory()
-  }).catch(() => {})
+  import('@/services/storage/sync-service')
+    .then((m) => {
+      m.SyncService.syncMistakes()
+      m.SyncService.syncChatHistory()
+    })
+    .catch(() => {})
 
   // 处理从草稿本返回的情况
   if (route.query.openAiChat === 'true') {
@@ -1176,6 +1206,8 @@ watch(
         break
       case 'myHomework':
         activeNavItem.value = 'homework'
+        // 进入我的作业页面时清空未读作业消息（标记已读）
+        homeworkStore.clearUnreadHomework()
         break
       case 'exerciseSolve':
         activeNavItem.value = 'exercises'
@@ -1195,7 +1227,7 @@ watch(
     }
     emit('nav-item-change', activeNavItem.value)
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 // 切换工具箱显示状态
@@ -1345,7 +1377,7 @@ const handleMyExercisesClick = () => {
   console.log('[导航] 跳转到我的习题页')
   router.push({
     name: 'exerciseSolve',
-    query: { scene: 'exercise' }
+    query: { scene: 'exercise' },
   })
 }
 
@@ -1751,7 +1783,10 @@ const handleMistakeBookClick = () => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    transition:
+      box-shadow 0.2s ease,
+      transform 0.2s ease,
+      background-color 0.2s ease;
   }
 
   // 拖动时禁用 QFab 的点击动画

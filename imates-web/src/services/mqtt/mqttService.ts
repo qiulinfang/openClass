@@ -46,10 +46,13 @@ export class MqttService {
     
     const defaultOptions: IClientOptions = {
       clientId: `imates_web_${userId}_${Date.now()}`,
+      username: 'admin',
+      password: 'admin',
       clean: true,
       connectTimeout: 5000,
       reconnectPeriod: 3000,
       keepalive: 60,
+      protocolVersion: 4, // 默认使用 MQTT v3.1.1，兼容 RabbitMQ 及 EMQX
       ...config.options
     }
 
@@ -60,6 +63,12 @@ export class MqttService {
    * 建立连接
    */
   private connect(url: string, options: IClientOptions): void {
+    if (!url) {
+      console.log('[MQTT] 未配置 MQTT 服务地址，跳过连接')
+      this.status.value = 'disconnected'
+      return
+    }
+
     if (this.client) {
       this.client.end()
     }
@@ -71,7 +80,7 @@ export class MqttService {
       this.client = mqtt.connect(url, options)
 
       this.client.on('connect', () => {
-        console.log('[MQTT] Connected successfully')
+        console.log(`[MQTT] ✅ WebSocket 连接成功！已成功连接至 MQTT 服务端: ${url}`)
         this.status.value = 'connected'
         this.error.value = null
         this.triggerEvent('connect')

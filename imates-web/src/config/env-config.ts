@@ -96,8 +96,8 @@ export const ADDRESS_CATALOG = {
   GAOKAO_AGENT_LLM: 'http://49.232.39.212:9011',
   HW_FORMULA_RECOGNIZE: 'http://49.232.39.212:9012',
   QUESTION_STRUCTURER: 'http://49.232.39.212:8055',
-  MQTT_WS_RELEASE: 'wss://www.imates.com.cn:8083/mqtt',
-  MQTT_WS_TEST: 'ws://www.imates.com.cn:8083/mqtt',
+  MQTT_WS_RELEASE: '',
+  MQTT_WS_TEST: 'ws://101.132.188.40:50018/ws',
 } as const
 
 // localStorage 键名

@@ -42,6 +42,42 @@ export const useHomeworkStore = defineStore('homework', () => {
   /** 当前作业的原始信息 */
   const currentHomeworkInfo = ref<HomeworkUndoItem | null>(null)
 
+  // 从 localStorage 读取未读作业消息计数的初始值
+  const loadInitialUnreadCount = (): number => {
+    try {
+      const stored = localStorage.getItem('unread_homework_count')
+      return stored ? parseInt(stored, 10) || 0 : 0
+    } catch {
+      return 0
+    }
+  }
+
+  /** 未读作业消息数量 */
+  const unreadHomeworkCount = ref<number>(loadInitialUnreadCount())
+
+  /** 是否有未读作业消息通知 */
+  const hasHomeworkNotification = computed(() => unreadHomeworkCount.value > 0)
+
+  /** 增加未读作业数量 */
+  const incrementUnreadHomework = (amount: number = 1): void => {
+    unreadHomeworkCount.value += amount
+    try {
+      localStorage.setItem('unread_homework_count', unreadHomeworkCount.value.toString())
+    } catch (e) {
+      console.warn('[HOMEWORK] 保存未读作业数失败:', e)
+    }
+  }
+
+  /** 清空未读作业消息标记（标记已读） */
+  const clearUnreadHomework = (): void => {
+    unreadHomeworkCount.value = 0
+    try {
+      localStorage.setItem('unread_homework_count', '0')
+    } catch (e) {
+      console.warn('[HOMEWORK] 清理未读作业数失败:', e)
+    }
+  }
+
   // ==================== 计算属性 ====================
   
   /** 当前选中的作业 */
@@ -313,6 +349,8 @@ export const useHomeworkStore = defineStore('homework', () => {
     resubmitType,
     currentHomeworkInfo,
     homeworkListCache,
+    unreadHomeworkCount,
+    hasHomeworkNotification,
     
     // 计算属性
     currentQuestion,
@@ -333,6 +371,8 @@ export const useHomeworkStore = defineStore('homework', () => {
     updateQuestionsInDB,
     loadHomeworkSubmissionFromDB,
     resetAnswerState,
-    clearAllHomeworkSubmissionsFromDB
+    clearAllHomeworkSubmissionsFromDB,
+    incrementUnreadHomework,
+    clearUnreadHomework,
   }
 })

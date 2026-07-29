@@ -364,6 +364,8 @@ watch(
 onMounted(async () => {
   pageNumber.value = 1
   hasMore.value = true
+  // 进入“我的作业”页面后标记当前所有未读消息为已读，清除红点提醒
+  homeworkStore.clearUnreadHomework()
   await fetchHomeworkList()
 })
 
