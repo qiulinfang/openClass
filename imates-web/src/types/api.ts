@@ -428,3 +428,9 @@ export interface FillBlankHandwritingOcrGradeResponse {
     handwriting_items?: OcrHandwritingItem[]
   }
 }
+
+/** 更新头像 API 响应类型 */
+export interface UpdateAvatarResult {
+  avatar: string
+}
+

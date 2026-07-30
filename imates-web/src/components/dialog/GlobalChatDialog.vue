@@ -209,11 +209,13 @@ const handleNewChatClick = async () => {
   // 根据当前选中的节点类型来决定创建哪种类型的对话
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
 
-  if (selectedCategory === 'BIOLOGY' || selectedCategory === 'MATH') {
-    // 如果选中的是教师分类，显示老师选择对话框
+  if (selectedCategory === 'teacher' || (selectedCategory && selectedCategory !== 'ai')) {
+    // 如果选中的是教师分类或某个老师，显示老师选择对话框
     availableTeachers.value = teacherChatStore.getAvailableTeachers().map((t) => ({
       name: t.name,
-      subject: t.subject === 'BIOLOGY' ? 'biology' : 'math',
+      subject: (t.subject === 'BIOLOGY' ? 'biology' : 'math') as 'biology' | 'math',
+      avatar: t.avatar,
+      account: t.account,
     }))
 
     if (availableTeachers.value.length === 0) {

@@ -118,6 +118,7 @@
                           :show-analysis="isHomeworkSubmitted"
                           show-title
                           :show-id="false"
+                          @change="handleChoiceAnswerChange"
                         />
                         <JudgmentQuestion
                           v-else-if="currentAnswerQuestion.type === 'true_false'"
@@ -128,6 +129,7 @@
                           :show-analysis="isHomeworkSubmitted"
                           show-title
                           :show-id="false"
+                          @change="handleChoiceAnswerChange"
                         />
                         <CompositeQuestion
                           v-else-if="currentAnswerQuestion.type === 'composite'"
@@ -416,6 +418,28 @@ const handleNextQuestion = () => {
   if (currentQuestionIndex.value < externalQuestions.value.length - 1) {
     const newIndex = currentQuestionIndex.value + 1
     handleStartAnswer(externalQuestions.value[newIndex])
+  }
+}
+
+let autoNextQuestionTimer: ReturnType<typeof setTimeout> | null = null
+
+const handleChoiceAnswerChange = (newValue: string[]) => {
+  // 作业已提交或已被锁定时，不触发自动切题
+  if (isHomeworkSubmitted.value || isHomeworkLocked.value) return
+
+  if (autoNextQuestionTimer) {
+    clearTimeout(autoNextQuestionTimer)
+    autoNextQuestionTimer = null
+  }
+
+  const qType = currentAnswerQuestion.value?.type
+  // 单选题和判断题选中答案后，延迟 350ms 展示选项选中视觉反馈，随后自动跳转至下一题
+  if (qType === 'single_choice' || qType === 'true_false') {
+    if (Array.isArray(newValue) && newValue.length > 0) {
+      autoNextQuestionTimer = setTimeout(() => {
+        handleNextQuestion()
+      }, 350)
+    }
   }
 }
 

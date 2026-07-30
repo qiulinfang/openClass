@@ -336,6 +336,7 @@ import refreshIcon from '/icons/refresh.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
 import RepresentativeIcon from '/icons/Representative.svg'
 import GuruIcon from '/icons/Guru.svg'
+import defaultTeacherIcon from '/icons/teacher.svg'
 
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {
@@ -497,14 +498,44 @@ const getModelIcon = (model?: string) => {
 
 // 计算AI/老师消息的头像图标
 const aiAvatarIcon = computed(() => {
+  // 如果是老师消息，优先获取教师个人设置的真实网络头像，没有配置时回退使用默认空白老师头像 (/icons/teacher.svg)
+  if (props.message.sender === 'teacher' || props.type === 'teacher') {
+    try {
+      const currentSession = teacherStore.currentSession
+      const teachers = teacherStore.getAvailableTeachers()
+
+      if (currentSession) {
+        const teacher = teachers.find(
+          (t) =>
+            (t.account && currentSession.sessionId?.includes(t.account)) ||
+            (t.id && currentSession.sessionId?.includes(t.id)) ||
+            (t.account && currentSession.teacherAccount === t.account) ||
+            (t.id && currentSession.teacherId === t.id)
+        )
+
+        if (teacher?.avatar && teacher.avatar.trim()) {
+          return teacher.avatar
+        }
+        if (currentSession.avatar && currentSession.avatar.trim()) {
+          return currentSession.avatar
+        }
+      }
+
+      if ((props.message as any).avatar && (props.message as any).avatar.trim()) {
+        return (props.message as any).avatar
+      }
+    } catch (e) {
+      console.warn('[ChatMessage] 获取老师头像异常:', e)
+    }
+
+    return defaultTeacherIcon
+  }
+
   // 如果是AI消息且有selectedModel，使用对应模式的头像
   if (props.message.sender === 'ai' && props.message.selectedModel) {
     return getModelIcon(props.message.selectedModel)
   }
-  // 如果是老师消息，使用默认老师头像
-  if (props.message.sender === 'teacher') {
-    return DeskmateIcon
-  }
+
   // 默认使用AI头像
   return DeskmateIcon
 })

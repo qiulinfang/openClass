@@ -510,20 +510,8 @@ const handleSessionClick = async (node: TreeNode) => {
       }
 
       emit('session-selected', 'ai', node.sessionId)
-    } else if (
-      [
-        'CHINESE',
-        'MATH',
-        'ENGLISH',
-        'POLITICS',
-        'HISTORY',
-        'GEOGRAPHY',
-        'PHYSICS',
-        'CHEMISTRY',
-        'BIOLOGY',
-      ].includes(node.category)
-    ) {
-      console.log('[SessionTree] 处理教师会话切换')
+    } else {
+      console.log('[SessionTree] 处理教师会话切换, sessionId:', node.sessionId)
       unreadStore.clearUnread(node.sessionId) // 直接使用原始sessionId
       console.log('[SessionTree] 设置选中会话ID:', node.sessionId)
       selectedSessionId.value = node.sessionId

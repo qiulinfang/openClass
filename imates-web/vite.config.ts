@@ -86,6 +86,14 @@ export default defineConfig(() => {
         })
       },
       proxy: {
+        '/blw-edu-service-alc': {
+          target: 'http://www.imates.com.cn:8222',
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            attachBasicProxyLog(proxy, '/blw-edu-service-alc')
+          },
+        },
         '/requests2': {
           target: ADDRESS_CATALOG.IMATES_HTTP,
           changeOrigin: true,

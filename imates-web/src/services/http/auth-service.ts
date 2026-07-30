@@ -359,7 +359,7 @@ export class AuthService {
       throw new Error(response.message || '获取用户信息失败')
     }
 
-    const userInfo = (response.data as any).data
+    const userInfo = (response.data as any)?.data || response.data
 
     // 保留本地存储的自定义头像
     try {

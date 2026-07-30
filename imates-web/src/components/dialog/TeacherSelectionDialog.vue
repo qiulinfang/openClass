@@ -16,7 +16,14 @@
           @click="selectedSubject = teacher.subject"
         >
           <div class="teacher-avatar">
+            <img
+              v-if="teacher.avatar"
+              :src="teacher.avatar"
+              alt="avatar"
+              style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;"
+            />
             <svg
+              v-else
               xmlns="http://www.w3.org/2000/svg"
               width="24"
               height="24"

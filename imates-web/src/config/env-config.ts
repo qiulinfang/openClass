@@ -32,6 +32,7 @@ export interface XuebanApiPaths {
     base: string
     login: string
     info: string
+    updateAvatar: string
   }
   permission: {
     base: string
@@ -276,6 +277,7 @@ export function getApiPaths(): ApiPaths {
           base: '/xb-test/admin',
           login: '/xb-test/admin/login',
           info: '/xb-test/admin/info',
+          updateAvatar: '/xb-test/admin/updateAvatar',
         },
         permission: {
           base: '/xb-test/permission',
@@ -334,6 +336,7 @@ export function getApiPaths(): ApiPaths {
         base: '/xb-release/admin',
         login: '/xb-release/admin/login',
         info: '/xb-release/admin/info',
+        updateAvatar: '/xb-release/admin/updateAvatar',
       },
       permission: {
         base: '/xb-release/permission',

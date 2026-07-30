@@ -29,6 +29,7 @@ import {
   type ChatImageData,
 } from './utils/chatStoreUtils'
 import { validateAndFixTimestamp, validateSendMessagePreconditions } from './utils/validation'
+import { HOMEWORK_SUBJECT_OPTIONS, SUBJECT_ID_TO_API_SUBJECT } from '@/constants/subjects'
 import type { ChatBubble } from '../types'
 
 /**
@@ -45,100 +46,89 @@ export interface TeacherSession {
 
 /**
  * 获取写死的教师会话列表（按学科一一对应）
- * 会话 ID 规则：`teacher_${userId}_${subject}`，例如：`teacher_user123_math`、`teacher_user123_biology`
+ * 会话 ID 规则：`teacher_${userId}_${subjEnglish}`
  */
-// 科目映射表：前端科目名称 -> 数据库科目ID
-const SUBJECT_MAPPING: Record<string, string> = {
-  CHINESE: '1',    // 语文
-  MATH: '2',       // 数学
-  ENGLISH: '3',    // 英语
-  PHYSICS: '4',    // 物理
-  CHEMISTRY: '5',  // 化学
-  BIOLOGY: '6',    // 生物
-  HISTORY: '7',    // 历史
-  GEOGRAPHY: '8',  // 地理
-  POLITICS: '9',   // 政治
-}
-
 /**
- * 从sessionId中解析科目ID（直接返回数据库科目ID）
- * sessionId格式：teacher_${userId}_${subject}
+ * 从sessionId中解析科目ID（返回后端学科ID，如 '6' 或 '2'）
+ * sessionId格式：teacher_${userId}_${subjectInEnglish} (如 teacher_guest045_biology)
  */
 const extractSubjectIdFromSessionId = (sessionId: string): string => {
   if (!sessionId || !sessionId.startsWith('teacher_')) {
     return '2' // 默认数学
   }
 
+  // 从 sessionId 中拆分提取英文学科名称并转换回数字 ID
   const parts = sessionId.split('_')
-  if (parts.length >= 3) {
-    const subjectKey = parts[2].toUpperCase() // 提取科目部分并转换为大写（如'MATH'）
-    return SUBJECT_MAPPING[subjectKey] || '2' // 映射到数据库ID，默认数学
+  if (parts.length >= 3 && parts[2]) {
+    const englishSubj = parts[2].toLowerCase()
+    for (const [id, apiSubj] of Object.entries(SUBJECT_ID_TO_API_SUBJECT)) {
+      if (apiSubj === englishSubj) {
+        return id
+      }
+    }
+    if (/^\d+$/.test(parts[2])) {
+      return parts[2]
+    }
   }
 
-  return '2' // 默认数学
+  return '2'
 }
 
-// 获取写死的教师会话列表
+// 优先根据 userInfo.teacherList 动态生成教师会话列表（若不存在则保底）
+const getTeacherSessionsFromUserInfo = (): TeacherSession[] => {
+  const userId = getUserId() || 'default'
+  const now = Date.now()
+
+  try {
+    const userInfoStr = localStorage.getItem('userInfo')
+    if (userInfoStr) {
+      const userInfo = JSON.parse(userInfoStr)
+      if (Array.isArray(userInfo?.teacherList) && userInfo.teacherList.length > 0) {
+        return userInfo.teacherList.map((teacher: any, index: number) => {
+          const tId = teacher.account || teacher.id || String(index)
+          // 从 subjectList[0] 提取科目 ID（如 "6" 为生物，"2" 为数学）
+          const subjectId = Array.isArray(teacher.subjectList) && teacher.subjectList.length > 0
+            ? String(teacher.subjectList[0])
+            : String(teacher.subject || '2')
+
+          // 映射为英文学科 (如 "biology", "math")，保持最初的 teacher_${userId}_${english} 格式
+          const subjEnglish = SUBJECT_ID_TO_API_SUBJECT[subjectId] || 'math'
+
+          return {
+            sessionId: `teacher_${userId}_${subjEnglish}`,
+            sessionName: teacher.name || teacher.account || `教师答疑${index + 1}`,
+            subject: subjectId,
+            createTime: now,
+            avatar: teacher.avatar || '',
+            teacherId: teacher.id,
+            teacherAccount: teacher.account,
+          }
+        })
+      }
+    }
+  } catch (error) {
+    console.warn('[TeacherStore] 从 userInfo.teacherList 构建教师会话列表失败:', error)
+  }
+
+  return getHardcodedTeacherSessions()
+}
+
+// 保底的写死教师会话列表（使用 SUBJECT_ID_TO_API_SUBJECT 转换为英文 sessionId 格式）
 const getHardcodedTeacherSessions = (): TeacherSession[] => {
   const userId = getUserId() || 'default'
   const now = Date.now()
 
-  return [
-    {
-      sessionId: `teacher_${userId}_chinese`,
-      sessionName: '语文',
-      subject: 'CHINESE',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_math`,
-      sessionName: '数学',
-      subject: 'MATH',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_english`,
-      sessionName: '英语',
-      subject: 'ENGLISH',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_politics`,
-      sessionName: '政治',
-      subject: 'POLITICS',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_history`,
-      sessionName: '历史',
-      subject: 'HISTORY',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_geography`,
-      sessionName: '地理',
-      subject: 'GEOGRAPHY',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_physics`,
-      sessionName: '物理',
-      subject: 'PHYSICS',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_chemistry`,
-      sessionName: '化学',
-      subject: 'CHEMISTRY',
-      createTime: now,
-    },
-    {
-      sessionId: `teacher_${userId}_biology`,
-      sessionName: '生物',
-      subject: 'BIOLOGY',
-      createTime: now,
-    },
-  ]
+  return HOMEWORK_SUBJECT_OPTIONS
+    .filter((opt) => opt.value !== '')
+    .map((opt) => {
+      const english = SUBJECT_ID_TO_API_SUBJECT[opt.value] || 'math'
+      return {
+        sessionId: `teacher_${userId}_${english}`,
+        sessionName: `${opt.label}老师`,
+        subject: opt.value,
+        createTime: now,
+      }
+    })
 }
 
 export const useTeacherChatStore = defineStore('teacherChat', () => {
@@ -639,19 +629,36 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    * 加载所有会话（只返回写死的会话列表）
    */
   const loadAllSessions = (): Record<string, TeacherSession> => {
-    // 只返回写死的会话列表
     const sessions: Record<string, TeacherSession> = {}
 
-    // 将写死会话转换为记录格式
-    for (const session of getHardcodedTeacherSessions()) {
+    // 优先使用根据 userInfo.teacherList 动态构建的教师会话列表（若无则兜底使用学科列表）
+    for (const session of getTeacherSessionsFromUserInfo()) {
       sessions[session.sessionId] = { ...session }
     }
 
     return sessions
   }
 
-  const getAvailableTeachers = (): Array<{ subject: 'BIOLOGY' | 'MATH'; name: string }> => {
-    // 只返回数学和生物两个科目，对应转发功能
+  const getAvailableTeachers = (): Array<{ id?: string; account?: string; name: string; avatar?: string; subject: 'BIOLOGY' | 'MATH' | string }> => {
+    try {
+      const userInfoStr = localStorage.getItem('userInfo')
+      if (userInfoStr) {
+        const userInfo = JSON.parse(userInfoStr)
+        if (Array.isArray(userInfo?.teacherList) && userInfo.teacherList.length > 0) {
+          return userInfo.teacherList.map((t: any, index: number) => ({
+            id: t.id || t.account || String(index),
+            account: t.account || '',
+            name: t.name || t.account || '老师',
+            avatar: t.avatar || '',
+            subject: t.subject || (index % 2 === 0 ? 'MATH' : 'BIOLOGY'),
+          }))
+        }
+      }
+    } catch (error) {
+      console.warn('[TeacherStore] 读取 userInfo.teacherList 失败，使用保底列表:', error)
+    }
+
+    // 保底机制
     return [
       { subject: 'MATH', name: '数学老师' },
       { subject: 'BIOLOGY', name: '生物老师' }

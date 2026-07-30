@@ -203,6 +203,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, nextTick, provide, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { showMessage } from '@/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useResourceStore } from '@/stores/resourceStore'
@@ -219,7 +220,7 @@ import Dialog from '@/components/base/Dialog.vue'
 import { resourceManager } from '@/services/storage/resource-storage'
 import { apiService } from '@/services/http/api-service'
 import { androidBridge } from '@/services/business/android-bridge'
-import { getUserId } from '@/services'
+import { getUserId, getXuebanToken, authService } from '@/services'
 import { useDraftStore } from '@/stores/draftStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserClientStore } from '@/stores/userClientStore'
@@ -1130,9 +1131,48 @@ const handleOpenToolbox = () => {
 }
 
 // 处理头像更改事件
-const handleAvatarChanged = (newAvatar: string) => {
-  // 流程：接收新头像 -> 调用更新接口 -> 更新 store/localStorage -> 提示成功
-  console.log('[MainView] handleAvatarChanged:', newAvatar)
+const handleAvatarChanged = async (newAvatar: string) => {
+  console.log('[MainView] handleAvatarChanged 开始更新头像:', newAvatar)
+  try {
+    const userId = getUserId() || currentUserInfo.value.id
+    if (userId && newAvatar) {
+      // 1. 调用后端更新头像接口 POST /blw-edu-service-alc/admin/updateAvatar
+      await apiService.updateAvatar(newAvatar)
+      console.log('[MainView] ✅ 头像服务器提交成功')
+
+      // 2. 重新调用 /admin/info 接口获取服务器保存后的最新头像与用户信息
+      try {
+        const token = getXuebanToken() || currentUserInfo.value.token || ''
+        if (token) {
+          const refreshedUserInfo = await authService.getUserInfo(token)
+          const latestAvatar = refreshedUserInfo.avatar || newAvatar
+          currentUserInfo.value = {
+            ...currentUserInfo.value,
+            ...refreshedUserInfo,
+            avatar: latestAvatar,
+            avatarNew: latestAvatar,
+          }
+          console.log('[MainView] ✅ 重新调用 /admin/info 成功，获取最新头像:', latestAvatar)
+          showMessage('头像更新并保存成功', 'success')
+          return
+        }
+      } catch (infoErr) {
+        console.warn('[MainView] ⚠️ 重新调用 /admin/info 失败:', infoErr)
+      }
+
+      setUserInfoToStorage({
+        ...currentUserInfo.value,
+        avatar: newAvatar,
+        avatarNew: newAvatar,
+      })
+      showMessage('头像更新并保存成功', 'success')
+      return
+    }
+  } catch (err) {
+    console.error('[MainView] ⚠️ 头像同步服务器失败，已存本地预览:', err)
+    showMessage('头像同步服务失败，已保存至本地', 'warning')
+  }
+
   setUserInfoToStorage({
     ...currentUserInfo.value,
     avatarNew: newAvatar,

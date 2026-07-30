@@ -43,6 +43,7 @@ import type {
   ApiResponse,
   FillBlankHandwritingOcrGradeRequest,
   FillBlankHandwritingOcrGradeResponse,
+  UpdateAvatarResult,
 } from '@/types'
 
 
@@ -481,6 +482,29 @@ export class ApiService {
     }
 
     throw new Error(response.message || '填空题手写 OCR 判罚服务调用失败')
+  }
+
+  /**
+   * 更新用户头像
+   * 对应后端接口: POST /blw-edu-service-alc/admin/updateAvatar?userId={userId}
+   * @param userId 用户ID
+   * @param base64Data base64头像数据
+   */
+  public async updateAvatar(arg1: string, arg2?: string): Promise<boolean> {
+    const base64Data = arg2 || arg1
+    const url = getApiPaths().xueban.admin.updateAvatar
+    // 后端 @RequestBody 接收对象 UpdateAvatarReq (只需要传 base64Data / avatar，不再需要 userId)
+    const payload = {
+      base64Data,
+      avatar: base64Data,
+    }
+    const response = await httpClient.post<ApiResponse<unknown>>(url, payload)
+
+    if (response.success) {
+      return true
+    }
+
+    throw new Error(response.message || '更新头像失败')
   }
 }
 

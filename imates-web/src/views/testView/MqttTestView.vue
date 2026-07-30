@@ -238,7 +238,13 @@ const username = ref('admin')
 const password = ref('admin')
 
 const newTopic = ref('imates/test/topic')
-const subscribedTopics = ref<string[]>([])
+
+// 默认生成 ROUTE_MESSAGE_NOTIFICATION_guest000 到 guest055 的 56 个路由 Key 主题
+const defaultGuestTopics = Array.from({ length: 56 }, (_, i) => {
+  const numStr = String(i).padStart(3, '0')
+  return `ROUTE_MESSAGE_NOTIFICATION_guest${numStr}`
+})
+const subscribedTopics = ref<string[]>([...defaultGuestTopics])
 
 const pubTopic = ref('imates/test/topic')
 const pubQos = ref<0 | 1 | 2>(1)
@@ -277,13 +283,13 @@ mqttService.on('close', () => addLog('system', 'MQTT 客户端连接已关闭'))
 mqttService.on('offline', () => addLog('system', 'MQTT 客户端已离线'))
 mqttService.on('error', () => addLog('error', 'MQTT 发生错误: ' + (mqttService.getError().value?.message || '未知错误')))
 
-// 使用 useMqtt Hook 实现状态联动
+// 使用 useMqtt Hook 实现状态联动与自动批量订阅
 const { isConnected, connectionStatus, publish, subscribe, unsubscribe } = useMqtt(
-  undefined,
+  subscribedTopics,
   (msg: MqttMessage) => {
     addLog('message', msg.payload, msg.topic)
   },
-  { autoConnect: false }
+  { autoConnect: true }
 )
 
 const statusColor = computed(() => {
