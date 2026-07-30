@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { HomeworkSolveScreen } from '@/screens/HomeworkSolveScreen';
@@ -30,6 +30,13 @@ export default function App() {
 
 function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const isLoggedInRef = useRef<boolean | null>(null);
+  const isLogoutPromptVisibleRef = useRef(false);
+
+  const updateLoginStatus = (value: boolean) => {
+    isLoggedInRef.current = value;
+    setIsLoggedIn(value);
+  };
 
   // 检查初始登录状态及监听强制下线事件
   useEffect(() => {
@@ -38,15 +45,23 @@ function AppContent() {
       // 否则已有登录态会跳过 LoginScreen，导致测试环境被错误地当成正式环境。
       await initEnvConfig();
       const token = await storage.getItem('XUEBAN_TOKEN');
-      setIsLoggedIn(!!token);
+      updateLoginStatus(!!token);
     };
     checkLoginStatus();
 
     const logoutSubscription = DeviceEventEmitter.addListener('FORCE_LOGOUT', (data) => {
+      if (
+        isLoggedInRef.current !== true ||
+        isLogoutPromptVisibleRef.current
+      ) {
+        return;
+      }
+
+      isLogoutPromptVisibleRef.current = true;
       const message = data?.message || '设备已经在其他地方登陆，请重新登录。';
       if (Platform.OS === 'web') {
         alert(message);
-        handleLogout();
+        void handleLogout();
       } else {
         Alert.alert('登录提示', message, [
           {
@@ -65,13 +80,16 @@ function AppContent() {
   }, []);
 
   const handleLoginSuccess = () => {
-    setIsLoggedIn(true);
+    isLogoutPromptVisibleRef.current = false;
+    updateLoginStatus(true);
   };
 
   const handleLogout = async () => {
+    isLoggedInRef.current = false;
     await storage.removeItem('XUEBAN_TOKEN');
     await storage.removeItem('YANBAN_TOKEN');
     await authService.logout();
+    isLogoutPromptVisibleRef.current = false;
     setIsLoggedIn(false);
   };
 

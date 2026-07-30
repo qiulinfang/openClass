@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   StyleSheet,
@@ -16,6 +14,10 @@ import {
 import type { ChatMessage } from '@/services/ai-chat-service';
 import { MathRenderer } from '@/components/MathRenderer';
 import type { TeacherChatSession } from '../services/teacher-chat-service';
+import {
+  ChatKeyboardAvoidingView,
+  type ChatKeyboardAvoidanceMode,
+} from './ChatKeyboardAvoidingView';
 import { ImagePreviewModal } from './ImagePreviewModal';
 
 interface TeacherConversationViewProps {
@@ -26,6 +28,7 @@ interface TeacherConversationViewProps {
   sending: boolean;
   connected: boolean;
   bottomInset: number;
+  keyboardAvoidanceMode: ChatKeyboardAvoidanceMode;
   onInputChange: (value: string) => void;
   onSend: () => void;
   onRetry: () => void;
@@ -93,6 +96,7 @@ function TeacherConversationViewComponent({
   sending,
   connected,
   bottomInset,
+  keyboardAvoidanceMode,
   onInputChange,
   onSend,
   onRetry,
@@ -158,11 +162,7 @@ function TeacherConversationViewComponent({
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}
-    >
+    <ChatKeyboardAvoidingView mode={keyboardAvoidanceMode}>
       <FlatList
         ref={listRef}
         data={messages}
@@ -260,14 +260,13 @@ function TeacherConversationViewComponent({
         title={previewImage?.title}
         onClose={() => setPreviewImage(null)}
       />
-    </KeyboardAvoidingView>
+    </ChatKeyboardAvoidingView>
   );
 }
 
 export const TeacherConversationView = memo(TeacherConversationViewComponent);
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
   messageContent: {
     paddingHorizontal: 16,
     paddingTop: 14,

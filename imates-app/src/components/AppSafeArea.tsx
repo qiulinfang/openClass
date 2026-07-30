@@ -61,6 +61,7 @@ export function AppModal(props: AppModalProps) {
 
 interface AppSafeAreaViewProps extends PropsWithChildren {
   style?: StyleProp<ViewStyle>;
+  includeBottomInset?: boolean;
 }
 
 export function AppScreenSafeArea({
@@ -77,6 +78,7 @@ export function AppScreenSafeArea({
 export function AppModalSafeArea({
   children,
   style,
+  includeBottomInset = true,
 }: AppSafeAreaViewProps) {
   const insets = useAppSafeAreaInsets();
 
@@ -102,7 +104,7 @@ export function AppModalSafeArea({
       <View
         style={[
           styles.modalChrome,
-          { height: insets.bottom },
+          { height: includeBottomInset ? insets.bottom : 0 },
         ]}
       />
     </View>

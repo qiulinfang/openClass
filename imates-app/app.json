@@ -15,6 +15,7 @@
     },
     "android": {
       "package": "com.cosinetech.imates.edu",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#3A2B86",
         "foregroundImage": "./assets/xueban-android-foreground.png"

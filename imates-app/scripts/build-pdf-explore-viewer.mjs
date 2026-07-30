@@ -39,10 +39,45 @@ const html = `<!doctype html>
     body { overflow: auto; overscroll-behavior: contain; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
     #pages { width: 100%; min-height: 100vh; padding: var(--reader-top-inset, 16px) 0 var(--reader-bottom-inset, 24px); }
     .pdf-page { position: relative; contain: layout paint style; margin: 0 auto 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(23, 27, 52, .12); }
-    .pdf-canvas, .selection-layer { position: absolute; inset: 0; display: block; }
-    .selection-layer { z-index: 2; pointer-events: none; }
-    body.explore-mode .selection-layer { pointer-events: auto; cursor: crosshair; touch-action: none; }
+    .pdf-canvas, .annotation-canvas, .annotation-text-layer, .selection-layer { position: absolute; inset: 0; display: block; }
+    .pdf-canvas { z-index: 1; }
+    .annotation-canvas { z-index: 2; pointer-events: none; }
+    .annotation-text-layer { z-index: 3; overflow: hidden; pointer-events: none; }
+    .selection-layer { z-index: 4; pointer-events: none; }
+    body.explore-mode .selection-layer,
+    body.annotation-active .selection-layer { pointer-events: auto; touch-action: none; }
+    body.explore-mode .selection-layer { cursor: crosshair; }
+    body[data-annotation-tool="pen"] .selection-layer,
+    body[data-annotation-tool="highlighter"] .selection-layer { cursor: crosshair; }
+    body[data-annotation-tool="eraser"] .selection-layer { cursor: cell; }
+    body[data-annotation-tool="text"] .selection-layer { cursor: text; }
     .selection-box { position: absolute; display: none; border: 2px solid #6256d9; background: rgba(98, 86, 217, .13); box-shadow: 0 0 0 9999px rgba(32, 36, 61, .10); }
+    .text-annotation { position: absolute; overflow: visible; border: 1px solid rgba(98, 86, 217, .2); border-radius: 5px; background: transparent; box-shadow: 0 1px 3px rgba(23, 27, 52, .09); font-weight: 600; line-height: 1.35; pointer-events: none; touch-action: none; -webkit-user-select: none; user-select: none; }
+    .text-annotation.has-background { background: rgba(255, 255, 255, .84); }
+    .text-annotation:not(.has-background):not(.is-selected) { border-color: transparent; box-shadow: none; }
+    body[data-annotation-tool="hand"]:not(.explore-mode) .text-annotation { pointer-events: auto; cursor: grab; }
+    body[data-annotation-tool="hand"]:not(.explore-mode) .text-annotation:active { cursor: grabbing; }
+    .text-annotation-content { width: 100%; height: 100%; padding: 3px 5px; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; border-radius: inherit; pointer-events: none; }
+    .text-annotation.is-selected { z-index: 2; border: 2px solid #6256d9; box-shadow: 0 3px 10px rgba(48, 38, 116, .18); }
+    .text-annotation.is-selected.has-background { background: rgba(255, 255, 255, .96); }
+    .text-annotation.is-selected:not(.has-background) { border-color: transparent; box-shadow: none; }
+    .text-drag-ghost { z-index: 1000 !important; margin: 0; pointer-events: none !important; opacity: .92; box-shadow: 0 8px 22px rgba(48, 38, 116, .24); }
+    .text-drag-ghost .text-control { display: none !important; }
+    .text-control { position: absolute; z-index: 3; display: none; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; outline: 0; background: transparent; touch-action: none; -webkit-tap-highlight-color: transparent; }
+    .text-annotation.is-selected .text-control,
+    .text-editor-shell .text-control { display: grid; place-items: center; }
+    .text-resize-top-left { top: -23px; left: -23px; cursor: nwse-resize; }
+    .text-resize-bottom-right { right: -23px; bottom: -23px; cursor: nwse-resize; }
+    .text-resize-handle::after { content: ""; width: 18px; height: 18px; border: 3px solid #fff; border-radius: 50%; background: #6256d9; box-shadow: 0 1px 5px rgba(48, 38, 116, .32); }
+    .text-move { left: -23px; bottom: -23px; cursor: move; }
+    .text-move::before { content: ""; position: absolute; inset: 8px; border: 3px solid #fff; border-radius: 50%; background: #6256d9; box-shadow: 0 1px 5px rgba(48, 38, 116, .32); }
+    .text-move svg { position: relative; z-index: 1; width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+    .text-delete { top: -23px; right: -23px; color: #fff; font: 700 20px/1 -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+    .text-delete::before { content: ""; position: absolute; inset: 9px; z-index: -1; border: 3px solid #fff; border-radius: 50%; background: #e34850; box-shadow: 0 1px 5px rgba(115, 31, 38, .28); }
+    .text-editor-shell { position: absolute; z-index: 5; min-width: 96px; min-height: 52px; max-width: 90%; max-height: 90%; border: 2px solid #6256d9; border-radius: 8px; background: transparent; box-shadow: 0 5px 18px rgba(44, 35, 105, .2); pointer-events: auto; touch-action: none; }
+    .text-editor-shell.has-background { background: rgba(255, 255, 255, .97); }
+    .text-editor { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 9px 10px; resize: none; outline: none; border: 0; border-radius: inherit; background: transparent; font: 600 16px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; pointer-events: auto; }
+    .text-editor::placeholder { color: #989db2; }
     #empty { position: fixed; inset: 0; display: grid; place-items: center; color: #626881; font-size: 14px; }
     #empty[hidden] { display: none; }
   </style>

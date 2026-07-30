@@ -27,6 +27,7 @@ import type {
   AiChatWorkspaceTab,
 } from '../types';
 import { AiConversationView } from './AiConversationView';
+import type { ChatKeyboardAvoidanceMode } from './ChatKeyboardAvoidingView';
 import { AiSessionList } from './AiSessionList';
 import { TeacherConversationView } from './TeacherConversationView';
 import { TeacherSessionList } from './TeacherSessionList';
@@ -37,6 +38,7 @@ interface AiChatWorkspaceProps {
   onReselect?: () => void;
   prefillStorageKey?: string;
   respectBottomSafeArea?: boolean;
+  keyboardAvoidanceMode?: ChatKeyboardAvoidanceMode;
   initialTab?: AiChatWorkspaceTab;
   initialCategory?: 'companion' | 'teacher';
   initialSessionId?: string;
@@ -79,6 +81,7 @@ export function AiChatWorkspace({
   onReselect,
   prefillStorageKey,
   respectBottomSafeArea = true,
+  keyboardAvoidanceMode = 'active',
   initialTab = 'chat',
   initialCategory = 'companion',
   initialSessionId,
@@ -1016,6 +1019,7 @@ export function AiChatWorkspace({
               sending={isSendingToTeacher}
               connected={isTeacherConnected}
               bottomInset={bottomInset}
+              keyboardAvoidanceMode={keyboardAvoidanceMode}
               onInputChange={setTeacherInputText}
               onSend={() => void sendToTeacher()}
               onRetry={() => void retryTeacherConnection()}
@@ -1055,6 +1059,7 @@ export function AiChatWorkspace({
             role={role}
             enableWebSearch={enableWebSearch}
             bottomInset={bottomInset}
+            keyboardAvoidanceMode={keyboardAvoidanceMode}
             onInputChange={setInputText}
             onSend={(prompt) => void handleSend(prompt)}
             onStop={handleStop}

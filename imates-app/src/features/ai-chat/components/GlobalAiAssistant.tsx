@@ -9,6 +9,7 @@ import {
   Animated,
   Image,
   type ImageSourcePropType,
+  Keyboard,
   type LayoutChangeEvent,
   PanResponder,
   Platform,
@@ -117,6 +118,8 @@ function GlobalAiAssistantComponent({
   const [internalChatVisible, setInternalChatVisible] = useState(false);
   const chatVisible = visible ?? internalChatVisible;
   const [positionReady, setPositionReady] = useState(false);
+  const [modalKeyboardInset, setModalKeyboardInset] = useState(0);
+  const modalKeyboardAreaRef = useRef<View>(null);
   const position = useRef(new Animated.ValueXY()).current;
   const pressScale = useRef(new Animated.Value(1)).current;
   const positionRef = useRef({ x: 0, y: 0 });
@@ -124,6 +127,35 @@ function GlobalAiAssistantComponent({
   const boundsRef = useRef({ width: 0, height: 0 });
   const initializedRef = useRef(false);
   const movedRef = useRef(false);
+
+  useEffect(() => {
+    if (!chatVisible || Platform.OS !== 'android') {
+      setModalKeyboardInset(0);
+      return;
+    }
+
+    const keyboardShowSubscription = Keyboard.addListener(
+      'keyboardDidShow',
+      (event) => {
+        modalKeyboardAreaRef.current?.measureInWindow(
+          (_x, y, _width, height) => {
+            setModalKeyboardInset(
+              Math.max(0, y + height - event.endCoordinates.screenY)
+            );
+          }
+        );
+      }
+    );
+    const keyboardHideSubscription = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setModalKeyboardInset(0)
+    );
+
+    return () => {
+      keyboardShowSubscription.remove();
+      keyboardHideSubscription.remove();
+    };
+  }, [chatVisible]);
 
   const openChat = useCallback(() => {
     if (visible === undefined) setInternalChatVisible(true);
@@ -390,16 +422,31 @@ function GlobalAiAssistantComponent({
           presentationStyle="fullScreen"
           onRequestClose={closeChat}
         >
-          <AppModalSafeArea style={styles.chatSafeArea}>
-            <View style={styles.chatContent}>
-              <AiChatWorkspace
-                context={context}
-                onClose={closeChat}
-                prefillStorageKey={prefillStorageKey}
-                respectBottomSafeArea={false}
-              />
-            </View>
-          </AppModalSafeArea>
+          <View
+            ref={modalKeyboardAreaRef}
+            collapsable={false}
+            style={[
+              styles.chatModalKeyboardArea,
+              Platform.OS === 'android' && modalKeyboardInset > 0
+                ? { paddingBottom: modalKeyboardInset }
+                : null,
+            ]}
+          >
+            <AppModalSafeArea
+              style={styles.chatSafeArea}
+              includeBottomInset={false}
+            >
+              <View style={styles.chatContent}>
+                <AiChatWorkspace
+                  context={context}
+                  onClose={closeChat}
+                  prefillStorageKey={prefillStorageKey}
+                  respectBottomSafeArea={false}
+                  keyboardAvoidanceMode="system"
+                />
+              </View>
+            </AppModalSafeArea>
+          </View>
         </AppModal>
       ) : null}
     </>
@@ -409,6 +456,10 @@ function GlobalAiAssistantComponent({
 export const GlobalAiAssistant = React.memo(GlobalAiAssistantComponent);
 
 const styles = StyleSheet.create({
+  chatModalKeyboardArea: {
+    flex: 1,
+    minHeight: 0,
+  },
   floatingLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,

@@ -5,7 +5,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import type { ChatMessage } from '@/services/ai-chat-service';
 import type {
   AiChatAttachment,
@@ -15,6 +14,10 @@ import type {
 import { AiChatComposer } from './AiChatComposer';
 import { AiForwardSelectionToolbar } from './AiForwardSelectionToolbar';
 import { AiMessageList } from './AiMessageList';
+import {
+  ChatKeyboardAvoidingView,
+  type ChatKeyboardAvoidanceMode,
+} from './ChatKeyboardAvoidingView';
 
 interface AiConversationViewProps {
   context: AiChatContext;
@@ -26,6 +29,7 @@ interface AiConversationViewProps {
   role: AiChatRole;
   enableWebSearch: boolean;
   bottomInset: number;
+  keyboardAvoidanceMode: ChatKeyboardAvoidanceMode;
   onInputChange: (value: string) => void;
   onSend: (prompt?: string) => void;
   onStop: () => void;
@@ -52,6 +56,7 @@ export function AiConversationView({
   role,
   enableWebSearch,
   bottomInset,
+  keyboardAvoidanceMode,
   onInputChange,
   onSend,
   onStop,
@@ -199,11 +204,7 @@ export function AiConversationView({
   }, [selectedMessages]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}
-    >
+    <ChatKeyboardAvoidingView mode={keyboardAvoidanceMode}>
       <AiMessageList
         context={context}
         messages={messages}
@@ -249,10 +250,6 @@ export function AiConversationView({
           onAskTeacher={beginAskTeacher}
         />
       )}
-    </KeyboardAvoidingView>
+    </ChatKeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-});
