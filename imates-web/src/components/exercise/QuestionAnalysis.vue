@@ -58,12 +58,11 @@ const formattedAnswer = computed(() => {
 const formattedAnalysis = computed(() => {
   const q = props.question
   const structured = q.structuredContent
-  const rawAnalysis =
-    structured?.analysis ||
-    q.questionAnalysis ||
-    q.explanation ||
-    (typeof q.answer === 'string' ? q.answer : '') ||
-    ''
+
+  // 过滤助手：只取 structured?.analysis，如果包含 '###' 标识也一律判定为无效并过滤
+  const filterHasHash = (str?: string) => (str && !str.includes('###') ? str : '')
+
+  const rawAnalysis = filterHasHash(structured?.analysis)
 
   if (!rawAnalysis || !rawAnalysis.trim()) return ''
   return renderMessageContent(rawAnalysis)

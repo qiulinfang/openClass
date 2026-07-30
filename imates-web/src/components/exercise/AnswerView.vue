@@ -80,6 +80,7 @@ const formattedAnswer = computed(() => {
 const formattedExplanation = computed(() => {
   console.log('[AnswerView] explanation:', explanation.value)
   if (!explanation.value) return ''
+  if (explanation.value.includes('###')) return ''
   return renderMessageContent(explanation.value)
 })
 

@@ -62,6 +62,9 @@ export function mapHomeworkQuestionFromApi(
   const bmNo = question.questionId || String(index + 1)
   const normalizedContent = normalizeQuestionContent(question.questionContent)
 
+  const filterAnalysis = (str?: string) => (str && str.includes('###') ? '' : str || '')
+  const cleanAnalysis = filterAnalysis(question.questionAnalysis)
+
   const exercise: ExerciseItem = {
     id: question.questionId,
     bmNo,
@@ -69,11 +72,11 @@ export function mapHomeworkQuestionFromApi(
     question: normalizedContent,
     questionContent: question.questionContent,
     answer: question.questionAnswer || '',
-    explanation: question.questionAnalysis || question.questionReason || '',
-    analysisData: question.questionAnalysis || question.questionReason || '',
+    explanation: cleanAnalysis,
+    analysisData: cleanAnalysis,
     subject,
-    questionAnalysis: question.questionAnalysis,
-    questionReason: question.questionReason,
+    questionAnalysis: cleanAnalysis,
+    questionReason: question.questionReason || '',
     questionChooseInfo: question.questionChooseInfo,
     questionChooseList: question.questionChooseList,
     questionStructureData: question.questionStructureData,
