@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useRef } from 'react';
 import type { ChatMessage } from '@/services/ai-chat-service';
 import type {
   AiChatAttachment,
@@ -12,12 +6,14 @@ import type {
   AiChatRole,
 } from '../types';
 import { AiChatComposer } from './AiChatComposer';
-import { AiForwardSelectionToolbar } from './AiForwardSelectionToolbar';
 import { AiMessageList } from './AiMessageList';
 import {
   ChatKeyboardAvoidingView,
   type ChatKeyboardAvoidanceMode,
 } from './ChatKeyboardAvoidingView';
+
+const EMPTY_SELECTED_MESSAGE_IDS = new Set<string>();
+const ignoreForwardToggle = () => undefined;
 
 interface AiConversationViewProps {
   context: AiChatContext;
@@ -33,8 +29,7 @@ interface AiConversationViewProps {
   onInputChange: (value: string) => void;
   onSend: (prompt?: string) => void;
   onStop: () => void;
-  onPickImage?: () => void;
-  onCreateConversation: () => void;
+  onPickImage?: (source: 'camera' | 'library') => void;
   onRemoveAttachment: () => void;
   onReselect?: () => void;
   onRoleChange: (role: AiChatRole) => void;
@@ -43,7 +38,6 @@ interface AiConversationViewProps {
   onCancelEdit: () => void;
   onEditMessage: (message: ChatMessage) => void;
   onRetryMessage: (message: ChatMessage) => void;
-  onAskTeacher: (messages: ChatMessage[]) => void;
 }
 
 export function AiConversationView({
@@ -61,7 +55,6 @@ export function AiConversationView({
   onSend,
   onStop,
   onPickImage,
-  onCreateConversation,
   onRemoveAttachment,
   onReselect,
   onRoleChange,
@@ -70,14 +63,12 @@ export function AiConversationView({
   onCancelEdit,
   onEditMessage,
   onRetryMessage,
-  onAskTeacher,
 }: AiConversationViewProps) {
   const latestCallbacksRef = useRef({
     onInputChange,
     onSend,
     onStop,
     onPickImage,
-    onCreateConversation,
     onRemoveAttachment,
     onReselect,
     onRoleChange,
@@ -85,14 +76,12 @@ export function AiConversationView({
     onCancelEdit,
     onEditMessage,
     onRetryMessage,
-    onAskTeacher,
   });
   latestCallbacksRef.current = {
     onInputChange,
     onSend,
     onStop,
     onPickImage,
-    onCreateConversation,
     onRemoveAttachment,
     onReselect,
     onRoleChange,
@@ -100,24 +89,7 @@ export function AiConversationView({
     onCancelEdit,
     onEditMessage,
     onRetryMessage,
-    onAskTeacher,
   };
-
-  const [isForwardSelecting, setIsForwardSelecting] = useState(false);
-  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(
-    new Set()
-  );
-
-  useEffect(() => {
-    setIsForwardSelecting(false);
-    setSelectedMessageIds(new Set());
-  }, [context.scopeKey]);
-
-  const selectedMessages = useMemo(
-    () =>
-      messages.filter((message) => selectedMessageIds.has(message.id)),
-    [messages, selectedMessageIds]
-  );
 
   const send = useCallback((prompt?: string) => {
     latestCallbacksRef.current.onSend(prompt);
@@ -128,14 +100,9 @@ export function AiConversationView({
   }, []);
 
   const stop = useCallback(() => latestCallbacksRef.current.onStop(), []);
-  const pickImage = useCallback(
-    () => latestCallbacksRef.current.onPickImage?.(),
-    []
-  );
-  const createConversation = useCallback(
-    () => latestCallbacksRef.current.onCreateConversation(),
-    []
-  );
+  const pickImage = useCallback((source: 'camera' | 'library') => {
+    latestCallbacksRef.current.onPickImage?.(source);
+  }, []);
   const removeAttachment = useCallback(
     () => latestCallbacksRef.current.onRemoveAttachment(),
     []
@@ -165,44 +132,6 @@ export function AiConversationView({
     latestCallbacksRef.current.onRetryMessage(message);
   }, []);
 
-  const toggleForwardMessage = useCallback((messageId: string) => {
-    setSelectedMessageIds((current) => {
-      const next = new Set(current);
-      if (next.has(messageId)) next.delete(messageId);
-      else next.add(messageId);
-      return next;
-    });
-  }, []);
-
-  const beginAskTeacher = useCallback(() => {
-    if (messages.length === 0) {
-      latestCallbacksRef.current.onAskTeacher([]);
-      return;
-    }
-    setSelectedMessageIds(new Set());
-    setIsForwardSelecting(true);
-  }, [messages.length]);
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedMessageIds((current) =>
-      current.size === messages.length
-        ? new Set()
-        : new Set(messages.map((message) => message.id))
-    );
-  }, [messages]);
-
-  const cancelAskTeacher = useCallback(() => {
-    setIsForwardSelecting(false);
-    setSelectedMessageIds(new Set());
-  }, []);
-
-  const confirmAskTeacher = useCallback(() => {
-    if (selectedMessages.length === 0) return;
-    setIsForwardSelecting(false);
-    setSelectedMessageIds(new Set());
-    latestCallbacksRef.current.onAskTeacher(selectedMessages);
-  }, [selectedMessages]);
-
   return (
     <ChatKeyboardAvoidingView mode={keyboardAvoidanceMode}>
       <AiMessageList
@@ -210,46 +139,32 @@ export function AiConversationView({
         messages={messages}
         isInitializing={isInitializing}
         isSending={isSending}
-        isForwardSelecting={isForwardSelecting}
-        selectedMessageIds={selectedMessageIds}
+        isForwardSelecting={false}
+        selectedMessageIds={EMPTY_SELECTED_MESSAGE_IDS}
         onSend={send}
-        onToggleForwardMessage={toggleForwardMessage}
+        onToggleForwardMessage={ignoreForwardToggle}
         onEditMessage={editMessage}
         onRetryMessage={retryMessage}
       />
-
-      {isForwardSelecting ? (
-        <AiForwardSelectionToolbar
-          selectedCount={selectedMessageIds.size}
-          totalCount={messages.length}
-          bottomInset={bottomInset}
-          onToggleSelectAll={toggleSelectAll}
-          onCancel={cancelAskTeacher}
-          onConfirm={confirmAskTeacher}
-        />
-      ) : (
-        <AiChatComposer
-          context={context}
-          inputText={inputText}
-          attachment={attachment}
-          isSending={isSending}
-          role={role}
-          enableWebSearch={enableWebSearch}
-          bottomInset={bottomInset}
-          editingMessageId={editingMessageId}
-          onInputChange={changeInput}
-          onSend={send}
-          onStop={stop}
-          onPickImage={onPickImage ? pickImage : undefined}
-          onCreateConversation={createConversation}
-          onRemoveAttachment={removeAttachment}
-          onReselect={onReselect ? reselect : undefined}
-          onRoleChange={changeRole}
-          onToggleWebSearch={toggleWebSearch}
-          onCancelEdit={cancelEdit}
-          onAskTeacher={beginAskTeacher}
-        />
-      )}
+      <AiChatComposer
+        context={context}
+        inputText={inputText}
+        attachment={attachment}
+        isSending={isSending}
+        role={role}
+        enableWebSearch={enableWebSearch}
+        bottomInset={bottomInset}
+        editingMessageId={editingMessageId}
+        onInputChange={changeInput}
+        onSend={send}
+        onStop={stop}
+        onPickImage={onPickImage ? pickImage : undefined}
+        onRemoveAttachment={removeAttachment}
+        onReselect={onReselect ? reselect : undefined}
+        onRoleChange={changeRole}
+        onToggleWebSearch={toggleWebSearch}
+        onCancelEdit={cancelEdit}
+      />
     </ChatKeyboardAvoidingView>
   );
 }

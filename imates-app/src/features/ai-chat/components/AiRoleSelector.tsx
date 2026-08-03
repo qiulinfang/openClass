@@ -59,7 +59,6 @@ export function AiRoleSelector({
       <TouchableOpacity
         style={[
           styles.trigger,
-          visible && styles.triggerActive,
           disabled && styles.triggerDisabled,
         ]}
         onPress={() => setVisible(true)}
@@ -155,27 +154,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#B9B3F2',
-    backgroundColor: '#EEEAFE',
-  },
-  triggerActive: {
-    borderColor: '#6256D9',
-    backgroundColor: '#E6E2FF',
+    borderColor: '#DFE1EA',
+    backgroundColor: '#F8F8FB',
   },
   triggerDisabled: {
     opacity: 0.45,
   },
   triggerValue: {
     fontSize: 12,
-    fontWeight: '900',
-    color: '#5549CB',
+    fontWeight: '700',
+    color: '#565B6F',
   },
   chevron: {
     marginLeft: 6,
     marginTop: -2,
     fontSize: 14,
     fontWeight: '700',
-    color: '#6256D9',
+    color: '#7D8294',
   },
   modalRoot: {
     flex: 1,

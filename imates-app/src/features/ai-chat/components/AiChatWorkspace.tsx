@@ -708,48 +708,6 @@ export function AiChatWorkspace({
     });
   };
 
-  const showImageSource = () => {
-    Alert.alert('添加图片', '选择图片来源', [
-      {
-        text: '拍照',
-        onPress: () => void pickImage('camera'),
-      },
-      {
-        text: '从相册选择',
-        onPress: () => void pickImage('library'),
-      },
-      { text: '取消', style: 'cancel' },
-    ]);
-  };
-
-  const askTeacher = (selectedMessages: ChatMessage[]) => {
-    const draftQuestion = inputText.trim();
-    if (selectedMessages.length === 0 && !draftQuestion) {
-      pendingTeacherForwardRef.current = null;
-      setPendingTeacherForwardCount(0);
-      setChatCategory('teacher');
-      setActiveTab('sessions');
-      return;
-    }
-
-    const forwardText =
-      selectedMessages.length > 0
-        ? [
-            '【来自 AI 问答的对话】',
-            ...selectedMessages.map(
-              (message) =>
-                `${message.sender === 'user' ? '我' : '学伴'}：${message.content}`
-            ),
-          ].join('\n\n')
-        : `【来自 AI 问答的问题】\n\n${draftQuestion}`;
-    pendingTeacherForwardRef.current = forwardText;
-    setPendingTeacherForwardCount(
-      selectedMessages.length > 0 ? selectedMessages.length : 1
-    );
-    setChatCategory('teacher');
-    setActiveTab('sessions');
-  };
-
   const selectTeacherSession = async (session: TeacherChatSession) => {
     setChatCategory('teacher');
     setCurrentTeacherSession(session);
@@ -954,7 +912,7 @@ export function AiChatWorkspace({
             ]}
             numberOfLines={1}
           >
-            老师答疑
+            问老师
           </Text>
           {teacherUnreadIds.size > 0 ? (
             <View style={styles.tabBadge}>
@@ -995,6 +953,16 @@ export function AiChatWorkspace({
           ) : null}
         </TouchableOpacity>
         <View style={styles.tabActions}>
+          <TouchableOpacity
+            style={styles.tabIconButton}
+            onPress={createNewConversation}
+            disabled={interactionBusy}
+            accessibilityRole="button"
+            accessibilityLabel="新建聊天"
+            accessibilityState={{ disabled: interactionBusy }}
+          >
+            <Text style={styles.newChatIcon}>＋</Text>
+          </TouchableOpacity>
           {onClose ? (
             <TouchableOpacity
               style={styles.tabIconButton}
@@ -1063,8 +1031,7 @@ export function AiChatWorkspace({
             onInputChange={setInputText}
             onSend={(prompt) => void handleSend(prompt)}
             onStop={handleStop}
-            onPickImage={showImageSource}
-            onCreateConversation={createNewConversation}
+            onPickImage={(source) => void pickImage(source)}
             onRemoveAttachment={() => setPendingAttachment(null)}
             onReselect={onReselect}
             onRoleChange={setRole}
@@ -1075,7 +1042,6 @@ export function AiChatWorkspace({
             onCancelEdit={cancelEditMessage}
             onEditMessage={editMessage}
             onRetryMessage={(message) => void retryMessage(message)}
-            onAskTeacher={askTeacher}
           />
         ) : (
           <View style={styles.sessionHistory}>
@@ -1125,7 +1091,7 @@ export function AiChatWorkspace({
                       styles.categoryTextActive,
                   ]}
                 >
-                  老师答疑
+                  问老师
                 </Text>
                 {teacherUnreadIds.size > 0 ? (
                   <View style={styles.unreadBadge}>
@@ -1180,6 +1146,12 @@ const styles = StyleSheet.create({
     marginTop: -2,
     fontSize: 28,
     color: '#5E6378',
+  },
+  newChatIcon: {
+    marginTop: -2,
+    fontSize: 23,
+    fontWeight: '500',
+    color: '#6256D9',
   },
   tabs: {
     minHeight: 52,

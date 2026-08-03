@@ -1,7 +1,8 @@
 import React, { memo, useRef, useState } from 'react';
 import {
   Image,
-  ScrollView,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -12,10 +13,6 @@ import type { AiChatAttachment, AiChatContext, AiChatRole } from '../types';
 import { AiRoleSelector } from './AiRoleSelector';
 import { FormulaInsertModal } from './FormulaInsertModal';
 import { ImagePreviewModal } from './ImagePreviewModal';
-
-const formulaIcon = require('../../../../assets/ai-formula.png');
-const formulaSelectedIcon = require('../../../../assets/ai-formula-selected.png');
-const askTeacherIcon = require('../../../../assets/ai-ask-teacher.png');
 
 interface AiChatComposerProps {
   context: AiChatContext;
@@ -29,14 +26,12 @@ interface AiChatComposerProps {
   onInputChange: (value: string) => void;
   onSend: (prompt?: string) => void;
   onStop: () => void;
-  onPickImage?: () => void;
-  onCreateConversation: () => void;
+  onPickImage?: (source: 'camera' | 'library') => void;
   onRemoveAttachment: () => void;
   onReselect?: () => void;
   onRoleChange: (role: AiChatRole) => void;
   onToggleWebSearch: () => void;
   onCancelEdit: () => void;
-  onAskTeacher: () => void;
 }
 
 function AiChatComposerComponent({
@@ -52,18 +47,17 @@ function AiChatComposerComponent({
   onSend,
   onStop,
   onPickImage,
-  onCreateConversation,
   onRemoveAttachment,
   onReselect,
   onRoleChange,
   onToggleWebSearch,
   onCancelEdit,
-  onAskTeacher,
 }: AiChatComposerProps) {
   const inputRef = useRef<TextInput>(null);
   const [formulaVisible, setFormulaVisible] = useState(false);
   const [attachmentPreviewVisible, setAttachmentPreviewVisible] =
     useState(false);
+  const [imageSourceVisible, setImageSourceVisible] = useState(false);
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
 
   const insertFormula = (latex: string) => {
@@ -78,6 +72,16 @@ function AiChatComposerComponent({
   };
 
   const sendDisabled = !inputText.trim() && !attachment;
+
+  const selectImageSource = (source: 'camera' | 'library') => {
+    setImageSourceVisible(false);
+    onPickImage?.(source);
+  };
+
+  const openFormulaFromSourceSheet = () => {
+    setImageSourceVisible(false);
+    setTimeout(() => setFormulaVisible(true), 220);
+  };
 
   return (
     <>
@@ -128,112 +132,6 @@ function AiChatComposerComponent({
           </View>
         ) : null}
 
-        <View style={styles.toolRow}>
-          <ScrollView
-            horizontal
-            style={styles.toolScroll}
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tools}
-          >
-            <AiRoleSelector
-              value={role}
-              disabled={isSending}
-              onChange={onRoleChange}
-            />
-            <TouchableOpacity
-              style={[
-                styles.toolChip,
-                enableWebSearch && styles.toolChipActive,
-              ]}
-              onPress={onToggleWebSearch}
-              disabled={isSending}
-              accessibilityRole="switch"
-              accessibilityState={{
-                checked: enableWebSearch,
-                disabled: isSending,
-              }}
-            >
-              <Text
-                style={[
-                  styles.toolChipText,
-                  enableWebSearch && styles.toolChipTextActive,
-                ]}
-              >
-                联网搜索
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.toolChip,
-                formulaVisible && styles.toolChipActive,
-              ]}
-              onPress={() => setFormulaVisible(true)}
-              disabled={isSending}
-              accessibilityRole="button"
-              accessibilityLabel="插入公式"
-            >
-              <View style={styles.iconCrop}>
-                <Image
-                  source={formulaVisible ? formulaSelectedIcon : formulaIcon}
-                  style={styles.formulaIconSource}
-                  resizeMode="stretch"
-                />
-              </View>
-              <Text
-                style={[
-                  styles.toolChipText,
-                  formulaVisible && styles.toolChipTextActive,
-                ]}
-              >
-                公式
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.toolChip}
-              onPress={onAskTeacher}
-              disabled={isSending}
-              accessibilityRole="button"
-              accessibilityLabel="问老师"
-            >
-              <View style={styles.iconCrop}>
-                <Image
-                  source={askTeacherIcon}
-                  style={styles.askTeacherIconSource}
-                  resizeMode="stretch"
-                />
-              </View>
-              <Text style={styles.toolChipText}>问老师</Text>
-            </TouchableOpacity>
-            {context.scene === 'general' && onPickImage ? (
-              <TouchableOpacity
-                style={styles.toolChip}
-                onPress={onPickImage}
-                disabled={isSending}
-              >
-                <Text style={styles.toolChipText}>添加图片</Text>
-              </TouchableOpacity>
-            ) : context.scene === 'textbook' && onReselect ? (
-              <TouchableOpacity
-                style={styles.toolChip}
-                onPress={onReselect}
-                disabled={isSending}
-              >
-                <Text style={styles.toolChipText}>框选内容</Text>
-              </TouchableOpacity>
-            ) : null}
-          </ScrollView>
-          <TouchableOpacity
-            style={styles.newConversationButton}
-            onPress={onCreateConversation}
-            disabled={isSending}
-            accessibilityRole="button"
-            accessibilityLabel="新建会话"
-          >
-            <Text style={styles.newConversationIcon}>＋</Text>
-          </TouchableOpacity>
-        </View>
-
         {editingMessageId ? (
           <View style={styles.editIndicator}>
             <View style={styles.editIndicatorMark}>
@@ -281,23 +179,74 @@ function AiChatComposerComponent({
             onSubmitEditing={() => onSend()}
             accessibilityLabel="AI 问题输入框"
           />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              !isSending && sendDisabled && styles.sendButtonDisabled,
-              isSending && styles.stopButton,
-            ]}
-            onPress={isSending ? onStop : () => onSend()}
-            disabled={!isSending && sendDisabled}
-            accessibilityRole="button"
-            accessibilityLabel={isSending ? '停止生成' : '发送消息'}
-          >
-            {isSending ? (
-              <View style={styles.stopIcon} />
-            ) : (
-              <Text style={styles.sendText}>↑</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.inputActions}>
+            <View style={styles.inputTools}>
+              <AiRoleSelector
+                value={role}
+                disabled={isSending}
+                onChange={onRoleChange}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.searchButton,
+                  enableWebSearch && styles.toolChipActive,
+                ]}
+                onPress={onToggleWebSearch}
+                disabled={isSending}
+                accessibilityRole="switch"
+                accessibilityLabel="联网搜索"
+                accessibilityState={{
+                  checked: enableWebSearch,
+                  disabled: isSending,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.toolChipText,
+                    enableWebSearch && styles.toolChipTextActive,
+                  ]}
+                >
+                  联网搜索
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.inputButtons}>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => {
+                  if (context.scene === 'textbook' && onReselect) {
+                    onReselect();
+                    return;
+                  }
+                  setImageSourceVisible(true);
+                }}
+                disabled={isSending || (!onPickImage && !onReselect)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  context.scene === 'textbook' ? '框选内容' : '添加内容'
+                }
+              >
+                <Text style={styles.addIcon}>＋</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  !isSending && sendDisabled && styles.sendButtonDisabled,
+                  isSending && styles.stopButton,
+                ]}
+                onPress={isSending ? onStop : () => onSend()}
+                disabled={!isSending && sendDisabled}
+                accessibilityRole="button"
+                accessibilityLabel={isSending ? '停止生成' : '发送消息'}
+              >
+                {isSending ? (
+                  <View style={styles.stopIcon} />
+                ) : (
+                  <Text style={styles.sendText}>↑</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
         <Text style={styles.footerText}>
           与学伴共学，敢质疑、会判断，思维不设限
@@ -314,6 +263,75 @@ function AiChatComposerComponent({
         title={attachment?.label}
         onClose={() => setAttachmentPreviewVisible(false)}
       />
+      <Modal
+        transparent
+        visible={imageSourceVisible}
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setImageSourceVisible(false)}
+      >
+        <View style={styles.sourceModalRoot}>
+          <Pressable
+            style={styles.sourceBackdrop}
+            onPress={() => setImageSourceVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="关闭添加内容菜单"
+          />
+          <View
+            style={[
+              styles.sourceSheet,
+              { paddingBottom: Math.max(16, bottomInset) },
+            ]}
+          >
+            <View style={styles.sourceHandle} />
+            <Text style={styles.sourceTitle}>添加内容</Text>
+            <TouchableOpacity
+              style={styles.sourceOption}
+              onPress={() => selectImageSource('camera')}
+              accessibilityRole="button"
+              accessibilityLabel="拍照"
+            >
+              <View style={styles.sourceOptionCopy}>
+                <Text style={styles.sourceOptionTitle}>拍照</Text>
+                <Text style={styles.sourceOptionHint}>拍摄题目或学习资料</Text>
+              </View>
+              <Text style={styles.sourceChevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sourceOption}
+              onPress={() => selectImageSource('library')}
+              accessibilityRole="button"
+              accessibilityLabel="从相册选择"
+            >
+              <View style={styles.sourceOptionCopy}>
+                <Text style={styles.sourceOptionTitle}>从相册选择</Text>
+                <Text style={styles.sourceOptionHint}>选择已有图片</Text>
+              </View>
+              <Text style={styles.sourceChevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sourceOption}
+              onPress={openFormulaFromSourceSheet}
+              accessibilityRole="button"
+              accessibilityLabel="插入公式"
+            >
+              <View style={styles.sourceOptionCopy}>
+                <Text style={styles.sourceOptionTitle}>公式</Text>
+                <Text style={styles.sourceOptionHint}>手写或输入数学公式</Text>
+              </View>
+              <Text style={styles.sourceChevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sourceCancel}
+              onPress={() => setImageSourceVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="取消添加内容"
+            >
+              <Text style={styles.sourceCancelText}>取消</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -322,7 +340,7 @@ export const AiChatComposer = memo(AiChatComposerComponent);
 
 const styles = StyleSheet.create({
   composerArea: {
-    paddingTop: 8,
+    paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: '#DADCE7',
     backgroundColor: '#FFFFFF',
@@ -369,22 +387,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   removeAttachmentText: { fontSize: 24, color: '#74798F' },
-  toolRow: { flexDirection: 'row', alignItems: 'center' },
-  toolScroll: { flex: 1 },
-  tools: {
-    paddingLeft: 12,
-    paddingRight: 4,
-    paddingBottom: 7,
-    alignItems: 'center',
-  },
-  toolChip: {
+  searchButton: {
     height: 44,
-    marginRight: 8,
-    paddingHorizontal: 12,
+    marginRight: 4,
+    paddingHorizontal: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#DFE1EA',
     backgroundColor: '#F8F8FB',
@@ -395,37 +405,6 @@ const styles = StyleSheet.create({
   },
   toolChipText: { fontSize: 11, fontWeight: '700', color: '#666C82' },
   toolChipTextActive: { color: '#5B50CE' },
-  iconCrop: { width: 18, height: 18, marginRight: 5, overflow: 'hidden' },
-  formulaIconSource: {
-    position: 'absolute',
-    left: -8,
-    top: -5,
-    width: 61,
-    height: 28,
-  },
-  askTeacherIconSource: {
-    position: 'absolute',
-    left: -7,
-    top: -5,
-    width: 70,
-    height: 28,
-  },
-  newConversationButton: {
-    width: 44,
-    height: 44,
-    marginRight: 12,
-    marginBottom: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: '#EEEAFE',
-  },
-  newConversationIcon: {
-    marginTop: -2,
-    fontSize: 22,
-    fontWeight: '500',
-    color: '#6256D9',
-  },
   editIndicator: {
     minHeight: 54,
     marginHorizontal: 12,
@@ -458,27 +437,57 @@ const styles = StyleSheet.create({
   },
   editCancelText: { fontSize: 11, fontWeight: '800', color: '#675DC6' },
   inputRow: {
-    minHeight: 58,
+    minHeight: 104,
     marginHorizontal: 12,
     padding: 6,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#D9DBE7',
     backgroundColor: '#FFFFFF',
   },
   inputRowEditing: { borderColor: '#AFA7ED' },
   input: {
-    flex: 1,
+    width: '100%',
     minHeight: 44,
-    maxHeight: 112,
+    maxHeight: 128,
     paddingHorizontal: 10,
     paddingTop: 11,
     paddingBottom: 9,
     fontSize: 16,
     lineHeight: 22,
     color: '#20243D',
+  },
+  inputActions: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputTools: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputButtons: {
+    marginLeft: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    marginRight: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: '#F0F1F5',
+  },
+  addIcon: {
+    marginTop: -2,
+    fontSize: 23,
+    fontWeight: '500',
+    color: '#4E5368',
   },
   sendButton: {
     width: 44,
@@ -503,9 +512,79 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   footerText: {
-    marginTop: 7,
+    marginTop: 5,
     fontSize: 9,
     textAlign: 'center',
     color: '#A0A4B4',
+  },
+  sourceModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sourceBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(26, 27, 39, 0.5)',
+  },
+  sourceSheet: {
+    paddingTop: 8,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF',
+  },
+  sourceHandle: {
+    width: 38,
+    height: 4,
+    marginBottom: 16,
+    alignSelf: 'center',
+    borderRadius: 2,
+    backgroundColor: '#D3D5DE',
+  },
+  sourceTitle: {
+    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#20243D',
+  },
+  sourceOption: {
+    minHeight: 64,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E3EA',
+    backgroundColor: '#FAFAFC',
+  },
+  sourceOptionCopy: {
+    flex: 1,
+  },
+  sourceOptionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#292D43',
+  },
+  sourceOptionHint: {
+    marginTop: 3,
+    fontSize: 11,
+    color: '#7A7F92',
+  },
+  sourceChevron: {
+    marginLeft: 12,
+    fontSize: 26,
+    color: '#858A9C',
+  },
+  sourceCancel: {
+    minHeight: 48,
+    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+  },
+  sourceCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#61667A',
   },
 });
