@@ -5,9 +5,25 @@
       <div class="col-12 col-md-3">
         <q-card flat bordered class="bg-card full-height overflow-hidden flex column">
           <q-card-section class="q-pb-none">
-            <div class="text-h6 row items-center">
-              <q-icon name="dashboard" class="q-mr-sm" color="primary" />
-              API 控制台
+            <div class="text-h6 row items-center justify-between">
+              <div class="row items-center">
+                <q-icon name="dashboard" class="q-mr-sm" color="primary" />
+                <span>API 控制台</span>
+              </div>
+              <div class="env-selector row items-center">
+                <q-select
+                  v-model="currentEnv"
+                  :options="envOptions"
+                  emit-value
+                  map-options
+                  outlined
+                  dense
+                  dark
+                  options-dense
+                  style="min-width: 120px"
+                  @update:model-value="handleEnvChange"
+                />
+              </div>
             </div>
           </q-card-section>
 
@@ -202,9 +218,36 @@
 import { computed, ref, onMounted, reactive } from 'vue'
 import { httpClient } from '@/services'
 import { useQuasar } from 'quasar'
-import { getApiPaths } from '../../config/env-config'
+import { getApiPaths, getCurrentEnvType, trySwitchEnv, AppEnvType } from '../../config/env-config'
 
 const $q = useQuasar()
+const currentEnv = ref<AppEnvType>(getCurrentEnvType())
+const envOptions = [
+  { label: '正式环境', value: AppEnvType.RELEASE },
+  { label: '测试环境', value: AppEnvType.INTERNAL_TEST }
+]
+
+const handleEnvChange = (targetEnv: AppEnvType) => {
+  const success = trySwitchEnv(targetEnv, '985211')
+  if (success) {
+    $q.notify({
+      type: 'positive',
+      message: `环境已成功切换为 ${targetEnv === AppEnvType.INTERNAL_TEST ? '测试环境' : '正式环境'}`,
+      position: 'top',
+      timeout: 1000
+    })
+    setTimeout(() => {
+      window.location.reload()
+    }, 500)
+  } else {
+    $q.notify({
+      type: 'negative',
+      message: '环境切换失败，请检查密码权限',
+      position: 'top'
+    })
+  }
+}
+
 const apiPaths = getApiPaths()
 
 const leftTab = ref('presets')
@@ -281,6 +324,12 @@ const apiPresets = [
   {
     groupName: '研伴/作业服务',
     items: [
+      {
+        name: '作业提交批改详情',
+        method: 'POST',
+        url: apiPaths.yanban.homework.submitJudgeDetail,
+        body: '{\n  "id": "437356903767269376"\n}'
+      },
       {
         name: '学生登录',
         method: 'POST',

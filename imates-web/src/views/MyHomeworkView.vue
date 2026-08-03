@@ -13,15 +13,60 @@
         </div>
       </div>
       <!-- 调试按钮，dev 下才显示 -->
-      <Button
-        v-if="isDev"
-        label="清空本地作业数据(Debug)"
-        variant="secondary"
-        size="mdCompact"
-        style="border: 1.5px dashed #ff5b5b; color: #ff5b5b"
-        @click="handleClearAllHomework"
-      />
+      <div v-if="isDev" style="display: flex; gap: 8px; align-items: center;">
+        <Button
+          label="清空本地作业数据(Debug)"
+          variant="secondary"
+          size="mdCompact"
+          style="border: 1.5px dashed #ff5b5b; color: #ff5b5b"
+          @click="handleClearAllHomework"
+        />
+        <Button
+          label="调试批改详情(Debug)"
+          variant="primary"
+          size="mdCompact"
+          style="border: 1.5px dashed #3b82f6;"
+          @click="showJudgeDebugModal = true"
+        />
+      </div>
     </div>
+
+    <!-- 批改详情 API 调试弹窗 -->
+    <q-dialog v-model="showJudgeDebugModal">
+      <q-card style="min-width: 550px; background: #1e1e2d; color: #fff;" class="q-pa-md">
+        <q-card-section class="row items-center justify-between q-pb-sm">
+          <div class="text-h6">批改详情 API 调试</div>
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-gutter-y-sm">
+          <div class="text-caption text-grey-4">提交 ID (id):</div>
+          <q-input
+            v-model="debugJudgeId"
+            outlined
+            dense
+            dark
+            placeholder="例如: 437356903767269376"
+          />
+
+          <div class="row items-center justify-end q-mt-md">
+            <q-btn
+              color="primary"
+              label="发送请求 (POST)"
+              :loading="debugJudgeLoading"
+              @click="handleTestJudgeDetail"
+            />
+          </div>
+
+          <q-separator dark class="q-my-md" />
+
+          <div class="text-caption text-grey-4">响应结果:</div>
+          <pre
+            style="background: #12121a; padding: 12px; border-radius: 6px; max-height: 260px; overflow: auto; font-size: 12px;"
+          >{{ debugJudgeResult ? JSON.stringify(debugJudgeResult, null, 2) : '暂无数据' }}</pre>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
     <div class="content">
       <RubberBandList
@@ -127,6 +172,29 @@ import homeworkDeepIcon from '/icons/homework_deep.svg'
 defineOptions({
   name: 'MyHomeworkView',
 })
+
+// 调试 API 状态
+const showJudgeDebugModal = ref(false)
+const debugJudgeId = ref('437356903767269376')
+const debugJudgeLoading = ref(false)
+const debugJudgeResult = ref<any>(null)
+
+const handleTestJudgeDetail = async () => {
+  if (!debugJudgeId.value.trim()) {
+    showMessage('请输入提交 ID', 'warning')
+    return
+  }
+  debugJudgeLoading.value = true
+  debugJudgeResult.value = null
+  try {
+    const res = await apiService.homeworkApi.getHomeworkSubmitJudgeDetail(debugJudgeId.value.trim())
+    debugJudgeResult.value = res
+  } catch (error) {
+    debugJudgeResult.value = { error: String(error) }
+  } finally {
+    debugJudgeLoading.value = false
+  }
+}
 
 const today = new Date().toISOString().slice(0, 10)
 const selectedDate = ref(today)
@@ -399,9 +467,18 @@ import { mapHomeworkQuestionFromApi } from '@/services/boundary/homework'
 
 // 这里 item 来自 displayHomeworkList 计算属性
 const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
-  // 获取作业详情以获取题目列表
+  // 并行获取作业题目列表与判罚明细
   try {
-    const questionDetails = await apiService.getHomeworkDetailList(item.id)
+    const [questionDetails, judgeDetailRes] = await Promise.all([
+      apiService.getHomeworkDetailList(item.id).catch((err) => {
+        console.warn('[MyHomeworkView] 获取作业题目列表告警:', err)
+        return null
+      }),
+      apiService.homeworkApi.getHomeworkSubmitJudgeDetail(item.id).catch((err) => {
+        console.warn('[MyHomeworkView] 获取作业判罚详情告警:', err)
+        return null
+      }),
+    ])
 
     if (questionDetails && questionDetails.length > 0) {
       // 将题目列表存入 homeworkStore
@@ -415,6 +492,11 @@ const goAnswer = async (item: { id: string; homework: HomeworkUndoItem }) => {
       const existingSubmission = await homeworkStore.loadHomeworkSubmissionFromDB(item.id)
 
       homeworkStore.setQuestions(exerciseItems)
+      // 保存判罚详情数据到 store
+      if (judgeDetailRes) {
+        homeworkStore.setJudgeDetailData(judgeDetailRes)
+      }
+
       // 记录当前这份作业的原始信息、名称 and 允许重复提交类型，供 HomeworkAnswerView 使用
       homeworkStore.setCurrentHomeworkInfo(item.homework)
       homeworkStore.setHomeworkName(item.homework.title)

@@ -19,6 +19,16 @@
         >
           草稿纸
         </q-btn>
+        <q-btn
+          v-if="isDev"
+          class="q-mr-sm"
+          color="secondary"
+          dense
+          unelevated
+          label="判罚详情"
+          icon="analytics"
+          @click="openJudgeDetailDialog"
+        />
         <Button
           v-if="currentAnswerQuestion && !isHomeworkLocked"
           :label="homeworkButtonText"
@@ -115,7 +125,7 @@
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
-                          :show-analysis="isHomeworkSubmitted"
+                          :show-analysis="shouldShowAnalysis"
                           show-title
                           :show-id="false"
                           @change="handleChoiceAnswerChange"
@@ -126,7 +136,7 @@
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
-                          :show-analysis="isHomeworkSubmitted"
+                          :show-analysis="shouldShowAnalysis"
                           show-title
                           :show-id="false"
                           @change="handleChoiceAnswerChange"
@@ -138,9 +148,13 @@
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
-                          :show-analysis="isHomeworkSubmitted"
+                          :show-analysis="shouldShowAnalysis"
+                          :show-ocr-overlay="shouldShowAnalysis"
+                          :score-point-list="judgePointsMap"
+                          :active-point-id="activePointId"
                           show-title
                           :show-id="false"
+                          @select-score-point="handleSelectScorePoint"
                         />
                         <FillBlankQuestion
                           v-else-if="currentAnswerQuestion.type === 'fill_in_blank'"
@@ -149,9 +163,13 @@
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
-                          :show-analysis="isHomeworkSubmitted"
+                          :show-analysis="shouldShowAnalysis"
+                          :show-ocr-overlay="shouldShowAnalysis"
+                          :score-point-list="judgePointsMap"
+                          :active-point-id="activePointId"
                           show-title
                           :show-id="false"
+                          @select-score-point="handleSelectScorePoint"
                         />
                         <SubjectiveQuestion
                           v-else-if="currentAnswerQuestion.type === 'subjective'"
@@ -160,9 +178,13 @@
                           :question="currentAnswerQuestion"
                           v-model="currentAnswerQuestion.structuredContent.userAnswer"
                           :disabled="isHomeworkSubmitted"
-                          :show-analysis="isHomeworkSubmitted"
+                          :show-analysis="shouldShowAnalysis"
+                          :show-ocr-overlay="shouldShowAnalysis"
+                          :score-point-list="judgePointsMap"
+                          :active-point-id="activePointId"
                           show-title
                           :show-id="false"
+                          @select-score-point="handleSelectScorePoint"
                         />
                       </div>
                     </div>
@@ -238,6 +260,7 @@
                       ref="homeworkChatPanelRef"
                       :question="currentAnswerQuestion"
                       @close="handleToggle()"
+                      @locate-point="handleLocatePointFromPanel"
                     />
                   </div>
                 </div>
@@ -317,6 +340,26 @@
       :question-key="getQuestionKey(currentAnswerQuestion)"
       @save-draft="handleSaveDraft"
     />
+
+    <!-- 判罚详情 Dialog 弹窗 -->
+    <q-dialog v-model="showJudgeDetailDialog" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card style="background: #181824; color: #fff;" class="column full-height">
+        <q-card-section class="row items-center justify-between bg-dark q-py-sm">
+          <div class="text-h6 row items-center">
+            <q-icon name="analytics" color="primary" class="q-mr-sm" />
+            <span>作业判罚详情诊断</span>
+          </div>
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+        <q-card-section class="col overflow-hidden q-pa-none">
+          <ViewDetailsRender
+            :detail-data="judgeDetailData"
+            :question-id="currentAnswerQuestion?.id || ''"
+            :loading="judgeDetailLoading"
+          />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -364,6 +407,7 @@ import JudgmentQuestion from '@/components/exercise/JudgmentQuestion.vue'
 import SubjectiveQuestion from '@/components/exercise/SubjectiveQuestion.vue'
 import Scratchpad from '@/components/exercise/Scratchpad.vue'
 import Radio from '@/components/base/Radio.vue'
+import ViewDetailsRender from '@/components/display/ViewDetailsRender.vue'
 
 interface StructuredAnswer {
   type: 'board' | 'photo'
@@ -386,6 +430,183 @@ const aiGeneralStore = useAiGeneralChatStore()
 
 const isDev = import.meta.env.DEV
 
+// 判罚详情弹窗与数据
+const showJudgeDetailDialog = ref(false)
+const judgeDetailLoading = ref(false)
+const judgeDetailData = ref<any>(null)
+
+const parseJsonIfNeeded = (val: any) => {
+  if (!val) return null
+  if (typeof val === 'object') return val
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val)
+    } catch (e) {
+      return null
+    }
+  }
+  return null
+}
+
+const extractScorePointsFromJudge = (judgeNode: any): any[] => {
+  if (!judgeNode) return []
+  const points: any[] = []
+
+  if (Array.isArray(judgeNode.score_points) && judgeNode.score_points.length > 0) {
+    points.push(...judgeNode.score_points.map((p: any, idx: number) => ({
+      id: p.point_id || p.id || String(idx + 1),
+      pointId: p.point_id || p.id || String(idx + 1),
+      hit: !!p.hit,
+      sourceText: p.criterion_description || p.sourceText || p.description || '',
+      criterionReason: p.criterion_reason || p.hitReason || '',
+      potentialErrorType: p.potential_error_type || p.errorType || '',
+      potentialErrorReason: p.potential_error_reason || p.errorReason || '',
+      matchedOcrRegions: p.matched_ocr_regions || p.matchedOcrRegions || [],
+    })))
+  }
+  if (Array.isArray(judgeNode.points) && judgeNode.points.length > 0) {
+    points.push(...judgeNode.points.map((p: any, idx: number) => ({
+      id: p.id || String(idx + 1),
+      hit: !!p.hit,
+      sourceText: p.description || p.sourceText || '',
+      criterionReason: p.reason || p.hitReason || '',
+      potentialErrorType: p.errorType || '',
+      potentialErrorReason: p.errorReason || '',
+      matchedOcrRegions: p.ocrRegions || [],
+    })))
+  }
+
+  // 递归提取嵌套在 child results / sub_results 中的采分点
+  const childNodes = judgeNode.results || judgeNode.sub_results || judgeNode.subResults
+  if (Array.isArray(childNodes) && childNodes.length > 0) {
+    for (const child of childNodes) {
+      points.push(...extractScorePointsFromJudge(child))
+    }
+  }
+
+  return points
+}
+
+const fetchHomeworkJudgeDetails = async () => {
+  const homeworkId = route.params.homeworkId as string
+  if (!homeworkId) return null
+  if (judgeDetailData.value) {
+    homeworkStore.setJudgeDetailData(judgeDetailData.value)
+    isHomeworkSubmitted.value = true
+    return judgeDetailData.value
+  }
+  if (homeworkStore.judgeDetailData) {
+    judgeDetailData.value = homeworkStore.judgeDetailData
+    homeworkStore.setJudgeDetailData(homeworkStore.judgeDetailData)
+    isHomeworkSubmitted.value = true
+    return homeworkStore.judgeDetailData
+  }
+  judgeDetailLoading.value = true
+  try {
+    const res = await apiService.homeworkApi.getHomeworkSubmitJudgeDetail(homeworkId)
+    if (res) {
+      judgeDetailData.value = res
+      homeworkStore.setJudgeDetailData(res)
+      isHomeworkSubmitted.value = true
+    }
+    return res
+  } catch (error) {
+    console.error('[HomeworkAnswerView] 获取判罚详情异常:', error)
+    judgeDetailData.value = null
+    return null
+  } finally {
+    judgeDetailLoading.value = false
+  }
+}
+
+const currentQuestionScorePoints = computed(() => {
+  if (!currentAnswerQuestion.value) return []
+  return homeworkStore.getJudgePointsForQuestion ? homeworkStore.getJudgePointsForQuestion(currentAnswerQuestion.value) : []
+})
+
+const shouldShowAnalysis = computed(() => {
+  return (
+    isHomeworkSubmitted.value ||
+    isHomeworkLocked.value ||
+    (judgePointsMap.value && judgePointsMap.value.size > 0)
+  )
+})
+
+const activePointId = ref<string | null>(null)
+
+const handleLocatePointFromPanel = (payload: { item: any; index: number }) => {
+  const pId = payload.item?.pointId || payload.item?.id || null
+  console.log('[HomeworkAnswerView] 📍 从 ChatPanel 点击采分点卡片高亮 OCR:', { item: payload.item, pId })
+  activePointId.value = pId
+}
+
+const handleSelectScorePoint = (payload: { point: any; index: number }) => {
+  console.log('[HomeworkAnswerView] 🎯 点击 OCR 采分点划线区域:', payload)
+  if (payload?.point) {
+    activePointId.value = payload.point.pointId || payload.point.id || null
+  }
+  if (homeworkChatPanelRef.value && payload?.point) {
+    const isAlreadyRightMode = mode.value === 'right'
+
+    // 1. 若处于左侧模式，触发 SplitPanel 右移展开 0.5s 过渡动画
+    if (!isAlreadyRightMode) {
+      mode.value = 'right'
+      splitPanelRef.value?.setMode('right')
+    }
+
+    // 2. 只有在 ChatPanel 500ms 动画 100% 完全弹出落定后（延迟 520ms），再加载子题数据与触发卡片滚动
+    const delay = isAlreadyRightMode ? 0 : 520
+
+    setTimeout(() => {
+      (homeworkChatPanelRef.value as any)?.setSingleScorePointDetail?.(payload.point, payload.index)
+    }, delay)
+  }
+}
+
+const updateRightChatPanelJudgeDetail = async (question?: ExerciseItem | null) => {
+  const targetQuestion = question || currentAnswerQuestion.value
+  if (!targetQuestion) return
+
+  if (!judgeDetailData.value && !homeworkStore.judgeDetailData) {
+    await fetchHomeworkJudgeDetails()
+  }
+
+  // 从 Store 预索引 Map 中获取采分点数组（已支持单题与复合小题合并，无需重复 parse）
+  const scorePoints = homeworkStore.getJudgePointsForQuestion ? homeworkStore.getJudgePointsForQuestion(targetQuestion) : []
+
+  if (scorePoints.length > 0) {
+    const hitCount = scorePoints.filter((p: any) => p.hit).length
+    const totalCount = scorePoints.length
+    const scoreText = `${hitCount}/${totalCount} 采分点`
+
+    console.log('[HomeworkAnswerView] ⚡ 通过 Store 预索引 Map 匹配采分点成功:', {
+      questionId: targetQuestion.id || targetQuestion.bmNo,
+      scoreText,
+      scorePointCount: scorePoints.length,
+    })
+
+    ;(homeworkChatPanelRef.value as any)?.setJudgeDetailData?.({
+      title: `题目 ${currentQuestionIndex.value + 1} 判罚结果`,
+      scoreText,
+      scorePointList: scorePoints,
+      autoSwitchTab: true,
+    })
+  } else {
+    ;(homeworkChatPanelRef.value as any)?.setJudgeDetailData?.({
+      title: '',
+      scoreText: '',
+      scorePointList: [],
+      autoSwitchTab: false,
+    })
+  }
+}
+
+const openJudgeDetailDialog = async () => {
+  showJudgeDetailDialog.value = true
+  await fetchHomeworkJudgeDetails()
+  updateRightChatPanelJudgeDetail(currentAnswerQuestion.value)
+}
+
 const logLeftQuestionInfo = () => {
   console.log('=== [DEBUG] Left Panel Question Info ===')
   console.log('ID:', currentAnswerQuestion.value?.id)
@@ -405,6 +626,7 @@ const showDraftDialog = ref(false)
 
 const handleSelectQuestion = (question: ExerciseItem, index: number) => {
   handleStartAnswer(question)
+  updateRightChatPanelJudgeDetail(question)
 }
 
 const handlePrevQuestion = () => {
@@ -456,6 +678,7 @@ const {
   homeworkName,
   resubmitType,
   currentHomeworkInfo,
+  judgePointsMap,
 } = storeToRefs(homeworkStore)
 
 const homeworkButtonText = computed(() => {
@@ -565,16 +788,19 @@ const handleToolbarToolChange = (tool: string) => {
 const handleToggle = async (question?: ExerciseItem) => {
   const homeworkId = route.params.homeworkId as string
 
-  // 1. 实时从本地 IndexedDB 检查并更新最新的提交状态
-  if (homeworkId) {
+  // 1. 优先校验是否有判罚数据，若有则强制标记为已提交；否则校验本地 DB
+  const hasJudgeData = !!(judgeDetailData.value || homeworkStore.judgeDetailData || (judgePointsMap.value && judgePointsMap.value.size > 0))
+  if (hasJudgeData) {
+    isHomeworkSubmitted.value = true
+  } else if (homeworkId) {
     const dbData = await homeworkStore.loadHomeworkSubmissionFromDB(homeworkId)
     if (dbData) {
       isHomeworkSubmitted.value = dbData.isSubmitted
     }
   }
 
-  // 2. 只有已提交作业，才允许使用 AI 答疑功能
-  if (!isHomeworkSubmitted.value) {
+  // 2. 只有在无判罚数据且未提交时，才阻止 AI 答疑
+  if (!isHomeworkSubmitted.value && !hasJudgeData) {
     showMessage('需要提交作业后才能使用学伴答疑哦', 'warning')
     return
   }
@@ -1084,7 +1310,10 @@ const handleStartAnswer = async (question: ExerciseItem) => {
   await nextTick()
   restoreCurrentPage(question)
 
-  // 4. 重置滚动位置
+  // 4. 只要存在判罚详情，自动更新右侧 ChatPanel 判罚卡片并展开 ChatPanel（不判断是否已提交）
+  updateRightChatPanelJudgeDetail(question)
+
+  // 5. 重置滚动位置
   if (currentQuestionRenderRef.value) {
     currentQuestionRenderRef.value.scrollTop = 0
   }
@@ -1513,6 +1742,12 @@ onMounted(async () => {
         isHomeworkSubmitted.value = dbData.isSubmitted
       }
     }
+  }
+
+  // 只要有判罚数据，即判定为已提交作业
+  const judgeData = await fetchHomeworkJudgeDetails()
+  if (judgeData || homeworkStore.judgeDetailData || (judgePointsMap.value && judgePointsMap.value.size > 0)) {
+    isHomeworkSubmitted.value = true
   }
 
   // 2. 如果题目列表为空，直接终止后续的初始化逻辑

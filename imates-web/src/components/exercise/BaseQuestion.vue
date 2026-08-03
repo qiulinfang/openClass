@@ -41,21 +41,14 @@ import { computed, nextTick, watch } from 'vue'
 import type { ExerciseItem } from '../../types'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { MathJaxUtils } from '../../utils/math/mathjax'
+import { useHomeworkStore } from '@/stores/homeworkStore'
 
 defineOptions({
   name: 'BaseQuestion'
 })
 
 const isDev = import.meta.env.DEV
-
-const logQuestionInfo = () => {
-  console.log('=== [DEBUG] Question Info ===')
-  console.log('ID:', props.question.id)
-  console.log('bmNo:', props.question.bmNo)
-  console.log('Type:', props.question.type)
-  console.log('Raw Question Object:', props.question)
-  console.log('=============================')
-}
+const homeworkStore = useHomeworkStore()
 
 const props = withDefaults(defineProps<{
   question: ExerciseItem
@@ -63,12 +56,31 @@ const props = withDefaults(defineProps<{
   showId?: boolean
   showTypeTag?: boolean
   showAnalysis?: boolean
+  scorePointList?: any
 }>(), {
   showTitle: false,
   showId: false,
   showTypeTag: false,
   showAnalysis: false
 })
+
+const logQuestionInfo = () => {
+  const qId = String(props.question.id || props.question.bmNo || '').trim()
+  console.log('=== [DEBUG] Question Info ===')
+  console.log('Target Question ID / bmNo:', qId)
+  console.log('Question Type:', props.question.type || props.question.structuredContent?.type)
+  console.log('Raw Question Object:', props.question)
+  console.log('Passed Score Point Map (prop):', props.scorePointList)
+  console.log('Store judgePointsMap:', homeworkStore.judgePointsMap)
+  console.log('Store questionDataMap:', homeworkStore.questionDataMap)
+  
+  const matchedPoints = homeworkStore.getJudgePointsForQuestion ? homeworkStore.getJudgePointsForQuestion(props.question) : []
+  console.log(`📌 [DEBUG] Matched Score Points for [${qId}]:`, matchedPoints)
+  
+  const matchedQData = homeworkStore.questionDataMap ? homeworkStore.questionDataMap.get(qId) : []
+  console.log(`📌 [DEBUG] Matched Question Image Data for [${qId}]:`, matchedQData)
+  console.log('=============================')
+}
 
 const { renderMessageContent } = useMessageRenderer()
 

@@ -115,6 +115,19 @@
           />
         </div>
       </div>
+      <!-- 判罚结果 Tab -->
+      <div v-show="activeTab === 'judge-detail'" class="tab-content judge-detail-panel-content q-pa-sm">
+        <ScorePointCardList
+          ref="scorePointCardListRef"
+          :score-point-list="currentScorePointList"
+          :active-point-index="activePointIndex"
+          :hover-point-index="hoverPointIndex"
+          :selected-point-index="selectedPointIndex"
+          @locate-point="handleCardLocatePoint"
+          @mouseenter-point="(idx) => hoverPointIndex = idx"
+          @mouseleave-point="() => hoverPointIndex = null"
+        />
+      </div>
     </div>
 
     <!-- 清除会话确认对话框 -->
@@ -139,6 +152,7 @@ import { ref, nextTick, computed, watch, type ComponentPublicInstance } from 'vu
 import { useRouter } from 'vue-router'
 import { CHAT_TAB_OPTIONS, AI_ROLE_OPTIONS } from '@/constants/options'
 import { useAiHomeworkChatStore } from '@/stores/aiHomeworkChatStore'
+import { useHomeworkStore } from '@/stores/homeworkStore'
 import { useDraftStore } from '@/stores/draftStore'
 import { useScreenSnapshot } from '@/composables/useScreenSnapshot'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
@@ -154,6 +168,8 @@ import type { BuiltinToolType } from '@/types/toolbarTools'
 import goBackBlackIcon from '/icons/goback_black.svg'
 import newSessionIcon from '/icons/new.svg'
 import deleteSessionIcon from '/icons/delete.svg'
+
+import ScorePointCardList from '@/components/display/ScorePointCardList.vue'
 
 const props = withDefaults(defineProps<{
   question?: ExerciseItem | null
@@ -178,10 +194,102 @@ const emit = defineEmits<{
   'session-click': [record: any]
   'add-session': []
   'close': []
+  'locate-point': [payload: { item: any; index: number }]
 }>()
 
+const handleCardLocatePoint = (payload: { item: any; index: number }) => {
+  selectedPointIndex.value = payload.index
+  emit('locate-point', payload)
+}
+
 const aiHomeworkStore = useAiHomeworkChatStore()
+const homeworkStore = useHomeworkStore()
 const draftStore = useDraftStore()
+
+// 判罚结果状态
+const currentJudgeTitle = ref('')
+const currentScoreText = ref('')
+const currentScorePointList = ref<any[]>([])
+const activePointIndex = ref<number | null>(null)
+const hoverPointIndex = ref<number | null>(null)
+const selectedPointIndex = ref<number | null>(null)
+const scorePointCardListRef = ref<any>(null)
+
+const loadSubQuestionPoints = (point: any) => {
+  if (!props.question || !point) return []
+  const pId = point.pointId || point.id
+
+  // 1. 若当前大题包含 subQuestions 子题列表，查找该采分点属于哪道子题
+  const subQuestions = props.question.subQuestions || (props.question as any).sub_questions || []
+  if (Array.isArray(subQuestions) && subQuestions.length > 0) {
+    for (const sub of subQuestions) {
+      const points = homeworkStore.getJudgePointsForQuestion ? homeworkStore.getJudgePointsForQuestion(sub) : []
+      if (points.some((p: any) => (p.pointId || p.id) === pId)) {
+        return points
+      }
+    }
+  }
+
+  // 2. 若无复合子题结构，获取当前题目的采分点
+  const allPoints = homeworkStore.getJudgePointsForQuestion ? homeworkStore.getJudgePointsForQuestion(props.question) : []
+  return allPoints
+}
+
+const setSingleScorePointDetail = (point: any, index: number) => {
+  if (!point) return
+
+  // 点击 OCR 区域时，仅加载并展示对应子题的采分点列表
+  const subPoints = loadSubQuestionPoints(point)
+  currentScorePointList.value = subPoints
+
+  if (subPoints.length > 0) {
+    const hitCount = subPoints.filter((p: any) => p.hit).length
+    currentScoreText.value = `${hitCount}/${subPoints.length} 采分点`
+    currentJudgeTitle.value = '子题判罚明细'
+  }
+
+  // 在该子题采分点列表中匹配对应索引
+  let targetIndex = 0
+  const pId = point.pointId || point.id
+  const foundIdx = subPoints.findIndex((p: any) => (p.pointId || p.id) === pId)
+  if (foundIdx !== -1) {
+    targetIndex = foundIdx
+  } else if (index >= 0 && index < subPoints.length) {
+    targetIndex = index
+  }
+
+  selectedPointIndex.value = targetIndex
+  activeTab.value = 'judge-detail'
+
+  nextTick(() => {
+    scorePointCardListRef.value?.scrollToPoint?.(targetIndex)
+  })
+}
+
+const restoreFullJudgeDetail = () => {
+  if (props.question) {
+    const points = homeworkStore.getJudgePointsForQuestion ? homeworkStore.getJudgePointsForQuestion(props.question) : []
+    if (points && points.length > 0) {
+      const hitCount = points.filter((p: any) => p.hit).length
+      currentScorePointList.value = points
+      currentScoreText.value = `${hitCount}/${points.length} 采分点`
+      currentJudgeTitle.value = '判罚结果明细'
+      selectedPointIndex.value = null
+    }
+  }
+}
+
+// 响应式监听题目变化，初始情况下列表渲染为空，等待点击 OCR 区域按需加载子题采分点
+watch(
+  () => [props.question?.id, props.question?.bmNo],
+  () => {
+    currentScorePointList.value = []
+    currentScoreText.value = ''
+    currentJudgeTitle.value = ''
+    selectedPointIndex.value = null
+  },
+  { immediate: true }
+)
 
 // 监听题目变化，自动切换会话上下文
 watch(() => props.question?.bmNo, async (newBmNo) => {
@@ -238,10 +346,39 @@ const handleOpenHtmlPreview = (payload: { url: string; html?: string }) => {
 }
 
 // Tab 状态
-const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
+const activeTab = ref<'ai-chat' | 'question-record' | 'judge-detail'>('ai-chat')
 
-// Tab 选项
-const tabOptions = CHAT_TAB_OPTIONS as Array<{ label: string; value: 'ai-chat' | 'question-record' }>
+// Tab 选项动态加上判罚结果
+const tabOptions = computed(() => {
+  const options: Array<{ label: string; value: string }> = [...CHAT_TAB_OPTIONS]
+  if (currentScorePointList.value && currentScorePointList.value.length > 0) {
+    if (!options.some((o) => o.value === 'judge-detail')) {
+      options.push({ label: '判罚结果', value: 'judge-detail' })
+    }
+  }
+  return options
+})
+
+const setJudgeDetailData = (data: {
+  title?: string
+  scoreText?: string
+  scorePointList?: any[]
+  autoSwitchTab?: boolean
+}) => {
+  console.log('[HomeworkChatPanel] setJudgeDetailData 接收到数据:', {
+    title: data.title,
+    scoreText: data.scoreText,
+    pointCount: data.scorePointList?.length ?? 0,
+    autoSwitchTab: data.autoSwitchTab,
+  })
+  if (data.title !== undefined) currentJudgeTitle.value = data.title
+  if (data.scoreText !== undefined) currentScoreText.value = data.scoreText
+  if (data.scorePointList !== undefined) currentScorePointList.value = data.scorePointList || []
+  if (data.autoSwitchTab !== false) {
+    activeTab.value = 'judge-detail'
+  }
+}
+
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -406,6 +543,12 @@ const sendQuestion = async (question: ExerciseItem) => {
 
 // 暴露的方法
 defineExpose({
+  setJudgeDetailData,
+  setSingleScorePointDetail,
+  restoreFullJudgeDetail,
+  setActiveTab: (tab: 'ai-chat' | 'question-record' | 'judge-detail') => {
+    activeTab.value = tab
+  },
   sendQuestion,
   switchToAiChat: () => {
     activeTab.value = 'ai-chat'
@@ -492,6 +635,18 @@ defineExpose({
   background-color: #f7f6ff;
   display: flex;
   flex-direction: column;
+}
+
+.tab-content.judge-detail-panel-content {
+  background: #f7f6ff !important;
+  color: #2b2640;
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .session-card-wrapper {

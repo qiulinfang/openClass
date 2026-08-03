@@ -138,7 +138,7 @@ import cameraIcon from '/icons/camera.svg'
 import lagaoIcon from '/icons/lagao.svg'
 import cropIcon from '/icons/caijian.svg'
 
-interface Props {
+export interface Props {
   modelValue?: StructuredAnswerItem
   questionType?: 'fill' | 'subjective'
   label?: string

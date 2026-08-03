@@ -19,6 +19,7 @@ export interface YanbanApiPaths {
   auth: AuthApiPaths
   resource: ResourceApiPaths
   homework: {
+    submitJudgeDetail: string
     undoList: string
     detailList: string
     submitSave: string
@@ -311,6 +312,7 @@ export function getApiPaths(): ApiPaths {
           base: '/yb-test/resource',
         },
         homework: {
+          submitJudgeDetail: '/yb-test/blw-edu-yb/api/app/homework-submit-judge-detail',
           undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
           detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
           submitSave: '/yb-test/blw-edu-yb/api/app/homework-submit-save',
@@ -370,6 +372,7 @@ export function getApiPaths(): ApiPaths {
         base: '/yb-release/resource',
       },
       homework: {
+        submitJudgeDetail: '/yb-release/blw-edu-yb/api/app/homework-submit-judge-detail',
         undoList: '/yb-release/blw-edu-yb/api/app/homework-undo-list',
         detailList: '/yb-release/blw-edu-yb/api/app/homework-detail-list',
         submitSave: '/yb-release/blw-edu-yb/api/app/homework-submit-save',

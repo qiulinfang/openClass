@@ -434,3 +434,289 @@ export interface UpdateAvatarResult {
   avatar: string
 }
 
+// ========== 作业提交批改详情 API ==========
+
+/** OCR 框图与识别区域 */
+export interface JudgeOcrRegion {
+  /** 识别源文件索引序号 */
+  source_index?: number
+  /** 识别源文件索引序号（驼峰形式兼容） */
+  sourceIndex?: number
+  /** 文本切图在图片中的像素坐标范围 [x1, y1, x2, y2] */
+  bbox?: number[]
+  /** 识别出的手写文本或公式内容 */
+  text?: string
+  /** 识别置信度等级（如 high, medium, low） */
+  confidence?: string
+  /** 文字或公式是否模糊不清 */
+  vague?: boolean
+  /** 后处理更正后的文本内容 */
+  corrected_text?: string
+  /** 是否保留该识别区域 */
+  keep?: boolean
+  /** 是否需要人工复核该区域 */
+  review_required?: boolean
+}
+
+/** 采分点匹配项 */
+export interface JudgeScorePoint {
+  /** 采分点唯一标识符 ID */
+  pointId: string
+  /** 学生作答是否命中该采分点 */
+  hit: boolean
+  /** 学生实际获得的得分 */
+  score: number
+  /** 该采分点的满分分值 */
+  maxScore: number
+}
+
+/** 批改得分汇总 */
+export interface JudgeScoreSummary {
+  /** 自动判罚过程是否发生异常或失败 */
+  autoJudgeFailed?: boolean
+  /** 学生作答命中的采分点数量 */
+  hitCount?: number
+  /** 本题的最大总分 */
+  maxScore?: number
+  /** 本题的总采分点数量 */
+  pointCount?: number
+  /** 各采分点的具体得分详情列表 */
+  points?: JudgeScorePoint[]
+  /** 本题最终获得的总得分 */
+  score?: number
+}
+
+/** 子题结构化数据 */
+export interface SubQuestionStructureItem {
+  /** 子题唯一标识 ID */
+  id: string
+  /** 子题题型名称（如 subjective, single_choice 等） */
+  type: string
+  /** 子题题干描述文本 */
+  stem?: string
+  /** 子题解析说明 */
+  analysis?: string
+  /** 子题标准答案 */
+  answer?: string
+  /** 子题分类类别 */
+  question_category?: string
+}
+
+/** 题目结构数据 (questionStructureData 解析后) */
+export interface QuestionStructureData {
+  /** 解析处理状态（如 success） */
+  status?: string
+  /** 题目核心实体信息 */
+  question?: {
+    /** 主题目唯一标识 ID */
+    id: string
+    /** 学科名称（如 math） */
+    subject?: string
+    /** 题目满分分值 */
+    score?: number | null
+    /** 题目类型（如 composite 复合大题） */
+    type?: string
+    /** 题目主干说明文本 */
+    stem?: string
+    /** 题目整体解析 */
+    analysis?: string
+    /** 题目材料背景 */
+    material?: string
+    /** 包含的子题列表 */
+    subQuestions?: SubQuestionStructureItem[]
+    /** 题目分类 */
+    question_category?: string
+    /** 预分类大模型提示词与信号信息 */
+    pre_classification?: Record<string, any>
+  }
+  /** 后端 AI 处理耗时（如 "23.26s"） */
+  processing_time?: string
+  /** 调用的大语言模型名称 */
+  llm_model?: string
+  /** LLM API 服务 Base URL */
+  llm_base_url?: string
+  /** 模型调用签名标识 */
+  llm_signature?: string
+}
+
+/** 学生作答数据项 (questionAnswerData 解析后) */
+export interface QuestionAnswerDataItem {
+  /** 子题或题目 ID */
+  questionId: string
+  /** 学生作答内容/图片地址列表 */
+  answerData?: string[]
+}
+
+/** 批改修订数据项 (questionRevisedData 解析后) */
+export interface QuestionRevisedDataItem {
+  /** 子题或题目 ID */
+  questionId: string
+  /** 作答资源地址列表 */
+  answerData?: string[]
+  /** 对应的得分汇总详情 */
+  scoreSummary?: JudgeScoreSummary
+}
+
+/** 骨架对齐明细 */
+export interface SkeletonAlignmentItem {
+  /** 该推导骨架标准节点是否达成 */
+  criterion_met: boolean
+  /** 未达成或达成的推理依据与原因 */
+  criterion_reason?: string
+  /** 错误分类类型（如 calculation_error, expression_missing 等） */
+  error_type?: string
+  /** 学生作答中是否存在对应步骤证据 */
+  is_present?: boolean
+  /** 匹配到的学生 OCR 文本坐标区域列表 */
+  matched_ocr_regions?: JudgeOcrRegion[]
+  /** 存在或不存在的说明原因 */
+  present_reason?: string
+  /** 对应的标准解法节点 ID */
+  standard_node_id?: string
+  /** 是否覆盖了模糊逻辑判定 */
+  vague_overridden?: boolean
+}
+
+/** 采分点 Payload 规则数据 */
+export interface ScorePayloadItem {
+  /** 是否满足判罚标准 */
+  criterion_met: boolean
+  /** 错误类型标识 */
+  error_type?: string
+  /** 采分点命中描述文本 */
+  hit_description?: string
+  /** 作答中是否存在判定证据 */
+  is_present?: boolean
+  /** 关联的 OCR 区域列表 */
+  matched_ocr_regions?: JudgeOcrRegion[]
+  /** 潜在错误原因说明 */
+  potential_error_reason?: string
+  /** 潜在错误类型 */
+  potential_error_type?: string
+  /** 该节点已给得分 */
+  score_awarded?: number
+  /** 该节点最高分值 */
+  score_max?: number
+  /** 对应的标准节点 ID */
+  standard_node_id?: string
+  /** 是否覆盖模糊判定 */
+  vague_overridden?: boolean
+}
+
+/** 判罚风险警告项 */
+export interface JudgeRiskItem {
+  /** 风险类型代码（如 FORMULA_DENSE, JUMP_OR_SPARSE_PROCESS 等） */
+  code: string
+  /** 风险严重等级（high, medium, low） */
+  severity: string
+  /** 风险描述提示信息 */
+  message: string
+  /** 建议采纳的操作动作（如“建议人工复核”） */
+  suggestedAction?: string
+  /** 触发风险的证据数据对象 */
+  evidence?: Record<string, any>
+}
+
+/** 单个节点的 AI 判罚结果 */
+export interface JudgeNodeResult {
+  /** 自动判罚是否失败 */
+  autoJudgeFailed?: boolean
+  /** 节点全局 ID */
+  nodeId?: string
+  /** 节点层级标签（如 "主题目 > 子题 1"） */
+  nodeLabel?: string
+  /** 对应的题目或子题 ID */
+  questionId?: string
+  /** 题目类型 */
+  questionType?: string
+  /** 识别出的 OCR 区域数组 */
+  ocr_regions?: JudgeOcrRegion[]
+  /** OCR 识别出的整体文本内容 */
+  ocr_text?: string
+  /** 重新整理后的学生作答步骤描述 */
+  rearrange_students_answer?: string
+  /** 区域识别集合 */
+  regions?: JudgeOcrRegion[]
+  /** AI 两阶段解析输出结果 */
+  parserOutput?: {
+    /** 阶段 1：解法匹配与主旨判定 */
+    stage_1?: Record<string, any>
+    /** 阶段 2：推导骨架对齐与潜在问题诊断 */
+    stage_2?: {
+      skeleton_alignment?: SkeletonAlignmentItem[]
+      student_potential_issues?: string[]
+    }
+  }
+  /** 判罚路由与规则 Payload 结果 */
+  route?: {
+    /** 执行的操作路由动作（如 PROCEED_TO_VERIFIER） */
+    action?: string
+    /** 是否需要教师介入介入标识 */
+    need_teacher?: boolean
+    /** 触发理由 */
+    reason?: string
+    /** 逐采分点明细规则荷载 */
+    payload?: ScorePayloadItem[]
+  }
+  /** 得分汇总 */
+  scoreSummary?: JudgeScoreSummary
+  /** 判罚使用策略（如 RULE_THEN_PARSER_AGENT） */
+  strategy?: string
+  /** 学生答题潜在问题点汇总列表 */
+  studentPotentialIssues?: string[]
+  /** 主观题智能诊断报告与风险评估 */
+  subjectiveDiagnostics?: {
+    /** 是否需要教师人工复核 */
+    needTeacherReview?: boolean
+    /** 整体风险等级（如 high, medium, low） */
+    overallRisk?: string
+    /** 风险列表明细 */
+    risks?: JudgeRiskItem[]
+  }
+}
+
+/** AI 智能判罚详细分析数据 (questionJudgeDataData 解析后) */
+export interface QuestionJudgeData {
+  /** 解法推导图谱与标准解法节点列表 */
+  analysisNodes?: any[]
+  /** 自动生成的上下文调试配置 */
+  autoGeneratedContext?: Record<string, any>
+  /** 各子题/节点的 AI 判罚评估结果集 */
+  results?: JudgeNodeResult[]
+}
+
+/** 作业提交批改详情单项 (后端 /homework-submit-judge-detail 返回数据项) */
+export interface HomeworkSubmitJudgeDetailItem {
+  /** 记录唯一标识 ID */
+  id: string
+  /** 所属作业 ID */
+  homeworkId: string
+  /** 提交记录 ID */
+  submitId: string
+  /** 题目 ID */
+  questionId: string
+  /** 题目结构数据 JSON 字符串（解出来为 QuestionStructureData） */
+  questionStructureData?: string
+  /** 学生回答数据 JSON 字符串（解出来为 QuestionAnswerDataItem[]） */
+  questionAnswerData?: string
+  /** 批改修改数据 JSON 字符串（解出来为 QuestionRevisedDataItem[]） */
+  questionRevisedData?: string
+  /** AI 智能判罚数据 JSON 字符串或对象（解出来为 QuestionJudgeData） */
+  questionJudgeDataData?: string | QuestionJudgeData
+}
+
+/** 作业提交批改详情响应数据结构 */
+export interface HomeworkSubmitJudgeDetailResponse {
+  /** 业务响应状态码 */
+  code?: number
+  /** 接口调用是否成功 */
+  success?: boolean
+  /** 响应消息提示 */
+  message?: string
+  /** 响应消息提示（兼容字段） */
+  msg?: string
+  /** 返回的批改详情单项或列表数据 */
+  data?: HomeworkSubmitJudgeDetailItem[] | HomeworkSubmitJudgeDetailItem
+}
+
+

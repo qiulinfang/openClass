@@ -13,6 +13,7 @@ import type {
   HomeworkUndoItem,
   HomeworkQuestionDetail,
   HomeworkQueryReq,
+  HomeworkSubmitJudgeDetailItem,
   RecognizeHandwrittenFormulaJsonRequest,
   RecognizeHandwrittenFormulaResponse
 } from '@/types'
@@ -68,7 +69,10 @@ export class HomeworkApi {
       filename: 'handwritten_formula.png'
     }
     try {
-      const response = await httpClient.post<RecognizeHandwrittenFormulaResponse>(endpoint, body)
+      // 超时时间设置为 5 分钟 (300,000 ms)
+      const response = await httpClient.post<RecognizeHandwrittenFormulaResponse>(endpoint, body, {
+        timeout: 300000,
+      })
       // 如果请求本身失败（success 为 false），直接返回整个响应对象，让上层能看到 code
       if (!response.success) {
         return response as any
@@ -127,6 +131,31 @@ export class HomeworkApi {
     } catch (error) {
       console.error('[HomeworkApi] getHomeworkDetailList error:', error)
       return []
+    }
+  }
+
+  /**
+   * 获取作业提交批改详情
+   */
+  public async getHomeworkSubmitJudgeDetail(
+    id: string
+  ): Promise<HomeworkSubmitJudgeDetailItem[] | HomeworkSubmitJudgeDetailItem | null> {
+    const endpoint = getApiPaths().yanban.homework.submitJudgeDetail
+    const requestBody: IdReq = { id }
+    try {
+      const response = await httpClient.post<{
+        code?: number
+        data?: HomeworkSubmitJudgeDetailItem[] | HomeworkSubmitJudgeDetailItem
+        message?: string
+      }>(endpoint, requestBody)
+
+      if (response.success && response.data?.code === 200) {
+        return response.data.data || response.data
+      }
+      return (response.data as any) || null
+    } catch (error) {
+      console.error('[HomeworkApi] getHomeworkSubmitJudgeDetail error:', error)
+      return null
     }
   }
 

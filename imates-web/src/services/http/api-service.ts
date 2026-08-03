@@ -44,6 +44,7 @@ import type {
   FillBlankHandwritingOcrGradeRequest,
   FillBlankHandwritingOcrGradeResponse,
   UpdateAvatarResult,
+  HomeworkSubmitJudgeDetailItem,
 } from '@/types'
 
 
@@ -55,7 +56,7 @@ export class ApiService {
   private teacherChatApi: TeacherChatApi
   private questionSearchApi: QuestionSearchApi
   private textbookDownloadApi: TextbookDownloadApi
-  private homeworkApi: HomeworkApi
+  public readonly homeworkApi: HomeworkApi
   private questionStructurerApi: QuestionStructurerApi
 
   private constructor() {
@@ -505,6 +506,15 @@ export class ApiService {
     }
 
     throw new Error(response.message || '更新头像失败')
+  }
+
+  /**
+   * 获取作业提交批改详情
+   */
+  public async getHomeworkSubmitJudgeDetail(
+    id: string
+  ): Promise<HomeworkSubmitJudgeDetailItem[] | HomeworkSubmitJudgeDetailItem | null> {
+    return this.homeworkApi.getHomeworkSubmitJudgeDetail(id)
   }
 }
 

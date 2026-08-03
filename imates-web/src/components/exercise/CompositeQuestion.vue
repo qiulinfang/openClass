@@ -5,6 +5,7 @@
     :show-title="showTitle"
     :show-id="showId"
     :show-analysis="showAnalysis"
+    :score-point-list="scorePointList"
   >
     <!-- 材料区域放入 stem 插槽，保持与普通题干一致 -->
     <template #stem>
@@ -69,6 +70,10 @@
               :show-id="showId"
               :disabled="disabled"
               :show-analysis="showAnalysis"
+              :show-ocr-overlay="showOcrOverlay"
+              :question-data="questionData"
+              :score-point-list="scorePointList"
+              :focused-point-index="focusedPointIndex"
             />
 
             <!-- 普通子题渲染 -->
@@ -83,6 +88,10 @@
               :show-id="showId"
               :disabled="disabled"
               :show-analysis="showAnalysis"
+              :show-ocr-overlay="showOcrOverlay"
+              :question-data="questionData"
+              :score-point-list="scorePointList"
+              :focused-point-index="focusedPointIndex"
             />
           </template>
         </div>
@@ -108,6 +117,12 @@
           :disabled="disabled"
           :show-analysis="showAnalysis"
           :layout-mode="localLayoutMode"
+          :show-ocr-overlay="showOcrOverlay"
+          :question-data="questionData"
+          :score-point-list="scorePointList"
+          :focused-point-index="focusedPointIndex"
+          :active-point-id="activePointId"
+          @select-score-point="emit('select-score-point', $event)"
         />
 
         <!-- 主观题渲染 -->
@@ -121,6 +136,12 @@
           :show-id="showId"
           :disabled="disabled"
           :show-analysis="showAnalysis"
+          :show-ocr-overlay="showOcrOverlay"
+          :question-data="questionData"
+          :score-point-list="scorePointList"
+          :focused-point-index="focusedPointIndex"
+          :active-point-id="activePointId"
+          @select-score-point="emit('select-score-point', $event)"
         />
 
         <!-- 普通子题渲染 -->
@@ -139,6 +160,12 @@
           :show-id="showId"
           :disabled="disabled"
           :show-analysis="showAnalysis"
+          :show-ocr-overlay="showOcrOverlay"
+          :question-data="questionData"
+          :score-point-list="scorePointList"
+          :focused-point-index="focusedPointIndex"
+          :active-point-id="activePointId"
+          @select-score-point="emit('select-score-point', $event)"
         />
       </div>
     </div>
@@ -169,16 +196,24 @@ const props = withDefaults(defineProps<{
   showAnalysis?: boolean
   disabled?: boolean
   layoutMode?: 'tab' | 'list'
+  showOcrOverlay?: boolean
+  questionData?: any[]
+  scorePointList?: any[]
+  focusedPointIndex?: number
+  activePointId?: string
 }>(), {
   modelValue: () => ({}),
   showTitle: true,
   showId: true,
   showAnalysis: false,
   disabled: false,
-  layoutMode: 'list'
+  layoutMode: 'list',
+  showOcrOverlay: false,
+  focusedPointIndex: undefined,
+  activePointId: ''
 })
 
-const emit = defineEmits(['update:modelValue', 'change'])
+const emit = defineEmits(['update:modelValue', 'change', 'select-score-point'])
 
 const activeSubIdx = ref(0)
 const localLayoutMode = ref<'tab' | 'list'>(props.layoutMode)

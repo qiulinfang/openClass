@@ -225,7 +225,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
-import { getMqttWsUrl } from '@/config/env-config'
+import { ADDRESS_CATALOG } from '@/config/env-config'
 import { getMqttService, destroyMqttService, type MqttMessage } from '@/services/mqtt/mqttService'
 import { useMqtt } from '@/composables/useMqtt'
 
@@ -233,7 +233,7 @@ defineOptions({
   name: 'MqttTestView'
 })
 
-const brokerUrl = ref(getMqttWsUrl())
+const brokerUrl = ref(ADDRESS_CATALOG.MQTT_WS_TEST)
 const username = ref('admin')
 const password = ref('admin')
 

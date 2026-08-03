@@ -98,6 +98,12 @@ export function getApiPaths() {
         auth: {
           loginStudent: '/yb-test/blw-edu-yb/auth/login-student',
         },
+        homework: {
+          submitJudgeDetail: '/yb-test/blw-edu-yb/api/app/homework-submit-judge-detail',
+          undoList: '/yb-test/blw-edu-yb/api/app/homework-undo-list',
+          detailList: '/yb-test/blw-edu-yb/api/app/homework-detail-list',
+          submitSave: '/yb-test/blw-edu-yb/api/app/homework-submit-save',
+        },
         textbook: {
           teacherTextbook: '/yb-test/blw-edu-yb/api/app/teacher-textbook',
           teacherTextbookSectionTree: '/yb-test/blw-edu-yb/api/app/teacher-textbook-section-tree',
@@ -126,6 +132,12 @@ export function getApiPaths() {
     yanban: {
       auth: {
         loginStudent: '/yb-release/blw-edu-yb/auth/login-student',
+      },
+      homework: {
+        submitJudgeDetail: '/yb-release/blw-edu-yb/api/app/homework-submit-judge-detail',
+        undoList: '/yb-release/blw-edu-yb/api/app/homework-undo-list',
+        detailList: '/yb-release/blw-edu-yb/api/app/homework-detail-list',
+        submitSave: '/yb-release/blw-edu-yb/api/app/homework-submit-save',
       },
       textbook: {
         teacherTextbook: '/yb-release/blw-edu-yb/api/app/teacher-textbook',
