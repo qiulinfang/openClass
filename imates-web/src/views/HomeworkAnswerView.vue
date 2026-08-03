@@ -487,29 +487,47 @@ const extractScorePointsFromJudge = (judgeNode: any): any[] => {
   return points
 }
 
+const isUnsubmittedResponse = (res: any): boolean => {
+  if (!res) return false
+  const msg = String(res.message || res.msg || '')
+  if (msg.includes('尚未提交') || msg.includes('未提交')) return true
+  if (res.code && res.code !== 200 && !msg.includes('批改中')) return true
+  return false
+}
+
 const fetchHomeworkJudgeDetails = async () => {
   const homeworkId = route.params.homeworkId as string
   if (!homeworkId) return null
   if (judgeDetailData.value) {
-    homeworkStore.setJudgeDetailData(judgeDetailData.value)
-    isHomeworkSubmitted.value = true
-    return judgeDetailData.value
+    if (!isUnsubmittedResponse(judgeDetailData.value)) {
+      homeworkStore.setJudgeDetailData(judgeDetailData.value)
+      isHomeworkSubmitted.value = true
+      return judgeDetailData.value
+    }
   }
   if (homeworkStore.judgeDetailData) {
-    judgeDetailData.value = homeworkStore.judgeDetailData
-    homeworkStore.setJudgeDetailData(homeworkStore.judgeDetailData)
-    isHomeworkSubmitted.value = true
-    return homeworkStore.judgeDetailData
+    if (!isUnsubmittedResponse(homeworkStore.judgeDetailData)) {
+      judgeDetailData.value = homeworkStore.judgeDetailData
+      homeworkStore.setJudgeDetailData(homeworkStore.judgeDetailData)
+      isHomeworkSubmitted.value = true
+      return homeworkStore.judgeDetailData
+    }
   }
   judgeDetailLoading.value = true
   try {
     const res = await apiService.homeworkApi.getHomeworkSubmitJudgeDetail(homeworkId)
     if (res) {
+      if (isUnsubmittedResponse(res)) {
+        // 后端明确返回“您尚未提交作业”，清空判罚数据，保持未提交状态
+        judgeDetailData.value = null
+        return null
+      }
       judgeDetailData.value = res
       homeworkStore.setJudgeDetailData(res)
       isHomeworkSubmitted.value = true
+      return res
     }
-    return res
+    return null
   } catch (error) {
     console.error('[HomeworkAnswerView] 获取判罚详情异常:', error)
     judgeDetailData.value = null
@@ -1744,9 +1762,9 @@ onMounted(async () => {
     }
   }
 
-  // 只要有判罚数据，即判定为已提交作业
+  // 仅当返回非“未提交”的有效判罚数据时，才判定为已提交作业
   const judgeData = await fetchHomeworkJudgeDetails()
-  if (judgeData || homeworkStore.judgeDetailData || (judgePointsMap.value && judgePointsMap.value.size > 0)) {
+  if (judgeData && !isUnsubmittedResponse(judgeData)) {
     isHomeworkSubmitted.value = true
   }
 

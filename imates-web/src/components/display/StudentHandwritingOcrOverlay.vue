@@ -148,66 +148,69 @@ const getIconForPoint = (point) => {
     <div
       v-for="(item, index) in questionData"
       :key="item.questionId || index"
-      class="answer-image-wrapper"
-      :data-image-index="index"
+      class="answer-image-card"
     >
-      <template v-if="Array.isArray(item.answerData)">
-        <img
-          v-for="(imgUrl, imgIdx) in item.answerData"
-          :key="imgIdx"
-          class="student-image"
-          :src="imgUrl"
-          alt="学生作答图片"
-          @load="handleImageLoad(index, $event)"
-        />
-      </template>
-      <img
-        v-else-if="typeof item.answerData === 'string'"
-        class="student-image"
-        :src="item.answerData"
-        alt="学生作答图片"
-        @load="handleImageLoad(index, $event)"
-      />
-
-      <!-- OCR 划线覆盖图层 -->
-      <template v-if="index === 0">
-        <template
-          v-for="(point, pointIndex) in scorePointList || []"
-          :key="point.pointId || point.id || pointIndex"
-        >
-          <template v-if="shouldShowPointRegions(pointIndex)">
-            <div
-              v-for="(region, regionIndex) in getOverlayPointRegions(point)"
-              :key="`${point.pointId || point.id || pointIndex}-${regionIndex}`"
-              :data-region-key="`${pointIndex}-${index}-${regionIndex}`"
-              :class="[
-                'ocr-region',
-                point.hit ? 'is-hit' : 'is-nohit',
-                region.suppressMarker ? 'is-suppressed' : '',
-                isPointActive(point, pointIndex) ? 'is-active-point' : '',
-              ]"
-              :style="getRegionStyle(region, index)"
-              @click.stop="handleRegionClick(point, pointIndex, region)"
-            >
-              <span v-if="!region.suppressMarker" class="region-marker">
-                <span class="region-status-icon">
-                  <img
-                    :src="getIconForPoint(point)"
-                    :alt="point.hit ? '命中' : '未命中'"
-                    class="marker-svg-icon"
-                  />
-                </span>
-                <span
-                  class="region-index"
-                  :class="point.hit ? 'is-hit-badge' : 'is-nohit-badge'"
-                >
-                  {{ point.displayIndex || pointIndex + 1 }}
-                </span>
-              </span>
-            </div>
+      <div class="answer-image-wrapper">
+        <div class="student-image-container" :data-image-index="index">
+          <template v-if="Array.isArray(item.answerData)">
+            <img
+              v-for="(imgUrl, imgIdx) in item.answerData"
+              :key="imgIdx"
+              class="student-image"
+              :src="imgUrl"
+              alt="学生作答图片"
+              @load="handleImageLoad(index, $event)"
+            />
           </template>
-        </template>
-      </template>
+          <img
+            v-else-if="typeof item.answerData === 'string'"
+            class="student-image"
+            :src="item.answerData"
+            alt="学生作答图片"
+            @load="handleImageLoad(index, $event)"
+          />
+
+          <!-- OCR 划线覆盖图层 -->
+          <template v-if="index === 0">
+            <template
+              v-for="(point, pointIndex) in scorePointList || []"
+              :key="point.pointId || point.id || pointIndex"
+            >
+              <template v-if="shouldShowPointRegions(pointIndex)">
+                <div
+                  v-for="(region, regionIndex) in getOverlayPointRegions(point)"
+                  :key="`${point.pointId || point.id || pointIndex}-${regionIndex}`"
+                  :data-region-key="`${pointIndex}-${index}-${regionIndex}`"
+                  :class="[
+                    'ocr-region',
+                    point.hit ? 'is-hit' : 'is-nohit',
+                    region.suppressMarker ? 'is-suppressed' : '',
+                    isPointActive(point, pointIndex) ? 'is-active-point' : '',
+                  ]"
+                  :style="getRegionStyle(region, index)"
+                  @click.stop="handleRegionClick(point, pointIndex, region)"
+                >
+                  <span v-if="!region.suppressMarker" class="region-marker">
+                    <span class="region-status-icon">
+                      <img
+                        :src="getIconForPoint(point)"
+                        :alt="point.hit ? '命中' : '未命中'"
+                        class="marker-svg-icon"
+                      />
+                    </span>
+                    <span
+                      class="region-index"
+                      :class="point.hit ? 'is-hit-badge' : 'is-nohit-badge'"
+                    >
+                      {{ point.displayIndex || pointIndex + 1 }}
+                    </span>
+                  </span>
+                </div>
+              </template>
+            </template>
+          </template>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -217,102 +220,132 @@ const getIconForPoint = (point) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
 
-  .answer-image-wrapper {
-    position: relative;
+  .answer-image-card {
     width: 100%;
-    border-radius: 6px;
-    overflow: visible;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    box-sizing: border-box;
 
-    .student-image {
+    .answer-image-wrapper {
+      position: relative;
       width: 100%;
-      display: block;
-    }
+      min-height: 180px;
+      max-height: 520px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #f8fafc;
+      overflow: hidden;
+      padding: 8px;
+      box-sizing: border-box;
 
-    .ocr-region {
-      position: absolute;
-      border: none;
-      pointer-events: auto;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      outline: none;
+      .student-image-container {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        max-height: 504px;
 
-      &:hover,
-      &:active,
-      &:focus {
-        outline: none;
-        box-shadow: none;
-      }
-
-      /* 激活/选中的采分点：增加 2px 边框 */
-      &.is-active-point {
-        border: 2px solid #6e55ff !important;
-        box-shadow: none !important;
-        border-radius: 4px;
-        z-index: 20;
-      }
-
-      /* 命中遮罩（柔和紫色半透明） */
-      &.is-hit {
-        background: rgba(110, 85, 255, 0.22);
-      }
-
-      /* 未命中遮罩（柔和粉红半透明） */
-      &.is-nohit {
-        background: rgba(220, 100, 100, 0.25);
-      }
-
-      &.is-suppressed {
-        opacity: 0.5;
-      }
-
-      /* 右侧标志容器 (SVG 图标 + 圆形序号) */
-      .region-marker {
-        position: absolute;
-        top: 50%;
-        right: -56px;
-        transform: translateY(-50%);
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0;
-        z-index: 10;
-
-        .region-status-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          .marker-svg-icon {
-            width: 30px;
-            height: 30px;
-            display: block;
-            object-fit: contain;
-          }
+        .student-image {
+          max-width: 100%;
+          max-height: 504px;
+          width: auto;
+          height: auto;
+          display: block;
+          object-fit: contain;
+          border-radius: 4px;
         }
 
-        .region-index {
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: 700;
-          color: #ffffff;
-          flex-shrink: 0;
+        .ocr-region {
+          position: absolute;
+          border: none;
+          pointer-events: auto;
+          cursor: pointer;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+          outline: none;
 
-          &.is-hit-badge {
-            background: #6e55ff;
+          &:hover,
+          &:active,
+          &:focus {
+            outline: none;
+            box-shadow: none;
           }
 
-          &.is-nohit-badge {
-            background: #ff3b30;
+          /* 激活/选中的采分点：增加 2px 边框 */
+          &.is-active-point {
+            border: 2px solid #6e55ff !important;
+            box-shadow: none !important;
+            border-radius: 4px;
+            z-index: 20;
+          }
+
+          /* 命中遮罩（柔和紫色半透明） */
+          &.is-hit {
+            background: rgba(110, 85, 255, 0.22);
+          }
+
+          /* 未命中遮罩（柔和粉红半透明） */
+          &.is-nohit {
+            background: rgba(220, 100, 100, 0.25);
+          }
+
+          &.is-suppressed {
+            opacity: 0.5;
+          }
+
+          /* 右侧标志容器 (SVG 图标 + 圆形序号) */
+          .region-marker {
+            position: absolute;
+            top: 50%;
+            right: -56px;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0;
+            z-index: 10;
+
+            .region-status-icon {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+
+              .marker-svg-icon {
+                width: 30px;
+                height: 30px;
+                display: block;
+                object-fit: contain;
+              }
+            }
+
+            .region-index {
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              font-weight: 700;
+              color: #ffffff;
+              flex-shrink: 0;
+
+              &.is-hit-badge {
+                background: #6e55ff;
+              }
+
+              &.is-nohit-badge {
+                background: #ff3b30;
+              }
+            }
           }
         }
       }
