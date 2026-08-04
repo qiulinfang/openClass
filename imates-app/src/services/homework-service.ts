@@ -1,7 +1,8 @@
 import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
-import { DeviceEventEmitter } from 'react-native';
-import { getYanbanApiUrl } from './api-url';
+import { DeviceEventEmitter, Platform } from 'react-native';
+import { getYanbanApiUrl, getImagesUploadUrl } from './api-url';
+import { HttpClient } from './http-client';
 
 // 接口定义符合 MyHomeworkView.vue
 export interface HomeworkUndoItem {
@@ -348,10 +349,7 @@ export class HomeworkService {
    */
   public static async getHomeworkDetailList(homeworkId: string): Promise<HomeworkQuestionDetail[]> {
     const token = await this.getValidYanbanToken();
-    const env = getCurrentEnvType();
-    const url = env === AppEnvType.INTERNAL_TEST
-      ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/homework-detail-list'
-      : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/homework-detail-list';
+    const url = getYanbanApiUrl('/api/app/homework-detail-list');
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -390,10 +388,9 @@ export class HomeworkService {
    */
   public static async submitHomework(req: HomeworkSubmitSaveReq): Promise<boolean> {
     const token = await this.getValidYanbanToken();
-    const env = getCurrentEnvType();
-    const url = env === AppEnvType.INTERNAL_TEST
-      ? 'https://www.imates.com.cn/yb-test/blw-edu-yb/api/app/homework-submit-save'
-      : 'https://www.imates.com.cn/yb-release/blw-edu-yb/api/app/homework-submit-save';
+    const url = getYanbanApiUrl('/api/app/homework-submit-save');
+    console.log('[HomeworkService] 📡 准备发送 homework-submit-save API 请求, URL:', url);
+    console.log('[HomeworkService] 提交请求 Body:', JSON.stringify(req, null, 2));
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -408,6 +405,8 @@ export class HomeworkService {
       body: JSON.stringify(req),
     });
 
+    console.log('[HomeworkService] 📡 homework-submit-save 响应状态码:', response.status);
+
     if (response.status === 401) {
       console.warn('[HomeworkService] 研伴 Token 401 过期，触发强制登出...');
       await storage.removeItem('XUEBAN_TOKEN');
@@ -417,13 +416,127 @@ export class HomeworkService {
     }
 
     if (!response.ok) {
+      console.error('[HomeworkService] HTTP 提交异常, status:', response.status);
       throw new Error(`提交作业失败 (HTTP ${response.status})`);
     }
 
     const resJson = await response.json();
+    console.log('[HomeworkService] 📡 homework-submit-save 响应 JSON:', JSON.stringify(resJson, null, 2));
     return !!(resJson.success || resJson.data?.success || resJson.code === 200);
   }
+
+  /**
+   * 获取作业提交批改详情 (支持判罚明细与采分点映射)
+   */
+  public static async getHomeworkSubmitJudgeDetail(homeworkId: string): Promise<any> {
+    const token = await this.getValidYanbanToken();
+    const url = getYanbanApiUrl('/api/app/homework-submit-judge-detail');
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Token': token || '',
+      'sa-token': token || '',
+      'authorization': token || '',
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: homeworkId }),
+      });
+
+      if (response.status === 401) {
+        console.warn('[HomeworkService] 研伴 Token 401 过期');
+        return null;
+      }
+
+      const resJson = await response.json();
+      return resJson;
+    } catch (err) {
+      console.warn('[HomeworkService] getHomeworkSubmitJudgeDetail 错误:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 封装 /api/images/upload 接口（通过 HttpClient 发送请求，自动解耦 Web/Native 路径及 Token）
+   * 返回后端响应的完整 CDN URL（https://www.imates.com.cn/uploads/...）
+   */
+  public static async uploadImage(uri: string): Promise<string> {
+    const formData = new FormData();
+    const filename = `upload_${Date.now()}.jpg`;
+
+    // --- 组装 FormData：Web 转 Blob；原生端传 {uri, name, type} ---
+    if (Platform.OS === 'web') {
+      let fileBlob: Blob | null = null;
+      if (uri.startsWith('blob:') || uri.startsWith('file:')) {
+        try {
+          const blobRes = await fetch(uri);
+          fileBlob = await blobRes.blob();
+        } catch (e) {
+          console.warn('[HomeworkService] fetch blob 转换失败:', e);
+        }
+      } else if (uri.startsWith('data:image')) {
+        try {
+          const base64Parts = uri.split(',');
+          const mimeType = base64Parts[0].split(':')[1].split(';')[0];
+          const byteCharacters = atob(base64Parts[1]);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          fileBlob = new Blob([byteArray], { type: mimeType });
+        } catch (e) {
+          console.warn('[HomeworkService] base64 转换 blob 失败:', e);
+        }
+      }
+      formData.append('file', (fileBlob ?? uri) as any, filename);
+    } else {
+      const match = /\.(\w+)$/.exec(uri);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      formData.append('file', { uri, name: filename, type } as any);
+    }
+
+    // --- 通过 HttpClient 发送 POST FormData 请求 ---
+    const resJson = await HttpClient.postFormData<any>('/api/images/upload', formData);
+
+    // --- 解析响应：优先取 data.path，对齐 imates-web 的处理逻辑 ---
+    const path: string | undefined =
+      resJson.data?.path ?? resJson.data?.url ?? resJson.path ?? resJson.url;
+    if (typeof path === 'string' && path.length > 0) {
+      return path.startsWith('http') ? path : `https://www.imates.com.cn${path}`;
+    }
+    throw new Error('[HomeworkService] 图片上传响应缺少 path/url 字段');
+  }
+
+  /**
+   * 上传图片并获取可访问的 CDN URL
+   *   - 已是 http/https URL → 直接返回（无需重复上传）
+   *   - 本地 URI（file:// / blob: / data:image）→ 调用封装好的 uploadImage
+   */
+  public static async uploadImageAndGetUrl(uri: string): Promise<string> {
+    if (!uri || typeof uri !== 'string') {
+      console.warn('[HomeworkService] uploadImageAndGetUrl 跳过无效 URI:', uri);
+      return '';
+    }
+    if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      console.log('[HomeworkService] URI 已是 CDN URL，无需重复上传:', uri);
+      return uri;
+    }
+    console.log('[HomeworkService] 准备上传本地图片文件:', uri);
+    try {
+      const cdnUrl = await this.uploadImage(uri);
+      console.log('[HomeworkService] 本地图片上传成功, CDN URL:', cdnUrl);
+      return cdnUrl;
+    } catch (e) {
+      console.warn('[HomeworkService] ⚠️ 上传图片异常，降级返回原始 URI:', e);
+      return uri;
+    }
+  }
 }
+
 
 export interface HomeworkQuestionDetail {
   id: string;
@@ -434,6 +547,12 @@ export interface HomeworkQuestionDetail {
   questionAnalysis?: string;
   questionChooseInfo?: string;
   questionChooseList?: string[];
+  questionStructureData?: string | object;
+  questionReason?: string;
+  type?: string;
+  structuredContent?: any;
+  material?: string;
+  subQuestions?: any[];
 }
 
 export interface HomeworkSubmitSaveReq {

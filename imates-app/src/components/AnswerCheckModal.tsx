@@ -23,6 +23,14 @@ export interface AnswerCheckModalProps {
   onSelectQuestion: (index: number) => void;
 }
 
+function safeTrimAnswer(val: any): string {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') return val.trim();
+  if (Array.isArray(val)) return val.join(', ').trim();
+  if (typeof val === 'object') return JSON.stringify(val).trim();
+  return String(val).trim();
+}
+
 export function AnswerCheckModal({
   visible,
   onClose,
@@ -39,8 +47,8 @@ export function AnswerCheckModal({
 
     questions.forEach(q => {
       const qId = q.questionId || q.id || '';
-      const textAns = (answers[qId] || '').trim();
-      const imgAns = (answersImage[qId] || '').trim();
+      const textAns = safeTrimAnswer(answers[qId]);
+      const imgAns = safeTrimAnswer(answersImage[qId]);
       const hasText = textAns !== '';
       const hasImage = imgAns !== '';
 
@@ -69,12 +77,15 @@ export function AnswerCheckModal({
           </TouchableOpacity>
         </View>
 
-        {/* 状态图例概览 */}
+        {/* 状态图例说明 */}
         <View style={styles.statusLegendRow}>
+          <Text style={styles.modalSummaryText}>
+            已完成 {checkStats.complete + checkStats.half} / {questions.length} 题
+          </Text>
           <View style={styles.legendBadgeGroup}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#A8CBBA' }]} />
-              <Text style={styles.legendText}>已完成 ({checkStats.complete})</Text>
+              <View style={[styles.legendDot, { backgroundColor: '#52C41A' }]} />
+              <Text style={styles.legendText}>完整答题 ({checkStats.complete})</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#FFFBE6', borderWidth: 1, borderColor: '#F3EED9' }]} />
@@ -91,8 +102,8 @@ export function AnswerCheckModal({
         <ScrollView contentContainerStyle={styles.gridContainer} showsVerticalScrollIndicator={false}>
           {questions.map((q, idx) => {
             const qId = q.questionId || q.id || '';
-            const textAns = (answers[qId] || '').trim();
-            const imgAns = (answersImage[qId] || '').trim();
+            const textAns = safeTrimAnswer(answers[qId]);
+            const imgAns = safeTrimAnswer(answersImage[qId]);
             const hasText = textAns !== '';
             const hasImage = imgAns !== '';
 
@@ -202,6 +213,12 @@ const styles = StyleSheet.create({
   },
   statusLegendRow: {
     marginBottom: 16,
+  },
+  modalSummaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
   },
   legendBadgeGroup: {
     flexDirection: 'row',

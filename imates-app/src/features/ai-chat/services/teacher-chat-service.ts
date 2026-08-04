@@ -2,7 +2,7 @@ import { AppEnvType, getCurrentEnvType } from '@/services/env-config';
 import { HomeworkService } from '@/services/homework-service';
 import { storage } from '@/services/storage';
 import type { ChatMessage } from '@/services/ai-chat-service';
-import { Platform } from 'react-native';
+import { Platform, DeviceEventEmitter } from 'react-native';
 
 export type TeacherSubject =
   | 'CHINESE'
@@ -160,7 +160,13 @@ export class TeacherChatService {
       token = await TeacherChatService.getToken(true);
       response = await send(token);
     }
-    if (!response.ok || (await isUnauthorized(response))) {
+    if (await isUnauthorized(response)) {
+      await storage.removeItem('XUEBAN_TOKEN');
+      await storage.removeItem('YANBAN_TOKEN');
+      DeviceEventEmitter.emit('FORCE_LOGOUT', { message: '登录凭证已失效，请重新登录。' });
+      throw new Error('登录凭证已失效，请重新登录');
+    }
+    if (!response.ok) {
       throw new Error(`老师答疑记录加载失败（HTTP ${response.status}）`);
     }
 

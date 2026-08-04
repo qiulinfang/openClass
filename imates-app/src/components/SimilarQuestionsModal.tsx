@@ -98,7 +98,7 @@ export function SimilarQuestionsModal({
       );
 
       onBatchSaved?.();
-      Alert.alert('★ 成功', addCount > 0 ? `已将 ${addCount} 道题目加入自选习题本！` : '选中的题目已在习题本中');
+      Alert.alert('成功', addCount > 0 ? `已将 ${addCount} 道题目加入自选习题本！` : '选中的题目已在习题本中');
     } catch (e) {
       console.warn('[SimilarQuestionsModal] 批量加入习题本失败:', e);
       Alert.alert('错误', '加入习题本失败，请重试');
@@ -130,8 +130,7 @@ export function SimilarQuestionsModal({
           {/* Header */}
           <View style={styles.modalHeader}>
             <View style={styles.headerLeft}>
-              <Text style={styles.modalTitle}>举一反三 🔄</Text>
-              <Text style={styles.modalSubtitle}>智能匹配同类高频考试题型</Text>
+              <Text style={styles.modalTitle}>举一反三</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeText}>✕</Text>
@@ -145,7 +144,7 @@ export function SimilarQuestionsModal({
             </View>
           ) : localQuestions.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>根据当前知识点暂未找到相似题目 📭</Text>
+              <Text style={styles.emptyText}>根据当前知识点暂未找到相似题目</Text>
             </View>
           ) : (
             <>
@@ -198,7 +197,7 @@ export function SimilarQuestionsModal({
 
                         {q.atUserList ? (
                           <View style={styles.favoritedBadge}>
-                            <Text style={styles.favoritedBadgeText}>★ 已在习题本</Text>
+                            <Text style={styles.favoritedBadgeText}>已在习题本</Text>
                           </View>
                         ) : null}
                       </View>
@@ -216,36 +215,21 @@ export function SimilarQuestionsModal({
                 })}
               </ScrollView>
 
-              {/* 底部固定双功能悬浮操作条 */}
+              {/* 底部固定单功能悬浮操作条 */}
               <View style={styles.bottomActionBar}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionBtnSecondary]}
+                  style={[styles.actionBtn, styles.actionBtnPrimary, selectedBmNos.length === 0 && styles.actionBtnDisabled]}
                   onPress={handleBatchSaveToExercises}
-                  disabled={isBatchSaving}
+                  disabled={isBatchSaving || selectedBmNos.length === 0}
                   activeOpacity={0.8}
                 >
                   {isBatchSaving ? (
-                    <ActivityIndicator size="small" color="#4F46E5" />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.actionBtnSecondaryText}>
-                      ⭐ 加入习题本 {selectedBmNos.length > 0 ? `(${selectedBmNos.length})` : ''}
+                    <Text style={styles.actionBtnPrimaryText}>
+                      加入习题本 {selectedBmNos.length > 0 ? `(${selectedBmNos.length})` : ''}
                     </Text>
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.actionBtn,
-                    styles.actionBtnPrimary,
-                    selectedBmNos.length === 0 && styles.actionBtnDisabled,
-                  ]}
-                  onPress={handleStartPractice}
-                  disabled={selectedBmNos.length === 0}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.actionBtnPrimaryText}>
-                    🚀 开始练习 {selectedBmNos.length > 0 ? `(${selectedBmNos.length})` : ''}
-                  </Text>
                 </TouchableOpacity>
               </View>
             </>

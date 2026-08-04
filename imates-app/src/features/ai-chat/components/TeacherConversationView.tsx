@@ -297,6 +297,7 @@ const styles = StyleSheet.create({
     borderColor: '#E0E2EB',
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 5,
+    width: '100%',
   },
   userText: { fontSize: 15, lineHeight: 22, color: '#FFFFFF' },
   messageImage: { width: 220, height: 180, borderRadius: 10 },

@@ -493,13 +493,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 16,
   },
-  messageColumn: { maxWidth: '84%', alignItems: 'flex-start' },
-  userMessageColumn: { alignItems: 'flex-end' },
+  messageColumn: { flex: 1, maxWidth: '84%', alignItems: 'flex-start' },
+  userMessageColumn: { alignItems: 'flex-end', flex: 0 },
   messageColumnSelecting: { maxWidth: '70%' },
   messageBubble: {
     paddingHorizontal: 13,
     paddingVertical: 11,
     borderRadius: 17,
+    minWidth: 60,
   },
   userBubble: {
     borderBottomRightRadius: 5,
@@ -510,6 +511,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E1E2EB',
     backgroundColor: '#FFFFFF',
+    width: '100%',
   },
   messageImage: {
     width: 190,

@@ -43,3 +43,12 @@ export const getYanbanApiUrl = (path: string): string => {
     ? routedPath
     : `https://www.imates.com.cn${routedPath}`;
 };
+
+/**
+ * 图片上传接口：统一使用 /api/images/upload 路由。
+ * Web 端通过 Vite 代理转发到后端 Nginx；原生端直接访问 HTTPS 完整地址。
+ * 与 imates-web 的 httpClient.post('/api/images/upload') 行为保持一致。
+ */
+export const getImagesUploadUrl = (): string =>
+  "https://www.imates.com.cn:8200/api/images/upload";
+

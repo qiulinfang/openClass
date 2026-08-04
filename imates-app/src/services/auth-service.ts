@@ -214,6 +214,12 @@ export class AuthService {
     await storage.removeItem('XUEBAN_TOKEN');
     await storage.removeItem('YANBAN_TOKEN');
     await storage.removeItem('userInfo');
+    try {
+      const { homeworkStore } = require('@/stores/homework-store');
+      homeworkStore?.resetStore();
+    } catch (e) {
+      console.warn('[AuthService] 重置作业 Store 内存失败:', e);
+    }
   }
 }
 

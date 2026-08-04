@@ -2,6 +2,7 @@ import { storage } from './storage';
 import { AppEnvType, getCurrentEnvType } from './env-config';
 import { authService } from './auth-service';
 import { getXuebanApiUrl } from './api-url';
+import { DeviceEventEmitter } from 'react-native';
 
 export interface ChatMessage {
   id: string;
@@ -247,14 +248,13 @@ export class AiChatService {
           storage.getItem('xuebanuserid'),
         ]);
         if (!token?.trim()) {
-          const password = await storage.getItem('userPassword');
-          if (!userId?.trim() || !password?.trim()) {
-            throw new Error('学伴登录已失效，请退出后重新登录');
-          }
-          token = await authService.loginXueban(
-            userId.trim(),
-            password
-          );
+          console.warn('[AiChatService] 缺少 Token，直接触发 FORCE_LOGOUT 强制登出');
+          await storage.removeItem('XUEBAN_TOKEN');
+          await storage.removeItem('YANBAN_TOKEN');
+          DeviceEventEmitter.emit('FORCE_LOGOUT', {
+            message: '登录凭证已失效，请重新登录。',
+          });
+          throw new Error('学伴登录已失效，请重新登录');
         }
 
         const normalizedImage = request.imageDataUrl?.startsWith(
@@ -337,29 +337,13 @@ export class AiChatService {
         };
 
         if (isUnauthorized()) {
-          const [account, password] = await Promise.all([
-            storage.getItem('xuebanuserid'),
-            storage.getItem('userPassword'),
-          ]);
-          if (!account?.trim() || !password?.trim()) {
-            throw new Error('学伴登录已失效，请退出后重新登录');
-          }
-          const refreshedToken = await authService.loginXueban(
-            account.trim(),
-            password
-          );
-          response = await sendRequest(refreshedToken.trim());
-          if (isCancelled) return;
-          try {
-            payload = await response.json();
-          } catch {
-            payload = null;
-          }
-        }
-
-        if (isCancelled) return;
-        if (isUnauthorized()) {
-          throw new Error('学伴登录已失效，请退出后重新登录');
+          console.warn('[AiChatService] 收到 401/28004 响应，禁止静默刷新 Token，直接触发 FORCE_LOGOUT 强制登出');
+          await storage.removeItem('XUEBAN_TOKEN');
+          await storage.removeItem('YANBAN_TOKEN');
+          DeviceEventEmitter.emit('FORCE_LOGOUT', {
+            message: '登录凭证已失效，请重新登录。',
+          });
+          throw new Error('学伴登录已失效，请重新登录');
         }
         if (!response.ok || payload?.success === false) {
           const serverMessage =
@@ -482,11 +466,13 @@ export class AiChatService {
           storage.getItem('xuebanuserid'),
         ]);
         if (!token?.trim()) {
-          const password = await storage.getItem('userPassword');
-          if (!userId?.trim() || !password?.trim()) {
-            throw new Error('学伴登录已失效，请退出后重新登录');
-          }
-          token = await authService.loginXueban(userId.trim(), password);
+          console.warn('[AiChatService] sendExerciseStreamMessage 缺少 Token，直接触发 FORCE_LOGOUT 强制登出');
+          await storage.removeItem('XUEBAN_TOKEN');
+          await storage.removeItem('YANBAN_TOKEN');
+          DeviceEventEmitter.emit('FORCE_LOGOUT', {
+            message: '登录凭证已失效，请重新登录。',
+          });
+          throw new Error('学伴登录已失效，请重新登录');
         }
         const prefix =
           getCurrentEnvType() === AppEnvType.INTERNAL_TEST ? '/xb-test' : '/xb-release';
@@ -530,16 +516,13 @@ export class AiChatService {
             Number(payload?.code ?? payload?.data?.code)
           );
         if (unauthorized()) {
-          const password = await storage.getItem('userPassword');
-          if (!userId?.trim() || !password?.trim()) {
-            throw new Error('学伴登录已失效，请退出后重新登录');
-          }
-          token = await authService.loginXueban(userId.trim(), password);
-          response = await send(token.trim());
-          payload = await response.json().catch(() => null);
-        }
-        if (unauthorized()) {
-          throw new Error('学伴登录已失效，请退出后重新登录');
+          console.warn('[AiChatService] sendExerciseStreamMessage 收到 401/28004 响应，禁止静默刷新，直接触发 FORCE_LOGOUT 强制登出');
+          await storage.removeItem('XUEBAN_TOKEN');
+          await storage.removeItem('YANBAN_TOKEN');
+          DeviceEventEmitter.emit('FORCE_LOGOUT', {
+            message: '登录凭证已失效，请重新登录。',
+          });
+          throw new Error('学伴登录已失效，请重新登录');
         }
         if (!response.ok || payload?.success === false) {
           throw new Error(

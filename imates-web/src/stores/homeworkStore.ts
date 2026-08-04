@@ -71,14 +71,18 @@ export const useHomeworkStore = defineStore('homework', () => {
   /** 是否有未读作业消息通知 */
   const hasHomeworkNotification = computed(() => unreadHomeworkCount.value > 0)
 
+  /** 保存未读作业消息标记 */
+  const saveUnreadHomework = (): void => {
+    try {
+      localStorage.setItem('unread_homework_count', String(unreadHomeworkCount.value))
+    } catch (e) {
+    }
+  }
+
   /** 增加未读作业数量 */
   const incrementUnreadHomework = (amount: number = 1): void => {
     unreadHomeworkCount.value += amount
-    try {
-      localStorage.setItem('unread_homework_count', unreadHomeworkCount.value.toString())
-    } catch (e) {
-      console.warn('[HOMEWORK] 保存未读作业数失败:', e)
-    }
+    saveUnreadHomework()
   }
 
   /** 清空未读作业消息标记（标记已读） */
@@ -87,7 +91,6 @@ export const useHomeworkStore = defineStore('homework', () => {
     try {
       localStorage.setItem('unread_homework_count', '0')
     } catch (e) {
-      console.warn('[HOMEWORK] 清理未读作业数失败:', e)
     }
   }
 
@@ -133,7 +136,6 @@ export const useHomeworkStore = defineStore('homework', () => {
    */
   const selectQuestion = async (index: number): Promise<void> => {
     if (index < 0 || index >= questions.value.length) {
-      console.error('[HOMEWORK] ❌ 无效的作业索引:', index)
       showMessage('无效的作业索引', 'error')
       return
     }
@@ -154,7 +156,6 @@ export const useHomeworkStore = defineStore('homework', () => {
       try {
         await saveQuestionsToIndexedDB(storageKey, questions.value)
       } catch (error) {
-        console.error('[HOMEWORK] ❌ 保存作业列表到 IndexedDB 失败:', error)
       }
     }
   }
@@ -202,21 +203,17 @@ export const useHomeworkStore = defineStore('homework', () => {
 
     // 检查缓存（除非强制刷新）
     if (!forceRefresh && homeworkListCache.value.has(cacheKey)) {
-      console.log('[HOMEWORK] 📦 从缓存获取作业列表', { cacheKey })
       return homeworkListCache.value.get(cacheKey)!
     }
 
     try {
-      console.log('[HOMEWORK] 🌐 请求作业列表', { params, forceRefresh })
       const result = await apiService.getHomeworkUndoList(params)
 
       // 缓存结果
       homeworkListCache.value.set(cacheKey, result)
-      console.log('[HOMEWORK] 💾 缓存作业列表', { cacheKey, count: result.length })
 
       return result
     } catch (error) {
-      console.error('[HOMEWORK] ❌ 获取作业列表失败:', error)
       throw error
     }
   }
@@ -226,7 +223,6 @@ export const useHomeworkStore = defineStore('homework', () => {
    */
   const clearHomeworkListCache = (): void => {
     homeworkListCache.value.clear()
-    console.log('[HOMEWORK] 🗑️ 已清空作业列表缓存')
   }
 
   /**
@@ -237,12 +233,10 @@ export const useHomeworkStore = defineStore('homework', () => {
     isSubmitted: boolean,
   ): Promise<void> => {
     if (!homeworkId) {
-      console.warn('[HOMEWORK_STORAGE] saveCurrentHomeworkSubmission: homeworkId 缺失')
       return
     }
 
     try {
-      console.log(`[HOMEWORK_STORAGE] 开始持久化任务: ${homeworkId}, 提交状态: ${isSubmitted}`)
       const payload = toHomeworkSubmissionPayload({
         homeworkId,
         homeworkName: homeworkName.value,
@@ -250,9 +244,7 @@ export const useHomeworkStore = defineStore('homework', () => {
         questions: questions.value,
       })
       await saveHomeworkSubmission(payload)
-      console.log('[HOMEWORK_STORAGE] ✅ 数据已成功存入存储层 (IndexedDB)')
     } catch (error) {
-      console.error('[HOMEWORK_STORAGE] ❌ 持久化任务失败:', error)
     }
   }
 
@@ -278,9 +270,7 @@ export const useHomeworkStore = defineStore('homework', () => {
         questions: mergedQuestions,
       })
       await saveHomeworkSubmission(payload)
-      console.log(`[HOMEWORK_STORAGE] ✅ 题目列表已无损合并并更新到 IndexedDB: ${homeworkId}`)
     } catch (error) {
-      console.error('[HOMEWORK_STORAGE] ❌ 更新题目列表失败:', error)
     }
   }
 
@@ -293,7 +283,6 @@ export const useHomeworkStore = defineStore('homework', () => {
     if (!homeworkId) return null
 
     try {
-      console.log(`[HOMEWORK_STORAGE] 正在尝试从存储层加载数据: ${homeworkId}`)
       const data = await loadHomeworkSubmission(homeworkId)
       if (data) {
         homeworkName.value = data.homeworkName
@@ -303,12 +292,9 @@ export const useHomeworkStore = defineStore('homework', () => {
           })
           questions.value = loadedQuestions
         }
-        console.log(`[HOMEWORK_STORAGE] ✅ 加载成功, 题目数: ${questions.value.length}`)
         return { isSubmitted: data.isSubmitted }
       }
-      console.log(`[HOMEWORK_STORAGE] 存储层中不存在 ID 为 ${homeworkId} 的数据`)
     } catch (error) {
-      console.error('[HOMEWORK_STORAGE] ❌ 加载存储数据失败:', error)
     }
     return null
   }
@@ -389,7 +375,6 @@ export const useHomeworkStore = defineStore('homework', () => {
     judgeDetailData.value = null
     judgePointsMap.value.clear()
     questionDataMap.value.clear()
-    console.log('[HOMEWORK] 🧹 已重置作业作答状态')
   }
 
   /**
@@ -398,9 +383,7 @@ export const useHomeworkStore = defineStore('homework', () => {
   const clearAllHomeworkSubmissionsFromDB = async (): Promise<void> => {
     try {
       await clearAllHomeworkSubmissions()
-      console.log('[HOMEWORK_STORAGE] ✅ 已清空所有本地作业数据')
     } catch (error) {
-      console.error('[HOMEWORK_STORAGE] ❌ 清空所有本地作业数据失败:', error)
     }
   }
 
@@ -408,20 +391,17 @@ export const useHomeworkStore = defineStore('homework', () => {
    * 设置当前作业的判罚详情数据并一键预建索引 Map
    */
   const setJudgeDetailData = (data: any): void => {
-    console.log('[HOMEWORK_STORE] 📥 接收到判罚详情原始数据, 正在执行解包建表:', data)
     judgeDetailData.value = data
     const map = new Map<string, any[]>()
     const qDataMap = new Map<string, any[]>()
 
     if (!data) {
-      console.warn('[HOMEWORK_STORE] ⚠️ 传入的判罚详情数据为空，清空索引 Map')
       judgePointsMap.value = map
       questionDataMap.value = qDataMap
       return
     }
 
     const rawList = Array.isArray(data) ? data : data?.data || [data]
-    console.log(`[HOMEWORK_STORE] 📦 已解包数据源，包含 ${rawList.length} 项题目判罚包`)
 
     const indexJudgeNode = (node: any, imgUrls?: string[]) => {
       if (!node) return
@@ -454,9 +434,6 @@ export const useHomeworkStore = defineStore('homework', () => {
             }
             map.set(nId, Array.from(mergedMap.values()))
           }
-          console.log(
-            `[HOMEWORK_STORE] 📌 [KEY_NODE] 索引节点成功: [${nId}] -> ${map.get(nId)?.length} 个采分点`,
-          )
         }
       }
     }
@@ -510,11 +487,6 @@ export const useHomeworkStore = defineStore('homework', () => {
 
     judgePointsMap.value = map
     questionDataMap.value = qDataMap
-    console.log('[HOMEWORK_STORE] ⚡ 判罚详情索引建表完成!', {
-      indexedNodeCount: map.size,
-      indexedQuestionDataCount: qDataMap.size,
-      indexedKeys: Array.from(map.keys()),
-    })
   }
 
   /**
@@ -534,12 +506,10 @@ export const useHomeworkStore = defineStore('homework', () => {
 
     const resultPoints: any[] = []
     const visitedPoints = new Set<string>()
-    const matchedNodeIds: string[] = []
 
     for (const qId of targetQIds) {
       const points = judgePointsMap.value.get(qId)
       if (Array.isArray(points)) {
-        matchedNodeIds.push(qId)
         for (const p of points) {
           const key = p.id || p.sourceText
           if (!visitedPoints.has(key)) {
@@ -549,17 +519,6 @@ export const useHomeworkStore = defineStore('homework', () => {
         }
       }
     }
-
-    const hitCount = resultPoints.filter((p: any) => p.hit).length
-    console.log('[HOMEWORK_STORE] ✅ [KEY_NODE] 采分点 O(1) 检索匹配完成:', {
-      questionTitle: question.title || question.question || question.stem,
-      targetQIds,
-      matchedNodeIds,
-      totalPoints: resultPoints.length,
-      hitCount,
-      scoreText: resultPoints.length > 0 ? `${hitCount}/${resultPoints.length} 采分点` : '无',
-      resultPoints,
-    })
 
     return resultPoints
   }

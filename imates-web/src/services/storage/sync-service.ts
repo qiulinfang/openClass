@@ -16,7 +16,6 @@ export class SyncService {
   public static async syncMistakes(): Promise<void> {
     try {
       const lastSyncTime = Number(localStorage.getItem(this.LAST_SYNC_MISTAKE)) || 0;
-      console.log(`[SyncService Web] 🔄 开始同步错题本... 上次时间: ${lastSyncTime}`);
 
       // 1. 从云端拉取增量记录
       const pullRes = await this.syncApi.pull('mistake', lastSyncTime);
@@ -82,16 +81,13 @@ export class SyncService {
         if (pushRes.success) {
           // 成功后清空本地已上报的删除队列
           localStorage.setItem('IMATES_MISTAKES_DELETED', '[]');
-          console.log(`[SyncService Web] 📤 成功推送 ${pushRecords.length} 条错题变更`);
         }
       }
 
       // 7. 保存同步时间戳
       localStorage.setItem(this.LAST_SYNC_MISTAKE, String(serverTime));
-      console.log(`[SyncService Web] ✅ 错题本同步完成`);
 
     } catch (e) {
-      console.warn('[SyncService Web] ❌ 错题本同步异常:', e);
     }
   }
 
@@ -101,7 +97,6 @@ export class SyncService {
   public static async syncChatHistory(): Promise<void> {
     try {
       const lastSyncTime = Number(localStorage.getItem(this.LAST_SYNC_CHAT)) || 0;
-      console.log(`[SyncService Web] 🔄 开始同步 AI 会话... 上次时间: ${lastSyncTime}`);
 
       // 1. 从云端拉取增量记录
       const pullRes = await this.syncApi.pull('chat', lastSyncTime);
@@ -180,18 +175,13 @@ export class SyncService {
       }
 
       if (dirtySessions.length > 0) {
-        const pushRes = await this.syncApi.push('chat', dirtySessions);
-        if (pushRes.success) {
-          console.log(`[SyncService Web] 📤 成功推送 ${dirtySessions.length} 条会话至云端`);
-        }
+        await this.syncApi.push('chat', dirtySessions);
       }
 
       // 4. 保存同步时间戳
       localStorage.setItem(this.LAST_SYNC_CHAT, String(serverTime));
-      console.log(`[SyncService Web] ✅ AI 会话同步完成`);
 
     } catch (e) {
-      console.warn('[SyncService Web] ❌ AI 会话同步异常:', e);
     }
   }
 }

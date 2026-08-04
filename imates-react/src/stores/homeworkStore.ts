@@ -73,7 +73,6 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
   selectQuestion: async (index) => {
     const { questions } = get()
     if (index < 0 || index >= questions.length) {
-      console.error('[HOMEWORK] ❌ 无效的作业索引:', index)
       showMessage('无效的作业索引', 'error')
       return
     }
@@ -89,7 +88,6 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
       try {
         await saveQuestionsToIndexedDB(storageKey, deduplicated)
       } catch (error) {
-        console.error('[HOMEWORK] ❌ 保存作业列表到 IndexedDB 失败:', error)
       }
     }
   },
@@ -101,27 +99,22 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
     const cacheKey = `${params.date || ''}_${params.subject || ''}_${params.pageNumber}_${params.pageSize}`
     
     if (!forceRefresh && homeworkListCache.has(cacheKey)) {
-      console.log('[HOMEWORK] 📦 从缓存获取作业列表', { cacheKey })
       return homeworkListCache.get(cacheKey)!
     }
     
     try {
-      console.log('[HOMEWORK] 🌐 请求作业列表', { params, forceRefresh })
       const result = await apiService.getHomeworkUndoList(params)
       const newCache = new Map(homeworkListCache)
       newCache.set(cacheKey, result)
       set({ homeworkListCache: newCache })
-      console.log('[HOMEWORK] 💾 缓存作业列表', { cacheKey, count: result.length })
       return result
     } catch (error) {
-      console.error('[HOMEWORK] ❌ 获取作业列表失败:', error)
       throw error
     }
   },
 
   clearHomeworkListCache: () => {
     set({ homeworkListCache: new Map() })
-    console.log('[HOMEWORK] 🗑️ 已清空作业列表缓存')
   },
 
   clearHomeworkListCacheByCondition: (date, subject) => {
@@ -142,18 +135,15 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
     }
     
     set({ homeworkListCache: newCache })
-    console.log('[HOMEWORK] 🗑️ 已清空指定条件的缓存', { date, subject, deletedCount })
   },
 
   saveCurrentHomeworkSubmission: async (homeworkId, isSubmitted) => {
     if (!homeworkId) {
-      console.warn('[HOMEWORK_STORAGE] saveCurrentHomeworkSubmission: homeworkId 缺失')
       return
     }
     
     try {
       const { homeworkName, answerDataCache, questions } = get()
-      console.log(`[HOMEWORK_STORAGE] 开始持久化任务: ${homeworkId}, 提交状态: ${isSubmitted}`)
       await saveHomeworkSubmission({
         homeworkId,
         homeworkName,
@@ -161,9 +151,7 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
         answerDataCache,
         questions
       })
-      console.log('[HOMEWORK_STORAGE] ✅ 数据已成功存入存储层 (IndexedDB)')
     } catch (error) {
-      console.error('[HOMEWORK_STORAGE] ❌ 持久化任务失败:', error)
     }
   },
 
@@ -171,7 +159,6 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
     if (!homeworkId) return null
     
     try {
-      console.log(`[HOMEWORK_STORAGE] 正在尝试从存储层加载数据: ${homeworkId}`)
       const data = await loadHomeworkSubmission(homeworkId)
       if (data) {
         set({
@@ -179,12 +166,9 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
           homeworkName: data.homeworkName || '',
           questions: data.questions || []
         })
-        console.log(`[HOMEWORK_STORAGE] ✅ 加载成功, 题目数: ${data.questions?.length || 0}, 缓存项: ${Object.keys(data.answerDataCache || {}).length}`)
         return { isSubmitted: data.isSubmitted }
       }
-      console.log(`[HOMEWORK_STORAGE] 存储层中不存在 ID 为 ${homeworkId} 的数据`)
     } catch (error) {
-      console.error('[HOMEWORK_STORAGE] ❌ 加载存储数据失败:', error)
     }
     return null
   },
@@ -198,7 +182,6 @@ export const useHomeworkStore = create<HomeworkState>((set, get) => ({
       currentHomeworkInfo: null,
       answerDataCache: {}
     })
-    console.log('[HOMEWORK] 🧹 已重置作业作答状态')
   }
 }))
 

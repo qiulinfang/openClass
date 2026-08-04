@@ -20,23 +20,18 @@ export interface MistakeItem {
 }
 
 export class MistakeService {
-  private static MISTAKE_KEY = 'IMATES_MISTAKES';
+  private static MISTAKE_KEY = 'MISTAKES';
+  private static DELETED_KEY = 'MISTAKES_DELETED';
 
   /**
-   * 获取所有错题
+   * 获取所有错题 (通过封装的存储层自动账号隔离)
    */
   public static async getMistakes(): Promise<MistakeItem[]> {
-    const data = await storage.getItem(this.MISTAKE_KEY);
-    if (!data) return [];
-    try {
-      return JSON.parse(data);
-    } catch {
-      return [];
-    }
+    return (await storage.getUserJSON<MistakeItem[]>(this.MISTAKE_KEY, [])) || [];
   }
 
   /**
-   * 添加或更新错题记录 (与 Web 端 100% 对齐的嵌套结构)
+   * 添加或更新错题记录 (通过封装的存储层自动账号隔离)
    */
   public static async addMistake(params: {
     bmNo: string;
@@ -79,7 +74,8 @@ export class MistakeService {
       };
       list.unshift(newItem); // 新增错题置顶
     }
-    await storage.setItem(this.MISTAKE_KEY, JSON.stringify(list));
+
+    await storage.setUserJSON(this.MISTAKE_KEY, list);
   }
 
   /**
@@ -88,15 +84,14 @@ export class MistakeService {
   public static async removeMistake(id: string): Promise<void> {
     const list = await this.getMistakes();
     const filtered = list.filter(m => m.id !== id && m.bmNo !== id);
-    await storage.setItem(this.MISTAKE_KEY, JSON.stringify(filtered));
+    await storage.setUserJSON(this.MISTAKE_KEY, filtered);
 
     // 记录被删除的错题 ID，以便在同步时推给云端进行多端同步删除
     try {
-      const deletedStr = await storage.getItem('IMATES_MISTAKES_DELETED') || '[]';
-      const deletedList: string[] = JSON.parse(deletedStr);
+      const deletedList = (await storage.getUserJSON<string[]>(this.DELETED_KEY, [])) || [];
       if (!deletedList.includes(id)) {
         deletedList.push(id);
-        await storage.setItem('IMATES_MISTAKES_DELETED', JSON.stringify(deletedList));
+        await storage.setUserJSON(this.DELETED_KEY, deletedList);
       }
     } catch (e) {
       console.warn('[MistakeService] 记录本地删除历史失败:', e);

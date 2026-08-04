@@ -7,7 +7,7 @@ import type { ChatMessage } from './ai-chat-service';
 
 export interface SyncPullResponse<T> {
   success: boolean;
-  code: number;
+  code?: number;
   data: {
     records: T[];
     serverTime: number;
@@ -16,8 +16,9 @@ export interface SyncPullResponse<T> {
 
 export interface SyncPushResponse {
   success: boolean;
-  code: number;
-  data: {
+  code?: number;
+  count?: number;
+  data?: {
     serverTime: number;
   };
 }
@@ -50,68 +51,87 @@ export class SyncService {
    * 向云端拉取增量更新
    */
   public static async pullFromServer<T>(module: 'chat' | 'mistake', lastSyncTime: number): Promise<SyncPullResponse<T>> {
+    if (this.cloudSyncUnavailable) {
+      return { success: false, data: { serverTime: Date.now(), records: [] } };
+    }
+
     const token = await storage.getItem('XUEBAN_TOKEN') || '';
     if (!token.trim()) {
-      throw new Error('[SyncService] ⚠️ 未登录或未获取到 Token，无法拉取云同步数据');
+      return { success: false, data: { serverTime: Date.now(), records: [] } };
     }
 
     const baseUrl = this.getApiBaseUrl();
     const url = `${baseUrl}/permission/sync/pull?module=${module}&lastSyncTime=${lastSyncTime}`;
 
-    console.log(`[SyncService] 🔄 Sending Pull Request for module: ${module}, lastSyncTime: ${lastSyncTime}`);
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Token': token.trim(),
-        'sa-token': token.trim(),
-        'authorization': token.trim(),
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Token': token.trim(),
+          'sa-token': token.trim(),
+          'authorization': token.trim(),
+        }
+      });
+
+      if (response.status === 404 || response.status === 401) {
+        this.cloudSyncUnavailable = true;
+        return { success: false, data: { serverTime: Date.now(), records: [] } };
       }
-    });
 
-    this.throwIfCloudSyncUnavailable(response);
+      if (!response.ok) {
+        return { success: false, data: { serverTime: Date.now(), records: [] } };
+      }
 
-    if (!response.ok) {
-      throw new Error(`[SyncService] Pull Request Failed (HTTP ${response.status})`);
+      return await response.json();
+    } catch (e) {
+      this.cloudSyncUnavailable = true;
+      return { success: false, data: { serverTime: Date.now(), records: [] } };
     }
-
-    return await response.json();
   }
 
   /**
    * 将本地脏数据推送上报至云端
    */
   public static async pushToServer(module: 'chat' | 'mistake', records: any[]): Promise<SyncPushResponse> {
+    if (this.cloudSyncUnavailable) {
+      return { success: false, count: 0 };
+    }
+
     const token = await storage.getItem('XUEBAN_TOKEN') || '';
     if (!token.trim()) {
-      throw new Error('[SyncService] ⚠️ 未登录或未获取到 Token，无法推送本地脏数据');
+      return { success: false, count: 0 };
     }
 
     const baseUrl = this.getApiBaseUrl();
     const url = `${baseUrl}/permission/sync/push`;
 
-    console.log(`[SyncService] 📤 Sending Push Request for module: ${module}, records count: ${records.length}`);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Token': token.trim(),
-        'sa-token': token.trim(),
-        'authorization': token.trim(),
-      },
-      body: JSON.stringify({
-        module,
-        records
-      })
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Token': token.trim(),
+          'sa-token': token.trim(),
+          'authorization': token.trim(),
+        },
+        body: JSON.stringify({ module, records }),
+      });
 
-    this.throwIfCloudSyncUnavailable(response);
+      if (response.status === 404 || response.status === 401) {
+        this.cloudSyncUnavailable = true;
+        return { success: false, count: 0 };
+      }
 
-    if (!response.ok) {
-      throw new Error(`[SyncService] Push Request Failed (HTTP ${response.status})`);
+      if (!response.ok) {
+        return { success: false, count: 0 };
+      }
+
+      return await response.json();
+    } catch (e) {
+      this.cloudSyncUnavailable = true;
+      return { success: false, count: 0 };
     }
-
-    return await response.json();
   }
 
   /**
@@ -121,7 +141,6 @@ export class SyncService {
     if (this.cloudSyncUnavailable) return;
     try {
       const lastSyncTime = Number(await storage.getItem(this.LAST_SYNC_MISTAKE)) || 0;
-      console.log(`[SyncService] 🔄 开始同步错题本... 上次同步时间: ${lastSyncTime}`);
 
       // 1. 从云端拉取增量数据
       const pullRes = await this.pullFromServer<MistakeItem>('mistake', lastSyncTime);
@@ -182,7 +201,6 @@ export class SyncService {
         if (pushRes.success) {
           // 清空本地已上报的删除追踪队列
           await storage.setItem('IMATES_MISTAKES_DELETED', '[]');
-          console.log(`[SyncService] 📤 成功推送 ${pushRecords.length} 条错题变更`);
         }
       }
 
@@ -190,10 +208,7 @@ export class SyncService {
       const finalLocalList = Array.from(localMap.values());
       await storage.setItem('IMATES_MISTAKES', JSON.stringify(finalLocalList));
       await storage.setItem(this.LAST_SYNC_MISTAKE, String(serverTime));
-
-      console.log(`[SyncService] ✅ 错题本同步完成. 当前本地有效错题总数: ${finalLocalList.length}`);
     } catch (e) {
-      console.warn('[SyncService] ❌ 错题本同步过程中出错:', e);
     }
   }
 
@@ -205,7 +220,6 @@ export class SyncService {
     try {
       const lastSyncTime = Number(await storage.getItem(this.LAST_SYNC_CHAT)) || 0;
       const userId = await storage.getItem('xuebanuserid') || 'user';
-      console.log(`[SyncService] 🔄 开始同步 AI 会话列表... 上次同步时间: ${lastSyncTime}`);
 
       // 1. 从云端拉取所有增量会话，不能只处理最后一个活跃会话。
       const pullRes = await this.pullFromServer<any>('chat', lastSyncTime);
@@ -339,22 +353,12 @@ export class SyncService {
             messages: await AiChatSessionService.loadMessages(session.id),
           }))
         );
-        const pushRes = await this.pushToServer('chat', pushRecords);
-        if (pushRes.success) {
-          console.log(
-            `[SyncService] 📤 成功推送 ${pushRecords.length} 个 AI 会话`
-          );
-        }
+        await this.pushToServer('chat', pushRecords);
       }
 
       // 4. 更新时间游标。
       await storage.setItem(this.LAST_SYNC_CHAT, String(serverTime));
-
-      console.log(
-        `[SyncService] ✅ AI 会话同步完成，当前 ${localAfterPull.length} 个会话`
-      );
     } catch (e) {
-      console.warn('[SyncService] ❌ AI 对话同步过程中出错:', e);
     }
   }
 

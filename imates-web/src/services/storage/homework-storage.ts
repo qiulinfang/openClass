@@ -49,7 +49,6 @@ export async function saveHomeworkSubmission(data: Omit<HomeworkSubmissionData, 
     
     await homeworkStorage.put(STORE_NAMES.SUBMISSIONS, submission)
   } catch (error) {
-    console.error(`[HOMEWORK_STORAGE] ❌ 保存作业数据失败: ${data.homeworkId}`, error)
     throw error
   }
 }
@@ -62,15 +61,8 @@ export async function loadHomeworkSubmission(homeworkId: string): Promise<Homewo
     const homeworkStorage = getHomeworkStorage()
     const data = await homeworkStorage.get<HomeworkSubmissionData>(STORE_NAMES.SUBMISSIONS, homeworkId)
     
-    if (data) {
-      console.log(`[HOMEWORK_STORAGE] ✅ 成功加载作业数据: ${homeworkId}, 作答数: ${Object.keys(data.answerDataCache || {}).length}`)
-    } else {
-      console.log(`[HOMEWORK_STORAGE] ℹ️ 未找到作业数据: ${homeworkId}`)
-    }
-    
     return data || null
   } catch (error) {
-    console.error(`[HOMEWORK_STORAGE] ❌ 加载作业数据失败 (ID: ${homeworkId}):`, error)
     return null
   }
 }
@@ -83,7 +75,6 @@ export async function deleteHomeworkSubmission(homeworkId: string): Promise<void
     const homeworkStorage = getHomeworkStorage()
     await homeworkStorage.delete(STORE_NAMES.SUBMISSIONS, homeworkId)
   } catch (error) {
-    console.error(`[HOMEWORK_STORAGE] ❌ 删除作业数据失败 (ID: ${homeworkId}):`, error)
     throw error
   }
 }
@@ -96,7 +87,6 @@ export async function clearAllHomeworkSubmissions(): Promise<void> {
     const homeworkStorage = getHomeworkStorage()
     await homeworkStorage.clear(STORE_NAMES.SUBMISSIONS)
   } catch (error) {
-    console.error('[HOMEWORK_STORAGE] ❌ 清空所有作业数据失败:', error)
     throw error
   }
 }

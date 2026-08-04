@@ -75,7 +75,6 @@ export class HomeworkApi {
       }
       return response.data
     } catch (error) {
-      console.error('[HomeworkApi] recognizeHandwrittenFormula error:', error)
       return null
     }
   }
@@ -97,7 +96,6 @@ export class HomeworkApi {
       }
       return []
     } catch (error) {
-      console.error('[HomeworkApi] getHomeworkUndoList error:', error)
       return []
     }
   }
@@ -120,7 +118,6 @@ export class HomeworkApi {
       }
       return []
     } catch (error) {
-      console.error('[HomeworkApi] getHomeworkDetailList error:', error)
       return []
     }
   }
@@ -144,7 +141,6 @@ export class HomeworkApi {
 
       return ok ? { success: true } : { success: false, message: backendMessage || '提交失败' }
     } catch (error) {
-      console.error('[HomeworkApi] homeworkSubmitSave error:', error)
       return { success: false, message: error instanceof Error ? error.message : '提交失败' }
     }
   }
@@ -166,7 +162,6 @@ export class HomeworkApi {
       }
       return { success: false, error: response.message || '题型识别失败' }
     } catch (error) {
-      console.error('[HomeworkApi] gaokaoQuestionType error:', error)
       return { success: false, error: error instanceof Error ? error.message : '题型识别失败' }
     }
   }
@@ -188,7 +183,6 @@ export class HomeworkApi {
       }
       return { success: false, error: response.message || '选择题拆分失败' }
     } catch (error) {
-      console.error('[HomeworkApi] gaokaoChoiceParse error:', error)
       return { success: false, error: error instanceof Error ? error.message : '选择题拆分失败' }
     }
   }

@@ -18,9 +18,13 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import * as ImagePicker from 'expo-image-picker';
 import { WebView } from 'react-native-webview';
 import { QuestionViewer } from '@/components/QuestionViewer';
-import { AnswerAnalysisPanel } from '@/components/AnswerAnalysisPanel';
+import { QuestionAnalysis } from '@/components/exercise/QuestionAnalysis';
 import { SimilarQuestionsModal } from '@/components/SimilarQuestionsModal';
 import { AnswerCheckModal } from '@/components/AnswerCheckModal';
+import { StudentHandwritingOcrOverlay } from '@/components/StudentHandwritingOcrOverlay';
+import { HomeworkChatPanelDrawer } from '@/components/HomeworkChatPanelDrawer';
+import { ExerciseComponentRouter } from '@/components/exercise/ExerciseComponentRouter';
+import { DrawingCanvas } from '@/components/DrawingCanvas';
 import { HomeworkService, HomeworkQuestionDetail } from '@/services/homework-service';
 import { ExerciseService } from '@/services/exercise-service';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -109,6 +113,28 @@ export function PracticeReviewScreen() {
   // 习题本收藏状态
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // 判罚明细数据与双向高亮关联状态
+  const [judgeDetailData, setJudgeDetailData] = useState<any>(null);
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [activePointId, setActivePointId] = useState<string | null>(null);
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+
+  // 获取判罚详情数据
+  useEffect(() => {
+    if (homeworkId && hasSubmitted) {
+      HomeworkService.getHomeworkSubmitJudgeDetail(homeworkId)
+        .then((res) => {
+          if (res) {
+            const msg = String((res as any)?.message || (res as any)?.msg || '');
+            if (!msg.includes('尚未提交') && !msg.includes('未提交')) {
+              setJudgeDetailData(res);
+            }
+          }
+        })
+        .catch((err) => console.warn('[PracticeReviewScreen] 获取判罚详情异常:', err));
+    }
+  }, [homeworkId, hasSubmitted]);
+
 
 
   // 组件卸载时还原为竖屏
@@ -139,6 +165,81 @@ export function PracticeReviewScreen() {
       },
     };
   }, [activeQuestion, homeworkSubject, homeworkTitle]);
+  // 从判罚数据中解析出当前小题的采分点列表 (1:1 字段映射)
+  const currentScorePoints = useMemo(() => {
+    if (!activeQuestion) return [];
+    const rawList = Array.isArray(judgeDetailData)
+      ? judgeDetailData
+      : (judgeDetailData?.data ? (Array.isArray(judgeDetailData.data) ? judgeDetailData.data : [judgeDetailData.data]) : []);
+    
+    const qId = String(activeQuestion.questionId || activeQuestion.id || '').trim().replace(/^root\./, '');
+
+    for (const item of rawList) {
+      if (!item) continue;
+      const judgeData = item.questionJudgeDataData || item.questionJudgeData;
+      if (!judgeData) continue;
+      let parsed: any = null;
+      try {
+        parsed = typeof judgeData === 'string' ? JSON.parse(judgeData) : judgeData;
+      } catch {
+        parsed = null;
+      }
+      if (!parsed) continue;
+
+      const judgeNodes = Array.isArray(parsed) ? parsed : (parsed.judge_nodes || parsed.nodes || [parsed]);
+      for (const node of judgeNodes) {
+        const nId = String(node.nodeId || node.questionId || '').trim().replace(/^root\./, '');
+        if (nId === qId || !qId) {
+          const payloads = node.route?.payload || node.payload || [];
+          return payloads.map((p: any, idx: number) => {
+            const pId = String(p.standard_node_id || p.id || idx + 1);
+            return {
+              id: pId,
+              pointId: pId,
+              hit: Boolean(p.criterion_met),
+              sourceText: p.hit_description ?? '',
+              nodeId: p.node_id ?? '',
+              nodeLabel: p.node_label ?? '',
+              solutionMethodId: p.solution_method_id ?? '',
+              methodLabel: p.method_label ?? '',
+              criterionType: p.criterion_type ?? '',
+              criterionText: p.criterion_text ?? '',
+              criterionReason: p.potential_error_reason ?? '',
+              score: p.score_awarded ?? 0,
+              pointScore: p.score_awarded ?? null,
+              maxScore: p.score_max ?? 0,
+              potentialErrorType: p.potential_error_type ?? '',
+              potentialErrorReason: p.potential_error_reason ?? '',
+              preconditionType: p.precondition_type ?? null,
+              preconditionRequired: p.precondition_required ?? null,
+              knowledgePoints: p.knowledge_points ?? [],
+              applicableSigns: p.applicable_signs ?? [],
+              recommended: p.recommended ?? null,
+              matchedOcrRegions: p.matched_ocr_regions ?? [],
+              displayIndex: idx + 1,
+            };
+          });
+        }
+      }
+    }
+    return [];
+  }, [activeQuestion, judgeDetailData]);
+
+  // 点击划线 ➔ 触发 2px 紫框高亮 + 打开侧边抽屉
+  const handleSelectOcrPoint = (payload: { point: any; index: number }) => {
+    const pId = payload.point?.id || payload.point?.pointId || null;
+    setActivePointId(pId);
+    setSelectedPointIndex(payload.index);
+    setShowChatDrawer(true);
+  };
+
+  // 点击侧边栏卡片 ➔ 触发 2px 紫框高亮
+  const handleLocatePointFromCard = (item: any, index: number) => {
+    const pId = item?.id || item?.pointId || null;
+    setActivePointId(pId);
+    setSelectedPointIndex(index);
+  };
+
   useEffect(() => {
     if (activeQuestion) {
       ExerciseService.isExerciseSaved(activeQuestion.questionId).then(setIsFavorite);
@@ -148,11 +249,13 @@ export function PracticeReviewScreen() {
   const handleToggleFavorite = async () => {
     if (!activeQuestion) return;
     try {
+      const contentStr = activeQuestion.questionContent || (activeQuestion as any).content || '';
+      const titleText = contentStr ? contentStr.substring(0, 15).replace(/<[^>]+>/g, '').trim() + '...' : '题目';
       const saved = await ExerciseService.toggleExercise({
-        id: activeQuestion.questionId,
-        title: activeQuestion.questionContent.substring(0, 15).replace(/<[^>]+>/g, '').trim() + '...',
+        id: activeQuestion.questionId || (activeQuestion as any).id,
+        title: titleText,
         subject: homeworkSubject,
-        content: activeQuestion.questionContent,
+        content: contentStr,
         answer: activeQuestion.questionAnswer || '',
         analysis: activeQuestion.questionAnalysis || '暂无解析',
       });
@@ -199,7 +302,7 @@ export function PracticeReviewScreen() {
 
   const handleViewAnswer = () => {
     if (!hasSubmitted) {
-      Alert.alert('提示', '作业需要在提交后才可以查看参考答案和解析哦 🔒');
+      Alert.alert('提示', '作业需要在提交后才可以查看参考答案和解析哦');
       return;
     }
     setShowAnswerModal(true);
@@ -216,7 +319,7 @@ export function PracticeReviewScreen() {
 
     const performSubmit = () => {
       setHasSubmitted(true);
-      Alert.alert('提交成功', '您的作业已经成功保存并提交！🎉');
+      Alert.alert('提交成功', '您的作业已经成功保存并提交！');
     };
 
     if (unanswered > 0) {
@@ -444,13 +547,9 @@ export function PracticeReviewScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
             <Text style={styles.backBtnText}>◀ 返回</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {homeworkTitle}
-          </Text>
-          <View style={{ width: 60 }} />
         </View>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>没有题目数据 💡</Text>
+          <Text style={styles.emptyText}>没有题目数据</Text>
         </View>
       </SafeAreaView>
     );
@@ -517,19 +616,19 @@ export function PracticeReviewScreen() {
                 multiline
                 numberOfLines={4}
                 style={styles.textInputStyle}
-                placeholder="请在此输入您的作答文本或解题思路... ✏️"
+                placeholder="请在此输入您的作答文本或解题思路..."
                 placeholderTextColor="#94A3B8"
                 value={answers[currentQuestion.questionId] || ''}
                 onChangeText={handleTextAnswerChange}
               />
               <TouchableOpacity style={styles.ocrScanTrigger} onPress={handleScanTextAnswer}>
-                <Text style={styles.ocrScanTriggerText}>📷 扫图识字</Text>
+                <Text style={styles.ocrScanTriggerText}>扫图识字</Text>
               </TouchableOpacity>
             </View>
 
-            {/* 上传解答过程照片 */}
+            {/* 上传解答过程照片与 OCR 划线覆盖 */}
             <View style={styles.photoContainer}>
-              <Text style={styles.photoLabelText}>📷 过程照片（选填，上传解答步骤照片）：</Text>
+              <Text style={styles.photoLabelText}>过程照片（选填，上传解答步骤照片）：</Text>
               <TouchableOpacity
                 style={[styles.photoUploadBtn, imgAns !== '' && styles.photoUploadBtnHasPhoto]}
                 onPress={imgAns ? undefined : handleUploadImage}
@@ -544,10 +643,23 @@ export function PracticeReviewScreen() {
                   </View>
                 ) : (
                   <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.uploadPlaceholderText}>📷 拍摄/选取照片</Text>
+                    <Text style={styles.uploadPlaceholderText}>拍摄/选取照片</Text>
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* 批改完成之后，在图片下方/浮层渲染 StudentHandwritingOcrOverlay */}
+              {hasSubmitted && (
+                <View style={{ marginTop: 12 }}>
+                  <StudentHandwritingOcrOverlay
+                    questionData={[{ ...currentQuestion, answerData: [imgAns].filter(Boolean) }]}
+                    scorePointList={currentScorePoints}
+                    activePointId={activePointId}
+                    focusedPointIndex={selectedPointIndex}
+                    onSelectPoint={handleSelectOcrPoint}
+                  />
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -557,39 +669,31 @@ export function PracticeReviewScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 顶部 Header */}
+      {/* 顶部 Header：仅保留返回按钮 */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
           <Text style={styles.backBtnText}>◀ 返回</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {homeworkTitle}
-        </Text>
-        <View style={{ width: 60 }} />
       </View>
 
-      {/* 题干部分 (Top Container) */}
-      <QuestionViewer
-        question={currentQuestion}
-        currentIndex={currentIndex}
-        totalCount={questions.length}
-        options={options}
-        isFavorite={isFavorite}
-        onToggleFavorite={handleToggleFavorite}
-      />
-
-      {/* 极简分隔条 */}
-      <View style={styles.dividerStrip} />
-
-      {/* 作答区域 (Bottom Container) */}
-      <View style={styles.bottomContainer}>
-        <View style={styles.answerHeaderRow}>
-          <Text style={styles.answerSectionTitle}>作业作答区 ✏️</Text>
-        </View>
-
-        <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerScrollInner} showsVerticalScrollIndicator={false}>
-          {renderAnswerArea()}
+      {/* 主体两分栏布局：上半部分渲染题目，下半部分渲染绘图 Canvas */}
+      <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 6 }}>
+        {/* 上半部分：题目内容直接渲染区域 (不显示 OCR 覆膜，不显示参考答案与解析) */}
+        <ScrollView style={{ flex: 1, marginBottom: 8 }} contentContainerStyle={{ paddingVertical: 4 }} showsVerticalScrollIndicator={false}>
+          <ExerciseComponentRouter
+            question={currentQuestion}
+            showTitle={true}
+            showId={true}
+            showAnalysis={false}
+            hideAnswerArea={true}
+            showOcrOverlay={false}
+          />
         </ScrollView>
+
+        {/* 下半部分：绘图 Canvas 草稿板 */}
+        <View style={{ flex: 1, marginBottom: 8 }}>
+          <DrawingCanvas />
+        </View>
       </View>
 
       {/* 底部翻页与控制条 */}
@@ -614,16 +718,9 @@ export function PracticeReviewScreen() {
         <View style={styles.footerFunctionGroup}>
           <TouchableOpacity
             style={styles.footerFunctionBtn}
-            onPress={handleDebugQuestionInfo}
-          >
-            <Text style={styles.footerFunctionBtnText}>🛠️ 调试</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.footerFunctionBtn}
             onPress={handleOpenMiniClass}
           >
-            <Text style={styles.footerFunctionBtnText}>📺 微课</Text>
+            <Text style={styles.footerFunctionBtnText}>微课</Text>
           </TouchableOpacity>
 
           {!hasSubmitted ? (
@@ -638,22 +735,15 @@ export function PracticeReviewScreen() {
               style={styles.footerFunctionBtn}
               onPress={handleViewAnswer}
             >
-              <Text style={styles.footerFunctionBtnText}>🔑 答案</Text>
+              <Text style={styles.footerFunctionBtnText}>答案</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
             style={styles.footerFunctionBtn}
-            onPress={() => setShowCheckPanel(true)}
-          >
-            <Text style={styles.footerFunctionBtnText}>📋 检查</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.footerFunctionBtn}
             onPress={handleViewSimilar}
           >
-            <Text style={styles.footerFunctionBtnText}>🔄 举一反三</Text>
+            <Text style={styles.footerFunctionBtnText}>举一反三</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -667,6 +757,17 @@ export function PracticeReviewScreen() {
         answers={answers}
         answersImage={answersImage}
         onSelectQuestion={setCurrentIndex}
+      />
+
+      {/* 侧边栏/抽屉 判罚明细与 AI 学伴答疑 */}
+      <HomeworkChatPanelDrawer
+        visible={showChatDrawer}
+        onClose={() => setShowChatDrawer(false)}
+        scorePointList={currentScorePoints}
+        activePointIndex={selectedPointIndex}
+        selectedPointIndex={selectedPointIndex}
+        onLocatePoint={handleLocatePointFromCard}
+        aiContext={questionAiContext}
       />
 
       {/* 查看答案 Modal */}
@@ -686,16 +787,16 @@ export function PracticeReviewScreen() {
             activeOpacity={1}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>参考答案与解析 🔑</Text>
+              <Text style={styles.modalTitle}>参考答案与解析</Text>
               <TouchableOpacity onPress={() => setShowAnswerModal(false)} style={styles.modalCloseBtn}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.webModalScroll} showsVerticalScrollIndicator={false}>
-              <AnswerAnalysisPanel
-                answer={currentQuestion.questionAnswer}
-                analysis={currentQuestion.questionAnalysis}
+              <QuestionAnalysis
+                question={currentQuestion}
+                show={true}
               />
             </ScrollView>
           </TouchableOpacity>

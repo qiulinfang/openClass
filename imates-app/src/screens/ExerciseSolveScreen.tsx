@@ -14,9 +14,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/Card';
 import { MathRenderer } from '@/components/MathRenderer';
-import { ExerciseService, ExerciseItem } from '@/services/exercise-service';
+import { useExercises } from '@/hooks/useExercises';
+import { ExerciseItem } from '@/services/exercise-service';
 import { SUBJECT_ID_TO_NAME, HomeworkQuestionDetail } from '@/services/homework-service';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { normalizeSubject } from '@/utils/exercise-parser';
 
 interface ExerciseSolveScreenProps {
   onAskAI?: (questionContent: string) => void;
@@ -34,46 +36,38 @@ const LightColors = {
   success: '#10B981',
 };
 
+const ALL_SUBJECT_OPTIONS = [
+  '全部学科',
+  '数学',
+  '语文',
+  '英语',
+  '物理',
+  '化学',
+  '生物',
+  '地理',
+  '历史',
+  '政治',
+];
+
 export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolveScreenProps) {
   const navigation = useNavigation<any>();
-  // 习题数据
-  const [localExercises, setLocalExercises] = useState<ExerciseItem[]>([]);
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('');
-
-  // 加载本地收藏习题
-  const loadLocalExercises = useCallback(async () => {
-    try {
-      const data = await ExerciseService.getExercises();
-      setLocalExercises(data);
-      console.log(`[ExerciseSolveScreen] 📥 自选习题库加载成功！共载入本地收藏习题数: ${data.length}`);
-    } catch (e) {
-      console.warn('[ExerciseSolveScreen] 获取收藏习题失败:', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadLocalExercises();
-  }, [loadLocalExercises]);
-
-  // 全部习题来自于 ExerciseService.getExercises()
-  const allQuestions = localExercises;
-
-  // 动态提取当前习题列表中存在的所有学科 ID
-  const availableSubjectIds = useMemo(() => {
-    const ids = new Set<string>();
-    allQuestions.forEach(q => {
-      if (q.subject) {
-        ids.add(q.subject);
-      }
-    });
-    return Array.from(ids).sort();
-  }, [allQuestions]);
+  const {
+    exercises: allQuestions,
+    isRefreshing,
+    selectedSubject: selectedSubjectFilter,
+    setSelectedSubject: setSelectedSubjectFilter,
+    loadExercises,
+    refreshExercises: handleRefresh,
+  } = useExercises({ active: true });
 
   // 搜索和学科筛选过滤
   const filteredQuestions = allQuestions.filter(q => {
-    const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = !searchQuery || 
+                          q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           q.content.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSubject = !selectedSubjectFilter || q.subject === selectedSubjectFilter;
+    const matchesSubject = !selectedSubjectFilter || 
+                           selectedSubjectFilter === '全部学科' || 
+                           normalizeSubject(q.subject) === normalizeSubject(selectedSubjectFilter);
     return matchesSearch && matchesSubject;
   });
 
@@ -110,31 +104,36 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
 
   return (
     <View style={styles.container}>
-      {/* 筛选 Chip 徽章组 */}
-      <View style={styles.filterChipsRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScrollContent}>
-          <TouchableOpacity
-            style={[styles.filterChip, !selectedSubjectFilter && styles.activeFilterChip]}
-            onPress={() => setSelectedSubjectFilter('')}
+      {/* 筛选区域：学科筛选（与错题本保持完全统一格式） */}
+      <View style={styles.filterSectionContainer}>
+        <View style={styles.filterRow}>
+          <Text style={styles.filterRowLabel}>学科：</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.chipsScrollContent}
           >
-            <Text style={[styles.filterChipText, !selectedSubjectFilter && styles.activeFilterChipText]}>全部学科</Text>
-          </TouchableOpacity>
-
-          {/* 动态渲染有习题数据的学科筛选 */}
-          {availableSubjectIds.map(id => {
-            const label = SUBJECT_ID_TO_NAME[id] || `学科 ${id}`;
-            const isActive = selectedSubjectFilter === id;
-            return (
-              <TouchableOpacity
-                key={id}
-                style={[styles.filterChip, isActive && styles.activeFilterChip]}
-                onPress={() => setSelectedSubjectFilter(isActive ? '' : id)}
-              >
-                <Text style={[styles.filterChipText, isActive && styles.activeFilterChipText]}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            {ALL_SUBJECT_OPTIONS.map((subj) => {
+              const isActive = (selectedSubjectFilter || '全部学科') === subj;
+              return (
+                <TouchableOpacity
+                  key={subj}
+                  style={[styles.filterChip, isActive && styles.activeFilterChip]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedSubjectFilter(subj)}
+                >
+                  <Text
+                    style={[styles.filterChipText, isActive && styles.activeFilterChipText]}
+                    numberOfLines={1}
+                  >
+                    {subj}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       </View>
 
       <FlatList
@@ -142,6 +141,8 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={11}
@@ -154,12 +155,9 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
           return (
             <TouchableOpacity onPress={() => handleSelectQuestion(item)} activeOpacity={0.85}>
               <View style={styles.questionCard}>
-                {/* 题目卡片头部：题目序号与右上角闪电标记 */}
+                {/* 题目卡片头部：题目序号 */}
                 <View style={styles.cardHeader}>
                   <Text style={styles.questionIndexText}>题目 {index + 1}</Text>
-                  <View style={styles.cardCornerBadge}>
-                    <Text style={styles.cardCornerBadgeText}>⚡</Text>
-                  </View>
                 </View>
 
                 {/* 题目内容 LaTeX 渲染区 (固定最大高度，溢出隐藏) */}
@@ -175,7 +173,7 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
                     </View>
                     <View style={[styles.sourceBadge, { backgroundColor: item.id.startsWith('preset') ? '#EFF6FF' : '#FEF3C7' }]}>
                       <Text style={[styles.sourceBadgeText, { color: item.id.startsWith('preset') ? '#3B82F6' : '#D97706' }]}>
-                        {item.id.startsWith('preset') ? '💡 推荐' : '⭐ 收藏'}
+                        {item.id.startsWith('preset') ? '推荐' : '收藏'}
                       </Text>
                     </View>
                   </View>
@@ -191,7 +189,7 @@ export function ExerciseSolveScreen({ onAskAI, searchQuery = '' }: ExerciseSolve
         }}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>没有找到符合条件的题目 📭</Text>
+            <Text style={styles.emptyText}>没有找到符合条件的题目</Text>
           </View>
         }
       />
@@ -204,28 +202,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f1f3ff', // Soft background matching Web
   },
-  filterChipsRow: {
+  filterSectionContainer: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
-  chipsScrollContent: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  filterChip: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  filterRowLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
     marginRight: 6,
   },
+  chipsScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 12,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
   activeFilterChip: {
-    borderColor: '#4F46E5',
     backgroundColor: '#EEF2FF',
   },
   filterChipText: {

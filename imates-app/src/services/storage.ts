@@ -5,8 +5,8 @@ const STORAGE_DIR = `${FileSystem.documentDirectory}storage/`;
 const WEB_STORAGE_PREFIX = 'IMATES_STORAGE_';
 
 /**
-   * 确保存储文件夹目录存在
-   */
+ * 确保存储文件夹目录存在
+ */
 async function ensureDirExists() {
   if (Platform.OS === 'web') return;
 
@@ -20,9 +20,15 @@ async function ensureDirExists() {
   }
 }
 
+function safeFilename(key: string): string {
+  return encodeURIComponent(key).replace(/:/g, '%3A');
+}
+
 /**
- * 基于手机原生文件系统（Expo FileSystem）的永久 Key-Value 存储实现。
- * 兼容 AsyncStorage API 规范，拥有无限存储空间（直接使用磁盘空间）。
+ * 应用级统一存储层服务 (App Storage Service):
+ * 1. 基础 Key-Value 读写支持 (FileSystem 原生磁盘 + Web localStorage)；
+ * 2. 泛型 JSON 自动序列化与反序列化 API (`getJSON`, `setJSON`)；
+ * 3. 自动账号隔离 API (`getUserItem`, `setUserItem`, `getUserJSON`, `setUserJSON`)。
  */
 class FileSystemStorage {
   private cache: Record<string, string> = {};
@@ -54,16 +60,39 @@ class FileSystemStorage {
       await ensureDirExists();
       const files = await FileSystem.readDirectoryAsync(STORAGE_DIR);
       for (const file of files) {
-        const key = decodeURIComponent(file);
-        const fileUri = `${STORAGE_DIR}${file}`;
-        const content = await FileSystem.readAsStringAsync(fileUri);
-        this.cache[key] = content;
+        try {
+          const key = decodeURIComponent(file);
+          const safeFile = file.includes(':') ? file.replace(/:/g, '%3A') : file;
+          const fileUri = `${STORAGE_DIR}${safeFile}`;
+          const content = await FileSystem.readAsStringAsync(fileUri);
+          this.cache[key] = content;
+        } catch (singleFileErr) {
+          console.warn(`[FileSystemStorage] 忽略读取失败的单独存储文件 [${file}]:`, singleFileErr);
+        }
       }
     } catch (e) {
       console.warn('[FileSystemStorage] 磁盘数据预载入失败:', e);
     }
     this.isLoaded = true;
   }
+
+  /**
+   * 提取当前登录用户的唯一标识账号 (自动从缓存中获取)
+   */
+  private async getCurrentUserId(): Promise<string> {
+    const uid = await this.getItem('xuebanuserid');
+    return uid?.trim() || 'anonymous';
+  }
+
+  /**
+   * 生成包含当前登录账号隔离的 Storage Key
+   */
+  public async getUserKey(key: string): Promise<string> {
+    const userId = await this.getCurrentUserId();
+    return `USER_${encodeURIComponent(userId)}_${key}`;
+  }
+
+  // ================= 基础单 Key 读写 API =================
 
   async getItem(key: string): Promise<string | null> {
     await this.loadAll();
@@ -94,7 +123,7 @@ class FileSystemStorage {
 
     try {
       await ensureDirExists();
-      const fileUri = `${STORAGE_DIR}${encodeURIComponent(key)}`;
+      const fileUri = `${STORAGE_DIR}${safeFilename(key)}`;
       await FileSystem.writeAsStringAsync(fileUri, value);
     } catch (e) {
       console.warn(`[FileSystemStorage] 磁盘写入失败 (Key: ${key}):`, e);
@@ -117,7 +146,7 @@ class FileSystemStorage {
     }
 
     try {
-      const fileUri = `${STORAGE_DIR}${encodeURIComponent(key)}`;
+      const fileUri = `${STORAGE_DIR}${safeFilename(key)}`;
       const fileInfo = await FileSystem.getInfoAsync(fileUri);
       if (fileInfo.exists) {
         await FileSystem.deleteAsync(fileUri);
@@ -153,6 +182,77 @@ class FileSystemStorage {
     } catch (e) {
       console.warn('[FileSystemStorage] 磁盘格式化失败:', e);
     }
+  }
+
+  // ================= 高级 JSON 序列化 API =================
+
+  /**
+   * 读取并解析 JSON 对象 (失败时自动返回 defaultValue 或 null)
+   */
+  async getJSON<T = any>(key: string, defaultValue?: T): Promise<T | null> {
+    const str = await this.getItem(key);
+    if (!str) return defaultValue ?? null;
+    try {
+      return JSON.parse(str) as T;
+    } catch {
+      return defaultValue ?? null;
+    }
+  }
+
+  /**
+   * 自动序列化并写入 JSON 对象
+   */
+  async setJSON<T = any>(key: string, value: T): Promise<void> {
+    const str = JSON.stringify(value);
+    await this.setItem(key, str);
+  }
+
+  // ================= 账号隔离高级 API (Account-Isolated API) =================
+
+  /**
+   * 读取包含账号隔离特性的字符串 (精确匹配当前用户账号 Key)
+   */
+  async getUserItem(key: string): Promise<string | null> {
+    const userKey = await this.getUserKey(key);
+    return await this.getItem(userKey);
+  }
+
+  /**
+   * 写入包含账号隔离特性的字符串
+   */
+  async setUserItem(key: string, value: string): Promise<void> {
+    const userKey = await this.getUserKey(key);
+    await this.setItem(userKey, value);
+  }
+
+  /**
+   * 删除包含账号隔离特性的存储记录
+   */
+  async removeUserItem(key: string): Promise<void> {
+    const userKey = await this.getUserKey(key);
+    await this.removeItem(userKey);
+    await this.removeItem(key);
+  }
+
+  /**
+   * 读取包含账号隔离特性的 JSON 对象 (支持泛型与默认兜底值)
+   */
+  async getUserJSON<T = any>(key: string, defaultValue?: T): Promise<T | null> {
+    const str = await this.getUserItem(key);
+    if (!str) return defaultValue ?? null;
+    try {
+      return JSON.parse(str) as T;
+    } catch {
+      return defaultValue ?? null;
+    }
+  }
+
+  /**
+   * 写入包含账号隔离特性的 JSON 对象
+   */
+  async setUserJSON<T = any>(key: string, value: T): Promise<void> {
+    const userKey = await this.getUserKey(key);
+    await this.setJSON(userKey, value);
   }
 }
 

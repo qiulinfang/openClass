@@ -9,20 +9,16 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card } from '@/components/Card';
-import { Badge } from '@/components/Badge';
 import { CalendarModal } from '@/components/CalendarModal';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { storage } from '@/services/storage';
 import {
   HomeworkService,
   HomeworkUndoItem,
   SUBJECT_ID_TO_NAME,
   getHomeworkStatusText,
-  getHomeworkStatusTagColor,
 } from '@/services/homework-service';
-
-interface HomeworkScreenProps {}
+import { useHomeworkStore, homeworkStore } from '@/stores/homework-store';
 
 const LightColors = {
   background: '#f1f3ff', // Web content background
@@ -37,57 +33,121 @@ const LightColors = {
   danger: '#EF4444',
 };
 
-// 学科筛选项配置
-const SUBJECT_OPTIONS = [
-  { label: '全部', value: '' },
-  { label: '语文', value: '1' },
-  { label: '数学', value: '2' },
-  { label: '英语', value: '3' },
-  { label: '物理', value: '4' },
-  { label: '化学', value: '5' },
-  { label: '生物', value: '6' },
-  { label: '政治', value: '7' },
-  { label: '历史', value: '8' },
-  { label: '地理', value: '9' },
+// 全量统一学科选项
+const ALL_SUBJECT_OPTIONS = [
+  '全部学科',
+  '数学',
+  '语文',
+  '英语',
+  '物理',
+  '化学',
+  '生物',
+  '地理',
+  '历史',
+  '政治',
 ];
+
+const SUBJECT_NAME_TO_ID: Record<string, string> = {
+  '语文': '1',
+  '数学': '2',
+  '英语': '3',
+  '物理': '4',
+  '化学': '5',
+  '生物': '6',
+  '政治': '7',
+  '历史': '8',
+  '地理': '9',
+};
 
 export function HomeworkScreen() {
   const navigation = useNavigation<any>();
-  const [homeworkList, setHomeworkList] = useState<HomeworkUndoItem[]>([]);
-  const [isHomeworkLoading, setIsHomeworkLoading] = useState(false);
-  
-  // 筛选条件状态 (日期默认为今天，学科默认为空即全部)
+  const store = useHomeworkStore();
+  const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
+
+  // 筛选条件状态 (日期默认为今天，学科默认为全部学科)
   const [selectedDate, setSelectedDate] = useState<string | null>(new Date().toISOString().slice(0, 10));
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('全部学科');
 
   // 悬浮日历组件显隐状态
   const [showCalendarModal, setShowCalendarModal] = useState(false);
 
+  // 防抖定时器 (300ms，100% 对标 imates-web MyHomeworkView.vue watch 防抖)
+  const debounceTimerRef = React.useRef<any>(null);
+
   const loadHomeworkList = useCallback(async () => {
-    setIsHomeworkLoading(true);
-    try {
-      const data = await HomeworkService.fetchHomeworkList({
-        pageNumber: 1,
-        pageSize: 50,
-        subject: selectedSubject || undefined,
-        date: selectedDate || undefined,
-      });
-      setHomeworkList(data);
-    } catch (e) {
-      console.warn('[HomeworkScreen] 获取作业列表失败:', e);
-    } finally {
-      setIsHomeworkLoading(false);
-    }
+    const subjectId = selectedSubject && selectedSubject !== '全部学科' ? SUBJECT_NAME_TO_ID[selectedSubject] : undefined;
+    await homeworkStore.fetchHomeworkList({
+      pageNumber: 1,
+      pageSize: 50,
+      subject: subjectId,
+      date: selectedDate || undefined,
+    });
   }, [selectedDate, selectedSubject]);
 
-  // 监听筛选条件变化自动加载
+  // 100% 对标 imates-web：监听筛选条件变化，添加 300ms 防抖
   useEffect(() => {
-    loadHomeworkList();
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      loadHomeworkList();
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [loadHomeworkList]);
+
+  // 监听页面获得焦点 (包含从答题页返回) 自动刷新
+  useFocusEffect(
+    useCallback(() => {
+      loadHomeworkList();
+    }, [loadHomeworkList])
+  );
+
+  // 100% 对标 imates-web goAnswer: 并行前置预加载题目详情与判罚明细后再跳转
+  const goAnswer = async (item: HomeworkUndoItem) => {
+    setLoadingItemId(item.id);
+    try {
+      const [questionDetails, judgeDetailRes] = await Promise.all([
+        HomeworkService.getHomeworkDetailList(item.id).catch(() => null),
+        HomeworkService.getHomeworkSubmitJudgeDetail(item.id).catch(() => null),
+      ]);
+
+      // 验证云端返回的判罚数据是否真正包含数据且未提示 "未提交"
+      const judgeMsg = String((judgeDetailRes as any)?.message || (judgeDetailRes as any)?.msg || '');
+      const hasValidJudgeData = judgeDetailRes && judgeDetailRes.data && !judgeMsg.includes('未提交') && !judgeMsg.includes('尚未提交');
+
+      // 本地当前账号专属提交状态
+      const localSubmitted = await storage.getUserItem(`HOMEWORK_SUBMITTED_${item.id}`);
+      const isSubmittedReal = Boolean(hasValidJudgeData || localSubmitted === 'true');
+
+      navigation.navigate('HomeworkSolve', {
+        homeworkId: item.id,
+        homeworkTitle: item.title,
+        homeworkSubject: item.subject,
+        isSubmitted: isSubmittedReal,
+        preloadedQuestions: questionDetails,
+        preloadedJudgeDetail: hasValidJudgeData ? judgeDetailRes : null,
+      });
+    } catch (e) {
+      const localSubmitted = await storage.getUserItem(`HOMEWORK_SUBMITTED_${item.id}`);
+      navigation.navigate('HomeworkSolve', {
+        homeworkId: item.id,
+        homeworkTitle: item.title,
+        homeworkSubject: item.subject,
+        isSubmitted: localSubmitted === 'true',
+      });
+    } finally {
+      setLoadingItemId(null);
+    }
+  };
 
   // 生成顶部日期显示文本
   const getDateDisplay = () => {
-    if (!selectedDate) return '全部日期 📅';
+    if (!selectedDate) return '全部日期';
     const todayStr = new Date().toISOString().slice(0, 10);
     
     const yesterday = new Date();
@@ -105,21 +165,22 @@ export function HomeworkScreen() {
     return formatted;
   };
 
-  // 渲染作业卡片
+  // 100% 对标 imates-web displayHomeworkList 计算派生属性逻辑
   const renderHomeworkItem = ({ item }: { item: HomeworkUndoItem }) => {
     const subjectName = SUBJECT_ID_TO_NAME[item.subject] || item.subject;
+    const isSubmittedLocally = Boolean(store.localSubmittedMap[item.id]);
     
-    const statusText = getHomeworkStatusText(item.status, item.deadline);
-    const statusColor = getHomeworkStatusTagColor(item.status, item.deadline);
+    const statusText = isSubmittedLocally ? '已提交' : getHomeworkStatusText(item.status, item.deadline);
 
     const deadlineMs = item.deadline ? new Date(item.deadline).getTime() : NaN;
     const isExpired = Number.isFinite(deadlineMs) ? deadlineMs <= Date.now() : false;
-    const isCompleted = item.status === '3' || (isExpired && item.lateSubmit !== '1');
+    const isCompleted = isExpired && item.lateSubmit !== '1';
 
     const scoreText = item.totalScore ? `总分：${item.totalScore}分` : '总分：--';
     
     // 计算剩余时间
     const timeLeftText = (() => {
+      if (isSubmittedLocally) return '';
       if (!item.deadline) return '';
       const dlMs = new Date(item.deadline).getTime();
       if (!Number.isFinite(dlMs)) return '';
@@ -136,9 +197,9 @@ export function HomeworkScreen() {
       return `还剩${parts.join('')}截止`;
     })();
 
-    // Status dot color
+    // Status tag color (对标 imates-web statusTagType: green | purple | gray)
     const statusTagType = (() => {
-      if (item.status === '3') return 'success';
+      if (isSubmittedLocally) return 'success';
       if (isExpired && item.lateSubmit !== '1') return 'gray';
       return 'warning';
     })();
@@ -149,9 +210,10 @@ export function HomeworkScreen() {
       return LightColors.textMuted;
     })();
 
-    // Button label and style matching getHomeworkButtonText / getHomeworkButtonVariant
-    const buttonText = item.status === '3' ? '去查看' : isCompleted ? '已截止' : '去作答';
-    const isButtonDisabled = isCompleted && item.status !== '3';
+    // Button label and style (已截止作业也允许点击【去查看】进入阅读与复习)
+    const buttonText = isSubmittedLocally ? '去查看' : isExpired && item.lateSubmit !== '1' ? '去查看' : '去作答';
+    const isButtonDisabled = false;
+    const isPreloadingThisItem = loadingItemId === item.id;
     
     const tags = [subjectName];
     if (item.fullSubmit === '1') tags.push('一次性提交');
@@ -196,38 +258,35 @@ export function HomeworkScreen() {
               <Text style={[styles.statusTagText, { color: dotColor }]}>{statusText}</Text>
             </View>
 
-            {/* Action Button */}
+            {/* Action Button (支持 100% 对标 Web 前置预加载 inline loading 效果) */}
             <TouchableOpacity
-              disabled={isButtonDisabled}
-              onPress={() => {
-                navigation.navigate('HomeworkSolve', {
-                  homeworkId: item.id,
-                  homeworkTitle: item.title,
-                  homeworkSubject: item.subject,
-                  isSubmitted: item.status === '3',
-                });
-              }}
+              disabled={isButtonDisabled || isPreloadingThisItem}
+              onPress={() => goAnswer(item)}
               style={[
                 styles.actionBtn,
                 isButtonDisabled
                   ? styles.disabledActionBtn
-                  : item.status === '3'
+                  : isSubmittedLocally
                   ? styles.secondaryActionBtn
                   : styles.primaryActionBtn
               ]}
             >
-              <Text
-                style={[
-                  styles.actionBtnText,
-                  isButtonDisabled
-                    ? styles.disabledActionBtnText
-                    : item.status === '3'
-                    ? styles.secondaryActionBtnText
-                    : styles.primaryActionBtnText
-                ]}
-              >
-                {buttonText}
-              </Text>
+              {isPreloadingThisItem ? (
+                <ActivityIndicator size="small" color={isSubmittedLocally ? LightColors.primary : '#FFFFFF'} />
+              ) : (
+                <Text
+                  style={[
+                    styles.actionBtnText,
+                    isButtonDisabled
+                      ? styles.disabledActionBtnText
+                      : isSubmittedLocally
+                      ? styles.secondaryActionBtnText
+                      : styles.primaryActionBtnText
+                  ]}
+                >
+                  {buttonText}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -236,7 +295,7 @@ export function HomeworkScreen() {
         {item.remark ? (
           <View style={styles.cardFooter}>
             <Text style={styles.homeworkRemark} numberOfLines={1}>
-              💡 说明: {item.remark}
+              说明: {item.remark}
             </Text>
           </View>
         ) : null}
@@ -248,37 +307,45 @@ export function HomeworkScreen() {
     <View style={styles.safeArea}>
       <View style={styles.container}>
 
-        {/* 筛选条件控制模块 */}
-        <View style={styles.filterWrapper}>
-          {/* 学科筛选水平滑动 Chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectScrollContainer}
-          >
-            {SUBJECT_OPTIONS.map((sub) => {
-              const isActive = selectedSubject === sub.value;
-              return (
-                <TouchableOpacity
-                  key={sub.label}
-                  style={[styles.subjectChip, isActive && styles.activeSubjectChip]}
-                  onPress={() => setSelectedSubject(sub.value)}
-                >
-                  <Text style={[styles.subjectChipText, isActive && styles.activeSubjectChipText]}>
-                    {sub.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+        {/* 筛选区域：学科筛选 + 日期选择（格式与错题本保持完全统一） */}
+        <View style={styles.filterSectionContainer}>
+          {/* 学科筛选 */}
+          <View style={styles.filterRow}>
+            <Text style={styles.filterRowLabel}>学科：</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.chipsScrollContent}
+            >
+              {ALL_SUBJECT_OPTIONS.map((subj) => {
+                const isActive = (selectedSubject || '全部学科') === subj;
+                return (
+                  <TouchableOpacity
+                    key={subj}
+                    style={[styles.filterChip, isActive && styles.activeFilterChip]}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedSubject(subj)}
+                  >
+                    <Text
+                      style={[styles.filterChipText, isActive && styles.activeFilterChipText]}
+                      numberOfLines={1}
+                    >
+                      {subj}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
 
-          {/* 日期单日微调及快速切换 */}
+          {/* 日期筛选与日历按钮 */}
           <View style={styles.dateSelectorRow}>
             <TouchableOpacity
               style={styles.calendarBtn}
               onPress={() => setShowCalendarModal(true)}
             >
-              <Text style={styles.calendarBtnText}>📅 日历</Text>
+              <Text style={styles.calendarBtnText}>日历</Text>
             </TouchableOpacity>
 
             <View style={styles.dateTextContainer}>
@@ -287,23 +354,23 @@ export function HomeworkScreen() {
           </View>
         </View>
 
-        {isHomeworkLoading && homeworkList.length === 0 ? (
+        {store.isLoading && store.homeworkList.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={LightColors.primary} />
             <Text style={styles.loadingText}>正在获取筛选作业...</Text>
           </View>
         ) : (
           <FlatList
-            data={homeworkList}
+            data={store.homeworkList}
             renderItem={renderHomeworkItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshing={isHomeworkLoading}
+            refreshing={store.isLoading}
             onRefresh={loadHomeworkList}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>当前筛选下暂无课后作业任务 🌟</Text>
+                <Text style={styles.emptyText}>当前筛选下暂无课后作业任务</Text>
               </View>
             }
           />
@@ -340,36 +407,49 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
-  filterWrapper: {
+  filterSectionContainer: {
     backgroundColor: '#ffffff',
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: '#E5E7EB',
   },
-  subjectScrollContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  subjectChip: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
+  filterRowLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginRight: 6,
+  },
+  chipsScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 12,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
   },
-  activeSubjectChip: {
-    backgroundColor: LightColors.primary,
-    borderColor: LightColors.primary,
+  activeFilterChip: {
+    backgroundColor: '#EEF2FF',
   },
-  subjectChipText: {
+  filterChipText: {
     fontSize: 12,
     color: '#4B5563',
     fontWeight: '500',
   },
-  activeSubjectChipText: {
-    color: '#FFFFFF',
+  activeFilterChipText: {
+    color: '#4F46E5',
+    fontWeight: '600',
   },
   dateSelectorRow: {
     flexDirection: 'row',
