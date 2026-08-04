@@ -43,6 +43,7 @@ import {
   ResourceExploreOverlay,
   type ResourceExploreSelection,
 } from './ResourceExploreOverlay';
+import { GgbResourceViewer } from './GgbResourceViewer';
 
 const LazyPdfExploreViewer = lazy(() =>
   import('./PdfExploreViewer').then(({ PdfExploreViewer }) => ({
@@ -189,7 +190,8 @@ function LearningResourceViewerComponent({
       : undefined;
   const canRenderInline = kind !== 'archive';
   const isPdf = kind === 'pdf';
-  const canExplore = !!resource && canRenderInline && !!previewUri;
+  const canExplore =
+    !!resource && canRenderInline && !!previewUri && kind !== 'ggb';
 
   useEffect(() => {
     setStatus(kind === 'archive' ? 'ready' : 'loading');
@@ -866,6 +868,18 @@ function LearningResourceViewerComponent({
       );
     }
 
+    if (kind === 'ggb') {
+      return (
+        <GgbResourceViewer
+          key={`${resource.id}-${reloadKey}-ggb`}
+          resource={resource}
+          reloadKey={reloadKey}
+          onReady={handleReady}
+          onError={handleError}
+        />
+      );
+    }
+
     if (kind === 'image' && Platform.OS === 'web') {
       if (!webMediaUri) return null;
       return (
@@ -1063,6 +1077,7 @@ function LearningResourceViewerComponent({
           meta={meta}
           exploreSelecting={exploreSelecting}
           exploreDisabled={!canExplore || status !== 'ready' || capturePending}
+          showExplore={kind !== 'ggb'}
           onBack={onClose}
           onExplore={toggleExplore}
         />
@@ -1091,10 +1106,21 @@ function LearningResourceViewerComponent({
               {status === 'loading' ? (
                 <View style={styles.loadingState} pointerEvents="none">
                   <ActivityIndicator size="large" color="#6256D9" />
-                  <Text style={styles.loadingTitle}>正在打开文件</Text>
-                  <Text style={styles.loadingText}>
-                    正在加载{meta.label}…
+                  <Text style={styles.loadingTitle}>
+                    {kind === 'ggb'
+                      ? '正在加载互动课件'
+                      : '正在打开文件'}
                   </Text>
+                  <Text style={styles.loadingText}>
+                    {kind === 'ggb'
+                      ? '首次打开需要加载 GeoGebra 引擎，可能需要较长时间'
+                      : `正在加载${meta.label}…`}
+                  </Text>
+                  {kind === 'ggb' ? (
+                    <Text style={styles.loadingHint}>
+                      请保持网络连接，无需退出当前页面
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
               {status === 'error' ? (
@@ -1230,7 +1256,18 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 5,
     fontSize: 11,
+    lineHeight: 17,
+    paddingHorizontal: 28,
+    textAlign: 'center',
     color: '#626881',
+  },
+  loadingHint: {
+    marginTop: 5,
+    paddingHorizontal: 28,
+    fontSize: 10,
+    lineHeight: 16,
+    textAlign: 'center',
+    color: '#989DB2',
   },
   errorState: {
     ...StyleSheet.absoluteFillObject,

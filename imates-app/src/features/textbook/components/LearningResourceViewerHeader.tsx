@@ -8,6 +8,7 @@ interface LearningResourceViewerHeaderProps {
   meta: LearningResourceMeta;
   exploreSelecting: boolean;
   exploreDisabled: boolean;
+  showExplore?: boolean;
   onBack: () => void;
   onExplore: () => void;
 }
@@ -18,6 +19,7 @@ function LearningResourceViewerHeaderComponent({
   meta,
   exploreSelecting,
   exploreDisabled,
+  showExplore = true,
   onBack,
   onExplore,
 }: LearningResourceViewerHeaderProps) {
@@ -44,40 +46,44 @@ function LearningResourceViewerHeaderComponent({
         </Text>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.exploreButton,
-          exploreSelecting && styles.exploreButtonActive,
-          exploreDisabled && styles.exploreButtonDisabled,
-        ]}
-        onPress={onExplore}
-        disabled={exploreDisabled}
-        accessibilityRole="button"
-        accessibilityLabel={exploreSelecting ? '取消框选' : '探索区域'}
-      >
-        <View style={styles.exploreIcon}>
-          <View
-            style={[
-              styles.exploreCornerTopLeft,
-              exploreSelecting && styles.exploreCornerActive,
-            ]}
-          />
-          <View
-            style={[
-              styles.exploreCornerBottomRight,
-              exploreSelecting && styles.exploreCornerActive,
-            ]}
-          />
-        </View>
-        <Text
+      {showExplore ? (
+        <TouchableOpacity
           style={[
-            styles.exploreButtonText,
-            exploreSelecting && styles.exploreButtonTextActive,
+            styles.exploreButton,
+            exploreSelecting && styles.exploreButtonActive,
+            exploreDisabled && styles.exploreButtonDisabled,
           ]}
+          onPress={onExplore}
+          disabled={exploreDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={exploreSelecting ? '取消框选' : '探索区域'}
         >
-          {exploreSelecting ? '取消' : '探索区域'}
-        </Text>
-      </TouchableOpacity>
+          <View style={styles.exploreIcon}>
+            <View
+              style={[
+                styles.exploreCornerTopLeft,
+                exploreSelecting && styles.exploreCornerActive,
+              ]}
+            />
+            <View
+              style={[
+                styles.exploreCornerBottomRight,
+                exploreSelecting && styles.exploreCornerActive,
+              ]}
+            />
+          </View>
+          <Text
+            style={[
+              styles.exploreButtonText,
+              exploreSelecting && styles.exploreButtonTextActive,
+            ]}
+          >
+            {exploreSelecting ? '取消' : '探索区域'}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.actionSpacer} />
+      )}
     </View>
   );
 }
@@ -155,6 +161,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6256D9',
   },
   exploreButtonDisabled: { opacity: 0.45 },
+  actionSpacer: { width: 44, height: 44 },
   exploreIcon: { position: 'relative', width: 15, height: 15, marginRight: 5 },
   exploreCornerTopLeft: {
     position: 'absolute',

@@ -5,6 +5,7 @@ import type {
 
 export type LearningResourceKind =
   | 'pdf'
+  | 'ggb'
   | 'video'
   | 'image'
   | 'html'
@@ -28,6 +29,12 @@ const META: Record<LearningResourceKind, Omit<LearningResourceMeta, 'kind'>> = {
     shortLabel: 'PDF',
     accent: '#D94B53',
     background: '#FFF0F1',
+  },
+  ggb: {
+    label: 'GeoGebra 互动课件',
+    shortLabel: 'GGB',
+    accent: '#3972D7',
+    background: '#EAF2FF',
   },
   video: {
     label: '微课视频',
@@ -92,6 +99,13 @@ export const getLearningResourceKind = (
   const mimeType = resource.mimeType?.toLowerCase() || '';
 
   if (extension === 'pdf' || mimeType.includes('pdf')) return 'pdf';
+  if (
+    extension === 'ggb' ||
+    mimeType.includes('geogebra') ||
+    mimeType.includes('application/vnd.geogebra')
+  ) {
+    return 'ggb';
+  }
   if (
     ['mp4', 'm3u8', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(
       extension

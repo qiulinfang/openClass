@@ -65,7 +65,11 @@ function LearningResourceCardComponent({
 
       <View style={styles.action}>
         <Text style={styles.actionText}>
-          {meta.kind === 'office' ? '外部打开' : '去学习'}
+          {meta.kind === 'office'
+            ? '外部打开'
+            : meta.kind === 'ggb'
+              ? '互动学习'
+              : '去学习'}
         </Text>
         <Text style={styles.chevron}>›</Text>
       </View>
