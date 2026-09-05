@@ -213,41 +213,54 @@ router.beforeEach(async (to, from, next) => {
   const token = getXuebanToken()
   const isLoggedIn = !!token
 
-  // 如果访问登录页面或测试页面，直接放行
-  if (
+  // 1. 定义免登录直接访问的公开路由白名单
+  const publicRoutePaths = [
+    '/login',
+    '/mini-exercise',
+    '/pdf-viewer-jk2',
+    '/app/pdf-viewer-zgc',
+    '/app/pdf-viewer-sdsf',
+    '/app/pdf-viewer-jk',
+    '/chat-session-test',
+    '/debug-api',
+    '/render-test',
+    '/lottie-test'
+  ]
+
+  const isPublicRoute =
     to.name === 'login' ||
-    to.path === '/login' ||
-    to.name === 'miniExercise' ||
-    to.path === '/mini-exercise' ||
-    to.name === 'pdfViewerJk2' ||
-    to.path === '/pdf-viewer-jk2' ||
-    to.name === 'chatSessionTest' ||
-    to.path === '/chat-session-test' ||
-    to.name === 'debugApi' ||
-    to.path === '/debug-api' ||
-    to.name === 'renderTest' ||
-    to.path === '/render-test'
-  ) {
-    console.log("from.path111", from.path)
-    // 如果是从已登录页面跳转到登录页面（比如登录过期），断开 WebSocket 连接
-    console.log("isLoggedIn111", isLoggedIn)
-    if (from.path.startsWith('/app')) {
+    publicRoutePaths.some(p => to.path === p || to.path.startsWith(p))
+
+  // 如果访问公开免登页面，自动注入游客/默认凭证并直接放行
+  if (isPublicRoute) {
+    // 注入默认游客信息/Token，确保页面在无登录态访问时基础参数及请求不报错
+    if (!getXuebanToken()) {
+      localStorage.setItem('XUEBAN_TOKEN', 'GUEST_DEFAULT_TOKEN')
+    }
+    if (!localStorage.getItem('xuebanuserid')) {
+      localStorage.setItem('xuebanuserid', 'guest')
+    }
+    if (!localStorage.getItem('userInfo')) {
+      localStorage.setItem(
+        'userInfo',
+        JSON.stringify({ id: 'guest', name: '游客用户', account: 'guest' })
+      )
+    }
+
+    // 如果是从已登录页面跳转到登录页面，断开 WebSocket 连接
+    if (to.path === '/login' && from.path.startsWith('/app')) {
       try {
-        // 断开客服WebSocket连接
         const userClientStore = useUserClientStore()
-        console.log("userClientStore.isConnected111", userClientStore.isConnected)
         if (userClientStore.isConnected) {
-          console.log('[路由守卫] 检测到登录过期或退出登录，断开客服 WebSocket 连接')
+          console.log('[路由守卫] 检测到跳转到登录页，断开客服 WebSocket 连接')
           userClientStore.disconnect()
         }
 
-        // 断开教师WebSocket连接
         const teacherChatStore = useTeacherChatStore()
         if (teacherChatStore.webSocketInitialized) {
-          console.log('[路由守卫] 检测到登录过期或退出登录，断开教师 WebSocket 连接')
+          console.log('[路由守卫] 检测到跳转到登录页，断开教师 WebSocket 连接')
           teacherChatStore.cleanupMessageReceiver()
         }
-
       } catch (error) {
         console.error('[路由守卫] 断开 WebSocket 连接时出错:', error)
       }
@@ -257,48 +270,36 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // 如果访问 /app 或 /app-jk 路由，需要登录
+  // 2. 如果访问受保护的 /app 或 /app-jk 路由，需要登录
   if (to.path.startsWith('/app') || to.path === '/app-jk') {
     if (!isLoggedIn) {
       next({ name: 'login' })
       return
     }
-    console.log("to.path111", to.path)
 
     // 已登录用户进入 /app 路由，自动建立 WebSocket 连接
     try {
       // 客服WebSocket连接
       const userClientStore = useUserClientStore()
-      console.log("userClientStore.isConnected111", userClientStore.isConnected)
-      // 只有在未连接状态时才建立连接
       if (!userClientStore.isConnected) {
-        console.log('[路由守卫] 检测到用户进入 /app 路由，开始建立客服 WebSocket 连接')
-        // 注意：这里不等待连接结果，避免阻塞路由跳转
         userClientStore.connect().catch(error => {
           console.error('[路由守卫] 客服WebSocket 连接失败:', error)
-          // 连接失败不阻止路由跳转，用户可以在界面上重试
         })
       }
 
       // 教师WebSocket连接（单连接多会话架构）
       const teacherChatStore = useTeacherChatStore()
-      console.log("teacherChatStore.webSocketInitialized111", teacherChatStore.webSocketInitialized)
-      // 只有在未初始化状态时才建立连接
       if (!teacherChatStore.webSocketInitialized) {
-        console.log('[路由守卫] 检测到用户进入 /app 路由，开始建立教师 WebSocket 连接')
-        // 注意：这里不等待连接结果，避免阻塞路由跳转
         teacherChatStore.initMessageReceiver().catch(error => {
           console.error('[路由守卫] 教师WebSocket 连接失败:', error)
-          // 连接失败不阻止路由跳转，用户可以在界面上重试
         })
       }
-
     } catch (error) {
       console.error('[路由守卫] 初始化 WebSocket 连接时出错:', error)
     }
   }
 
-  // 如果访问 /photo-search，需要登录
+  // 3. 如果访问 /photo-search，需要登录
   if (to.path === '/photo-search' || to.path.startsWith('/photo-search')) {
     if (!isLoggedIn) {
       next({ name: 'login' })
@@ -306,7 +307,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 已登录，正常访问
+  // 正常放行
   next()
 })
 

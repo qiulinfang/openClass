@@ -869,11 +869,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
             if (!data) continue
 
-            // 捕获并更新最新的历史上下文消息记录 (ZGC 场景)
-            if (Array.isArray(data.history_messages) && data.history_messages.length > 0) {
-              historyMessages.value = data.history_messages
-            }
-
             const msgContent = data.content || data.coach_text || ''
             
             // 处理 whisper: bubble 或内容为 bubble 的切分气泡指令
