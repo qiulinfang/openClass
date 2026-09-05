@@ -6,12 +6,6 @@
     @touchmove="handleDrag"
     @touchend="stopDrag"
   >
-    <!-- 左上角退出登录按钮（一直显示） -->
-    <button class="dev-logout-btn" @click="handleLogout">
-      <img :src="logoutIcon" alt="退出" />
-      <span>退出</span>
-    </button>
-
     <!-- 功能菜单：在部分路由（如作业答题、作业作答）隐藏 -->
     <div class="function-menu" v-if="!hideFunctionMenu" :style="navBackgroundStyle">
       <!-- 导航项容器层 -->
@@ -197,17 +191,6 @@
       @confirm="handleMainChatScreenshotConfirm"
       @cancel="handleMainChatScreenshotCancel"
     />
-
-    <!-- 退出登录确认对话框 -->
-    <Dialog
-      ref="logoutDialogRef"
-      title="退出确认"
-      confirmButtonText="退出"
-      cancelButtonText="取消"
-      @confirm="confirmLogout"
-    >
-      确定要退出登录吗？
-    </Dialog>
   </div>
 </template>
 
@@ -297,19 +280,6 @@ const isAndroidEnv = computed(() => androidBridge.isAndroidBridgeAvailable())
 
 // 是否为开发环境
 const isDev = computed(() => import.meta.env.DEV)
-
-const logoutDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
-
-// 退出登录按钮触发：打开确认模态框
-const handleLogout = () => {
-  logoutDialogRef.value?.openDialog()
-}
-
-// 确认退出登录
-const confirmLogout = () => {
-  localStorage.removeItem('xueban_token')
-  router.push({ name: 'login' })
-}
 
 const createFabTraceId = (prefix: string) => {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
@@ -1414,36 +1384,6 @@ const handlePhotoQaClick = () => {
   flex-direction: row;
   position: relative;
   align-items: stretch;
-}
-
-// 开发环境退出登录按钮（左上角）
-.dev-logout-btn {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  color: #666;
-  transition: all 0.2s;
-  z-index: 1002;
-}
-
-.dev-logout-btn:hover {
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  color: #ff4d4f;
-}
-
-.dev-logout-btn img {
-  width: 14px;
-  height: 14px;
 }
 
 // 左侧导航菜单（背景层）

@@ -40,15 +40,6 @@
               <span class="item-value">{{ userId }}</span>
             </div>
           </div>
-
-          <!-- 退出登录项 -->
-          <div class="list-item logout-item" @click="handleLogout">
-            <div class="item-label logout-label">退出登录</div>
-            <div class="item-content">
-              <span class="logout-icon">⚡</span>
-            </div>
-            <div class="item-arrow">›</div>
-          </div>
         </div>
       </div>
     </Modal>
@@ -158,29 +149,6 @@ const handleCropConfirm = (croppedDataUrl: string) => {
 const handleCropCancel = () => {
   cropSrc.value = ''
 }
-
-// 处理退出登录
-const handleLogout = () => {
-  try {
-    // 清除所有认证信息
-    localStorage.removeItem('XUEBAN_TOKEN')
-    localStorage.removeItem('YANBAN_TOKEN')
-    localStorage.removeItem('userInfo')
-    localStorage.removeItem('yanbanuserid')
-    localStorage.removeItem('lastLoginTime')
-    
-    // 关闭对话框
-    emit('update:modelValue', false)
-    
-    // 跳转到登录页
-    router.replace('/login')
-    
-    showMessage('已退出登录', 'success')
-  } catch (error) {
-    console.error('[ProfileDialog] 退出登录失败:', error)
-    showMessage('退出登录失败，请重试', 'error')
-  }
-}
 </script>
 
 <style lang="scss" scoped>
@@ -244,11 +212,6 @@ const handleLogout = () => {
   color: #374151;
   min-width: 80px;
   flex-shrink: 0;
-
-  &.logout-label {
-    color: #dc2626;
-    font-weight: 600;
-  }
 }
 
 .item-content {
@@ -270,20 +233,6 @@ const handleLogout = () => {
   color: #d1d5db;
   margin-left: 12px;
   flex-shrink: 0;
-}
-
-// 退出登录样式
-.logout-item {
-  border-top: 1px solid #f3f4f6;
-  
-  &:hover {
-    background-color: #fef2f2;
-  }
-}
-
-.logout-icon {
-  font-size: 18px;
-  color: #dc2626;
 }
 
 // 列表头像样式

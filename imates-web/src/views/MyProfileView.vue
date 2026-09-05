@@ -32,12 +32,6 @@
             }}</span>
           </div> -->
         </div>
-        <!-- 退出登录按钮 -->
-        <div class="logout-section">
-          <div class="logout-button" @click="handleLogout">
-            <span class="logout-text">退出登录</span>
-          </div>
-        </div>
       </div>
     </RubberBandList>
 
@@ -63,18 +57,6 @@
           <div class="status-text">确认加入课堂？</div>
         </div>
       </div>
-    </Dialog>
-
-    <!-- 退出登录确认对话框 -->
-    <Dialog
-      ref="logoutDialogRef"
-      title="退出确认"
-      :confirmButtonText="'退出'"
-      :cancelButtonText="'取消'"
-      @confirm="confirmLogout"
-      @cancel="cancelLogout"
-    >
-      确定要退出登录吗？
     </Dialog>
   </div>
 </template>
@@ -117,8 +99,6 @@ const openTeacherQADialogFromParent = inject<() => void>('openTeacherQADialog')
 // 响应式数据
 const isInClass = ref(false)
 const isProjecting = ref(false)
-const isLoggingOut = ref(false)
-const logoutDialogRef = ref<InstanceType<typeof Dialog>>()
 const joinClassDialogRef = ref<InstanceType<typeof Dialog>>()
 
 // 用户端未读消息数
@@ -348,52 +328,6 @@ const openTeacherQADialog = () => {
   }
 }
 
-// 处理退出登录
-const handleLogout = () => {
-  logoutDialogRef.value?.openDialog()
-}
-
-const cancelLogout = () => {
-  logoutDialogRef.value?.closeDialog()
-}
-
-// 确认退出登录
-const confirmLogout = async () => {
-  try {
-    isLoggingOut.value = true
-    logoutDialogRef.value?.closeDialog()
-
-    // 如果在课堂中，先退出课堂
-    if (androidBridge.isAndroidBridgeAvailable()) {
-      try {
-        androidBridge.stopScreenProjection()
-      } catch {
-        // 忽略停止投屏的错误
-      }
-      try {
-        androidBridge.exitClassroom()
-      } catch {
-        // 忽略退出课堂的错误
-      }
-    }
-
-  // 关闭工具箱
-    if (closeToolbox) {
-      closeToolbox()
-    }
-
-    // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
-    await router.push('/login')
-
-    showMessage('已退出登录', 'success')
-  } catch (error) {
-    console.error('退出登录失败:', error)
-    showMessage('退出登录失败，请重试', 'error')
-  } finally {
-    isLoggingOut.value = false
-  }
-}
-
 </script>
 
 <style lang="scss" scoped>
@@ -543,45 +477,6 @@ $bg-gray: #f9fafb;
     }
   }
 
-}
-
-// 退出登录按钮区域
-.logout-section {
-  margin-top: 24px;
-  padding: 0 20px;
-
-  .logout-button {
-    width: 90%;
-    max-width: 680px;
-    margin: 0 auto;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 14px; /* less rounded */
-    padding: 10px 20px; /* shorter height */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.14s ease;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(6px);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.12);
-      transform: translateY(-1px);
-    }
-
-    &:active {
-      transform: translateY(0);
-      background: rgba(255, 255, 255, 0.06);
-    }
-  }
-
-  .logout-text {
-    color: #ffffff;
-    font-size: 16px;
-    font-weight: 400; /* normal weight */
-    text-align: center;
-  }
 }
 
 .exit-classroom {
